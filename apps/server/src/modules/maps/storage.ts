@@ -16,12 +16,11 @@ import type { MapAsset } from "./provider.js";
 
 /** What the Map data room holds, by top-level folder. A move carries these and
  *  nothing else, so a file that happens to sit beside them is never swept up —
- *  the same guard RENDER_BUCKETS gives the Renders room. The geoip databases
- *  join this list when they move in. */
-export const MAP_DATA_FOLDERS = ["Tiles", "Places"] as const;
+ *  the same guard RENDER_BUCKETS gives the Renders room. */
+export const MAP_DATA_FOLDERS = ["Tiles", "Places", "Locations"] as const;
 
 /** The Map data room's "own place": MAP_DATA_PATH, else `<data>/map-data`
- *  beside `<data>/geoip` — the room's BACKUP_PATH, in effect. Always absolute:
+ *  beside the database's folder — the room's BACKUP_PATH, in effect. Always absolute:
  *  a move compares and carries between paths, and a relative one would resolve
  *  against whatever the working directory happens to be. */
 export function ownMapDataDir(): string {
@@ -139,6 +138,12 @@ export function folderBytes(dir: string): number {
     }
   }
   return total;
+}
+
+/** The sign-in location databases (core/geoip.ts reads them from here, unless
+ *  GEOIP_PATH says otherwise). */
+export function locationsDir(): string {
+  return path.join(mapDataDir(), "Locations");
 }
 
 /** Empty the tile cache. Returns what it freed. */

@@ -9,7 +9,7 @@
 // panel's WHERE) and catalog-memories.ts (On this day, Just added).
 import { db } from "../../../db.js";
 import { locksByLibrary, lockCoveredIn } from "../shared/folder-locks.js";
-import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type AssetRow } from "./catalog-asset.js";
+import { ASSET_COLUMNS, ASSET_JOINS, getGalleryAssets, mapAsset, type AssetRow } from "./catalog-asset.js";
 import { describePlace } from "./places.js";
 import {
   CAMERA_SQL,
@@ -287,6 +287,55 @@ export function galleryFacets(libIds: string[], language = "en") {
 
 /** How many places the filter offers, most photographed first. */
 const PLACE_FACET_LIMIT = 200;
+
+/** How many places the Places view lists. A family library reaches a few
+ *  hundred; the cap keeps a pathological one from building a page of thousands. */
+const PLACES_VIEW_LIMIT = 1000;
+
+// The Places view (docs/map-approach-proposal.md, phase 2): every named place
+// photos in scope were taken in, with how many and a cover — the newest photo
+// taken there, a still rather than a video where there is one. Spelled in the
+// viewer's language; empty without a place names database.
+export function queryGalleryPlaces(userId: string, libIds: string[], language: string) {
+  if (libIds.length === 0) return { places: [] };
+  const rows = db.prepare(`
+    WITH scoped AS (
+      SELECT gallery_places.place_id AS id, library_items.id AS item_id,
+        COUNT(*) OVER (PARTITION BY gallery_places.place_id) AS n,
+        ROW_NUMBER() OVER (
+          PARTITION BY gallery_places.place_id
+          ORDER BY (gallery_details.kind = 'photo') DESC, gallery_details.taken_at DESC, library_items.id
+        ) AS rank
+      FROM library_items
+      JOIN gallery_details ON gallery_details.item_id = library_items.id
+      JOIN gallery_places ON gallery_places.item_id = library_items.id
+        AND gallery_places.lat = gallery_details.gps_lat AND gallery_places.lng = gallery_details.gps_lng
+      WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
+        AND gallery_places.place_id IS NOT NULL
+    )
+    SELECT id, item_id, n FROM scoped WHERE rank = 1 ORDER BY n DESC LIMIT ${PLACES_VIEW_LIMIT}
+  `).all(...libIds) as { id: number; item_id: string; n: number }[];
+  const covers = new Map(getGalleryAssets(userId, libIds, rows.map((row) => row.item_id)).map((asset) => [asset.id, asset]));
+  const places: {
+    id: number; name: string; region: string | null; country: string; countryCode: string; count: number;
+    cover: { coverUrl: string | null; faceFocus: { x: number; y: number } | null } | null;
+  }[] = [];
+  for (const row of rows) {
+    const label = describePlace(row.id, language);
+    if (!label) continue;
+    const cover = covers.get(row.item_id);
+    places.push({
+      id: row.id,
+      name: label.place,
+      region: label.region,
+      country: label.country,
+      countryCode: label.countryCode,
+      count: row.n,
+      cover: cover ? { coverUrl: cover.coverUrl, faceFocus: cover.faceFocus } : null
+    });
+  }
+  return { places };
+}
 
 // The places photos in scope were taken in, spelled in the viewer's language —
 // empty without a place names database, since gallery_places is emptied with it.

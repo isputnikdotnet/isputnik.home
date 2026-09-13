@@ -157,10 +157,17 @@ a photo with a location also knows the town it was taken in, in your own
 language: the viewer shows "Verona, Veneto, Italy" where the place goes, or under
 it when someone has written the place in their own words — what a person wrote
 always comes first. The names are worked out on the server, so no location leaves
-the house, and a pin you move is named again straight away. **Filter** then has a
-**Places** list, most photographed first, to show every photo from one town. A
+the house, and a pin you move is named again straight away. A **Places** view joins
+the others, listing every town your photos were taken in — grouped by country, most
+photographed first, each with a photo from there — and clicking one shows the
+Timeline narrowed to that town, with a chip to take the filter off again. **Filter**
+has the same **Places** list, for combining a town with a year or a person. A
 point far from any town (at sea, deep in a forest) gets no name rather than a
 wrong one.
+
+![The Places view: towns grouped by country, each with a photo taken there](images/111-gallery-places.png)
+
+![The viewer's Map tab, with the town the photo was taken in under the pin](images/112-lightbox-named-place.png)
 
 Anything with a location joins the **Map** view, where nearby photos gather into
 one numbered cluster until you zoom in far enough to separate them:

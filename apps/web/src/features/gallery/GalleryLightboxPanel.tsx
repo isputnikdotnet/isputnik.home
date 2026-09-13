@@ -7,7 +7,7 @@ import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 import { NotesSection } from "../social/NotesSection";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { VoiceNotes } from "./VoiceNotes";
-import type { GalleryAsset, GalleryPerson, GalleryPersonTag, TakenPrecision, VoiceNote } from "./types";
+import type { GalleryAsset, GalleryPerson, GalleryPersonTag, PlaceLabel, TakenPrecision, VoiceNote } from "./types";
 import type { GalleryAssetChange } from "./GalleryLightbox";
 import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
 import { PLACE_NAMES_CREDIT_URL, formatPlaceLabel } from "./place-label";
@@ -93,6 +93,9 @@ export function GalleryLightboxPanel({
   const [people, setPeople] = useState<GalleryPersonTag[]>(asset.people ?? []);
   // Voice notes ride the same detail fetch as people (list rows carry neither).
   const [voiceNotes, setVoiceNotes] = useState<VoiceNote[] | null>(asset.voiceNotes ?? null);
+  // And so does the named place, spelled in the viewer's language (list rows carry
+  // only its id).
+  const [placeLabel, setPlaceLabel] = useState<PlaceLabel | null>(asset.placeLabel ?? null);
   const [allPeople, setAllPeople] = useState<GalleryPerson[]>([]);
   const [addingPerson, setAddingPerson] = useState(false);
   const [personName, setPersonName] = useState("");
@@ -108,13 +111,15 @@ export function GalleryLightboxPanel({
     setPersonName("");
     setPersonError("");
     setVoiceNotes(asset.voiceNotes ?? null);
-    if (asset.people && asset.voiceNotes) { setPeople(asset.people); return; }
+    setPlaceLabel(asset.placeLabel ?? null);
+    if (asset.people && asset.voiceNotes && asset.placeLabel !== undefined) { setPeople(asset.people); return; }
     let alive = true;
     api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${asset.id}`)
       .then((p) => {
         if (!alive) return;
         setPeople(p.asset.people ?? []);
         setVoiceNotes(p.asset.voiceNotes ?? []);
+        setPlaceLabel(p.asset.placeLabel ?? null);
       })
       .catch(() => { /* keep whatever we have */ });
     return () => { alive = false; };
@@ -347,7 +352,7 @@ export function GalleryLightboxPanel({
   // What a person wrote wins; the named place the pin falls in stands in when no
   // one has, and sits under it when someone has, since the two often differ ("the
   // dacha" · Ratomka, Minsk Region, Belarus).
-  const namedPlace = asset.placeLabel ? formatPlaceLabel(asset.placeLabel) : "";
+  const namedPlace = placeLabel ? formatPlaceLabel(placeLabel) : "";
   const precision = asset.takenPrecision ?? "time";
   const kindLabel = asset.kind === "video" ? t("gallery:common.video") : asset.kind === "audio" ? t("gallery:common.audio") : t("gallery:common.photo");
 

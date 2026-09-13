@@ -371,6 +371,30 @@
   color: var(--muted);
 }
 
+/* Places: one section per country, most photographed first. */
+.gallery-places-country + .gallery-places-country { margin-top: 24px; }
+
+.gallery-places-country h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.gallery-places-country h2 small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.gallery-places-credit {
+  margin-top: 20px;
+  font-size: 0.8rem;
+}
+
+.gallery-places-credit a { color: inherit; }
+
 /* Lock badge beside a tile's item count: the folder is locked, so nothing inside
    it can be deleted from the app. */
 .gallery-folder-lock {

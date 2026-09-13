@@ -140,11 +140,11 @@ ENV DB_PATH=/config/db/isputnik.sqlite
 ENV THUMBNAIL_PATH=/config/thumbnails
 ENV METADATA_PATH=/config/metadata
 ENV BACKUP_PATH=/config/backups
-# The IP-location database (Locations page). Not baked into the image: GeoIP data
-# goes stale within months, so it belongs beside the other data where it can be
-# re-downloaded — or replaced by hand with a city-level database — without a new
-# release. Empty until an admin asks for it.
-ENV GEOIP_PATH=/config/geoip
+# The IP-location databases (Locations page) are not baked into the image and need
+# no variable: they live in the Map data room (/config/map-data/Locations, or App
+# storage), which moves with the room. Until 4.6 they were GEOIP_PATH=/config/geoip;
+# the server brings anything still there into the room on boot. Set GEOIP_PATH
+# yourself only to pin them to a folder of your own.
 # auto: secure cookies follow APP_URL — on for an https:// address, off for a plain
 # http LAN install. Set true/false only to override (see config.ts). Matches the
 # Unraid template's default.

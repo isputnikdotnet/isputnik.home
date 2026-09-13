@@ -40,6 +40,7 @@ export function getViewTitles(): Record<GalleryView, string> {
     slideshows: i18n.t("gallery:page.views.slideshows"),
     folder: i18n.t("gallery:page.views.folder"),
     people: i18n.t("gallery:page.views.people"),
+    places: i18n.t("gallery:page.views.places"),
     map: i18n.t("gallery:page.views.map")
   };
 }

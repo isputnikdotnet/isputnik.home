@@ -197,7 +197,7 @@ function rendersRoom(): RoomView {
   };
 }
 
-// Map data: the map cache, and later the geoip and places databases
+// Map data: the map cache, the place names and the sign-in location databases
 // (docs/map-approach-proposal.md). The Renders rule — App storage as soon as
 // there is one, "own" the explicit choice to stay in <data>/map-data. No count
 // on the row: the cache can be a hundred thousand small files, too many to walk

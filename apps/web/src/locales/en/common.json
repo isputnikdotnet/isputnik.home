@@ -467,6 +467,10 @@
         "title": "Backups",
         "note": "A copy to go back to"
       },
+      "maps": {
+        "title": "Maps",
+        "note": "What maps keep here"
+      },
       "email": {
         "title": "Email",
         "note": "For alerts and codes"
@@ -534,6 +538,10 @@
     "backupSavedOff": "Scheduled backups are off.",
     "backupSavedMore": "Change it any time in Control panel → Maintenance → Backup, where you can also make one now or restore from one.",
     "backupSaveFailed": "Unable to save the backup schedule",
+    "mapsHeading": "Maps",
+    "mapsIntro": "Maps work straight away, drawn from OpenFreeMap. This server can also keep things for them: the maps themselves, so they draw offline and the map service stops seeing where you look; the names of the places photos were taken in; and which country each sign-in came from.",
+    "mapsNote": "None of it is required, and each costs disk space only while it is on. Set up maps says how much, and where it goes. Everything here can be changed later under Control panel → Maps.",
+    "mapsOn": "On",
     "alertsHeading": "Tell me about sign-ins",
     "alertsIntro": "The app can write to you when an account signs in from a network it has not seen before — the earliest sign that a password has been guessed, phished or reused.",
     "alertsToggle": "Email me about sign-ins from a new network",

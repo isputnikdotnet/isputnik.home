@@ -1,5 +1,7 @@
-// Fetches the DB-IP Country Lite database into data/geoip/, which is what the
-// control panel's Locations page reads to say where a sign-in came from.
+// Fetches the DB-IP Country Lite database into data/geoip/. The server reads its
+// location databases from the Map data room (Map data/Locations) and moves
+// anything in data/geoip there when it next starts, so this still works as a
+// drop-in; pass --dest to write straight into the room instead.
 //
 // The file is about 9 MB unpacked (a 4 MB download), country granularity, and is
 // published monthly under CC BY 4.0 — no account, no API key. It deliberately

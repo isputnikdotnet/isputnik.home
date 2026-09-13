@@ -343,6 +343,10 @@ export interface DashboardLocations {
     country: string | null;
     city: string | null;
     region: string | null;
+    /** The town in the reader's language, when the server has named places.
+     *  `city` and `region` stay the location database's English, the keys the
+     *  Sign-in details page filters by. */
+    label: { place: string; region: string | null } | null;
     latitude: number | null;
     longitude: number | null;
     connections: number;

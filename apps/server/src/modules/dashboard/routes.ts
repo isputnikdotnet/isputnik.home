@@ -14,6 +14,7 @@ import { currentSessionHash } from "../../auth.js";
 import { isPrivateIp } from "../../core/cidr.js";
 import { describeUserAgent, deviceType } from "../../core/device-link.js";
 import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
+import { signInPlaceNames } from "./place-names.js";
 import { parseBody } from "../../core/shared.js";
 import type {
   ActivityLogRow,
@@ -253,12 +254,20 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       people: number;
     }[];
 
+    const names = signInPlaceNames(request.user?.language, request.headers["accept-language"]);
     const byCountry = new Map<string, { code: string; name: string | null; connections: number; failed: number; addresses: number }>();
     // Only filled when the owner has supplied a city-level database; the country
-    // tier has no city or coordinates to group by.
+    // tier has no city or coordinates to group by. `label` is the town in the
+    // reader's language, when the place names database can say (place-names.ts);
+    // `city` and `region` stay the location database's own words, the keys the
+    // Sign-in details page filters by.
     const byPlace = new Map<
       string,
-      { code: string; country: string | null; city: string | null; region: string | null; latitude: number | null; longitude: number | null; connections: number; failed: number; addresses: number }
+      {
+        code: string; country: string | null; city: string | null; region: string | null;
+        label: { place: string; region: string | null } | null;
+        latitude: number | null; longitude: number | null; connections: number; failed: number; addresses: number;
+      }
     >();
     const local = { connections: 0, failed: 0, addresses: 0 };
     const unknown = { connections: 0, failed: 0, addresses: 0 };
@@ -279,7 +288,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         unknown.addresses += 1;
         continue;
       }
-      const entry = byCountry.get(hit.code) ?? { code: hit.code, name: hit.name, connections: 0, failed: 0, addresses: 0 };
+      const entry = byCountry.get(hit.code) ?? { code: hit.code, name: names.country(hit.code, hit.name), connections: 0, failed: 0, addresses: 0 };
       entry.connections += row.connections;
       entry.failed += row.failed;
       entry.addresses += 1;
@@ -289,9 +298,10 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         const key = `${hit.code}|${hit.region ?? ""}|${hit.city ?? ""}`;
         const place = byPlace.get(key) ?? {
           code: hit.code,
-          country: hit.name,
+          country: names.country(hit.code, hit.name),
           city: hit.city,
           region: hit.region,
+          label: names.town(hit.latitude, hit.longitude, hit.city),
           latitude: hit.latitude,
           longitude: hit.longitude,
           connections: 0,
@@ -340,6 +350,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     }
     const query = parsed.data;
     const params: Record<string, string> = { from: from.toISOString(), to: to.toISOString() };
+    const names = signInPlaceNames(request.user?.language, request.headers["accept-language"]);
 
     // Resolve the scope down to either one person or a set of addresses. A
     // country or town is a set of addresses too: the distinct IPs of the window,
@@ -379,6 +390,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       `).all(params) as { ip: NonNullable<ActivityLogRow["ip_address"]> }[];
       const wanted: string[] = [];
       let placeName: string | null = null;
+      let townName: string | null = null;
       for (const row of distinct) {
         if (isPrivateIp(row.ip)) continue;
         const hit = lookupLocation(row.ip);
@@ -386,6 +398,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         if (query.city !== undefined && (hit.city ?? "") !== query.city) continue;
         if (query.region !== undefined && (hit.region ?? "") !== query.region) continue;
         placeName ??= hit.name;
+        townName ??= names.town(hit.latitude, hit.longitude, hit.city)?.place ?? null;
         wanted.push(row.ip);
         // A family server never gets near this; the cap exists so a pathological
         // log can't build an unbounded IN clause. Announced, not silent.
@@ -395,10 +408,10 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         }
       }
       ipSet = wanted;
-      const country = placeName ?? countryDisplayName(code);
+      const country = names.country(code, placeName ?? countryDisplayName(code));
       scope = {
         kind: query.city || query.region ? "place" : "country",
-        label: query.city ? `${query.city}, ${country}` : country,
+        label: query.city ? `${townName ?? query.city}, ${country}` : country,
         code,
         region: query.region ?? null,
         city: query.city ?? null
@@ -543,6 +556,12 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         AND created_at >= ? AND created_at <= ?
     `);
     const now = Date.now();
+    // "Minsk, Minsk City, Belarus" in the reader's words where the place names
+    // database can say, the location database's English otherwise.
+    const locationText = (hit: NonNullable<ReturnType<typeof lookupLocation>>) => {
+      const town = names.town(hit.latitude, hit.longitude, hit.city);
+      return [town?.place ?? hit.city, town ? town.region : hit.region, names.country(hit.code, hit.name)].filter(Boolean).join(", ");
+    };
     const ips = ipRows.map((row) => {
       const isLocal = isPrivateIp(row.ip);
       const hit = isLocal ? null : lookupLocation(row.ip);
@@ -561,7 +580,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         location: isLocal
           ? "Your home network"
           : hit
-            ? [hit.city, hit.region, hit.name ?? hit.code].filter(Boolean).join(", ")
+            ? locationText(hit)
             : null,
         code: hit?.code ?? null,
         blocked: block

@@ -44,6 +44,8 @@
       "slideshow_other": "{{count}} slideshows",
       "person_one": "{{count}} person",
       "person_other": "{{count}} people",
+      "place_one": "{{count}} place",
+      "place_other": "{{count}} places",
       "selected_one": "{{count}} selected",
       "selected_other": "{{count}} selected"
     }
@@ -675,6 +677,7 @@
       "slideshows": "Slideshows",
       "folder": "Folders",
       "people": "People",
+      "places": "Places",
       "map": "Map"
     },
     "sort": {
@@ -686,7 +689,8 @@
       "folders": "Search folders...",
       "albums": "Search albums...",
       "slideshows": "Search slideshows...",
-      "people": "Search people..."
+      "people": "Search people...",
+      "places": "Search places..."
     },
     "back": {
       "albums": "Back to albums",
@@ -866,5 +870,13 @@
       "revoking": "Taking back…",
       "revokeConfirmBody": "The link stops working at once. Photos that already arrived through it stay in the Inbox."
     }
+  },
+  "places": {
+    "loadFailed": "Unable to load places",
+    "emptyTitle": "No named places yet",
+    "emptyBody": "Photos with a location are named after the town they were taken in once the place names are in. It can take a few minutes after they are turned on.",
+    "noMatchTitle": "No places match",
+    "noMatchBody": "Try part of the town, region or country name.",
+    "creditBefore": "Place names from"
   }
 }
