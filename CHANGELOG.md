@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.6.2 — A story's photos belong to the story
+
+- **The App files row no longer counts a story's photos as belonging to nothing.** It warned that some files there were used by nothing in the app, so only admins could see them, and it decided that by folder: anything outside the app's own folders counted. But a photo uploaded while writing a story is filed in a dated folder, so photos that are right there in a story were counted too, and the warning suggested moving them out. Whether a file is used is now decided by what actually uses it: a story, a slideshow, a voice note, music or the family tree, wherever the file sits. Who could see those photos was never affected; only the count and the advice were wrong.
+- **Storage contents names what each file belongs to, wherever it is.** A photo from a story showed up under **Other files** with no owner beside it. It now shows the story it is in, and likewise a slideshow's photos and cards, and a family member's portrait and event photos, not only the files in the folders made for them.
+
 ## 4.6.1 — The Storage page stops holding up the server
 
 - **Opening the Storage page no longer freezes the whole server.** To show how many thumbnails there are, the page counted every file in the thumbnail folder, and did it in a way that made the server wait until the count was done. On a small library that took no time; on a NAS, where that folder holds hundreds of thousands of files on spinning disks, it took seconds, and for those seconds nothing else answered: a click on the page seemed to do nothing, the app said the server was not responding, and then everything appeared at once. While a folder was being moved the page asked again every two seconds, so it happened over and over. The count now runs in the background without holding anything up, and the page shows the last count it has, reading **Counting files…** the very first time until the number is ready. The Storage contents page counts the same way.
