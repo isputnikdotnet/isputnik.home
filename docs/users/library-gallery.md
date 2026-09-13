@@ -187,9 +187,12 @@ and uploaded music all land in the **App files** library, part of App storage
 ([Storage](storage.md)). It stays out of the Timeline, Memories, the Home page,
 People, the map, every picker and the library filter, the same way a Photo Inbox
 does: those files belong to the story, the photo or the tree that made them, and
-that is where you meet them. A photo placed in a story, an album or a slideshow
-keeps showing there, and opens in the viewer as any other. To see everything it
-holds, open **Control panel → Library → Storage contents**.
+that is where you meet them, and who sees each one follows the same thing: a
+recording is seen by whoever can see its story, a voice note by whoever can see its
+photo, a family-tree photo by every member ([Storage](storage.md)). A photo placed
+in a story, an album or a slideshow keeps showing there for those people, and opens
+in the viewer as any other. To see everything it holds, open **Control panel →
+Library → Storage contents**.
 
 ## Photo Inbox
 

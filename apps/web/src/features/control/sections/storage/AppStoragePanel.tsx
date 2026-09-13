@@ -37,7 +37,7 @@ interface PartView {
   folder: string | null;
   inside: boolean;
   library: { id: string; name: string } | null;
-  counts: { waiting?: number; files?: number; tracks?: number; reviewers?: number };
+  counts: { waiting?: number; files?: number; tracks?: number; reviewers?: number; unowned?: number };
   move: StorageMove;
   renameTo: string | null;
 }
@@ -334,6 +334,11 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
                     {entry.folder
                       ? <code className="app-storage-path">{entry.folder}</code>
                       : <span className="datagrid-muted">{t("controlAdmin:appStorage.insideWhenOn")}</span>}
+                    {entry.part === "house" && (entry.counts.unowned ?? 0) > 0 && (
+                      <div className="system-data-note">
+                        {t("controlAdmin:appStorage.unowned", { count: entry.counts.unowned ?? 0 })}
+                      </div>
+                    )}
                     {outside && <div className="system-data-note">{entry.library || entry.part === "renders" || entry.part === "maps" ? t("controlAdmin:appStorage.outside") : t("controlAdmin:appStorage.missing")}</div>}
                     {entry.move.running && (
                       <div className="app-storage-move">
@@ -370,11 +375,11 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
                             </Button>
                           )}
                           {entry.part === "house" && entry.library && link(controlHref("storageContents"), t("controlAdmin:appStorage.contents"))}
-                          {/* The Inbox has reviewers instead of library access (phase 4). */}
+                          {/* Neither system library has access rules (phase 4): the Inbox has
+                              reviewers, and App files' files follow what owns them. */}
                           {entry.part === "inbox" && entry.library && (
                             <Button variant="text" compact onClick={() => setReviewersOpen(true)}>{t("controlAdmin:appStorage.reviewers.button")}</Button>
                           )}
-                          {entry.part === "house" && entry.library && link(`${controlHref("libraries")}?edit=${encodeURIComponent(entry.library.id)}`, t("controlAdmin:appStorage.access"))}
                         </span>
                       )}
                     </div>

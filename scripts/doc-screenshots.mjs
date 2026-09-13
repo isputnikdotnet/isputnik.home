@@ -585,6 +585,18 @@ const SHOTS = [
     state: "App storage on, an App files library with something in it",
     height: 1100
   },
+  {
+    // The Photo Inbox row's Reviewers: who besides the admins reviews, and how far.
+    name: "113-inbox-reviewers",
+    url: "control/libraries/storage",
+    state: "App storage on, a reviewer named",
+    setup: `
+      const reviewers = button(document, "Reviewers");
+      if (!reviewers) return "no Reviewers button";
+      reviewers.click(); await sleep(1200);
+      "reviewers dialog";`,
+    height: 1000
+  },
   // Maps (docs/users/control-panel.md → Maps, library-gallery.md, first-run.md).
   { name: "108-maps-setup", url: "control/maps", wait: 3500, height: 1500 },
   { name: "111-gallery-places", url: "gallery/places", wait: 4000, state: "named places built, photos with GPS" },

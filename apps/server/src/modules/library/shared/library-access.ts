@@ -17,8 +17,9 @@ import {
   type LibraryAction
 } from "../../../core/permissions.js";
 import type { DocumentFileRow, LibraryItemRow, LibraryRow, UserRow } from "../../../db/rows.js";
-// Library checks on the Photo Inbox are answered by its reviewer list (phase 4).
-import "../gallery/inbox-reviewers.js";
+// Library checks on the system libraries are answered by their own rules (phase 4).
+import "../gallery/system-library-access.js";
+import { canSeeAppFile, isAppFilesLibrary } from "../gallery/app-files-access.js";
 
 // The unified role set (was: viewer/subscriber/contributor/curator/admin).
 export type LibraryRole = ObjectRole;
@@ -244,6 +245,8 @@ export function canUserWriteAsset(itemId: string, library: LibraryRoleInput & { 
 // reachable through a live album share (see above).
 export function canUserAccessBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
   if (canUserAccessLibrary(library, userId, userRole)) return true;
+  // A file in App files is seen through what owns it (gallery/app-files-access.ts).
+  if (module === "gallery" && isAppFilesLibrary(library.id) && canSeeAppFile({ id: userId, role: userRole }, bookId)) return true;
   if (userHasItemShare(module, bookId, userId)) return true;
   return module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId);
 }
@@ -252,6 +255,7 @@ export function canUserAccessBook(bookId: string, library: LibraryRoleInput, use
 // (per-item, or — for gallery — a live album share).
 export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
   if (canUserDownloadLibrary(library, userId, userRole)) return true;
+  if (module === "gallery" && isAppFilesLibrary(library.id) && canSeeAppFile({ id: userId, role: userRole }, bookId)) return true;
   if (userHasItemShare(module, bookId, userId)) return true;
   return module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId);
 }

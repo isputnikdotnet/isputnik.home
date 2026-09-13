@@ -33,6 +33,8 @@ Everyone, each at one of two levels:
   waiting.
 - **Can keep or discard**: all of that, plus Keep, Discard and drop links.
 
+![Photo Inbox reviewers: Everyone can add details, and the two levels explained under the list](images/113-inbox-reviewers.png)
+
 Nobody else sees anything of the Inbox: not the page, not Review mode, not the
 rows on For you. An Inbox made before 4.6 carried its old access across: whoever
 managed it can keep or discard, and anyone who could see it can add details.

@@ -3,6 +3,7 @@
 import { db } from "../../../db.js";
 import type { TakenPrecision } from "./taken-precision.js";
 import { listVoiceNotes } from "./voice-notes.js";
+import { galleryScopeSql } from "./app-files-access.js";
 import { describePlace, namePhotoPlacesNow } from "./places.js";
 import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, TagRow } from "../../../db/rows.js";
 
@@ -181,12 +182,13 @@ const peopleForAssetStmt = db.prepare(`
 // are silently omitted (the standard bulk contract).
 export function getGalleryAssets(userId: string, libIds: string[], itemIds: string[]) {
   if (libIds.length === 0 || itemIds.length === 0) return [];
+  const scope = galleryScopeSql(libIds);
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE library_items.id IN (${inClause(itemIds.length)})
-      AND library_items.library_id IN (${inClause(libIds.length)})
+      AND ${scope.sql}
       AND library_items.deleted_at IS NULL
-  `).all(userId, ...itemIds, ...libIds) as AssetRow[];
+  `).all(userId, ...itemIds, ...scope.params) as AssetRow[];
   const byId = new Map(rows.map((row) => [row.id, mapAsset(row)]));
   return itemIds.map((id) => byId.get(id)).filter((asset): asset is NonNullable<typeof asset> => Boolean(asset));
 }
@@ -210,10 +212,11 @@ function detailOf(row: AssetRow, language: string, reread: () => AssetRow | unde
 
 export function getGalleryAsset(userId: string, libIds: string[], id: string, language = "en") {
   if (libIds.length === 0) return null;
+  const scope = galleryScopeSql(libIds);
   const read = () => db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
-    WHERE library_items.id = ? AND library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
-  `).get(userId, id, ...libIds) as AssetRow | undefined;
+    WHERE library_items.id = ? AND ${scope.sql} AND library_items.deleted_at IS NULL
+  `).get(userId, id, ...scope.params) as AssetRow | undefined;
   const row = read();
   return row ? detailOf(row, language, read) : null;
 }

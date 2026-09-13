@@ -3,6 +3,7 @@
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { galleryLibrariesLeftOutOfScope, photoInboxLibraryIds } from "./system-libraries.js";
+import { withAppFileOwners } from "./app-files-access.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 // A `?libraryIds=id1,id2` query param, the GET-route counterpart of the timeline
@@ -24,14 +25,16 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
   // how its review page reads it. See docs/photo-inbox-proposal.md.
   //
   // This is the REACHABLE scope: what a story, an album, a slideshow or the
-  // viewer may show when it names a photo by id. App files (the other system
-  // library) is reachable — the photos placed in a story from it must
-  // keep showing — but is left out of BROWSING (resolveGalleryBrowseLibraryIds).
-  // 3.84.1 excluded it here too and every story block from that library read
-  // "not in a library you can see".
+  // viewer may show when it names a photo by id. App files is in it for admins
+  // only; for anyone else the list carries the App files rule
+  // (app-files-access.ts), so a query asking through galleryScopeSql shows the
+  // App files items whose owners they can see — the photos and recordings a
+  // story holds keep showing (3.84.1 dropped them all, and every such block read
+  // "not in a library you can see"). App files is never BROWSED
+  // (resolveGalleryBrowseLibraryIds).
   if (!libraryIds || libraryIds.length === 0) {
     const inboxes = photoInboxLibraryIds();
-    return accessible.filter((row) => !inboxes.has(row.id)).map((row) => row.id);
+    return withAppFileOwners(user, accessible.filter((row) => !inboxes.has(row.id)).map((row) => row.id));
   }
   const requested = new Set(libraryIds);
   return accessible.filter((row) => requested.has(row.id)).map((row) => row.id);

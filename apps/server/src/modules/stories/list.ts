@@ -1,6 +1,7 @@
 import { db } from "../../db.js";
 import { entityTagsByIds, getEntityTags } from "../library/shared/tagging.js";
 import { accessibleLibraryIds } from "../library/shared/library-access.js";
+import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
 import { visibleCollectionIds } from "./collection-access.js";
 import { canEditStory } from "./access.js";
 import { STORY_ENTITY_TYPE, type StoryRow } from "./stories.js";
@@ -38,7 +39,9 @@ export function listStories(
   ref?: { entityTypes: string[]; entityIds: string[] },
   collectionId?: string
 ) {
-  const libArgs = libIds.length > 0 ? libIds : [""];
+  // Covers come only from stories this viewer may see, so a cover the story holds
+  // in App files shows (app-files-access.ts: the story owns it).
+  const libArgs = withAppFilesLibrary(libIds.length > 0 ? libIds : [""]);
   const libIn = inClause(libArgs.length);
   // The CHOSEN cover may be a photo or a book's own artwork — a review wearing
   // the book it is about — so that one lookup reaches past the gallery into

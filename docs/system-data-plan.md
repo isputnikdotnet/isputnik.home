@@ -7,7 +7,8 @@ phase 1: migration 75, `gallery/system-libraries.ts`; phase 2: `core/system-data
 uncommitted** (`modules/library/app-storage-service.ts`, `app-storage-upgrade.ts`,
 `AppStoragePanel`; both suites, typecheck and `check:ui` pass, checked on the dev
 database, which the startup conversion converted). **Phase 4 part 1 (Inbox reviewers)
-built 2026-09-13, uncommitted**; part 2 (App files access by owner) not started. Replaces the
+committed 2026-09-13** (626e6c6c); **part 2 (App files access by owner) built
+2026-09-13, uncommitted**. Replaces the
 room model of [app-storage-plan.md](app-storage-plan.md) (shipped 3.77.0–4.5.0).
 Decisions are recorded so they need not be re-argued; open questions so they are
 not silently answered by whoever writes the code.
@@ -443,6 +444,49 @@ As built, part 1 (Inbox reviewers):
   **Reviewers** instead of Access. App files keeps Access until part 2.
 - A reviewer who can add details can also upload into the Inbox (the contributor
   rank has the upload right), as a contributor could before.
+
+As built, part 2 (App files access):
+- The override in `gallery/system-library-access.ts` (which now registers both
+  system libraries; inbox-reviewers.ts no longer does) gives admins manager on App
+  files and everyone else nothing at library level. Every scope, stream and cover
+  check therefore leaves App files out for members by default: a surface nobody
+  updated hides a file rather than showing it.
+- `gallery/app-files-access.ts` holds the owner rule as one SQL subquery (CTEs for
+  visible stories and slideshows), used three ways: `galleryScopeSql(libIds)`, a
+  WHERE fragment for queries over a scope list; `canSeeAppFile(user, id)` for one
+  item; and `withAppFilesLibrary(libIds)` where the owner is already checked (a
+  visible story's covers, a guest link's own media, family-tree photos).
+- The rule rides on the scope list: `resolveGalleryScopeLibraryIds` attaches it (a
+  WeakMap keyed by the array, worked out lazily on first use) for every non-admin
+  reachable scope. A copied list carries no rule and shows no App files items.
+  Queries asking it: the viewer and id lookup (catalog-asset.ts), story block
+  hydration (blocks.ts), albums (list, items, ids, download), slideshows (list,
+  items, render items, clips, clip summary). Covers of stories and shelves (list.ts,
+  collections.ts, the story hydrator in social/subjects.ts) and story guest links'
+  media (share.ts) add App files outright, because only visible stories reach them.
+  Family-tree photos: event photos and attached photos include App files outright;
+  face-cluster photos keep to the viewer's libraries.
+- `canUserAccessBook` / `canUserDownloadBook` ask `canSeeAppFile` for App files items,
+  which covers the original stream, downloads, the viewer's fallback and Send-to
+  hydration. The covers route maps a thumbnail key to its item
+  (`appFileItemForThumbnail`) and asks the same.
+- Albums are not owners (as decided): an album shows the App files items its viewer
+  can see through their real owners. Adding an App files item to an album or
+  slideshow still takes the library right, so only admins can.
+- Uploads into App files through the gallery upload route: admins, or anyone who may
+  edit the family tree uploading into its `Family tree` folder; the family tree's
+  settings report `canUpload` the same way. Story recordings, voice notes and music
+  write through their own features and never asked the library.
+- Migration 77 removes App files' assignments and owner; `setSystemLibraryRole` does
+  the same when a library becomes App files. Library records of either role are
+  written without access; the members routes refuse both. The Storage page's Access
+  link and the Libraries page's `?edit=` handler are gone.
+- A library nominated as App files before 4.6 can hold ordinary photos in folders
+  the app never made. Nothing owns them, so members lose them. The App files row
+  counts them (`counts.unowned`) and says to move their folders to another library;
+  the dev database's "Photos" library (184 photos) is such a case.
+- Tests: `test/app-files-access.test.ts` (each owner kind, orphans, deleted owners,
+  scopes, a copied list, slideshow counts, migration, members route).
 
 ## Non-goals
 

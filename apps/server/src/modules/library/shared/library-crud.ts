@@ -142,9 +142,10 @@ export function createLibraryRecord(opts: {
     };
   }
 
-  // The Photo Inbox has no owner and no access rules of its own: its reviewers
-  // decide who sees it (gallery/inbox-reviewers.ts, phase 4).
-  const accessless = type === "gallery" && opts.role === "inbox";
+  // A system library has no owner and no access rules of its own: the Inbox's
+  // reviewers decide who sees it, and App files' files follow their owners
+  // (gallery/system-library-access.ts, phase 4).
+  const accessless = type === "gallery" && Boolean(opts.role);
   const { ownerId, ownerType } = accessless ? { ownerId: null, ownerType: null } : resolveOwner(data);
   const ownerError = validateLibraryOwner(ownerId, ownerType);
   if (ownerError) {
@@ -226,7 +227,7 @@ export function updateLibraryRecord(opts: {
     return { status: 409, error: `"${existing.name}" is a system library, so it can't be renamed.` };
   }
 
-  const accessless = existing.role === "inbox";
+  const accessless = Boolean(existing.role);
   const { ownerId, ownerType } = accessless ? { ownerId: null, ownerType: null } : resolveOwner(data);
   const ownerError = validateLibraryOwner(ownerId, ownerType);
   if (ownerError) {

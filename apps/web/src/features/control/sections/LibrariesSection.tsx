@@ -212,10 +212,6 @@ export function LibrariesSection() {
     loadLibraries().catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToLoad")));
   }, [loadLibraries, t]);
 
-  // ?edit=<id> opens a library's editor on arrival: how the Storage page's Access link
-  // reaches the Photo Inbox and App files, which this list does not show.
-  const [editRequest, setEditRequest] = useState(() => new URLSearchParams(window.location.search).get("edit"));
-
   useEffect(() => {
     if (!libraries.some((library) => library.scanStatus === "scanning")) {
       return;
@@ -250,18 +246,6 @@ export function LibrariesSection() {
     setEditTab("access");
     setError("");
   };
-
-  useEffect(() => {
-    if (!editRequest || libraries.length === 0) return;
-    const library = libraries.find((entry) => entry.id === editRequest);
-    setEditRequest(null);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("edit");
-    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
-    if (library) openEdit(library);
-    // openEdit is a plain function of this render; the request is what matters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editRequest, libraries]);
 
   const takeOwnership = async () => {
     if (!takeOwnershipConfirmLibrary) return;

@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { entityTagsByIds } from "../shared/tagging.js";
+import { galleryScopeSql } from "./app-files-access.js";
 import type { GalleryAlbumItemRow, GalleryAlbumRow, GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
@@ -126,33 +127,31 @@ interface AlbumListRow extends AlbumRow {
 // visible member with a thumbnail.
 export function listAlbums(user: { id: string; role: string }, libIds: string[]) {
   // With no accessible gallery libraries every count is 0, but creators/admins
-  // must still see their albums — so query with a never-matching placeholder
-  // instead of returning early.
-  const libArgs = libIds.length > 0 ? libIds : [""];
-  const libIn = inClause(libArgs.length);
+  // must still see their albums — so query anyway instead of returning early.
+  const scope = galleryScopeSql(libIds);
   const rows = db.prepare(`
     SELECT
       gallery_albums.*,
       (SELECT COUNT(*) FROM gallery_album_items
         JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
         WHERE gallery_album_items.album_id = gallery_albums.id
-          AND library_items.library_id IN (${libIn})) AS visible_count,
+          AND ${scope.sql}) AS visible_count,
       COALESCE(
         (SELECT item_metadata.cover_storage_key FROM library_items
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE library_items.id = gallery_albums.cover_item_id AND library_items.deleted_at IS NULL
-            AND library_items.library_id IN (${libIn})),
+            AND ${scope.sql}),
         (SELECT item_metadata.cover_storage_key FROM gallery_album_items
           JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE gallery_album_items.album_id = gallery_albums.id
-            AND library_items.library_id IN (${libIn})
+            AND ${scope.sql}
             AND item_metadata.cover_storage_key IS NOT NULL
           ORDER BY gallery_album_items.position LIMIT 1)
       ) AS cover_key
     FROM gallery_albums
     ORDER BY gallery_albums.updated_at DESC
-  `).all(...libArgs, ...libArgs, ...libArgs) as AlbumListRow[];
+  `).all(...scope.params, ...scope.params, ...scope.params) as AlbumListRow[];
 
   const visible = rows.filter((row) => row.visible_count > 0 || canEditAlbum(row, user));
   const tags = entityTagsByIds("gallery_album", visible.map((row) => row.id));
@@ -174,16 +173,16 @@ export function listAlbums(user: { id: string; role: string }, libIds: string[])
 // reads like a story); manual mode follows position (append order today).
 export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow, limit: number, offset: number) {
   if (libIds.length === 0) return { assets: [], total: 0 };
-  const libIn = inClause(libIds.length);
+  const scope = galleryScopeSql(libIds);
   const where = `
     gallery_album_items.album_id = ?
-    AND library_items.library_id IN (${libIn})
+    AND ${scope.sql}
     AND library_items.deleted_at IS NULL`;
   const total = (db.prepare(`
     SELECT COUNT(*) AS n FROM gallery_album_items
     JOIN library_items ON library_items.id = gallery_album_items.item_id
     WHERE ${where}
-  `).get(album.id, ...libIds) as { n: number }).n;
+  `).get(album.id, ...scope.params) as { n: number }).n;
 
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
@@ -194,7 +193,7 @@ export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow,
     WHERE ${where}
     ORDER BY ${order}
     LIMIT ? OFFSET ?
-  `).all(userId, album.id, ...libIds, limit, offset) as GalleryAssetRow[];
+  `).all(userId, album.id, ...scope.params, limit, offset) as GalleryAssetRow[];
 
   return { assets: rows.map(mapAsset), total };
 }
@@ -204,7 +203,7 @@ export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow,
 // library access like getAlbumItems; just the ids, no thumbnails/metadata.
 export function getAlbumItemIds(libIds: string[], album: AlbumRow): string[] {
   if (libIds.length === 0) return [];
-  const libIn = inClause(libIds.length);
+  const scope = galleryScopeSql(libIds);
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
     : "gallery_details.taken_at ASC, library_items.id ASC";
@@ -213,9 +212,9 @@ export function getAlbumItemIds(libIds: string[], album: AlbumRow): string[] {
     FROM gallery_album_items
     JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
     JOIN gallery_details ON gallery_details.item_id = library_items.id
-    WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${libIn})
+    WHERE gallery_album_items.album_id = ? AND ${scope.sql}
     ORDER BY ${order}
-  `).all(album.id, ...libIds) as Pick<LibraryItemRow, "id">[]).map((row) => row.id);
+  `).all(album.id, ...scope.params) as Pick<LibraryItemRow, "id">[]).map((row) => row.id);
 }
 
 // On-disk paths for every album item the viewer can see, in the album's sort
@@ -228,7 +227,7 @@ export type AlbumFileRow = Pick<LibraryItemRow, "id" | "folder_path">
 
 export function getAlbumFilePaths(libIds: string[], album: AlbumRow): AlbumFileRow[] {
   if (libIds.length === 0) return [];
-  const libIn = inClause(libIds.length);
+  const scope = galleryScopeSql(libIds);
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
     : "gallery_details.taken_at ASC, library_items.id ASC";
@@ -244,7 +243,7 @@ export function getAlbumFilePaths(libIds: string[], album: AlbumRow): AlbumFileR
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     JOIN libraries ON libraries.id = library_items.library_id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
-    WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${libIn})
+    WHERE gallery_album_items.album_id = ? AND ${scope.sql}
     ORDER BY ${order}
-  `).all(album.id, ...libIds) as AlbumFileRow[];
+  `).all(album.id, ...scope.params) as AlbumFileRow[];
 }

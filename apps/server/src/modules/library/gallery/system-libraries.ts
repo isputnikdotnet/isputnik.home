@@ -9,8 +9,9 @@
 // and the catalogue, which import them back.
 import { db } from "../../../db.js";
 import type { LibraryRow } from "../../../db/rows.js";
-// Registers the override that answers library checks on the Inbox from its reviewers.
 import { carryLibraryGrantsToReviewers } from "./inbox-reviewers.js";
+// Registers the override that answers library checks on both system libraries.
+import "./system-library-access.js";
 
 export type SystemLibraryRole = NonNullable<LibraryRow["role"]>;
 
@@ -37,10 +38,17 @@ export function setSystemLibraryRole(role: SystemLibraryRole, libraryId: string 
     if (libraryId) {
       db.prepare("UPDATE libraries SET role = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND type = 'gallery'")
         .run(role, libraryId);
-      // The Inbox has reviewers, not library access rules (phase 4).
+      // Neither has library access rules (phase 4): the Inbox's become reviewers,
+      // App files' simply go (its files follow their owners).
       if (role === "inbox") carryLibraryGrantsToReviewers(libraryId);
+      else clearLibraryAccess(libraryId);
     }
   })();
+}
+
+function clearLibraryAccess(libraryId: string): void {
+  db.prepare("DELETE FROM assignments WHERE object_type = 'library' AND object_id = ?").run(libraryId);
+  db.prepare("UPDATE libraries SET owner_id = NULL, owner_type = NULL WHERE id = ?").run(libraryId);
 }
 
 /** The Photo Inbox, as a set so the scope resolvers can filter by it. */

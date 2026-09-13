@@ -26,8 +26,9 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
   function loadManageable(libraryId: string, userId: string, userRole: string): LibraryRow | null {
     const library = db.prepare("SELECT id, name, role FROM libraries WHERE id = ?").get(libraryId) as (LibraryRow & Pick<DbLibraryRow, "role">) | undefined;
     if (!library) return null;
-    // The Photo Inbox has reviewers instead, set on the Storage page (phase 4).
-    if (library.role === "inbox") return null;
+    // System libraries have no member list: the Inbox has reviewers, set on the
+    // Storage page, and App files' files follow their owners (phase 4).
+    if (library.role) return null;
     if (!canUserManageLibraryMembers({ id: library.id }, userId, userRole)) return null;
     return library;
   }
