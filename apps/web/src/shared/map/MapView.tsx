@@ -53,10 +53,9 @@ export function MapView({
   });
 
   // `options` is read once, so a caller that rebuilds the object every render
-  // must not rebuild the map. The ref hands the create-once effect below the
-  // current value without making the map depend on it.
-  const optionsRef = useRef(options);
-  optionsRef.current = share ? { ...options, share } : options;
+  // must not rebuild the map. The ref keeps the first render's value for the
+  // create-once effect below, which is the only reader.
+  const optionsRef = useRef(share ? { ...options, share } : options);
 
   useEffect(() => {
     if (!containerRef.current || rendererRef.current) return;
