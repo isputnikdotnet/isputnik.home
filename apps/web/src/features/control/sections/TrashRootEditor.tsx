@@ -17,7 +17,6 @@ import type { StorageRoot } from "../types";
  *  changing the location moves what is in the bin (docs/app-storage-plan.md). */
 export interface TrashRootSettings {
   path: string | null;
-  usesAppStorage?: boolean;
   libraryCount: number;
   itemsInBin: number;
   editable: boolean;

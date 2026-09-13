@@ -46,8 +46,8 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
     const user = request.user!;
 
     const library = db.prepare(
-      "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'gallery'"
-    ).get(libraryId) as Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json"> | undefined;
+      "SELECT id, name, source_path, settings_json, policy_json, role FROM libraries WHERE id = ? AND type = 'gallery'"
+    ).get(libraryId) as Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json" | "role"> | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
       return reply.code(404).send({ error: "Gallery library not found" });
     }
@@ -135,7 +135,7 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
     // A delivery into a Photo Inbox queues its duplicate check (proposal, decision
     // 9); an admin's upload owns the check, anyone else's falls to the library's
     // creator. Lazy import, as in the scanner: the duplicates module imports back.
-    if (policy.inbox === true) {
+    if (library.role === "inbox") {
       void import("./duplicates/inbox-check.js")
         .then((mod) => mod.queueInboxCheck(library.id, user.role === "admin" ? user.id : undefined))
         .catch(() => { /* started by hand from the Inbox page */ });

@@ -34,10 +34,10 @@ export class FolderMoveError extends Error {
   }
 }
 
-type GalleryLibraryRow = Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "scan_status">;
+type GalleryLibraryRow = Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "scan_status" | "role">;
 
 function galleryLibrary(id: string): GalleryLibraryRow | null {
-  return (db.prepare("SELECT id, name, source_path, policy_json, scan_status FROM libraries WHERE id = ? AND type = 'gallery'").get(id) as GalleryLibraryRow | undefined) ?? null;
+  return (db.prepare("SELECT id, name, source_path, policy_json, scan_status, role FROM libraries WHERE id = ? AND type = 'gallery'").get(id) as GalleryLibraryRow | undefined) ?? null;
 }
 
 /** A folder path as the app stores it: "/"-separated, no leading or trailing
@@ -76,7 +76,7 @@ export function planFolderMove(libraryId: string, folderInput: string, targetLib
   const target = galleryLibrary(targetLibraryId);
   if (!target) throw new FolderMoveError("The library to move into was not found.", 404);
   if (target.id === library.id) throw new FolderMoveError("That is the library the folder is already in.");
-  if (parsePolicy(target.policy_json).inbox === true) {
+  if (target.role === "inbox") {
     throw new FolderMoveError(`"${target.name}" is a Photo Inbox: what is in the collection cannot be moved into what is waiting for review.`, 409);
   }
   if (parsePolicy(target.policy_json).mode === "external") {

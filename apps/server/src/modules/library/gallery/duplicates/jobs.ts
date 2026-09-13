@@ -141,15 +141,15 @@ export interface GalleryLibraryOption {
  *  scan — pure SQL, no disk, so it is safe to compute on every page load. */
 export function galleryLibraryOptions(): GalleryLibraryOption[] {
   const rows = db.prepare(`
-    SELECT id, name, source_path, policy_json FROM libraries
+    SELECT id, name, source_path, policy_json, role FROM libraries
     WHERE type = 'gallery' ORDER BY name COLLATE NOCASE
-  `).all() as Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json">[];
+  `).all() as Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "role">[];
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
     sourcePath: row.source_path,
     ...libraryProtection(row.policy_json),
-    inbox: parsePolicy(row.policy_json).inbox === true,
+    inbox: row.role === "inbox",
     candidateCount: duplicateCandidateCount(row.id),
     pendingCount: duplicatePendingCount(row.id)
   }));

@@ -156,7 +156,7 @@ describe("GalleryLightbox", () => {
 describe("GalleryPage selection bar", () => {
   it("batch-adds the selected photos as gallery items", async () => {
     const library = {
-      id: "lib", name: "Photos", bookCount: 2, inbox: false, appStorage: false, scanStatus: "idle",
+      id: "lib", name: "Photos", bookCount: 2, inbox: false, role: null, scanStatus: "idle",
       canWrite: true, canDelete: true, canDownload: true, canUpload: false, canCurate: true,
       uploadExtensions: [], maxUploadMB: null
     };

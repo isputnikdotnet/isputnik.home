@@ -24,15 +24,15 @@ import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 // lands a dozen fingerprint bits from its twin — far outside the near tier — so a
 // wide gate proposes candidates and the pictures themselves settle it.
 
-const INBOX_POLICY = JSON.stringify({ mode: "managed", inbox: true });
+const INBOX_POLICY = JSON.stringify({ mode: "managed" });
 const GRID = 128;
 let base = "";
 let thumbs = "";
 
 const root = (id: string) => path.join(base, id);
 
-function makeGalleryLibrary(id: string, policyJson = "{}"): void {
-  makeLibrary(id, { createdBy: "u1", type: "gallery", policyJson });
+function makeGalleryLibrary(id: string, policyJson = "{}", role?: "inbox" | "app-files"): void {
+  makeLibrary(id, { createdBy: "u1", type: "gallery", policyJson, role });
   fs.mkdirSync(root(id), { recursive: true });
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = ?").run(root(id), id);
   grant("group", EVERYONE_GROUP_ID, id, "member");
@@ -126,7 +126,7 @@ beforeEach(() => {
   db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(thumbnailPathSettingKey, thumbs);
   makeGalleryLibrary("GAL");
-  makeGalleryLibrary("INBOX", INBOX_POLICY);
+  makeGalleryLibrary("INBOX", INBOX_POLICY, "inbox");
 });
 
 describe("comparing the pictures", () => {

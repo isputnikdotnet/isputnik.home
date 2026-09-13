@@ -5,6 +5,7 @@ import { db } from "../../../db.js";
 import { stmt } from "../../../db/statement-cache.js";
 import { config } from "../../../config.js";
 import { resolveAppLocation } from "../../../core/app-storage.js";
+import { systemDataFolder } from "../../../core/system-data.js";
 import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 import type { AppSettingRow, LibraryRow } from "../../../db/rows.js";
 
@@ -68,16 +69,27 @@ export function renderInTurn(renders: Array<() => Promise<unknown>>): Promise<vo
 }
 
 /** The thumbnail folder's OWN setting (the app_settings row, else THUMBNAIL_PATH),
- *  ignoring App storage. What the Storage page shows as "its own folder". */
+ *  ignoring system data. What the Storage page shows as "a folder of its own". */
 export function ownThumbnailPathValue(): string {
-  const row = stmt("SELECT value FROM app_settings WHERE key = ?").get(thumbnailPathSettingKey) as Pick<AppSettingRow, "value"> | undefined;
-  return row?.value || config.thumbnailPath || "";
+  return thumbnailPathSource()?.path ?? "";
 }
 
-/** The thumbnail folder in effect: the own setting, else App storage's
- *  Thumbnails room, else "" (docs/app-storage-plan.md, decision 6). */
+export type ThumbnailPathSource = "setting" | "env" | "system";
+
+/** The thumbnail folder in effect and which answer decided it: the folder chosen
+ *  on the Storage page, else THUMBNAIL_PATH, else `<system data>/thumbnails`
+ *  (docs/system-data-plan.md, decision 4). Null while none of them is set. */
+export function thumbnailPathSource(): { path: string; source: ThumbnailPathSource } | null {
+  const row = stmt("SELECT value FROM app_settings WHERE key = ?").get(thumbnailPathSettingKey) as Pick<AppSettingRow, "value"> | undefined;
+  if (row?.value) return { path: row.value, source: "setting" };
+  if (config.thumbnailPath) return { path: config.thumbnailPath, source: "env" };
+  const system = systemDataFolder("thumbnails");
+  return system ? { path: system, source: "system" } : null;
+}
+
+/** The thumbnail folder in effect, or "" while there is none. */
 export function configuredThumbnailPathValue() {
-  return resolveAppLocation("thumbnails", ownThumbnailPathValue() || null) ?? "";
+  return thumbnailPathSource()?.path ?? "";
 }
 
 /** The buckets that hold the app's own MEDIA rather than generated thumbnails:
@@ -91,7 +103,7 @@ export const RENDER_BUCKETS = ["music", "slideshows", "narration"] as const;
 /** Where the render buckets live right now: the Renders room, else the
  *  thumbnail folder (created on demand, like the thumbnail folder is). */
 export function getRendersRoot(): string {
-  const renders = resolveAppLocation("renders", null);
+  const renders = resolveAppLocation("renders");
   if (!renders) return getConfiguredThumbnailPath();
   fs.mkdirSync(renders, { recursive: true });
   return fs.realpathSync(renders);
@@ -122,7 +134,7 @@ export function validateThumbnailPath(thumbnailPath: string) {
 export function getConfiguredThumbnailPath() {
   const thumbnailPath = configuredThumbnailPathValue();
   if (!thumbnailPath) {
-    throw new Error("Configure thumbnail storage before creating a library.");
+    throw new Error("Choose system data on the Storage page before creating a library: thumbnails need somewhere to go.");
   }
 
   return validateThumbnailPath(thumbnailPath);

@@ -16,7 +16,7 @@ import { requeueInterruptedJobs, releaseAbandonedScanLibraries } from "../shared
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { registerJobHandler } from "../../../core/job-poller.js";
 import { dateFromFileName } from "./filename-date.js";
-import { isPhotoInboxLibrary } from "./inbox-flag.js";
+import { isPhotoInboxLibrary } from "./system-libraries.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,

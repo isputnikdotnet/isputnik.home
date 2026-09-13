@@ -17,13 +17,14 @@ import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 // setting that stories, the family tree and slideshow movies all read through
 // to, and the migration that carries the old per-feature choices over.
 
+// What an Inbox looked like before migration 75, for the migration tests below.
 const INBOX_POLICY = JSON.stringify({ mode: "managed", inbox: true });
 
 beforeEach(() => {
   resetDb();
   makeUser("admin", "admin");
   makeLibrary("gal", { createdBy: "admin", type: "gallery" });
-  makeLibrary("inbox", { createdBy: "admin", type: "gallery", policyJson: INBOX_POLICY });
+  makeLibrary("inbox", { createdBy: "admin", type: "gallery", role: "inbox" });
 });
 
 describe("the house library", () => {
@@ -139,19 +140,30 @@ describe("setting up a Photo Inbox in one step", () => {
     expect(safeFolderName("..")).toBeNull();
   });
 
-  it("creates the library over a new folder inside the container with the Inbox flag on", () => {
+  it("creates the library over a new folder inside the container as the Photo Inbox", () => {
     const folder = path.join(base, safeFolderName("Photo Inbox")!);
     fs.mkdirSync(folder, { recursive: true });
+    const create = () => createLibraryRecord({
+      type: "gallery",
+      data: { name: "Photo Inbox", sourcePath: folder, visibility: "public", publicRole: "viewer", mode: "managed" },
+      userId: "admin",
+      ip: "127.0.0.1",
+      role: "inbox"
+    });
+    // There is one Inbox: while another library holds the role, making a second is refused.
+    expect(create()).toMatchObject({ status: 409 });
+    db.prepare("DELETE FROM libraries WHERE id = 'inbox'").run();
     const result = createLibraryRecord({
       type: "gallery",
-      data: { name: "Photo Inbox", sourcePath: folder, visibility: "public", publicRole: "viewer", mode: "managed", inbox: true },
+      data: { name: "Photo Inbox", sourcePath: folder, visibility: "public", publicRole: "viewer", mode: "managed" },
       userId: "admin",
-      ip: "127.0.0.1"
+      ip: "127.0.0.1",
+      role: "inbox"
     });
     expect(result).toMatchObject({ libraryId: expect.any(String) });
     if (!("libraryId" in result)) return;
-    const row = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(result.libraryId) as { policy_json: string };
-    expect(JSON.parse(row.policy_json).inbox).toBe(true);
+    const row = db.prepare("SELECT role FROM libraries WHERE id = ?").get(result.libraryId) as { role: string | null };
+    expect(row.role).toBe("inbox");
     // An Inbox cannot be the house library.
     expect(setHouseLibrary(result.libraryId, "admin")).toMatchObject({ ok: false, status: 409 });
   });

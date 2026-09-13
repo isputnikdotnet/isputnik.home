@@ -9,6 +9,7 @@ import {
   discardPhotoInboxItems, keepPhotoInboxItems, listPhotoInboxItems, listPhotoInboxes, photoInboxLibraryIds
 } from "../src/modules/library/gallery/inbox.js";
 import { moveGalleryAsset, normaliseTargetFolder } from "../src/modules/library/gallery/move.js";
+import { isPhotoInboxLibrary, setSystemLibraryRole } from "../src/modules/library/gallery/system-libraries.js";
 import { enqueueFaceScanBatches } from "../src/modules/library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds, setFaceRecognitionEnabledForLibrary } from "../src/modules/library/gallery/faces/settings.js";
 import { createLibraryRecord, updateLibraryRecord } from "../src/modules/library/shared/library-crud.js";
@@ -17,15 +18,15 @@ import { thumbnailAbsolutePath, thumbnailPathSettingKey, thumbnailStorageKey } f
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 import "./helpers/media-types.js";
 
-// The Photo Inbox (docs/photo-inbox-proposal.md): a gallery library flagged
-// `policy_json.inbox`. Three promises, one block each — it is left out of every
+// The Photo Inbox (docs/photo-inbox-proposal.md): the gallery library holding the
+// 'inbox' role (docs/system-data-plan.md). Three promises, one block each — it is left out of every
 // implicit scope; its photos are never scanned for faces; and the review's two
 // verbs move a photo out of it whole (file, row, thumbnails) or bin it on the
 // cleanup clock.
 
 const ADMIN = { id: "u1", role: "admin" };
 const MEMBER = { id: "u2", role: "member" };
-const INBOX_POLICY = JSON.stringify({ mode: "managed", inbox: true });
+const INBOX_POLICY = JSON.stringify({ mode: "managed" });
 
 let base = "";
 let thumbRoot = "";
@@ -34,8 +35,8 @@ function libraryRoot(id: string): string {
   return path.join(base, id);
 }
 
-function makeGalleryLibrary(id: string, policyJson = "{}"): void {
-  makeLibrary(id, { createdBy: "u1", type: "gallery", policyJson });
+function makeGalleryLibrary(id: string, policyJson = "{}", role?: "inbox" | "app-files"): void {
+  makeLibrary(id, { createdBy: "u1", type: "gallery", policyJson, role });
   fs.mkdirSync(libraryRoot(id), { recursive: true });
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = ?").run(libraryRoot(id), id);
   grant("group", EVERYONE_GROUP_ID, id, "member");
@@ -82,7 +83,7 @@ beforeEach(() => {
   db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(thumbnailPathSettingKey, thumbRoot);
   makeGalleryLibrary("GAL");
-  makeGalleryLibrary("INBOX", INBOX_POLICY);
+  makeGalleryLibrary("INBOX", INBOX_POLICY, "inbox");
 });
 
 describe("the flag", () => {
@@ -97,24 +98,36 @@ describe("the flag", () => {
     expect(resolveGalleryScopeLibraryIds(ADMIN, ["GAL", "INBOX"]).sort()).toEqual(["GAL", "INBOX"]);
   });
 
-  it("survives a library update that doesn't mention it, and clears when told to", () => {
+  it("is made by the app, keeps its role through an update, and refuses a new name", () => {
+    db.prepare("DELETE FROM libraries WHERE id = 'INBOX'").run();
     fs.mkdirSync(path.join(base, "scans"));
     const created = createLibraryRecord({
       type: "gallery",
-      data: { name: "Scans", sourcePath: path.join(base, "scans"), inbox: true },
+      // An `inbox` in a request body is not a way in any more: zod drops it.
+      data: { name: "Scans", sourcePath: path.join(base, "scans"), ...({ inbox: true } as object) },
       userId: "u1",
-      ip: "127.0.0.1"
+      ip: "127.0.0.1",
+      role: "inbox"
     });
     if ("error" in created) throw new Error(created.error);
-    const policyOf = () => parsePolicy((db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(created.libraryId) as { policy_json: string }).policy_json);
-    expect(policyOf().inbox).toBe(true);
+    const rowOf = () => db.prepare("SELECT name, role, policy_json FROM libraries WHERE id = ?").get(created.libraryId) as { name: string; role: string | null; policy_json: string };
+    expect(rowOf().role).toBe("inbox");
+    expect(parsePolicy(rowOf().policy_json)).not.toHaveProperty("inbox");
 
-    const kept = updateLibraryRecord({ type: "gallery", id: created.libraryId, data: { name: "Scans renamed" }, userId: "u1", ip: "127.0.0.1" });
+    const kept = updateLibraryRecord({ type: "gallery", id: created.libraryId, data: { name: "Scans", visibility: "private" }, userId: "u1", ip: "127.0.0.1" });
     expect("error" in kept).toBe(false);
-    expect(policyOf().inbox).toBe(true);
+    expect(rowOf().role).toBe("inbox");
 
-    updateLibraryRecord({ type: "gallery", id: created.libraryId, data: { name: "Scans", inbox: false }, userId: "u1", ip: "127.0.0.1" });
-    expect(policyOf().inbox).toBeUndefined();
+    const renamed = updateLibraryRecord({ type: "gallery", id: created.libraryId, data: { name: "Scans renamed" }, userId: "u1", ip: "127.0.0.1" });
+    expect(renamed).toMatchObject({ status: 409 });
+    expect(rowOf().name).toBe("Scans");
+  });
+
+  it("has one holder: giving the role to another library takes it from the first", () => {
+    setSystemLibraryRole("inbox", "GAL");
+    expect(photoInboxLibraryIds()).toEqual(new Set(["GAL"]));
+    expect(isPhotoInboxLibrary("INBOX")).toBe(false);
+    expect(() => db.prepare("UPDATE libraries SET role = 'inbox' WHERE id = 'INBOX'").run()).toThrow();
   });
 });
 
@@ -194,12 +207,12 @@ describe("moving an asset", () => {
     expect(result.ok && result.folderPath).toBe("1 (2).jpg");
   });
 
-  it("refuses an external destination, another Inbox, and a bad folder", () => {
+  it("refuses an external destination, the Inbox, and a bad folder", () => {
     makeGalleryLibrary("EXT", JSON.stringify({ mode: "external" }));
-    makeGalleryLibrary("INBOX2", INBOX_POLICY);
     makePhoto("INBOX", "a1", "1.jpg");
+    makePhoto("GAL", "g1", "kept.jpg");
     expect(moveGalleryAsset("a1", { libraryId: "EXT", folder: "" })).toMatchObject({ ok: false, status: 403 });
-    expect(moveGalleryAsset("a1", { libraryId: "INBOX2", folder: "" })).toMatchObject({ ok: false, status: 403 });
+    expect(moveGalleryAsset("g1", { libraryId: "INBOX", folder: "" })).toMatchObject({ ok: false, status: 403 });
     expect(moveGalleryAsset("a1", { libraryId: "GAL", folder: "../out" })).toMatchObject({ ok: false, status: 400 });
     expect(itemRow("a1").library_id).toBe("INBOX");
   });
@@ -232,9 +245,8 @@ describe("the review", () => {
   });
 
   it("refuses the whole request when the destination is wrong", () => {
-    makeGalleryLibrary("INBOX2", INBOX_POLICY);
     makePhoto("INBOX", "a1", "1.jpg");
-    expect(keepPhotoInboxItems(ADMIN, ["a1"], { libraryId: "INBOX2", folder: null, dated: false })).toMatchObject({ ok: false, status: 403 });
+    expect(keepPhotoInboxItems(ADMIN, ["a1"], { libraryId: "INBOX", folder: null, dated: false })).toMatchObject({ ok: false, status: 403 });
     expect(keepPhotoInboxItems(ADMIN, ["a1"], { libraryId: "missing", folder: null, dated: false })).toMatchObject({ ok: false, status: 404 });
     // A member who may add to the destination still may not take photos out of
     // an Inbox they only view: reviewing takes the delete right on the Inbox.

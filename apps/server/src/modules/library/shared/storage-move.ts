@@ -42,11 +42,13 @@ import type { JobRow as DbJobRow, LibraryRow, TrashedItemRow } from "../../../db
 
 export const STORAGE_MOVE_JOB_TYPE = "MOVE_STORAGE";
 
-export type StorageMoveKind = "trash" | "thumbnails" | "renders" | "maps" | "library" | "folder";
+export type StorageMoveKind = "trash" | "thumbnails" | "backups" | "metadata" | "renders" | "maps" | "library" | "folder";
 
-/** A folder move (gallery/folder-move.ts) belongs to no room: it carries one
- *  folder of a gallery library into another library. */
-export type StorageMoveRoom = AppRoom | "folder";
+/** What a move belongs to: a room of App storage, one of system data's folders
+ *  or the Recycle Bin (docs/system-data-plan.md), or "folder" for a folder move
+ *  (gallery/folder-move.ts), which carries one folder of a gallery library into
+ *  another library. */
+export type StorageMoveRoom = AppRoom | "trash" | "thumbnails" | "backups" | "metadata" | "folder";
 
 export interface StorageMoveFailure {
   /** The unit that failed: an entry name, or a bin item's id. */
@@ -168,6 +170,8 @@ function pendingUnits(data: StorageMovePayload): number {
     case "trash":
       return pendingTrashMoveRows().length + replacedUnits(data.from, getTrashRootSetting()).length;
     case "thumbnails":
+    case "backups":
+    case "metadata":
     case "renders":
     case "maps":
     case "library":
@@ -319,6 +323,9 @@ function listUnits(data: StorageMovePayload): string[] {
   switch (data.kind) {
     case "thumbnails":
       return names.filter((name) => !name.startsWith(".upload-"));
+    case "backups":
+    case "metadata":
+      return names;
     case "renders":
       return names.filter((name) => (RENDER_BUCKETS as readonly string[]).includes(name));
     case "maps":
@@ -616,7 +623,7 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
     return { moved, failed, cancelled, durationMs: Date.now() - started };
   }
 
-  // thumbnails, renders, maps: entries carried one by one into a folder that is
+  // thumbnails, backups, metadata, renders, maps: entries carried one by one into a folder that is
   // already the live one (the setting flipped first), merging into what a scan
   // may have written there since.
   const failedNames = new Set<string>();
@@ -636,7 +643,7 @@ async function runMove(jobId: string, data: StorageMovePayload): Promise<Storage
   }
   // The emptied Map data folder goes too: nothing else lives in it. (Renders
   // share their folder with the thumbnails, so theirs stays.)
-  if (!cancelled && failed.length === 0 && (data.kind === "thumbnails" || data.kind === "maps")) {
+  if (!cancelled && failed.length === 0 && (data.kind === "thumbnails" || data.kind === "backups" || data.kind === "metadata" || data.kind === "maps")) {
     try { fs.rmdirSync(from); } catch { /* someone else's folder, or not empty */ }
   }
   return { moved, failed, cancelled, durationMs: Date.now() - started };

@@ -12,16 +12,18 @@ import { SelectField } from "../../../shared/SelectField";
 import type { StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { FolderPickerModal } from "../libraries/FolderPickerModal";
+import { SystemDataPanel } from "./storage/SystemDataPanel";
 
-// The Storage page — docs/app-storage-plan.md, phase 1.
+// The Storage page — docs/system-data-plan.md (phase 2) over docs/app-storage-plan.md.
 //
-// App storage first: one folder the app may keep its own things in, and one row
-// per "room" saying where that room is right now and offering to change it. The
-// thumbnail folder and the Recycle Bin location, which used to be two blocks of
-// their own, are rows here. Every change goes chooser → confirmation → save, and
-// the confirmation names the exact folder and says what moves.
+// Containers, then System data (the folder the app needs: thumbnails, backups,
+// metadata), then App storage: one folder the app may keep its own things in, and
+// one row per "room" saying where that room is right now and offering to change
+// it. Every change goes chooser → confirmation → save, and the confirmation names
+// the exact folder and says what moves. The Recycle Bin's location lives on the
+// Recycle Bin page since 4.6.
 
-type AppRoom = "trash" | "inbox" | "house" | "thumbnails" | "renders" | "maps" | "backups";
+type AppRoom = "inbox" | "house" | "renders" | "maps";
 type RoomMode = "app" | "own" | "off";
 
 /** A room's storage move task: running, or what the last one could not carry. */
@@ -43,14 +45,11 @@ interface RoomView {
   appPath: string | null;
   holdsFiles: boolean;
   library: { id: string; name: string } | null;
-  counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
+  counts: { tracks?: number; clips?: number; waiting?: number };
   move: StorageMove;
   /** The App files row on an install whose folder is still "Made in the app":
    *  the folder it would be renamed to. Null everywhere else. */
   renameTo: string | null;
-  /** A room that cannot be left without a place — only Thumbnails, which every
-   *  library needs before it can be added. */
-  required: boolean;
   /** Why the room's folder cannot be used right now; "" when it is fine. */
   problem: string;
 }
@@ -75,7 +74,7 @@ interface PendingSwitch {
   libraryId: string | null;
 }
 
-const ROOM_ORDER: AppRoom[] = ["trash", "inbox", "house", "thumbnails", "renders", "maps", "backups"];
+const ROOM_ORDER: AppRoom[] = ["inbox", "house", "renders", "maps"];
 
 export function StorageSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
@@ -87,6 +86,7 @@ export function StorageSection() {
   const [savingStorageRoot, setSavingStorageRoot] = useState(false);
   const [deletingRootId, setDeletingRootId] = useState("");
   const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // The App storage folder: pick → confirm → save; or clear → confirm → save.
   const [appPickerOpen, setAppPickerOpen] = useState(false);
@@ -101,8 +101,6 @@ export function StorageSection() {
   const [chooserRoom, setChooserRoom] = useState<AppRoom | null>(null);
   const [chooserMode, setChooserMode] = useState<RoomMode>("app");
   const [chooserLibrary, setChooserLibrary] = useState("");
-  const [ownPickerRoom, setOwnPickerRoom] = useState<AppRoom | null>(null);
-  const [thumbsInput, setThumbsInput] = useState("");
   const [pending, setPending] = useState<PendingSwitch | null>(null);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
@@ -115,22 +113,16 @@ export function StorageSection() {
   const [moveBusy, setMoveBusy] = useState(false);
 
   const roomName: Record<AppRoom, string> = {
-    trash: t("controlAdmin:storage.roomTrash"),
     inbox: t("controlAdmin:storage.roomInbox"),
     house: t("controlAdmin:storage.roomHouse"),
-    thumbnails: t("controlAdmin:storage.roomThumbnails"),
     renders: t("controlAdmin:storage.roomRenders"),
-    maps: t("controlAdmin:storage.roomMaps"),
-    backups: t("controlAdmin:storage.roomBackups")
+    maps: t("controlAdmin:storage.roomMaps")
   };
   const roomHint: Record<AppRoom, string> = {
-    trash: t("controlAdmin:storage.roomTrashHint"),
     inbox: t("controlAdmin:storage.roomInboxHint"),
     house: t("controlAdmin:storage.roomHouseHint"),
-    thumbnails: t("controlAdmin:storage.roomThumbnailsHint"),
     renders: t("controlAdmin:storage.roomRendersHint"),
-    maps: t("controlAdmin:storage.roomMapsHint"),
-    backups: t("controlAdmin:storage.roomBackupsHint")
+    maps: t("controlAdmin:storage.roomMapsHint")
   };
 
   const loadStorage = async () => {
@@ -188,8 +180,8 @@ export function StorageSection() {
     setChooserRoom(room.room);
   };
 
-  /** Continue from the chooser: some choices need a folder first, some go to
-   *  another page, the rest go straight to the confirmation. */
+  /** Continue from the chooser: a library room's own option needs its library,
+   *  the rest go straight to the confirmation. */
   const continueFromChooser = () => {
     if (!chooserRoom) return;
     const room = chooserRoom;
@@ -198,15 +190,6 @@ export function StorageSection() {
     if (mode === "own" && (room === "inbox" || room === "house")) {
       if (!chooserLibrary) return;
       setPending({ room, mode, path: null, libraryId: chooserLibrary });
-      return;
-    }
-    if (mode === "own" && room === "trash") {
-      setOwnPickerRoom("trash");
-      return;
-    }
-    if (mode === "own" && room === "thumbnails") {
-      setThumbsInput(rooms.find((view) => view.room === "thumbnails")?.resolvedPath ?? "");
-      setOwnPickerRoom("thumbnails");
       return;
     }
     setPending({ room, mode, path: null, libraryId: null });
@@ -296,47 +279,30 @@ export function StorageSection() {
   // ── What a row says ───────────────────────────────────────────────────────
 
   const whereText = (room: RoomView): { path: string; from: string } => {
-    const s = (key: "fromApp" | "fromOwn" | "fromOwnLibrary" | "fromAppLibrary" | "fromThumbs" | "fromMapDataPath" | "fromBackupPath" | "fromDefaultTrash" | "roomOff" | "roomNotSet") =>
+    const s = (key: "fromApp" | "fromOwnLibrary" | "fromAppLibrary" | "fromThumbs" | "fromMapDataPath" | "roomOff") =>
       t(`controlAdmin:storage.${key}`);
     switch (room.room) {
-      case "trash":
-        return room.mode === "off"
-          ? { path: s("fromDefaultTrash"), from: "" }
-          : { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromOwn") };
       case "inbox":
       case "house":
         return room.mode === "off"
           ? { path: s("roomOff"), from: "" }
           : { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromAppLibrary") : s("fromOwnLibrary") };
-      case "thumbnails":
-        return room.mode === "off"
-          ? { path: s("roomNotSet"), from: "" }
-          : { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromOwn") };
       case "renders":
         return { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromThumbs") };
       case "maps":
         return { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromMapDataPath") };
-      case "backups":
-        return { path: room.resolvedPath ?? "", from: room.mode === "app" ? s("fromApp") : s("fromBackupPath") };
     }
   };
 
   const countText = (room: RoomView): string => {
-    if (room.room === "trash" && room.counts.itemsInBin !== undefined && room.counts.itemsInBin > 0) {
-      return t("controlAdmin:storage.itemsInBin", { count: room.counts.itemsInBin });
-    }
     if (room.room === "inbox" && room.library && room.counts.waiting !== undefined) {
       return t("controlAdmin:storage.waiting", { count: room.counts.waiting });
     }
     if (room.room === "renders" && room.counts.tracks !== undefined && room.counts.tracks > 0) {
       return t("controlAdmin:storage.tracks", { count: room.counts.tracks });
     }
-    if (room.room === "backups" && room.counts.backups !== undefined && room.counts.backups > 0) {
-      return t("controlAdmin:storage.backupsCount", { count: room.counts.backups });
-    }
     return "";
   };
-
 
   // ── What a room does when the folder changes ──────────────────────────────
 
@@ -345,21 +311,13 @@ export function StorageSection() {
   const carryCopy = (room: RoomView, carried: boolean): string => {
     const here = room.resolvedPath ?? "";
     switch (room.room) {
-      case "trash":
-        return carried
-          ? t("controlAdmin:storage.carryTrash", { count: room.counts.itemsInBin ?? 0 })
-          : t("controlAdmin:storage.stayFolder", { path: here });
       case "inbox":
       case "house":
         return carried ? t("controlAdmin:storage.carryLibrary") : t("controlAdmin:storage.stayLibrary", { path: here });
-      case "thumbnails":
-        return carried ? t("controlAdmin:storage.carryThumbnails") : t("controlAdmin:storage.stayFolder", { path: here });
       case "renders":
         return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayRenders");
       case "maps":
         return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayMaps");
-      case "backups":
-        return carried ? t("controlAdmin:storage.carryNow") : t("controlAdmin:storage.stayBackups");
     }
   };
 
@@ -371,16 +329,6 @@ export function StorageSection() {
     const name = view?.library?.name ?? "";
     const picked = storage?.libraries.find((library) => library.id === switchTo.libraryId)?.name ?? "";
     switch (switchTo.room) {
-      case "trash": {
-        const count = view?.counts.itemsInBin ?? 0;
-        return {
-          title: switchTo.mode === "off"
-            ? t("controlAdmin:storage.confirmTrashOffTitle")
-            : t(switchTo.mode === "app" ? "controlAdmin:storage.confirmTrashAppTitle" : "controlAdmin:storage.confirmTrashOwnTitle", { path: target }),
-          body: t("controlAdmin:storage.confirmTrashBody", { count }),
-          label: t("controlAdmin:storage.confirmTrashLabel")
-        };
-      }
       case "renders": {
         const count = (view?.counts.tracks ?? 0) + (view?.counts.clips ?? 0);
         return {
@@ -398,12 +346,6 @@ export function StorageSection() {
             : t("controlAdmin:storage.confirmMapsOwnTitle"),
           body: t("controlAdmin:storage.confirmMapsBody"),
           label: t("controlAdmin:storage.confirmMapsLabel")
-        };
-      case "thumbnails":
-        return {
-          title: t(switchTo.mode === "app" ? "controlAdmin:storage.confirmThumbsAppTitle" : "controlAdmin:storage.confirmThumbsOwnTitle", { path: target }),
-          body: t("controlAdmin:storage.confirmThumbsBody"),
-          label: t("controlAdmin:storage.confirmThumbsLabel")
         };
       case "inbox":
         if (switchTo.mode === "own") {
@@ -437,12 +379,6 @@ export function StorageSection() {
         return switchTo.mode === "app"
           ? { title: t("controlAdmin:storage.confirmHouseAppTitle", { path: target }), body: t("controlAdmin:storage.confirmHouseAppBody"), label: t("controlAdmin:storage.confirmHouseAppLabel") }
           : { title: t("controlAdmin:storage.confirmHouseOffTitle", { name }), body: t("controlAdmin:storage.confirmHouseOffBody"), label: t("controlAdmin:storage.confirmHouseOffLabel") };
-      case "backups":
-        return {
-          title: t(switchTo.mode === "app" ? "controlAdmin:storage.confirmBackupsAppTitle" : "controlAdmin:storage.confirmBackupsOwnTitle", { path: switchTo.mode === "app" ? target : view?.resolvedPath ?? "" }),
-          body: t("controlAdmin:storage.confirmBackupsBody"),
-          label: t("controlAdmin:storage.confirmBackupsLabel")
-        };
     }
   };
 
@@ -456,21 +392,15 @@ export function StorageSection() {
       disabled: !room.appPath
     };
     switch (room.room) {
-      case "trash":
-        return [appOption, { mode: "own", label: t("controlAdmin:storage.optionOwn"), hint: room.mode === "own" ? room.resolvedPath ?? "" : "" }, { mode: "off", label: t("controlAdmin:storage.optionOffTrash"), hint: "" }];
       case "inbox":
         return [appOption, { mode: "own", label: t("controlAdmin:storage.optionOwnLibrary"), hint: t("controlAdmin:storage.optionOwnLibraryHint") }, { mode: "off", label: t("controlAdmin:storage.optionOffInbox"), hint: "" }];
       case "house":
         return [appOption, { mode: "own", label: t("controlAdmin:storage.optionOwnLibrary"), hint: t("controlAdmin:storage.optionOwnLibraryHint") }, { mode: "off", label: t("controlAdmin:storage.optionOffHouse"), hint: "" }];
-      case "thumbnails":
-        return [appOption, { mode: "own", label: t("controlAdmin:storage.optionOwn"), hint: room.mode === "own" ? room.resolvedPath ?? "" : "" }];
       case "renders":
         return [appOption, { mode: "own", label: t("controlAdmin:storage.optionFollowThumbs"), hint: "" }];
       // No "off": whether maps are kept at all is chosen with maps, not here.
       case "maps":
         return [appOption, { mode: "own", label: t("controlAdmin:storage.optionMapDataPath"), hint: "" }];
-      case "backups":
-        return [appOption, { mode: "own", label: t("controlAdmin:storage.optionBackupPath"), hint: "" }];
     }
   };
 
@@ -489,6 +419,7 @@ export function StorageSection() {
           onRefresh={async () => {
             setError("");
             try {
+              setRefreshKey((key) => key + 1);
               await loadStorage();
             } catch (err) {
               setError(err instanceof Error ? err.message : t("controlAdmin:storage.refreshFailed"));
@@ -564,6 +495,8 @@ export function StorageSection() {
         )}
       </section>
 
+      <SystemDataPanel refreshKey={refreshKey} onChanged={() => { loadStorage().catch(() => { /* the page's Refresh reads it again */ }); }} />
+
       <section className="library-settings-panel storage-settings-panel app-storage-panel">
         <div>
           <h2>{t("controlAdmin:storage.appTitle")}</h2>
@@ -628,11 +561,6 @@ export function StorageSection() {
                         <div className="datagrid-muted app-storage-from">
                           {[where.from, count].filter(Boolean).join(" · ")}
                         </div>
-                        {room.required && room.mode === "off" && (
-                          <div className="app-storage-move needs-attention">
-                            <span>{t("controlAdmin:storage.roomRequired")}</span>
-                          </div>
-                        )}
                         {room.problem && (
                           <div className="app-storage-move needs-attention">
                             <span>{room.problem}</span>
@@ -808,46 +736,6 @@ export function StorageSection() {
                 || (chooserMode === "own" && (chooserView.room === "inbox" || chooserView.room === "house") && (!chooserLibrary || chooserLibrary === chooserView.library?.id))
               }
             >
-              {t("controlAdmin:storage.continue")}
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {ownPickerRoom === "trash" && (
-        <FolderPickerModal
-          title={t("controlAdmin:storage.pickOwnTitle")}
-          intro={t("controlAdmin:storage.pickOwnIntro")}
-          storageRoots={storageRoots}
-          confirmLabel={t("controlAdmin:storage.useThisFolder")}
-          onPick={({ absolutePath }) => {
-            setOwnPickerRoom(null);
-            setPending({ room: "trash", mode: "own", path: absolutePath, libraryId: null });
-          }}
-          onClose={() => setOwnPickerRoom(null)}
-          onError={setError}
-        />
-      )}
-
-      {ownPickerRoom === "thumbnails" && (
-        <Modal
-          title={t("controlAdmin:storage.pickOwnTitle")}
-          className="edit-thumbnail-modal"
-          onClose={() => setOwnPickerRoom(null)}
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!thumbsInput.trim()) return;
-            setOwnPickerRoom(null);
-            setPending({ room: "thumbnails", mode: "own", path: thumbsInput.trim(), libraryId: null });
-          }}
-        >
-          <p>{t("controlAdmin:storage.pickThumbsIntro")}</p>
-          <Field label={t("controlAdmin:storage.thumbPathLabel")} value={thumbsInput} onChange={setThumbsInput} />
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setOwnPickerRoom(null)} autoFocus>
-              {t("common.cancel")}
-            </Button>
-            <Button variant="primary" type="submit" disabled={!thumbsInput.trim()}>
               {t("controlAdmin:storage.continue")}
             </Button>
           </div>

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { config } from "../../../config.js";
+import { resolveMetadataPath } from "../../../core/system-data.js";
 import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 
 function metadataStorageKey(bookId: string) {
@@ -8,8 +8,9 @@ function metadataStorageKey(bookId: string) {
   return normaliseRelativePath(path.join(shard.slice(0, 2), shard.slice(2, 4), `${bookId}.json`));
 }
 
+// METADATA_PATH, else <system data>/metadata, else nowhere (core/system-data.ts).
 function metadataRoot() {
-  return config.metadataPath ? path.resolve(config.metadataPath) : null;
+  return resolveMetadataPath()?.path ?? null;
 }
 
 function metadataAbsolutePath(storageKey: string) {

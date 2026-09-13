@@ -3,8 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
-import { parsePolicy } from "../src/core/permissions.js";
-import { appRoomMode, appRoomPath, getAppStorageSetting, resolveAppLocation, setAppRoomMode } from "../src/core/app-storage.js";
+import { appRoomMode, appRoomPath, getAppStorageSetting, resolveAppLocation } from "../src/core/app-storage.js";
 import { appStorageView } from "../src/modules/library/app-storage-rooms.js";
 import {
   migrateRendersIntoAppStorage,
@@ -27,9 +26,8 @@ import {
 } from "../src/modules/library/shared/thumbnail.js";
 import { getTrashRootSetting } from "../src/modules/library/shared/trash-settings.js";
 import { trashBook } from "../src/modules/library/shared/trash.js";
-import { startTrashMove, waitForTrashMove } from "../src/modules/library/shared/trash-move.js";
-import { folderMoveStatus, waitForFolderMove } from "../src/modules/library/shared/folder-move.js";
-import { backupDir } from "../src/modules/backups/index.js";
+import { changeTrashRoot, startTrashMove, waitForTrashMove } from "../src/modules/library/shared/trash-move.js";
+import { setTrashRootSetting } from "../src/modules/library/shared/trash-settings.js";
 import { mapDataDir } from "../src/modules/maps/storage.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
@@ -37,7 +35,9 @@ import "./helpers/media-types.js";
 
 // App storage (docs/app-storage-plan.md, phase 1): one folder with fixed rooms,
 // every room optional, each switched from its own row, nothing moved without
-// being asked — and the two moves that ARE made (the bin, the render buckets).
+// being asked. Since 4.6 the rooms are the Photo Inbox, App files, Renders and Map
+// data; the bin, thumbnails and backups are tested in system-data.test.ts, and the
+// bin's move (below) is driven by its own location setting.
 
 let base = "";
 let appDir = "";
@@ -90,16 +90,13 @@ describe("the setting and the resolver", () => {
   it("is unset by default, and nothing resolves into it", () => {
     expect(getAppStorageSetting()).toEqual({ path: null, rooms: {} });
     setThumbs(thumbs);
-    expect(resolveAppLocation("thumbnails", thumbs)).toBe(thumbs);
-    expect(resolveAppLocation("trash", null)).toBeNull();
-    expect(resolveAppLocation("renders", null)).toBeNull();
-    expect(resolveAppLocation("maps", null)).toBeNull();
-    expect(resolveAppLocation("backups", "/b")).toBe("/b");
+    expect(resolveAppLocation("renders")).toBeNull();
+    expect(resolveAppLocation("maps")).toBeNull();
     const view = appStorageView();
     expect(view.path).toBeNull();
     expect(view.lockedBy).toEqual([]);
     expect(view.rooms.map((room) => `${room.room}:${room.mode}`)).toEqual([
-      "trash:off", "inbox:off", "house:off", "thumbnails:own", "renders:own", "maps:own", "backups:own"
+      "inbox:off", "house:off", "renders:own", "maps:own"
     ]);
   });
 
@@ -117,28 +114,22 @@ describe("the setting and the resolver", () => {
     expect(view.path).toBe(appDir);
     expect(view.ready).toBe(true);
     const rooms = Object.fromEntries(view.rooms.map((room) => [room.room, room]));
-    // Thumbnails keep their own folder; renders, never given a place, take App
-    // storage the moment there is one (3.88.0); the bin stays per-library because
-    // a library already exists (decision 9 flips the default on fresh installs only).
-    expect(rooms.thumbnails.mode).toBe("own");
-    expect(rooms.thumbnails.resolvedPath).toBe(thumbs);
+    // Renders, never given a place, take App storage the moment there is one
+    // (3.88.0); thumbnails are not a room and stay where they are.
+    expect(configuredThumbnailPathValue()).toBe(thumbs);
     expect(rooms.renders.mode).toBe("app");
     expect(rooms.renders.resolvedPath).toBe(path.join(appDir, "Renders"));
     // Map data follows the same rule, and nothing has been kept yet to lock it.
     expect(rooms.maps.mode).toBe("app");
     expect(rooms.maps.resolvedPath).toBe(path.join(appDir, "Map data"));
     expect(mapDataDir()).toBe(path.join(appDir, "Map data"));
-    expect(rooms.trash.mode).toBe("off");
-    expect(rooms.trash.appPath).toBe(path.join(appDir, "Recycle Bin"));
     expect(view.lockedBy).toEqual([]);
   });
 
-  it("thumbnails default to App storage when nothing of their own was ever set", () => {
+  it("never takes the thumbnails: they stay in their folder while the render buckets take their room", () => {
+    setThumbs(thumbs);
     setAppStoragePath(appDir, "u1");
-    expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
-    expect(appStorageView().rooms.find((room) => room.room === "thumbnails")!.mode).toBe("app");
-    // A key resolves under it, and the render buckets take their own room.
-    expect(thumbnailAbsolutePath("LIB/ab/cd/x.webp")).toBe(path.join(appDir, "Thumbnails", "LIB", "ab", "cd", "x.webp"));
+    expect(thumbnailAbsolutePath("LIB/ab/cd/x.webp")).toBe(path.join(thumbs, "LIB", "ab", "cd", "x.webp"));
     expect(getRendersRoot()).toBe(path.join(appDir, "Renders"));
   });
 
@@ -201,7 +192,7 @@ describe("the setting and the resolver", () => {
     expect(setHouseLibrary("RANDOM", "u1").ok).toBe(true);
     renameRoomFolder("house", "u1");
     expect((db.prepare("SELECT name FROM libraries WHERE id = 'RANDOM'").get() as { name: string }).name).toBe("Random");
-    expect(() => renameRoomFolder("trash", "u1")).toThrowError(AppStorageError);
+    expect(() => renameRoomFolder("renders", "u1")).toThrowError(AppStorageError);
   });
 
   it("on the first start after the update, an untouched Renders row carries its buckets from the thumbnail folder into App storage", async () => {
@@ -228,13 +219,6 @@ describe("the setting and the resolver", () => {
     expect(getRendersRoot()).toBe(thumbs);
     fs.writeFileSync(path.join(thumbs, "music", "ab", "song.mp3"), "MP3");
     expect(migrateRendersIntoAppStorage()).toBeNull();
-  });
-
-  it("a fresh install with no library gets the Recycle Bin room switched on", () => {
-    db.prepare("DELETE FROM libraries").run();
-    setAppStoragePath(appDir, "u1");
-    expect(appRoomMode("trash")).toBe("app");
-    expect(getTrashRootSetting()).toBe(path.join(appDir, "Recycle Bin"));
   });
 });
 
@@ -370,69 +354,21 @@ describe("switching rooms", () => {
     }
   });
 
-  it("switching thumbnails to App storage carries the whole store across in the background, merging what a scan wrote meanwhile", async () => {
-    fs.mkdirSync(path.join(thumbs, "narration"), { recursive: true });
-    fs.writeFileSync(path.join(thumbs, "narration", "clip.m4a"), "AAC");
-    fs.mkdirSync(path.join(thumbs, "LIB", "ab"), { recursive: true });
-    fs.writeFileSync(path.join(thumbs, "LIB", "ab", "old.webp"), "OLD");
-    // Something a scan wrote into the new folder before the mover reached this bucket.
-    fs.mkdirSync(path.join(appDir, "Thumbnails", "LIB", "ab"), { recursive: true });
-    fs.writeFileSync(path.join(appDir, "Thumbnails", "LIB", "ab", "new.webp"), "NEW");
-
-    switchRoom("thumbnails", "app", null, "u1");
-    expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
-    const status = await waitForFolderMove();
-    expect(status.failed).toEqual([]);
-    expect(status.pending).toBe(0);
-    expect(fs.existsSync(path.join(appDir, "Thumbnails", "narration", "clip.m4a"))).toBe(true);
-    expect(fs.existsSync(path.join(appDir, "Thumbnails", "LIB", "ab", "old.webp"))).toBe(true);
-    expect(fs.existsSync(path.join(appDir, "Thumbnails", "LIB", "ab", "new.webp"))).toBe(true);
-    expect(fs.existsSync(path.join(thumbs, "narration"))).toBe(false);
-    expect(fs.existsSync(path.join(thumbs, "LIB"))).toBe(false);
-
-    // Back to its own folder: the own setting is rewritten, everything returns.
-    fs.mkdirSync(thumbs, { recursive: true });
-    switchRoom("thumbnails", "own", thumbs, "u1");
-    expect(configuredThumbnailPathValue()).toBe(thumbs);
-    await waitForFolderMove();
-    expect(fs.existsSync(path.join(thumbs, "narration", "clip.m4a"))).toBe(true);
-    expect(fs.existsSync(path.join(thumbs, "LIB", "ab", "new.webp"))).toBe(true);
-  });
-
-  it("refuses a second thumbnail change while the move runs", async () => {
-    fs.mkdirSync(path.join(thumbs, "LIB"), { recursive: true });
-    fs.writeFileSync(path.join(thumbs, "LIB", "a.webp"), "A");
-    switchRoom("thumbnails", "app", null, "u1");
-    if (folderMoveStatus().running) {
-      expect(() => switchRoom("thumbnails", "own", thumbs, "u1")).toThrowError(/being moved/);
-    }
-    await waitForFolderMove();
-  });
-
-  it("backups switch without moving anything", () => {
-    const before = backupDir();
-    switchRoom("backups", "app", null, "u1");
-    expect(backupDir()).toBe(path.join(appDir, "Backups"));
-    expect(fs.existsSync(path.join(appDir, "Backups"))).toBe(true);
-    switchRoom("backups", "own", null, "u1");
-    expect(backupDir()).toBe(before);
-  });
-
   it("makes the Photo Inbox library on request, and turns it back into an ordinary library only when empty", () => {
     const room = switchRoom("inbox", "app", null, "u1");
     expect(room.mode).toBe("app");
     expect(room.library?.name).toBe("Photo Inbox");
-    const lib = db.prepare("SELECT id, source_path, policy_json FROM libraries WHERE type = 'gallery'").get() as { id: string; source_path: string; policy_json: string };
+    const lib = db.prepare("SELECT id, source_path, role FROM libraries WHERE type = 'gallery'").get() as { id: string; source_path: string; role: string | null };
     expect(lib.source_path).toBe(path.join(appDir, "Photo Inbox"));
-    expect(parsePolicy(lib.policy_json).inbox).toBe(true);
+    expect(lib.role).toBe("inbox");
     expect(appStorageView().lockedBy).toEqual(["inbox"]);
 
     db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES ('p1', ?, 'gallery', 'scan/a.jpg', 'ready')").run(lib.id);
     expect(() => switchRoom("inbox", "off", null, "u1")).toThrowError(/still waiting/);
     db.prepare("DELETE FROM library_items WHERE id = 'p1'").run();
     expect(switchRoom("inbox", "off", null, "u1").mode).toBe("off");
-    const after = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(lib.id) as { policy_json: string };
-    expect(parsePolicy(after.policy_json).inbox).not.toBe(true);
+    const after = db.prepare("SELECT role FROM libraries WHERE id = ?").get(lib.id) as { role: string | null };
+    expect(after.role).toBeNull();
     // Switching on again reuses the library rather than making a second one.
     switchRoom("inbox", "app", null, "u1");
     expect((db.prepare("SELECT COUNT(*) AS n FROM libraries WHERE type = 'gallery'").get() as { n: number }).n).toBe(1);
@@ -444,7 +380,7 @@ describe("switching rooms", () => {
     fs.mkdirSync(path.join(ownDir, "2026"), { recursive: true });
     fs.writeFileSync(path.join(ownDir, "2026", "a.jpg"), "JPG");
     makeLibrary("SCANS", { createdBy: "u1", type: "gallery", name: "Scans" });
-    db.prepare("UPDATE libraries SET name = 'Scans', source_path = ?, policy_json = ? WHERE id = 'SCANS'").run(ownDir, JSON.stringify({ inbox: true }));
+    db.prepare("UPDATE libraries SET name = 'Scans', source_path = ?, role = 'inbox' WHERE id = 'SCANS'").run(ownDir);
     db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES ('p1', 'SCANS', 'gallery', '2026/a.jpg', 'ready')").run();
     expect(appStorageView().rooms.find((room) => room.room === "inbox")!.mode).toBe("own");
 
@@ -518,7 +454,7 @@ describe("switching rooms", () => {
     }
   });
 
-  it("a library inside App storage is left out of BROWSING like an Inbox, but stays reachable for what names its photos by id", async () => {
+  it("App files is left out of BROWSING wherever it lives, but stays reachable for what names its photos by id", async () => {
     const admin = { id: "u1", role: "admin" };
     // An ordinary gallery library of the admin's own, outside App storage.
     const ownDir = path.join(base, "Family");
@@ -526,23 +462,26 @@ describe("switching rooms", () => {
     makeLibrary("FAM", { createdBy: "u1", type: "gallery" });
     db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'FAM'").run(ownDir);
     grant("group", EVERYONE_GROUP_ID, "FAM", "member");
+    expect(resolveGalleryBrowseLibraryIds(admin)).toEqual(["FAM"]);
+    // Nominated, it is a system library: out of BROWSING before it ever moves
+    // (4.6 — it used to take the move into App storage), still there when named,
+    // and REACHABLE, so a story block, an album or the viewer that names one of
+    // its photos by id keeps showing it.
     expect(setHouseLibrary("FAM", "u1").ok).toBe(true);
+    expect(resolveGalleryBrowseLibraryIds(admin)).toEqual([]);
+    expect(resolveGalleryBrowseLibraryIds(admin, ["FAM"])).toEqual(["FAM"]);
     expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
-    // An Inbox made in its room: flagged AND inside App storage, left out either way.
+    // An Inbox made in its room is out of both scopes unless named.
     switchRoom("inbox", "app", null, "u1");
     await settleScans();
     const inbox = appStorageView().rooms.find((room) => room.room === "inbox")!.library!.id;
     expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
-    expect(resolveGalleryBrowseLibraryIds(admin)).toEqual(["FAM"]);
     expect(resolveGalleryScopeLibraryIds(admin, [inbox])).toEqual([inbox]);
-    // The own library moved into App storage leaves BROWSING, and is still
-    // there when named — but stays REACHABLE, so a story block, an album or the
-    // viewer that names one of its photos by id keeps showing it.
+    // Moving App files into App storage changes neither answer.
     switchRoom("house", "app", null, "u1");
     await waitForStorageMoves();
     expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "App files"));
     expect(resolveGalleryBrowseLibraryIds(admin)).toEqual([]);
-    expect(resolveGalleryBrowseLibraryIds(admin, ["FAM"])).toEqual(["FAM"]);
     expect(resolveGalleryScopeLibraryIds(admin)).toEqual(["FAM"]);
   });
 
@@ -569,8 +508,8 @@ describe("switching rooms", () => {
     // The house library cannot double as the Inbox.
     expect(() => switchRoom("inbox", "own", "mine", "u1")).toThrowError(/App files library/);
     expect(switchRoom("inbox", "own", "scans", "u1")).toMatchObject({ mode: "own", library: { id: "scans" } });
-    const policy = db.prepare("SELECT policy_json FROM libraries WHERE id = 'scans'").get() as { policy_json: string };
-    expect(parsePolicy(policy.policy_json).inbox).toBe(true);
+    const policy = db.prepare("SELECT role FROM libraries WHERE id = 'scans'").get() as { role: string | null };
+    expect(policy.role).toBe("inbox");
     expect(appStorageView().libraries.map((library) => `${library.id}:${library.inbox}`).sort()).toEqual(["mine:false", "scans:true"]);
   });
 
@@ -588,7 +527,7 @@ describe("changing the folder while rooms use it", () => {
 
   const modeOf = (room: string) => appStorageView().rooms.find((view) => view.room === room)!;
 
-  it("carries every room along: libraries move with their source path, render buckets and backups move now, the bin and thumbnails follow in the background", async () => {
+  it("carries every room along: libraries move with their source path, render buckets and map data follow as tasks", async () => {
     switchRoom("house", "app", null, "u1");
     switchRoom("inbox", "app", null, "u1");
     await settleScans();
@@ -597,24 +536,14 @@ describe("changing the folder while rooms use it", () => {
     switchRoom("renders", "app", null, "u1");
     fs.mkdirSync(path.join(appDir, "Renders", "music", "ab"), { recursive: true });
     fs.writeFileSync(path.join(appDir, "Renders", "music", "ab", "song.mp3"), "MP3");
-    switchRoom("backups", "app", null, "u1");
-    fs.writeFileSync(path.join(appDir, "Backups", "b1.zip"), "ZIP");
     fs.mkdirSync(path.join(appDir, "Map data", "Tiles", "vector"), { recursive: true });
     fs.writeFileSync(path.join(appDir, "Map data", "Tiles", "vector", "t.pbf.gz"), "TILE");
-    switchRoom("thumbnails", "app", null, "u1");
-    await waitForFolderMove();
-    fs.mkdirSync(path.join(appDir, "Thumbnails", "LIB"), { recursive: true });
-    fs.writeFileSync(path.join(appDir, "Thumbnails", "LIB", "cover.webp"), "WEBP");
-    switchRoom("trash", "app", null, "u1");
-    trashBook(makeBook("bk1"), "u1");
-    await waitForTrashMove();
     const houseId = getHouseLibrary()!.id;
-    expect(appStorageView().lockedBy.sort()).toEqual(["backups", "house", "inbox", "maps", "renders", "thumbnails", "trash"]);
+    expect(appStorageView().lockedBy.sort()).toEqual(["house", "inbox", "maps", "renders"]);
 
     const view = setAppStoragePath(other, "u1");
     expect(view.path).toBe(other);
-    await waitForFolderMove();
-    await waitForTrashMove();
+    await waitForStorageMoves();
 
     // The libraries: folder moved, source path follows, still nominated / still the Inbox.
     expect(getHouseLibrary()!.source_path).toBe(path.join(other, "App files"));
@@ -624,62 +553,31 @@ describe("changing the folder while rooms use it", () => {
     expect(modeOf("house").library!.id).toBe(houseId);
     expect(modeOf("inbox").mode).toBe("app");
     expect(fs.existsSync(path.join(other, "Photo Inbox", "new.jpg"))).toBe(true);
-    // Renders, backups: moved now.
+    // Renders and map data: carried as tasks, and read from the new folder.
     expect(fs.existsSync(path.join(other, "Renders", "music", "ab", "song.mp3"))).toBe(true);
     expect(getRendersRoot()).toBe(path.join(other, "Renders"));
-    expect(fs.existsSync(path.join(other, "Backups", "b1.zip"))).toBe(true);
-    expect(backupDir()).toBe(path.join(other, "Backups"));
-    expect(fs.existsSync(path.join(appDir, "Backups", "b1.zip"))).toBe(false);
-    // Map data: carried as a task, and the cache now reads from the new folder.
-    await waitForStorageMoves();
     expect(fs.existsSync(path.join(other, "Map data", "Tiles", "vector", "t.pbf.gz"))).toBe(true);
     expect(mapDataDir()).toBe(path.join(other, "Map data"));
-    // Thumbnails and the bin: carried by their background moves.
-    expect(configuredThumbnailPathValue()).toBe(path.join(other, "Thumbnails"));
-    expect(fs.existsSync(path.join(other, "Thumbnails", "LIB", "cover.webp"))).toBe(true);
-    expect(getTrashRootSetting()).toBe(path.join(other, "Recycle Bin"));
-    expect(binRows().every((row) => row.trash_root === path.join(other, "Recycle Bin"))).toBe(true);
-    expect(pendingTrashMoveRows()).toEqual([]);
-    expect(modeOf("trash").mode).toBe("app");
+    // Thumbnails are not App storage's: they stayed.
+    expect(configuredThumbnailPathValue()).toBe(thumbs);
   });
 
-  it("a room told to stay leaves App storage: the bin and thumbnails keep their old folder as their own, a library stays as the room's own library, renders and backups go back to their default place", async () => {
+  it("a room told to stay leaves App storage: a library stays as the room's own library, renders go back into the thumbnail folder", async () => {
     switchRoom("house", "app", null, "u1");
     await settleScans();
     switchRoom("renders", "app", null, "u1");
     fs.mkdirSync(path.join(appDir, "Renders", "music"), { recursive: true });
     fs.writeFileSync(path.join(appDir, "Renders", "music", "song.mp3"), "MP3");
-    switchRoom("backups", "app", null, "u1");
-    fs.writeFileSync(path.join(appDir, "Backups", "b1.zip"), "ZIP");
-    switchRoom("thumbnails", "app", null, "u1");
-    await waitForFolderMove();
-    switchRoom("trash", "app", null, "u1");
-    trashBook(makeBook("bk1"), "u1");
-    await waitForTrashMove();
 
-    setAppStoragePath(other, "u1", { house: false, renders: false, backups: false, thumbnails: false, trash: false });
+    setAppStoragePath(other, "u1", { house: false, renders: false });
     // Only the renders leave as a task (into the thumbnail folder); nothing else moves.
-    expect(storageMoveStatus("thumbnails").running).toBe(false);
-    expect(storageMoveStatus("trash").running).toBe(false);
     await waitForStorageMoves();
-    expect(folderMoveStatus().running).toBe(false);
-    expect(pendingTrashMoveRows()).toEqual([]);
 
     expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "App files"));
     expect(modeOf("house").mode).toBe("own");
-    expect(modeOf("thumbnails").mode).toBe("own");
-    expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
-    expect(modeOf("trash").mode).toBe("own");
-    expect(getTrashRootSetting()).toBe(path.join(appDir, "Recycle Bin"));
-    expect(binRows().every((row) => row.trash_root === path.join(appDir, "Recycle Bin"))).toBe(true);
-    // Renders went back inside the (old, now own) thumbnail folder; backups to the backup folder.
     expect(modeOf("renders").mode).toBe("own");
-    expect(fs.existsSync(path.join(appDir, "Thumbnails", "music", "song.mp3"))).toBe(true);
+    expect(fs.existsSync(path.join(thumbs, "music", "song.mp3"))).toBe(true);
     expect(fs.existsSync(path.join(appDir, "Renders", "music"))).toBe(false);
-    expect(modeOf("backups").mode).toBe("own");
-    expect(fs.existsSync(path.join(backupDir(), "b1.zip"))).toBe(true);
-    expect(backupDir()).not.toBe(path.join(appDir, "Backups"));
-    fs.rmSync(path.join(backupDir(), "b1.zip"));
   });
 
   it("map data told to stay goes back to its own folder; with nothing kept, a folder change queues no move for it", async () => {
@@ -710,11 +608,9 @@ describe("changing the folder while rooms use it", () => {
   it("clearing the folder leaves every room where it is", async () => {
     switchRoom("house", "app", null, "u1");
     await settleScans();
-    switchRoom("thumbnails", "app", null, "u1");
     const view = setAppStoragePath(null, "u1");
     expect(view.path).toBeNull();
     expect(getHouseLibrary()!.source_path).toBe(path.join(appDir, "App files"));
-    expect(configuredThumbnailPathValue()).toBe(path.join(appDir, "Thumbnails"));
     expect(getAppStorageSetting().rooms).toEqual({});
     // Choosing the old folder again is allowed: the libraries in it are its own rooms'.
     expect(setAppStoragePath(appDir, "u1").path).toBe(appDir);
@@ -746,9 +642,12 @@ describe("changing the folder while rooms use it", () => {
 });
 
 describe("the bin move", () => {
+  // One folder for every library, inside the test container and outside every library.
+  let bin = "";
   beforeEach(() => {
     setThumbs(thumbs);
-    setAppStoragePath(appDir, "u1");
+    bin = path.join(base, "Recycle Bin");
+    fs.mkdirSync(bin);
   });
 
   it("carries every item to the new location, row by row, and back again", async () => {
@@ -763,8 +662,7 @@ describe("the bin move", () => {
     fs.mkdirSync(keptOld, { recursive: true });
     fs.writeFileSync(path.join(keptOld, "2026-09-03T21-32-59-482Z-old.jpg"), "OLDJPG");
 
-    switchRoom("trash", "app", null, "u1");
-    const bin = path.join(appDir, "Recycle Bin");
+    changeTrashRoot(bin, "u1");
     expect(getTrashRootSetting()).toBe(bin);
     const status = await waitForTrashMove();
     expect(status.failed).toEqual([]);
@@ -780,10 +678,9 @@ describe("the bin move", () => {
     expect(fs.existsSync(path.join(bin, "LIB", path.posix.basename(binRows()[0].trash_path), "bk1", "part1.mp3"))).toBe(true);
     // The emptied per-library .trash is pruned.
     expect(fs.existsSync(path.join(libSource, ".trash"))).toBe(false);
-    expect(appStorageView().lockedBy).toEqual(["trash"]);
 
-    // Off: back to each library's own .trash, and the files follow.
-    switchRoom("trash", "off", null, "u1");
+    // Back to each library's own .trash, and the files follow.
+    changeTrashRoot(null, "u1");
     await waitForTrashMove();
     expect(binRows().every((row) => row.trash_root === null && row.trash_path.startsWith(".trash/"))).toBe(true);
     expect(fs.existsSync(path.join(libSource, ".trash"))).toBe(true);
@@ -792,14 +689,13 @@ describe("the bin move", () => {
     // bin holds nothing of it any more.
     expect(fs.readFileSync(path.join(keptOld, "2026-09-03T21-32-59-482Z-old.jpg"), "utf8")).toBe("OLDJPG");
     expect(fs.existsSync(path.join(bin, "replaced"))).toBe(false);
-    expect(appStorageView().lockedBy).toEqual([]);
   });
 
   it("lists a row whose files are missing as failed and leaves it where it was", async () => {
     trashBook(makeBook("bk1"), "u1");
     const row = binRows()[0];
     fs.rmSync(path.join(libSource, row.trash_path), { recursive: true, force: true });
-    switchRoom("trash", "app", null, "u1");
+    changeTrashRoot(bin, "u1");
     const status = await waitForTrashMove();
     expect(status.failed).toHaveLength(1);
     expect(status.failed[0].id).toBe(row.id);
@@ -809,8 +705,8 @@ describe("the bin move", () => {
 
   it("restore keeps working during a move, from the row's own location", async () => {
     trashBook(makeBook("bk1"), "u1");
-    setAppRoomMode("trash", "app", "u1");
-    // Nothing moved yet; the setting says App storage, the row says the library's .trash.
+    setTrashRootSetting(bin, "u1");
+    // Nothing moved yet; the setting says the shared folder, the row says the library's .trash.
     expect(pendingTrashMoveRows()).toHaveLength(1);
     const { restoreTrashedItem } = await import("../src/modules/library/shared/trash.js");
     await restoreTrashedItem(binRows()[0].id);

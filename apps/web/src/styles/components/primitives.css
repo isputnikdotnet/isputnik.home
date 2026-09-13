@@ -237,6 +237,12 @@
   outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
 
+/* Shown, not editable (Field's `disabled`): a system library's name. */
+.field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .field textarea {
   resize: vertical;
   min-height: 110px;

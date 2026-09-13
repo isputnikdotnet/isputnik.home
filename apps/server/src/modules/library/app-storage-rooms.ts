@@ -1,11 +1,8 @@
-import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../db.js";
-import { parsePolicy } from "../../core/permissions.js";
 import {
   APP_ROOMS,
   APP_ROOM_FOLDERS,
-  appRoomMode,
   appRoomPath,
   getAppStorageSetting,
   LEGACY_ROOM_FOLDERS,
@@ -14,10 +11,8 @@ import {
   type AppRoomMode
 } from "../../core/app-storage.js";
 import { configuredThumbnailPathValue, RENDER_BUCKETS } from "./shared/thumbnail.js";
-import { getTrashRootSetting } from "./shared/trash-settings.js";
 import { storageMoveStatus, type StorageMoveStatus } from "./shared/storage-move.js";
 import { getHouseLibrary } from "./gallery/house-library.js";
-import { backupDir } from "../backups/index.js";
 import { MAP_DATA_FOLDERS, mapDataDir } from "../maps/storage.js";
 import { dirHasEntries, galleryLibraries, inboxLibraries, itemCount, samePath, validateAppStoragePath } from "./app-storage.js";
 
@@ -34,19 +29,17 @@ export interface RoomView {
   holdsFiles: boolean;
   /** The library behind a library room (Inbox, App files). */
   library: { id: string; name: string } | null;
-  /** What a switch would carry: bin items, uploaded tracks, waiting photos. */
-  counts: { itemsInBin?: number; tracks?: number; clips?: number; waiting?: number; backups?: number };
+  /** What a switch would carry: uploaded tracks, waiting photos. */
+  counts: { tracks?: number; clips?: number; waiting?: number };
   /** The room's storage move: running, or the last one's failures (storage-move.ts). */
   move: StorageMoveStatus;
   /** Set when the room's folder still goes by a former name (App files was
    *  "Made in the app" until 3.86.0): the folder it would be renamed to. */
   renameTo: string | null;
-  /** True for a room that cannot be left without a place. Only Thumbnails: no
-   *  library can be added until they have a folder (thumbnail.ts raises
-   *  "Configure thumbnail storage before creating a library"). */
+  /** Kept for the page's shape: no room of App storage is required since
+   *  thumbnails moved to system data (docs/system-data-plan.md). */
   required: boolean;
-  /** Why the room's folder cannot be used right now, "" when it is fine. The
-   *  row says so rather than leaving it to fail at the next scan. */
+  /** Why the room's folder cannot be used right now, "" when it is fine. */
   problem: string;
 }
 
@@ -59,26 +52,6 @@ export interface AppStorageView {
   rooms: RoomView[];
   /** The gallery libraries the library rooms' "own" option can pick from. */
   libraries: { id: string; name: string; inbox: boolean }[];
-}
-
-function trashRoom(): RoomView {
-  const appPath = appRoomPath("trash");
-  const resolved = getTrashRootSetting();
-  const usesApp = appRoomMode("trash") === "app" && appPath !== null;
-  const itemsInBin = (db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n;
-  return {
-    room: "trash",
-    mode: usesApp ? "app" : resolved ? "own" : "off",
-    resolvedPath: resolved,
-    appPath,
-    holdsFiles: usesApp && (itemsInBin > 0 || dirHasEntries(resolved)),
-    library: null,
-    counts: { itemsInBin },
-    move: storageMoveStatus("trash"),
-    renameTo: null,
-    required: false,
-    problem: ""
-  };
 }
 
 function inboxRoom(): RoomView {
@@ -124,55 +97,11 @@ export function houseRoom(): RoomView {
   };
 }
 
-/** Why the thumbnail folder cannot be used, said in a sentence rather than as an
- *  fs error code — the row is read by whoever set the path, not by a developer.
- *  A folder that is merely missing is not a problem: like every other room's, it
- *  is made on demand, and this says so only when it cannot be made. */
-function thumbnailProblem(folder: string): string {
-  if (!path.isAbsolute(folder)) return "Use an absolute server path for the thumbnail folder.";
-  try {
-    if (!fs.statSync(folder).isDirectory()) return "That path is a file, not a folder.";
-    fs.accessSync(folder, fs.constants.R_OK | fs.constants.W_OK);
-    return "";
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT") return "The app cannot read and write in that folder.";
-    try {
-      fs.mkdirSync(folder, { recursive: true });
-      return "";
-    } catch {
-      return "That folder does not exist and cannot be created.";
-    }
-  }
-}
-
-function thumbnailsRoom(): RoomView {
-  const appPath = appRoomPath("thumbnails");
-  const resolved = configuredThumbnailPathValue() || null;
-  const usesApp = resolved !== null && samePath(resolved, appPath);
-  // The one room whose folder is checked while the page is read: an unwritable
-  // thumbnail folder is otherwise only met by the next scan, as a failed render.
-  const problem = resolved ? thumbnailProblem(resolved) : "";
-  return {
-    room: "thumbnails",
-    mode: usesApp ? "app" : resolved ? "own" : "off",
-    resolvedPath: resolved,
-    appPath,
-    holdsFiles: usesApp && dirHasEntries(resolved),
-    library: null,
-    counts: {},
-    move: storageMoveStatus("thumbnails"),
-    renameTo: null,
-    required: true,
-    problem
-  };
-}
-
 function rendersRoom(): RoomView {
   const appPath = appRoomPath("renders");
   // Untouched, the room takes App storage once there is one (the resolver's
   // rule); "own" is the explicit choice to stay inside the thumbnail folder.
-  const usesApp = appPath !== null && resolveAppLocation("renders", null) !== null;
+  const usesApp = appPath !== null && resolveAppLocation("renders") !== null;
   let resolved: string | null = null;
   try {
     resolved = usesApp ? appPath : (configuredThumbnailPathValue() || null);
@@ -204,7 +133,7 @@ function rendersRoom(): RoomView {
 // on every page load, and the Contents page already weighs every room.
 function mapsRoom(): RoomView {
   const appPath = appRoomPath("maps");
-  const usesApp = appPath !== null && resolveAppLocation("maps", null) !== null;
+  const usesApp = appPath !== null && resolveAppLocation("maps") !== null;
   const resolved = mapDataDir();
   return {
     room: "maps",
@@ -221,40 +150,12 @@ function mapsRoom(): RoomView {
   };
 }
 
-function backupsRoom(): RoomView {
-  const appPath = appRoomPath("backups");
-  const usesApp = appRoomMode("backups") === "app" && appPath !== null;
-  const resolved = backupDir();
-  let backups = 0;
-  try {
-    backups = fs.readdirSync(resolved).filter((name) => name.endsWith(".zip") || name.endsWith(".sqlite")).length;
-  } catch {
-    backups = 0;
-  }
-  return {
-    room: "backups",
-    mode: usesApp ? "app" : "own",
-    resolvedPath: resolved,
-    appPath,
-    holdsFiles: usesApp && backups > 0,
-    library: null,
-    counts: { backups },
-    move: storageMoveStatus("backups"),
-    renameTo: null,
-    required: false,
-    problem: ""
-  };
-}
-
 export function roomView(room: AppRoom): RoomView {
   switch (room) {
-    case "trash": return trashRoom();
     case "inbox": return inboxRoom();
     case "house": return houseRoom();
-    case "thumbnails": return thumbnailsRoom();
     case "renders": return rendersRoom();
     case "maps": return mapsRoom();
-    case "backups": return backupsRoom();
   }
 }
 
@@ -278,6 +179,6 @@ export function appStorageView(): AppStorageView {
     lockedBy: rooms.filter((room) => room.holdsFiles).map((room) => room.room),
     folders: APP_ROOM_FOLDERS,
     rooms,
-    libraries: galleryLibraries().map((row) => ({ id: row.id, name: row.name, inbox: parsePolicy(row.policy_json).inbox === true }))
+    libraries: galleryLibraries().map((row) => ({ id: row.id, name: row.name, inbox: row.role === "inbox" }))
   };
 }

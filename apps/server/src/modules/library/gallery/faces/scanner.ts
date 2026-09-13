@@ -20,7 +20,7 @@ import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { cropFaceFromRaw, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
-import { isPhotoInboxLibrary } from "../inbox-flag.js";
+import { isPhotoInboxLibrary } from "../system-libraries.js";
 import { removeFaceCropFiles, sweepOrphanFaceCrops } from "./crop-files.js";
 import {
   faceJobType, enqueueFaceScanBatches, recordFaceScanFailure,

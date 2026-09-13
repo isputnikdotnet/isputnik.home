@@ -80,7 +80,7 @@ describe("App storage contents", () => {
     expect(contents.path).toBe(appDir);
     const rooms = Object.fromEntries(contents.rooms.map((room) => [room.room, room]));
     expect(rooms.house).toMatchObject({ mode: "app", files: 5, bytes: 150, library: { id: "HOUSE", name: "App files" } });
-    expect(rooms.trash.files).toBe(0);
+    expect(Object.keys(rooms).sort()).toEqual(["house", "inbox", "maps", "renders"]);
     expect(contents.appFiles.library).toMatchObject({ id: "HOUSE", path: house });
 
     const folders = Object.fromEntries(contents.appFiles.folders.map((folder) => [folder.key, folder]));

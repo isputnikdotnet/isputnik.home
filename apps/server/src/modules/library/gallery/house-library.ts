@@ -3,21 +3,18 @@
 // Three features used to ask an admin, separately, which gallery library the
 // files THEY make should land in: story narration, family-tree uploads, and
 // rendered slideshow movies. It was one question asked three times, so it is
-// one setting now: a single gallery library nominated once from the Made in the
-// app row on Control → Library → Storage, and each source writes into a fixed
-// subfolder of it.
+// one library now, and each source writes into a fixed subfolder of it.
 // The Photo Inbox stays a different thing on purpose — it holds what is NOT
 // yet part of the collection, while everything here counts the moment it
 // exists — and is refused here.
 //
-// Stored as one JSON blob in app_settings like the other house-wide settings.
+// Since 4.6 it is a system library: the gallery library holding the 'app-files'
+// role (system-libraries.ts). It was the `house_library` setting until then.
 import { db } from "../../../db.js";
-import { parsePolicy } from "../../../core/permissions.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { AUDIO_SCAN_EXTENSIONS } from "./media.js";
-import type { AppSettingRow, LibraryRow } from "../../../db/rows.js";
-
-export const HOUSE_LIBRARY_SETTINGS_KEY = "house_library";
+import { setSystemLibraryRole } from "./system-libraries.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 /** Where each source writes inside the house library. The first two are the
  *  folder names the features already used before the setting was unified, so
@@ -32,59 +29,34 @@ export const HOUSE_FOLDERS = {
   music: "Slideshow music"
 } as const;
 
-export interface HouseLibrarySetting {
-  libraryId: string | null;
-}
-
 export type HouseLibrary = Pick<LibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json">;
 
-export function getHouseLibrarySetting(): HouseLibrarySetting {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(HOUSE_LIBRARY_SETTINGS_KEY) as Pick<AppSettingRow, "value"> | undefined;
-  if (!row) return { libraryId: null };
-  try {
-    const parsed = JSON.parse(row.value) as Partial<HouseLibrarySetting>;
-    return { libraryId: typeof parsed.libraryId === "string" ? parsed.libraryId : null };
-  } catch {
-    return { libraryId: null };
-  }
-}
-
-/** The nominated library, resolved against `libraries` every time rather than
- *  trusting the stored id — a deleted library, or one since turned into an
- *  Inbox, reads as "not set". */
+/** The App files library: the gallery library holding the 'app-files' role
+ *  (docs/system-data-plan.md, phase 1). The `house_library` setting that used to
+ *  name it was carried onto the role by migration 75 and is no longer read. */
 export function getHouseLibrary(): HouseLibrary | null {
-  const { libraryId } = getHouseLibrarySetting();
-  if (!libraryId) return null;
-  const row = db.prepare("SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'gallery'")
-    .get(libraryId) as HouseLibrary | undefined;
-  if (!row || parsePolicy(row.policy_json).inbox === true) return null;
-  return row;
+  const row = db.prepare("SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE role = 'app-files' AND type = 'gallery'")
+    .get() as HouseLibrary | undefined;
+  return row ?? null;
 }
 
 export type SetHouseLibraryResult = { ok: true; library: HouseLibrary | null } | { ok: false; status: 404 | 409; error: string };
 
-/** Nominate (or clear) the house library. Choosing one also opts it into audio,
- *  since narration lands there: the scan extensions gate both uploads and what a
- *  rescan keeps, and without them the next full scan would tombstone every
- *  recording. */
-export function setHouseLibrary(libraryId: string | null, userId: string | null): SetHouseLibraryResult {
+/** Make a gallery library App files (or clear the role). Choosing one also opts
+ *  it into audio, since narration lands there: the scan extensions gate both
+ *  uploads and what a rescan keeps, and without them the next full scan would
+ *  tombstone every recording. `userId` is kept for the callers' activity logs. */
+export function setHouseLibrary(libraryId: string | null, _userId: string | null): SetHouseLibraryResult {
   if (libraryId) {
-    const row = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ? AND type = 'gallery'")
-      .get(libraryId) as Pick<LibraryRow, "id" | "policy_json"> | undefined;
+    const row = db.prepare("SELECT id, role FROM libraries WHERE id = ? AND type = 'gallery'")
+      .get(libraryId) as Pick<LibraryRow, "id" | "role"> | undefined;
     if (!row) return { ok: false, status: 404, error: "That gallery library doesn't exist." };
-    if (parsePolicy(row.policy_json).inbox === true) {
+    if (row.role === "inbox") {
       return { ok: false, status: 409, error: "A Photo Inbox holds photos that are not part of the collection yet; choose a regular gallery library." };
     }
     ensureAudioScanExtensions(libraryId);
   }
-  db.prepare(
-    `INSERT INTO app_settings (key, value, updated_by, updated_at)
-     VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-     ON CONFLICT(key) DO UPDATE SET
-       value = excluded.value,
-       updated_by = excluded.updated_by,
-       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
-  ).run(HOUSE_LIBRARY_SETTINGS_KEY, JSON.stringify({ libraryId } satisfies HouseLibrarySetting), userId);
+  setSystemLibraryRole("app-files", libraryId);
   return { ok: true, library: getHouseLibrary() };
 }
 

@@ -35,19 +35,16 @@ Once you submit, you're signed in and land on the Home page.
 The first time an administrator signs in, the app opens a short guide at **/welcome** —
 eight steps, in the order they depend on each other:
 
-1. **Storage** — at least one folder your libraries are allowed to read, then one
-   **App storage** folder inside it for everything the app keeps for itself: the
-   thumbnails it generates, the Recycle Bin, and the two libraries the next steps can
-   make. Choosing it is confirmed with the exact path first. Under it, *Or choose the
-   thumbnail folder on your own* is for thumbnails on a different disk from the rest.
-   Nothing else works until a container and somewhere for thumbnails exist, and the
-   step says so while thumbnails have nowhere to go — or while the folder they were
-   given cannot be used. See [Storage](storage.md).
+1. **Storage** — at least one folder your libraries are allowed to read, then
+   **system data**: the folder the app needs for thumbnails, backups and metadata. The
+   step suggests the folder next to the database and confirms the exact path before
+   using it; any folder the app can write to works. Nothing else works until a
+   container and system data exist, and the step says so. Below it, an optional
+   **App storage** folder inside a container holds the two libraries the App files
+   step can make, renders and map data. See [Storage](storage.md).
 2. **Recycle Bin** — one folder for deleted files, instead of a hidden `.trash` inside
-   every library. On a fresh install with App storage chosen it is already inside it;
-   otherwise **Use App storage** puts it there in one click, or **Browse** picks a folder
-   of your own. Locked until storage is done: the bin has to live inside a container
-   you have approved.
+   every library. **Browse** picks a folder of your own. Locked until storage is done:
+   the bin has to live inside a container you have approved.
 3. **App files** — the library for what the family makes in the app (narration,
    family-tree uploads, movies, voice notes) and the Photo Inbox that scans wait in. Each
    is made inside App storage in one confirmed click, and neither is required. Locked

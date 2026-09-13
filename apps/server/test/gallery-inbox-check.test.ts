@@ -19,13 +19,13 @@ import "./helpers/media-types.js";
 // candidates are one library's photos. Asymmetric — the collection is never
 // compared with itself — and the library's copy is the keeper.
 
-const INBOX_POLICY = JSON.stringify({ mode: "managed", inbox: true });
+const INBOX_POLICY = JSON.stringify({ mode: "managed" });
 let base = "";
 
 const root = (id: string) => path.join(base, id);
 
-function makeGalleryLibrary(id: string, policyJson = "{}"): void {
-  makeLibrary(id, { createdBy: "u1", type: "gallery", policyJson });
+function makeGalleryLibrary(id: string, policyJson = "{}", role?: "inbox" | "app-files"): void {
+  makeLibrary(id, { createdBy: "u1", type: "gallery", policyJson, role });
   fs.mkdirSync(root(id), { recursive: true });
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = ?").run(root(id), id);
   grant("group", EVERYONE_GROUP_ID, id, "member");
@@ -77,7 +77,7 @@ beforeEach(() => {
   db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(thumbnailPathSettingKey, path.join(base, "thumbs"));
   makeGalleryLibrary("GAL");
-  makeGalleryLibrary("INBOX", INBOX_POLICY);
+  makeGalleryLibrary("INBOX", INBOX_POLICY, "inbox");
 });
 
 describe("the job scope", () => {
@@ -237,17 +237,6 @@ describe("queueing a check", () => {
     expect(runJobScan(first.id, "u1").summary).toMatchObject({ photoSets: 1 });
   });
 
-  it("leaves another Inbox out of the collection a check reads", () => {
-    makeGalleryLibrary("INBOX2", INBOX_POLICY);
-    makePhoto("INBOX", "a1", "box/1.jpg", { hash: "H1" });
-    expect(queueInboxCheck("INBOX").queued).toBe(true);
-    const job = activeJob()!;
-    setJobStatus(job.id, "u1", "review");
-    makePhoto("INBOX", "a2", "box/2.jpg", { hash: "H2" });
-
-    expect(queueInboxCheck("INBOX")).toMatchObject({ queued: true, jobId: job.id });
-    expect(activeJob()!.libraries.map((library) => library.libraryId).sort()).toEqual(["GAL", "INBOX"]);
-  });
   it("does not start when someone else's cleanup holds the slot", () => {
     makePhoto("INBOX", "a1", "box/1.jpg", { hash: "H1" });
     const other = createJob({ ownerUserId: "u1", libraryIds: ["GAL"], duplicateType: "files" });

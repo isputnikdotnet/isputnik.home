@@ -132,14 +132,16 @@ ENV HOST=0.0.0.0
 ENV PORT=4000
 ENV STATIC_PATH=/app/web
 # All persistent data lives under /config — mount this as a volume.
-# EVERY path the server writes to must be named here: anything left to its default
-# lands in the image's own filesystem, where it is invisible to the host and is
-# destroyed the moment the container is recreated. Backups were doing exactly that
-# until 2.15.1 — see rescueStrandedBackups() in modules/backups.
+# The database is the one path named here: the running app cannot move it, since
+# every setting lives in it. Thumbnails, backups and metadata follow system data,
+# which the setup guide suggests as /config (the folder next to the database) and
+# the admin confirms; until 4.6 this image set THUMBNAIL_PATH, METADATA_PATH and
+# BACKUP_PATH to /config/thumbnails, /config/metadata and /config/backups, and the
+# first start after the upgrade writes those same folders as system data
+# (modules/library/system-data-upgrade.ts). Without BACKUP_PATH the backups still
+# fall back to /config/backups, beside the database, never into the image —
+# backups landed in the image until 2.15.1 (rescueStrandedBackups() in modules/backups).
 ENV DB_PATH=/config/db/isputnik.sqlite
-ENV THUMBNAIL_PATH=/config/thumbnails
-ENV METADATA_PATH=/config/metadata
-ENV BACKUP_PATH=/config/backups
 # The IP-location databases (Locations page) are not baked into the image and need
 # no variable: they live in the Map data room (/config/map-data/Locations, or App
 # storage), which moves with the room. Until 4.6 they were GEOIP_PATH=/config/geoip;

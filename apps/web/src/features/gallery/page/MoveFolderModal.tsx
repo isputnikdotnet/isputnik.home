@@ -45,7 +45,7 @@ export function MoveFolderModal({
         onChange={(value) => onPlan(value)}
         options={[
           { value: "", label: t("gallery:folders.moveTargetNone") },
-          ...targets.map((library) => ({ value: library.id, label: library.appStorage ? t("gallery:inbox.appStorageLabel", { name: library.name }) : library.name }))
+          ...targets.map((library) => ({ value: library.id, label: library.role === "app-files" ? t("gallery:inbox.appFilesLabel", { name: library.name }) : library.name }))
         ]}
       />
       {plan && (

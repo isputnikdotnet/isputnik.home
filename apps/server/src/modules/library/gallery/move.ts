@@ -131,14 +131,14 @@ export function moveGalleryAsset(itemId: string, dest: MoveDestination): MoveRes
   if (!row || row.deleted_at) return { ok: false, status: 404, error: "Photo not found." };
   const title = row.title ?? path.basename(row.folder_path);
 
-  const target = db.prepare("SELECT id, name, type, source_path, policy_json FROM libraries WHERE id = ?")
-    .get(dest.libraryId) as Pick<LibraryRow, "id" | "name" | "type" | "source_path" | "policy_json"> | undefined;
+  const target = db.prepare("SELECT id, name, type, source_path, policy_json, role FROM libraries WHERE id = ?")
+    .get(dest.libraryId) as Pick<LibraryRow, "id" | "name" | "type" | "source_path" | "policy_json" | "role"> | undefined;
   if (!target || target.type !== "gallery") return { ok: false, status: 404, error: "Destination library not found." };
   const policy = parsePolicy(target.policy_json);
   if ((policy.mode ?? "managed") === "external") {
     return { ok: false, status: 403, error: `"${target.name}" is external, so the app can't write files into it.` };
   }
-  if (policy.inbox) {
+  if (target.role === "inbox") {
     return { ok: false, status: 403, error: `"${target.name}" is a Photo Inbox; keep photos into a regular library.` };
   }
 

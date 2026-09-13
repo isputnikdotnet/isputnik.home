@@ -12,7 +12,8 @@ export function Field({
   max,
   autoComplete,
   placeholder,
-  required = true
+  required = true,
+  disabled = false
 }: {
   label: string;
   value: string;
@@ -26,6 +27,8 @@ export function Field({
   autoComplete?: string;
   placeholder?: string;
   required?: boolean;
+  /** Shown but not editable (a system library's name, say). */
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
   const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
@@ -48,6 +51,7 @@ export function Field({
           placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
           required={required}
+          disabled={disabled}
         />
         {isPassword && (
           <button

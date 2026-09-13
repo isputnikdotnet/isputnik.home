@@ -107,10 +107,16 @@ export function registerGalleryLibraryRoutes(app: FastifyInstance) {
 
   app.delete("/api/library/gallery-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
-      .get(id) as Pick<LibraryRow, "id" | "name"> | undefined;
+    const exists = db.prepare("SELECT id, name, role FROM libraries WHERE id = ? AND type = 'gallery'")
+      .get(id) as Pick<LibraryRow, "id" | "name" | "role"> | undefined;
     if (!exists) {
       return reply.code(404).send({ error: "Gallery library not found" });
+    }
+    // A system library goes away only when App storage is switched off
+    // (docs/system-data-plan.md): what it holds belongs to stories, photos and
+    // slideshows, or is still waiting for review.
+    if (exists.role) {
+      return reply.code(409).send({ error: `"${exists.name}" is a system library, so it can't be deleted here.` });
     }
 
     db.transaction(() => {

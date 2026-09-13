@@ -59,13 +59,13 @@ const linkRow = (id: string): LinkRow | undefined =>
     WHERE share_links.id = ? AND share_links.module = ?
   `).get(id, DROP_LINK_MODULE) as LinkRow | undefined;
 
-type LibraryRow = Pick<DbLibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json" | "created_by">;
+type LibraryRow = Pick<DbLibraryRow, "id" | "name" | "source_path" | "settings_json" | "policy_json" | "created_by" | "role">;
 
 const inboxRow = (libraryId: string): LibraryRow | undefined => {
   const row = db.prepare(
-    "SELECT id, name, source_path, settings_json, policy_json, created_by FROM libraries WHERE id = ? AND type = 'gallery'"
+    "SELECT id, name, source_path, settings_json, policy_json, created_by, role FROM libraries WHERE id = ? AND type = 'gallery'"
   ).get(libraryId) as LibraryRow | undefined;
-  return row && parsePolicy(row.policy_json).inbox === true ? row : undefined;
+  return row?.role === "inbox" ? row : undefined;
 };
 
 export interface DropUsage {

@@ -164,7 +164,6 @@ export function LibrariesSection() {
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
-  const [editInbox, setEditInbox] = useState(false);
   const [editTab, setEditTab] = useState<"access" | "upload" | "scanning">("access");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -244,7 +243,6 @@ export function LibrariesSection() {
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setEditProgressMode(library.settings?.progressMode ?? "linear");
-    setEditInbox(library.inbox === true);
     setEditTab("access");
     setError("");
   };
@@ -283,8 +281,7 @@ export function LibrariesSection() {
           companionExtensions: editCompanions,
           scanSources: editSources,
           maxUploadMB: maxUploadValue(editMaxUploadMB),
-          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {}),
-          ...(editingLibrary.type === "gallery" ? { inbox: editInbox } : {})
+          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {})
         })
       });
       setEditingLibrary(null);
@@ -359,7 +356,7 @@ export function LibrariesSection() {
         const groupName = groups.find((group) => group.id === library.ownerId)?.name ?? t("control:libraries.unknownGroup");
         return t("control:libraries.groupSuffix", { name: groupName });
       }
-      return t("control:libraries.systemLibrary");
+      return t("control:libraries.noOwner");
     },
     [groups, users, t]
   );
@@ -537,8 +534,10 @@ export function LibrariesSection() {
                     <td>
                       <span className="library-type-cell">
                         <TypeIcon size={14} aria-hidden="true" /> {typeLabel(library.type)}
-                        {library.inbox && (
-                          <span className="count-badge" title={t("control:libraries.inboxBadgeTitle")}>{t("control:libraries.inboxBadge")}</span>
+                        {library.role && (
+                          <span className="count-badge" title={t("control:libraries.systemBadgeTitle")}>
+                            {library.role === "inbox" ? t("control:libraries.systemInbox") : t("control:libraries.systemAppFiles")}
+                          </span>
                         )}
                       </span>
                     </td>
@@ -611,15 +610,20 @@ export function LibrariesSection() {
                                 <RefreshCw size={14} />
                               )}
                             </Button>
-                            <Button
-                              variant="icon"
-                              danger
-                              title={t("control:libraries.deleteTitle")}
-                              aria-label={t("control:libraries.deleteAria", { name: library.name })}
-                              onClick={() => setDeleteConfirmLibrary(library)}
-                            >
-                              <Trash2 size={15} />
-                            </Button>
+                            {/* A system library is made and removed by the app, never here. */}
+                            {library.role ? (
+                              <span className="library-action-spacer" aria-hidden="true" />
+                            ) : (
+                              <Button
+                                variant="icon"
+                                danger
+                                title={t("control:libraries.deleteTitle")}
+                                aria-label={t("control:libraries.deleteAria", { name: library.name })}
+                                onClick={() => setDeleteConfirmLibrary(library)}
+                              >
+                                <Trash2 size={15} />
+                              </Button>
+                            )}
                           </>
                         ) : (
                           // Private library this admin can't access — take ownership (logged) to manage it.
@@ -799,7 +803,10 @@ export function LibrariesSection() {
           <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>
             {editTab === "access" && (
               <>
-                <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} />
+                <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} disabled={Boolean(editingLibrary.role)} />
+                {editingLibrary.role && (
+                  <MessageBox tone="info" title={t("control:libraries.systemNoteTitle")}>{t("control:libraries.systemNoteBody")}</MessageBox>
+                )}
                 <LibraryAccessRows
                   ownerId={editOwnerId}
                   ownerType={editOwnerType}
@@ -810,7 +817,6 @@ export function LibrariesSection() {
                   onPublicRoleChange={setEditPublicRole}
                   mode={editMode}
                   onModeChange={setEditMode}
-                  inbox={editingLibrary.type === "gallery" ? { value: editInbox, onChange: setEditInbox } : undefined}
                   users={users}
                   groups={groups}
                 />
@@ -931,8 +937,8 @@ function LibraryDetailsModal({
             <LibraryInfoRow label={t("control:libraries.fieldAccess")}>{accessSummary(library)}</LibraryInfoRow>
             <LibraryInfoRow label={t("control:libraries.fieldMode")}>{modeLabel(library.mode ?? "managed")}</LibraryInfoRow>
             {library.type === "gallery" && (
-              <LibraryInfoRow label={t("control:libraries.fieldInbox")}>
-                {library.inbox ? t("control:libraries.inboxYes") : t("control:libraries.inboxNo")}
+              <LibraryInfoRow label={t("control:libraries.fieldSystem")}>
+                {library.role === "inbox" ? t("control:libraries.systemInbox") : library.role === "app-files" ? t("control:libraries.systemAppFiles") : t("control:libraries.systemNo")}
               </LibraryInfoRow>
             )}
             <LibraryInfoRow label={t("control:libraries.fieldYourRole")}>{roleLabel(library.myRole)}</LibraryInfoRow>

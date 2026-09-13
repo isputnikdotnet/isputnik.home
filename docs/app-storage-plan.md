@@ -1,5 +1,9 @@
 # App storage — plan
 
+> **Superseded 2026-09-12** by [system-data-plan.md](system-data-plan.md): the
+> room model below is being replaced by System data + optional App storage
+> features + system libraries. Kept as the record of what shipped.
+
 Status: shipped in v3.77.0–v3.79.0 (2026-09-09) and extended through v3.90.0
 (2026-09-10); kept while the last item is open. Open: only the `story_audio` drop of
 decision 7. Both open questions below have since been answered in code — an Inbox

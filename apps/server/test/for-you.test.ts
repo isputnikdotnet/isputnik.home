@@ -15,7 +15,7 @@ import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 const ADMIN = { id: "admin", role: "admin" };
 const HELPER = { id: "helper", role: "member" };
-const INBOX_POLICY = JSON.stringify({ mode: "managed", inbox: true });
+const INBOX_POLICY = JSON.stringify({ mode: "managed" });
 
 let base = "";
 
@@ -44,7 +44,7 @@ beforeEach(() => {
   db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)").run(thumbnailPathSettingKey, base);
   makeUser("admin", "admin");
   makeUser("helper", "member");
-  makeLibrary("inbox", { createdBy: "admin", type: "gallery", policyJson: INBOX_POLICY });
+  makeLibrary("inbox", { createdBy: "admin", type: "gallery", policyJson: INBOX_POLICY, role: "inbox" });
   grant("group", EVERYONE_GROUP_ID, "inbox", "viewer");
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'inbox'").run(base);
 });

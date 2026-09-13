@@ -3,6 +3,7 @@ import { librarySettingsPlugin } from "./settings.js";
 import { coversPlugin } from "./covers.js";
 import { storagePlugin } from "./storage.js";
 import { appStorageRoutesPlugin } from "./app-storage-routes.js";
+import { systemDataRoutesPlugin } from "./system-data-routes.js";
 import { startStorageMoveWorker } from "./shared/storage-move.js";
 import { migrateRendersIntoAppStorage } from "./app-storage-switch.js";
 import { audiobookPlugin } from "./audiobook/index.js";
@@ -41,6 +42,7 @@ export async function libraryPlugin(app: FastifyInstance) {
   await app.register(librarySettingsPlugin);
   await app.register(coversPlugin);
   await app.register(storagePlugin);
+  await app.register(systemDataRoutesPlugin);
   await app.register(appStorageRoutesPlugin);
   await app.register(libraryMembersPlugin);
   await app.register(audiobookPlugin);
