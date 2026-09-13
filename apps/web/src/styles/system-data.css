@@ -1,0 +1,85 @@
+/* System data — docs/system-data-plan.md, phase 2. The block on Control panel →
+   Library → Storage, and the setup guide's Storage step, which shows the same
+   block (features/control/sections/storage/SystemDataPanel.tsx). A page stylesheet:
+   it arrives with the panel, on either page, so the panel does not lean on
+   admin.css, which the setup guide does not load. The row classes it shares with
+   App storage (.app-storage-path and friends) are restated here under the panel. */
+
+.system-data-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.system-data-panel h2,
+.system-data-panel p { margin: 0; }
+.system-data-panel p { color: var(--muted); font-size: 0.9rem; }
+.system-data-panel .library-settings-actions { display: flex; justify-content: flex-end; }
+
+.system-data-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.system-data-title .info-hint-panel { display: grid; gap: 6px; }
+
+.system-data-choose { display: grid; gap: 10px; }
+.system-data-choose .datagrid-muted { white-space: normal; font-size: 0.84rem; margin: 0; }
+
+.system-data-summary {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+}
+.system-data-summary strong { display: block; overflow-wrap: anywhere; font-weight: 650; }
+
+.system-data-rows td { white-space: normal; vertical-align: top; }
+.system-data-rows td:first-child { width: 36%; }
+.system-data-rows .datagrid-muted { white-space: normal; }
+.system-data-panel .app-storage-hint { font-size: 0.8rem; max-width: 34ch; }
+.system-data-panel .app-storage-path { display: block; font-size: 0.82rem; overflow-wrap: anywhere; }
+.system-data-panel .app-storage-from { font-size: 0.8rem; }
+.system-data-panel .app-storage-move {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 0.82rem;
+}
+.system-data-panel .app-storage-move.needs-attention { color: var(--warning, #b88746); }
+.system-data-note { margin-top: 4px; font-size: 0.8rem; color: var(--warning, #b88746); }
+
+/* The Change dialog: two choices, then a folder. */
+.system-data-chooser .app-storage-options { display: grid; gap: 8px; margin: 12px 0 4px; }
+.system-data-chooser .app-storage-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.system-data-chooser .app-storage-option input { margin-top: 3px; }
+.system-data-chooser .app-storage-option span { display: grid; gap: 2px; min-width: 0; }
+.system-data-chooser .app-storage-option small { font-size: 0.8rem; overflow-wrap: anywhere; }
+
+/* Free space under a folder: a line of text over a thin bar, amber when nearly full. */
+.space-meter { display: grid; gap: 4px; max-width: 360px; }
+.space-meter-text { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.space-meter-bar {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+.space-meter-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--mint); }
+.space-meter.is-low .space-meter-bar > span { background: var(--warning, #b88746); }
+.space-meter.is-low .space-meter-text { color: var(--warning, #b88746); }

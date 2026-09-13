@@ -13,7 +13,7 @@ import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 const ADMIN = { id: "u1", role: "admin" };
 const MEMBER = { id: "u2", role: "member" };
-const INBOX_POLICY = JSON.stringify({ mode: "managed", inbox: true, maxUploadMB: 5 });
+const INBOX_POLICY = JSON.stringify({ mode: "managed", maxUploadMB: 5 });
 
 function landed(linkId: string, itemId: string | null, bytes: number): void {
   db.prepare("INSERT INTO share_link_drops (id, share_link_id, item_id, file_name, size_bytes) VALUES (?, ?, ?, ?, ?)")
@@ -32,7 +32,7 @@ beforeEach(() => {
   makeUser("u1", "admin");
   makeUser("u2", "member");
   makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
-  makeLibrary("INBOX", { createdBy: "u1", type: "gallery", policyJson: INBOX_POLICY });
+  makeLibrary("INBOX", { createdBy: "u1", type: "gallery", policyJson: INBOX_POLICY, role: "inbox" });
   grant("group", EVERYONE_GROUP_ID, "INBOX", "member");
   grant("group", EVERYONE_GROUP_ID, "GAL", "member");
 });

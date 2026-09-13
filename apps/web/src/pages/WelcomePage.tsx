@@ -24,6 +24,7 @@ import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { ToggleSwitch } from "../shared/ToggleSwitch";
 import { FolderPickerModal } from "../features/control/libraries/FolderPickerModal";
 import { MapFeatures } from "../features/control/sections/maps/MapFeatures";
+import { SystemDataPanel } from "../features/control/sections/storage/SystemDataPanel";
 import type { LibrarySettings, StorageRoot } from "../features/control/types";
 // The setup guide's stylesheet: it loads with this page, not on every route (docs/css-map.md).
 import "../styles/welcome.css";
@@ -82,7 +83,7 @@ type StepKey = "storage" | "bin" | "gallery" | "backup" | "maps" | "email" | "al
 /** The App storage view, as far as this page needs it (docs/app-storage-plan.md). */
 interface AppStorageView {
   path: string | null;
-  rooms: { room: string; mode: "app" | "own" | "off"; appPath: string | null; library: { id: string; name: string } | null; counts: { itemsInBin?: number }; required: boolean; problem: string }[];
+  rooms: { room: string; mode: "app" | "own" | "off"; appPath: string | null; library: { id: string; name: string } | null; problem: string }[];
 }
 
 // Two of these depend on the step before them, and say so rather than being hidden: the
@@ -135,25 +136,21 @@ export function WelcomePage({ user, onDone }: {
   const [busy, setBusy] = useState(false);
 
   // Storage
-  const [thumbnailPath, setThumbnailPath] = useState("");
   const [settings, setSettings] = useState<LibrarySettings | null>(null);
   const [roots, setRoots] = useState<StorageRoot[]>([]);
   const [rootName, setRootName] = useState("Media");
   const [rootPath, setRootPath] = useState("");
   const [storageSaved, setStorageSaved] = useState("");
-  // App storage: pick → confirm → save. The thumbnail field stays as the "on my
-  // own" alternative, folded away until asked for.
+  // System data is its own panel (the Storage page's); App storage: pick → confirm → save.
   const [appStorage, setAppStorage] = useState<AppStorageView | null>(null);
   const [appPickerOpen, setAppPickerOpen] = useState(false);
   const [appPathPending, setAppPathPending] = useState<string | null>(null);
-  const [ownFoldersOpen, setOwnFoldersOpen] = useState(false);
 
   // Recycle Bin
   const [binPath, setBinPath] = useState<string | null>(null);
   const [binEditable, setBinEditable] = useState(true);
   const [binPickerOpen, setBinPickerOpen] = useState(false);
   const [binSaved, setBinSaved] = useState(false);
-  const [binAppPending, setBinAppPending] = useState(false);
 
   // App files / Photo Inbox: one confirmed click each.
   const [galleryPending, setGalleryPending] = useState<"house" | "inbox" | null>(null);
@@ -189,10 +186,7 @@ export function WelcomePage({ user, onDone }: {
       api<AppStorageView>("/api/storage/app-storage").catch(() => null),
       api<{ jobs: BackupJobView[] }>("/api/scheduled-jobs").catch(() => null)
     ]).then(([librarySettings, rootList, mailPayload, config, security, bin, backups, storage, jobs]) => {
-      if (librarySettings) {
-        setSettings(librarySettings.settings);
-        setThumbnailPath(librarySettings.settings.thumbnailPath);
-      }
+      if (librarySettings) setSettings(librarySettings.settings);
       if (rootList) setRoots(rootList.roots);
       if (mailPayload) setMail(mailPayload.mail);
       if (config) setTheme(config.config.defaultTheme);
@@ -209,8 +203,8 @@ export function WelcomePage({ user, onDone }: {
     });
   }, []);
 
-  /** Re-read what App storage decides for the other steps: the thumbnail folder,
-   *  the bin, the backups path all follow it. */
+  /** Re-read what the storage step decides for the others: whether a library can be
+   *  made (thumbnails), the bin, the backups path. */
   const reloadStorage = async () => {
     const [librarySettings, bin, storage, backups] = await Promise.all([
       api<{ settings: LibrarySettings }>("/api/library/settings").catch(() => null),
@@ -218,10 +212,7 @@ export function WelcomePage({ user, onDone }: {
       api<AppStorageView>("/api/storage/app-storage").catch(() => null),
       api<{ settings: { retention: number }; backupPath: string }>("/api/backups").catch(() => null)
     ]);
-    if (librarySettings) {
-      setSettings(librarySettings.settings);
-      setThumbnailPath(librarySettings.settings.thumbnailPath);
-    }
+    if (librarySettings) setSettings(librarySettings.settings);
     if (bin) {
       setBinPath(bin.path);
       setBinEditable(bin.editable);
@@ -244,15 +235,6 @@ export function WelcomePage({ user, onDone }: {
     }
   };
 
-  const saveThumbnailPath = () => run(async () => {
-    const payload = await api<{ settings: LibrarySettings }>("/api/library/settings", {
-      method: "PATCH",
-      body: JSON.stringify({ thumbnailPath })
-    });
-    setSettings(payload.settings);
-    setStorageSaved(t("welcome.thumbnailSaved"));
-  }, t("welcome.thumbnailSaveFailed"));
-
   const saveAppStorage = () => run(async () => {
     if (!appPathPending) return;
     await api("/api/storage/app-storage", { method: "PUT", body: JSON.stringify({ path: appPathPending }) });
@@ -261,11 +243,10 @@ export function WelcomePage({ user, onDone }: {
     setStorageSaved(t("welcome.appStorageSaved"));
   }, t("welcome.appStorageSaveFailed"));
 
-  const switchRoom = (room: "trash" | "house" | "inbox", whenFailed: string) => run(async () => {
+  const switchRoom = (room: "house" | "inbox", whenFailed: string) => run(async () => {
     await api(`/api/storage/app-storage/rooms/${room}`, { method: "PUT", body: JSON.stringify({ mode: "app" }) });
     await reloadStorage();
-    if (room === "trash") setBinSaved(true);
-    else setGallerySaved(t("welcome.gallerySaved"));
+    setGallerySaved(t("welcome.gallerySaved"));
   }, whenFailed);
 
   const addContainer = () => run(async () => {
@@ -379,23 +360,12 @@ export function WelcomePage({ user, onDone }: {
   };
   const room = (name: string) => appStorage?.rooms.find((entry) => entry.room === name) ?? null;
   const roomLabel: Record<string, string> = {
-    trash: t("controlAdmin:storage.roomTrash"),
-    thumbnails: t("controlAdmin:storage.roomThumbnails"),
     renders: t("controlAdmin:storage.roomRenders"),
     maps: t("controlAdmin:storage.roomMaps"),
     inbox: t("controlAdmin:storage.roomInbox"),
-    house: t("controlAdmin:storage.roomHouse"),
-    backups: t("controlAdmin:storage.roomBackups")
+    house: t("controlAdmin:storage.roomHouse")
   };
   const roomsInApp = (appStorage?.rooms ?? []).filter((entry) => entry.mode === "app").map((entry) => roomLabel[entry.room] ?? entry.room);
-  // Thumbnails are the one answer this step cannot be left without: no library
-  // can be added until they have a folder, whether that is App storage or one of
-  // their own. The step says so where the choice is made, rather than leaving it
-  // to the greyed-out Add library button on another page.
-  const thumbnails = room("thumbnails");
-  const thumbnailsHomeless = thumbnails ? thumbnails.mode === "off" : !settings?.thumbnailPath;
-  const thumbnailsProblem = thumbnails?.problem || settings?.thumbnailPathError || "";
-  const binUsesApp = room("trash")?.mode === "app";
   const appRoomPath = (name: string) => room(name)?.appPath ?? "";
   const index = STEPS.findIndex((entry) => entry.key === step);
 
@@ -477,6 +447,11 @@ export function WelcomePage({ user, onDone }: {
                 </Button>
               </div>
 
+              {/* System data is the one answer this step cannot be left without: no
+                  library can be added until thumbnails have somewhere to go. The
+                  panel is the Storage page's own, so it says so where the choice is made. */}
+              <SystemDataPanel onChanged={() => { void reloadStorage(); }} />
+
               <h3>{t("welcome.appStorageHeading")}</h3>
               <p className="welcome-note">
                 {t("welcome.appStorageNote")}
@@ -499,33 +474,6 @@ export function WelcomePage({ user, onDone }: {
               </div>
               {appStorage?.path && roomsInApp.length > 0 && (
                 <p className="setting-status ready">{t("welcome.appStorageRooms", { rooms: roomsInApp.join(", ") })}</p>
-              )}
-              {thumbnailsHomeless && (
-                <p className="setting-status needs-attention">{t("welcome.thumbnailsNeeded")}</p>
-              )}
-              {!thumbnailsHomeless && thumbnailsProblem && (
-                <p className="setting-status needs-attention">{thumbnailsProblem}</p>
-              )}
-
-              {/* The thumbnail folder on its own: today's step, folded away. Thumbnails are
-                  the one room that must exist, so this is the only alternative the guide
-                  has to offer; everything else is a row on the Storage page. */}
-              <Button variant="text" disabled={busy} onClick={() => setOwnFoldersOpen((open) => !open)}>
-                {t("welcome.ownFoldersToggle")}
-              </Button>
-              {(ownFoldersOpen || (!appStorage?.path && Boolean(settings?.thumbnailPath))) && (
-                <>
-                  <p className="welcome-note">{t("welcome.ownFoldersNote")}</p>
-                  <div className="welcome-field-row">
-                    <Field label={t("welcome.thumbnailLabel")} value={thumbnailPath} onChange={setThumbnailPath} />
-                    <Button variant="secondary" disabled={busy || !thumbnailPath.trim()} onClick={() => void saveThumbnailPath()}>
-                      {settings?.thumbnailPathReady ? t("welcome.change") : t("welcome.save")}
-                    </Button>
-                  </div>
-                  {settings?.thumbnailPathReady
-                    ? <p className="setting-status ready">{t("welcome.ready")}</p>
-                    : settings?.thumbnailPathError && <p className="setting-status needs-attention">{settings.thumbnailPathError}</p>}
-                </>
               )}
               {storageSaved && <MessageBox tone="success" title={t("welcome.savedTitle")}>{storageSaved}</MessageBox>}
             </>
@@ -550,18 +498,6 @@ export function WelcomePage({ user, onDone }: {
                     <div className="source-folder-control">
                       <Folder size={19} aria-hidden="true" />
                       <span>{binPath || t("welcome.binDefault")}</span>
-                      {binUsesApp && <span className="setting-status ready">{t("welcome.binUsingApp")}</span>}
-                      {appStorageSet && !binUsesApp && (
-                        <Button
-                          variant="secondary"
-                          compact
-                          disabled={busy || !binEditable}
-                          title={binEditable ? undefined : t("welcome.binBrowseLocked")}
-                          onClick={() => { setError(""); setBinAppPending(true); }}
-                        >
-                          {t("welcome.binUseApp")}
-                        </Button>
-                      )}
                       <Button
                         variant="secondary"
                         compact
@@ -805,19 +741,6 @@ export function WelcomePage({ user, onDone }: {
           onCancel={() => setAppPathPending(null)}
         >
           {t("controlAdmin:storage.confirmAppBody")}
-        </ConfirmDialog>
-      )}
-
-      {binAppPending && (
-        <ConfirmDialog
-          title={t("controlAdmin:storage.confirmTrashAppTitle", { path: appRoomPath("trash") })}
-          confirmLabel={t("controlAdmin:storage.confirmTrashLabel")}
-          busyLabel={t("controlAdmin:ui.saving")}
-          busy={busy}
-          onConfirm={() => { void switchRoom("trash", t("welcome.binSaveFailed")).then(() => setBinAppPending(false)); }}
-          onCancel={() => setBinAppPending(false)}
-        >
-          {t("controlAdmin:storage.confirmTrashBody", { count: room("trash")?.counts.itemsInBin ?? 0 })}
         </ConfirmDialog>
       )}
 

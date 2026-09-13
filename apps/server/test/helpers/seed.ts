@@ -88,11 +88,11 @@ export function grant(
 
 export function makeLibrary(
   id: string,
-  opts: { createdBy: string; type?: string; policyJson?: string; ownerId?: string; ownerType?: "user" | "group" }
+  opts: { createdBy: string; type?: string; policyJson?: string; ownerId?: string; ownerType?: "user" | "group"; role?: "inbox" | "app-files" }
 ): string {
   db.prepare(
-    "INSERT INTO libraries (id, name, type, source_path, created_by, policy_json, owner_id, owner_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(id, id, opts.type ?? "audiobook", `/src/${id}`, opts.createdBy, opts.policyJson ?? "{}", opts.ownerId ?? null, opts.ownerType ?? null);
+    "INSERT INTO libraries (id, name, type, source_path, created_by, policy_json, owner_id, owner_type, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, id, opts.type ?? "audiobook", `/src/${id}`, opts.createdBy, opts.policyJson ?? "{}", opts.ownerId ?? null, opts.ownerType ?? null, opts.role ?? null);
   return id;
 }
 

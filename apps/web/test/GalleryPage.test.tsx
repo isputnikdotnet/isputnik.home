@@ -36,7 +36,7 @@ const asset = (id: string, over: Record<string, unknown> = {}) => ({
 });
 
 const library = {
-  id: "lib", name: "Photos", bookCount: 3, inbox: false, appStorage: false, scanStatus: "idle",
+  id: "lib", name: "Photos", bookCount: 3, inbox: false, role: null, scanStatus: "idle",
   canWrite: true, canDelete: true, canDownload: true, canUpload: false, canCurate: true,
   uploadExtensions: [], maxUploadMB: null
 };

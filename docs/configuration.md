@@ -31,11 +31,11 @@ own filesystem and disappear on the next update.
 | Variable | Default | Image | What it does |
 |---|---|---|---|
 | `DB_PATH` | `data/db/isputnik.sqlite` under the repo root | `/config/db/isputnik.sqlite` | The database. Its folder is created on start. Three things live beside it: `mfa.key` (see `MFA_ENCRYPTION_KEY`), a staged restore (`isputnik.sqlite.restore`) waiting for the next start, and the pre-upgrade copy (`isputnik.sqlite.pre-upgrade`) until the server files it in the backup folder — see [rollback.md](rollback.md). |
-| `THUMBNAIL_PATH` | empty | `/config/thumbnails` | Where generated covers and previews go when nobody has chosen a folder on **Control panel → Library → Storage**. A folder chosen there, or App storage's Thumbnails room, wins. With neither set, the setup guide asks for one. |
-| `METADATA_PATH` | empty | `/config/metadata` | Optional. When set, a JSON copy of an audiobook's metadata is written here each time it is edited — a best-effort export; the database remains the source of truth. Empty means nothing is written. |
+| `THUMBNAIL_PATH` | empty | – | Where generated covers and previews go when no folder of their own was chosen on **Control panel → Library → Storage**. A folder chosen there wins; with neither, they go to `thumbnails` in system data (the folder the setup guide asks for). |
+| `METADATA_PATH` | empty | – | Where a JSON copy of an audiobook's metadata is written each time it is edited — a best-effort export; the database remains the source of truth. Unset, it goes to `metadata` in system data, and nothing is written until system data is chosen. |
 | `STATIC_PATH` | empty | `/app/web` | The built web app, served by the same process. Empty means the server answers only `/api` (the Vite dev server serves the pages during development). Image-internal; don't change it in Docker. |
 
-Compose and Unraid set none of these: the image already points them at `/config`.
+Compose and Unraid set none of these. The image sets only `DB_PATH`; until 4.6 it also set `THUMBNAIL_PATH`, `METADATA_PATH` and `BACKUP_PATH` to folders under `/config`, and the first start of 4.6 writes those same folders as system data, so nothing moves.
 
 ## Network and reverse proxy
 
@@ -67,7 +67,7 @@ The walkthrough for putting all of this together is
 
 | Variable | Default | Image | What it does |
 |---|---|---|---|
-| `BACKUP_PATH` | `data/backups` under the repo root | `/config/backups` | The backup folder, unless App storage's Backups room is switched on (then it is `Backups` inside App storage). When a restore is applied, the database it replaces is kept as `isputnik-<date>-<time>.sqlite` in whichever of the two is the backup folder, and listed on the Backup page. |
+| `BACKUP_PATH` | `backups` beside the database's folder | – | The backup folder when no folder of their own was chosen on **Control panel → Library → Storage**. Unset, backups go to `backups` in system data, or beside the database's folder until system data is chosen (`/config/backups` in Docker). When a restore is applied, the database it replaces is kept as `isputnik-<date>-<time>.sqlite` in the backup folder, and listed on the Backup page. |
 | `BACKUP_RETENTION` | `10` | – | **Legacy.** Since 3.89.0 retention is set on **Control panel → Maintenance → Backup** ("Keep the newest") and stored in the database, and since 4.3.0 each kind — full, minimal, database copy — has its own count. This is only the starting value for all three on an install where they have never been saved; an install upgraded from an earlier version already has its own. It has no effect on the automatic pre-upgrade copies, which always keep the newest 2. |
 
 Scheduling and the three kinds of backup are all in the Control panel — see

@@ -17,7 +17,7 @@ import { moveGalleryAsset } from "./move.js";
 import { dateFolderForCapture } from "./date-folder.js";
 import type { GalleryDetailRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
-export { photoInboxLibraryIds, isPhotoInboxLibrary } from "./inbox-flag.js";
+export { photoInboxLibraryIds, isPhotoInboxLibrary } from "./system-libraries.js";
 
 /** One delivery: the top-level folder a batch arrived in ("" for files at the
  *  root), so a reviewer can tell Grandma's box from this morning's scanner run. */
@@ -49,12 +49,12 @@ export interface PhotoInboxSummary {
   deliveries: PhotoInboxDelivery[];
 }
 
-type InboxLibraryRow = Pick<LibraryRow, "id" | "name" | "policy_json">;
+type InboxLibraryRow = Pick<LibraryRow, "id" | "name" | "policy_json" | "role">;
 
 function inboxLibrary(libraryId: string): InboxLibraryRow | null {
-  const row = db.prepare("SELECT id, name, policy_json FROM libraries WHERE id = ? AND type = 'gallery'")
+  const row = db.prepare("SELECT id, name, policy_json, role FROM libraries WHERE id = ? AND type = 'gallery'")
     .get(libraryId) as InboxLibraryRow | undefined;
-  return row && parsePolicy(row.policy_json).inbox === true ? row : null;
+  return row?.role === "inbox" ? row : null;
 }
 
 function canReview(user: AuthUser, library: InboxLibraryRow): boolean {
@@ -80,10 +80,10 @@ const DELIVERY_SQL = `
 
 /** The Inboxes this user can open, with what is waiting in each. */
 export function listPhotoInboxes(user: AuthUser): PhotoInboxSummary[] {
-  const rows = db.prepare("SELECT id, name, policy_json FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE")
+  const rows = db.prepare("SELECT id, name, policy_json, role FROM libraries WHERE type = 'gallery' AND role = 'inbox' ORDER BY name COLLATE NOCASE")
     .all() as InboxLibraryRow[];
   return rows
-    .filter((row) => parsePolicy(row.policy_json).inbox === true && canUserAccessLibrary(row, user.id, user.role))
+    .filter((row) => canUserAccessLibrary(row, user.id, user.role))
     .map((row) => {
       const deliveries = (db.prepare(DELIVERY_SQL).all(row.id) as { folder: string; count: number; reviewed: number | null; newest_at: string; via_link: number }[])
         .map((delivery) => ({
@@ -169,12 +169,12 @@ export interface KeepDestination {
 }
 
 type ReviewItemRow = Pick<LibraryItemRow, "id" | "library_id">
-  & Pick<LibraryRow, "policy_json">
+  & Pick<LibraryRow, "policy_json" | "role">
   & Nullable<Pick<GalleryDetailRow, "taken_at" | "taken_precision">>;
 
 function reviewItem(itemId: string): ReviewItemRow | undefined {
   return db.prepare(`
-    SELECT li.id, li.library_id, lib.policy_json, gd.taken_at, gd.taken_precision
+    SELECT li.id, li.library_id, lib.policy_json, lib.role, gd.taken_at, gd.taken_precision
     FROM library_items li
     JOIN libraries lib ON lib.id = li.library_id
     LEFT JOIN gallery_details gd ON gd.item_id = li.id
@@ -186,8 +186,8 @@ function reviewItem(itemId: string): ReviewItemRow | undefined {
 // a review at all — a kept or discarded photo elsewhere is a plain move or delete,
 // with its own routes and rules.
 function reviewable(user: AuthUser, row: ReviewItemRow): "ok" | "forbidden" {
+  if (row.role !== "inbox") return "forbidden";
   const policy = parsePolicy(row.policy_json);
-  if (policy.inbox !== true) return "forbidden";
   return can(user, { objectType: "library", objectId: row.library_id, policy }, "delete") ? "ok" : "forbidden";
 }
 
@@ -198,13 +198,13 @@ export type KeepOutcome =
 /** Keep: move the photos into a real library. The destination is checked once
  *  (it is one library); each photo is then checked and moved on its own. */
 export function keepPhotoInboxItems(user: AuthUser, itemIds: string[], dest: KeepDestination): KeepOutcome {
-  const target = db.prepare("SELECT id, name, policy_json FROM libraries WHERE id = ? AND type = 'gallery'")
+  const target = db.prepare("SELECT id, name, policy_json, role FROM libraries WHERE id = ? AND type = 'gallery'")
     .get(dest.libraryId) as InboxLibraryRow | undefined;
   if (!target || !canUserAccessLibrary(target, user.id, user.role)) {
     return { ok: false, status: 404, error: "Destination library not found." };
   }
   const targetPolicy = parsePolicy(target.policy_json);
-  if (targetPolicy.inbox === true) {
+  if (target.role === "inbox") {
     return { ok: false, status: 403, error: `"${target.name}" is a Photo Inbox; keep photos into a regular library.` };
   }
   if (!can(user, { objectType: "library", objectId: target.id, policy: targetPolicy }, "upload")) {

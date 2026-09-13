@@ -2,7 +2,7 @@
 // narrower browsing scope the surfaces that resurface photos on their own use.
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
-import { galleryLibrariesLeftOutOfScope, photoInboxLibraryIds } from "./inbox-flag.js";
+import { galleryLibrariesLeftOutOfScope, photoInboxLibraryIds } from "./system-libraries.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 // A `?libraryIds=id1,id2` query param, the GET-route counterpart of the timeline
@@ -24,8 +24,8 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
   // how its review page reads it. See docs/photo-inbox-proposal.md.
   //
   // This is the REACHABLE scope: what a story, an album, a slideshow or the
-  // viewer may show when it names a photo by id. A library inside App storage
-  // (App files) is reachable — the photos placed in a story from it must
+  // viewer may show when it names a photo by id. App files (the other system
+  // library) is reachable — the photos placed in a story from it must
   // keep showing — but is left out of BROWSING (resolveGalleryBrowseLibraryIds).
   // 3.84.1 excluded it here too and every story block from that library read
   // "not in a library you can see".
@@ -39,9 +39,9 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
 
 // The BROWSING scope: the timeline, folders, memories, the year review, the
 // map, the facets, the People list and the Home feed's photo cards — the
-// surfaces that resurface photos on their own. On top of the Inbox, a library
-// inside App storage (what the app keeps for itself) is left out unless it is
-// named in the library filter. Everything named by id elsewhere (a story's
+// surfaces that resurface photos on their own. On top of the Inbox, App files
+// (what the app keeps for itself) is left out unless it is named in the
+// library filter: both are system libraries (system-libraries.ts). Everything named by id elsewhere (a story's
 // block, an album, a slideshow, the viewer) uses the reachable scope above.
 export function resolveGalleryBrowseLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
   if (libraryIds && libraryIds.length > 0) return resolveGalleryScopeLibraryIds(user, libraryIds);

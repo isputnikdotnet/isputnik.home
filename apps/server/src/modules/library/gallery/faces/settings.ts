@@ -1,5 +1,5 @@
 import { db } from "../../../../db.js";
-import { photoInboxLibraryIds } from "../inbox-flag.js";
+import { photoInboxLibraryIds } from "../system-libraries.js";
 import type { AppSettingRow } from "../../../../db/rows.js";
 
 // Face recognition is enabled per gallery library (key per library id), so a household

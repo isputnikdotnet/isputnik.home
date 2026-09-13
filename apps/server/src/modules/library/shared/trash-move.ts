@@ -15,7 +15,7 @@
 // page reads; the task itself is the shared one, and the row-level move it runs
 // (pendingTrashMoveRows, moveTrashedItemTo) lives with it in storage-move.ts, so
 // the two files import in one direction only.
-import { getTrashRootSetting } from "./trash-settings.js";
+import { getTrashRootSetting, setTrashRootSetting, TrashError, validateTrashRootPath } from "./trash-settings.js";
 import {
   cancelStorageMove,
   enqueueStorageMove,
@@ -68,6 +68,22 @@ export function startTrashMove(userId: string | null = null, from: string | null
 
 /** Stop after the item in hand. Every row is left correct: the ones moved are at
  *  the new location, the rest where they were, and each says which. */
+/** Change where the bin keeps files: one folder for every library, or null for
+ *  each library's own .trash. What is already in the bin follows as a move task.
+ *  Refused while a bin move runs. Throws TrashError with the status to answer. */
+export function changeTrashRoot(wanted: string | null, userId: string): string | null {
+  if (storageMoveStatus("trash").running) {
+    throw new TrashError("The bin is being moved right now. Wait for it to finish, or cancel it, before changing the location again.", 409);
+  }
+  // Where the bin was until now: the task carries the replaced originals from
+  // there, since they have no rows to say where they are.
+  const before = getTrashRootSetting();
+  const resolved = wanted ? validateTrashRootPath(wanted) : null;
+  setTrashRootSetting(resolved, userId);
+  startTrashMove(userId, before);
+  return getTrashRootSetting();
+}
+
 export function cancelTrashMove(): TrashMoveStatus {
   cancelStorageMove("trash");
   return trashMoveStatus();

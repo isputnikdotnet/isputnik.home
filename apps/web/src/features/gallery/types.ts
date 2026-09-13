@@ -464,8 +464,9 @@ export interface GalleryLibrary {
   /** A Photo Inbox: photos under review, kept out of every browse surface until
    *  someone keeps them — reviewed on its own page (PhotoInboxPage). */
   inbox: boolean;
-  /** Inside App storage: left out of the gallery's implicit scope like an Inbox, labelled in the filter. */
-  appStorage: boolean;
+  /** A system library (docs/system-data-plan.md): 'inbox' = the Photo Inbox, 'app-files' =
+   *  App files. Both are left out of the gallery's implicit scope and labelled in the filter. */
+  role: "inbox" | "app-files" | null;
   scanStatus: "idle" | "scanning" | "error";
   canWrite: boolean;
   canDelete: boolean;

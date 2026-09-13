@@ -22,6 +22,7 @@ import { dashboardPlugin } from "./modules/dashboard/index.js";
 import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
+import { convertStorageSettings } from "./modules/library/system-data-upgrade.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
 import { storiesPlugin } from "./modules/stories/index.js";
 import { socialPlugin } from "./modules/social/index.js";
@@ -265,6 +266,15 @@ await registerAuthDecorators(app);
 await app.register(corePlugin);
 await app.register(dashboardPlugin);
 await app.register(usersPlugin);
+// 4.6 storage conversion (docs/system-data-plan.md): the settings that keep every
+// folder where it was, written before anything reads a folder — the backups plugin
+// below is the first, since its rescue reads backupDir().
+try {
+  const converted = convertStorageSettings();
+  if (converted) app.log.info(`Storage settings converted for system data (${converted.systemData}); no file moved.`);
+} catch (err) {
+  app.log.error({ err }, "Could not convert the storage settings for system data; the Storage page asks for it instead.");
+}
 await app.register(backupsPlugin);
 await app.register(libraryPlugin);
 await app.register(collectionsPlugin);

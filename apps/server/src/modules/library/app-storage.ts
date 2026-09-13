@@ -12,7 +12,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../db.js";
-import { parsePolicy } from "../../core/permissions.js";
 import {
   APP_ROOM_FOLDERS,
   LEGACY_ROOM_FOLDERS,
@@ -30,18 +29,18 @@ export class AppStorageError extends Error {
   }
 }
 
-export type GalleryLibraryRow = Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "scan_status">;
+export type GalleryLibraryRow = Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "scan_status" | "role">;
 
 export const samePath = (a: string | null | undefined, b: string | null | undefined): boolean =>
   Boolean(a && b) && path.resolve(a!) === path.resolve(b!);
 
 export function galleryLibraries(): GalleryLibraryRow[] {
-  return db.prepare("SELECT id, name, source_path, policy_json, scan_status FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE")
+  return db.prepare("SELECT id, name, source_path, policy_json, scan_status, role FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE")
     .all() as GalleryLibraryRow[];
 }
 
 export function inboxLibraries(): GalleryLibraryRow[] {
-  return galleryLibraries().filter((row) => parsePolicy(row.policy_json).inbox === true);
+  return galleryLibraries().filter((row) => row.role === "inbox");
 }
 
 export function libraryAt(sourcePath: string | null): GalleryLibraryRow | null {

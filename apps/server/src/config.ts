@@ -42,15 +42,21 @@ function resolveCookieSecure(): boolean {
   return appUrlIsHttps;
 }
 
+const dbPath = process.env.DB_PATH ?? path.join(rootDir, "data", "db", "isputnik.sqlite");
+
 export const config = {
   host: process.env.HOST ?? "127.0.0.1",
   port: Number(process.env.PORT ?? 4000),
   appUrl: process.env.APP_URL ?? "http://127.0.0.1:5173",
   staticPath: process.env.STATIC_PATH ?? "",
-  dbPath: process.env.DB_PATH ?? path.join(rootDir, "data", "db", "isputnik.sqlite"),
+  dbPath,
   thumbnailPath: process.env.THUMBNAIL_PATH ?? "",
   metadataPath: process.env.METADATA_PATH ?? "",
-  backupPath: process.env.BACKUP_PATH ?? path.join(rootDir, "data", "backups"),
+  // Beside the database's folder when BACKUP_PATH is unset: <app>/data/backups on a
+  // bare install, /config/backups in Docker since the image stopped setting the
+  // variable (docs/system-data-plan.md). A backups folder of its own or system data
+  // wins over this once chosen (core/system-data.ts).
+  backupPath: process.env.BACKUP_PATH ?? path.join(path.dirname(path.dirname(dbPath)), "backups"),
   backupRetention: Number(process.env.BACKUP_RETENTION ?? 10),
   cookieSecure: resolveCookieSecure(),
   // HSTS=false opts out where the reverse proxy sends its own header.

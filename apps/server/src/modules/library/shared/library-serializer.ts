@@ -3,7 +3,6 @@
 import type { LibraryType } from "./library-types.js";
 import type { LibraryCapabilities } from "./library-access.js";
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
-import { isInsideAppStorage } from "../../../core/app-storage.js";
 import { serializeLibrarySettingsForAdmin } from "./library-crud.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "./library-settings.js";
 import type { LibraryRow } from "../../../db/rows.js";
@@ -12,7 +11,7 @@ import type { LibraryRow } from "../../../db/rows.js";
 export interface LibraryListRow extends Pick<
   LibraryRow,
   | "id" | "name" | "type" | "source_path" | "settings_json" | "scan_status" | "last_scanned_at"
-  | "owner_id" | "owner_type" | "policy_json" | "created_at" | "updated_at"
+  | "owner_id" | "owner_type" | "policy_json" | "role" | "created_at" | "updated_at"
 > {
   book_count: number;
   // Audiobooks count audio files; ebooks count available documents.
@@ -53,12 +52,11 @@ export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, c
     visibility: everyoneRole ? "public" : "private",
     publicRole: everyoneRole ?? "member",
     mode: policy.mode ?? "managed",
-    // Photo Inbox (gallery): exposed to everyone, not only admins — the gallery
-    // labels the library and routes its review page on it.
-    inbox: policy.inbox === true,
-    // Inside App storage (gallery): left out of the gallery's implicit scope like
-    // an Inbox, and labelled in the library filter.
-    appStorage: row.type === "gallery" && isInsideAppStorage(row.source_path),
+    // A system library (gallery): 'inbox' = the Photo Inbox, 'app-files' = App
+    // files. Exposed to everyone, not only admins — the gallery labels both,
+    // leaves them out of its implicit scope, and routes the review page on the Inbox.
+    role: row.role ?? null,
+    inbox: row.role === "inbox",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,

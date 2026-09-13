@@ -55,10 +55,9 @@ export const coreLibraryCreateSchema = z.object({
   // saved as the root-anchored scan rule BEFORE the first scan is queued, so that
   // scan already reads folder names the way the admin said. Omitted = scanner
   // defaults. Only the create route uses it; edits go through the Layout panel.
-  defaultLayouts: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional(),
-  // Photo Inbox (gallery only): a holding library for photos under review. Ignored
-  // for other types. On update, omitted = keep whatever the library already is.
-  inbox: z.boolean().optional()
+  defaultLayouts: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional()
+  // The Photo Inbox used to be an `inbox` flag here. It is a system library now
+  // (libraries.role), made by the app, never by this schema.
 });
 
 export const coreLibraryUpdateSchema = coreLibraryCreateSchema.omit({ sourcePath: true });
@@ -73,15 +72,10 @@ export interface LibraryCrudError {
   error: string;
 }
 
-function buildPolicyJson(
-  mode: "managed" | "external",
-  maxUploadMB: number | null | undefined,
-  inbox: boolean | undefined
-): string {
+function buildPolicyJson(mode: "managed" | "external", maxUploadMB: number | null | undefined): string {
   return JSON.stringify({
     mode,
-    ...(maxUploadMB != null ? { maxUploadMB } : {}),
-    ...(inbox ? { inbox: true } : {})
+    ...(maxUploadMB != null ? { maxUploadMB } : {})
   });
 }
 
@@ -127,6 +121,9 @@ export function createLibraryRecord(opts: {
   ip: string;
   // Type-specific settings keys merged into settings_json (e.g. cover_filenames).
   extraSettings?: Record<string, unknown>;
+  // A system library the app is making for itself (gallery only; system-libraries.ts).
+  // Never taken from a request body.
+  role?: LibraryRow["role"];
 }): { libraryId: string } | LibraryCrudError {
   const { type, data } = opts;
 
@@ -151,6 +148,14 @@ export function createLibraryRecord(opts: {
     return ownerError;
   }
 
+  // One library holds each system role (a unique index backs this up).
+  if (type === "gallery" && opts.role) {
+    const holder = db.prepare("SELECT name FROM libraries WHERE role = ?").get(opts.role) as Pick<LibraryRow, "name"> | undefined;
+    if (holder) {
+      return { status: 409, error: `"${holder.name}" already is the ${opts.role === "inbox" ? "Photo Inbox" : "App files library"}.` };
+    }
+  }
+
   const visibility = data.visibility ?? "public";
   const publicRole = data.publicRole ?? "member";
   const scanExtensions = data.scanExtensions ? normalizeExtensions(data.scanExtensions) : defaultScanExtensions(type);
@@ -168,11 +173,12 @@ export function createLibraryRecord(opts: {
 
   const libraryId = nanoid(16);
   db.prepare(`
-    INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, policy_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, policy_json, role)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     libraryId, data.name, type, sourcePath, JSON.stringify(settings), opts.userId,
-    ownerId, ownerType, buildPolicyJson(data.mode ?? "managed", data.maxUploadMB, type === "gallery" && data.inbox === true)
+    ownerId, ownerType, buildPolicyJson(data.mode ?? "managed", data.maxUploadMB),
+    type === "gallery" ? opts.role ?? null : null
   );
 
   // Unified access model: Everyone grant (if public) + owner as manager.
@@ -204,10 +210,15 @@ export function updateLibraryRecord(opts: {
   ip: string;
 }): { updated: true } | LibraryCrudError {
   const { type, id, data } = opts;
-  const existing = db.prepare("SELECT id, settings_json, policy_json FROM libraries WHERE id = ? AND type = ?")
-    .get(id, type) as Pick<LibraryRow, "id" | "settings_json" | "policy_json"> | undefined;
+  const existing = db.prepare("SELECT id, name, settings_json, policy_json, role FROM libraries WHERE id = ? AND type = ?")
+    .get(id, type) as Pick<LibraryRow, "id" | "name" | "settings_json" | "policy_json" | "role"> | undefined;
   if (!existing) {
     return { status: 404, error: `${type === "audiobook" ? "Audiobook" : "Library"} library not found` };
+  }
+  // A system library keeps the name the app gave it: the Storage page, the
+  // guides and the Review page all call it that. Its access can still change.
+  if (existing.role && data.name !== existing.name) {
+    return { status: 409, error: `"${existing.name}" is a system library, so it can't be renamed.` };
   }
 
   const { ownerId, ownerType } = resolveOwner(data);
@@ -250,13 +261,7 @@ export function updateLibraryRecord(opts: {
     WHERE id = ?
   `).run(
     data.name, ownerId, ownerType,
-    buildPolicyJson(
-      data.mode ?? "managed",
-      data.maxUploadMB,
-      // A PATCH that doesn't mention the Inbox flag leaves it as it was — the
-      // policy is rebuilt whole here, and this is the one bit nothing else sends.
-      type === "gallery" && (data.inbox ?? parsePolicy(existing.policy_json).inbox === true)
-    ),
+    buildPolicyJson(data.mode ?? "managed", data.maxUploadMB),
     JSON.stringify(settings), id
   );
 

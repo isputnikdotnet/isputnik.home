@@ -772,6 +772,7 @@ export interface LibraryRow {
   settings_json: string;
   scan_status: "idle" | "scanning" | "error";
   last_scanned_at: string | null;
+  role: "inbox" | "app-files" | null;
   created_by: string;
   created_at: string;
   updated_at: string;

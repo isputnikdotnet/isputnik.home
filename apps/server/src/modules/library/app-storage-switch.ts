@@ -1,8 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db, logActivity } from "../../db.js";
-import { config } from "../../config.js";
-import { parsePolicy } from "../../core/permissions.js";
 import {
   APP_ROOM_FOLDERS,
   appRoomMode,
@@ -17,19 +15,12 @@ import {
   getRendersRoot,
   ownThumbnailPathValue,
   RENDER_BUCKETS,
-  thumbnailPathSettingKey,
   validateThumbnailPath
 } from "./shared/thumbnail.js";
-import {
-  getTrashRootSetting,
-  setTrashRootSetting,
-  validateTrashRootPath
-} from "./shared/trash-settings.js";
-import { startTrashMove } from "./shared/trash-move.js";
-import { startFolderMove } from "./shared/folder-move.js";
 import { assertMoveTargetFree, enqueueStorageMove, storageMoveStatus, type StorageMoveStatus } from "./shared/storage-move.js";
 import { createLibraryRecord } from "./shared/library-crud.js";
 import { getHouseLibrary, setHouseLibrary } from "./gallery/house-library.js";
+import { setSystemLibraryRole } from "./gallery/system-libraries.js";
 import { scanLibraryNow } from "./shared/media-types.js";
 import {
   AppStorageError,
@@ -43,7 +34,6 @@ import {
 } from "./app-storage.js";
 import { houseRoom, roomView, type RoomView } from "./app-storage-rooms.js";
 import { mapDataDir, ownMapDataDir } from "../maps/storage.js";
-import type { LibraryRow } from "../../db/rows.js";
 
 /** Queue moving a gallery library's folder to `to` as a storage move task
  *  (storage-move.ts): the library keeps pointing at its old folder until every
@@ -64,55 +54,6 @@ function requireAppPath(room: AppRoom): string {
   if (!appPath) throw new AppStorageError("Choose the App storage folder first.");
   fs.mkdirSync(appPath, { recursive: true });
   return appPath;
-}
-
-function switchTrash(mode: AppRoomMode, ownPath: string | null, userId: string): void {
-  if (storageMoveStatus("trash").running) {
-    throw new AppStorageError("The bin is being moved right now. Wait for it to finish, or cancel it, before changing the location again.", 409);
-  }
-  // Where the bin was until now: the task carries the replaced originals from
-  // there, since they have no rows to say where they are.
-  const before = getTrashRootSetting();
-  if (mode === "app") {
-    const appPath = requireAppPath("trash");
-    validateTrashRootPath(appPath);
-    setAppRoomMode("trash", "app", userId);
-  } else if (mode === "own") {
-    if (!ownPath?.trim()) throw new AppStorageError("Choose the folder the Recycle Bin should use.");
-    const resolved = validateTrashRootPath(ownPath.trim());
-    setTrashRootSetting(resolved, userId);
-    setAppRoomMode("trash", "own", userId);
-  } else {
-    setTrashRootSetting(null, userId);
-    setAppRoomMode("trash", "off", userId);
-  }
-  startTrashMove(userId, before);
-}
-
-function switchThumbnails(mode: AppRoomMode, ownPath: string | null, userId: string): void {
-  if (mode === "off") throw new AppStorageError("Thumbnails need a folder; choose App storage or one of your own.");
-  if (storageMoveStatus("thumbnails").running) {
-    throw new AppStorageError("The thumbnails are being moved right now. Wait for that to finish, or cancel it, before changing the folder again.", 409);
-  }
-  const before = configuredThumbnailPathValue() || null;
-  let after: string;
-  if (mode === "app") {
-    after = validateThumbnailPath(requireAppPath("thumbnails"));
-    setAppRoomMode("thumbnails", "app", userId);
-  } else {
-    if (!ownPath?.trim()) throw new AppStorageError("Choose the folder thumbnails should use.");
-    after = validateThumbnailPath(ownPath.trim());
-    db.prepare(
-      `INSERT INTO app_settings (key, value, updated_by, updated_at)
-       VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
-    ).run(thumbnailPathSettingKey, after, userId);
-    setAppRoomMode("thumbnails", "own", userId);
-  }
-  // Everything in the old folder (each library's bucket, the people bucket, and
-  // the render buckets when they follow the thumbnails) is carried across in the
-  // background (phase 3); until an entry arrives, its covers are missing.
-  if (before && !samePath(before, after)) startFolderMove(before, after, userId);
 }
 
 function switchRenders(mode: AppRoomMode, userId: string): void {
@@ -167,17 +108,6 @@ function switchMaps(mode: AppRoomMode, userId: string): void {
   }
 }
 
-function switchBackups(mode: AppRoomMode, userId: string): void {
-  if (mode === "off") throw new AppStorageError("Backups always go somewhere: App storage, or the backup folder.");
-  if (mode === "app") {
-    requireAppPath("backups");
-    setAppRoomMode("backups", "app", userId);
-  } else {
-    fs.mkdirSync(config.backupPath, { recursive: true });
-    setAppRoomMode("backups", undefined, userId);
-  }
-}
-
 function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string, ip: string): void {
   const appPath = appRoomPath("inbox");
   if (mode === "own") {
@@ -189,14 +119,24 @@ function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string
     if (getHouseLibrary()?.id === library.id) {
       throw new AppStorageError(`"${library.name}" is the App files library; it holds what the family makes, not what is waiting for review.`, 409);
     }
-    setInboxFlag(library.id, true);
+    // There is one Inbox. Handing the role to another library turns the current
+    // one into an ordinary library, so its waiting photos would land on the
+    // Timeline unreviewed: refused while any are waiting.
+    refuseWhileWaiting(inboxLibraries().find((row) => row.id !== library.id) ?? null);
+    setSystemLibraryRole("inbox", library.id);
     return;
   }
   if (mode === "app") {
     if (!appPath) throw new AppStorageError("Choose the App storage folder first.");
     const existing = libraryAt(appPath);
     if (existing) {
-      if (parsePolicy(existing.policy_json).inbox !== true) setInboxFlag(existing.id, true);
+      if (existing.role === "app-files") {
+        throw new AppStorageError(`"${existing.name}" at that folder is the App files library, so it cannot also be the Photo Inbox.`, 409);
+      }
+      if (existing.role !== "inbox") {
+        refuseWhileWaiting(inboxLibraries().find((row) => row.id !== existing.id) ?? null);
+        setSystemLibraryRole("inbox", existing.id);
+      }
       return;
     }
     // An Inbox of the admin's own moves into App storage, photos and all, rather
@@ -210,9 +150,10 @@ function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string
     fs.mkdirSync(appPath, { recursive: true });
     const result = createLibraryRecord({
       type: "gallery",
-      data: { name: APP_ROOM_FOLDERS.inbox, sourcePath: appPath, visibility: "public", publicRole: "viewer", mode: "managed", inbox: true },
+      data: { name: APP_ROOM_FOLDERS.inbox, sourcePath: appPath, visibility: "public", publicRole: "viewer", mode: "managed" },
       userId,
-      ip
+      ip,
+      role: "inbox"
     });
     if ("error" in result) throw new AppStorageError(result.error, result.status as number);
     scanLibraryNow("gallery", result.libraryId);
@@ -222,25 +163,21 @@ function switchInbox(mode: AppRoomMode, libraryId: string | null, userId: string
   // still waiting in it, since they would land on the Timeline unreviewed.
   const appInbox = inboxLibraries().find((row) => samePath(row.source_path, appPath));
   if (!appInbox) return;
-  const waiting = itemCount(appInbox.id);
+  refuseWhileWaiting(appInbox);
+  setSystemLibraryRole("inbox", null);
+}
+
+/** Refuse taking the Inbox role from a library that still has photos waiting in
+ *  it: as an ordinary library they would land on the Timeline unreviewed. */
+function refuseWhileWaiting(inbox: GalleryLibraryRow | null): void {
+  if (!inbox) return;
+  const waiting = itemCount(inbox.id);
   if (waiting > 0) {
     throw new AppStorageError(
-      `${waiting === 1 ? "One photo is" : `${waiting} photos are`} still waiting in "${appInbox.name}". Review or discard them first.`,
+      `${waiting === 1 ? "One photo is" : `${waiting} photos are`} still waiting in "${inbox.name}". Review or discard them first.`,
       409
     );
   }
-  setInboxFlag(appInbox.id, false);
-}
-
-function setInboxFlag(libraryId: string, inbox: boolean): void {
-  const row = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(libraryId) as Pick<LibraryRow, "policy_json"> | undefined;
-  if (!row) return;
-  let policy: Record<string, unknown> = {};
-  try { policy = JSON.parse(row.policy_json || "{}") as Record<string, unknown>; } catch { /* rebuilt */ }
-  if (inbox) policy.inbox = true;
-  else delete policy.inbox;
-  db.prepare("UPDATE libraries SET policy_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
-    .run(JSON.stringify(policy), libraryId);
 }
 
 function switchHouse(mode: AppRoomMode, ownLibraryId: string | null, userId: string, ip: string): void {
@@ -262,13 +199,13 @@ function switchHouse(mode: AppRoomMode, ownLibraryId: string | null, userId: str
   // it, and a second library beside it would split that in two.
   const currentHouse = getHouseLibrary();
   const own = currentHouse ? galleryLibraries().find((row) => row.id === currentHouse.id) ?? null : null;
-  if (!existing && own && parsePolicy(own.policy_json).inbox !== true) {
+  if (!existing && own && own.role !== "inbox") {
     queueLibraryMove(own, "house", appPath, userId);
     return;
   }
   let libraryId: string;
   if (existing) {
-    if (parsePolicy(existing.policy_json).inbox === true) {
+    if (existing.role === "inbox") {
       throw new AppStorageError(`"${existing.name}" at that folder is a Photo Inbox, so it cannot also be the App files library.`, 409);
     }
     libraryId = existing.id;
@@ -318,18 +255,14 @@ export function renameRoomFolder(room: AppRoom, userId: string, ip = ""): RoomVi
   return roomView("house");
 }
 
-/** Move one room between its three states. `own` is what "own" needs on the
- *  rooms that take something: a folder for the Recycle Bin and thumbnails, a
- *  gallery library's id for the Inbox and App files. Throws
- *  AppStorageError or TrashError with the status the route should answer with. */
+/** Move one room between its states. `own` is a gallery library's id for the
+ *  Inbox and App files. Throws AppStorageError with the status the route should
+ *  answer with. */
 export function switchRoom(room: AppRoom, mode: AppRoomMode, own: string | null, userId: string, ip = ""): RoomView {
   const ownPath = own;
   switch (room) {
-    case "trash": switchTrash(mode, ownPath, userId); break;
-    case "thumbnails": switchThumbnails(mode, ownPath, userId); break;
     case "renders": switchRenders(mode, userId); break;
     case "maps": switchMaps(mode, userId); break;
-    case "backups": switchBackups(mode, userId); break;
     case "inbox": switchInbox(mode, own, userId, ip); break;
     case "house": switchHouse(mode, own, userId, ip); break;
   }

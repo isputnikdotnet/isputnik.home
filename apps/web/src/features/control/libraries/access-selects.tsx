@@ -2,7 +2,7 @@
 // role, mode). Both layouts that show them — the create wizard's icon rows and the edit
 // dialog's plain fields — embed these, so the option text can't drift between the two.
 import type { ReactNode } from "react";
-import { Eye, Globe2, Inbox, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { Eye, Globe2, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { PublicRole, LibraryMode } from "../../audiobooks/types";
 import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
@@ -127,7 +127,6 @@ export function LibraryAccessRows({
   visibility, onVisibilityChange,
   publicRole, onPublicRoleChange,
   mode, onModeChange,
-  inbox,
   users, groups
 }: {
   ownerId: string;
@@ -139,8 +138,6 @@ export function LibraryAccessRows({
   onPublicRoleChange: (value: PublicRole) => void;
   mode: LibraryMode;
   onModeChange: (value: LibraryMode) => void;
-  /** Gallery libraries only: the Photo Inbox switch. Omitted for other types. */
-  inbox?: { value: boolean; onChange: (value: boolean) => void };
   users: ManagedUser[];
   groups: ManagedGroup[];
 }) {
@@ -165,14 +162,6 @@ export function LibraryAccessRows({
         <ModeSelect value={mode} onChange={onModeChange} />
       </AccessSettingRow>
 
-      {inbox && (
-        <AccessSettingRow icon={Inbox} title={t("control:libraries.fieldInbox")} description={t("control:libraries.inboxRowDescription")}>
-          <label className="library-inbox-toggle">
-            <input type="checkbox" checked={inbox.value} onChange={(event) => inbox.onChange(event.target.checked)} />
-            <span>{t("control:libraries.inboxToggle")}</span>
-          </label>
-        </AccessSettingRow>
-      )}
     </div>
   );
 }

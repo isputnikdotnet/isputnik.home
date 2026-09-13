@@ -73,7 +73,8 @@ describe("moving a folder to another library", () => {
     expect(normaliseFolder("..")).toBeNull();
     expect(() => planFolderMove("RANDOM", "", "PHONE")).toThrowError(/Choose a folder/);
     expect(() => planFolderMove("RANDOM", "2026", "RANDOM")).toThrowError(/already in/);
-    makeGallery("INBOX", "Inbox", path.join(base, "inbox"), { inbox: true });
+    makeGallery("INBOX", "Inbox", path.join(base, "inbox"));
+    db.prepare("UPDATE libraries SET role = 'inbox' WHERE id = 'INBOX'").run();
     expect(() => planFolderMove("RANDOM", "2026", "INBOX")).toThrowError(/Photo Inbox/);
     fs.mkdirSync(path.join(dst, "2026"));
     fs.writeFileSync(path.join(dst, "2026", "theirs.jpg"), "X");

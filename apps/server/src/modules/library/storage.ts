@@ -12,11 +12,9 @@ import {
   relativePathWithinRoot,
   publicStorageRoot
 } from "./shared/storage-roots.js";
-import { appRoomMode, getAppStoragePath } from "../../core/app-storage.js";
 import { getTrashRootSetting } from "./shared/trash-settings.js";
-import { trashMoveStatus } from "./shared/trash-move.js";
+import { changeTrashRoot, trashMoveStatus } from "./shared/trash-move.js";
 import { statusOf } from "./app-storage.js";
-import { switchRoom } from "./app-storage-switch.js";
 import type { StorageRootRow as DbStorageRootRow } from "../../db/rows.js";
 
 const storageRootSchema = z.object({
@@ -45,7 +43,6 @@ export async function storagePlugin(app: FastifyInstance) {
     const move = trashMoveStatus();
     return {
       path: getTrashRootSetting(),
-      usesAppStorage: appRoomMode("trash") === "app" && getAppStoragePath() !== null,
       libraryCount,
       itemsInBin,
       editable: !move.running,
@@ -60,7 +57,7 @@ export async function storagePlugin(app: FastifyInstance) {
     }
     const wanted = parsed.data.path?.trim() ? parsed.data.path.trim() : null;
     try {
-      switchRoom("trash", wanted ? "own" : "off", wanted, request.user!.id, request.ip);
+      changeTrashRoot(wanted, request.user!.id);
     } catch (err) {
       return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Invalid Recycle Bin location" });
     }

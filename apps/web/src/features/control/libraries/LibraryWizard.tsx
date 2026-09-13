@@ -231,7 +231,7 @@ export function LibraryWizard({
     ? (ownerType === "group"
         ? groups.find((group) => group.id === ownerId)?.name ?? t("control:libraries.unknownGroup")
         : users.find((user) => user.id === ownerId)?.displayName ?? t("control:libraries.unknownUser"))
-    : t("control:libraries.systemLibrary");
+    : t("control:libraries.noOwner");
   const typeLabel = TYPE_OPTIONS.find((option) => option.type === libraryType)?.label ?? libraryType;
   const reviewGlance = `${typeLabel} · ${visibility === "public" ? t("control:libraries.public") : t("control:libraries.private")} · ${mode === "managed" ? t("control:libraries.modeManaged") : t("control:libraries.wizard.glanceExternal")}`;
   const reviewRows: { label: string; value: string }[] = [

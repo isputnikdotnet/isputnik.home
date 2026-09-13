@@ -32,7 +32,7 @@ import { bootApp } from "./helpers/boot.js";
 import { resetDb, makeUser, makeLibrary, grant, futureIso, pastIso } from "./helpers/seed.js";
 import { multipart as body, type Part } from "./helpers/multipart.js";
 
-const INBOX_POLICY = { mode: "managed", inbox: true };
+const INBOX_POLICY = { mode: "managed" };
 let base = "";
 let app: FastifyInstance;
 let red: Buffer;
@@ -47,8 +47,8 @@ beforeAll(async () => {
   blue = await sharp({ create: { width: 30, height: 40, channels: 3, background: { r: 20, g: 40, b: 220 } } }).jpeg().toBuffer();
 });
 
-function makeGallery(id: string, policy: object): void {
-  makeLibrary(id, { createdBy: "owner", type: "gallery", policyJson: JSON.stringify(policy) });
+function makeGallery(id: string, policy: object, role?: "inbox" | "app-files"): void {
+  makeLibrary(id, { createdBy: "owner", type: "gallery", policyJson: JSON.stringify(policy), role });
   fs.mkdirSync(path.join(base, id), { recursive: true });
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = ?").run(path.join(base, id), id);
   grant("group", EVERYONE_GROUP_ID, id, "member");
@@ -117,7 +117,7 @@ beforeEach(async () => {
   makeUser("cousin", "member");
   db.prepare("INSERT INTO storage_roots (id, name, path, created_by) VALUES ('sr1', 'test', ?, 'owner')").run(base);
   db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?)").run(thumbnailPathSettingKey, path.join(base, "thumbs"));
-  makeGallery("INBOX", INBOX_POLICY);
+  makeGallery("INBOX", INBOX_POLICY, "inbox");
   makeGallery("PHOTOS", { mode: "managed" });
 
   ({ app } = await bootApp({
@@ -335,7 +335,7 @@ describe("a link that no longer works", () => {
     ["a guest link from another module", () => { makeLink("t", { module: "audiobook", libraryId: "some-book" }); }],
     ["a link to a library that is no longer an Inbox", () => {
       makeLink("t");
-      db.prepare("UPDATE libraries SET policy_json = ? WHERE id = 'INBOX'").run(JSON.stringify({ mode: "managed" }));
+      db.prepare("UPDATE libraries SET role = NULL WHERE id = 'INBOX'").run();
     }],
     ["a link to a library that isn't a photo library", () => {
       makeLibrary("BOOKS", { createdBy: "owner", type: "audiobook", policyJson: JSON.stringify(INBOX_POLICY) });

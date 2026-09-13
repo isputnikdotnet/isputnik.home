@@ -14,7 +14,7 @@ import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 const ADMIN = { id: "u1", role: "admin" };
 const HELPER = { id: "u2", role: "member" };
-const INBOX_POLICY = JSON.stringify({ mode: "managed", inbox: true });
+const INBOX_POLICY = JSON.stringify({ mode: "managed" });
 
 function makePhoto(libraryId: string, id: string, relativePath: string, takenAt: string | null = null): void {
   db.prepare(
@@ -183,7 +183,7 @@ describe("bulk place and time with a precision", () => {
 
 describe("the Inbox in Review mode", () => {
   beforeEach(() => {
-    makeLibrary("inbox", { createdBy: "u1", type: "gallery", policyJson: INBOX_POLICY });
+    makeLibrary("inbox", { createdBy: "u1", type: "gallery", policyJson: INBOX_POLICY, role: "inbox" });
     // Viewable by the house; the helper's write right is granted per test.
     grant("group", EVERYONE_GROUP_ID, "inbox", "viewer");
     makePhoto("inbox", "b", "box3/002.jpg");

@@ -31,7 +31,7 @@ export function ownMapDataDir(): string {
 /** Where map data lives right now: the Map data room in App storage, or the
  *  room's own place (core/app-storage.ts, resolveAppLocation). */
 export function mapDataDir(): string {
-  return resolveAppLocation("maps", null) ?? ownMapDataDir();
+  return resolveAppLocation("maps") ?? ownMapDataDir();
 }
 
 /** The base map's part of it: tiles, fonts, sprites and styles. Deleting this

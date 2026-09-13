@@ -78,6 +78,8 @@ export interface AudiobookLibrary {
   mode: LibraryMode;
   /** Gallery only: a Photo Inbox, a holding library for photos under review. */
   inbox?: boolean;
+  /** Gallery only: a system library the app keeps for itself ('inbox' | 'app-files'). */
+  role?: "inbox" | "app-files" | null;
   createdAt: string;
   updatedAt: string;
   bookCount: number;

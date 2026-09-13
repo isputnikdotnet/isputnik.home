@@ -5,7 +5,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { FACE_EMBEDDING_MODEL } from "./model-id.js";
-import { isPhotoInboxLibrary } from "../inbox-flag.js";
+import { isPhotoInboxLibrary } from "../system-libraries.js";
 
 export const faceJobType = "SCAN_GALLERY_FACES";
 

@@ -9,7 +9,7 @@
 // a job needs an owner: the admin who triggered it when there is one, otherwise
 // the admin who created the Inbox library.
 import { db } from "../../../../db.js";
-import { isPhotoInboxLibrary } from "../inbox-flag.js";
+import { isPhotoInboxLibrary } from "../system-libraries.js";
 import { activeJob, createJob, galleryLibraryOptions, refreshInboxScope, type DuplicateJob } from "./jobs.js";
 import { startJobScan } from "./job-scan.js";
 import { processDuplicateScanQueue } from "./scan-queue.js";

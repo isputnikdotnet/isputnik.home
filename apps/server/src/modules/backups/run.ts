@@ -3,7 +3,7 @@ import path from "node:path";
 import { ZipArchive } from "archiver";
 import { db, logActivity, preRestoreSnapshotPath } from "../../db.js";
 import { config, mfaKeyFilePath } from "../../config.js";
-import { resolveAppLocation } from "../../core/app-storage.js";
+import { resolveBackupPath } from "../../core/system-data.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
 import { listIrreplaceableArt } from "../library/shared/irreplaceable-art.js";
 import { clearPreUpgradeStaging, preUpgradeStagingPath, readPreUpgradeMeta } from "../../db/pre-upgrade.js";
@@ -149,11 +149,11 @@ export function saveSettings(settings: BackupSettings, userId: string | null) {
   `).run(SETTINGS_KEY, JSON.stringify(settings), userId);
 }
 
-/** Where backups go: App storage's Backups room when that room is switched on
- *  (docs/app-storage-plan.md), else BACKUP_PATH / data/backups. Read at call time,
- *  never cached — the room can change while the server runs. */
+/** Where backups go: the folder chosen on the Storage page, else BACKUP_PATH, else
+ *  `<system data>/backups`, else data/backups (core/system-data.ts). Read at call
+ *  time, never cached — it can change while the server runs. */
 export function backupDir(): string {
-  return resolveAppLocation("backups", config.backupPath) ?? config.backupPath;
+  return resolveBackupPath().path;
 }
 
 export function ensureBackupDir() {

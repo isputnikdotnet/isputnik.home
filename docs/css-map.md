@@ -55,6 +55,7 @@ dashboard's `LocationsMap`, …).
 | `scan-layout.css` | *Page* — scan layouts: the Layout panel and the scan-rule wizard ([`scan-layout-plan.md`](scan-layout-plan.md)) |
 | `welcome.css` | *Page* — the first-run setup guide (`/welcome`) |
 | `map-features.css` | *Page* — the map feature cards: Control panel → Maps, and the setup guide's Maps step |
+| `system-data.css` | *Page* — the System data block and its free-space meter: Control panel → Library → Storage, and the setup guide's Storage step |
 | `duplicates.css` | *Page* — duplicate cleanup (split from `admin.css`). A barrel over `duplicates/` (see below) |
 | `about.css` | About page and version timeline; Profile's tabs (password, email, appearance, shared links, passkeys, two-factor); Help & guides; the control panel's Security and OPDS pages. Global because five routes use it |
 | `share.css` | Sharing as signed-in pages meet it: the in-app share dialog, the photo set grid and viewer (For you and the guest page both open it), and the transport row the guest player shares with the player page |
@@ -78,6 +79,7 @@ dashboard's `LocationsMap`, …).
 | `duplicates.css` | `features/control/sections/duplicates/DuplicateCleanupSection.tsx` | Control panel → Duplicate cleanup |
 | `welcome.css` | `pages/WelcomePage.tsx` | the setup guide |
 | `map-features.css` | `features/control/sections/maps/MapFeatures.tsx` | Control panel → Maps, and the setup guide's Maps step |
+| `system-data.css` | `features/control/sections/storage/SystemDataPanel.tsx` | Control panel → Library → Storage, and the setup guide's Storage step |
 | `review.css` | `features/gallery/review/ReviewPage.tsx` | Review mode |
 | `person-edit.css` | `features/audiobooks/PersonPage.tsx` | a person's page |
 | `book-media.css` | `features/audiobooks/BookDetailPage.tsx` | the book page — and so it is precached with it |

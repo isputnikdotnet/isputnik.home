@@ -4,7 +4,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
-import { resolveAppLocation } from "../../../core/app-storage.js";
 import { pathIsInside, normaliseRelativePath, findStorageRootForPath } from "./storage-roots.js";
 import type { AppSettingRow, LibraryRow } from "../../../db/rows.js";
 
@@ -27,11 +26,12 @@ const TRASH_ROOT_KEY = "trash_root_path";
  *  reads that folder. Moving the bin out of the library tree is the only fix that doesn't
  *  depend on another tool's ignore rules. */
 export function getTrashRootSetting(): string | null {
-  return resolveAppLocation("trash", getOwnTrashRootSetting());
+  return getOwnTrashRootSetting();
 }
 
-/** The bin folder's OWN setting, ignoring App storage — what the Storage page
- *  shows as "its own folder" (docs/app-storage-plan.md, decision 4). */
+/** The bin folder setting itself. The same answer as getTrashRootSetting since 4.6,
+ *  when the bin stopped being a room of App storage (docs/system-data-plan.md,
+ *  decision 18); kept as its own name for the callers that meant "the setting". */
 export function getOwnTrashRootSetting(): string | null {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_ROOT_KEY) as Pick<AppSettingRow, "value"> | undefined;
   const value = row?.value.trim();

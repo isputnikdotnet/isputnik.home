@@ -3058,21 +3058,6 @@
   font-size: 0.88rem;
 }
 
-/* Library wizard: the Photo Inbox switch. */
-.library-inbox-toggle {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.library-inbox-toggle input {
-  margin-top: 4px;
-}
-
-.library-inbox-toggle small {
-  display: block;
-}
-
 /* The Inbox check's "start" offer, under the toolbar. */
 .gallery-inbox-check-offer {
   display: flex;

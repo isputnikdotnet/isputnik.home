@@ -328,6 +328,10 @@ CREATE TABLE IF NOT EXISTS libraries (
   settings_json   TEXT NOT NULL DEFAULT '{}',
   scan_status     TEXT NOT NULL DEFAULT 'idle' CHECK (scan_status IN ('idle', 'scanning', 'error')),
   last_scanned_at TEXT,
+  -- A system library the app made for itself (gallery only): 'inbox' = the Photo
+  -- Inbox, 'app-files' = App files. At most one of each (unique index made by
+  -- migration 75, not here: this file runs before the migration on old databases).
+  role            TEXT CHECK (role IN ('inbox', 'app-files')),
   created_by      TEXT NOT NULL REFERENCES users(id),
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

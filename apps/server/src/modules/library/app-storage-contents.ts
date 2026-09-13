@@ -126,19 +126,13 @@ function roomContents(room: AppRoom): RoomContents {
   const view = roomView(room);
   const base = { room, mode: view.mode, path: view.resolvedPath, library: view.library, complete: true };
   switch (room) {
-    case "trash": {
-      const row = db.prepare("SELECT COUNT(*) AS files, COALESCE(SUM(size_bytes), 0) AS bytes FROM trashed_items").get() as { files: number; bytes: number };
-      return { ...base, files: row.files, bytes: row.bytes };
-    }
     case "inbox":
     case "house": {
       if (!view.library) return { ...base, files: 0, bytes: 0 };
       return { ...base, ...libraryStats(view.library.id) };
     }
-    case "thumbnails":
     case "renders":
-    case "maps":
-    case "backups": {
+    case "maps": {
       const stats = folderStats(view.mode === "off" ? null : view.resolvedPath);
       return { ...base, files: stats.files, bytes: stats.bytes, complete: stats.complete };
     }
