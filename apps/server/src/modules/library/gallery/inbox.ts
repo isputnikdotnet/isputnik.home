@@ -99,7 +99,11 @@ export function listPhotoInboxes(user: AuthUser): PhotoInboxSummary[] {
         canEdit: canEdit(user, row),
         deliveries
       };
-    });
+    })
+    // An empty Inbox shows nowhere a member looks (docs/system-data-plan.md,
+    // decision 12): no Review entry, nothing on For you. Admins still see it, since
+    // drop links and the first scan into it start from here.
+    .filter((inbox) => user.role === "admin" || inbox.count > 0);
 }
 
 export interface PhotoInboxItemsQuery {

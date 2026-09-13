@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { appStorageContents, deleteOrphanAppFile, folderStats } from "../src/modules/library/app-storage-contents.js";
-import { setAppStoragePath } from "../src/modules/library/app-storage-path.js";
 import { HOUSE_FOLDERS, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
@@ -37,7 +36,7 @@ beforeEach(() => {
   db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?)").run(thumbnailPathSettingKey, path.join(base, "thumbs"));
   makeUser("u1", "admin");
   db.prepare("INSERT OR REPLACE INTO storage_roots (id, name, path, created_by) VALUES ('sr1', 'test', ?, 'u1')").run(base);
-  setAppStoragePath(appDir, "u1");
+  db.prepare("INSERT INTO app_settings (key, value) VALUES ('app_storage', ?)").run(JSON.stringify({ enabled: true, where: "custom", path: appDir, outside: {} }));
   house = path.join(appDir, "App files");
   makeLibrary("HOUSE", { createdBy: "u1", type: "gallery" });
   fs.mkdirSync(house, { recursive: true });

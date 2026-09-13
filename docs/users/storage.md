@@ -7,7 +7,7 @@ sits in **Control panel → Library → Storage**, in three parts:
 |---|---|---|
 | **Digital Library containers** | The folders your libraries are allowed to read | A safety boundary: a library can only ever point somewhere inside an approved container, so a mistyped path can't wander off into the rest of the disk. |
 | **System data** | The one folder the app needs to run: thumbnails, backups and metadata go there | Required. No library can be added until thumbnails have somewhere to go. Thumbnails and backups can each have a folder of their own. |
-| **App storage** | One optional folder for the Photo Inbox, the library for what the family makes in the app, renders and map data | So those answers are given once, in one place. Each of its rooms can use it, keep a place of its own, or stay off. |
+| **App storage** | One optional switch for the Photo Inbox, the library for what the family makes in the app, renders and map data, kept in one folder | Off until you switch it on. The four parts go together, so it is one answer rather than four. |
 
 Until system data is chosen and at least one container exists, **Add library**
 stays disabled and the Libraries page tells you so, with a button straight back
@@ -85,170 +85,143 @@ is already there across the same way.
 
 ## App storage
 
-On a new install the App storage block says **Not set** and every room below it
-reads **Not set** or **Off**:
+App storage is one switch for four things that always go together:
+
+| Part | What it holds |
+|---|---|
+| **Photo Inbox** | Scans and drop-link uploads waiting to be reviewed ([Photo Inbox](photo-inbox.md)) |
+| **App files** | Story recordings, voice notes on photos, family-tree uploads, finished slideshow movies and uploaded music |
+| **Renders** | Work files while a slideshow is saved as a movie |
+| **Map data** | Kept maps and the place-name databases ([Maps](control-panel.md#maps)) |
+
+It is **off** on a new install, and it is optional: libraries, stories, albums and
+the gallery all work without it. While it is off, recording and uploading in the
+app, slideshow movies and music, kept maps and the Inbox are unavailable, and the
+places that offer them say so, with a link here for admins.
 
 ![Storage before anything is configured](images/10-storage-empty.png)
 
-Choose **Choose folder** and pick a folder inside one of your containers. It has
-to exist already, it can't be the container itself (the app makes its own
-folders in it), and it can't be inside a library. A folder beside your media is
-the tidy choice:
+### Switching it on
 
-```
-D:\ProjectTesting\AppDocTest\iSputnik
-```
+Before switching on, choose where it lives:
 
-A box shows the exact path and asks you to confirm. Choosing the folder records
-it and nothing else: no room changes until you change its row. Two rooms do
-follow it straight away when they were never given a place of their own:
-**Renders** go to `Renders\` under it, unless you have told the row to stay
-inside the thumbnail folder, and **Map data** goes to `Map data\` under it.
+- **In system data** (already chosen): a folder called `app-storage` inside system
+  data. One click, and fine for a small household, but it shares that disk with the
+  thumbnails and backups.
+- **Custom folder**: type a folder, on any disk. It does not have to be inside a
+  container, but it can't be a container itself or sit inside a library. In a
+  household with a lot of video, a folder on your media disk is the better home.
 
-### The rooms
+The free space on that disk shows under the choice, and the ⓘ beside the heading
+gives a rough idea of what each part needs. Then flip the switch: a box names the
+exact folder, and nothing happens until you confirm.
 
-Nothing inside App storage shows up in the gallery on its own. The two rooms
-that are gallery libraries, the Photo Inbox and App files, are left out
-of the Timeline, Memories, the Home page, People, the map and every picker,
-the way an Inbox always was; what they hold is reached from the stories,
-photos and family tree that made it, or by choosing the library by name in
-the gallery's library filter, where it is labelled. A photo from such a
-library that a story, an album or a slideshow already holds keeps showing
-there, and opens in the viewer as before. The other rooms are not libraries
-and are never scanned.
+Switching on makes the **Photo Inbox** and **App files** libraries and the
+**Renders** and **Map data** folders there. Nothing is downloaded: kept maps are
+still switched on from the Maps page. Music waiting to be imported and map data
+already kept elsewhere follow into App storage as tasks.
 
-| Room | Use App storage | Its own place | Off |
-|---|---|---|---|
-| **Photo Inbox** | `Photo Inbox\`, made as a library | a gallery library of your own becomes the Inbox | no Inbox |
-| **App files** | `App files\`, made as a library | any gallery library of your own | nothing can be recorded or uploaded from the app |
-| **Renders** | `Renders\` | inside the thumbnail folder | — |
-| **Map data** | `Map data\` | its own folder (`MAP_DATA_PATH`, else beside the database) | — |
+Both libraries are **system libraries**: the app makes them, keeps their names,
+and they are not listed on the Libraries page or in the gallery's library filter.
+Nothing in them shows up on the Timeline, Memories, the Home page, People, the map
+or the pickers on its own; a recording or a voice note is reached from the story or
+the photo it belongs to, and a photo a story, album or slideshow already holds keeps
+showing there. Who may see them is still yours to set: the **Access** link on their
+row opens their settings.
 
-Uploaded slideshow music is not really a room any more: once an App files
-library exists, every track lives in its `Slideshow music\` folder as an
-ordinary audio asset, visible in the gallery and backed up with the rest, and
-music uploaded before that moves itself there shortly after the server starts.
-The Renders room then holds only finished slideshow movies.
+![Storage once configured](images/11-storage-configured.png)
 
-Each row says which column it is in, in words, and **Change** opens a small
-chooser with the options for that room. Picking one doesn't apply it: a box
-names the room, shows the exact folder it will use from now on, says what moves
-and what doesn't, and offers Cancel or a verb. Nothing happens until you press
-the verb.
+### The parts
 
-![The Renders chooser: use App storage, or stay inside the thumbnail folder](images/101-storage-room-chooser.png)
+Under the switch, one row per part: its folder, what it holds, and an ⓘ with what it
+is for, the space it needs and what switching off does to it. There is no switch per
+part. A part may still sit **outside App storage**: a Photo Inbox or App files
+library made before 4.6 keeps its folder, and renders or map data the 4.6 upgrade
+found elsewhere stay there. Such a row says so and offers **Move in**, which moves it
+as a task after a box naming the folder.
 
-For the two library rooms, **A library of my own** lists your gallery libraries:
-pick one to hold what the family makes in the app, or to become the Photo Inbox.
+App files made under its former name, *Made in the app*, offers **Rename folder**:
+the same task, the library following its folder, so nothing is rescanned.
 
-![The App files chooser with A library of my own picked and the library list under it](images/105-storage-own-library.png)
+### Moving it
 
-Two rooms are worth a word each:
+**Change**, while App storage is on, moves it to another folder: in system data, or
+a custom one. Everything inside moves along, each part as a task; a part outside it
+stays where it is. Every check happens first: if the new folder already holds one
+of the parts' folders, a library is being scanned, or a move is still running,
+nothing changes and the box says why.
 
-- **Photo Inbox.** Switching to App storage when you already have an Inbox of
-  your own moves that library's folder into App storage whole, photos waiting
-  and all, and it stays the Inbox; the confirmation says how many come along,
-  and nothing is rescanned. With no Inbox yet, a new gallery library is made in
-  the room's folder. Switching off leaves the library as an ordinary library
-  with its files where they are; it refuses to turn off while photos are still
-  waiting in it, so nothing lands on the Timeline unreviewed.
-- **App files.** Switching to App storage when a library of your own is
-  nominated moves that library's folder into App storage whole, with everything
-  in it, and it stays the library for what is made in the app. With none
-  nominated, a new gallery library is made in the room's folder and nominated.
-  Switching off only clears the nomination.
+### Switching it off
+
+Switching off removes the parts, so it is refused while any of them still holds
+something the family would lose:
+
+- photos are still waiting in the Photo Inbox;
+- App files holds files (the Contents tab shows what owns each one);
+- the Recycle Bin holds items from either library;
+- a slideshow movie is rendering, or the place-name database is being built.
+
+The switch says why before you confirm. Otherwise kept maps and place names are
+deleted (both download again), the empty libraries and folders go, and the sign-in
+location databases move back beside the database.
 
 ### What it holds: the Contents page
 
-**Library → Storage contents**, the tab beside Storage, answers the other question about App storage:
-what is in it, and why. The top table gives every room a count and a size,
-counted from the app's own records where it keeps them (the two libraries) and
-from the disk where it does not (renders, map data),
-plus the hidden `.staging` folder where uploads wait between arriving and
-landing. Under it, the **App files** library is listed folder by folder and
-file by file, each with the thing it belongs to: the story a recording
-narrates, the photo a voice note sits on, the track a music file plays as,
-the slideshow a movie was rendered from, the person a family-tree photo is
-of, each a link where there is a page to go to.
+**Library → Storage contents**, the tab beside Storage, answers the other question
+about App storage: what is in it, and why. The top table gives every part a count
+and a size, counted from the app's own records where it keeps them (the two
+libraries) and from the disk where it does not (renders, map data), plus the hidden
+`.staging` folder where uploads wait between arriving and landing. Under it, the
+**App files** library is listed folder by folder and file by file, each with the
+thing it belongs to: the story a recording narrates, the photo a voice note sits on,
+the track a music file plays as, the slideshow a movie was rendered from, the person
+a family-tree photo is of, each a link where there is a page to go to.
 
-![The Contents page: every room with its size, and the App files library folder by folder with what owns each file](images/107-storage-contents.png)
+![The Contents page: every part with its size, and the App files library folder by folder with what owns each file](images/107-storage-contents.png)
 
-A file nothing owns any more, because the story, photo or slideshow it served
-has since gone, is marked an **orphan**, and that is the one thing the page
-deletes: it goes to the Recycle Bin like any deleted file. Files the app's
-folders do not account for, such as photos uploaded into the library by hand,
-are listed as **Other files**, with the way out: open their folder in the
-gallery and move it to another library.
+A file nothing owns any more, because the story, photo or slideshow it served has
+since gone, is marked an **orphan**, and that is the one thing the page deletes: it
+goes to the Recycle Bin like any deleted file. Files the app's folders do not account
+for, such as photos uploaded into the library by hand, are listed as **Other files**,
+with the way out: open their folder in the gallery and move it to another library.
 
 ### How a move runs
 
-Every move is a **task**: it appears on the Tasks page as a *Storage move*
-with its progress and an estimate, it can be stopped there or from the row,
-it is timed, and a server restart picks it up again where it was. The row on
-this page shows "Moving… 14 of 230" while it runs, and afterwards anything it
-could not carry with a **Retry**. The activity log records when a move starts
-and how it ended: how much it carried, how long it took, and what failed.
+Every move is a **task**: it appears on the Tasks page as a *Storage move* with its
+progress and an estimate, it can be stopped there or from the row, it is timed, and
+a server restart picks it up again where it was. The row on this page shows
+"Moving… 14 of 230" while it runs, and afterwards anything it could not carry with a
+**Try again**. The activity log records when a move starts and how it ended.
 
 What keeps it safe:
 
-- On the same disk a move is a rename: instant whatever the size, and either
-  it happens or it does not.
-- Across disks nothing is copied while you wait. The task copies one file at a
-  time and checks each one arrived whole, by size, before the original is
-  removed. A file that does not check out stays where it was and is listed.
-- A library keeps its old folder until the last file is across and verified,
-  then switches to the new one in one step and the old folder goes. Stopping
-  the move, or a failure, leaves the library exactly where it was.
-- One move runs at a time, and never while a library is being scanned; a scan
-  waits for a move the same way.
-
-### Changing the folder once rooms use it
-
-The folder is the base of every file its rooms hold, so **Change** on the top
-block asks about each room that uses it. The confirmation lists those rooms
-with a tick beside each: a ticked room is carried to the new folder, an
-unticked one stays where it is and leaves App storage.
-
-![The App storage folder-change confirmation: the new folder, and a tick beside each room that uses it](images/106-storage-folder-change.png)
-
-What "carried" means depends on the room:
-
-- **Renders** and **Map data** are carried by the same tasks their rows use,
-  one task each, and the rows show the progress. Left behind, renders go back
-  inside the thumbnail folder and map data to its own folder.
-- **Photo Inbox** and **App files** move as whole folders, each its own
-  task, and the library follows its folder once every file is across: nothing
-  is rescanned, and what is waiting for review stays waiting. Left behind, the
-  library stays where it is as a library of your own, still the Inbox or still
-  nominated.
-
-Every check happens before anything changes: if the new folder already holds
-a room's folder, a library room is being scanned, or a move is still running,
-nothing changes and the box says why. The tasks then run one after another.
-**Clear** takes the leave-behind path for every room. Both wait for a move
-already running on the page to finish first.
+- On the same disk a move is a rename: instant whatever the size, and either it
+  happens or it does not.
+- Across disks nothing is copied while you wait. The task copies one file at a time
+  and checks each one arrived whole, by size, before the original is removed. A file
+  that does not check out stays where it was and is listed.
+- A library keeps its old folder until the last file is across and verified, then
+  switches to the new one in one step and the old folder goes. Stopping the move, or
+  a failure, leaves the library exactly where it was.
+- One move runs at a time, and never while a library is being scanned; a scan waits
+  for a move the same way.
 
 Once system data is chosen and a container is listed, you're ready for
 **[Setting up libraries](libraries.md)**.
 
 ### An install that already had these set
 
-Nothing moves when you update to 4.6. The first start writes system data from
-what was already in use: the folder that holds your `thumbnails` folder when it
-has that name and holds no library (in Docker, `/config`), otherwise the folder
-next to the database. Thumbnails, backups and a Recycle Bin that lived somewhere
-else, including inside App storage, keep that folder as a place of their own.
-App storage keeps its folder and its other rooms as they were.
+Nothing moves when you update to 4.6. The first start writes system data from what
+was already in use: the folder that holds your `thumbnails` folder when it has that
+name and holds no library (in Docker, `/config`), otherwise the folder next to the
+database. Thumbnails, backups and a Recycle Bin that lived somewhere else keep that
+folder as a place of their own.
 
-One name did change: the App files room was called *Made in the app* until
-3.86.0, and an install that made the folder under that name keeps it. The room
-still reads as using App storage, and nothing moves. If you would like the
-folder to match, the App files row offers **Rename folder**: a box shows the
-exact before and after, and the rename runs as the same task a library move
-uses, the library following its folder in the same step, so nothing is
-rescanned. On the same disk it is a single rename.
-
-![Storage once configured](images/11-storage-configured.png)
+App storage becomes its one switch the same way. An install with an App storage
+folder has it on, at that folder. An install that used a Photo Inbox, App files,
+uploaded music or kept maps without one has it on, in system data, with each of
+those left where it was and offering **Move in**. An install that used none of
+them has it off.
 
 ## How to organise the folder underneath
 
@@ -293,8 +266,8 @@ title, or deleting a library never touches the files on disk.
 
 The exceptions are the things you'd expect to touch files, and only those:
 uploading adds a file, deleting an *item* (when the library allows it) moves it
-to the Recycle Bin, and changing a room on this page moves what that room holds,
-after telling you so.
+to the Recycle Bin, and moving a folder on this page moves what it holds, after
+telling you so.
 
 Uploads wait in a hidden `.staging\` folder inside App storage while they
 arrive, rather than in the system's temp folder, so a long recording cannot

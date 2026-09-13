@@ -83,3 +83,27 @@
 .space-meter-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--mint); }
 .space-meter.is-low .space-meter-bar > span { background: var(--warning, #b88746); }
 .space-meter.is-low .space-meter-text { color: var(--warning, #b88746); }
+
+/* App storage — the same block shape, with its one switch in the head, the
+   where-choice while off, and the four parts as rows (AppStoragePanel.tsx). */
+.app-storage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.app-storage-question { font-size: 0.86rem; color: var(--muted); }
+.app-storage-where .app-storage-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.app-storage-where .app-storage-option input { margin-top: 3px; }
+.app-storage-where .app-storage-option span { display: grid; gap: 2px; min-width: 0; }
+.app-storage-where .app-storage-option small { font-size: 0.8rem; overflow-wrap: anywhere; }
+.app-storage-part-name { display: inline-flex; align-items: center; gap: 4px; }
+.app-storage-part-name .info-hint-panel { display: grid; gap: 6px; }
+.app-storage-using { display: grid; gap: 6px; font-size: 0.84rem; }
+.app-storage-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.app-storage-block tr.is-off strong,
+.app-storage-block tr.is-off .app-storage-path { color: var(--muted); }

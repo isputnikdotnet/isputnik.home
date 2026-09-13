@@ -183,16 +183,13 @@ uploads blend into a folder structure rather than piling up at the top.
 ## What the app keeps for itself
 
 Story recordings, voice notes, family-tree uploads, rendered slideshow movies
-and uploaded music all land in the **App files** library ([Storage](storage.md)).
-When that library sits inside App storage it stays out of the Timeline,
-Memories, the Home page, People, the map and every picker, the same way a
-Photo Inbox does: those files belong to the story, the photo or the tree that
-made them, and that is where you meet them: a photo placed in a story, an
-album or a slideshow keeps showing there, and opens in the viewer as any
-other. To browse the library itself, choose it by name in the library filter,
-where it is labelled *(App storage)*.
-A library of your own that you nominate instead, outside App storage, shows in
-the gallery as it always did.
+and uploaded music all land in the **App files** library, part of App storage
+([Storage](storage.md)). It stays out of the Timeline, Memories, the Home page,
+People, the map, every picker and the library filter, the same way a Photo Inbox
+does: those files belong to the story, the photo or the tree that made them, and
+that is where you meet them. A photo placed in a story, an album or a slideshow
+keeps showing there, and opens in the viewer as any other. To see everything it
+holds, open **Control panel → Library → Storage contents**.
 
 ## Photo Inbox
 

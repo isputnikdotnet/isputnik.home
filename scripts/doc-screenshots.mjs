@@ -353,23 +353,6 @@ const SHOTS = [
     state: "a live drop link (DROP_TOKEN)",
     height: 560
   },
-  {
-    // The edit dialog opens on its Access tab, where the Photo Inbox switch lives.
-    name: "87-library-inbox-switch",
-    url: "control/libraries",
-    state: "a gallery library named Photo Inbox",
-    setup: `
-      const edit = [...document.querySelectorAll("button[aria-label]")]
-        .find((b) => b.getAttribute("aria-label") === "Edit Photo Inbox");
-      if (!edit) return "no Photo Inbox row";
-      edit.click(); await sleep(900);
-      // The switch is the last row of the Access tab; scroll the dialog to it.
-      const pane = [...topModal().querySelectorAll("*")]
-        .find((el) => el.scrollHeight > el.clientHeight + 20 && getComputedStyle(el).overflowY !== "visible");
-      if (pane) { pane.scrollTop = pane.scrollHeight; await sleep(400); }
-      "edit dialog";`,
-    height: 1000
-  },
 
   // Stories. A story's address contains its id, which differs on every install,
   // so these open the index and click through by title rather than deep-linking
@@ -594,78 +577,12 @@ const SHOTS = [
       "compose with the question";`
   },
 
-  // App storage (docs/app-storage-plan.md): a room's chooser, and the box that
-  // confirms a change with the exact folder before anything happens.
+  // App storage (docs/system-data-plan.md): what it holds.
   {
-    name: "101-storage-room-chooser",
-    url: "control/libraries/storage",
-    state: "App storage chosen",
-    setup: `
-      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("Renders"));
-      const change = row && button(row, "Change");
-      if (!change) return "no Renders row";
-      change.click(); await sleep(500);
-      "chooser open";`
-  },
-  {
-    name: "102-storage-room-confirm",
-    url: "control/libraries/storage",
-    state: "App storage chosen, the Recycle Bin not yet in it",
-    setup: `
-      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("Recycle Bin"));
-      const change = row && button(row, "Change");
-      if (!change) return "no Recycle Bin row";
-      change.click(); await sleep(500);
-      // Whatever the bin uses now, pick the other of App storage / own .trash so
-      // Continue has something to confirm.
-      const modal = topModal();
-      const radios = [...modal.querySelectorAll('input[type="radio"]')];
-      const target = radios.find((r) => r.value === "app" && !r.checked && !r.disabled) ?? radios.find((r) => r.value === "off" && !r.checked);
-      if (!target) return "no other option to pick";
-      target.click(); await sleep(200);
-      button(modal, "Continue").click(); await sleep(500);
-      "confirmation open";`
-  },
-  {
-    // A library room's "A library of my own": the chooser with the library list.
-    name: "105-storage-own-library",
-    url: "control/libraries/storage",
-    state: "at least two gallery libraries",
-    setup: `
-      const row = [...document.querySelectorAll(".app-storage-rooms tr")].find((tr) => tr.textContent.includes("App files"));
-      const change = row && button(row, "Change");
-      if (!change) return "no App files row";
-      change.click(); await sleep(500);
-      const own = [...topModal().querySelectorAll('input[type="radio"]')].find((r) => r.value === "own");
-      if (!own) return "no own option";
-      own.click(); await sleep(400);
-      "library picker";`
-  },
-  {
-    // Changing the App storage folder while rooms use it: the confirmation with
-    // a tick per room (carry it along, or leave it where it is).
-    name: "106-storage-folder-change",
-    url: "control/libraries/storage",
-    state: "App storage chosen, at least one room using it, a second container with a plain folder",
-    setup: `
-      button(document.querySelector(".app-storage-buttons"), "Change").click(); await sleep(800);
-      const picker = topModal();
-      const select = picker.querySelector("select");
-      const other = [...select.options].find((o) => o.value !== select.value);
-      if (!other) return "no second container";
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(select, other.value);
-      select.dispatchEvent(new Event("change", { bubbles: true })); await sleep(1000);
-      const folder = [...picker.querySelectorAll("button")].find((b) => b.textContent.trim() === "test");
-      if (!folder) return "no test folder in the other container";
-      folder.click(); await sleep(1000);
-      button(picker, "Use this folder").click(); await sleep(600);
-      "confirmation open";`
-  },
-  {
-    // The Contents page beside Storage: rooms with sizes, App files by folder.
+    // The Contents page beside Storage: parts with sizes, App files by folder.
     name: "107-storage-contents",
     url: "control/libraries/storage/contents",
-    state: "App storage chosen, an App files library with something in it",
+    state: "App storage on, an App files library with something in it",
     height: 1100
   },
   // Maps (docs/users/control-panel.md → Maps, library-gallery.md, first-run.md).
@@ -706,10 +623,10 @@ const SHOTS = [
     name: "104-welcome-gallery",
     url: "welcome",
     setup: `
-      const step = [...document.querySelectorAll(".welcome-step")].find((b) => b.textContent.includes("App files"));
-      if (!step) return "no App files step";
+      const step = [...document.querySelectorAll(".welcome-step")].find((b) => b.textContent.includes("App storage"));
+      if (!step) return "no App storage step";
       step.click(); await sleep(400);
-      "gallery step";`
+      "App storage step";`
   }
 ];
 

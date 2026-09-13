@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { gunzipSync } from "node:zlib";
 import { z } from "zod";
 import { logActivity } from "../../db.js";
+import { isAppStorageEnabled } from "../../core/app-storage.js";
 import { geoipStatus } from "../../core/geoip.js";
 import { resolveShareLink } from "../library/shared/share-access.js";
 import {
@@ -261,12 +262,16 @@ export function registerMapRoutes(app: FastifyInstance) {
     // tile cache inside it (what turning caching off deletes).
     cache: { folder: mapDataDir(), path: tileCacheDir(), bytes: folderBytes(tileCacheDir()), limitBytes: cacheLimitBytes() },
     locations: geoipStatus(),
-    places: placesView()
+    places: placesView(),
+    // Kept maps and place names live in App storage's Map data (decision 11): the
+    // page disables their switches while it is off.
+    appStorage: { enabled: isAppStorageEnabled() }
   }));
 
   // Named places (phase 2): build the database from GeoNames as a task, or
   // remove it. Building again while one is queued or running returns that one.
-  app.post("/api/map/places", { preHandler: app.requireAdmin }, async (request) => {
+  app.post("/api/map/places", { preHandler: app.requireAdmin }, async (request, reply) => {
+    if (!isAppStorageEnabled()) return reply.code(409).send({ error: "App storage is off on this server. An admin can switch it on in Control panel → Library → Storage." });
     enqueuePlacesBuild(request.user!.id);
     return { places: placesView() };
   });
@@ -295,6 +300,9 @@ export function registerMapRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: "Invalid map settings", details: parsed.error.issues });
     const before = getMapSettings();
     const next = { cache: parsed.data.cache ?? before.cache, cacheLimitMb: (parsed.data.cacheLimitMb ?? before.cacheLimitMb) as CacheLimitMb };
+    if (next.cache && !before.cache && !isAppStorageEnabled()) {
+      return reply.code(409).send({ error: "App storage is off on this server. An admin can switch it on in Control panel → Library → Storage." });
+    }
     saveMapSettings(next, request.user!.id);
     let freedBytes = 0;
     if (before.cache && !next.cache) {

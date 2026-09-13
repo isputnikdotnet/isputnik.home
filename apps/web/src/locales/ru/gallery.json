@@ -833,7 +833,6 @@
   },
   "inbox": {
     "title": "Входящие фото",
-    "libraryLabel": "{{name}} (Входящие фото)",
     "appFilesLabel": "{{name}} (файлы приложения)",
     "subtitle_one": "{{count}} фото ждёт в {{name}}",
     "subtitle_few": "{{count}} фото ждут в {{name}}",

@@ -1,6 +1,6 @@
 # The Photo Inbox
 
-**Gallery → Photo Inbox** · switched on per library under **Control panel → Library**
+**Gallery → Photo Inbox** · part of App storage, under **Control panel → Library → Storage**
 
 Some photos are not part of the collection yet. A box of prints you are feeding
 through a scanner, most of which you scanned once before at a worse resolution.
@@ -20,29 +20,20 @@ This guide walks the whole process from the scanner box to a tidy library.
 
 ## 1. Set up an Inbox
 
-An Inbox is an ordinary gallery library with one switch on. The quickest way is
-the **Photo Inbox** row on **Control panel → Library → Storage**: with an App
-storage folder chosen, **Change → Use App storage** makes a `Photo Inbox`
-library inside it in one confirmed click ([Storage](storage.md)). The same row's
-**A library of my own** turns one of your existing gallery libraries into the
-Inbox instead. The long way still works — create a gallery library the usual way
-([Libraries](libraries.md)), pointing it at an empty folder inside a storage
-container, then open its settings and, on the **Access** tab, turn on **This
-library is a Photo Inbox**. An existing library can become one the same way, and
-go back to normal by turning it off.
+The Photo Inbox is part of **App storage**: switching App storage on in
+**Control panel → Library → Storage** makes it, in its own `Photo Inbox` folder
+([Storage](storage.md)). There is one Inbox per server, and it is a system library:
+the app keeps its name and it is not listed among your libraries. Who may review
+it is set from the **Access** link on its row on the Storage page.
 
-![The library's Access tab, with the Photo Inbox switch as its last row](images/87-library-inbox-switch.png)
+While it is empty, members don't see it anywhere; admins reach it from the Storage
+page and the gallery, which is where the first scan and drop links start.
 
-Give it a name you will read on a Home card: "Photo Inbox", "Scans to sort".
-One Inbox is enough for most houses; a second is worth having only when you
-want the scanner box and a relative's deliveries reviewed apart.
-
-Two things change the moment the switch is on:
+Two things set it apart from a library:
 
 - **Nothing resurfaces it.** The Timeline, Memories, the Home page's photo cards,
-  People, the map, and every picker for albums, slideshows and stories leave the
-  Inbox out. Choosing the Inbox in the gallery's library filter is the one way
-  to browse it there, and it is labelled as an Inbox when you do.
+  People, the map, the library filter and every picker for albums, slideshows and
+  stories leave the Inbox out. **Gallery → Photo Inbox** is the one way in.
 - **Faces wait.** Face recognition skips an Inbox, so a box of somebody else's
   prints cannot seed your People page with strangers. A kept photo is scanned
   for faces like any newly added one.

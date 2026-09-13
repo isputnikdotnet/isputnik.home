@@ -24,6 +24,9 @@ export interface MapSettingsDto {
   };
   locations: GeoipStatus;
   places: PlacesView;
+  /** Kept maps and place names live in App storage's Map data (docs/system-data-plan.md,
+   *  decision 11): their switches wait while it is off. */
+  appStorage?: { enabled: boolean };
 }
 
 export type PlacesBuildStage = "download" | "places" | "names" | "write";

@@ -39,16 +39,15 @@ eight steps, in the order they depend on each other:
    **system data**: the folder the app needs for thumbnails, backups and metadata. The
    step suggests the folder next to the database and confirms the exact path before
    using it; any folder the app can write to works. Nothing else works until a
-   container and system data exist, and the step says so. Below it, an optional
-   **App storage** folder inside a container holds the two libraries the App files
-   step can make, renders and map data. See [Storage](storage.md).
+   container and system data exist, and the step says so. See [Storage](storage.md).
 2. **Recycle Bin** — one folder for deleted files, instead of a hidden `.trash` inside
    every library. **Browse** picks a folder of your own. Locked until storage is done:
    the bin has to live inside a container you have approved.
-3. **App files** — the library for what the family makes in the app (narration,
-   family-tree uploads, movies, voice notes) and the Photo Inbox that scans wait in. Each
-   is made inside App storage in one confirmed click, and neither is required. Locked
-   until App storage is chosen.
+3. **App storage** — recommended, not required: one switch that makes a place for what
+   the family records and uploads in the app, the Photo Inbox scans wait in, slideshow
+   movies and kept maps. *In system data* is already chosen, so it is one confirmed
+   click; a custom folder on your media disk is the better home for a lot of video.
+   The step is the Storage page's own block.
 4. **Backups** — a nightly full backup of the catalogue, settings and covers, and how
    many to keep. The Backup page in the control panel has the smaller kinds and the
    weekly and monthly cadences.
@@ -62,9 +61,9 @@ eight steps, in the order they depend on each other:
    exactly like nothing having happened.
 8. **Appearance** — the theme the sign-in screen uses and new members start with.
 
-![The guide's Storage step: the containers, App storage chosen, and which rooms it keeps](images/103-welcome-storage.png)
+![The guide's Storage step: the containers and system data](images/103-welcome-storage.png)
 
-![The guide's App files step: the two libraries, each one click away](images/104-welcome-gallery.png)
+![The guide's App storage step: one switch, with In system data chosen](images/104-welcome-gallery.png)
 
 ![The guide's Maps step: the four map cards](images/113-welcome-maps.png)
 

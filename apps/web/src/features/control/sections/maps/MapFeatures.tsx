@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ExternalLink, Folder, Link as LinkIcon, Map as MapIcon, MapPin, Route, ShieldCheck, Upload } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref, navigate } from "../../../../router";
+import { controlHref, followRoute, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Field } from "../../../../shared/Field";
@@ -256,6 +256,9 @@ export function MapFeatures() {
   const signInsOn = locations.databases.length > 0;
   const locationsBytes = locations.databases.reduce((sum, database) => sum + database.sizeBytes, 0);
   const folder = cache.folder;
+  // Off, there is nowhere to keep maps or place names: switching them on waits, and
+  // switching one off that is somehow still on stays possible.
+  const needsAppStorage = status.appStorage?.enabled === false;
 
   return (
     <div className="map-features">
@@ -264,6 +267,14 @@ export function MapFeatures() {
       )}
       {notice && <MessageBox tone="success" title={t("controlAdmin:mapFeatures.addedTitle")}>{notice}</MessageBox>}
       {actionError && !pending && <MessageBox tone="error" title={saveFailed}>{actionError}</MessageBox>}
+      {needsAppStorage && (
+        <MessageBox tone="info" title={t("controlAdmin:mapFeatures.needsAppStorageTitle")}>
+          {t("controlAdmin:mapFeatures.needsAppStorage")}{" "}
+          <a href={controlHref("storage")} onClick={(event) => followRoute(event, controlHref("storage"))}>
+            {t("controlAdmin:mapFeatures.needsAppStorageLink")}
+          </a>
+        </MessageBox>
+      )}
 
       <MapFeatureCard
         icon={<MapIcon size={22} />}
@@ -275,7 +286,7 @@ export function MapFeatures() {
           <SourceLink href={LINKS.openFreeMap}>openfreemap.org</SourceLink>
         </>}
         checked={settings.cache}
-        disabled={busy !== null}
+        disabled={busy !== null || (needsAppStorage && !settings.cache)}
         onToggle={(next) => { setActionError(""); setPending({ kind: next ? "offlineOn" : "offlineOff" }); }}
         facts={[
           { label: t("controlAdmin:mapFeatures.source"), value: "OpenFreeMap" },
@@ -310,7 +321,7 @@ export function MapFeatures() {
           <SourceLink href={LINKS.geoNames}>geonames.org</SourceLink>
         </>}
         checked={places.present || places.build.running}
-        disabled={busy !== null || places.build.running}
+        disabled={busy !== null || places.build.running || (needsAppStorage && !places.present)}
         onToggle={(next) => { setActionError(""); setPending({ kind: next ? "placesOn" : "placesOff" }); }}
         facts={[
           { label: t("controlAdmin:mapFeatures.source"), value: "GeoNames" },

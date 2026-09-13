@@ -96,13 +96,9 @@ export function GalleryPage({
   // choosing either is a deliberate act: both system libraries are left out of
   // every scope that isn't explicit (the server's scope resolver), and this is
   // the one place they can be asked for.
-  const filterLibraries = useMemo(() => libraries.map((library) => (
-    library.inbox
-      ? { ...library, name: t("gallery:inbox.libraryLabel", { name: library.name }) }
-      : library.role === "app-files"
-        ? { ...library, name: t("gallery:inbox.appFilesLabel", { name: library.name }) }
-        : library
-  )), [libraries, t]);
+  // Since 4.6 neither is listed at all (docs/system-data-plan.md, decision 17): the
+  // Inbox is reached from its review page, App files through what made each file.
+  const filterLibraries = useMemo(() => libraries.filter((library) => !library.role), [libraries]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const isAdmin = user.role === "admin";
@@ -721,7 +717,8 @@ export function GalleryPage({
       : []),
     // The Photo Inbox review page, only when there is an Inbox to review — its
     // library is flagged, and the page is the one place its photos are shown.
-    ...(libraries.some((library) => library.inbox)
+    // An empty Inbox shows nowhere a member looks (decision 12); admins still reach it.
+    ...(libraries.some((library) => library.inbox && (user.role === "admin" || library.bookCount > 0))
       ? [{ key: "inbox", label: t("gallery:inbox.title"), href: galleryInboxHref(null), icon: Inbox }]
       : [])
   ];
