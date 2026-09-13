@@ -36,7 +36,8 @@ export interface SystemDataView {
     path: string | null;
     source: "setting" | "env" | "system" | null;
     problem: string;
-    stats: { files: number; bytes: number; complete: boolean };
+    /** null while the server counts the folder for the first time. */
+    stats: { files: number; bytes: number; complete: boolean } | null;
     move: StorageMove;
   };
   backups: {
@@ -88,13 +89,16 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
     load().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:systemData.loadFailed")));
   }, [load, refreshKey, t]);
 
-  // While a folder is being moved, keep its row's count fresh.
+  // While a folder is being moved, keep its row's count fresh; while the server is
+  // still counting the thumbnails (it counts in the background, never while you wait),
+  // ask again until the numbers are there.
   const moving = Boolean(view && (view.thumbnails.move.running || view.backups.move.running || view.metadata.move.running));
+  const counting = Boolean(view && view.thumbnails.path && view.thumbnails.stats === null);
   useEffect(() => {
-    if (!moving) return;
-    const timer = setInterval(() => { load().catch(() => { /* next tick */ }); }, 2000);
+    if (!moving && !counting) return;
+    const timer = setInterval(() => { load().catch(() => { /* next tick */ }); }, moving ? 2000 : 3000);
     return () => clearInterval(timer);
-  }, [moving, load]);
+  }, [moving, counting, load]);
 
   if (!view) {
     return error ? <MessageBox tone="error" title={t("controlAdmin:systemData.loadFailed")}>{error}</MessageBox> : null;
@@ -200,7 +204,7 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
     default: t("controlAdmin:systemData.sourceDefaultBackups")
   };
   const stats = view.thumbnails.stats;
-  const thumbnailCount = stats.files === 0 ? "" : stats.complete
+  const thumbnailCount = !stats ? (view.thumbnails.path ? t("controlAdmin:systemData.counting") : "") : stats.files === 0 ? "" : stats.complete
     ? t("controlAdmin:systemData.files", { count: stats.files, size: formatBytes(stats.bytes) })
     : t("controlAdmin:systemData.filesAtLeast", { count: stats.files, size: formatBytes(stats.bytes) });
   const backupCount = view.backups.count === 0

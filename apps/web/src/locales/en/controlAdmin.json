@@ -1060,7 +1060,8 @@
     "confirmBackupsBody": "The backups already made move there as a task, and the next backup is written there.",
     "confirmBackupsLabel": "Move backups",
     "saveFailed": "Unable to change the folder",
-    "loadFailed": "Unable to load system data"
+    "loadFailed": "Unable to load system data",
+    "counting": "Counting files…"
   },
   "appStorage": {
     "title": "App storage",

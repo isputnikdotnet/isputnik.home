@@ -172,7 +172,7 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
 
   // The Contents page (app-storage-contents.ts): what each part holds, and the
   // App files library file by file with what owns each file; orphans can go.
-  app.get("/api/storage/app-storage/contents", { preHandler: app.requireAdmin }, async () => appStorageContents());
+  app.get("/api/storage/app-storage/contents", { preHandler: app.requireAdmin }, async () => await appStorageContents());
   app.post("/api/storage/app-storage/contents/delete", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
     const parsed = parseBody(z.object({ itemId: z.string().trim().min(1).max(64) }), request.body ?? {});
     if (parsed.error) return reply.code(400).send({ error: "Invalid request", details: parsed.error });
@@ -186,7 +186,7 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
         detail: `Moved the orphaned App files entry "${removed.relativePath}" to the Recycle Bin from the App storage contents page.`,
         ipAddress: request.ip
       });
-      return reply.send({ deleted: true, contents: appStorageContents() });
+      return reply.send({ deleted: true, contents: await appStorageContents() });
     } catch (err) {
       if (err instanceof AppStorageContentsError) return reply.code(err.statusCode).send({ error: err.message });
       throw err;
