@@ -126,8 +126,10 @@ and they are not listed on the Libraries page or in the gallery's library filter
 Nothing in them shows up on the Timeline, Memories, the Home page, People, the map
 or the pickers on its own; a recording or a voice note is reached from the story or
 the photo it belongs to, and a photo a story, album or slideshow already holds keeps
-showing there. Who may see them is still yours to set: the **Access** link on their
-row opens their settings.
+showing there. Who reviews the Inbox is set from **Reviewers** on its row: admins
+always do, and anyone you name can add details or keep and discard
+([Photo Inbox](photo-inbox.md)). Who may see App files is still set from the
+**Access** link on its row.
 
 ![Storage once configured](images/11-storage-configured.png)
 

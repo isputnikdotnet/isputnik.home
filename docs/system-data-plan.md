@@ -6,7 +6,8 @@ phase 1: migration 75, `gallery/system-libraries.ts`; phase 2: `core/system-data
 `modules/library/system-data*.ts`, `SystemDataPanel`). **Phase 3 built 2026-09-13,
 uncommitted** (`modules/library/app-storage-service.ts`, `app-storage-upgrade.ts`,
 `AppStoragePanel`; both suites, typecheck and `check:ui` pass, checked on the dev
-database, which the startup conversion converted). Phase 4 not started. Replaces the
+database, which the startup conversion converted). **Phase 4 part 1 (Inbox reviewers)
+built 2026-09-13, uncommitted**; part 2 (App files access by owner) not started. Replaces the
 room model of [app-storage-plan.md](app-storage-plan.md) (shipped 3.77.0–4.5.0).
 Decisions are recorded so they need not be re-argued; open questions so they are
 not silently answered by whoever writes the code.
@@ -415,6 +416,33 @@ audited to ask the check for App files items; Reviewers on the Storage page's In
 row; the Access link gone; guides `users/photo-inbox.md` and
 `users/storage.md` updated. Done after phase 3, because the parts grid it changes
 is built there.
+
+As built, part 1 (Inbox reviewers):
+- Reviewers live in `assignments` under object `photo_inbox` / `reviewers`, levels
+  stored as contributor (Can add details) and manager (Can keep or discard). Not
+  tied to the library id, so the list outlives switching App storage off and on,
+  and deleting a user or group cleans it up like any grant.
+- `core/permissions.ts` gained `registerObjectRoleOverride`: `gallery/inbox-reviewers.ts`
+  registers one for `library` that answers for the Inbox (admins manager, others
+  their reviewer level) and leaves every other library alone. Every existing check
+  (review, Keep, Discard, drop links, viewer, stream, uploads, For you) therefore asks
+  the reviewer list without being edited. Core knows nothing about the Inbox.
+- Migration 76 carries the Inbox's grants across: manager to keep, any lesser role
+  to details, the Everyone grant onto the Everyone group; admins' grants are not
+  listed (they always review) and a deny is dropped (no equivalent). It removes the
+  library's assignments and owner. Adopting a library as the Inbox does the same
+  (`carryLibraryGrantsToReviewers`, via `setSystemLibraryRole`), never lowering a
+  reviewer already named.
+- Creating or updating the Inbox record writes no owner or access; the library
+  members routes refuse it (403).
+- Routes: `GET/POST /api/storage/app-storage/parts/inbox/reviewers`, `PUT …/everyone`,
+  `DELETE …/:subjectType/:subjectId`, admin only. Admins are refused as reviewers (409)
+  and not offered.
+- Web: `InboxReviewersModal` on `shared/AccessControl` (gained `everyone.publicTag`);
+  the Inbox row shows "N photos waiting · N reviewers" (or "admins review") and
+  **Reviewers** instead of Access. App files keeps Access until part 2.
+- A reviewer who can add details can also upload into the Inbox (the contributor
+  rank has the upload right), as a contributor could before.
 
 ## Non-goals
 

@@ -86,6 +86,12 @@ export function grant(
   ).run(subjectType, subjectId, objectType, objectId, role);
 }
 
+/** Name someone a Photo Inbox reviewer (gallery/inbox-reviewers.ts): "details" can
+ *  write on its photos, "keep" can also keep, discard and hand out drop links. */
+export function grantReviewer(subjectType: "user" | "group", subjectId: string, level: "details" | "keep"): void {
+  grant(subjectType, subjectId, "reviewers", level === "keep" ? "manager" : "contributor", "photo_inbox");
+}
+
 export function makeLibrary(
   id: string,
   opts: { createdBy: string; type?: string; policyJson?: string; ownerId?: string; ownerType?: "user" | "group"; role?: "inbox" | "app-files" }

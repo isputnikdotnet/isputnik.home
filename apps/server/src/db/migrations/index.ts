@@ -54,6 +54,7 @@ import * as m072 from "./072-ask-for-notes.js";
 import * as m073 from "./073-inbox-delivery-dismissed.js";
 import * as m074 from "./074-music-track-asset.js";
 import * as m075 from "./075-system-library-role.js";
+import * as m076 from "./076-inbox-reviewers.js";
 
 export interface Migration {
   readonly version: number;
@@ -65,5 +66,5 @@ export const migrations: readonly Migration[] = [
   m043, m044, m045, m046, m047, m048, m049, m050, m051, m052,
   m053, m054, m055, m056, m057, m058, m059, m060, m061, m062,
   m063, m064, m065, m066, m067, m068, m069, m070, m071, m072,
-  m073, m074, m075
+  m073, m074, m075, m076
 ];

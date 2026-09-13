@@ -18,6 +18,7 @@ import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
+import { InboxReviewersModal } from "./InboxReviewersModal";
 // The panel shares system data's stylesheet: the same block shape (docs/css-map.md).
 import "../../../../styles/system-data.css";
 
@@ -36,7 +37,7 @@ interface PartView {
   folder: string | null;
   inside: boolean;
   library: { id: string; name: string } | null;
-  counts: { waiting?: number; files?: number; tracks?: number };
+  counts: { waiting?: number; files?: number; tracks?: number; reviewers?: number };
   move: StorageMove;
   renameTo: string | null;
 }
@@ -80,6 +81,7 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
+  const [reviewersOpen, setReviewersOpen] = useState(false);
 
   const typedFolder = view && !view.enabled ? (where === "system" ? view.systemFolder ?? "" : customPath) : "";
   const typedSpace = useDiskSpace(typedFolder);
@@ -200,7 +202,14 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
 
   const usingText = (entry: PartView): string => {
     if (!view.enabled) return "";
-    if (entry.part === "inbox") return entry.library ? t("controlAdmin:storage.waiting", { count: entry.counts.waiting ?? 0 }) : "";
+    if (entry.part === "inbox") {
+      if (!entry.library) return "";
+      const waiting = t("controlAdmin:storage.waiting", { count: entry.counts.waiting ?? 0 });
+      const reviewers = entry.counts.reviewers
+        ? t("controlAdmin:appStorage.reviewers.count", { count: entry.counts.reviewers })
+        : t("controlAdmin:appStorage.reviewers.adminsOnly");
+      return `${waiting} · ${reviewers}`;
+    }
     if (entry.part === "house") return entry.library ? t("controlAdmin:appStorage.files", { count: entry.counts.files ?? 0 }) : "";
     if (entry.part === "renders" && (entry.counts.tracks ?? 0) > 0) return t("controlAdmin:storage.tracks", { count: entry.counts.tracks ?? 0 });
     return "";
@@ -361,7 +370,11 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
                             </Button>
                           )}
                           {entry.part === "house" && entry.library && link(controlHref("storageContents"), t("controlAdmin:appStorage.contents"))}
-                          {entry.library && link(`${controlHref("libraries")}?edit=${encodeURIComponent(entry.library.id)}`, t("controlAdmin:appStorage.access"))}
+                          {/* The Inbox has reviewers instead of library access (phase 4). */}
+                          {entry.part === "inbox" && entry.library && (
+                            <Button variant="text" compact onClick={() => setReviewersOpen(true)}>{t("controlAdmin:appStorage.reviewers.button")}</Button>
+                          )}
+                          {entry.part === "house" && entry.library && link(`${controlHref("libraries")}?edit=${encodeURIComponent(entry.library.id)}`, t("controlAdmin:appStorage.access"))}
                         </span>
                       )}
                     </div>
@@ -418,6 +431,10 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
             </Button>
           </div>
         </Modal>
+      )}
+
+      {reviewersOpen && (
+        <InboxReviewersModal onClose={() => setReviewersOpen(false)} onChanged={() => void load().catch(() => undefined)} />
       )}
 
       {pending && copy && (

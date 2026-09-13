@@ -1148,7 +1148,27 @@
     "confirmMakeTitle": "Make {{name}} in {{path}}?",
     "confirmMakeBody": "A new library is made in its folder there. Nothing is moved.",
     "saveFailed": "Unable to change App storage",
-    "loadFailed": "Unable to load App storage"
+    "loadFailed": "Unable to load App storage",
+    "reviewers": {
+      "button": "Reviewers",
+      "title": "Photo Inbox reviewers",
+      "intro": "Admins always review the Photo Inbox. Name anyone else who should, and how far they may go. Nobody else sees anything in it.",
+      "count_one": "{{count}} reviewer",
+      "count_other": "{{count}} reviewers",
+      "adminsOnly": "admins review",
+      "levels": {
+        "details": "Can add details",
+        "keep": "Can keep or discard"
+      },
+      "taglines": {
+        "details": "Dates, places, notes, people and voice notes on the photos waiting.",
+        "keep": "All of that, plus Keep, Discard and drop links."
+      },
+      "everyoneHint": "Every signed-in member",
+      "nobody": "No person or group named yet.",
+      "saveErrorTitle": "Unable to change reviewers",
+      "saveError": "The reviewers could not be loaded or saved."
+    }
   },
   "storage": {
     "headDescription": "Where the app keeps its own things, and which folders libraries may live in.",

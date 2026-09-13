@@ -7,7 +7,7 @@ import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { countUnseenForYou, dismissDelivery, loadForYouRows, markForYouSeen } from "../src/modules/social/for-you.js";
 import { markGalleryAssetReviewed } from "../src/modules/library/gallery/edit.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
-import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import { resetDb, makeUser, makeLibrary, grant, grantReviewer } from "./helpers/seed.js";
 
 // For you (docs/for-you-plan.md): one list of what is waiting on a person —
 // something sent, and a delivery into an Inbox they look after — and the dot
@@ -45,7 +45,6 @@ beforeEach(() => {
   makeUser("admin", "admin");
   makeUser("helper", "member");
   makeLibrary("inbox", { createdBy: "admin", type: "gallery", policyJson: INBOX_POLICY, role: "inbox" });
-  grant("group", EVERYONE_GROUP_ID, "inbox", "viewer");
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'inbox'").run(base);
 });
 afterEach(() => { fs.rmSync(base, { recursive: true, force: true }); });
@@ -81,7 +80,7 @@ describe("what is waiting", () => {
   });
 
   it("for someone who may only write, a fully noted delivery is done; for the reviewer it waits", () => {
-    grant("user", "helper", "inbox", "contributor");
+    grantReviewer("user", "helper", "details");
     makePhoto("inbox", "a1", "Box A/001.jpg");
     expect(loadForYouRows(HELPER)).toHaveLength(1);
     expect(loadForYouRows(HELPER)[0]).toMatchObject({ kind: "delivery", canReview: false });
@@ -90,7 +89,7 @@ describe("what is waiting", () => {
     expect(loadForYouRows(ADMIN)).toHaveLength(1);
   });
 
-  it("is hidden from someone who can only look", () => {
+  it("is hidden from someone who does not review the Inbox", () => {
     makePhoto("inbox", "a1", "Box A/001.jpg");
     expect(loadForYouRows(HELPER)).toHaveLength(0);
   });

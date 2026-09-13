@@ -29,7 +29,7 @@ import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { galleryDropRoutesPlugin } from "../src/modules/library/gallery/drop-routes.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { bootApp } from "./helpers/boot.js";
-import { resetDb, makeUser, makeLibrary, grant, futureIso, pastIso } from "./helpers/seed.js";
+import { resetDb, makeUser, makeLibrary, grant, futureIso, pastIso, grantReviewer } from "./helpers/seed.js";
 import { multipart as body, type Part } from "./helpers/multipart.js";
 
 const INBOX_POLICY = { mode: "managed" };
@@ -51,7 +51,9 @@ function makeGallery(id: string, policy: object, role?: "inbox" | "app-files"): 
   makeLibrary(id, { createdBy: "owner", type: "gallery", policyJson: JSON.stringify(policy), role });
   fs.mkdirSync(path.join(base, id), { recursive: true });
   db.prepare("UPDATE libraries SET source_path = ? WHERE id = ?").run(path.join(base, id), id);
-  grant("group", EVERYONE_GROUP_ID, id, "member");
+  // The Inbox has reviewers rather than library access: everyone may add details.
+  if (role === "inbox") grantReviewer("group", EVERYONE_GROUP_ID, "details");
+  else grant("group", EVERYONE_GROUP_ID, id, "member");
 }
 
 /** A drop link written straight into share_links, for the states the create
@@ -159,7 +161,7 @@ describe("minting a drop link", () => {
 
   it("is for signed-in reviewers of a real Inbox only", async () => {
     expect((await app.inject({ method: "POST", url: "/api/library/gallery/inbox/INBOX/drop-links", payload: {} })).statusCode).toBe(401);
-    expect((await mint({}, signIn("cousin"))).statusCode).toBe(403); // can see it, may not empty it
+    expect((await mint({}, signIn("cousin"))).statusCode).toBe(403); // may add details, may not empty it
     expect((await mint({}, signIn("owner"), "PHOTOS")).statusCode).toBe(404); // not an Inbox
     expect((await mint({ expiresInDays: 365 })).statusCode).toBe(400); // past the 90-day ceiling
   });

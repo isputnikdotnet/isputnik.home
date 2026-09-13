@@ -17,6 +17,8 @@ import {
   type LibraryAction
 } from "../../../core/permissions.js";
 import type { DocumentFileRow, LibraryItemRow, LibraryRow, UserRow } from "../../../db/rows.js";
+// Library checks on the Photo Inbox are answered by its reviewer list (phase 4).
+import "../gallery/inbox-reviewers.js";
 
 // The unified role set (was: viewer/subscriber/contributor/curator/admin).
 export type LibraryRole = ObjectRole;

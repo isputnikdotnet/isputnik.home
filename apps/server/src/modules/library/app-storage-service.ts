@@ -42,6 +42,7 @@ import { createLibraryRecord } from "./shared/library-crud.js";
 import { scanLibraryNow } from "./shared/media-types.js";
 import { ensureAudioScanExtensions } from "./gallery/house-library.js";
 import { setSystemLibraryRole } from "./gallery/system-libraries.js";
+import { inboxReviewerCount } from "./gallery/inbox-reviewers.js";
 import { deleteGalleryLibraryRecord } from "./gallery/library-delete.js";
 import { pendingBucketMusic } from "./gallery/music.js";
 import {
@@ -74,7 +75,8 @@ export interface AppStoragePart {
   inside: boolean;
   /** The system library behind the Inbox and App files parts. */
   library: { id: string; name: string } | null;
-  counts: { waiting?: number; files?: number; tracks?: number };
+  /** reviewers: people and groups an admin named on the Inbox (phase 4); Everyone counts as one. */
+  counts: { waiting?: number; files?: number; tracks?: number; reviewers?: number };
   move: StorageMoveStatus;
   /** App files under its former folder name ("Made in the app"): the name it
    *  would be renamed to. Null everywhere else. */
@@ -120,7 +122,7 @@ function partView(part: AppRoom, setting: AppStorageSetting, root: string | null
       folder: library?.source_path ?? expected,
       inside,
       library: library ? { id: library.id, name: library.name } : null,
-      counts: part === "inbox" ? { waiting: count } : { files: count },
+      counts: part === "inbox" ? { waiting: count, reviewers: inboxReviewerCount() } : { files: count },
       renameTo
     };
   }
@@ -208,9 +210,10 @@ function ensureSystemLibraries(root: string, userId: string, ip: string): string
         data: {
           name: APP_ROOM_FOLDERS[part],
           sourcePath: folder,
+          // The Inbox ignores these: its reviewers decide who sees it (phase 4).
+          // App files takes what the family makes.
           visibility: "public",
-          // The Inbox is looked at, not added to, by the family; App files takes what they make.
-          publicRole: part === "inbox" ? "viewer" : "member",
+          publicRole: "member",
           mode: "managed"
         },
         userId,

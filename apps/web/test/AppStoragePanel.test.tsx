@@ -47,6 +47,11 @@ const on = {
 };
 
 let posts: { path: string; body: unknown }[] = [];
+const reviewers = {
+  reviewers: [{ subjectType: "user", subjectId: "mia", name: "Mia", email: "mia@home", level: "details", missing: false }],
+  everyone: null,
+  candidates: { users: [{ id: "mia", name: "Mia" }, { id: "olga", name: "Olga" }], groups: [] }
+};
 
 function mount(view: object, Component: typeof AppStoragePanel | typeof StorageSection = AppStoragePanel) {
   posts = [];
@@ -55,10 +60,12 @@ function mount(view: object, Component: typeof AppStoragePanel | typeof StorageS
     if (typeof path !== "string") return undefined;
     if (init?.method === "POST" || init?.method === "PUT") {
       posts.push({ path, body: init.body ? JSON.parse(String(init.body)) : null });
+      if (path.includes("/reviewers")) return reviewers;
       current = { ...on, offRefusal: null };
       return current;
     }
     if (path === "/api/storage/app-storage") return current;
+    if (path === "/api/storage/app-storage/parts/inbox/reviewers") return reviewers;
     if (path.startsWith("/api/storage/disk-space")) return { space: { free: 3000, total: 4000 } };
     if (path === "/api/storage/roots") return { roots: [] };
     if (path === "/api/storage/system-data") {
@@ -109,7 +116,7 @@ describe("while on", () => {
     const user = userEvent.setup();
     mount(on);
     expect(await screen.findByText(root)).toBeInTheDocument();
-    expect(screen.getByText("7 photos waiting")).toBeInTheDocument();
+    expect(screen.getByText("7 photos waiting · admins review")).toBeInTheDocument();
     const house = screen.getByText("D:\\Media\\Photos").closest("tr") as HTMLElement;
     expect(within(house).getByText("Outside App storage")).toBeInTheDocument();
     expect(within(house).getByRole("link", { name: "Access" })).toHaveAttribute("href", "/control/libraries?edit=HF");
@@ -125,6 +132,19 @@ describe("while on", () => {
     expect(within(confirm).getByText(`Move App files into ${root}?`)).toBeInTheDocument();
     await user.click(within(confirm).getByRole("button", { name: "Move in" }));
     await waitFor(() => expect(posts).toEqual([{ path: "/api/storage/app-storage/parts/house/move-in", body: {} }]));
+  });
+
+  it("names the Inbox reviewers instead of opening library access", async () => {
+    const user = userEvent.setup();
+    mount({ ...on, parts: on.parts.map((p) => p.part === "inbox" ? { ...p, counts: { waiting: 7, reviewers: 1 } } : p) });
+    const inbox = (await screen.findByText("7 photos waiting · 1 reviewer")).closest("tr") as HTMLElement;
+    expect(within(inbox).queryByRole("link", { name: "Access" })).toBeNull();
+    await user.click(within(inbox).getByRole("button", { name: "Reviewers" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Mia")).toBeInTheDocument();
+    expect(within(dialog).getByRole("combobox", { name: "Role for Mia" })).toHaveValue("details");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Role for Mia" }), "keep");
+    await waitFor(() => expect(posts).toEqual([{ path: "/api/storage/app-storage/parts/inbox/reviewers", body: { subjectType: "user", subjectId: "mia", level: "keep" } }]));
   });
 
   it("moves it to another folder after a confirmation naming it", async () => {

@@ -4,7 +4,7 @@ import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { createDropLink, dropLinkView, listDropLinks, DROP_LINK_MODULE } from "../src/modules/library/gallery/drop-links.js";
 import { listPhotoInboxes } from "../src/modules/library/gallery/inbox.js";
-import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import { resetDb, makeUser, makeLibrary, grant, grantReviewer } from "./helpers/seed.js";
 
 // Drop links (docs/photo-inbox-proposal.md, phase 3): a guest link that uploads
 // into a Photo Inbox under a quota the server enforces. The upload itself streams
@@ -33,7 +33,7 @@ beforeEach(() => {
   makeUser("u2", "member");
   makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
   makeLibrary("INBOX", { createdBy: "u1", type: "gallery", policyJson: INBOX_POLICY, role: "inbox" });
-  grant("group", EVERYONE_GROUP_ID, "INBOX", "member");
+  grantReviewer("group", EVERYONE_GROUP_ID, "details");
   grant("group", EVERYONE_GROUP_ID, "GAL", "member");
 });
 

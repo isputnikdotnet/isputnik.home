@@ -107,3 +107,9 @@
 .app-storage-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .app-storage-block tr.is-off strong,
 .app-storage-block tr.is-off .app-storage-path { color: var(--muted); }
+
+/* The Photo Inbox reviewers dialog (InboxReviewersModal.tsx): the shared access box,
+   sized like the shelf access dialog so the grant row fits. */
+.metadata-modal.inbox-reviewers-modal { width: min(calc(100vw - 48px), 860px); }
+.inbox-reviewers { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.inbox-reviewers-intro { margin: 0; color: var(--muted); font-size: 0.9rem; }
