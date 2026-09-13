@@ -239,7 +239,8 @@ describe("the 4.6 conversion moves no file", () => {
       expect(resolveBackupPath()).toEqual({ path: path.join(app, "Backups"), source: "setting" });
     });
     expect(getTrashRootSetting()).toBe(path.join(app, "Recycle Bin"));
-    expect(getAppStorageSetting()).toEqual({ path: app, rooms: { renders: "own", maps: "own" } });
+    // Until the App storage conversion rewrites it, the rooms shape still reads as on at its folder.
+    expect(getAppStorageSetting()).toEqual({ enabled: true, where: "custom", path: app, outside: { renders: true, maps: true } });
     expect(JSON.parse(setting("app_storage")!).rooms).toEqual({ renders: "own", maps: "own" });
   });
 

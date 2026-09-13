@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { isInsideAppStorage } from "../../../core/app-storage.js";
 import { findStorageRootForPath } from "./storage-roots.js";
 import { getConfiguredThumbnailPath } from "./thumbnail.js";
 
@@ -33,7 +34,9 @@ export function validateLibrarySource(sourcePath: string) {
   }
 
   const realSource = fs.realpathSync(resolved);
-  const allowedRoot = findStorageRootForPath(realSource);
+  // App storage need not sit inside a container (docs/system-data-plan.md, decision
+  // 16): the Photo Inbox and App files libraries it holds are the app's own.
+  const allowedRoot = findStorageRootForPath(realSource) ?? (isInsideAppStorage(realSource) || isInsideAppStorage(resolved) ? { path: realSource } : null);
   if (!allowedRoot) {
     throw new LibrarySourceError("Choose a folder inside a configured Digital Library container.");
   }

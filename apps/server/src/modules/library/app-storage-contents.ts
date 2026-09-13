@@ -13,12 +13,12 @@
 //
 // Sizes for the rooms that are plain folders (thumbnails, renders, backups,
 // staging) come from a bounded walk; libraries and the bin come from rows.
-import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../db.js";
 import { APP_ROOMS, getAppStoragePath, type AppRoom } from "../../core/app-storage.js";
+import { folderStats, type FolderStats } from "./app-storage.js";
 import { HOUSE_FOLDERS, getHouseLibrary } from "./gallery/house-library.js";
-import { roomView } from "./app-storage-rooms.js";
+import { appStorageView } from "./app-storage-service.js";
 import { trashBook } from "./shared/trash.js";
 import { TrashError } from "./shared/trash-settings.js";
 import type {
@@ -30,32 +30,6 @@ import type {
   Nullable,
   StoryRow
 } from "../../db/rows.js";
-
-const WALK_LIMIT = 250_000;
-
-export interface FolderStats { files: number; bytes: number; complete: boolean }
-
-/** Files and bytes under `dir`, stopping at WALK_LIMIT files so a thumbnail
- *  store of millions cannot hold a request; `complete` says whether it stopped. */
-export function folderStats(dir: string | null): FolderStats {
-  const out: FolderStats = { files: 0, bytes: 0, complete: true };
-  if (!dir) return out;
-  const stack = [dir];
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    let entries: fs.Dirent[];
-    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { continue; }
-    for (const entry of entries) {
-      const abs = path.join(current, entry.name);
-      if (entry.isDirectory()) { stack.push(abs); continue; }
-      if (!entry.isFile()) continue;
-      try { out.bytes += fs.statSync(abs).size; } catch { continue; }
-      out.files += 1;
-      if (out.files >= WALK_LIMIT) { out.complete = false; return out; }
-    }
-  }
-  return out;
-}
 
 export type AppFileOwnerType = "story" | "photo" | "track" | "slideshow" | "person";
 
@@ -91,8 +65,11 @@ export interface AppFileFolder {
   entries: AppFileEntry[];
 }
 
+export { folderStats, type FolderStats };
+
 export interface RoomContents {
   room: AppRoom;
+  /** app = inside App storage; own = in a place of its own; off = App storage is off. */
   mode: "app" | "own" | "off";
   path: string | null;
   files: number;
@@ -122,9 +99,10 @@ function libraryStats(libraryId: string): { files: number; bytes: number } {
   return row;
 }
 
-function roomContents(room: AppRoom): RoomContents {
-  const view = roomView(room);
-  const base = { room, mode: view.mode, path: view.resolvedPath, library: view.library, complete: true };
+function roomContents(room: AppRoom, enabled: boolean, parts: ReturnType<typeof appStorageView>["parts"]): RoomContents {
+  const view = parts.find((part) => part.part === room)!;
+  const mode = !enabled ? "off" : view.inside ? "app" : "own";
+  const base = { room, mode, path: enabled ? view.folder : null, library: view.library, complete: true } as const;
   switch (room) {
     case "inbox":
     case "house": {
@@ -133,7 +111,7 @@ function roomContents(room: AppRoom): RoomContents {
     }
     case "renders":
     case "maps": {
-      const stats = folderStats(view.mode === "off" ? null : view.resolvedPath);
+      const stats = folderStats(enabled ? view.folder : null);
       return { ...base, files: stats.files, bytes: stats.bytes, complete: stats.complete };
     }
   }
@@ -232,11 +210,12 @@ function appFileFolders(libraryId: string): AppFileFolder[] {
 
 export function appStorageContents(): AppStorageContents {
   const root = getAppStoragePath();
+  const view = appStorageView();
   const house = getHouseLibrary();
   const staging = root ? path.join(root, ".staging") : null;
   return {
     path: root,
-    rooms: APP_ROOMS.map(roomContents),
+    rooms: APP_ROOMS.map((room) => roomContents(room, view.enabled, view.parts)),
     staging: { ...folderStats(staging), path: staging },
     appFiles: {
       library: house ? { id: house.id, name: house.name, path: house.source_path } : null,

@@ -23,6 +23,7 @@ import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
 import { convertStorageSettings } from "./modules/library/system-data-upgrade.js";
+import { convertAppStorageSetting } from "./modules/library/app-storage-upgrade.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
 import { storiesPlugin } from "./modules/stories/index.js";
 import { socialPlugin } from "./modules/social/index.js";
@@ -274,6 +275,14 @@ try {
   if (converted) app.log.info(`Storage settings converted for system data (${converted.systemData}); no file moved.`);
 } catch (err) {
   app.log.error({ err }, "Could not convert the storage settings for system data; the Storage page asks for it instead.");
+}
+// Then App storage's rooms become its one switch (app-storage-upgrade.ts), which
+// needs system data to say where "in system data" is.
+try {
+  const converted = convertAppStorageSetting();
+  if (converted) app.log.info(`App storage converted to one switch (${converted.enabled ? "on" : "off"}); no file moved.`);
+} catch (err) {
+  app.log.error({ err }, "Could not convert the App storage setting; the Storage page shows it as it reads.");
 }
 await app.register(backupsPlugin);
 await app.register(libraryPlugin);

@@ -1,39 +1,106 @@
-// App storage routes — docs/app-storage-plan.md, phase 1. The Storage page's
-// first block: the folder, and one row per room with a switch each.
+// App storage routes — docs/system-data-plan.md, phase 3. The Storage page's App
+// storage block: the one switch, where it lives, and its four parts.
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { parseBody } from "../../core/shared.js";
-import { APP_ROOMS } from "../../core/app-storage.js";
-import { appStorageView } from "./app-storage-rooms.js";
-import { renameRoomFolder, switchRoom } from "./app-storage-switch.js";
-import { setAppStoragePath, type CarryRooms } from "./app-storage-path.js";
+import { APP_ROOMS, type AppRoom } from "../../core/app-storage.js";
+import {
+  appStorageView,
+  cancelPartMove,
+  changeAppStorage,
+  movePartIn,
+  renameAppFilesFolder,
+  retryPartMove,
+  turnOffAppStorage,
+  turnOffRefusal,
+  turnOnAppStorage
+} from "./app-storage-service.js";
 import { statusOf } from "./app-storage.js";
 import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatus } from "./shared/trash-move.js";
 import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
-import { cancelStorageMove, retryStorageMove } from "./shared/storage-move.js";
 import { appStorageContents, AppStorageContentsError, deleteOrphanAppFile } from "./app-storage-contents.js";
 import { logActivity } from "../../db.js";
 
-const pathSchema = z.object({
-  // null (or "") clears App storage.
-  path: z.string().trim().max(1000).nullable(),
-  /** Per room that uses the current folder: true carries it to the new folder
-   *  (the default), false leaves it where it is. Ignored when clearing. */
-  carry: z.object(Object.fromEntries(APP_ROOMS.map((room) => [room, z.boolean().optional()]))).optional()
+const choiceSchema = z.object({
+  where: z.enum(["system", "custom"]),
+  path: z.string().trim().max(1000).nullable().optional()
 });
 
-const roomSchema = z.object({
-  mode: z.enum(["app", "own", "off"]),
-  /** The folder for "own", on the rooms that take one. */
-  path: z.string().trim().max(1000).nullable().optional(),
-  /** The gallery library for "own", on the Inbox and App files rooms. */
-  libraryId: z.string().trim().min(1).max(64).nullable().optional()
-});
+function partOf(params: unknown): AppRoom | null {
+  const part = (params as { part: string }).part;
+  return (APP_ROOMS as readonly string[]).includes(part) ? part as AppRoom : null;
+}
 
 export async function appStorageRoutesPlugin(app: FastifyInstance) {
-  app.get("/api/storage/app-storage", { preHandler: app.requireAdmin }, async () => appStorageView());
+  app.get("/api/storage/app-storage", { preHandler: app.requireAdmin }, async () => ({
+    ...appStorageView(),
+    // Asked while the page is read, so the switch can say why it won't go off
+    // before anyone presses it. The server checks again when it is pressed.
+    offRefusal: turnOffRefusal()
+  }));
 
-  // The Contents page (app-storage-contents.ts): what each room holds, and the
+  // While off: remember where it will live. While on: move it there.
+  app.put("/api/storage/app-storage", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(choiceSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid App storage folder", details: parsed.error });
+    try {
+      return reply.send(changeAppStorage(parsed.data, request.user!.id, request.ip));
+    } catch (err) {
+      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to change App storage" });
+    }
+  });
+
+  app.post("/api/storage/app-storage/on", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(choiceSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid App storage folder", details: parsed.error });
+    try {
+      return reply.send(turnOnAppStorage(parsed.data, request.user!.id, request.ip));
+    } catch (err) {
+      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to switch App storage on" });
+    }
+  });
+
+  app.post("/api/storage/app-storage/off", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
+    try {
+      return reply.send(turnOffAppStorage(request.user!.id, request.ip));
+    } catch (err) {
+      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to switch App storage off" });
+    }
+  });
+
+  // A part outside App storage moves in (or, a missing system library, is made).
+  app.post("/api/storage/app-storage/parts/:part/move-in", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const part = partOf(request.params);
+    if (!part) return reply.code(404).send({ error: "No such part." });
+    try {
+      return reply.send(movePartIn(part, request.user!.id, request.ip));
+    } catch (err) {
+      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to move it into App storage" });
+    }
+  });
+
+  // App files' folder from its former name to the current one.
+  app.post("/api/storage/app-storage/parts/house/rename", { preHandler: app.requireAdmin }, async (request, reply) => {
+    try {
+      return reply.send(renameAppFilesFolder(request.user!.id, request.ip));
+    } catch (err) {
+      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to rename the folder" });
+    }
+  });
+
+  // A part's storage move: queue the last one again to retry what failed, or stop it.
+  app.post("/api/storage/app-storage/parts/:part/move", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const part = partOf(request.params);
+    if (!part) return reply.code(404).send({ error: "No such part." });
+    return reply.send(retryPartMove(part, request.user!.id));
+  });
+  app.delete("/api/storage/app-storage/parts/:part/move", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const part = partOf(request.params);
+    if (!part) return reply.code(404).send({ error: "No such part." });
+    return reply.send(cancelPartMove(part));
+  });
+
+  // The Contents page (app-storage-contents.ts): what each part holds, and the
   // App files library file by file with what owns each file; orphans can go.
   app.get("/api/storage/app-storage/contents", { preHandler: app.requireAdmin }, async () => appStorageContents());
   app.post("/api/storage/app-storage/contents/delete", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
@@ -56,59 +123,7 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
     }
   });
 
-  app.put("/api/storage/app-storage", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(pathSchema, request.body);
-    if (parsed.error) return reply.code(400).send({ error: "Invalid App storage folder", details: parsed.error });
-    try {
-      return reply.send(setAppStoragePath(parsed.data.path, request.user!.id, (parsed.data.carry ?? {}) as CarryRooms));
-    } catch (err) {
-      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to set App storage" });
-    }
-  });
-
-  app.put("/api/storage/app-storage/rooms/:room", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const room = (request.params as { room: string }).room;
-    if (!(APP_ROOMS as readonly string[]).includes(room)) return reply.code(404).send({ error: "No such room." });
-    const parsed = parseBody(roomSchema, request.body);
-    if (parsed.error) return reply.code(400).send({ error: "Invalid room setting", details: parsed.error });
-    try {
-      const own = parsed.data.libraryId ?? parsed.data.path ?? null;
-      const view = switchRoom(room as (typeof APP_ROOMS)[number], parsed.data.mode, own, request.user!.id, request.ip);
-      return reply.send({ room: view, storage: appStorageView() });
-    } catch (err) {
-      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to change the room" });
-    }
-  });
-
-  // Rename a room's folder from its former name to the current one (App files
-  // was "Made in the app"): a library move task, the library following its folder.
-  app.post("/api/storage/app-storage/rooms/:room/rename", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const room = (request.params as { room: string }).room;
-    if (!(APP_ROOMS as readonly string[]).includes(room)) return reply.code(404).send({ error: "No such room." });
-    try {
-      const view = renameRoomFolder(room as (typeof APP_ROOMS)[number], request.user!.id, request.ip);
-      return reply.send({ room: view, storage: appStorageView() });
-    } catch (err) {
-      return reply.code(statusOf(err)).send({ error: err instanceof Error ? err.message : "Unable to rename the folder" });
-    }
-  });
-
-  // A room's storage move (storage-move.ts): queue the last one again to retry
-  // what failed, or stop the one running after the unit in hand.
-  app.post("/api/storage/app-storage/rooms/:room/move", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const room = (request.params as { room: string }).room;
-    if (!(APP_ROOMS as readonly string[]).includes(room)) return reply.code(404).send({ error: "No such room." });
-    retryStorageMove(room as (typeof APP_ROOMS)[number], request.user!.id);
-    return reply.send({ storage: appStorageView() });
-  });
-  app.delete("/api/storage/app-storage/rooms/:room/move", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const room = (request.params as { room: string }).room;
-    if (!(APP_ROOMS as readonly string[]).includes(room)) return reply.code(404).send({ error: "No such room." });
-    cancelStorageMove(room as (typeof APP_ROOMS)[number]);
-    return reply.send({ storage: appStorageView() });
-  });
-
-  // The bin move (plan decision 10), in the shape the Recycle Bin page reads.
+  // The bin move, in the shape the Recycle Bin page reads.
   app.get("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async () => trashMoveStatus());
   app.post("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async (request) => {
     resetTrashMoveFailures();
@@ -116,7 +131,7 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
   });
   app.delete("/api/storage/trash-root/move", { preHandler: app.requireAdmin }, async () => cancelTrashMove());
 
-  // The thumbnail move (phase 3): what it is doing, and stop.
+  // The thumbnail move: what it is doing, and stop.
   app.get("/api/storage/app-storage/thumbnail-move", { preHandler: app.requireAdmin }, async () => folderMoveStatus());
   app.delete("/api/storage/app-storage/thumbnail-move", { preHandler: app.requireAdmin }, async () => cancelFolderMove());
 }

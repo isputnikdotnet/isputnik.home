@@ -52,7 +52,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать",
   storage: "thumbnails cache path containers approved folders disk location recycle bin trash folder " +
     "миниатюры кэш путь контейнеры разрешённые папки диск расположение корзина папка",
-  storageContents: "app storage contents what is in it size on disk rooms app files recordings voice notes music movies family tree orphans orphaned files delete other files move folder " +
+  storageContents: "app storage contents what is in it size on disk parts app files recordings voice notes music movies family tree orphans orphaned files delete other files move folder " +
     "содержимое хранилища приложения размер на диске комнаты файлы приложения записи голосовые заметки музыка фильмы семейное древо сироты осиротевшие файлы удалить другие файлы перенести папку",
   categories: "genres genre keywords mapping icons images taxonomy " +
     "жанры жанр ключевые слова сопоставление значки изображения таксономия",
@@ -134,7 +134,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "locationsMap", section: "dashboard", query: "view=locations", keywords: "map countries towns cities where sign-ins came from geoip home location карта страны города откуда входили домашнее расположение" },
   { titleKey: "logRetention", section: "logs", keywords: "keep days delete old activity prune хранение дней удалить старые записи журнала" },
   { titleKey: "systemData", section: "storage", keywords: "system data required folder config database metadata disk space free move системные данные обязательная папка база данных метаданные место на диске перенос" },
-  { titleKey: "appStorage", section: "storage", keywords: "app storage one folder rooms photo inbox app files made in the app renders music map data move хранилище приложения одна папка комнаты входящие файлы приложения рендеры музыка данные карт перенос" },
+  { titleKey: "appStorage", section: "storage", keywords: "app storage switch on off enable one folder system data custom folder photo inbox app files made in the app renders music map data move in disk space хранилище приложения включить выключить одна папка системные данные своя папка входящие файлы приложения рендеры музыка данные карт перенести место на диске" },
   { titleKey: "thumbnailStorage", section: "storage", keywords: "thumbnails cache folder path move own folder system data миниатюры кэш папка путь отдельная папка системные данные" },
   { titleKey: "backupFolder", section: "storage", keywords: "backups backup folder path another disk same disk move резервные копии папка путь другой диск тот же диск перенос" },
   { titleKey: "libraryContainers", section: "storage", keywords: "approved allowed root folders mount разрешённые корневые папки" },

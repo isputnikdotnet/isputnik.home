@@ -105,6 +105,10 @@ const vectorFile = () => path.join(dataDir, "Tiles", "vector", "14", "9401", "52
 
 beforeEach(async () => {
   resetDb();
+  // Kept maps and place names need App storage on (docs/system-data-plan.md,
+  // decision 11); on, with map data left in its own folder, which is MAP_DATA_PATH here.
+  db.prepare("INSERT INTO app_settings (key, value) VALUES ('app_storage', ?)")
+    .run(JSON.stringify({ enabled: true, where: "system", path: null, outside: { renders: true, maps: true } }));
   makeUser("dad", "admin");
   makeUser("kid");
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "isputnik-maps-"));
@@ -371,6 +375,15 @@ describe("with caching off", () => {
     expect(res.statusCode).toBe(404);
     expect(upstream.calls).toEqual([]);
     expect(fs.existsSync(path.join(dataDir, "Tiles"))).toBe(false);
+  });
+
+  it("refuses to keep maps while App storage is off", async () => {
+    db.prepare("DELETE FROM app_settings WHERE key = 'app_storage'").run();
+    const cookie = await signIn("dad");
+    expect((await get("/api/map/settings", { cookie })).json().appStorage).toEqual({ enabled: false });
+    const on = await app.inject({ method: "PUT", url: "/api/map/settings", headers: { cookie }, payload: { cache: true } });
+    expect(on.statusCode).toBe(409);
+    expect(on.json().error).toMatch(/App storage is off/);
   });
 
   it("deletes what was kept when an admin turns it off, and says how much that freed", async () => {

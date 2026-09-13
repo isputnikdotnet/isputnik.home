@@ -463,6 +463,10 @@
         "title": "Recycle Bin",
         "note": "Where deleted files wait"
       },
+      "appStorage": {
+        "title": "App storage",
+        "note": "Recordings, uploads, the Inbox"
+      },
       "backup": {
         "title": "Backups",
         "note": "A copy to go back to"
@@ -482,10 +486,6 @@
       "theme": {
         "title": "Appearance",
         "note": "How it looks"
-      },
-      "gallery": {
-        "title": "App files",
-        "note": "Where the family's own things go"
       }
     },
     "lockedBinBody": "Set up storage first — the bin has to live inside a container you have approved.",
@@ -565,28 +565,9 @@
     "next": "Next",
     "finish": "Finish",
     "finishAnyway": "Finish anyway",
-    "appStorageHeading": "App storage",
-    "appStorageNote": "Optional. One folder, inside a container, for what the family makes and receives in the app: the Photo Inbox, the library for recordings and uploads, slideshow renders and map data. It can be chosen later, from Library → Storage.",
-    "appStorageNotSet": "Not set",
-    "appStorageBrowse": "Choose folder",
-    "appStorageNeedsContainer": "Add a container first — App storage lives inside one.",
-    "appStorageRooms": "Kept here: {{rooms}}.",
-    "appStorageSaveFailed": "Unable to set App storage",
-    "lockedGalleryBody": "Choose an App storage folder first — these two libraries are made inside it.",
-    "appStorageFirstTitle": "App storage first",
-    "galleryHeading": "Where the family's own things go",
-    "galleryIntro": "Two gallery libraries the app can make for you, each in one click. Neither is required, and both can be made later from Library → Storage, where a library of your own can be chosen instead.",
-    "galleryHouseLabel": "App files",
-    "galleryHouseNote": "Story narration, photos uploaded from the family tree, saved slideshow movies and voice notes on photos all land here. Without it, none of those can be made.",
-    "galleryInboxLabel": "Photo Inbox",
-    "galleryInboxNote": "Where scanned photos wait to be reviewed before they join the collection. Without it, there is nowhere to send scans.",
-    "galleryNotSet": "Not set",
-    "galleryMakeInApp": "Make it in App storage",
-    "gallerySaveFailed": "Unable to make the library",
-    "binUsingApp": "Inside App storage",
-    "appStorageSaved": "App storage set.",
-    "gallerySaved": "Library made.",
-    "galleryLibraryLabel": "Library"
+    "appStorageStepHeading": "App storage",
+    "appStorageStepIntro": "Recommended, not required. One switch makes a place for what the family records and uploads in the app, the Photo Inbox that scans wait in, slideshow movies and kept maps.",
+    "appStorageStepNote": "While it is off, In system data is already chosen, so switching it on is one click. In a household with a lot of video, a custom folder on your media disk is the better home. It can be switched on, moved or switched off later from Library → Storage."
   },
   "partialDate": {
     "formatHint": "Year, year-month, or full date (1971, 1971-09, 1971-09-01)",

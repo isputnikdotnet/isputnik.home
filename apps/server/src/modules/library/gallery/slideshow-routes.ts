@@ -44,6 +44,7 @@ import { sourceIsWritable } from "../shared/library-source.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { getHouseLibrary } from "./house-library.js";
+import { isAppStorageEnabled } from "../../../core/app-storage.js";
 import fs from "node:fs";
 import type { GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
@@ -368,6 +369,10 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     if (!slideshow) return reply;
     if (slideshow.render_status === "queued" || slideshow.render_status === "rendering") {
       return reply.send({ renderStatus: slideshow.render_status });
+    }
+    // A movie renders in App storage's Renders folder (decision 13).
+    if (!isAppStorageEnabled()) {
+      return reply.code(409).send({ error: "App storage is off on this server. An admin can switch it on in Control panel → Library → Storage." });
     }
     const hasPhotos = getSlideshowItems(user.id, resolveGalleryScopeLibraryIds(user), slideshow, 1, 0).total > 0;
     if (!hasPhotos) {

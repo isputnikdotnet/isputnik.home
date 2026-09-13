@@ -39,7 +39,7 @@ import {
   type StorageMoveStatus
 } from "./shared/storage-move.js";
 import { startFolderMove } from "./shared/folder-move.js";
-import { folderStats, type FolderStats } from "./app-storage-contents.js";
+import { folderStats, type FolderStats } from "./app-storage.js";
 import { pathIsInside } from "./shared/storage-roots.js";
 import { NAME_PATTERN } from "../backups/run.js";
 import type { LibraryRow, StorageRootRow } from "../../db/rows.js";

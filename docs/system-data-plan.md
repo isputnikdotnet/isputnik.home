@@ -1,11 +1,12 @@
 # System data & App storage — plan
 
 Status: agreed 2026-09-12, revised the same day to put the four optional features
-behind a single App storage switch. **Phases 1 and 2 built 2026-09-12, uncommitted**
-(phase 1: migration 75, `gallery/system-libraries.ts`; phase 2: `core/system-data.ts`,
-`modules/library/system-data*.ts`, `SystemDataPanel`; both suites, typecheck and
-`check:ui` pass, and both were checked on the dev database, which the startup
-conversion converted). Phases 3 and 4 not started. Replaces the
+behind a single App storage switch. **Phases 1 and 2 committed 2026-09-12** (c8fd5824;
+phase 1: migration 75, `gallery/system-libraries.ts`; phase 2: `core/system-data.ts`,
+`modules/library/system-data*.ts`, `SystemDataPanel`). **Phase 3 built 2026-09-13,
+uncommitted** (`modules/library/app-storage-service.ts`, `app-storage-upgrade.ts`,
+`AppStoragePanel`; both suites, typecheck and `check:ui` pass, checked on the dev
+database, which the startup conversion converted). Phase 4 not started. Replaces the
 room model of [app-storage-plan.md](app-storage-plan.md) (shipped 3.77.0–4.5.0).
 Decisions are recorded so they need not be re-argued; open questions so they are
 not silently answered by whoever writes the code.
@@ -364,6 +365,46 @@ Inbox hidden (decision 12); system libraries leave the Libraries list; the upgra
 conversion for App storage; the setup guide steps (decision 19); guides
 `users/storage.md` and `users/first-run.md` rewritten; screenshots 10–12 and
 101–107 regenerated or retired.
+
+As built:
+- Server: `core/app-storage.ts` reads both shapes (a legacy `{path, rooms}` reads as
+  on, custom, with `outside` from the rooms that kept a place of their own) and
+  answers `getAppStoragePath()` null while off. `modules/library/app-storage-service.ts`
+  holds the view, on, off, Change, Move in, Rename folder and the part moves;
+  `app-storage-upgrade.ts` converts the setting once at startup, before the backups
+  plugin; `gallery/library-delete.ts` is the one library-record delete, shared with
+  the library routes. Routes: `GET/PUT /api/storage/app-storage`, `POST …/on`,
+  `POST …/off`, `POST …/parts/:part/move-in`, `POST …/parts/house/rename`,
+  `POST|DELETE …/parts/:part/move`.
+- The setting gained `outside: { renders?, maps? }`: renders and map data the
+  conversion found elsewhere stay there until Move in, the same way a library
+  outside the folder does. The conversion turns App storage on in system data when
+  no folder was set but any part was in use, so nobody's Inbox or kept maps vanish.
+- Switching on saves the setting before making the libraries, because a library's
+  source must be inside a container *or inside App storage* (`library-source.ts`);
+  a failure reverts the setting. Adopting a library already at the folder is allowed.
+- Switching off is also refused while the Recycle Bin holds items from either
+  library, or either is being scanned (the plan named waiting photos, files,
+  renders and the places build). Renders and map data left in App storage move
+  back to their old homes as tasks when anything is there, rather than being deleted.
+- Change moves each part as its own task after saving, not one task for the folder;
+  the checks (target free, no scan, no move) all run first.
+- Sign-in location databases are not gated: they are part of sign-in security, so
+  while off they live in the Map data default beside the database.
+- Uploaded music is gated on the App files library existing, not on the switch
+  alone; slideshow renders, story recordings, voice notes, kept maps and the places
+  build refuse with one message naming Control panel → Library → Storage.
+- Access for the two libraries is still their library settings, reached from an
+  **Access** link (`/control/libraries?edit=<id>`, which opens the editor and strips
+  the parameter) until phase 4 replaces it.
+- The gallery's library filter leaves both system libraries out (phase 1's App
+  files label is gone); a `?library=` link, such as the Contents page's, still opens
+  one. The Inbox entry shows to members only when it holds something.
+- The setup guide's third step is the panel itself, keyed `appStorage`.
+- Guides updated: storage, first-run, control-panel, photo-inbox, library-gallery.
+  Screenshots 87, 101, 102, 105 and 106 are retired (images and `doc-screenshots.mjs`
+  entries); 10, 11, 103, 104 and 107 still show the old model and need
+  `npm run docs:shots`.
 
 **Phase 4: access without library rules.** A migration turns the Inbox's
 assignments into reviewers (decision 21) and deletes both system libraries'

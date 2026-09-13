@@ -96,7 +96,7 @@ export async function storeVoiceNote(itemId: string, userId: string, tmpPath: st
 
   const library = getHouseLibrary();
   if (!library) {
-    throw new VoiceNoteError("No \"App files\" library is set. An admin chooses one under Control → Library → Storage.", 409);
+    throw new VoiceNoteError("App storage is off on this server. An admin can switch it on in Control panel → Library → Storage.", 409);
   }
   const root = validateLibrarySource(library.source_path);
   const ext = storedExtension(extension);

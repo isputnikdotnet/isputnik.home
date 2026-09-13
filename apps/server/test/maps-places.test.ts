@@ -145,6 +145,10 @@ let dataDir = "";
 
 beforeEach(async () => {
   resetDb();
+  // Kept maps and place names need App storage on (docs/system-data-plan.md,
+  // decision 11); on, with map data left in its own folder, which is MAP_DATA_PATH here.
+  db.prepare("INSERT INTO app_settings (key, value) VALUES ('app_storage', ?)")
+    .run(JSON.stringify({ enabled: true, where: "system", path: null, outside: { renders: true, maps: true } }));
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "isputnik-places-"));
   process.env.MAP_DATA_PATH = dataDir;
   requested.length = 0;

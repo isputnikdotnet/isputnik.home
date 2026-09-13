@@ -5,7 +5,7 @@ import { storagePlugin } from "./storage.js";
 import { appStorageRoutesPlugin } from "./app-storage-routes.js";
 import { systemDataRoutesPlugin } from "./system-data-routes.js";
 import { startStorageMoveWorker } from "./shared/storage-move.js";
-import { migrateRendersIntoAppStorage } from "./app-storage-switch.js";
+import { ensureAppStorageParts } from "./app-storage-service.js";
 import { audiobookPlugin } from "./audiobook/index.js";
 import { ebookPlugin } from "./ebook/index.js";
 import { galleryPlugin } from "./gallery/index.js";
@@ -87,13 +87,13 @@ export async function libraryPlugin(app: FastifyInstance) {
   // on the jobs table; one a restart interrupted is re-queued by the worker's
   // recovery pass, and carries on from the units it had not reached.
   const stopStorageMoveWorker = startStorageMoveWorker();
-  // Renders default to App storage once there is one (3.88.0): an install that
-  // never touched the row still has its render buckets in the thumbnail folder,
-  // and carries them over as a task on the first start after the update.
+  // App storage is on (the 4.6 conversion switched it on for an install that used a
+  // part) but a system library is missing: make it, so "on" means all four exist.
   try {
-    if (migrateRendersIntoAppStorage()) app.log.info("Renders now use App storage; carrying the render buckets over from the thumbnail folder.");
+    const made = ensureAppStorageParts();
+    if (made.length > 0) app.log.info(`App storage is on; made ${made.join(" and ")}.`);
   } catch (err) {
-    app.log.warn({ err }, "Could not queue the render buckets' move into App storage; the Renders row on the Storage page can start it.");
+    app.log.warn({ err }, "Could not make the Photo Inbox or App files library; the Storage page offers to make it.");
   }
 
   // One-shot mop-up for libraries left claiming to scan by a task that no longer

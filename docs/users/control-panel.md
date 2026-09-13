@@ -221,13 +221,12 @@ Adding libraries and pointing them at folders has [its own guide](libraries.md).
 Where the app keeps its own things, and the approved folders your libraries may
 read. Has [its own guide](storage.md).
 
-**App storage** is one optional folder with a row per room: the Recycle Bin, the
-Photo Inbox, the App files library, thumbnails, renders and music, and
-backups. Each row can use App storage, keep a place of its own, or stay off, and
-every change is confirmed with the exact folder before it happens. Changing the
-**Recycle Bin location** moves what is in the bin in the background; keep it on the
-same disk as your libraries (deleting onto another disk copies every byte instead
-of being an instant rename).
+**System data** is the folder the app needs to run: thumbnails, backups and
+metadata, the first two of which can each have a folder of their own. **App
+storage** is one optional switch for the Photo Inbox, the App files library,
+renders and map data, kept together in one folder. Every change is confirmed with
+the exact folder before it happens. The **Recycle Bin location** is set on the
+Recycle Bin page; changing it moves what is in the bin in the background.
 
 ### Categories and Tags
 
@@ -653,8 +652,9 @@ the source, with a link to it. Maps work with every card off.
   OpenRouteService container instead, if you would rather nothing left the house.
   Turning the card off removes the key; routes already saved keep their roads.
 
-Everything the cards keep is in the **Map data** room of [Storage](#storage), named
-at the bottom of the page with a link to change it.
+Everything the cards keep is in the **Map data** part of App storage
+([Storage](#storage)), named at the bottom of the page. Offline maps and place names
+wait while App storage is off: their switches are disabled, with a link to Storage.
 
 ---
 

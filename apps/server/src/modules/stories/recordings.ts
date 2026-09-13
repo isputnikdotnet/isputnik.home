@@ -58,7 +58,7 @@ export class RecordingError extends Error {
 export async function storeRecording(tmpPath: string, filename: string, extension: string): Promise<StoredRecording> {
   const library = getRecordingsLibrary();
   if (!library) {
-    throw new RecordingError("No \"App files\" library is set. An admin chooses one under Control → Library → Storage.", 409);
+    throw new RecordingError("App storage is off on this server. An admin can switch it on in Control panel → Library → Storage.", 409);
   }
   const root = validateLibrarySource(library.source_path);
   const ext = recordingExtension(extension);

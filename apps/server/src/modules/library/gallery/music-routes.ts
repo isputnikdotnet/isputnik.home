@@ -9,6 +9,7 @@ import { canUserWriteLibrary } from "../shared/library-access.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { TrashError } from "../shared/trash-settings.js";
+import { getHouseLibrary } from "./house-library.js";
 import {
   listMusicTracks,
   createUserTrack,
@@ -42,6 +43,10 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
     const user = request.user!;
     if (!canAddMusic(user)) {
       return reply.code(403).send({ error: "You need write access to a gallery library to add music." });
+    }
+    // Uploaded music lives in App files (decision 13): with App storage off there is none.
+    if (!getHouseLibrary()) {
+      return reply.code(409).send({ error: "App storage is off on this server. An admin can switch it on in Control panel → Library → Storage." });
     }
     let received;
     try {
