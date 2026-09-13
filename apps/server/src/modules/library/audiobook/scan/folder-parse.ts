@@ -9,7 +9,7 @@ export function sortTitle(value: unknown): string {
 // "Part 1", "Часть 1", "Диск 2", also as a suffix — "Три товарища (Часть_1)",
 // "Book - Part 2" — with spaces, underscores, dashes or brackets around the marker.
 // Returns the part number so tracks can be ordered part by part.
-const PART_FOLDER_RE = /(?:^|[\s_\-([])(?:cd|disc|disk|part|pt|часть|ч|диск)[\s_.\-]*(\d+)[)\]]?$/i;
+const PART_FOLDER_RE = /(?:^|[\s_\-([])(?:cd|disc|disk|part|pt|часть|ч|диск)[\s_.-]*(\d+)[)\]]?$/i;
 
 export function discNumberFromFolderName(folderName: string) {
   const match = folderName.match(PART_FOLDER_RE);

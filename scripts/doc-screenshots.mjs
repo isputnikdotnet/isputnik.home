@@ -110,7 +110,7 @@ const SHOTS = [
     url: "gallery",
     setup: `
       const tile = [...document.querySelectorAll('button[aria-label^="Open "]')]
-        .find((b) => /\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
+        .find((b) => /\\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
       if (!tile) return "no photo tile on the Gallery page";
       tile.click(); await sleep(1800);
       "viewer open";`
@@ -122,7 +122,7 @@ const SHOTS = [
     state: "a photo you can edit",
     setup: `
       const tile = [...document.querySelectorAll('button[aria-label^="Open "]')]
-        .find((b) => /\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
+        .find((b) => /\\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
       if (!tile) return "no photo tile on the Gallery page";
       tile.click(); await sleep(1800);
       const record = document.querySelector(".voice-notes-head button");
