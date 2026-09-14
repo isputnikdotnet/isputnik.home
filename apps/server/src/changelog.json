@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.11.1",
+    "label": "One couple, recorded once",
+    "changes": [
+      "**A partner no longer shows up twice on a profile.** Adding someone as a child's first parent, then adding the other parent, made a brand-new couple even when those two were already recorded as married. The marriage stayed on one copy and the child went on the other, so the profile listed the same partner twice, once as *Partner* and once as *Wife* or *Husband*. Now the child joins the couple that already exists. Adding the same partner to someone a second time is refused too, with a note to edit the relationship that is already there.",
+      "**Copies already made are merged when you upgrade.** Each couple recorded twice becomes one: the oldest record is kept, and the children, sources and any facts it was missing move over from the copy. When the two records disagree, say two different marriage dates, they are left as they are, because that can be a real divorce and remarriage."
+    ]
+  },
+  {
     "version": "4.11.0",
     "label": "The family on a map",
     "changes": [
