@@ -9,6 +9,15 @@
 //   admin1CodesASCII.txt   region names in English (~150 KB)
 //   alternateNamesV2.zip   names in other languages, of which English and Russian
 //                          are kept for the places above (~205 MB)
+//
+// And, only for the countries an admin asked for "every village in":
+//   XX.zip                 that country's full GeoNames file; its populated places
+//                          of any size go into a separate `villages` table
+//   admin2Codes.txt        district names, so three villages called Veselovka in
+//                          one region can be told apart (~2 MB)
+// Villages are for typing a place (the family tree's place search) and nothing
+// else: photos are named from `places` only, so a photo taken near a hamlet still
+// reads as the town — the owner's choice.
 // Country names are not stored: Intl.DisplayNames gives them in any language.
 //
 // The zips are read as streams, never unpacked to disk — the alternate names alone
@@ -34,8 +43,18 @@ export function geonamesBase(): string {
 const FILES = {
   cities: "cities500.zip",
   admin1: "admin1CodesASCII.txt",
-  alternates: "alternateNamesV2.zip"
+  alternates: "alternateNamesV2.zip",
+  admin2: "admin2Codes.txt"
 } as const;
+
+/** Never a place someone lives in: districts of a city, historic, abandoned,
+ *  destroyed, religious. The same list the namer and the search skip. */
+const NOT_A_PLACE = new Set(["PPLX", "PPLH", "PPLQ", "PPLW", "PPLCH"]);
+
+export interface BuildOptions {
+  /** ISO 3166-1 alpha-2 codes whose every village is added for place search. */
+  villageCountries?: string[];
+}
 
 /** Far above the real files (the largest is ~205 MB), and a hard stop on anything
  *  that is not them. */
@@ -47,6 +66,8 @@ export type BuildProgress = (stage: BuildStage, done: number, total: number) => 
 
 export interface BuildResult {
   places: number;
+  /** Search-only places from the "every village in" countries. */
+  villages: number;
   regions: number;
   names: number;
   sizeBytes: number;
@@ -142,7 +163,10 @@ interface Candidate {
  * any earlier one in a single rename, so a failed build never leaves the level
  * half-rebuilt: the old database keeps working until the new one is complete.
  */
-export async function buildPlaces(progress: BuildProgress = () => {}): Promise<BuildResult> {
+export async function buildPlaces(progress: BuildProgress = () => {}, options: BuildOptions = {}): Promise<BuildResult> {
+  const villageCountries = [...new Set((options.villageCountries ?? []).map((code) => code.toUpperCase()))]
+    .filter((code) => /^[A-Z]{2}$/.test(code))
+    .sort();
   const buildDir = placesBuildDir();
   fs.rmSync(buildDir, { recursive: true, force: true });
   fs.mkdirSync(buildDir, { recursive: true });
@@ -165,6 +189,11 @@ export async function buildPlaces(progress: BuildProgress = () => {}): Promise<B
     const sourceDate = await download(FILES.cities, citiesZip, tick);
     await download(FILES.admin1, admin1Txt, tick);
     await download(FILES.alternates, alternatesZip, tick);
+    const admin2Txt = path.join(buildDir, FILES.admin2);
+    if (villageCountries.length > 0) {
+      await download(FILES.admin2, admin2Txt, tick);
+      for (const code of villageCountries) await download(`${code}.zip`, path.join(buildDir, `${code}.zip`), tick);
+    }
 
     db = new Database(temp);
     db.pragma("journal_mode = OFF");
@@ -178,6 +207,11 @@ export async function buildPlaces(progress: BuildProgress = () => {}): Promise<B
       CREATE VIRTUAL TABLE places_rtree USING rtree(id, min_lat, max_lat, min_lng, max_lng);
       CREATE TABLE regions (code TEXT PRIMARY KEY, id INTEGER NOT NULL, name TEXT NOT NULL) WITHOUT ROWID;
       CREATE TABLE names (id INTEGER NOT NULL, lang TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (id, lang)) WITHOUT ROWID;
+      CREATE TABLE villages (
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL,
+        country TEXT NOT NULL, admin1 TEXT, admin2 TEXT, population INTEGER NOT NULL, fcode TEXT NOT NULL
+      );
+      CREATE TABLE districts (code TEXT PRIMARY KEY, id INTEGER NOT NULL, name TEXT NOT NULL) WITHOUT ROWID;
     `);
 
     // 2. Places. Region capitals are remembered for the region-name check below.
@@ -202,7 +236,42 @@ export async function buildPlaces(progress: BuildProgress = () => {}): Promise<B
       if (places % 5000 === 0) progress("places", places, 0);
     });
     db.exec("COMMIT");
-    progress("places", places, places);
+
+    // 2b. Villages, for the countries asked for: every populated place in the
+    //     country's own file that cities500 does not already hold. Search-only —
+    //     no R-tree, so the namer cannot reach them.
+    const placeIds = new Set(wanted);
+    const insertVillage = db.prepare("INSERT OR IGNORE INTO villages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    let villages = 0;
+    db.exec("BEGIN");
+    for (const code of villageCountries) {
+      await zipLines(path.join(buildDir, `${code}.zip`), `${code}.txt`, (line) => {
+        const c = line.split("\t");
+        if (c.length < 15 || c[6] !== "P" || NOT_A_PLACE.has(c[7])) return;
+        const id = Number(c[0]);
+        const lat = Number(c[4]);
+        const lng = Number(c[5]);
+        if (!Number.isFinite(id) || !Number.isFinite(lat) || !Number.isFinite(lng) || placeIds.has(id)) return;
+        if (insertVillage.run(id, c[1], lat, lng, c[8], c[10] || null, c[11] || null, Number(c[14]) || 0, c[7]).changes === 0) return;
+        wanted.add(id);
+        villages += 1;
+        if (villages % 5000 === 0) progress("places", places + villages, 0);
+      });
+    }
+    if (villageCountries.length > 0) {
+      const districtLines = readline.createInterface({ input: fs.createReadStream(admin2Txt), crlfDelay: Infinity });
+      const insertDistrict = db.prepare("INSERT OR REPLACE INTO districts VALUES (?, ?, ?)");
+      for await (const line of districtLines) {
+        const c = line.split("\t");
+        if (c.length < 4 || !villageCountries.includes(c[0].slice(0, 2))) continue;
+        const id = Number(c[3]);
+        if (!Number.isFinite(id)) continue;
+        insertDistrict.run(c[0], id, c[1]);
+        wanted.add(id);
+      }
+    }
+    db.exec("COMMIT");
+    progress("places", places + villages, places + villages);
 
     // 3. Regions, in English.
     const regionEnglish = new Map<number, { code: string; english: string }>();
@@ -276,6 +345,8 @@ export async function buildPlaces(progress: BuildProgress = () => {}): Promise<B
     setMeta.run("built_at", new Date().toISOString());
     setMeta.run("source_date", sourceDate ? new Date(sourceDate).toISOString() : "");
     setMeta.run("places", String(places));
+    setMeta.run("villages", String(villages));
+    setMeta.run("village_countries", villageCountries.join(","));
     db.exec("COMMIT");
     progress("write", 0, 1);
     db.exec("VACUUM");
@@ -291,6 +362,7 @@ export async function buildPlaces(progress: BuildProgress = () => {}): Promise<B
 
     return {
       places,
+      villages,
       regions: regionEnglish.size,
       names,
       sizeBytes: fs.statSync(placesFile()).size,

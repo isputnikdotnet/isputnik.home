@@ -19,7 +19,7 @@ import {
   type SpriteFile
 } from "./provider.js";
 import { MapAssetNotFound, fromStored, resolveAsset } from "./resolve.js";
-import { getMapSettings, isCacheLimit, saveMapSettings, type CacheLimitMb } from "./settings.js";
+import { getMapSettings, isCacheLimit, MAX_VILLAGE_COUNTRIES, normaliseCountries, saveMapSettings, type CacheLimitMb } from "./settings.js";
 import { cacheLimitBytes, sweepTileCache } from "./sweep.js";
 import { clearTileCache, folderBytes, isStoredGzipped, mapDataDir, tileCacheDir } from "./storage.js";
 import { placesStatus, removePlaces } from "./places/dataset.js";
@@ -193,8 +193,14 @@ const settingsBody = z.object({
 
 /** The places database as the Maps pages see it: what is on disk, and the build. */
 function placesView() {
-  return { ...placesStatus(), build: placesBuildStatus() };
+  // villageCountriesWanted is the setting; villageCountries (from the status) is
+  // what the current database was built with. They differ until the next build.
+  return { ...placesStatus(), villageCountriesWanted: getMapSettings().villageCountries, build: placesBuildStatus() };
 }
+
+const villagesBody = z.object({
+  countries: z.array(z.string().regex(/^[A-Za-z]{2}$/, "Use a two-letter country code")).max(MAX_VILLAGE_COUNTRIES)
+});
 
 export function registerMapRoutes(app: FastifyInstance) {
   const access = { preHandler: mapAccess(app), ...MAP_ASSET_LIMIT };
@@ -276,6 +282,32 @@ export function registerMapRoutes(app: FastifyInstance) {
     return { places: placesView() };
   });
 
+  // "Every village in": which countries' villages the places database adds for
+  // place search. Saving rebuilds the database when there is one (the villages
+  // only arrive with a build); with none yet, the next time it is turned on uses
+  // them. Photos are never named after a village either way.
+  app.put("/api/map/places/villages", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = villagesBody.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid countries", details: parsed.error.issues });
+    const before = getMapSettings();
+    const countries = normaliseCountries(parsed.data.countries);
+    saveMapSettings({ ...before, villageCountries: countries }, request.user!.id);
+    const changed = countries.join(",") !== before.villageCountries.join(",");
+    const rebuilding = changed && placesStatus().present && isAppStorageEnabled();
+    if (rebuilding) enqueuePlacesBuild(request.user!.id);
+    if (changed) {
+      logActivity({
+        event: "maps.settings_updated",
+        actorUserId: request.user!.id,
+        detail: countries.length > 0
+          ? `Place search includes every village in ${countries.join(", ")}${rebuilding ? " (rebuilding place names)" : ""}`
+          : `Place search no longer includes extra villages${rebuilding ? " (rebuilding place names)" : ""}`,
+        ipAddress: request.ip
+      });
+    }
+    return { places: placesView() };
+  });
+
   // Off deletes the database, and with it every place name shown — the owner's
   // choice ("names disappear"). Refused mid-build: the build would put it back.
   app.delete("/api/map/places", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -299,7 +331,7 @@ export function registerMapRoutes(app: FastifyInstance) {
     const parsed = settingsBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid map settings", details: parsed.error.issues });
     const before = getMapSettings();
-    const next = { cache: parsed.data.cache ?? before.cache, cacheLimitMb: (parsed.data.cacheLimitMb ?? before.cacheLimitMb) as CacheLimitMb };
+    const next = { ...before, cache: parsed.data.cache ?? before.cache, cacheLimitMb: (parsed.data.cacheLimitMb ?? before.cacheLimitMb) as CacheLimitMb };
     if (next.cache && !before.cache && !isAppStorageEnabled()) {
       return reply.code(409).send({ error: "App storage is off on this server. An admin can switch it on in Control panel → Library → Storage." });
     }

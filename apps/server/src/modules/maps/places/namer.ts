@@ -33,6 +33,8 @@ export interface PlaceLabel {
   place: string;
   /** Null when there is none, or when it only repeats the place ("Минск · Минск"). */
   region: string | null;
+  /** A village’s district, so same-named villages in one region differ. Towns have none. */
+  district?: string;
   country: string;
   countryCode: string;
 }
@@ -144,7 +146,14 @@ function createNamer(db: Database.Database): PlaceNamer {
     FROM places_rtree r JOIN places p ON p.id = r.id
     WHERE r.min_lat >= ? AND r.max_lat <= ? AND r.min_lng >= ? AND r.max_lng <= ?
   `);
-  const placeById = db.prepare("SELECT id, name, country, admin1 FROM places WHERE id = ?");
+  const placeById = db.prepare("SELECT id, name, country, admin1, NULL AS admin2 FROM places WHERE id = ?");
+  // Search-only villages ("every village in" a country), and their districts. A
+  // database built before them has neither table. Only describe() reads them:
+  // nearest() and namedNear() stay on `places`, so photos are never named after
+  // a village.
+  const hasVillages = Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'villages'").get());
+  const villageById = hasVillages ? db.prepare("SELECT id, name, country, admin1, admin2 FROM villages WHERE id = ?") : null;
+  const districtByCode = hasVillages ? db.prepare("SELECT id, name FROM districts WHERE code = ?") : null;
   const regionByCode = db.prepare("SELECT id, name FROM regions WHERE code = ?");
   const nameIn = db.prepare("SELECT name FROM names WHERE id = ? AND lang = ?");
 
@@ -218,16 +227,23 @@ function createNamer(db: Database.Database): PlaceNamer {
 
     describe(id, language) {
       const lang = languageOf(language);
-      const row = placeById.get(id) as Pick<PlaceRow, "id" | "name" | "country" | "admin1"> | undefined;
+      type DescribedRow = Pick<PlaceRow, "id" | "name" | "country" | "admin1"> & { admin2: string | null };
+      const row = (placeById.get(id) ?? villageById?.get(id)) as DescribedRow | undefined;
       if (!row) return null;
       const place = named(row.id, row.name, lang);
       const regionRow = row.admin1 ? (regionByCode.get(`${row.country}.${row.admin1}`) as { id: number; name: string } | undefined) : undefined;
       const regionName = regionRow ? named(regionRow.id, regionRow.name, lang) : null;
+      const districtRow = row.admin1 && row.admin2 && districtByCode
+        ? (districtByCode.get(`${row.country}.${row.admin1}.${row.admin2}`) as { id: number; name: string } | undefined)
+        : undefined;
+      const districtName = districtRow ? named(districtRow.id, districtRow.name, lang) : null;
       return {
         place,
         region: regionName && regionName.toLowerCase() !== place.toLowerCase() ? regionName : null,
         country: countryName(row.country, lang),
-        countryCode: row.country
+        countryCode: row.country,
+        // Only villages have one; a town’s label keeps its old shape.
+        ...(districtName && districtName.toLowerCase() !== place.toLowerCase() ? { district: districtName } : {})
       };
     }
   };

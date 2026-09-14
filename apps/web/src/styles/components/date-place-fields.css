@@ -121,6 +121,24 @@
   color: var(--muted);
 }
 
+/* Nothing found: said in place of the list, so an empty dropdown never looks
+   like a broken field. */
+.place-field-hint {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  box-shadow: 0 14px 34px var(--shadow);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 .place-field-list li.is-active {
   background: var(--hover);
 }

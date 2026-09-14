@@ -23,10 +23,13 @@ stays a year-only date; nothing silently invents a day for it. A day without a
 month (or a month without a year) is pointed out rather than quietly dropped.
 
 **Place** takes whatever you type — a country, a parish, a village no map
-knows. As you type it also offers places the tree already uses and towns from
-the places database (Maps → Named places); picking one of those fills the place
-in and pins it on the map. Changing the words afterwards removes the pin. The
-place of a marriage and of a life event work the same way.
+knows. As you type it offers real places only: towns from the place list
+(Control panel → Maps → Photo place names), and places in the tree that were
+picked from it before. Picking one fills the place in and pins it on the map;
+changing the words afterwards removes the pin. When nothing matches, the box
+says so and keeps your words as typed. Towns there have 500 or more people; for
+small villages an admin can add a country under **Every village in…** on that
+card. The place of a marriage and of a life event work the same way.
 
 **Other language name(s)** holds the same person's name as written in another
 language — *Владимир Посс* beside *Vladimir Posse*. The profile shows it under

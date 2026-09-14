@@ -10,10 +10,20 @@ import { Button } from "./Button";
 // words AND the pin. Changing the words afterwards drops the pin, which named the
 // old words. Where suggestions come from is the caller's: `load("")` fills the
 // dropdown (the chevron), `load(text)` answers typing.
+//
+// When typing finds nothing, a line under the box says so — and that what she
+// typed is kept as written — or that there is no place list to search at all,
+// so an empty dropdown never reads as the field being broken.
 
 export interface PlacePin {
   lat: number;
   lng: number;
+}
+
+export interface PlaceLoadResult {
+  options: PlaceOption[];
+  /** False when there is nothing to search (no places database). */
+  available: boolean;
 }
 
 export interface PlaceOption {
@@ -38,7 +48,7 @@ export function PlaceField({
   value: string;
   pin: PlacePin | null;
   onChange: (value: string, pin: PlacePin | null) => void;
-  load: (query: string) => Promise<PlaceOption[]>;
+  load: (query: string) => Promise<PlaceLoadResult>;
   placeholder?: string;
   className?: string;
 }) {
@@ -49,6 +59,8 @@ export function PlaceField({
   // The text the list answers: null = closed, "" = the chevron's full list.
   const [query, setQuery] = useState<string | null>(null);
   const [options, setOptions] = useState<PlaceOption[]>([]);
+  // What the last finished search found nothing for, and why.
+  const [empty, setEmpty] = useState<{ query: string; available: boolean } | null>(null);
   const [active, setActive] = useState(-1);
   const request = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,11 +72,12 @@ export function PlaceField({
       load(query)
         .then((found) => {
           if (request.current !== id) return;
-          setOptions(found);
+          setOptions(found.options);
+          setEmpty(found.options.length === 0 ? { query, available: found.available } : null);
           setActive(-1);
           setOpen(true);
         })
-        .catch(() => { if (request.current === id) setOptions([]); });
+        .catch(() => { if (request.current === id) { setOptions([]); setEmpty(null); } });
     }, query ? SUGGEST_DELAY_MS : 0);
     return () => window.clearTimeout(timer);
   }, [query, load]);
@@ -74,6 +87,7 @@ export function PlaceField({
     setQuery(null);
     setOpen(false);
     setActive(-1);
+    setEmpty(null);
   };
 
   const pick = (option: PlaceOption) => {
@@ -108,6 +122,8 @@ export function PlaceField({
             const text = event.target.value.trim();
             if (text.length >= 2) setQuery(text);
             else close();
+            // A finished "nothing found" belongs to the words it was found for.
+            if (empty && empty.query !== text) setEmpty(null);
           }}
           onBlur={close}
           onKeyDown={(event) => {
@@ -157,6 +173,15 @@ export function PlaceField({
           <ChevronDown size={16} />
         </Button>
       </div>
+      {open && !shown && empty && (empty.query === "" || empty.query === value.trim()) && (
+        <p className="place-field-hint" role="status">
+          {!empty.available
+            ? t("placeField.unavailable")
+            : empty.query
+              ? t("placeField.noMatch", { text: empty.query })
+              : t("placeField.noneYet")}
+        </p>
+      )}
       {shown && (
         <ul className="place-field-list" id={listId} role="listbox" aria-label={label}>
           {options.map((option, index) => (

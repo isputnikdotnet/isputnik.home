@@ -412,7 +412,7 @@ describe("with caching off", () => {
     const set = await app.inject({ method: "PUT", url: "/api/map/settings", headers: { cookie }, payload: { cacheLimitMb: 1000 } });
     expect(set.statusCode).toBe(200);
     // Only the limit changed: the cache stays as it was.
-    expect(set.json().settings).toEqual({ cache: false, cacheLimitMb: 1000 });
+    expect(set.json().settings).toEqual({ cache: false, cacheLimitMb: 1000, villageCountries: [] });
     expect((await get("/api/map/settings", { cookie })).json().cache.limitBytes).toBe(1000 * 1024 * 1024);
 
     for (const payload of [{ cacheLimitMb: 750 }, { cacheLimitMb: 20000 }, {}]) {

@@ -19,6 +19,7 @@ import { getFamilyDefaultPerson } from "./settings.js";
 import { pinSchema } from "./place-pins.js";
 import { getFamilyMap } from "./map.js";
 import { suggestPlaces } from "../maps/places/search.js";
+import { placesStatus } from "../maps/places/dataset.js";
 import { placeLanguage } from "../library/gallery/places.js";
 
 export const optionalDate = partialDateSchema.nullable().optional();
@@ -110,10 +111,13 @@ export function registerPersonRoutes(app: FastifyInstance) {
     });
   });
 
-  // Places for the person editor's place field. Without `q`: every place the
-  // tree already names (the field's dropdown). With `q`: those that contain it,
-  // plus towns from the offline places database (Maps → Named places) — nothing
-  // leaves the server, so it can answer as she types.
+  // Places for the person editor's place field — only real places, from the
+  // offline places database (Maps → Named places): towns that match, and the
+  // tree's own places that were picked from it before (they carry its pin). Words
+  // typed by hand are never offered back as suggestions; the field still accepts
+  // them. Without `q`: the tree's picked places (the field's dropdown). Nothing
+  // leaves the server, so it can answer as she types. `available` says whether
+  // there is a places database at all, so the field can say why nothing matched.
   const placesQuerySchema = z.object({ q: z.string().max(200).optional() });
 
   app.get("/api/family-tree/places", { preHandler: app.authenticate }, async (request, reply) => {
@@ -122,12 +126,14 @@ export function registerPersonRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid query", details: parsed.error });
     }
     const q = (parsed.data.q ?? "").trim();
-    const known = listFamilyPlaces();
+    const available = placesStatus().present;
+    const known = listFamilyPlaces().filter((place) => place.pin);
     if (!q) {
-      return reply.send({ known: known.slice(0, 50), towns: [] });
+      return reply.send({ available, known: known.slice(0, 50), towns: [] });
     }
     const folded = q.toLocaleLowerCase();
     return reply.send({
+      available,
       known: known.filter((place) => place.label.toLocaleLowerCase().includes(folded)).slice(0, 5),
       towns: q.length >= 2 ? suggestPlaces(q, placeLanguage(request)) : []
     });
