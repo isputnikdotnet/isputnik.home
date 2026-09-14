@@ -287,12 +287,19 @@
   backdrop-filter: none;
 }
 
-.ft-profile-bio {
+/* The bio is rendered markdown (StoryMarkdown). Until the renderer loads it is
+   the raw text, which keeps its line breaks through pre-wrap; once it has tags,
+   the paragraphs carry the spacing and pre-wrap would double it. */
+.ft-profile-bio.story-prose {
   max-width: 78ch;
   white-space: pre-wrap;
   color: var(--ink);
   margin: 0;
   line-height: 1.6;
+}
+
+.ft-profile-bio.story-prose:has(> *) {
+  white-space: normal;
 }
 
 .ft-section {
@@ -608,9 +615,64 @@
 
 /* ── Modals: edit form, pickers ── */
 
-/* The person form is a card modal widened to hold a two-column field grid. */
+/* The person form is a card modal widened to hold two columns of fields and the
+   Birth/Death panels' Date · Place rows. */
 .ft-person-form-modal {
-  width: min(100%, 560px);
+  width: min(100%, 760px);
+}
+
+/* A name in another language: language · name · remove. */
+.ft-other-names {
+  gap: 8px;
+}
+
+.ft-other-name-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 200px) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ft-other-name-row > .field {
+  gap: 0;
+}
+
+.ft-other-names .ft-other-name-add {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Birth / Death: a tinted panel of Date | Place, split by a hairline. */
+.ft-life-panel {
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 12px 18px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+}
+
+.ft-life-panel legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ft-life-panel-grid {
+  clear: both;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 14px 20px;
+}
+
+.ft-life-panel-grid > .place-field {
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
 }
 
 .ft-form-grid {
@@ -634,14 +696,14 @@
 /* Tab panels share one body sized to the tallest tab (Details), so the modal
    keeps its height when switching tabs; the notes textarea fills the space. */
 .ft-person-form-body {
-  min-height: 348px;
+  min-height: 548px;
   display: flex;
   flex-direction: column;
 }
 
 /* The body's min-height is the spacer; the grid's own bottom margin would
-   make the Details tab 14px taller than the others. */
-.ft-person-form-body > .ft-form-grid {
+   make the Details tab taller than the others. */
+.ft-person-details > .ft-form-grid {
   margin-bottom: 0;
 }
 
@@ -650,8 +712,13 @@
   grid-template-rows: auto 1fr;
 }
 
+/* The editor fills the tab: toolbar on top, the text box taking the rest. */
+.ft-person-form-body .ft-bio-field .markdown-editor {
+  min-height: 0;
+}
+
 .ft-person-form-body .ft-bio-field textarea {
-  height: 100%;
+  flex: 1;
   min-height: 160px;
   resize: none;
 }
@@ -666,15 +733,18 @@
    the field beside it. */
 .ft-gender-radios {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
+  gap: 8px 20px;
   min-height: 46px;
 }
 
+/* A choice wraps to the next line whole, never mid-word. */
 .ft-radio {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -1225,8 +1295,19 @@
 /* ── Mobile ── */
 
 @media (max-width: 740px) {
-  .ft-form-grid {
+  .ft-form-grid,
+  .ft-life-panel-grid {
     grid-template-columns: 1fr;
+  }
+  .ft-life-panel-grid > .place-field {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .ft-other-name-row {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) auto;
+  }
+  .ft-person-form-body {
+    min-height: 0;
   }
   /* A generation wraps on a phone rather than scrolling sideways. Scrolling
      inside the row was tried and abandoned: the row sized itself to its content

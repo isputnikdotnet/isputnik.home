@@ -14,7 +14,7 @@ import { addEntityTags, normalizeText, setEntityTags } from "../library/shared/t
 import { FAMILY_PERSON_ENTITY_TYPE } from "./access.js";
 import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
 import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";
-import type { FamilyTreeChildRow, FamilyTreePersonRow, FamilyTreeUnionRow, GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, TagRow } from "../../db/rows.js";
+import type { FamilyTreeChildRow, FamilyTreePersonNameRow, FamilyTreePersonRow, FamilyTreeUnionRow, GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, TagRow } from "../../db/rows.js";
 
 // Partial ISO dates: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. Lexicographic order is
 // chronological, and GEDCOM's partial dates map onto this 1:1 for a later import.
@@ -33,15 +33,29 @@ export const partialDateSchema = z.string().trim()
 
 export const GENDERS = ["male", "female", "other", "unknown"] as const;
 
+/** The person's name as written in another language. */
+export interface FamilyPersonName {
+  language: string;
+  name: string;
+}
+
+export interface PlacePin {
+  lat: number;
+  lng: number;
+}
+
 export interface FamilyPersonSummary {
   id: string;
   name: string;
   maidenName: string | null;
+  otherNames: FamilyPersonName[];
   gender: string;
   birthDate: string | null;
   deathDate: string | null;
   birthplace: string | null;
   deathPlace: string | null;
+  birthPin: PlacePin | null;
+  deathPin: PlacePin | null;
   bio: string | null;
   portraitUrl: string | null;
   portraitItemId: string | null;
@@ -49,7 +63,8 @@ export interface FamilyPersonSummary {
 }
 
 type PersonRow = Pick<FamilyTreePersonRow,
-  "id" | "name" | "maiden_name" | "gender" | "birth_date" | "death_date" | "birthplace" | "death_place" | "bio"
+  "id" | "name" | "maiden_name" | "gender" | "birth_date" | "death_date" | "birthplace" | "death_place"
+  | "birth_lat" | "birth_lng" | "death_lat" | "death_lng" | "bio"
   | "portrait_storage_key" | "portrait_item_id" | "gallery_person_id" | "updated_at"> & {
   portrait_item_cover: ItemMetadataRow["cover_storage_key"] | null;
   portrait_item_updated: GalleryDetailRow["updated_at"] | null;
@@ -60,7 +75,8 @@ type PersonRow = Pick<FamilyTreePersonRow,
 // cache when the underlying image is replaced or the photo is edited/rotated.
 const PERSON_SELECT = `
   SELECT p.id, p.name, p.maiden_name, p.gender, p.birth_date, p.death_date,
-    p.birthplace, p.death_place, p.bio, p.portrait_storage_key, p.portrait_item_id,
+    p.birthplace, p.death_place, p.birth_lat, p.birth_lng, p.death_lat, p.death_lng,
+    p.bio, p.portrait_storage_key, p.portrait_item_id,
     p.gallery_person_id, p.updated_at,
     im.cover_storage_key AS portrait_item_cover,
     gd.updated_at AS portrait_item_updated
@@ -69,7 +85,35 @@ const PERSON_SELECT = `
   LEFT JOIN item_metadata im ON im.item_id = li.id
   LEFT JOIN gallery_details gd ON gd.item_id = li.id`;
 
-function mapPerson(row: PersonRow): FamilyPersonSummary {
+function pin(lat: number | null, lng: number | null): PlacePin | null {
+  return lat != null && lng != null ? { lat, lng } : null;
+}
+
+/** Other-language names for the given people (every person when omitted), in
+ *  the order they were entered. One query for a whole list. */
+function otherNamesOf(personIds?: string[]): Map<string, FamilyPersonName[]> {
+  const rows = (personIds
+    ? personIds.length === 0
+      ? []
+      : db.prepare(`SELECT person_id, language, name FROM family_tree_person_names
+          WHERE person_id IN (${personIds.map(() => "?").join(", ")}) ORDER BY person_id, position`).all(...personIds)
+    : db.prepare("SELECT person_id, language, name FROM family_tree_person_names ORDER BY person_id, position").all()
+  ) as Pick<FamilyTreePersonNameRow, "person_id" | "language" | "name">[];
+  const byPerson = new Map<string, FamilyPersonName[]>();
+  for (const row of rows) {
+    const list = byPerson.get(row.person_id) ?? [];
+    list.push({ language: row.language, name: row.name });
+    byPerson.set(row.person_id, list);
+  }
+  return byPerson;
+}
+
+function mapPersons(rows: PersonRow[], allPeople = false): FamilyPersonSummary[] {
+  const names = otherNamesOf(allPeople ? undefined : rows.map((row) => row.id));
+  return rows.map((row) => mapPerson(row, names.get(row.id) ?? []));
+}
+
+function mapPerson(row: PersonRow, otherNames: FamilyPersonName[]): FamilyPersonSummary {
   let portraitUrl: string | null = null;
   if (row.portrait_storage_key) {
     portraitUrl = `/api/library/covers/${row.portrait_storage_key}?v=${encodeURIComponent(row.updated_at)}`;
@@ -81,11 +125,14 @@ function mapPerson(row: PersonRow): FamilyPersonSummary {
     id: row.id,
     name: row.name,
     maidenName: row.maiden_name,
+    otherNames,
     gender: row.gender,
     birthDate: row.birth_date,
     deathDate: row.death_date,
     birthplace: row.birthplace,
     deathPlace: row.death_place,
+    birthPin: pin(row.birth_lat, row.birth_lng),
+    deathPin: pin(row.death_lat, row.death_lng),
     bio: row.bio,
     portraitUrl,
     portraitItemId: row.portrait_item_id,
@@ -95,16 +142,22 @@ function mapPerson(row: PersonRow): FamilyPersonSummary {
 
 export function getFamilyPerson(personId: string): FamilyPersonSummary | null {
   const row = db.prepare(`${PERSON_SELECT} WHERE p.id = ?`).get(personId) as PersonRow | undefined;
-  return row ? mapPerson(row) : null;
+  return row ? mapPersons([row])[0] : null;
 }
 
+// A name in another language is found like the main name. SQLite's NOCASE folds
+// ASCII only, so a Cyrillic search is case-sensitive here; the pages filter the
+// loaded list themselves, with full case folding.
 export function listFamilyPersons(query?: string): FamilyPersonSummary[] {
-  const rows = (query
-    ? db.prepare(`${PERSON_SELECT}
-        WHERE p.name LIKE ? COLLATE NOCASE OR p.maiden_name LIKE ? COLLATE NOCASE
-        ORDER BY p.name COLLATE NOCASE`).all(`%${query}%`, `%${query}%`)
-    : db.prepare(`${PERSON_SELECT} ORDER BY p.name COLLATE NOCASE`).all()) as PersonRow[];
-  return rows.map(mapPerson);
+  if (!query) {
+    return mapPersons(db.prepare(`${PERSON_SELECT} ORDER BY p.name COLLATE NOCASE`).all() as PersonRow[], true);
+  }
+  const like = `%${query}%`;
+  const rows = db.prepare(`${PERSON_SELECT}
+    WHERE p.name LIKE ? COLLATE NOCASE OR p.maiden_name LIKE ? COLLATE NOCASE
+      OR EXISTS (SELECT 1 FROM family_tree_person_names n WHERE n.person_id = p.id AND n.name LIKE ? COLLATE NOCASE)
+    ORDER BY p.name COLLATE NOCASE`).all(like, like, like) as PersonRow[];
+  return mapPersons(rows);
 }
 
 // Everyone carrying one tag — the family arm of the global tag browse. Reads
@@ -114,7 +167,33 @@ export function listFamilyPersonsByTag(tagId: string): FamilyPersonSummary[] {
     JOIN taggables ON taggables.entity_id = p.id
       AND taggables.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}' AND taggables.tag_id = ?
     ORDER BY p.name COLLATE NOCASE`).all(tagId) as PersonRow[];
-  return rows.map(mapPerson);
+  return mapPersons(rows);
+}
+
+export interface FamilyPlace {
+  label: string;
+  pin: PlacePin | null;
+  uses: number;
+}
+
+// Every place the tree already names — births, deaths, marriages, life events —
+// so the editor can offer "Minsk, Belarus" the way it was written last time,
+// with its pin when one was picked. Most used first.
+export function listFamilyPlaces(): FamilyPlace[] {
+  // The lone MAX() makes SQLite take lat/lng from the row it picked, so a label
+  // spelled with a pin anywhere carries that one pin, never halves of two.
+  const rows = db.prepare(`
+    SELECT label, MAX(lat IS NOT NULL AND lng IS NOT NULL) AS pinned, lat, lng, COUNT(*) AS uses FROM (
+      SELECT birthplace AS label, birth_lat AS lat, birth_lng AS lng FROM family_tree_persons WHERE birthplace IS NOT NULL
+      UNION ALL SELECT death_place, death_lat, death_lng FROM family_tree_persons WHERE death_place IS NOT NULL
+      UNION ALL SELECT married_place, NULL, NULL FROM family_tree_unions WHERE married_place IS NOT NULL
+      UNION ALL SELECT place, NULL, NULL FROM family_tree_events WHERE place IS NOT NULL
+    )
+    WHERE TRIM(label) <> ''
+    GROUP BY label
+    ORDER BY uses DESC, label COLLATE NOCASE
+  `).all() as { label: string; lat: number | null; lng: number | null; uses: number }[];
+  return rows.map((row) => ({ label: row.label, pin: pin(row.lat, row.lng), uses: row.uses }));
 }
 
 export interface FamilyUnionSummary {
@@ -176,23 +255,47 @@ export interface FamilyPersonFields {
   deathDate?: string | null;
   birthplace?: string | null;
   deathPlace?: string | null;
+  /** A pin belongs to its place: one sent with no place is dropped. */
+  birthPin?: PlacePin | null;
+  deathPin?: PlacePin | null;
+  otherNames?: FamilyPersonName[];
   bio?: string | null;
+}
+
+/** Replaces the person's other-language names; blank rows are dropped. */
+function writeOtherNames(personId: string, names: FamilyPersonName[]): void {
+  db.prepare("DELETE FROM family_tree_person_names WHERE person_id = ?").run(personId);
+  const insert = db.prepare("INSERT INTO family_tree_person_names (person_id, position, language, name) VALUES (?, ?, ?, ?)");
+  let position = 0;
+  for (const entry of names) {
+    const name = entry.name.trim();
+    const language = entry.language.trim();
+    if (!name || !language) continue;
+    insert.run(personId, position++, language, name);
+  }
 }
 
 // Tags are applied in the same transaction as the insert: for a branch editor
 // the tag is the permission anchor, so a person must never exist without it.
 export function createFamilyPerson(fields: FamilyPersonFields, createdBy: string, tags?: string[]): FamilyPersonSummary {
   const id = nanoid(16);
+  const birthplace = fields.birthplace?.trim() || null;
+  const deathPlace = fields.deathPlace?.trim() || null;
+  const birthPin = birthplace ? fields.birthPin ?? null : null;
+  const deathPin = deathPlace ? fields.deathPin ?? null : null;
   db.transaction(() => {
     db.prepare(`
-      INSERT INTO family_tree_persons (id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place, bio, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO family_tree_persons (id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place,
+        birth_lat, birth_lng, death_lat, death_lng, bio, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, fields.name.trim(), fields.maidenName?.trim() || null, fields.gender ?? "unknown",
       fields.birthDate || null, fields.deathDate || null,
-      fields.birthplace?.trim() || null, fields.deathPlace?.trim() || null,
+      birthplace, deathPlace,
+      birthPin?.lat ?? null, birthPin?.lng ?? null, deathPin?.lat ?? null, deathPin?.lng ?? null,
       fields.bio?.trim() || null, createdBy
     );
+    if (fields.otherNames) writeOtherNames(id, fields.otherNames);
     if (tags && tags.length > 0) setEntityTags(FAMILY_PERSON_ENTITY_TYPE, id, tags);
   })();
   return getFamilyPerson(id)!;
@@ -214,21 +317,39 @@ export function updateFamilyPerson(
   if (fields.gender !== undefined) set("gender", fields.gender);
   if (fields.birthDate !== undefined) set("birth_date", fields.birthDate || null);
   if (fields.deathDate !== undefined) set("death_date", fields.deathDate || null);
-  if (fields.birthplace !== undefined) set("birthplace", fields.birthplace?.trim() || null);
-  if (fields.deathPlace !== undefined) set("death_place", fields.deathPlace?.trim() || null);
+  // A pin follows its place: sent with it, it is stored (dropped for an empty
+  // place); a place changed without one loses the old pin, which named the old
+  // words. SET reads the row as it was, so `birthplace IS ?` compares old to new.
+  const placeWithPin = (textColumn: string, lat: string, lng: string, text: string | null | undefined, sent: PlacePin | null | undefined) => {
+    if (text === undefined && sent === undefined) return;
+    if (text !== undefined) set(textColumn, text?.trim() || null);
+    const place = text === undefined ? undefined : text?.trim() || null;
+    if (sent !== undefined || place === null) {
+      const kept = place === null ? null : sent ?? null;
+      set(lat, kept?.lat ?? null);
+      set(lng, kept?.lng ?? null);
+    } else if (place !== undefined) {
+      sets.push(`${lat} = CASE WHEN ${textColumn} IS ? THEN ${lat} END`, `${lng} = CASE WHEN ${textColumn} IS ? THEN ${lng} END`);
+      params.push(place, place);
+    }
+  };
+  placeWithPin("birthplace", "birth_lat", "birth_lng", fields.birthplace, fields.birthPin);
+  placeWithPin("death_place", "death_lat", "death_lng", fields.deathPlace, fields.deathPin);
   if (fields.bio !== undefined) set("bio", fields.bio?.trim() || null);
   if (fields.galleryPersonId !== undefined) set("gallery_person_id", fields.galleryPersonId);
   if (fields.portraitItemId !== undefined) {
     set("portrait_item_id", fields.portraitItemId);
     if (fields.portraitItemId) set("portrait_storage_key", null);
   }
-  // Tags live in taggables, not a column — they apply even when no column changed.
-  if (sets.length === 0 && fields.tags === undefined) return getFamilyPerson(personId);
+  // Tags and other names live in their own tables, not columns — they apply even
+  // when no column changed.
+  if (sets.length === 0 && fields.tags === undefined && fields.otherNames === undefined) return getFamilyPerson(personId);
 
   return db.transaction(() => {
     if (!db.prepare("SELECT 1 FROM family_tree_persons WHERE id = ?").get(personId)) return null;
     if (fields.tags !== undefined) setEntityTags(FAMILY_PERSON_ENTITY_TYPE, personId, fields.tags);
-    if (sets.length > 0) {
+    if (fields.otherNames !== undefined) writeOtherNames(personId, fields.otherNames);
+    if (sets.length > 0 || fields.otherNames !== undefined) {
       sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')");
       db.prepare(`UPDATE family_tree_persons SET ${sets.join(", ")} WHERE id = ?`).run(...params, personId);
     }

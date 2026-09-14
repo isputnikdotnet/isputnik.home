@@ -1,0 +1,126 @@
+/* ── Partial date (shared/PartialDateInput) ─────────────────────────────────
+   Day · Month · Year in one row: two short number boxes around the month
+   dropdown, which takes what width is left. */
+.partial-date-parts {
+  display: grid;
+  grid-template-columns: 3.6em minmax(0, 1fr) 4.8em;
+  gap: 8px;
+  align-items: center;
+}
+
+.partial-date-parts > .field {
+  gap: 0;
+}
+
+.field .partial-date-parts input {
+  min-width: 0;
+  text-align: left;
+}
+
+.field .partial-date-parts input[aria-invalid="true"],
+.partial-date-parts .select-field-control:has(select[aria-invalid="true"]) {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+/* ── Place (shared/PlaceField) ──────────────────────────────────────────────
+   Built like SelectField: the WRAPPER carries the chrome (inset ring, focus
+   ring) and the input inside goes bare, so the search/pin icon, the clear and
+   the chevron sit inside one box. */
+.place-field {
+  position: relative;
+}
+
+.place-field-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  min-height: 46px;
+  padding-left: var(--space-3);
+  border-radius: 7px;
+  background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.place-field-control:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 24%, var(--line));
+}
+
+.place-field-control:focus-within {
+  box-shadow: inset 0 0 0 1px var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.place-field-icon {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+/* A picked place wears a pin in the accent colour: it is on the map. */
+.place-field-control.is-pinned .place-field-icon {
+  color: var(--mint);
+}
+
+.field .place-field-control input,
+.field .place-field-control input:focus {
+  min-width: 0;
+  min-height: 44px;
+  padding-inline: 9px 4px;
+  border-color: transparent;
+  background: none;
+  outline: none;
+  text-overflow: ellipsis;
+}
+
+.place-field-control .place-field-clear,
+.place-field-control .place-field-toggle {
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  background: none;
+  color: var(--muted);
+}
+
+/* The chevron is set apart from the clear by a hairline, as in a combobox. */
+.place-field-control .place-field-toggle {
+  margin-right: 5px;
+  border-left: 1px solid var(--line);
+  border-radius: 0 6px 6px 0;
+}
+
+.place-field-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 264px;
+  margin: 0;
+  padding: 5px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  box-shadow: 0 14px 34px var(--shadow);
+}
+
+.place-field-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.place-field-list li svg {
+  color: var(--muted);
+}
+
+.place-field-list li.is-active {
+  background: var(--hover);
+}

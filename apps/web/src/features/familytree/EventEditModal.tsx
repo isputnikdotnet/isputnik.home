@@ -9,7 +9,7 @@ import { SelectField } from "../../shared/SelectField";
 import type { GalleryAsset } from "../gallery/types";
 import { PhotoPicker } from "../gallery/PhotoPicker";
 import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
-import { PartialDateField } from "../../shared/PartialDateField";
+import { PartialDateInput } from "../../shared/PartialDateInput";
 import { EVENT_TYPE_OPTIONS, eventLabelHint, eventTypeLabel, type FamilyEvent } from "./types";
 
 // Create or edit a timeline event. Dates are free-text partial dates — a year
@@ -129,11 +129,10 @@ export function EventEditModal({
             onChange={(event) => setLabel(event.target.value)}
           />
         </label>
-        <PartialDateField label={t("family:event.fromLabel")} value={date} onChange={setDate} />
-        <PartialDateField
+        <PartialDateInput label={t("family:event.fromLabel")} value={date} onChange={setDate} />
+        <PartialDateInput
           label={t("family:event.toOptionalLabel")}
           value={endDate}
-          placeholder={t("partialDate.example.endYear")}
           onChange={setEndDate}
         />
         <label className="field">

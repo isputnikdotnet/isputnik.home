@@ -14,7 +14,7 @@ import { BulkTagPeopleModal } from "./BulkTagPeopleModal";
 import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
-import { lifeYears, type FamilyPerson, type FamilyTreeAccess } from "./types";
+import { lifeYears, personMatchesSearch, type FamilyPerson, type FamilyTreeAccess } from "./types";
 import { useSession } from "../../app/SessionContext";
 
 // Every family member as a searchable grid — the management/finding surface
@@ -57,7 +57,7 @@ export function FamilyPeoplePage() {
   const shown = useMemo(
     () =>
       persons.filter((p) =>
-        (!term || p.name.toLowerCase().includes(term) || p.maidenName?.toLowerCase().includes(term))
+        personMatchesSearch(p, term)
         && (!activeTag || p.tags.includes(activeTag))
       ),
     [persons, term, activeTag]

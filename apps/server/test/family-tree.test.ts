@@ -6,6 +6,7 @@ import {
   getFamilyPerson,
   getFamilyPersonProfile,
   listFamilyPersons,
+  listFamilyPlaces,
   updateFamilyPerson,
   deleteFamilyPerson,
   getFamilyTree,
@@ -353,5 +354,64 @@ describe("family tree settings", () => {
     setFamilyTreeSettings({ defaultPersonId: null }, "admin");
     expect(getFamilyDefaultPerson()).toBeNull();
     expect(getFamilyUploadLibrary()?.id).toBe("gal");
+  });
+});
+
+describe("other-language names and place pins", () => {
+  it("stores names in order, drops blank rows, and replaces the list on update", () => {
+    const vladimir = person("Vladimir Posse", {
+      otherNames: [
+        { language: "ru", name: "Владимир Посс" },
+        { language: "uk", name: "  " },
+        { language: "be", name: "Уладзімір Посэ" }
+      ]
+    });
+    expect(vladimir.otherNames).toEqual([
+      { language: "ru", name: "Владимир Посс" },
+      { language: "be", name: "Уладзімір Посэ" }
+    ]);
+
+    const updated = updateFamilyPerson(vladimir.id, { otherNames: [{ language: "uk", name: "Володимир Поссе" }] });
+    expect(updated?.otherNames).toEqual([{ language: "uk", name: "Володимир Поссе" }]);
+    // The whole-tree listing carries them too.
+    expect(listFamilyPersons().find((p) => p.id === vladimir.id)?.otherNames).toHaveLength(1);
+
+    deleteFamilyPerson(vladimir.id);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM family_tree_person_names").get()).toEqual({ n: 0 });
+  });
+
+  it("finds a person by a name in another language", () => {
+    person("Vladimir Posse", { otherNames: [{ language: "ru", name: "Владимир Посс" }] });
+    person("Anna");
+    expect(listFamilyPersons("Посс").map((p) => p.name)).toEqual(["Vladimir Posse"]);
+  });
+
+  it("keeps a pin with its place, drops it for an empty place, and forgets it when the words change", () => {
+    const anna = person("Anna", { birthplace: "Minsk, Belarus", birthPin: { lat: 53.9, lng: 27.56 }, deathPin: { lat: 1, lng: 2 } });
+    expect(anna.birthPin).toEqual({ lat: 53.9, lng: 27.56 });
+    // No death place, so the pin sent for it goes nowhere.
+    expect(anna.deathPin).toBeNull();
+
+    // The same words saved again keep their pin…
+    expect(updateFamilyPerson(anna.id, { birthplace: "Minsk, Belarus" })?.birthPin).toEqual({ lat: 53.9, lng: 27.56 });
+    // …new words without a pin lose it.
+    expect(updateFamilyPerson(anna.id, { birthplace: "Ratomka" })?.birthPin).toBeNull();
+
+    updateFamilyPerson(anna.id, { birthplace: "Minsk, Belarus", birthPin: { lat: 53.9, lng: 27.56 } });
+    const cleared = updateFamilyPerson(anna.id, { birthplace: null, birthPin: { lat: 53.9, lng: 27.56 } });
+    expect(cleared?.birthplace).toBeNull();
+    expect(cleared?.birthPin).toBeNull();
+  });
+
+  it("lists the places the tree already names, most used first, with a pin when one was picked", () => {
+    const anna = person("Anna", { birthplace: "Minsk, Belarus", birthPin: { lat: 53.9, lng: 27.56 } });
+    const boris = person("Boris", { birthplace: "Minsk, Belarus", deathPlace: "Kyiv" });
+    const union = createUnion(anna.id, boris.id, { marriedPlace: "Kyiv" });
+    if ("error" in union) throw new Error(union.error);
+    createFamilyEvent(anna.id, { type: "residence", place: "Kyiv" });
+
+    const places = listFamilyPlaces();
+    expect(places[0]).toEqual({ label: "Kyiv", pin: null, uses: 3 });
+    expect(places[1]).toEqual({ label: "Minsk, Belarus", pin: { lat: 53.9, lng: 27.56 }, uses: 2 });
   });
 });

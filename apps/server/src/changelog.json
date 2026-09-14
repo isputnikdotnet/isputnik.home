@@ -1,5 +1,16 @@
 [
   {
+    "version": "4.9.0",
+    "label": "A family member, written the way the family writes them",
+    "changes": [
+      "**A name can be kept in more than one language.** Under **Other language name(s)** in Edit person, add the same person's name as it is written elsewhere, *Владимир Посс* beside *Vladimir Posse*, one row per language. Before, a family that writes names in two alphabets had to choose one, and searching in the other found nobody. Now the profile shows the other spellings under the name, and the People page, the chart's search and the person picker find someone by any of them, in any letter case.",
+      "**Dates are Day, Month and Year, and only the year is needed.** Birth, death, marriage, divorce and life-event dates used to be one box that expected `1924-05-17`, a shape nobody writes by hand. Now each date has a day box, a month list in your own language and a year box, and a year alone is still a whole answer. A day without its month, a month without its year, or the 31st of April is pointed out on the part to fix and stops the save, instead of being quietly saved as a different date.",
+      "**Places are found as you type, and a found place goes on the map.** Birth and death each sit in their own panel of Date and Place. The place box still takes anything, a country, a parish, a village no map knows, but it now also offers the places the tree already uses, spelled the way they were written before, and towns from the server's own place list, so nothing typed leaves the house. Picking one saves its map pin with the words, and changing the words afterwards drops the pin, which named the old words. The arrow on the box lists every place the tree already has.",
+      "**A gender chosen by mistake can be taken back.** Edit person offered only Female and Male, so once one was picked there was no way back to not knowing. **Unknown** is now the third choice.",
+      "**A biography can be formatted.** **Bio / notes** has the same bold, italic, heading, list, quote and link buttons as a story's text, and the profile shows the biography formatted, with its line breaks kept, so biographies already written read as they did. A GEDCOM export leaves the formatting out, because other genealogy programs would show the marks as symbols, and keeps the words and line breaks."
+    ]
+  },
+  {
     "version": "4.8.1",
     "label": "A place she names goes on the map",
     "changes": [

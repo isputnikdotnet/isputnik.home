@@ -440,6 +440,13 @@ describe("gedcom export", () => {
     expect(listFamilySources()).toHaveLength(1);
   });
 
+  it("exports a formatted bio as plain text", () => {
+    createFamilyPerson({ name: "Anna", bio: "Born in **Minsk**.\n- joiner" }, "admin");
+    const gedcom = exportGedcom();
+    expect(gedcom).toContain("1 NOTE Born in Minsk.");
+    expect(gedcom).toContain("2 CONT - joiner");
+  });
+
   it("splits long notes across CONT/CONC lines that re-import intact", () => {
     const bio = `${"A".repeat(450)}\nSecond paragraph.`;
     createFamilyPerson({ name: "Long Bio", bio }, "admin");

@@ -1852,6 +1852,12 @@ CREATE TABLE IF NOT EXISTS family_tree_persons (
   death_date        TEXT,
   birthplace        TEXT,
   death_place       TEXT,
+  -- A pin for the place, set when it was picked from the places search; typed
+  -- text has none. Both halves or neither (app code).
+  birth_lat         REAL,
+  birth_lng         REAL,
+  death_lat         REAL,
+  death_lng         REAL,
   bio               TEXT,
   -- Portrait is EITHER an uploaded image in the thumbnail store (bucket
   -- 'familytree') OR a chosen gallery item whose cover is used; app code clears
@@ -1862,6 +1868,17 @@ CREATE TABLE IF NOT EXISTS family_tree_persons (
   created_by        TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- A person's name as written in another language ("Владимир Посс" beside
+-- "Vladimir Posse"). `language` is a BCP 47 code; the list is replaced whole on
+-- save, `position` keeps the order it was entered in. Searchable, like maiden_name.
+CREATE TABLE IF NOT EXISTS family_tree_person_names (
+  person_id TEXT NOT NULL REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+  position  INTEGER NOT NULL,
+  language  TEXT NOT NULL,
+  name      TEXT NOT NULL,
+  PRIMARY KEY (person_id, position)
 );
 
 -- A spouse/partner union (GEDCOM FAM). person2 NULL = single-parent family, so

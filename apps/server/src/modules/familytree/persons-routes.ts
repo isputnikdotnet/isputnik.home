@@ -7,7 +7,7 @@ import { parseBody, parseQuery } from "../../core/shared.js";
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "../library/shared/thumbnail.js";
 import {
   partialDateSchema, GENDERS,
-  listFamilyPersons, getFamilyPerson, getFamilyPersonProfile, getFamilyTree,
+  listFamilyPersons, listFamilyPlaces, getFamilyPerson, getFamilyPersonProfile, getFamilyTree,
   createFamilyPerson, updateFamilyPerson, deleteFamilyPerson,
   getPortraitStorageKey, setUploadedPortrait,
   expandToRelatives, applyFamilyPersonTags
@@ -16,17 +16,31 @@ import { getFamilyEventPhotos } from "./photos.js";
 import { canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags } from "./access.js";
 import { normalizeText } from "../library/shared/tagging.js";
 import { getFamilyDefaultPerson } from "./settings.js";
+import { suggestPlaces } from "../maps/places/search.js";
+import { placeLanguage } from "../library/gallery/places.js";
 
 export const optionalDate = partialDateSchema.nullable().optional();
+
+const pinSchema = z.object({
+  lat: z.number().finite().min(-90).max(90),
+  lng: z.number().finite().min(-180).max(180)
+}).nullable().optional();
 
 const personFields = {
   name: z.string().trim().min(1).max(120),
   maidenName: z.string().trim().max(120).nullable().optional(),
+  // BCP 47 language codes ("ru", "uk", "zh-Hant"); blank names are dropped on save.
+  otherNames: z.array(z.object({
+    language: z.string().trim().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, "Use a language code such as ru"),
+    name: z.string().trim().max(120)
+  })).max(12).optional(),
   gender: z.enum(GENDERS).optional(),
   birthDate: optionalDate,
   deathDate: optionalDate,
   birthplace: z.string().trim().max(200).nullable().optional(),
   deathPlace: z.string().trim().max(200).nullable().optional(),
+  birthPin: pinSchema,
+  deathPin: pinSchema,
   bio: z.string().trim().max(4000).nullable().optional()
 };
 
@@ -96,6 +110,29 @@ export function registerPersonRoutes(app: FastifyInstance) {
         })),
         events: profile.events.map((event) => ({ ...event, photos: eventPhotos.get(event.id) ?? [] }))
       }
+    });
+  });
+
+  // Places for the person editor's place field. Without `q`: every place the
+  // tree already names (the field's dropdown). With `q`: those that contain it,
+  // plus towns from the offline places database (Maps → Named places) — nothing
+  // leaves the server, so it can answer as she types.
+  const placesQuerySchema = z.object({ q: z.string().max(200).optional() });
+
+  app.get("/api/family-tree/places", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseQuery(placesQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const q = (parsed.data.q ?? "").trim();
+    const known = listFamilyPlaces();
+    if (!q) {
+      return reply.send({ known: known.slice(0, 50), towns: [] });
+    }
+    const folded = q.toLocaleLowerCase();
+    return reply.send({
+      known: known.filter((place) => place.label.toLocaleLowerCase().includes(folded)).slice(0, 5),
+      towns: q.length >= 2 ? suggestPlaces(q, placeLanguage(request)) : []
     });
   });
 
