@@ -8,8 +8,9 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { PartialDateInput } from "../../shared/PartialDateInput";
 import { PeopleCombobox } from "../../shared/PeopleCombobox";
-import { PlaceField, type PlaceOption, type PlacePin } from "../../shared/PlaceField";
+import { PlaceField, type PlacePin } from "../../shared/PlaceField";
 import { SelectField } from "../../shared/SelectField";
+import { loadFamilyPlaces } from "./familyPlaces";
 import { GENDER_OPTIONS, genderOptionLabel, type FamilyPerson, type FamilyPersonName, type FamilyTag } from "./types";
 
 // Create or edit a family member's profile. Names up top (with the name as
@@ -24,29 +25,6 @@ const NAME_LANGUAGES = [
   "ru", "uk", "be", "en", "pl", "de", "yi", "he", "lt", "lv", "et", "fr", "es", "it", "cs", "sk", "hu", "ro",
   "bg", "sr", "hr", "el", "tr", "ka", "hy", "az", "kk", "uz", "ar", "fa", "zh", "ja", "ko", "pt", "nl", "sv", "fi"
 ];
-
-interface FamilyPlacesPayload {
-  known: { label: string; pin: PlacePin | null }[];
-  towns: { label: string; lat: number; lng: number }[];
-}
-
-/** The tree's own places first (as they were written before), then towns. */
-async function loadFamilyPlaces(query: string): Promise<PlaceOption[]> {
-  const payload = await api<FamilyPlacesPayload>(
-    `/api/family-tree/places${query ? `?q=${encodeURIComponent(query)}` : ""}`
-  );
-  const seen = new Set<string>();
-  const options: PlaceOption[] = [];
-  for (const place of payload.known) {
-    seen.add(place.label.toLocaleLowerCase());
-    options.push({ label: place.label, pin: place.pin, kind: "known" });
-  }
-  for (const town of payload.towns) {
-    if (seen.has(town.label.toLocaleLowerCase())) continue;
-    options.push({ label: town.label, pin: { lat: town.lat, lng: town.lng }, kind: "town" });
-  }
-  return options;
-}
 
 type NameRow = FamilyPersonName & { key: number };
 

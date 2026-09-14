@@ -25,7 +25,8 @@ month (or a month without a year) is pointed out rather than quietly dropped.
 **Place** takes whatever you type — a country, a parish, a village no map
 knows. As you type it also offers places the tree already uses and towns from
 the places database (Maps → Named places); picking one of those fills the place
-in and pins it on the map. Changing the words afterwards removes the pin.
+in and pins it on the map. Changing the words afterwards removes the pin. The
+place of a marriage and of a life event work the same way.
 
 **Other language name(s)** holds the same person's name as written in another
 language — *Владимир Посс* beside *Vladimir Posse*. The profile shows it under

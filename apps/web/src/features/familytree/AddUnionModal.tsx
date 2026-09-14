@@ -7,6 +7,8 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { PartialDateInput } from "../../shared/PartialDateInput";
+import { PlaceField, type PlacePin } from "../../shared/PlaceField";
+import { loadFamilyPlaces } from "./familyPlaces";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
 import { UNION_STATUS_OPTIONS, unionStatusLabel, type FamilyPerson, type FamilyUnion } from "./types";
@@ -29,6 +31,7 @@ export function AddUnionModal({
   const [status, setStatus] = useState<FamilyUnion["status"]>("married");
   const [marriedDate, setMarriedDate] = useState("");
   const [marriedPlace, setMarriedPlace] = useState("");
+  const [marriedPin, setMarriedPin] = useState<PlacePin | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,7 +47,8 @@ export function AddUnionModal({
           person2Id: partner?.id ?? null,
           status,
           marriedDate: marriedDate.trim() || null,
-          marriedPlace: marriedPlace.trim() || null
+          marriedPlace: marriedPlace.trim() || null,
+          marriedPin: marriedPlace.trim() ? marriedPin : null
         })
       });
       onAdded();
@@ -107,10 +111,13 @@ export function AddUnionModal({
           value={marriedDate}
           onChange={setMarriedDate}
         />
-        <label className="field">
-          <span>{t("family:addUnion.placeOfMarriage")}</span>
-          <input type="text" value={marriedPlace} onChange={(event) => setMarriedPlace(event.target.value)} />
-        </label>
+        <PlaceField
+          label={t("family:addUnion.placeOfMarriage")}
+          value={marriedPlace}
+          pin={marriedPin}
+          load={loadFamilyPlaces}
+          onChange={(place, pin) => { setMarriedPlace(place); setMarriedPin(pin); }}
+        />
       </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>

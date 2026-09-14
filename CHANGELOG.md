@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.10.0 — Where they married, where life happened
+
+- **The place of a marriage and of a life event are found as you type, like a birthplace.** In 4.9.0 only births and deaths got the place search, so a wedding in "Carlisle" or a school in "Penrith" was still a plain text box with no suggestions and no pin. Now **Add relationship**, the relationship editor and the life-event dialog offer the places the tree already uses and towns from the server's own place list, and picking one saves its map pin with the words. Typing is still allowed for anything the list doesn't know, and changing the words afterwards drops the pin.
+- **A pinned place carries its pin wherever it is picked.** The places the tree already uses now include marriage and event places with their pins, so a town pinned once for a wedding brings the same pin when it is picked as someone's birthplace, and the other way round.
+
 ## 4.9.0 — A family member, written the way the family writes them
 
 - **A name can be kept in more than one language.** Under **Other language name(s)** in Edit person, add the same person's name as it is written elsewhere, *Владимир Посс* beside *Vladimir Posse*, one row per language. Before, a family that writes names in two alphabets had to choose one, and searching in the other found nobody. Now the profile shows the other spellings under the name, and the People page, the chart's search and the person picker find someone by any of them, in any letter case.

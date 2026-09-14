@@ -7,6 +7,8 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { PartialDateInput } from "../../shared/PartialDateInput";
+import { PlaceField, type PlacePin } from "../../shared/PlaceField";
+import { loadFamilyPlaces } from "./familyPlaces";
 import { UNION_STATUS_OPTIONS, unionStatusLabel, type FamilyUnionDetail } from "./types";
 
 // Edit an existing union's status and dates. The divorce date is what marks a
@@ -27,6 +29,7 @@ export function UnionEditModal({
   const [status, setStatus] = useState(union.status);
   const [marriedDate, setMarriedDate] = useState(union.marriedDate ?? "");
   const [marriedPlace, setMarriedPlace] = useState(union.marriedPlace ?? "");
+  const [marriedPin, setMarriedPin] = useState<PlacePin | null>(union.marriedPin ?? null);
   const [divorcedDate, setDivorcedDate] = useState(union.divorcedDate ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -47,6 +50,7 @@ export function UnionEditModal({
           status,
           marriedDate: marriedDate.trim() || null,
           marriedPlace: marriedPlace.trim() || null,
+          marriedPin: marriedPlace.trim() ? marriedPin : null,
           divorcedDate: divorcedDate.trim() || null
         })
       });
@@ -84,10 +88,13 @@ export function UnionEditModal({
           value={marriedDate}
           onChange={setMarriedDate}
         />
-        <label className="field">
-          <span>{t("family:addUnion.placeOfMarriage")}</span>
-          <input type="text" value={marriedPlace} onChange={(event) => setMarriedPlace(event.target.value)} />
-        </label>
+        <PlaceField
+          label={t("family:addUnion.placeOfMarriage")}
+          value={marriedPlace}
+          pin={marriedPin}
+          load={loadFamilyPlaces}
+          onChange={(place, pin) => { setMarriedPlace(place); setMarriedPin(pin); }}
+        />
         <PartialDateInput
           label={t("family:unionEdit.divorcedSeparated")}
           value={divorcedDate}

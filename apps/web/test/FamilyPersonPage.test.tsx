@@ -78,6 +78,7 @@ const unionDetail = (over: Partial<FamilyUnionDetail>): FamilyUnionDetail => ({
   status: "married",
   marriedDate: null,
   marriedPlace: null,
+  marriedPin: null,
   divorcedDate: null,
   note: null,
   partner: null,
@@ -104,6 +105,7 @@ function profile(over: Partial<FamilyPersonProfile> = {}): FamilyPersonProfile {
         status: "married",
         marriedDate: "1972-08-01",
         marriedPlace: "Minsk",
+        marriedPin: null,
         partner: HUSBAND,
         children: [
           { ...SON, relation: "biological" },
@@ -112,8 +114,8 @@ function profile(over: Partial<FamilyPersonProfile> = {}): FamilyPersonProfile {
       })
     ],
     events: [
-      { id: "e-work", personId: "me", type: "occupation", label: "Teacher", date: "1972", endDate: null, place: "School 5", note: null, photos: [] },
-      { id: "e-home", personId: "me", type: "residence", label: null, date: "1990", endDate: "2000", place: "Gomel", note: LONG_NOTE, photos: [] }
+      { id: "e-work", personId: "me", type: "occupation", label: "Teacher", date: "1972", endDate: null, place: "School 5", placePin: null, note: null, photos: [] },
+      { id: "e-home", personId: "me", type: "residence", label: null, date: "1990", endDate: "2000", place: "Gomel", placePin: null, note: LONG_NOTE, photos: [] }
     ],
     citations: [
       { id: "c-birth", sourceId: "s1", sourceTitle: "Parish register", sourceUrl: null, personId: "me", eventId: null, unionId: null, fact: "birth", detail: "Page 12", url: "https://example.org/rec/1", note: null },
@@ -127,8 +129,8 @@ function profile(over: Partial<FamilyPersonProfile> = {}): FamilyPersonProfile {
 const TREE: FamilyTree = {
   persons: [base("me", "Maria Ivanova"), DAD, MUM, BROTHER, GRANDPA, GRANDMA, HUSBAND, EX, SON, DAUGHTER],
   unions: [
-    { id: "u-par", person1Id: "dad", person2Id: "mum", status: "married", marriedDate: null, marriedPlace: null, divorcedDate: null, note: null },
-    { id: "u-gp", person1Id: "gpa", person2Id: "gma", status: "married", marriedDate: null, marriedPlace: null, divorcedDate: null, note: null }
+    { id: "u-par", person1Id: "dad", person2Id: "mum", status: "married", marriedDate: null, marriedPlace: null, marriedPin: null, divorcedDate: null, note: null },
+    { id: "u-gp", person1Id: "gpa", person2Id: "gma", status: "married", marriedDate: null, marriedPlace: null, marriedPin: null, divorcedDate: null, note: null }
   ],
   children: [
     { unionId: "u-par", childId: "me", relation: "biological" },

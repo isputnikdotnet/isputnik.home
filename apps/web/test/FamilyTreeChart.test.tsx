@@ -43,6 +43,7 @@ const union = (id: string, person1Id: string, person2Id: string): FamilyUnion =>
   status: "married",
   marriedDate: null,
   marriedPlace: null,
+  marriedPin: null,
   divorcedDate: null,
   note: null
 });

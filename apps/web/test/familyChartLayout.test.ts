@@ -49,6 +49,7 @@ const union = (
   status,
   marriedDate: null,
   marriedPlace: null,
+  marriedPin: null,
   divorcedDate: null,
   note: null
 });

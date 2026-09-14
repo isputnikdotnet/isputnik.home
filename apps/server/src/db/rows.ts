@@ -358,6 +358,8 @@ export interface FamilyTreeEventRow {
   date: string | null;
   end_date: string | null;
   place: string | null;
+  place_lat: number | null;
+  place_lng: number | null;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -423,6 +425,8 @@ export interface FamilyTreeUnionRow {
   status: "married" | "partners" | "divorced" | "widowed" | "unknown";
   married_date: string | null;
   married_place: string | null;
+  married_lat: number | null;
+  married_lng: number | null;
   divorced_date: string | null;
   note: string | null;
   created_at: string;

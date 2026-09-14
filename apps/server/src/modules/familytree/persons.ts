@@ -14,6 +14,7 @@ import { addEntityTags, normalizeText, setEntityTags } from "../library/shared/t
 import { FAMILY_PERSON_ENTITY_TYPE } from "./access.js";
 import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
 import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";
+import { pin, pinForPlace, placeUpdate, type PlacePin } from "./place-pins.js";
 import type { FamilyTreeChildRow, FamilyTreePersonNameRow, FamilyTreePersonRow, FamilyTreeUnionRow, GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, TagRow } from "../../db/rows.js";
 
 // Partial ISO dates: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. Lexicographic order is
@@ -37,11 +38,6 @@ export const GENDERS = ["male", "female", "other", "unknown"] as const;
 export interface FamilyPersonName {
   language: string;
   name: string;
-}
-
-export interface PlacePin {
-  lat: number;
-  lng: number;
 }
 
 export interface FamilyPersonSummary {
@@ -84,10 +80,6 @@ const PERSON_SELECT = `
   LEFT JOIN library_items li ON li.id = p.portrait_item_id AND li.deleted_at IS NULL
   LEFT JOIN item_metadata im ON im.item_id = li.id
   LEFT JOIN gallery_details gd ON gd.item_id = li.id`;
-
-function pin(lat: number | null, lng: number | null): PlacePin | null {
-  return lat != null && lng != null ? { lat, lng } : null;
-}
 
 /** Other-language names for the given people (every person when omitted), in
  *  the order they were entered. One query for a whole list. */
@@ -186,8 +178,8 @@ export function listFamilyPlaces(): FamilyPlace[] {
     SELECT label, MAX(lat IS NOT NULL AND lng IS NOT NULL) AS pinned, lat, lng, COUNT(*) AS uses FROM (
       SELECT birthplace AS label, birth_lat AS lat, birth_lng AS lng FROM family_tree_persons WHERE birthplace IS NOT NULL
       UNION ALL SELECT death_place, death_lat, death_lng FROM family_tree_persons WHERE death_place IS NOT NULL
-      UNION ALL SELECT married_place, NULL, NULL FROM family_tree_unions WHERE married_place IS NOT NULL
-      UNION ALL SELECT place, NULL, NULL FROM family_tree_events WHERE place IS NOT NULL
+      UNION ALL SELECT married_place, married_lat, married_lng FROM family_tree_unions WHERE married_place IS NOT NULL
+      UNION ALL SELECT place, place_lat, place_lng FROM family_tree_events WHERE place IS NOT NULL
     )
     WHERE TRIM(label) <> ''
     GROUP BY label
@@ -203,6 +195,7 @@ export interface FamilyUnionSummary {
   status: string;
   marriedDate: string | null;
   marriedPlace: string | null;
+  marriedPin: PlacePin | null;
   divorcedDate: string | null;
   note: string | null;
 }
@@ -213,8 +206,12 @@ export interface FamilyChildLink {
   relation: string;
 }
 
-type UnionRow = Pick<FamilyTreeUnionRow,
-  "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "divorced_date" | "note">;
+export type UnionRow = Pick<FamilyTreeUnionRow,
+  "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "married_lat" | "married_lng"
+  | "divorced_date" | "note">;
+
+/** Every column mapUnion reads, for a SELECT on family_tree_unions. */
+export const UNION_COLUMNS = "id, person1_id, person2_id, status, married_date, married_place, married_lat, married_lng, divorced_date, note";
 
 export function mapUnion(row: UnionRow): FamilyUnionSummary {
   return {
@@ -224,6 +221,7 @@ export function mapUnion(row: UnionRow): FamilyUnionSummary {
     status: row.status,
     marriedDate: row.married_date,
     marriedPlace: row.married_place,
+    marriedPin: pin(row.married_lat, row.married_lng),
     divorcedDate: row.divorced_date,
     note: row.note
   };
@@ -238,7 +236,7 @@ export function getFamilyTree(): {
 } {
   const persons = listFamilyPersons();
   const unions = (db.prepare(
-    "SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note FROM family_tree_unions ORDER BY married_date IS NULL, married_date"
+    `SELECT ${UNION_COLUMNS} FROM family_tree_unions ORDER BY married_date IS NULL, married_date`
   ).all() as UnionRow[]).map(mapUnion);
   const children = (db.prepare(
     "SELECT union_id, child_id, relation FROM family_tree_children"
@@ -281,8 +279,8 @@ export function createFamilyPerson(fields: FamilyPersonFields, createdBy: string
   const id = nanoid(16);
   const birthplace = fields.birthplace?.trim() || null;
   const deathPlace = fields.deathPlace?.trim() || null;
-  const birthPin = birthplace ? fields.birthPin ?? null : null;
-  const deathPin = deathPlace ? fields.deathPin ?? null : null;
+  const birthPin = pinForPlace(birthplace, fields.birthPin);
+  const deathPin = pinForPlace(deathPlace, fields.deathPin);
   db.transaction(() => {
     db.prepare(`
       INSERT INTO family_tree_persons (id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place,
@@ -317,24 +315,14 @@ export function updateFamilyPerson(
   if (fields.gender !== undefined) set("gender", fields.gender);
   if (fields.birthDate !== undefined) set("birth_date", fields.birthDate || null);
   if (fields.deathDate !== undefined) set("death_date", fields.deathDate || null);
-  // A pin follows its place: sent with it, it is stored (dropped for an empty
-  // place); a place changed without one loses the old pin, which named the old
-  // words. SET reads the row as it was, so `birthplace IS ?` compares old to new.
-  const placeWithPin = (textColumn: string, lat: string, lng: string, text: string | null | undefined, sent: PlacePin | null | undefined) => {
-    if (text === undefined && sent === undefined) return;
-    if (text !== undefined) set(textColumn, text?.trim() || null);
-    const place = text === undefined ? undefined : text?.trim() || null;
-    if (sent !== undefined || place === null) {
-      const kept = place === null ? null : sent ?? null;
-      set(lat, kept?.lat ?? null);
-      set(lng, kept?.lng ?? null);
-    } else if (place !== undefined) {
-      sets.push(`${lat} = CASE WHEN ${textColumn} IS ? THEN ${lat} END`, `${lng} = CASE WHEN ${textColumn} IS ? THEN ${lng} END`);
-      params.push(place, place);
-    }
-  };
-  placeWithPin("birthplace", "birth_lat", "birth_lng", fields.birthplace, fields.birthPin);
-  placeWithPin("death_place", "death_lat", "death_lng", fields.deathPlace, fields.deathPin);
+  // A pin follows its place (see place-pins.ts).
+  for (const update of [
+    placeUpdate({ text: "birthplace", lat: "birth_lat", lng: "birth_lng" }, fields.birthplace, fields.birthPin),
+    placeUpdate({ text: "death_place", lat: "death_lat", lng: "death_lng" }, fields.deathPlace, fields.deathPin)
+  ]) {
+    sets.push(...update.sets);
+    params.push(...update.params);
+  }
   if (fields.bio !== undefined) set("bio", fields.bio?.trim() || null);
   if (fields.galleryPersonId !== undefined) set("gallery_person_id", fields.galleryPersonId);
   if (fields.portraitItemId !== undefined) {
@@ -440,6 +428,7 @@ export interface FamilyPersonProfile extends FamilyPersonSummary {
     status: string;
     marriedDate: string | null;
     marriedPlace: string | null;
+    marriedPin: PlacePin | null;
     divorcedDate: string | null;
     note: string | null;
     partner: FamilyPersonSummary | null;
@@ -467,7 +456,7 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
     : [];
 
   const unionRows = db.prepare(`
-    SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note
+    SELECT ${UNION_COLUMNS}
     FROM family_tree_unions WHERE person1_id = ? OR person2_id = ?
     ORDER BY married_date IS NULL, married_date
   `).all(personId, personId) as UnionRow[];
@@ -488,6 +477,7 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
       status: row.status,
       marriedDate: row.married_date,
       marriedPlace: row.married_place,
+      marriedPin: pin(row.married_lat, row.married_lng),
       divorcedDate: row.divorced_date,
       note: row.note,
       partner: partnerId ? getFamilyPerson(partnerId) : null,

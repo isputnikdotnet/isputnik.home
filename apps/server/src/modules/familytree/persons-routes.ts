@@ -16,15 +16,11 @@ import { getFamilyEventPhotos } from "./photos.js";
 import { canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags } from "./access.js";
 import { normalizeText } from "../library/shared/tagging.js";
 import { getFamilyDefaultPerson } from "./settings.js";
+import { pinSchema } from "./place-pins.js";
 import { suggestPlaces } from "../maps/places/search.js";
 import { placeLanguage } from "../library/gallery/places.js";
 
 export const optionalDate = partialDateSchema.nullable().optional();
-
-const pinSchema = z.object({
-  lat: z.number().finite().min(-90).max(90),
-  lng: z.number().finite().min(-180).max(180)
-}).nullable().optional();
 
 const personFields = {
   name: z.string().trim().min(1).max(120),

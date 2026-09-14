@@ -403,6 +403,29 @@ describe("other-language names and place pins", () => {
     expect(cleared?.birthPin).toBeNull();
   });
 
+  it("keeps a marriage place's pin and a life event's pin by the same rule", () => {
+    const anna = person("Anna");
+    const boris = person("Boris");
+    const created = createUnion(anna.id, boris.id, { marriedPlace: "Kyiv", marriedPin: { lat: 50.45, lng: 30.52 } });
+    if ("error" in created) throw new Error(created.error);
+    expect(created.union.marriedPin).toEqual({ lat: 50.45, lng: 30.52 });
+    expect(updateUnion(created.union.id, { marriedPlace: "Kyiv", status: "married" })?.marriedPin).toEqual({ lat: 50.45, lng: 30.52 });
+    expect(updateUnion(created.union.id, { marriedPlace: "Kiev" })?.marriedPin).toBeNull();
+    expect(getFamilyPersonProfile(anna.id)?.unions[0].marriedPlace).toBe("Kiev");
+
+    const event = createFamilyEvent(anna.id, { type: "residence", place: "Lviv", placePin: { lat: 49.84, lng: 24.03 } });
+    expect(event?.placePin).toEqual({ lat: 49.84, lng: 24.03 });
+    expect(listFamilyEvents(anna.id)[0].placePin).toEqual({ lat: 49.84, lng: 24.03 });
+    const cleared = updateFamilyEvent(event!.id, { place: null });
+    expect(cleared?.place).toBeNull();
+    expect(cleared?.placePin).toBeNull();
+    // No place, so a pin sent alone goes nowhere.
+    expect(createFamilyEvent(anna.id, { type: "travel", placePin: { lat: 1, lng: 2 } })?.placePin).toBeNull();
+
+    updateUnion(created.union.id, { marriedPlace: "Kyiv", marriedPin: { lat: 50.45, lng: 30.52 } });
+    expect(listFamilyPlaces().find((place) => place.label === "Kyiv")?.pin).toEqual({ lat: 50.45, lng: 30.52 });
+  });
+
   it("lists the places the tree already names, most used first, with a pin when one was picked", () => {
     const anna = person("Anna", { birthplace: "Minsk, Belarus", birthPin: { lat: 53.9, lng: 27.56 } });
     const boris = person("Boris", { birthplace: "Minsk, Belarus", deathPlace: "Kyiv" });
