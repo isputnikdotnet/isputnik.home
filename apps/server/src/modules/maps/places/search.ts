@@ -15,7 +15,7 @@
 // The database is read-only and has no index on names: a prefix scan of both name
 // columns measured ~20 ms on the full data, which a debounced search affords.
 import type Database from "better-sqlite3";
-import { NAME_LANGUAGES, openPlaces } from "./dataset.js";
+import { NAME_LANGUAGES, openPlaces, searchKey, searchKeyCeiling } from "./dataset.js";
 import { geoNamesNamer } from "./namer.js";
 
 export interface PlaceSuggestion {
@@ -42,9 +42,7 @@ function spellings(text: string): [string, string] {
   return [likePrefix(text), likePrefix(capitalised)];
 }
 
-function fold(text: string): string {
-  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
-}
+const fold = searchKey;
 
 function countryNames(code: string): string[] {
   const names = [code];
@@ -66,6 +64,10 @@ interface Statements {
   /** Absent on a database built before villages existed. */
   villages: Database.Statement | null;
   translatedVillages: Database.Statement | null;
+  /** The folded-spelling index; absent on a database built before it. */
+  keys: Database.Statement | null;
+  placeRow: Database.Statement;
+  villageRow: Database.Statement | null;
 }
 const statements = new WeakMap<Database.Database, Statements>();
 
@@ -84,8 +86,14 @@ function statementsFor(db: Database.Database) {
         ORDER BY p.population DESC LIMIT ${CANDIDATES}
       `),
       villages: null,
-      translatedVillages: null
+      translatedVillages: null,
+      keys: null,
+      placeRow: db.prepare(`SELECT id, name, lat, lng, country, population FROM places WHERE id = ? AND fcode NOT IN ${NEVER_SQL}`),
+      villageRow: null
     };
+    if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'place_search'").get()) {
+      prepared.keys = db.prepare(`SELECT DISTINCT id, village FROM place_search WHERE key >= ? AND key < ? LIMIT ${CANDIDATES * 4}`);
+    }
     if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'villages'").get()) {
       prepared.villages = db.prepare(`
         SELECT id, name, lat, lng, country, population FROM villages
@@ -97,6 +105,7 @@ function statementsFor(db: Database.Database) {
         WHERE (n.name LIKE ? ESCAPE '\\' OR n.name LIKE ? ESCAPE '\\')
         ORDER BY v.population DESC LIMIT ${CANDIDATES}
       `);
+      prepared.villageRow = db.prepare("SELECT id, name, lat, lng, country, population FROM villages WHERE id = ?");
     }
     statements.set(db, prepared);
   }
@@ -131,6 +140,15 @@ export function suggestPlaces(query: string, language: string): PlaceSuggestion[
     ...((prepared.villages?.all(asTyped, capitalised) ?? []) as Row[]),
     ...((prepared.translatedVillages?.all(asTyped, capitalised) ?? []) as Row[])
   ];
+  // Folded spellings: "Veselovka" finds "Vesëlovka", "веселовка" finds "Весёловка",
+  // and a village is found by any name GeoNames lists for it.
+  const key = searchKey(head);
+  for (const hit of (prepared.keys?.all(key, searchKeyCeiling(key)) ?? []) as { id: number; village: number }[]) {
+    const row = (hit.village ? prepared.villageRow?.get(hit.id) : prepared.placeRow.get(hit.id)) as Row | undefined;
+    if (!row) continue;
+    if (hit.village) villageRows.push(row);
+    else own.push(row);
+  }
 
   const wanted = fold(head);
   const byId = new Map<number, Row & { exact: boolean; village: boolean }>();
