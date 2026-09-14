@@ -48,6 +48,21 @@ select:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--ink) 24%, var(--line));
 }
 
+/* …except where the select itself is transparent (shared/SelectField draws its
+   chrome on a wrapper and leaves the select bare). The open list takes its
+   background from the select, so it came up white while the options inherited
+   the dark theme's light text — unreadable. The options carry the theme's own
+   colours, so the list reads the same whatever the select looks like. */
+select option,
+select optgroup {
+  background-color: var(--field);
+  color: var(--ink);
+}
+
+select option:disabled {
+  color: var(--muted);
+}
+
 select:not(:disabled) {
   cursor: pointer;
 }
