@@ -509,6 +509,9 @@ const COUNTRY_BY = [
   [9100003, "Veselovka", "Veselovka", "", 54.8, 28.3, "P", "PPL", "BY", "", "07", "333", "", "", 0, "", "", "", "2026-01-01"].join("\t"),
   // A village right beside Minsk, where a photo must still be named Minsk.
   [9100004, "Kalodishchy", "Kalodishchy", "", 53.9006, 27.5594, "P", "PPL", "BY", "", "04", "444", "", "", 120, "", "", "", "2026-01-01"].join("\t"),
+  // The real one: GeoNames names it with an ë, and "Veselovka" is only among its
+  // other names (geonameid 620228, Homyel' region).
+  [9100007, "Vesëlovka", "Veselovka", "Veselovka,Vesjolovka,Vesëlovka,Весёловка", 52.12, 31.73, "P", "PPL", "BY", "", "02", "555", "", "", 0, "", "", "", "2026-01-01"].join("\t"),
   // Not places: a lake, and an abandoned settlement.
   [9100005, "Veselovka Lake", "Veselovka Lake", "", 55.0, 27.0, "H", "LK", "BY", "", "07", "", "", "", 0, "", "", "", "2026-01-01"].join("\t"),
   [9100006, "Veselovka Old", "Veselovka Old", "", 55.2, 27.9, "P", "PPLQ", "BY", "", "07", "111", "", "", 0, "", "", "", "2026-01-01"].join("\t")
@@ -519,6 +522,7 @@ const ADMIN2 = [
   "BY.07.222\tVerkhnyadzvinsk District\tVerkhnyadzvinsk District\t8000222",
   "BY.07.333\tPolatsk District\tPolatsk District\t8000333",
   "BY.04.444\tMinsk District\tMinsk District\t8000444",
+  "BY.02.555\tDobrush District\tDobrush District\t8000555",
   "US.NY.061\tNew York County\tNew York County\t5128594"
 ].join("\n");
 
@@ -526,7 +530,7 @@ describe("every village in a country", () => {
   beforeEach(async () => {
     served.set("admin2Codes.txt", Buffer.from(ADMIN2));
     served.set("BY.zip", await zipOf("BY.txt", COUNTRY_BY));
-    const withVillages = [ADMIN1, "BY.07\tVitebsk\tVitebsk\t630428"].join("\n");
+    const withVillages = [ADMIN1, "BY.07\tVitebsk\tVitebsk\t630428", "BY.02\tHomyel\tHomyel\t628281"].join("\n");
     served.set("admin1CodesASCII.txt", Buffer.from(withVillages));
     served.set("alternateNamesV2.zip", await zipOf("alternateNamesV2.txt", [
       ALTERNATES,
@@ -538,8 +542,8 @@ describe("every village in a country", () => {
   it("adds the villages of the countries asked for, and only their populated places", async () => {
     const result = await buildPlaces(undefined, { villageCountries: ["by"] });
     expect(requested).toEqual(["cities500.zip", "admin1CodesASCII.txt", "alternateNamesV2.zip", "admin2Codes.txt", "BY.zip"]);
-    expect(result).toMatchObject({ places: 15, villages: 4 });
-    expect(placesStatus()).toMatchObject({ places: 15, villages: 4, villageCountries: ["BY"] });
+    expect(result).toMatchObject({ places: 15, villages: 5 });
+    expect(placesStatus()).toMatchObject({ places: 15, villages: 5, villageCountries: ["BY"] });
     expect(placesStatus().countries).toContain("BY");
   });
 
@@ -551,10 +555,20 @@ describe("every village in a country", () => {
       "Veselovka, Verkhnyadzvinsk District, Vitebsk, Belarus",
       "Veselovka, Polatsk District, Vitebsk, Belarus"
     ]));
-    expect(labels).toHaveLength(3);
+    expect(labels).toHaveLength(4);
     expect(suggestPlaces("Весёловка", "ru")[0].label).toBe("Весёловка, Шарковщинский район, Vitebsk, Беларусь");
     // The district narrows like a region does.
     expect(suggestPlaces("Veselovka, Polatsk", "en").map((hit) => hit.label)).toEqual(["Veselovka, Polatsk District, Vitebsk, Belarus"]);
+  });
+
+  it("finds a village however its name is written: without the dots, by another of its names, in Cyrillic of any case", async () => {
+    await buildPlaces(undefined, { villageCountries: ["BY"] });
+    const gomel = "Vesëlovka, Dobrush District, Homyel, Belarus";
+    expect(suggestPlaces("Veselovka, Homyel", "en").map((hit) => hit.label)).toEqual([gomel]);
+    expect(suggestPlaces("Vesjolovka", "en").map((hit) => hit.label)).toEqual([gomel]);
+    expect(suggestPlaces("Vesëlovka", "en").map((hit) => hit.label)).toContain(gomel);
+    expect(suggestPlaces("веселовка", "en").map((hit) => hit.label)).toContain(gomel);
+    expect(suggestPlaces("ВЕСЁЛ", "en").map((hit) => hit.label)).toContain(gomel);
   });
 
   it("never names a photo after a village", async () => {
@@ -588,7 +602,7 @@ describe("every village in a country", () => {
 
       await app.inject({ method: "POST", url: "/api/map/places", headers: { cookie } });
       await waitForPlacesBuild();
-      expect(placesStatus()).toMatchObject({ villages: 4, villageCountries: ["BY"] });
+      expect(placesStatus()).toMatchObject({ villages: 5, villageCountries: ["BY"] });
 
       // With a database, a change rebuilds it.
       const cleared = await app.inject({ method: "PUT", url: "/api/map/places/villages", headers: { cookie }, payload: { countries: [] } });

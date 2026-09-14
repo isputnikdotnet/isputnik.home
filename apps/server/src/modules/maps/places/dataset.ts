@@ -15,6 +15,19 @@ import { mapDataDir } from "../storage.js";
 
 export const PLACES_FOLDER = "Places";
 
+/** A spelling as the search index keeps it: no accents or dots (ë → e, ё → е,
+ *  ł stays), lower case, single spaces. Typing "Veselovka" or "веселовка" finds
+ *  "Vesëlovka" / "Весёловка" because both sides are folded the same way. */
+export function searchKey(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** The upper end of a prefix range over search keys: every key that starts with
+ *  `prefix` sorts below this. */
+export function searchKeyCeiling(prefix: string): string {
+  return `${prefix}${String.fromCodePoint(0xffff)}`;
+}
+
 /** Bumped when the file's shape changes. An older file is treated as absent, so
  *  an upgrade shows the level as needing a rebuild rather than failing on read. */
 export const PLACES_FORMAT = 1;

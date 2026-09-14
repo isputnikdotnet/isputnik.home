@@ -34,7 +34,7 @@ import { pipeline } from "node:stream/promises";
 import Database from "better-sqlite3";
 import yauzl from "yauzl";
 import { fetchSafely, streamFromResponse } from "../../../core/safe-fetch.js";
-import { NAME_LANGUAGES, PLACES_FORMAT, closePlaces, placesBuildDir, placesDir, placesFile, type NameLanguage } from "./dataset.js";
+import { NAME_LANGUAGES, PLACES_FORMAT, closePlaces, placesBuildDir, placesDir, placesFile, searchKey, type NameLanguage } from "./dataset.js";
 
 export function geonamesBase(): string {
   return (process.env.GEONAMES_URL ?? "https://download.geonames.org/export/dump").replace(/\/+$/, "");
@@ -212,12 +212,24 @@ export async function buildPlaces(progress: BuildProgress = () => {}, options: B
         country TEXT NOT NULL, admin1 TEXT, admin2 TEXT, population INTEGER NOT NULL, fcode TEXT NOT NULL
       );
       CREATE TABLE districts (code TEXT PRIMARY KEY, id INTEGER NOT NULL, name TEXT NOT NULL) WITHOUT ROWID;
+      -- Folded spellings (searchKey) for finding a place however it is typed: a
+      -- town's own and ASCII names, a village's every name GeoNames lists for it.
+      -- Keyed text-first so a prefix is an index range.
+      CREATE TABLE place_search (key TEXT NOT NULL, id INTEGER NOT NULL, village INTEGER NOT NULL, PRIMARY KEY (key, id)) WITHOUT ROWID;
     `);
 
     // 2. Places. Region capitals are remembered for the region-name check below.
     const wanted = new Set<number>();
     const capitals = new Map<number, { region: string; english: string }>();
     const insertPlace = db.prepare("INSERT INTO places VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    const insertKey = db.prepare("INSERT OR IGNORE INTO place_search VALUES (?, ?, ?)");
+    /** Index the spellings of one place. Very long ones are phrases, not names. */
+    const indexSpellings = (id: number, village: 0 | 1, spellings: string[]) => {
+      for (const spelling of spellings) {
+        const key = searchKey(spelling);
+        if (key.length >= 2 && key.length <= 80) insertKey.run(key, id, village);
+      }
+    };
     const insertBox = db.prepare("INSERT INTO places_rtree VALUES (?, ?, ?, ?, ?)");
     let places = 0;
     db.exec("BEGIN");
@@ -229,6 +241,10 @@ export async function buildPlaces(progress: BuildProgress = () => {}, options: B
       const lng = Number(c[5]);
       if (!Number.isFinite(id) || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
       insertPlace.run(id, c[1], lat, lng, c[8], c[10] || null, Number(c[14]) || 0, c[7]);
+      // A town's own name and its ASCII form ("Mahilyow", "Mogilev"), not the
+      // hundreds of names a big city collects; English and Russian ones are
+      // found through the names table.
+      indexSpellings(id, 0, [c[1], c[2]]);
       insertBox.run(id, lat, lat, lng, lng);
       wanted.add(id);
       if (c[7].startsWith("PPLA") && c[10]) capitals.set(id, { region: `${c[8]}.${c[10]}`, english: c[2] || c[1] });
@@ -253,6 +269,9 @@ export async function buildPlaces(progress: BuildProgress = () => {}, options: B
         const lng = Number(c[5]);
         if (!Number.isFinite(id) || !Number.isFinite(lat) || !Number.isFinite(lng) || placeIds.has(id)) return;
         if (insertVillage.run(id, c[1], lat, lng, c[8], c[10] || null, c[11] || null, Number(c[14]) || 0, c[7]).changes === 0) return;
+        // Every spelling: GeoNames calls it "Vesëlovka"; "Veselovka", "Vesjolovka"
+        // and "Весёловка" are only in its list of other names.
+        indexSpellings(id, 1, [c[1], c[2], ...c[3].split(",")]);
         wanted.add(id);
         villages += 1;
         if (villages % 5000 === 0) progress("places", places + villages, 0);

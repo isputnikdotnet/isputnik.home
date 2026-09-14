@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.1 — Found however it is spelled
+
+- **A place is found without typing its accents, and by any of its names.** GeoNames writes many Eastern European villages with a dot or accent — Veselovka in Gomel region is "Vesëlovka", in Russian "Весёловка" — and keeps the plain spellings only among the village's other names. The place search matched letters exactly and never looked at those other names, so typing Veselovka found nothing even after its country's villages were added. Now "Veselovka", "Vesjolovka" and "веселовка" all find it: accents and dots are ignored on both sides (ë is e, ё is е), capitals don't matter, and a village can be found by every name GeoNames lists for it; a town by its own name and its plain spelling.
+- **Click Update once after upgrading.** The spellings are gathered while the place list is built, so on **Control panel → Maps → Photo place names** press **Update** (or save the village countries again). Until then the list searches the way it did before.
+
 ## 4.13.0 — Every village of the old country
 
 - **The place list can hold every village of a country.** It only had towns of 500 or more people, so the villages a family came from were often not there: all of Belarus had just 315 places, and a search for Veselovka found nothing. Under **Control panel → Maps → Photo place names**, **Every village in…** now takes the countries you choose; **Save and rebuild** builds the list again with every village GeoNames knows in them. A village shows with its district ("Veselovka, Polatsk District, Vitebsk, Belarus"), so villages of one name read apart, and typing the district after a comma narrows to it.
