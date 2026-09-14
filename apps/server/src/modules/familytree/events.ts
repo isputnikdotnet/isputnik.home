@@ -4,6 +4,7 @@
 // `custom` events; everything else is optional so sparse genealogy data fits.
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
+import { pin, pinForPlace, placeUpdate, type PlacePin } from "./place-pins.js";
 import type { FamilyTreeEventRow } from "../../db/rows.js";
 
 export const EVENT_TYPES = [
@@ -20,10 +21,12 @@ export interface FamilyEventSummary {
   date: string | null;
   endDate: string | null;
   place: string | null;
+  placePin: PlacePin | null;
   note: string | null;
 }
 
-type EventRow = Pick<FamilyTreeEventRow, "id" | "person_id" | "type" | "label" | "date" | "end_date" | "place" | "note">;
+type EventRow = Pick<FamilyTreeEventRow,
+  "id" | "person_id" | "type" | "label" | "date" | "end_date" | "place" | "place_lat" | "place_lng" | "note">;
 
 function mapEvent(row: EventRow): FamilyEventSummary {
   return {
@@ -34,11 +37,12 @@ function mapEvent(row: EventRow): FamilyEventSummary {
     date: row.date,
     endDate: row.end_date,
     place: row.place,
+    placePin: pin(row.place_lat, row.place_lng),
     note: row.note
   };
 }
 
-const EVENT_SELECT = "SELECT id, person_id, type, label, date, end_date, place, note FROM family_tree_events";
+const EVENT_SELECT = "SELECT id, person_id, type, label, date, end_date, place, place_lat, place_lng, note FROM family_tree_events";
 
 export function getFamilyEvent(eventId: string): FamilyEventSummary | null {
   const row = db.prepare(`${EVENT_SELECT} WHERE id = ?`).get(eventId) as EventRow | undefined;
@@ -59,6 +63,8 @@ export interface FamilyEventFields {
   date?: string | null;
   endDate?: string | null;
   place?: string | null;
+  /** Follows place (see place-pins.ts). */
+  placePin?: PlacePin | null;
   note?: string | null;
 }
 
@@ -66,13 +72,15 @@ export function createFamilyEvent(personId: string, fields: FamilyEventFields): 
   const exists = db.prepare("SELECT 1 FROM family_tree_persons WHERE id = ?").get(personId);
   if (!exists) return null;
   const id = nanoid(16);
+  const placePin = pinForPlace(fields.place, fields.placePin);
   db.prepare(`
-    INSERT INTO family_tree_events (id, person_id, type, label, date, end_date, place, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO family_tree_events (id, person_id, type, label, date, end_date, place, place_lat, place_lng, note)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, personId, fields.type, fields.label?.trim() || null,
     fields.date || null, fields.endDate || null,
-    fields.place?.trim() || null, fields.note?.trim() || null
+    fields.place?.trim() || null, placePin?.lat ?? null, placePin?.lng ?? null,
+    fields.note?.trim() || null
   );
   return getFamilyEvent(id);
 }
@@ -85,7 +93,9 @@ export function updateFamilyEvent(eventId: string, fields: Partial<FamilyEventFi
   if (fields.label !== undefined) set("label", fields.label?.trim() || null);
   if (fields.date !== undefined) set("date", fields.date || null);
   if (fields.endDate !== undefined) set("end_date", fields.endDate || null);
-  if (fields.place !== undefined) set("place", fields.place?.trim() || null);
+  const place = placeUpdate({ text: "place", lat: "place_lat", lng: "place_lng" }, fields.place, fields.placePin);
+  sets.push(...place.sets);
+  params.push(...place.params);
   if (fields.note !== undefined) set("note", fields.note?.trim() || null);
   if (sets.length === 0) return getFamilyEvent(eventId);
   sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')");

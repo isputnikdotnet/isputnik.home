@@ -4,8 +4,9 @@
 // parent-union per child, and no cycles.
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
-import { isAncestorOf, mapUnion, type FamilyUnionSummary } from "./persons.js";
-import type { FamilyTreeChildRow, FamilyTreeUnionRow } from "../../db/rows.js";
+import { isAncestorOf, mapUnion, UNION_COLUMNS, type FamilyUnionSummary, type UnionRow } from "./persons.js";
+import { pinForPlace, placeUpdate, type PlacePin } from "./place-pins.js";
+import type { FamilyTreeChildRow } from "../../db/rows.js";
 
 export const UNION_STATUSES = ["married", "partners", "divorced", "widowed", "unknown"] as const;
 export const CHILD_RELATIONS = ["biological", "adopted", "step", "foster", "unknown"] as const;
@@ -19,12 +20,9 @@ export type RelationError =
   | "union_has_partner"
   | "would_create_cycle";
 
-type UnionRow = Pick<FamilyTreeUnionRow,
-  "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "divorced_date" | "note">;
-
 function getUnionRow(unionId: string): UnionRow | null {
   const row = db.prepare(
-    "SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note FROM family_tree_unions WHERE id = ?"
+    `SELECT ${UNION_COLUMNS} FROM family_tree_unions WHERE id = ?`
   ).get(unionId) as UnionRow | undefined;
   return row ?? null;
 }
@@ -42,6 +40,8 @@ export interface UnionFields {
   status?: string;
   marriedDate?: string | null;
   marriedPlace?: string | null;
+  /** Follows marriedPlace (see place-pins.ts). */
+  marriedPin?: PlacePin | null;
   divorcedDate?: string | null;
   note?: string | null;
 }
@@ -56,12 +56,14 @@ export function createUnion(
     return { error: "person_not_found" };
   }
   const id = nanoid(16);
+  const marriedPin = pinForPlace(fields.marriedPlace, fields.marriedPin);
   db.prepare(`
-    INSERT INTO family_tree_unions (id, person1_id, person2_id, status, married_date, married_place, divorced_date, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO family_tree_unions (id, person1_id, person2_id, status, married_date, married_place, married_lat, married_lng, divorced_date, note)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, person1Id, person2Id, fields.status ?? "unknown",
     fields.marriedDate || null, fields.marriedPlace?.trim() || null,
+    marriedPin?.lat ?? null, marriedPin?.lng ?? null,
     fields.divorcedDate || null, fields.note?.trim() || null
   );
   return { union: getUnion(id)! };
@@ -73,7 +75,9 @@ export function updateUnion(unionId: string, fields: UnionFields): FamilyUnionSu
   const set = (column: string, value: unknown) => { sets.push(`${column} = ?`); params.push(value); };
   if (fields.status !== undefined) set("status", fields.status);
   if (fields.marriedDate !== undefined) set("married_date", fields.marriedDate || null);
-  if (fields.marriedPlace !== undefined) set("married_place", fields.marriedPlace?.trim() || null);
+  const place = placeUpdate({ text: "married_place", lat: "married_lat", lng: "married_lng" }, fields.marriedPlace, fields.marriedPin);
+  sets.push(...place.sets);
+  params.push(...place.params);
   if (fields.divorcedDate !== undefined) set("divorced_date", fields.divorcedDate || null);
   if (fields.note !== undefined) set("note", fields.note?.trim() || null);
   if (sets.length === 0) return getUnion(unionId);

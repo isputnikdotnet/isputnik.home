@@ -7,6 +7,7 @@ import {
 } from "./relations.js";
 import { canEditAnyPerson } from "./access.js";
 import { optionalDate } from "./persons-routes.js";
+import { pinSchema } from "./place-pins.js";
 
 const RELATION_ERRORS: Record<RelationError, { code: number; message: string }> = {
   person_not_found: { code: 404, message: "Person not found" },
@@ -22,6 +23,7 @@ const unionFieldsSchema = z.object({
   status: z.enum(UNION_STATUSES).optional(),
   marriedDate: optionalDate,
   marriedPlace: z.string().trim().max(200).nullable().optional(),
+  marriedPin: pinSchema,
   divorcedDate: optionalDate,
   note: z.string().trim().max(1000).nullable().optional()
 });

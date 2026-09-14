@@ -56,6 +56,7 @@ export interface FamilyUnion {
   status: "married" | "partners" | "divorced" | "widowed" | "unknown";
   marriedDate: string | null;
   marriedPlace: string | null;
+  marriedPin: PlacePin | null;
   divorcedDate: string | null;
   note: string | null;
 }
@@ -71,6 +72,7 @@ export interface FamilyEvent {
   date: string | null;
   endDate: string | null;
   place: string | null;
+  placePin: PlacePin | null;
   note: string | null;
   // Attached gallery photos, viewer-scoped; present on the profile payload.
   photos: GalleryAsset[];
@@ -99,6 +101,7 @@ export interface FamilyUnionDetail {
   status: FamilyUnion["status"];
   marriedDate: string | null;
   marriedPlace: string | null;
+  marriedPin: PlacePin | null;
   divorcedDate: string | null;
   note: string | null;
   partner: FamilyPerson | null;

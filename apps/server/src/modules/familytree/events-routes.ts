@@ -4,6 +4,7 @@ import { parseBody } from "../../core/shared.js";
 import { canEditPerson } from "./access.js";
 import { EVENT_TYPES, createFamilyEvent, updateFamilyEvent, deleteFamilyEvent, getFamilyEvent } from "./events.js";
 import { optionalDate } from "./persons-routes.js";
+import { pinSchema } from "./place-pins.js";
 
 // A custom event needs a label ("what happened"); typed events can rely on the
 // type name alone.
@@ -13,6 +14,7 @@ const eventFields = {
   date: optionalDate,
   endDate: optionalDate,
   place: z.string().trim().max(200).nullable().optional(),
+  placePin: pinSchema,
   note: z.string().trim().max(2000).nullable().optional()
 };
 const eventRefine = (data: { type?: string; label?: string | null }) =>

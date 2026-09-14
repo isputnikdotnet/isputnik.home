@@ -10,6 +10,8 @@ import type { GalleryAsset } from "../gallery/types";
 import { PhotoPicker } from "../gallery/PhotoPicker";
 import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
 import { PartialDateInput } from "../../shared/PartialDateInput";
+import { PlaceField, type PlacePin } from "../../shared/PlaceField";
+import { loadFamilyPlaces } from "./familyPlaces";
 import { EVENT_TYPE_OPTIONS, eventLabelHint, eventTypeLabel, type FamilyEvent } from "./types";
 
 // Create or edit a timeline event. Dates are free-text partial dates — a year
@@ -42,6 +44,7 @@ export function EventEditModal({
   const [date, setDate] = useState(existing?.date ?? "");
   const [endDate, setEndDate] = useState(existing?.endDate ?? "");
   const [place, setPlace] = useState(existing?.place ?? "");
+  const [placePin, setPlacePin] = useState<PlacePin | null>(existing?.placePin ?? null);
   const [note, setNote] = useState(existing?.note ?? "");
   const [photos, setPhotos] = useState<GalleryAsset[]>(existing?.photos ?? []);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -64,6 +67,7 @@ export function EventEditModal({
       date: date.trim() || null,
       endDate: endDate.trim() || null,
       place: place.trim() || null,
+      placePin: place.trim() ? placePin : null,
       note: note.trim() || null
     };
     try {
@@ -135,10 +139,14 @@ export function EventEditModal({
           value={endDate}
           onChange={setEndDate}
         />
-        <label className="field">
-          <span>{t("family:event.placeLabel")}</span>
-          <input type="text" value={place} onChange={(event) => setPlace(event.target.value)} />
-        </label>
+        <PlaceField
+          className="ft-field-span"
+          label={t("family:event.placeLabel")}
+          value={place}
+          pin={placePin}
+          load={loadFamilyPlaces}
+          onChange={(text, pin) => { setPlace(text); setPlacePin(pin); }}
+        />
       </div>
       <label className="field ft-bio-field">
         <span>{t("family:common.notes")}</span>

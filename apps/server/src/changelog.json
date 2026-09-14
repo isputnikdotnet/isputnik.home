@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.10.0",
+    "label": "Where they married, where life happened",
+    "changes": [
+      "**The place of a marriage and of a life event are found as you type, like a birthplace.** In 4.9.0 only births and deaths got the place search, so a wedding in \"Carlisle\" or a school in \"Penrith\" was still a plain text box with no suggestions and no pin. Now **Add relationship**, the relationship editor and the life-event dialog offer the places the tree already uses and towns from the server's own place list, and picking one saves its map pin with the words. Typing is still allowed for anything the list doesn't know, and changing the words afterwards drops the pin.",
+      "**A pinned place carries its pin wherever it is picked.** The places the tree already uses now include marriage and event places with their pins, so a town pinned once for a wedding brings the same pin when it is picked as someone's birthplace, and the other way round."
+    ]
+  },
+  {
     "version": "4.9.0",
     "label": "A family member, written the way the family writes them",
     "changes": [

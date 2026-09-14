@@ -1892,6 +1892,9 @@ CREATE TABLE IF NOT EXISTS family_tree_unions (
   status        TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ('married', 'partners', 'divorced', 'widowed', 'unknown')),
   married_date  TEXT,
   married_place TEXT,
+  -- Pin for married_place when it was picked from the places search.
+  married_lat   REAL,
+  married_lng   REAL,
   divorced_date TEXT,
   note          TEXT,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -1922,6 +1925,9 @@ CREATE TABLE IF NOT EXISTS family_tree_events (
   date       TEXT,
   end_date   TEXT,
   place      TEXT,
+  -- Pin for place when it was picked from the places search.
+  place_lat  REAL,
+  place_lng  REAL,
   note       TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
