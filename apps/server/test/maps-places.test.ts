@@ -58,6 +58,7 @@ const { geoNamesNamer } = await import("../src/modules/maps/places/namer.js");
 const { enqueuePlacesBuild, placesBuildStatus, waitForPlacesBuild } = await import("../src/modules/maps/places/job.js");
 const { mapsPlugin } = await import("../src/modules/maps/index.js");
 const { removePlaces } = await import("../src/modules/maps/places/dataset.js");
+const { suggestPlaces } = await import("../src/modules/maps/places/search.js");
 const { namesLanguageFor } = await import("../src/modules/maps/places/namer.js");
 const { signInPlaceNames } = await import("../src/modules/dashboard/place-names.js");
 const { ingestGalleryAsset } = await import("../src/modules/library/gallery/scanner.js");
@@ -241,6 +242,52 @@ describe("naming a point", () => {
 
   it("falls back to English for a language it has no names for", () => {
     expect(name(40.758, -73.9855, "de")).toMatchObject({ place: "Manhattan", country: "United States" });
+  });
+});
+
+// --- Finding a place by name --------------------------------------------------
+
+describe("finding a place by its name", () => {
+  const labels = (query: string, language = "en") => suggestPlaces(query, language).map((hit) => hit.label);
+
+  it("offers nothing while there is no database", () => {
+    expect(suggestPlaces("Minsk", "en")).toEqual([]);
+  });
+
+  describe("with the database", () => {
+    beforeEach(async () => {
+      await buildPlaces();
+    });
+
+    it("finds a town from the start of its name, bigger places first, with its point", () => {
+      expect(suggestPlaces("mins", "en")).toEqual([{ label: "Minsk, Minsk City, Belarus", lat: 53.9, lng: 27.56667 }]);
+      expect(labels("Cocoa")).toEqual(["Cocoa, Florida, United States", "Cocoa Beach, Florida, United States"]);
+      // Paris's numbered part is Paris: not offered beside it.
+      expect(labels("Paris")).toEqual(["Paris, Île-de-France, France"]);
+    });
+
+    it("never offers a district, and a name typed in full comes before a bigger place it begins", () => {
+      expect(labels("Kastrychnitski")).toEqual([]);
+      expect(labels("Paris 16")).toEqual(["Paris 16 Passy, Île-de-France, France"]);
+    });
+
+    it("finds a Russian name in any case and labels it in the reader's language", () => {
+      expect(labels("минск", "ru")).toEqual(["Минск, Беларусь"]);
+      expect(labels("Верона", "en")).toEqual(["Verona, Veneto, Italy"]);
+    });
+
+    it("narrows by the country or region written after a comma, in either language", () => {
+      expect(labels("Minsk, Belarus")).toHaveLength(1);
+      expect(labels("Minsk, Беларусь")).toHaveLength(1);
+      expect(labels("Minsk, Italy")).toEqual([]);
+      expect(labels("Cocoa, florida")).toHaveLength(2);
+    });
+
+    it("takes LIKE's wildcards literally and needs two letters", () => {
+      expect(labels("%")).toEqual([]);
+      expect(labels("M_nsk")).toEqual([]);
+      expect(labels("M")).toEqual([]);
+    });
   });
 });
 

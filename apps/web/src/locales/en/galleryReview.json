@@ -26,7 +26,16 @@
     "heading": "Where?",
     "hint": "Add a place to help remember.",
     "placeholder": "Add a place…",
-    "recentAria": "Places you already wrote in this box"
+    "recentAria": "Places you already wrote in this box",
+    "matchesAria": "Places that match",
+    "online": "Search online for “{{text}}”",
+    "onlineBusy": "Searching online…",
+    "onlineTitle": "Sends what you typed to OpenStreetMap to find the place",
+    "onlineNone": "Nothing found online for “{{text}}”. The place is kept as written.",
+    "onlineError": "The online search did not answer. The place is kept as written.",
+    "pinned": "On the map: {{label}}",
+    "unpin": "Do not put it on the map",
+    "alreadyPinned": "This photo is already on the map."
   },
   "who": {
     "heading": "Who is in it?",

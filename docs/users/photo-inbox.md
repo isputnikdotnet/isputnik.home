@@ -214,7 +214,17 @@ the questions beside it on cards (below it on a tablet held upright):
   Approximate unless she pressed Exact first.
 - **Where?** One line, in her own words — "the dacha", "Komarovka". Places she
   has already written in this box appear under it as buttons, so the second
-  photo from the same place is one tap.
+  photo from the same place is one tap. When the words name a town, the photo
+  can go on the map too: as she types, matching towns are listed under the
+  box, and picking one fills in "Minsk, Belarus" and shows **On the map:** with
+  the full name, and a cross to leave the pin off. The list comes from the
+  server's own place list, which needs **Named places** switched on under
+  **Maps**; nothing she types leaves the house for it. For a village too small
+  for that list, **Search online for "…"** asks OpenStreetMap, but only when
+  pressed. A photo that already has a location, from the camera or set by hand,
+  is never moved; the card just says it is already on the map. **Same as the
+  last one** and the place buttons carry the previous photo's pin along with
+  its words.
 - **Who is in it?** A search box: typing narrows the people the library already
   knows, and a name nobody has yet is offered as **Add "…"** — that person then
   joins the People page like any hand-tag. Before she types, the most-seen

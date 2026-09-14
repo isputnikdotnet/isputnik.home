@@ -52,15 +52,27 @@ const inbox = { id: "inbox", name: "Scans", count: 2, reviewed: 0, canReview: fa
 let items: GalleryAsset[];
 let patches: { path: string; body: Record<string, unknown> }[];
 let posts: string[];
+let suggests: string[];
+let geocodes: string[];
 
 beforeEach(() => {
   items = [photo(), photo({ id: "p2", title: "002.jpg", folderPath: "box3/002.jpg" })];
   patches = [];
   posts = [];
+  suggests = [];
+  geocodes = [];
   vi.mocked(api).mockImplementation(async (path: string, init?: RequestInit) => {
     if (path === "/api/library/gallery/inbox") return { inboxes: [inbox] } as never;
     if (path.startsWith("/api/library/gallery/inbox/inbox/items")) return { items, total: items.length } as never;
     if (path.startsWith("/api/library/gallery/people")) return { people: [{ id: "mama", name: "Mama", faceCount: 12, coverUrl: null }] } as never;
+    if (path.startsWith("/api/library/gallery/place-suggest")) {
+      suggests.push(decodeURIComponent(path.split("q=")[1]));
+      return { available: true, results: /^mins/i.test(decodeURIComponent(path.split("q=")[1])) ? [{ label: "Minsk, Minsk City, Belarus", lat: 53.9, lng: 27.56667 }] : [] } as never;
+    }
+    if (path.startsWith("/api/library/gallery/geocode")) {
+      geocodes.push(decodeURIComponent(path.split("q=")[1]));
+      return { results: [{ label: "Ratomka, Minsk District, Minsk Region, Belarus", lat: 53.95, lng: 27.33 }] } as never;
+    }
     if (init?.method === "PATCH") {
       const body = JSON.parse(String(init.body)) as Record<string, unknown>;
       patches.push({ path, body });
@@ -280,6 +292,54 @@ describe("ReviewPage", () => {
     await user.click(screen.getByRole("button", { name: "Save & Next" }));
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0].body).toMatchObject({ takenPrecision: "year", takenApprox: false });
+  });
+
+  // A place she names can pin the photo: towns as she types come from the
+  // server's offline places list; the online lookup is a button, never live.
+  it("pins a photo from a town picked while typing the place", async () => {
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+    await user.type(screen.getByLabelText("Where?"), "Mins");
+    await user.click(await screen.findByRole("button", { name: "Minsk, Minsk City, Belarus" }));
+    expect(screen.getByLabelText("Where?")).toHaveValue("Minsk, Belarus");
+    expect(screen.getByText("On the map: Minsk, Minsk City, Belarus")).toBeInTheDocument();
+    expect(geocodes).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].body).toMatchObject({ placeText: "Minsk, Belarus", gps: { lat: 53.9, lng: 27.56667 } });
+  });
+
+  it("looks a place up online only when asked, and a pin can be left off", async () => {
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+    await user.type(screen.getByLabelText("Where?"), "Ratomka");
+    await waitFor(() => expect(suggests).toContain("Ratomka"));
+    expect(geocodes).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Search online for “Ratomka”" }));
+    await user.click(await screen.findByRole("button", { name: "Ratomka, Minsk District, Minsk Region, Belarus" }));
+    expect(geocodes).toEqual(["Ratomka"]);
+    expect(screen.getByLabelText("Where?")).toHaveValue("Ratomka, Belarus");
+    await user.click(screen.getByRole("button", { name: "Do not put it on the map" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].body.placeText).toBe("Ratomka, Belarus");
+    expect(patches[0].body.gps).toBeUndefined();
+  });
+
+  it("never re-pins a photo that already has a location", async () => {
+    items = [photo({ gps: { lat: 1, lng: 2 } }), items[1]];
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+    expect(screen.getByText("This photo is already on the map.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Where?"), "Minsk");
+    expect(screen.queryByRole("button", { name: /Search online/ })).not.toBeInTheDocument();
+    expect(suggests).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].body.gps).toBeUndefined();
   });
 
   it("is read-only without the edit right", async () => {

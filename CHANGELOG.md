@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.8.1 — A place she names goes on the map
+
+- **Naming a town in Review mode can put the photo on the map.** The place typed under **Where?** used to be words only: "Minsk, Belarus" showed in the viewer, but the photo stayed off the map and out of the Places filter, because those read the pin and nothing turned the words into one. Now matching towns are listed as she types, and picking one fills in the place and pins the photo, with **On the map:** and the full name shown on the card and a cross to leave the pin off. A photo that already has a location, from the camera or set by hand, is never moved. **Same as the last one** and the place buttons bring the previous photo's pin along with its words.
+- **The towns come from your server, not the internet.** The list is the place list **Named places** under Maps already builds, so nothing she types leaves the house while she types, in her language or in English, and "…, Belarus" after a comma narrows it. For a village too small for that list, **Search online for "…"** asks OpenStreetMap, one question per press; it never searches as she types, which OpenStreetMap does not allow.
+
 ## 4.8.0 — See who is where in a photo
 
 - **Show faces draws a box around everyone recognised in a photo.** Face recognition knew where each face was, but the viewer only listed names, so in a group photo there was no telling which one was Grandma. The face button in the viewer's top bar, or **Show faces** beside *People* in the details, now puts a box around each face with the name under it, and stays on for the next photos until turned off. With it off, resting the pointer on a person in *People* lights up just their face, and each person there now shows their face from this photo.

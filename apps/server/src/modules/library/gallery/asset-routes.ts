@@ -21,6 +21,8 @@ import { TAKEN_PRECISIONS } from "./taken-precision.js";
 import { replaceGalleryAssetFile } from "./replace.js";
 import { deleteAllReplacedOriginals, deleteReplacedOriginal, listReplacedOriginals } from "./replaced.js";
 import { searchPlaces } from "./geocode.js";
+import { placesStatus } from "../../maps/places/dataset.js";
+import { suggestPlaces } from "../../maps/places/search.js";
 import { rotateGalleryAsset } from "./rotate.js";
 import { friendlyStorageError } from "./files.js";
 import type { LibraryRow } from "../../../db/rows.js";
@@ -222,6 +224,19 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  // Towns as she types, from the places database only (maps/places/search.ts) —
+  // never the online lookup above, whose policy forbids search-as-you-type.
+  // `available` says whether there is a database to search, so the page can say
+  // why nothing is offered. Nothing leaves the server, so the global limit is enough.
+  app.get("/api/library/gallery/place-suggest", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseQuery(geocodeQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const q = (parsed.data.q ?? "").trim().slice(0, 200);
+    return reply.send({ available: placesStatus().present, results: suggestPlaces(q, placeLanguage(request)) });
+  });
 
   // Bulk "set date taken / location" from the multi-select bar — one request for
   // the whole selection, mirroring bulk-save/bulk-delete. Permission is checked

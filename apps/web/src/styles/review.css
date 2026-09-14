@@ -308,6 +308,69 @@
 
 .review-chip:disabled { opacity: 0.45; cursor: default; }
 
+/* ── Where ───────────────────────────────────────────────────────────────── */
+
+.review-place { display: grid; gap: 10px; }
+
+/* Towns that match what she typed, as a short list under the field. */
+.review-place-hits {
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.review-place-hits .review-hint { padding: 8px 10px; }
+
+.review-place-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-place-hit svg { flex: none; color: var(--muted); }
+.review-place-hit:hover { background: var(--hover); }
+.review-place-hit:focus-visible { outline: 3px solid var(--mint); outline-offset: -1px; }
+
+.review-place-online {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* The pin a found place will put on the photo, with a cross to leave it off. */
+.review-place-pin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mint) 14%, var(--field));
+  font-size: 15px;
+}
+
+.review-place-pin svg { flex: none; }
+.review-place-pin span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.review-place-already { display: flex; align-items: center; gap: 6px; }
+
 /* ── Who is in it ────────────────────────────────────────────────────────── */
 
 .review-people { display: grid; gap: 14px; }
