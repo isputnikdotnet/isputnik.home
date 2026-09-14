@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.8.1",
+    "label": "A place she names goes on the map",
+    "changes": [
+      "**Naming a town in Review mode can put the photo on the map.** The place typed under **Where?** used to be words only: \"Minsk, Belarus\" showed in the viewer, but the photo stayed off the map and out of the Places filter, because those read the pin and nothing turned the words into one. Now matching towns are listed as she types, and picking one fills in the place and pins the photo, with **On the map:** and the full name shown on the card and a cross to leave the pin off. A photo that already has a location, from the camera or set by hand, is never moved. **Same as the last one** and the place buttons bring the previous photo's pin along with its words.",
+      "**The towns come from your server, not the internet.** The list is the place list **Named places** under Maps already builds, so nothing she types leaves the house while she types, in her language or in English, and \"…, Belarus\" after a comma narrows it. For a village too small for that list, **Search online for \"…\"** asks OpenStreetMap, one question per press; it never searches as she types, which OpenStreetMap does not allow."
+    ]
+  },
+  {
     "version": "4.8.0",
     "label": "See who is where in a photo",
     "changes": [

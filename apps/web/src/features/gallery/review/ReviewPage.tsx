@@ -3,7 +3,7 @@
 // One Inbox delivery (or the whole Inbox), one photo at a time, four questions,
 // each on its own card: when, where, who, and what she remembers. Built for a
 // person on a tablet who does not want to learn the app: no grid, no pencil
-// icons, no map pin. Save & Next and Previous save; "Skip / I don't know" marks
+// icons, no map to drop a pin on (a town she names pins the photo for her). Save & Next and Previous save; "Skip / I don't know" marks
 // the photo looked at with nothing changed; "Same as the last one" copies the
 // previous answer, which on a box from one summer is the button she presses most.
 // The memory itself is two big buttons — Add note opens the story editor in a
@@ -25,6 +25,7 @@ import type { GalleryAsset, GalleryPerson, GalleryPersonTag, TakenPrecision } fr
 import { NEW_PERSON_PREFIX, PeopleChips } from "./PeopleChips";
 import { WhenPicker, type WhenValue } from "./WhenPicker";
 import { ReviewNoteModal } from "./ReviewNoteModal";
+import { PlacePicker, type PlacePin } from "./PlacePicker";
 import { VoiceNotes } from "../VoiceNotes";
 import { RecordVoiceNoteModal } from "../RecordVoiceNoteModal";
 // Review mode's stylesheet: it loads with this page, not on every route (docs/css-map.md).
@@ -36,6 +37,8 @@ const RECENT_PLACES = 10;
 interface Draft {
   when: WhenValue;
   place: string;
+  /** A place found from her words, to pin a photo that has no location. */
+  pin: PlacePin | null;
   notes: string;
   people: GalleryPersonTag[];
 }
@@ -77,6 +80,7 @@ function draftOf(asset: GalleryAsset): Draft {
   return {
     when: whenOf(asset),
     place: asset.placeText ?? "",
+    pin: null,
     notes: asset.description ?? "",
     people: asset.people ?? []
   };
@@ -240,6 +244,8 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
         placeText: draft.place.trim() || null,
         reviewed: true
       };
+      // A found place pins the photo — never one that already has a location.
+      if (draft.pin && !asset.gps) body.gps = { lat: draft.pin.lat, lng: draft.pin.lng };
       if (draft.when.year && !sameWhen(draft.when, whenOf(asset))) {
         Object.assign(body, whenToWire(draft.when));
       }
@@ -331,21 +337,23 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   const previousWhen = previous ? whenOf(previous) : null;
   const canCopyWhen = previousWhen !== null && previousWhen.year !== "";
   const canCopyWhere = Boolean(previous?.placeText);
+  /** A photo's own pin, offered with its words to a photo that has none. */
+  const pinOf = (source: GalleryAsset | null | undefined): PlacePin | null =>
+    source?.gps && source.placeText ? { ...source.gps, label: source.placeText } : null;
 
-  // Places she already wrote in this box, nearest first, as one-tap chips.
+  // Places she already wrote in this box, nearest first, as one-tap chips — each
+  // with the pin its photo got, so the same town pins the next photo too.
   const recentPlaces = useMemo(() => {
-    if (!assets) return [] as string[];
-    const seen: string[] = [];
-    for (let i = index - 1; i >= 0 && seen.length < RECENT_PLACES; i -= 1) {
-      const place = assets[i].placeText?.trim();
-      if (place && !seen.includes(place)) seen.push(place);
-    }
-    for (let i = index + 1; i < assets.length && seen.length < RECENT_PLACES; i += 1) {
-      const place = assets[i].placeText?.trim();
-      if (place && !seen.includes(place)) seen.push(place);
-    }
+    if (!assets) return [] as { place: string; pin: PlacePin | null }[];
+    const seen: { place: string; pin: PlacePin | null }[] = [];
+    const take = (candidate: GalleryAsset) => {
+      const place = candidate.placeText?.trim();
+      if (place && !seen.some((entry) => entry.place === place)) seen.push({ place, pin: pinOf(candidate) });
+    };
+    for (let i = index - 1; i >= 0 && seen.length < RECENT_PLACES; i -= 1) take(assets[i]);
+    for (let i = index + 1; i < assets.length && seen.length < RECENT_PLACES; i += 1) take(assets[i]);
     return seen;
-  }, [assets, index]);
+  }, [assets, index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const progress = (
     <div className="review-progress" aria-label={t("galleryReview:progressAria")}>
@@ -435,30 +443,29 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                     variant="chip"
                     className="review-chip review-chip-same"
                     disabled={busy}
-                    onClick={() => editDraft({ ...draft, place: previous?.placeText ?? "" })}
+                    onClick={() => editDraft({ ...draft, place: previous?.placeText ?? "", pin: pinOf(previous) })}
                   >
                     {t("galleryReview:sameAsLast")}
                   </Button>
                 ) : undefined}
               >
-                <input
-                  className="review-input"
+                <PlacePicker
+                  key={asset.id}
                   value={draft.place}
-                  onChange={(event) => editDraft({ ...draft, place: event.target.value })}
-                  placeholder={t("galleryReview:where.placeholder")}
-                  maxLength={300}
+                  pin={draft.pin}
+                  alreadyPinned={Boolean(asset.gps)}
+                  onChange={(place, pin) => editDraft({ ...draft, place, pin })}
                   disabled={!canEdit || busy}
-                  aria-label={t("galleryReview:where.heading")}
                 />
                 {canEdit && recentPlaces.length > 0 && (
                   <div className="review-chips" role="group" aria-label={t("galleryReview:where.recentAria")}>
-                    {recentPlaces.map((place) => (
+                    {recentPlaces.map(({ place, pin }) => (
                       <Button
                         variant="chip"
                         key={place}
                         className="review-chip"
                         aria-pressed={draft.place.trim() === place}
-                        onClick={() => editDraft({ ...draft, place })}
+                        onClick={() => editDraft({ ...draft, place, pin })}
                         disabled={busy}
                       >
                         {place}
