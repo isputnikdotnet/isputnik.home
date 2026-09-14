@@ -18,6 +18,7 @@ export type RelationError =
   | "child_is_partner"
   | "child_has_parents"
   | "union_has_partner"
+  | "already_partners"
   | "would_create_cycle";
 
 function getUnionRow(unionId: string): UnionRow | null {
@@ -30,6 +31,40 @@ function getUnionRow(unionId: string): UnionRow | null {
 export function getUnion(unionId: string): FamilyUnionSummary | null {
   const row = getUnionRow(unionId);
   return row ? mapUnion(row) : null;
+}
+
+/** Another union between these two people, oldest first — a couple is recorded once. */
+function unionOfPair(personA: string, personB: string, excludeUnionId: string | null = null): string | null {
+  const row = db.prepare(`
+    SELECT id FROM family_tree_unions
+    WHERE ((person1_id = ? AND person2_id = ?) OR (person1_id = ? AND person2_id = ?))
+      AND (? IS NULL OR id <> ?)
+    ORDER BY created_at, id LIMIT 1
+  `).get(personA, personB, personB, personA, excludeUnionId, excludeUnionId) as { id: string } | undefined;
+  return row?.id ?? null;
+}
+
+/** Fold one union into another of the same couple: its children and citations
+ *  move over, facts the keeper lacks are filled from it, and it is deleted. The
+ *  keeper's own facts always win. Run inside a transaction. */
+export function foldUnionInto(sourceId: string, targetId: string): void {
+  // A child already in the keeper keeps that link; the duplicate goes with the source.
+  db.prepare("UPDATE OR IGNORE family_tree_children SET union_id = ? WHERE union_id = ?").run(targetId, sourceId);
+  db.prepare("UPDATE family_tree_citations SET union_id = ? WHERE union_id = ?").run(targetId, sourceId);
+  db.prepare(`
+    UPDATE family_tree_unions AS t SET
+      status = CASE WHEN t.status = 'unknown' THEN s.status ELSE t.status END,
+      married_date = COALESCE(t.married_date, s.married_date),
+      married_lat = CASE WHEN t.married_place IS NULL THEN s.married_lat ELSE t.married_lat END,
+      married_lng = CASE WHEN t.married_place IS NULL THEN s.married_lng ELSE t.married_lng END,
+      married_place = COALESCE(t.married_place, s.married_place),
+      divorced_date = COALESCE(t.divorced_date, s.divorced_date),
+      note = COALESCE(t.note, s.note),
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    FROM family_tree_unions AS s
+    WHERE t.id = ? AND s.id = ?
+  `).run(targetId, sourceId);
+  db.prepare("DELETE FROM family_tree_unions WHERE id = ?").run(sourceId);
 }
 
 function personExists(personId: string): boolean {
@@ -55,6 +90,9 @@ export function createUnion(
   if (!personExists(person1Id) || (person2Id && !personExists(person2Id))) {
     return { error: "person_not_found" };
   }
+  // Adding the same partner twice made two couples of one, each with half the
+  // children; edit the existing relationship instead.
+  if (person2Id && unionOfPair(person1Id, person2Id)) return { error: "already_partners" };
   const id = nanoid(16);
   const marriedPin = pinForPlace(fields.marriedPlace, fields.marriedPin);
   db.prepare(`
@@ -89,6 +127,12 @@ export function updateUnion(unionId: string, fields: UnionFields): FamilyUnionSu
 // Fill the empty partner slot of a single-parent union — the "add the other
 // parent" flow. Only an empty slot can be filled; replacing a partner means
 // deleting the union and starting over, which is a deliberate act.
+//
+// When the new partner is ALREADY recorded as a couple with the first parent,
+// this union is folded into that one rather than becoming a second copy of the
+// couple — and the union returned is the one that remains. (Adding Peter as
+// Anna's father and then Dora as her mother, when Peter and Dora were already
+// married, used to show Dora twice on Peter's profile.)
 export function setUnionPartner(
   unionId: string,
   partnerId: string
@@ -105,6 +149,11 @@ export function setUnionPartner(
     // The new partner becomes a parent of every child in this union — the same
     // cycle rule addChild enforces, from the other side.
     if (isAncestorOf(child_id, partnerId)) return { error: "would_create_cycle" };
+  }
+  const existing = unionOfPair(union.person1_id, partnerId, unionId);
+  if (existing) {
+    db.transaction(() => foldUnionInto(unionId, existing))();
+    return { union: getUnion(existing)! };
   }
   db.prepare(
     "UPDATE family_tree_unions SET person2_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"

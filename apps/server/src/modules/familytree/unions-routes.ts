@@ -16,6 +16,7 @@ const RELATION_ERRORS: Record<RelationError, { code: number; message: string }> 
   child_is_partner: { code: 400, message: "A person can't be a child of their own union." },
   child_has_parents: { code: 409, message: "This person already has parents. Remove them from their current family first." },
   union_has_partner: { code: 409, message: "This family already has two parents." },
+  already_partners: { code: 409, message: "These two are already recorded as a couple. Edit that relationship instead." },
   would_create_cycle: { code: 400, message: "This link would make someone their own ancestor." }
 };
 
@@ -78,14 +79,18 @@ export function registerUnionRoutes(app: FastifyInstance) {
     if (!canEditAnyPerson(request.user!, [existing.person1Id, existing.person2Id, person2Id])) {
       return reply.code(403).send({ error: "You can only edit relationships of family members in a branch you have edit rights on." });
     }
+    // Filling the slot can fold this union into the couple's existing one, so
+    // the field changes go to whichever union remains.
+    let targetId = unionId;
     if (person2Id) {
       const result = setUnionPartner(unionId, person2Id);
       if ("error" in result) {
         const err = RELATION_ERRORS[result.error];
         return reply.code(err.code).send({ error: err.message });
       }
+      targetId = result.union.id;
     }
-    const union = updateUnion(unionId, fields);
+    const union = updateUnion(targetId, fields);
     if (!union) {
       return reply.code(404).send({ error: "Union not found" });
     }

@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.11.1 — One couple, recorded once
+
+- **A partner no longer shows up twice on a profile.** Adding someone as a child's first parent, then adding the other parent, made a brand-new couple even when those two were already recorded as married. The marriage stayed on one copy and the child went on the other, so the profile listed the same partner twice, once as *Partner* and once as *Wife* or *Husband*. Now the child joins the couple that already exists. Adding the same partner to someone a second time is refused too, with a note to edit the relationship that is already there.
+- **Copies already made are merged when you upgrade.** Each couple recorded twice becomes one: the oldest record is kept, and the children, sources and any facts it was missing move over from the copy. When the two records disagree, say two different marriage dates, they are left as they are, because that can be a real divorce and remarriage.
+
 ## 4.11.0 — The family on a map
 
 - **The family tree has a map.** **Map**, in the family tree menu, shows every birth, death, marriage and life event whose place has a pin. Before, a pinned place was only ever seen one person at a time, as words on a profile, so there was no way to see that four children were born in Lancaster or that a family moved from Keswick to Manchester. Things that happened at the same spot share one pin, with a number when there is more than one, coloured by what happened there: births, marriages, life events and deaths each have their own colour, and gold means a mix.
