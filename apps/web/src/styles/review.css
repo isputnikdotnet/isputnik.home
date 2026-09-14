@@ -1,8 +1,8 @@
-/* Review mode (docs/photo-review-plan.md, phase 2): one photo, four questions,
-   Previous and Next. A chrome-free page like the story reading view, built for
-   a tablet and a person who does not want to learn anything — every target is
-   at least 48px, the text is at least 18px, and there is no Save button.
-   Desktop is the CSS baseline; the portrait layout is a media query. */
+/* Review mode (docs/photo-review-plan.md, phase 2): one photo, four question
+   cards, Previous and Save & Next. A chrome-free page like the story reading
+   view, built for a tablet and a person who does not want to learn anything —
+   every target is at least 44px and the text is large. Desktop is the CSS
+   baseline; the portrait layout is a media query. */
 
 .review-page {
   /* The page is the screen: the header and the button row stay put and the
@@ -11,10 +11,11 @@
   height: 100dvh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
   background: var(--canvas);
   color: var(--ink);
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.45;
 }
 
@@ -23,7 +24,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 10px 20px;
+  padding: 8px 24px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -31,9 +32,10 @@
 .review-back {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   min-height: 48px;
-  padding: 0 8px;
+  min-width: 0;
+  padding: 0 10px 0 6px;
   border: 0;
   border-radius: 10px;
   background: none;
@@ -44,6 +46,7 @@
   cursor: pointer;
 }
 
+.review-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .review-back:hover { background: var(--hover); }
 
 .review-progress {
@@ -53,10 +56,11 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  flex: none;
 }
 
 .review-bar {
-  width: 160px;
+  width: 200px;
   height: 10px;
   border-radius: 999px;
   background: var(--active);
@@ -73,18 +77,30 @@
 
 .review-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 560px);
   min-height: 0;
   overflow: hidden;
 }
 
+/* ── The photo, framed on a card ─────────────────────────────────────────── */
+
 .review-photo {
+  display: grid;
+  min-height: 0;
+  padding: 28px 24px 28px 36px;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.review-photo-frame {
   display: grid;
   place-items: center;
   min-height: 0;
-  padding: 20px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: var(--surface);
-  cursor: zoom-in;
+  box-shadow: 0 6px 24px var(--shadow);
   overflow: hidden;
 }
 
@@ -92,8 +108,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  box-shadow: 0 8px 24px var(--shadow);
-  background: #000;
+  border-radius: 8px;
 }
 
 .review-photo-fallback {
@@ -114,24 +129,46 @@
   cursor: zoom-out;
 }
 
+.review-photo.is-large .review-photo-frame {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #000;
+  box-shadow: none;
+}
+
 .review-photo.is-large img {
   max-height: 100vh;
   max-height: 100dvh;
-  box-shadow: none;
+  border-radius: 0;
 }
+
+/* ── The questions, one card each ────────────────────────────────────────── */
 
 .review-form {
   display: grid;
   align-content: start;
-  gap: 24px;
+  gap: 16px;
   min-height: 0;
-  padding: 20px 24px 12px;
+  padding: 20px 28px 20px 16px;
+  border-left: 1px solid var(--line);
   overflow-y: auto;
 }
 
 .review-q {
   display: grid;
-  gap: 10px;
+  gap: 14px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.review-q-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .review-q h2 {
@@ -141,76 +178,113 @@
   letter-spacing: -0.005em;
 }
 
-.review-when { display: grid; gap: 10px; }
-.review-when-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.review-q-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.review-when { display: grid; gap: 14px; }
+
+.review-when-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.review-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.review-field > span {
+  color: var(--muted);
+  font-size: 15px;
+}
 
 .review-select,
-.review-input,
-.review-textarea {
-  min-height: 52px;
+.review-input {
+  min-height: 50px;
   padding: 10px 14px;
-  border: 2px solid var(--line);
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   background: var(--field);
   color: var(--ink);
   font: inherit;
-  font-size: 19px;
+  font-size: 18px;
 }
 
-.review-select { min-width: 120px; }
-.review-select-day { min-width: 110px; }
+.review-select { width: 100%; min-width: 0; }
+.review-select:disabled { opacity: 0.55; }
 .review-input { width: 100%; }
-.review-textarea { width: 100%; min-height: 96px; resize: vertical; line-height: 1.45; }
 
 .review-select:focus-visible,
 .review-input:focus-visible,
-.review-textarea:focus-visible,
 .review-chip:focus-visible,
-.review-toggle button:focus-visible,
+.review-segment:focus-visible,
+.review-memory-button:focus-visible,
 .review-btn:focus-visible,
 .review-back:focus-visible {
   outline: 3px solid var(--mint);
   outline-offset: 2px;
 }
 
-.review-toggle {
-  display: inline-flex;
-  width: max-content;
-  border: 2px solid var(--line);
-  border-radius: 12px;
+/* Exact · Approximate · Unknown: one segmented row the width of the card. */
+.review-segments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
   overflow: hidden;
 }
 
-.review-toggle button {
+.review-segment {
   min-height: 48px;
-  padding: 0 18px;
+  padding: 0 10px;
   border: 0;
-  background: var(--field);
+  border-left: 1px solid var(--line);
+  background: transparent;
   color: var(--muted);
   font: inherit;
   font-size: 17px;
   cursor: pointer;
 }
 
-.review-toggle button[aria-pressed="true"] {
+.review-segment:first-child { border-left: 0; }
+.review-segment:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+
+.review-segment[aria-pressed="true"] {
   background: var(--ink);
   color: var(--canvas);
 }
 
-.review-toggle button:disabled { opacity: 0.5; cursor: default; }
+.review-segment:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Chips ───────────────────────────────────────────────────────────────── */
+
+.review-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
 .review-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 46px;
+  min-height: 44px;
   padding: 0 16px;
-  border: 2px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--field);
   color: var(--ink);
   font: inherit;
-  font-size: 17px;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -220,26 +294,72 @@
 }
 
 .review-chip-plus { border-style: dashed; color: var(--muted); }
-.review-chip-quiet { border-color: transparent; color: var(--muted); }
 
 /* "Same as the last one": quiet, so the questions stay the loud thing. */
 .review-chip-same {
+  flex: none;
+  min-height: 38px;
+  padding: 0 14px;
   border-color: transparent;
   background: var(--active);
   color: var(--muted);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .review-chip:disabled { opacity: 0.45; cursor: default; }
 
-.review-chip-add {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+/* ── Who is in it ────────────────────────────────────────────────────────── */
+
+.review-people { display: grid; gap: 14px; }
+
+.review-search { position: relative; }
+
+.review-search svg {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
 }
 
-.review-chip-add .review-input { width: 220px; min-height: 46px; }
+.review-search .review-input { padding-left: 44px; }
+
+/* A person on the photo: the name with a cross, not a toggle. */
+.review-chip-person {
+  gap: 4px;
+  padding: 0 6px 0 16px;
+  border-color: transparent;
+  background: var(--active);
+  cursor: default;
+}
+
+.review-chip-remove {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.review-chip-remove:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.review-chip-remove:focus-visible { outline: 3px solid var(--mint); outline-offset: 1px; }
+
+.review-suggest {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.review-suggest-label {
+  color: var(--muted);
+  font-size: 15px;
+}
 
 .review-hint {
   margin: 0;
@@ -247,18 +367,87 @@
   font-size: 15px;
 }
 
+/* ── What do you remember ────────────────────────────────────────────────── */
+
+.review-memory-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.review-memory-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.review-memory-button:hover:not(:disabled) { background: var(--hover); }
+.review-memory-button:disabled { opacity: 0.5; cursor: default; }
+
+.review-note-preview {
+  max-height: 220px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--mint);
+  border-radius: 0 10px 10px 0;
+  background: var(--field);
+  overflow-y: auto;
+  font-size: 16px;
+}
+
+.review-note-preview .story-prose { line-height: 1.55; }
+
+/* The note dialog: the story editor, wide enough to write a page in. */
+.confirm-modal.review-note-modal { width: min(100%, 680px); }
+
+/* Review mode's targets are finger-sized, the editor's marks included. */
+.review-note-modal .markdown-tool { width: 40px; height: 40px; border-radius: 9px; }
+.review-note-modal .markdown-tool svg { width: 18px; height: 18px; }
+
+.review-note-modal .story-text-input {
+  min-height: 240px;
+  font-family: inherit;
+  font-size: 1.02rem;
+}
+
+.review-note-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.review-note-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ── The button row ──────────────────────────────────────────────────────── */
+
 .review-foot {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px;
+  padding: 12px 36px;
   border-top: 1px solid var(--line);
   background: var(--surface);
 }
 
-.review-foot .review-btn:first-child { justify-self: start; }
-.review-foot .review-btn:last-child { justify-self: end; }
+.review-foot .review-btn:first-of-type { justify-self: start; }
+.review-foot .review-btn-next { justify-self: end; }
 
 /* The three big buttons, on top of the shared button variants. */
 .review-btn {
@@ -266,12 +455,14 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 56px;
+  min-height: 52px;
   padding: 0 24px;
-  border-radius: 14px;
-  font-size: 19px;
+  border-radius: 10px;
+  font-size: 18px;
   font-weight: 600;
 }
+
+.review-btn-dontknow { color: var(--muted); font-weight: 500; }
 
 .review-error {
   grid-column: 1 / -1;
@@ -303,19 +494,31 @@
   font-size: 19px;
 }
 
-/* Portrait tablet and phone: the photo above the questions. */
+/* Portrait tablet and phone: the photo above the questions, which scroll together. */
 @media (max-width: 900px) {
   .review-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(220px, 38vh) 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    overflow-y: auto;
+  }
+
+  .review-photo {
+    padding: 16px 16px 0;
   }
 
   .review-photo img {
-    max-height: 36vh;
+    max-height: 40vh;
+  }
+
+  .review-form {
+    padding: 16px;
+    border-left: 0;
+    overflow: visible;
   }
 
   .review-foot {
     grid-template-columns: 1fr 1fr;
+    padding: 10px 16px;
   }
 
   .review-foot .review-btn-dontknow {
@@ -324,6 +527,18 @@
   }
 
   .review-bar { width: 100px; }
+  .review-top { padding: 8px 12px; }
+}
+
+@media (max-width: 480px) {
+  .review-q { padding: 16px; }
+  .review-back { font-size: 18px; gap: 8px; }
+  .review-bar { width: 56px; }
+  .review-segment { font-size: 15px; padding: 0 4px; }
+  .review-when-row { grid-template-columns: 1fr 1fr; }
+  .review-when-row .review-field:first-child { grid-column: 1 / -1; }
+  .review-memory-actions { grid-template-columns: 1fr; }
+  .review-q-head { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.7.0 — Going through photos, redrawn
+
+- **One at a time looks calmer: the photo on a card, each question on its own.** The questions used to run down one long column, with the date, the place, the people and a notes box all competing for the same space. Now each has a card with a line saying what kind of answer helps ("Share the date, or your best guess"), the photo sits framed beside them, and the buttons at the bottom say what they do: **Previous**, **Skip / I don't know** and **Save & Next**. **Same as the last one** is still there, beside the question it copies.
+- **How sure the date is comes first.** **Exact**, **Approximate** or **Unknown** sits above the year, month and day, which now have labels. Before, **Exactly** and **About** came after the date and were easy to miss. A year chosen on its own still counts as approximate, unless Exact was pressed first.
+- **Who is in it? is a search.** With a large family, every known person as a button made a wall of names. Now there is one box: typing narrows the list, a name nobody has yet is offered as **Add "…"**, and Enter takes the one match. The people most often photographed are shown as suggestions before anything is typed, and the people on the photo sit under the box with a cross to take them off.
+- **Notes are written in the story editor.** **Add note** opens a dialog with the same bold, italic, heading, list, quote and link buttons a story has, so a memory can be more than one plain paragraph. The note shows formatted on the card and in the photo's viewer. **Speak instead** (dictation) moved into the dialog, **Use the last photo's note** copies the previous one, and closing with words typed asks first. **Add recording** opens the recorder as before, and now also takes a recording she already has, from a phone say.
+
 ## 4.6.2 — A story's photos belong to the story
 
 - **The App files row no longer counts a story's photos as belonging to nothing.** It warned that some files there were used by nothing in the app, so only admins could see them, and it decided that by folder: anything outside the app's own folders counted. But a photo uploaded while writing a story is filed in a dated folder, so photos that are right there in a story were counted too, and the warning suggested moving them out. Whether a file is used is now decided by what actually uses it: a story, a slideshow, a voice note, music or the family tree, wherever the file sits. Who could see those photos was never affected; only the count and the advice were wrong.

@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { formatBytes } from "../../shared/utils";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 import { NotesSection } from "../social/NotesSection";
+import { StoryMarkdown } from "../stories/StoryMarkdown";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { VoiceNotes } from "./VoiceNotes";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, PlaceLabel, TakenPrecision, VoiceNote } from "./types";
@@ -522,7 +523,10 @@ export function GalleryLightboxPanel({
                 {editLink("description", t("gallery:lightbox.fieldDescription"))}
               </div>
               {editingField === "description" ? editForm("description") : (
-                <div className="lb-desc">{asset.description || <span className="muted">{t("gallery:lightbox.noDescription")}</span>}</div>
+                <div className="lb-desc">
+                  {/* Markdown since Review mode's note editor; plain text reads the same. */}
+                  {asset.description ? <StoryMarkdown source={asset.description} breaks /> : <span className="muted">{t("gallery:lightbox.noDescription")}</span>}
+                </div>
               )}
               {asset.reviewedAt && asset.reviewedBy && editingField !== "description" && (
                 <span className="gallery-info-noted muted">

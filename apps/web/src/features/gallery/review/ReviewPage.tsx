@@ -1,28 +1,32 @@
 // Review mode — docs/photo-review-plan.md, phase 2.
 //
-// One Inbox delivery (or the whole Inbox), one photo at a time, four questions:
-// when, where, who, and anything she remembers. Built for a person on a tablet
-// who does not want to learn the app: no grid, no pencil icons, no map pin, no
-// Save button. Next and Previous save; "I don't know" marks the photo looked at
-// with nothing changed; "Same as the last one" copies the previous answer, which
-// on a box from one summer is the button she presses most.
+// One Inbox delivery (or the whole Inbox), one photo at a time, four questions,
+// each on its own card: when, where, who, and what she remembers. Built for a
+// person on a tablet who does not want to learn the app: no grid, no pencil
+// icons, no map pin. Save & Next and Previous save; "Skip / I don't know" marks
+// the photo looked at with nothing changed; "Same as the last one" copies the
+// previous answer, which on a box from one summer is the button she presses most.
+// The memory itself is two big buttons — Add note opens the story editor in a
+// dialog (with dictation), Add recording opens the shared recorder.
 //
 // Everything she writes lands on the photo itself (the PATCH the lightbox uses),
 // so the Timeline, the map and every story that later uses the photo get it. A
 // chrome-free page like the story reading view: it leaves the shell behind.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ArrowRight, ChevronLeft, Image as ImageIcon, Mic } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, Image as ImageIcon, Mic, Pencil } from "lucide-react";
 import { api } from "../../../api";
 import { goBack } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
+import { StoryMarkdown } from "../../stories/StoryMarkdown";
 import type { PhotoInboxSummary } from "../PhotoInboxPage";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, TakenPrecision } from "../types";
 import { NEW_PERSON_PREFIX, PeopleChips } from "./PeopleChips";
 import { WhenPicker, type WhenValue } from "./WhenPicker";
+import { ReviewNoteModal } from "./ReviewNoteModal";
 import { VoiceNotes } from "../VoiceNotes";
-import { useDictation } from "./useDictation";
+import { RecordVoiceNoteModal } from "../RecordVoiceNoteModal";
 // Review mode's stylesheet: it loads with this page, not on every route (docs/css-map.md).
 import "../../../styles/review.css";
 
@@ -84,6 +88,23 @@ export type ReviewSource =
   | { kind: "inbox"; libraryId: string; folder: string | null }
   | { kind: "album"; albumId: string; recommendationId: string | null };
 
+/** One question's card: the question, a line saying what kind of answer helps,
+ *  and a quiet action beside the question ("Same as the last one"). */
+function QuestionCard({ title, hint, action, children }: { title: string; hint: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="review-q">
+      <div className="review-q-head">
+        <div>
+          <h2>{title}</h2>
+          <p>{hint}</p>
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function ReviewPage({ source }: { source: ReviewSource }) {
   const { t } = useTranslation(["galleryReview", "common"]);
   // The name over the photos and whether she may write on them, whichever the source.
@@ -102,6 +123,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [large, setLarge] = useState(false);
+  const [dialog, setDialog] = useState<"note" | "recording" | null>(null);
   // The photo whose detail (people) is loading — a list row carries no people.
   const detailFor = useRef<string | null>(null);
 
@@ -199,25 +221,6 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
       .catch(() => { /* the chips start empty; tagging still works */ });
   }, [asset?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Dictation appends each finished sentence to the notes as it is spoken. The
-  // recogniser holds on to the callback it was started with, so this one must stay
-  // stable and read everything it needs at the moment a sentence lands — the photo
-  // from a ref, the answer so far from the updater's own argument.
-  const spokenFor = useRef<GalleryAsset | null>(null);
-  useEffect(() => { spokenFor.current = asset; }, [asset]);
-  const dictation = useDictation(useCallback((text: string) => {
-    if (!text) return;
-    setEdited((current) => {
-      const owner = spokenFor.current;
-      if (!owner) return current;
-      const base = current && current.assetId === owner.id ? current.draft : draftOf(owner);
-      return {
-        assetId: owner.id,
-        draft: { ...base, notes: base.notes ? `${base.notes.replace(/\s+$/, "")} ${text}` : text }
-      };
-    });
-  }, []));
-
   const patchAsset = useCallback((next: GalleryAsset) => {
     setAssets((current) => current?.map((a) => (a.id === next.id ? { ...a, ...next, people: next.people ?? a.people } : a)) ?? current);
   }, []);
@@ -285,6 +288,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   const showPhoto = (next: number) => {
     setSaveError("");
     setLarge(false);
+    setDialog(null);
     setIndex(next);
   };
 
@@ -356,7 +360,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
     <main className="review-page">
       <header className="review-top">
         <Button variant="bare" className="review-back" onClick={() => void leave()}>
-          <ChevronLeft size={24} aria-hidden="true" />
+          <ArrowLeft size={22} aria-hidden="true" />
           <span>{context ? context.name : t("galleryReview:back")}</span>
         </Button>
         {total > 0 && progress}
@@ -392,9 +396,11 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
               aria-label={large ? t("galleryReview:closeLarge") : t("galleryReview:photoTapHint")}
               onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setLarge((current) => !current); } }}
             >
-              {asset.previewUrl || asset.coverUrl
-                ? <img src={asset.previewUrl ?? asset.coverUrl ?? undefined} alt={t("galleryReview:photoAlt")} />
-                : <span className="review-photo-fallback"><ImageIcon size={48} aria-hidden="true" /></span>}
+              <span className="review-photo-frame">
+                {asset.previewUrl || asset.coverUrl
+                  ? <img src={asset.previewUrl ?? asset.coverUrl ?? undefined} alt={t("galleryReview:photoAlt")} />
+                  : <span className="review-photo-fallback"><ImageIcon size={48} aria-hidden="true" /></span>}
+              </span>
             </div>
 
             <div className="review-form">
@@ -404,39 +410,37 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                 </MessageBox>
               )}
 
-              <section className="review-q">
-                <h2>{t("galleryReview:when.heading")}</h2>
-                <WhenPicker value={draft.when} onChange={(when) => editDraft({ ...draft, when })} disabled={!canEdit || busy} />
-                <div className="review-row">
+              <QuestionCard
+                title={t("galleryReview:when.heading")}
+                hint={t("galleryReview:when.hint")}
+                action={canEdit && canCopyWhen ? (
                   <Button
                     variant="chip"
                     className="review-chip review-chip-same"
-                    disabled={!canEdit || busy || !canCopyWhen}
+                    disabled={busy}
                     onClick={() => { if (previousWhen) editDraft({ ...draft, when: previousWhen }); }}
                   >
                     {t("galleryReview:sameAsLast")}
                   </Button>
-                </div>
-              </section>
+                ) : undefined}
+              >
+                <WhenPicker key={asset.id} value={draft.when} onChange={(when) => editDraft({ ...draft, when })} disabled={!canEdit || busy} />
+              </QuestionCard>
 
-              <section className="review-q">
-                <h2>{t("galleryReview:where.heading")}</h2>
-                {recentPlaces.length > 0 && (
-                  <div className="review-chips" role="group" aria-label={t("galleryReview:where.recentAria")}>
-                    {recentPlaces.map((place) => (
-                      <Button
-                        variant="chip"
-                        key={place}
-                        className="review-chip"
-                        aria-pressed={draft.place.trim() === place}
-                        onClick={() => editDraft({ ...draft, place })}
-                        disabled={!canEdit || busy}
-                      >
-                        {place}
-                      </Button>
-                    ))}
-                  </div>
-                )}
+              <QuestionCard
+                title={t("galleryReview:where.heading")}
+                hint={t("galleryReview:where.hint")}
+                action={canEdit && canCopyWhere ? (
+                  <Button
+                    variant="chip"
+                    className="review-chip review-chip-same"
+                    disabled={busy}
+                    onClick={() => editDraft({ ...draft, place: previous?.placeText ?? "" })}
+                  >
+                    {t("galleryReview:sameAsLast")}
+                  </Button>
+                ) : undefined}
+              >
                 <input
                   className="review-input"
                   value={draft.place}
@@ -446,65 +450,88 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                   disabled={!canEdit || busy}
                   aria-label={t("galleryReview:where.heading")}
                 />
-                <div className="review-row">
-                  <Button
-                    variant="chip"
-                    className="review-chip review-chip-same"
-                    disabled={!canEdit || busy || !canCopyWhere}
-                    onClick={() => editDraft({ ...draft, place: previous?.placeText ?? "" })}
-                  >
-                    {t("galleryReview:sameAsLast")}
-                  </Button>
-                </div>
-              </section>
+                {canEdit && recentPlaces.length > 0 && (
+                  <div className="review-chips" role="group" aria-label={t("galleryReview:where.recentAria")}>
+                    {recentPlaces.map((place) => (
+                      <Button
+                        variant="chip"
+                        key={place}
+                        className="review-chip"
+                        aria-pressed={draft.place.trim() === place}
+                        onClick={() => editDraft({ ...draft, place })}
+                        disabled={busy}
+                      >
+                        {place}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </QuestionCard>
 
-              <section className="review-q">
-                <h2>{t("galleryReview:who.heading")}</h2>
+              <QuestionCard title={t("galleryReview:who.heading")} hint={t("galleryReview:who.hint")}>
                 <PeopleChips
+                  key={asset.id}
                   suggestions={people}
                   selected={draft.people}
                   onChange={(next) => editDraft({ ...draft, people: next })}
                   disabled={!canEdit || busy}
                 />
-              </section>
+              </QuestionCard>
 
-              <section className="review-q">
-                <h2>{t("galleryReview:notes.heading")}</h2>
-                <textarea
-                  className="review-textarea"
-                  value={draft.notes}
-                  onChange={(event) => editDraft({ ...draft, notes: event.target.value })}
-                  placeholder={t("galleryReview:notes.placeholder")}
-                  maxLength={5000}
-                  disabled={!canEdit || busy}
-                  aria-label={t("galleryReview:notes.heading")}
-                />
-                {canEdit && dictation.supported && (
-                  <div className="review-row">
-                    <Button
-                      variant="chip"
-                      className="review-chip"
-                      aria-pressed={dictation.listening}
-                      onClick={dictation.toggle}
-                      disabled={busy}
-                    >
-                      <Mic size={18} aria-hidden="true" /> {dictation.listening ? t("galleryReview:notes.dictating") : t("galleryReview:notes.dictate")}
+              <QuestionCard title={t("galleryReview:notes.heading")} hint={t("galleryReview:notes.hint")}>
+                {canEdit && (
+                  <div className="review-memory-actions">
+                    <Button variant="tile" className="review-memory-button" onClick={() => setDialog("note")} disabled={busy}>
+                      {draft.notes.trim() ? <Pencil size={22} aria-hidden="true" /> : <FileText size={22} aria-hidden="true" />}
+                      <span>{draft.notes.trim() ? t("galleryReview:notes.editNote") : t("galleryReview:notes.addNote")}</span>
+                    </Button>
+                    <Button variant="tile" className="review-memory-button" onClick={() => setDialog("recording")} disabled={busy}>
+                      <Mic size={22} aria-hidden="true" />
+                      <span>{t("galleryReview:notes.addRecording")}</span>
                     </Button>
                   </div>
                 )}
+                {draft.notes.trim() && (
+                  <div className="review-note-preview">
+                    <StoryMarkdown source={draft.notes} breaks />
+                  </div>
+                )}
+                {!canEdit && !draft.notes.trim() && (asset.voiceNotes ?? []).length === 0 && (
+                  <p className="review-hint">{t("galleryReview:notes.nothingYet")}</p>
+                )}
                 {/* A voice note is kept on the photo itself, next to the words. */}
-                <p className="review-hint">{t("galleryReview:notes.orSay")}</p>
                 <VoiceNotes
                   assetId={asset.id}
                   notes={asset.voiceNotes ?? []}
                   canEdit={canEdit && !busy}
                   large
                   heading={false}
+                  showRecord={false}
                   thumbnailUrl={asset.coverUrl}
                   onChanged={(voiceNotes) => patchAsset({ ...asset, voiceNotes })}
                 />
-              </section>
+              </QuestionCard>
             </div>
+
+            {dialog === "note" && (
+              <ReviewNoteModal
+                initial={draft.notes}
+                previousNote={previous?.description?.trim() || null}
+                thumbnailUrl={asset.coverUrl}
+                onSave={(notes) => editDraft({ ...draft, notes })}
+                onClose={() => setDialog(null)}
+              />
+            )}
+            {dialog === "recording" && (
+              <RecordVoiceNoteModal
+                assetId={asset.id}
+                thumbnailUrl={asset.coverUrl}
+                large
+                allowUpload
+                onSaved={(voiceNotes) => patchAsset({ ...asset, voiceNotes })}
+                onClose={() => setDialog(null)}
+              />
+            )}
           </>
         ) : null}
       </div>
@@ -523,8 +550,8 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
           <Button variant="text" className="review-btn review-btn-dontknow" onClick={() => void dontKnow()} disabled={busy}>
             {t("galleryReview:dontKnow")}
           </Button>
-          <Button variant="primary" className="review-btn" onClick={() => void go(1)} disabled={busy}>
-            <span>{busy ? t("galleryReview:saving") : t("galleryReview:next")}</span>
+          <Button variant="primary" className="review-btn review-btn-next" onClick={() => void go(1)} disabled={busy}>
+            <span>{busy ? t("galleryReview:saving") : canEdit ? t("galleryReview:saveNext") : t("galleryReview:next")}</span>
             <ArrowRight size={20} aria-hidden="true" />
           </Button>
         </footer>
