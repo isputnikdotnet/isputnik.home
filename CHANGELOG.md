@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.2 — Dropdowns you can read in the dark
+
+- **Dropdown lists are readable in the dark themes.** In a dialog or settings page, opening a dropdown — the country list under **Every village in…**, a status, a language — showed light text on a white list, so the choices could hardly be seen. The list took its background from the dropdown box, which is see-through in these fields, while the text followed the dark theme. The choices now carry the theme's own colours, so the list is dark with light text in the dark themes and stays as it was in the light ones.
+
 ## 4.13.1 — Found however it is spelled
 
 - **A place is found without typing its accents, and by any of its names.** GeoNames writes many Eastern European villages with a dot or accent — Veselovka in Gomel region is "Vesëlovka", in Russian "Весёловка" — and keeps the plain spellings only among the village's other names. The place search matched letters exactly and never looked at those other names, so typing Veselovka found nothing even after its country's villages were added. Now "Veselovka", "Vesjolovka" and "веселовка" all find it: accents and dots are ignored on both sides (ë is e, ё is е), capitals don't matter, and a village can be found by every name GeoNames lists for it; a town by its own name and its plain spelling.
