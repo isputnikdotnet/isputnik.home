@@ -256,8 +256,8 @@ export async function clusterGalleryFaces(): Promise<{ clusters: number; assigne
   // Only cluster faces from the CURRENT embedding model — never mix embedding spaces
   // (e.g. a 512-d ArcFace vector with a stale 1024-d one) which would corrupt cosine.
   const rows = db.prepare(
-    "SELECT id, person_id, embedding FROM gallery_faces WHERE source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL AND embedding_model = ?"
-  ).all(FACE_EMBEDDING_MODEL) as NonNull<Pick<GalleryFaceRow, "id" | "person_id" | "embedding">, "embedding">[];
+    "SELECT id, person_id, embedding, assignment FROM gallery_faces WHERE source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL AND embedding_model = ?"
+  ).all(FACE_EMBEDDING_MODEL) as NonNull<Pick<GalleryFaceRow, "id" | "person_id" | "embedding" | "assignment">, "embedding">[];
   if (rows.length === 0) {
     pruneEmpty();
     return { clusters: 0, assigned: 0 };
@@ -266,6 +266,10 @@ export async function clusterGalleryFaces(): Promise<{ clusters: number; assigne
   const faces: FaceVec[] = rows.map((r) => ({ id: r.id, emb: blobToEmbedding(r.embedding) }));
   const embById = new Map(faces.map((f) => [f.id, f.emb]));
   const oldPersonOf = new Map(rows.map((r) => [r.id, r.person_id]));
+  // A face someone named on the photo stays with that person whatever group its
+  // embedding lands in; it still votes in the tally below, so it helps its group
+  // find the right name too.
+  const pinned = new Set(rows.filter((r) => r.assignment === "confirmed" && r.person_id).map((r) => r.id));
   // Anchored people must survive with their id + name: named, bridged to global
   // people, or curated (a user merge target). Keep their stored centroid for the
   // rescan-rematch fallback.
@@ -313,7 +317,10 @@ export async function clusterGalleryFaces(): Promise<{ clusters: number; assigne
     const touched = new Set<string>();
     for (const plan of groupPlan) {
       if (!personExists.get(plan.personId)) insertPerson.run(plan.personId);
-      for (const fid of plan.faceIds) reassign.run(plan.personId, fid);
+      for (const fid of plan.faceIds) {
+        if (pinned.has(fid)) { touched.add(oldPersonOf.get(fid)!); continue; }
+        reassign.run(plan.personId, fid);
+      }
       touched.add(plan.personId);
     }
 

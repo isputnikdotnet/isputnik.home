@@ -43,6 +43,13 @@ The tab survives moving to the next photo, so a trip can be browsed on Map.
 - **Tags and People are chips with a round +.** Removing is the × on the chip;
   adding opens the small inline form. Both save through the same PATCH as
   before (`edit.ts`), with tags merged into the existing list.
+- **A People chip wears the person's face from this photo** when recognition
+  boxed them here (else their People avatar), and hovering it lights that face
+  up on the stage. The boxes themselves belong to the lightbox
+  (`GalleryFaceOverlay`, fed from the asset detail's `faces`), not the panel,
+  since *Show faces* works with the panel closed. The panel only passes the
+  hover up and hears back through `peopleVersion` when a face was named on the
+  photo. A face is named where it is, never in a second form in the panel.
 - **The panel owns its edits.** State for field editing, people, voice notes
   and the tab lives in the panel; the lightbox learns of changes through
   `onChanged` and only lends rotate/replace (the stage must react to a

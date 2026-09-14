@@ -313,9 +313,23 @@ options and via `sharp.concurrency()`.
   the same photo are untouched**. The target's exclusion for that photo is cleared (we
   just asserted it *is* them) and the source is excluded from it, so a rescan can't undo
   the move; the target is flagged `curated` for the same reason a merge target is.
-  The move is photo-level because the picker is — there is no per-face UI, so a photo
-  where the source genuinely also appears loses them too. Write access is checked per
-  photo, not once, so a viewer can't curate people in a library they can only read.
+  The move is photo-level because the picker is, so a photo where the source genuinely
+  also appears loses them too; the face itself is the finer tool (below). Write access
+  is checked per photo, not once, so a viewer can't curate people in a library they
+  can only read.
+- **One face on the photo.** The asset detail carries `faces` (`listAssetFaces`: scan
+  boxes turned by the manual rotation like `faceFocus`, a rejected face listed as
+  nobody), and the lightbox draws them (`GalleryFaceOverlay`) behind *Show faces* or
+  while a People chip is hovered. Clicking a box names that face:
+  `PUT /api/library/gallery/faces/:faceId/person` → `assignGalleryFace` sets it
+  `confirmed`, clears the new person's exclusion for the photo, and excludes the old
+  person only if that face was their last row there. `wholeGroup` on an unnamed
+  group's face renames the group (or merges it into the existing person) first.
+  `DELETE` on the same path → `rejectGalleryFace` ("not them", same exclusion rule).
+  A **confirmed** scan face is pinned: `clusterGalleryFaces` never moves it (it still
+  votes in its group's name tally), and a rescan hands its person to the fresh box
+  that overlaps it by IoU ≥ 0.5 (`carryConfirmedFaces`). Photo moves above also write
+  `confirmed`, so they are pinned the same way.
 
 **Storage:** `gallery_faces` (one row per detected face — box, embedding, `embedding_model`),
 `gallery_people` (incl. the `curated` anchor flag set on merge targets), `gallery_face_scans`

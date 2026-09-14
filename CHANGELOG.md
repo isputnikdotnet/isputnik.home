@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.8.0 — See who is where in a photo
+
+- **Show faces draws a box around everyone recognised in a photo.** Face recognition knew where each face was, but the viewer only listed names, so in a group photo there was no telling which one was Grandma. The face button in the viewer's top bar, or **Show faces** beside *People* in the details, now puts a box around each face with the name under it, and stays on for the next photos until turned off. With it off, resting the pointer on a person in *People* lights up just their face, and each person there now shows their face from this photo.
+- **A face can be named where it is.** Click a box, type who it is, or choose **Not *name*** when recognition got it wrong. Only that face changes. Before, the only fixes worked on whole photos, so moving a stranger out of someone's group took that person out of the photo too, even when they really were in it. When the face belongs to a group nobody has named yet, a ticked box names the group's other photos as well, so one answer covers them all. A "faces not named yet" link under *People* points to the ones still waiting.
+- **What you say about a face stays said.** A face someone named is never moved to another person when faces are regrouped, and a rescan hands the name to the new box over the same spot. Photos moved to another person from a person's page now stick the same way.
+
 ## 4.7.0 — Going through photos, redrawn
 
 - **One at a time looks calmer: the photo on a card, each question on its own.** The questions used to run down one long column, with the date, the place, the people and a notes box all competing for the same space. Now each has a card with a line saying what kind of answer helps ("Share the date, or your best guess"), the photo sits framed beside them, and the buttons at the bottom say what they do: **Previous**, **Skip / I don't know** and **Save & Next**. **Same as the last one** is still there, beside the question it copies.

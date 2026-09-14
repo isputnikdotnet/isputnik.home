@@ -123,6 +123,22 @@
     "chipFrom": "С {{date}}",
     "chipTo": "По {{date}}"
   },
+  "faces": {
+    "show": "Показать лица",
+    "hide": "Скрыть лица",
+    "notNamed": "Ещё без имени",
+    "nameFaceAria": "Подписать лицо ({{name}})",
+    "whoIsThis": "Кто это?",
+    "wholeGroup": "Подписать и другие фото, где распознано это лицо",
+    "notPerson": "Это не {{name}}",
+    "notThisPerson": "Это другой человек",
+    "saveError": "Не удалось подписать лицо",
+    "rejectError": "Не удалось изменить лицо",
+    "unnamedCount_one": "{{count}} лицо без имени",
+    "unnamedCount_few": "{{count}} лица без имени",
+    "unnamedCount_many": "{{count}} лиц без имени",
+    "unnamedCount_other": "{{count}} лица без имени"
+  },
   "lightbox": {
     "fieldDescription": "описание",
     "fieldDate": "дату",
