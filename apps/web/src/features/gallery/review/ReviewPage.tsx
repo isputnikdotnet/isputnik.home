@@ -353,7 +353,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
     for (let i = index - 1; i >= 0 && seen.length < RECENT_PLACES; i -= 1) take(assets[i]);
     for (let i = index + 1; i < assets.length && seen.length < RECENT_PLACES; i += 1) take(assets[i]);
     return seen;
-  }, [assets, index]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [assets, index]);
 
   const progress = (
     <div className="review-progress" aria-label={t("galleryReview:progressAria")}>
