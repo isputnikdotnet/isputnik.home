@@ -572,12 +572,25 @@
   "partialDate": {
     "formatHint": "Year, year-month, or full date (1971, 1971-09, 1971-09-01)",
     "example": {
-      "default": "1971 or 1971-09-01",
-      "married": "2010 or 2010-06-12",
-      "endYear": "1975",
-      "death": "2024 or 2024-03-15",
-      "divorced": "2015 or 2015-03-01"
+      "default": "1971 or 1971-09-01"
+    },
+    "day": "Day",
+    "month": "Month",
+    "year": "Year",
+    "dayPlaceholder": "DD",
+    "yearPlaceholder": "YYYY",
+    "problem": {
+      "year": "Enter the year as four digits",
+      "yearNeeded": "Add the year",
+      "monthNeeded": "Choose the month for this day",
+      "day": "That month has no such day"
     }
+  },
+  "placeField": {
+    "placeholder": "Search or type a place",
+    "pinned": "On the map",
+    "clear": "Clear place",
+    "showPlaces": "Show places"
   },
   "markdown": {
     "toolbar": "Formatting",

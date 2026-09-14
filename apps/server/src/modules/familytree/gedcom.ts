@@ -13,6 +13,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { isAncestorOf } from "./persons.js";
+import { markdownToPlainText } from "./plain-text.js";
 import { UNION_STATUSES, CHILD_RELATIONS } from "./relations.js";
 import type { FamilyTreeChildRow, FamilyTreeCitationRow, FamilyTreeEventRow, FamilyTreePersonRow, FamilyTreeSourceRow, FamilyTreeUnionRow } from "../../db/rows.js";
 
@@ -616,7 +617,7 @@ export function exportGedcom(): string {
       if (person.death_place) push(2, "PLAC", person.death_place);
       for (const citation of deathCites) pushCitation(2, citation);
     }
-    if (person.bio) push(1, "NOTE", person.bio);
+    if (person.bio) push(1, "NOTE", markdownToPlainText(person.bio));
     for (const citation of personCites(person.id, null)) pushCitation(1, citation);
     for (const event of eventRows.filter((e) => e.person_id === person.id)) {
       const mapping = EVENT_TYPE_TAG[event.type] ?? EVENT_TYPE_TAG.custom;

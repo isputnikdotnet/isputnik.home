@@ -1,17 +1,30 @@
 // Client shapes for the family-tree API (see modules/familytree on the server).
 import i18n from "../../i18n";
 import type { GalleryAsset } from "../gallery/types";
+import type { PlacePin } from "../../shared/PlaceField";
+
+export interface FamilyPersonName {
+  /** BCP 47 language code: "ru", "uk", "zh-Hant". */
+  language: string;
+  name: string;
+}
 
 export interface FamilyPerson {
   id: string;
   name: string;
   maidenName: string | null;
+  // The name as written in other languages ("ru" → "Владимир Посс"), in the
+  // order entered. Searched like the main name.
+  otherNames: FamilyPersonName[];
   gender: "male" | "female" | "other" | "unknown";
   // Partial ISO dates: "YYYY" | "YYYY-MM" | "YYYY-MM-DD".
   birthDate: string | null;
   deathDate: string | null;
   birthplace: string | null;
   deathPlace: string | null;
+  // Set when the place was picked from the places search; typed text has none.
+  birthPin: PlacePin | null;
+  deathPin: PlacePin | null;
   bio: string | null;
   portraitUrl: string | null;
   portraitItemId: string | null;
@@ -129,12 +142,21 @@ export interface FamilyPersonProfile extends FamilyPerson {
 // (curated, removable here) or surfaced via the linked face cluster.
 export type FamilyPhoto = GalleryAsset & { attached: boolean };
 
-// UI offers a simple binary; the schema still tolerates other/unknown for
-// quick-created people and any legacy/imported rows.
+// Unknown is offered so a gender picked by mistake can be taken back; the schema
+// still tolerates "other" for imported rows.
 export const GENDER_OPTIONS = [
   { value: "female" },
-  { value: "male" }
+  { value: "male" },
+  { value: "unknown" }
 ] as const;
+
+/** Does a person answer to a search? Name, maiden name, or a name in another
+ *  language — case-folded, so "посс" finds "Посс". `term` is already lower-cased. */
+export function personMatchesSearch(person: Pick<FamilyPerson, "name" | "maidenName" | "otherNames">, term: string): boolean {
+  if (!term) return true;
+  const has = (text: string | null | undefined) => !!text && text.toLocaleLowerCase().includes(term);
+  return has(person.name) || has(person.maidenName) || (person.otherNames ?? []).some((other) => has(other.name));
+}
 
 export const UNION_STATUS_OPTIONS = [
   { value: "married" },
@@ -174,7 +196,7 @@ export const CHILD_RELATION_OPTIONS = [
 
 // Label lookups, called at render/call time (never cached at module scope) so
 // they stay reactive to a language switch — same approach as control/nav.ts.
-export function genderOptionLabel(value: "female" | "male"): string {
+export function genderOptionLabel(value: (typeof GENDER_OPTIONS)[number]["value"]): string {
   return i18n.t(`family:options.gender.${value}`);
 }
 

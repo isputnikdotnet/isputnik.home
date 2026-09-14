@@ -6,7 +6,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
-import { PartialDateField } from "../../shared/PartialDateField";
+import { PartialDateInput } from "../../shared/PartialDateInput";
 import { UNION_STATUS_OPTIONS, unionStatusLabel, type FamilyUnionDetail } from "./types";
 
 // Edit an existing union's status and dates. The divorce date is what marks a
@@ -79,20 +79,18 @@ export function UnionEditModal({
             value: option.value, label: unionStatusLabel(option.value)
           }))}
         />
-        <PartialDateField
+        <PartialDateInput
           label={status === "partners" ? t("family:unionEdit.togetherSince") : t("family:unionEdit.married")}
           value={marriedDate}
-          placeholder={t("partialDate.example.married")}
           onChange={setMarriedDate}
         />
         <label className="field">
           <span>{t("family:addUnion.placeOfMarriage")}</span>
           <input type="text" value={marriedPlace} onChange={(event) => setMarriedPlace(event.target.value)} />
         </label>
-        <PartialDateField
+        <PartialDateInput
           label={t("family:unionEdit.divorcedSeparated")}
           value={divorcedDate}
-          placeholder={t("partialDate.example.divorced")}
           onChange={changeDivorcedDate}
         />
       </div>

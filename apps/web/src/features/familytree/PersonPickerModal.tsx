@@ -6,7 +6,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { PersonAvatar } from "./PersonAvatar";
-import { lifeYears, type FamilyPerson } from "./types";
+import { lifeYears, personMatchesSearch, type FamilyPerson } from "./types";
 
 // Pick an existing family member (or create one inline) — the shared surface
 // behind "choose a partner" and "choose a child".
@@ -47,7 +47,7 @@ export function PersonPickerModal({
   const shown = persons.filter(
     (p) =>
       !excluded.has(p.id) &&
-      (!term || p.name.toLowerCase().includes(term) || p.maidenName?.toLowerCase().includes(term))
+      personMatchesSearch(p, term)
   );
 
   const createAndPick = async () => {

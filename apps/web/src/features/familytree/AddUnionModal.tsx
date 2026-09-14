@@ -6,7 +6,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
-import { PartialDateField } from "../../shared/PartialDateField";
+import { PartialDateInput } from "../../shared/PartialDateInput";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
 import { UNION_STATUS_OPTIONS, unionStatusLabel, type FamilyPerson, type FamilyUnion } from "./types";
@@ -102,10 +102,9 @@ export function AddUnionModal({
             value: option.value, label: unionStatusLabel(option.value)
           }))}
         />
-        <PartialDateField
+        <PartialDateInput
           label={t("family:addUnion.marriedSinceLabel")}
           value={marriedDate}
-          placeholder={t("partialDate.example.married")}
           onChange={setMarriedDate}
         />
         <label className="field">

@@ -363,6 +363,14 @@ export interface FamilyTreeEventRow {
   updated_at: string;
 }
 
+/** `family_tree_person_names` */
+export interface FamilyTreePersonNameRow {
+  person_id: string;
+  position: number;
+  language: string;
+  name: string;
+}
+
 /** `family_tree_persons` */
 export interface FamilyTreePersonRow {
   id: string;
@@ -373,6 +381,10 @@ export interface FamilyTreePersonRow {
   death_date: string | null;
   birthplace: string | null;
   death_place: string | null;
+  birth_lat: number | null;
+  birth_lng: number | null;
+  death_lat: number | null;
+  death_lng: number | null;
   bio: string | null;
   portrait_storage_key: string | null;
   portrait_item_id: string | null;
@@ -1356,6 +1368,7 @@ export interface TableRows {
   family_tree_citations: FamilyTreeCitationRow;
   family_tree_event_photos: FamilyTreeEventPhotoRow;
   family_tree_events: FamilyTreeEventRow;
+  family_tree_person_names: FamilyTreePersonNameRow;
   family_tree_persons: FamilyTreePersonRow;
   family_tree_photos: FamilyTreePhotoRow;
   family_tree_sources: FamilyTreeSourceRow;

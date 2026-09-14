@@ -43,7 +43,7 @@ export function resetDb(): void {
     "duplicate_job_libraries", "duplicate_jobs",
     "notes", "recommendations", "taggables", "tags", "collection_items", "collections", "work_items", "works",
     "story_block_points", "story_blocks", "story_chapters", "story_audio", "story_saves", "stories", "story_collections",
-    "family_tree_photos", "family_tree_event_photos", "family_tree_children", "family_tree_unions", "family_tree_persons",
+    "family_tree_photos", "family_tree_event_photos", "family_tree_children", "family_tree_unions", "family_tree_person_names", "family_tree_persons",
     "family_tree_events", "family_tree_citations", "family_tree_sources",
     "library_scan_rule_paths", "library_scan_rules", "library_folder_locks",
     // Deleting goes through trashBook, so any suite that removes an item leaves rows

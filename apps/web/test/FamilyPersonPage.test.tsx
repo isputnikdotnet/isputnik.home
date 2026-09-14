@@ -44,11 +44,14 @@ const base = (id: string, name: string, over: Partial<FamilyPerson> = {}): Famil
   id,
   name,
   maidenName: null,
+  otherNames: [],
   gender: "unknown",
   birthDate: null,
   deathDate: null,
   birthplace: null,
   deathPlace: null,
+  birthPin: null,
+  deathPin: null,
   bio: null,
   portraitUrl: null,
   portraitItemId: null,
@@ -469,6 +472,17 @@ describe("FamilyPersonPage — Photos, Sources, Biography, Quotes", () => {
     // A citation on an event names the event and its year.
     expect(within(rows[1] as HTMLElement).getByText("Teacher (1972)")).toBeInTheDocument();
     expect(within(rows[1] as HTMLElement).queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("renders the biography's formatting and keeps its line breaks", async () => {
+    mount({ person: profile({ bio: "Taught **forty** years.\nRetired in Minsk.\n\n- choir" }) });
+    await screen.findByRole("heading", { level: 1, name: "Maria Ivanova" });
+    await openTab("Biography");
+    const bold = await screen.findByText("forty");
+    expect(bold.tagName).toBe("STRONG");
+    const bio = bold.closest(".ft-profile-bio") as HTMLElement;
+    expect(bio.querySelector("br")).not.toBeNull();
+    expect(within(bio).getByRole("listitem")).toHaveTextContent("choir");
   });
 
   it("shows the biography's empty state", async () => {

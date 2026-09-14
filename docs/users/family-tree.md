@@ -16,9 +16,20 @@ either type people in, or import a GEDCOM file from another genealogy service.
 **Add person** creates a family member. Only a name is required; everything else
 — dates, places, a photo, a life story — can come later.
 
-Dates are deliberately forgiving. `1943`, `1943-05` and `1943-05-09` are all
-valid, because genealogy is full of records where only the year is known. A
-year-only date stays a year-only date; nothing silently invents a day for it.
+Dates are deliberately forgiving. Each date is **Day · Month · Year**, and only
+the year is needed: `1943`, May 1943 and 9 May 1943 are all valid, because
+genealogy is full of records where only the year is known. A year-only date
+stays a year-only date; nothing silently invents a day for it. A day without a
+month (or a month without a year) is pointed out rather than quietly dropped.
+
+**Place** takes whatever you type — a country, a parish, a village no map
+knows. As you type it also offers places the tree already uses and towns from
+the places database (Maps → Named places); picking one of those fills the place
+in and pins it on the map. Changing the words afterwards removes the pin.
+
+**Other language name(s)** holds the same person's name as written in another
+language — *Владимир Посс* beside *Vladimir Posse*. The profile shows it under
+the name, and searching for either spelling finds the person.
 
 Once someone exists, open their profile and use **Add relative** to attach a
 **parent**, **partner**, **child** or **sibling**. Relationships hang off
@@ -64,7 +75,9 @@ Six tabs:
 - **Photos** — see below.
 - **Sources** — where a fact came from: a parish register, a certificate, a web
   page. Sources are shared, so one record can back many facts.
-- **Biography** — their life story in your own words.
+- **Biography** — their life story in your own words. Edit person → *Bio /
+  notes* has the same formatting buttons as a story's text: bold, italic,
+  headings, lists, quotes and links.
 - **Quotes** — the things they said, whenever anyone recorded one against their
   name. See [Quotes](quotes.md).
 
@@ -150,7 +163,9 @@ Gramps and others.
   clears the existing tree first. Anything it can't interpret becomes a warning
   rather than a failed import.
 - **Export** writes the whole tree to one file. Available to everyone, not just
-  admins, and the simplest backup of your genealogy work there is.
+  admins, and the simplest backup of your genealogy work there is. A
+  biography's formatting is left out of the file (other programs would show the
+  marks as symbols); its words and line breaks are kept.
 
 Photos are *not* part of a GEDCOM file, since they live in your gallery. After
 an import you'd re-attach them.

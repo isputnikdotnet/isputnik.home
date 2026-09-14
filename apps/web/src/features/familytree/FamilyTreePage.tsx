@@ -16,7 +16,7 @@ import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { GedcomImportModal } from "./GedcomImportModal";
 import { FamilyPersonMark, PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
-import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
+import { lifeYears, personMatchesSearch, type FamilyPerson, type FamilyTree } from "./types";
 import { useSession } from "../../app/SessionContext";
 // The tree chart's stylesheet: it loads with this page, not on every route (docs/css-map.md).
 import "../../styles/family-tree-chart.css";
@@ -74,7 +74,7 @@ export function FamilyTreePage({
   const term = search.trim().toLowerCase();
   const matches = term && tree
     ? tree.persons
-        .filter((p) => p.name.toLowerCase().includes(term) || p.maidenName?.toLowerCase().includes(term))
+        .filter((p) => personMatchesSearch(p, term))
         .slice(0, 8)
     : [];
 

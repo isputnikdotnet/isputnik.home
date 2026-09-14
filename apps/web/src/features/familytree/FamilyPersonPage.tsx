@@ -13,6 +13,7 @@ import { ActionMenu } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { SectionNav } from "../../shared/SectionNav";
+import { StoryMarkdown } from "../stories/StoryMarkdown";
 import { familyNavProps } from "./sectionNavItems";
 import { MessageBox } from "../../shared/MessageBox";
 import { SendToSheet } from "../social/SendToSheet";
@@ -615,6 +616,7 @@ export function FamilyPersonPage({ id }: { id: string }) {
           const entries = timelineEntries(profile);
           const age = ageFromDates(profile.birthDate, profile.deathDate);
           const subtitle = [
+            ...(profile.otherNames ?? []).map((other) => other.name),
             profile.maidenName ? t("family:common.nee", { name: profile.maidenName }) : "",
             lifeYears(profile),
             profile.deathDate ? t("family:person.deceased") : t("family:person.living"),
@@ -1213,7 +1215,9 @@ export function FamilyPersonPage({ id }: { id: string }) {
                       )}
 
                       {profile.bio ? (
-                        <p className="ft-profile-bio">{profile.bio}</p>
+                        // `breaks`: a bio was plain text before it was markdown, and
+                        // its single line breaks were meant.
+                        <StoryMarkdown source={profile.bio} breaks className="ft-profile-bio" />
                       ) : (
                         <div className="ft-empty-panel">
                           <FileText size={22} aria-hidden="true" />
