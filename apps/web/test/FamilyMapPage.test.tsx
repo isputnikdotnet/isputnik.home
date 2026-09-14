@@ -88,9 +88,11 @@ describe("FamilyMapPage", () => {
     mount();
     await screen.findByRole("list", { name: "Places" });
     expect(placeList().getAllByRole("button").map((button) => button.textContent)).toEqual(["Kyiv2", "Minsk2"]);
-    expect(drawn.shapes.markers?.map((marker) => [marker.tooltip, marker.html?.includes(">2<")])).toEqual([
+    // The map draws in an effect after the list renders; under a loaded test run
+    // the list can be found first.
+    await waitFor(() => expect(drawn.shapes.markers?.map((marker) => [marker.tooltip, marker.html?.includes(">2<")])).toEqual([
       ["Kyiv", true], ["Minsk", true]
-    ]);
+    ]));
     // Kyiv holds a birth and a life event, so its pin is the mixed colour.
     expect(drawn.shapes.markers?.[0].html).toContain("is-mixed");
     await waitFor(() => expect(drawn.views.at(-1)).toMatchObject({ kind: "fit", animate: false }));

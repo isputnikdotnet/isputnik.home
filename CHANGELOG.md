@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.12.0 — A person's family, drawn as a tree
+
+- **The Relationships tab is a small family tree.** A profile listed relatives in rows of small pills, so it was hard to see which grandparents were whose side, which parent a child came through, or which partner the children belonged to. Now each parent sits under a panel of their own parents ("via Anna Rybina"), the two parents are joined by a line that comes down to this person, siblings are bracketed on one side and partners on the other, and the children hang off a rail below. Every group has its label, and the person whose page it is stands out in the middle with a **This person** badge.
+- **Partners and children say how they belong.** The current partner is joined by a solid line with a rings mark and "Current · Married · since…" in the accent colour; a former partner by a dashed line with a broken heart. When children come from more than one partner, each child's card says which ("with Mark Palchuk").
+- **Bigger cards that are easier to read.** Each relative is a card with their picture, a badge saying what they are to this person (Grandmother, Brother, Daughter) and their life dates; the edit and remove buttons still appear when you hover a card. On a phone the tree becomes one column in the same order, without the lines.
+
 ## 4.11.1 — One couple, recorded once
 
 - **A partner no longer shows up twice on a profile.** Adding someone as a child's first parent, then adding the other parent, made a brand-new couple even when those two were already recorded as married. The marriage stayed on one copy and the child went on the other, so the profile listed the same partner twice, once as *Partner* and once as *Wife* or *Husband*. Now the child joins the couple that already exists. Adding the same partner to someone a second time is refused too, with a note to edit the relationship that is already there.

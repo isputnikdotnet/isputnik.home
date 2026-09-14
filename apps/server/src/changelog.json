@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.12.0",
+    "label": "A person's family, drawn as a tree",
+    "changes": [
+      "**The Relationships tab is a small family tree.** A profile listed relatives in rows of small pills, so it was hard to see which grandparents were whose side, which parent a child came through, or which partner the children belonged to. Now each parent sits under a panel of their own parents (\"via Anna Rybina\"), the two parents are joined by a line that comes down to this person, siblings are bracketed on one side and partners on the other, and the children hang off a rail below. Every group has its label, and the person whose page it is stands out in the middle with a **This person** badge.",
+      "**Partners and children say how they belong.** The current partner is joined by a solid line with a rings mark and \"Current · Married · since…\" in the accent colour; a former partner by a dashed line with a broken heart. When children come from more than one partner, each child's card says which (\"with Mark Palchuk\").",
+      "**Bigger cards that are easier to read.** Each relative is a card with their picture, a badge saying what they are to this person (Grandmother, Brother, Daughter) and their life dates; the edit and remove buttons still appear when you hover a card. On a phone the tree becomes one column in the same order, without the lines."
+    ]
+  },
+  {
     "version": "4.11.1",
     "label": "One couple, recorded once",
     "changes": [

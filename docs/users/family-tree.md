@@ -67,8 +67,12 @@ person — from search, All people, or a bookmark — still opens on them.
 
 Six tabs:
 
-- **Relationships** — parents, siblings, grandparents, partners and children as
-  cards you can jump to.
+- **Relationships** — the person's close family drawn as a small tree: each
+  parent under their own parents, the parents joined by a line down to this
+  person, siblings on one side, partners on the other (a solid line and rings
+  for the current partner, a dashed line and a broken heart for a former one),
+  and children below. When children come from more than one partner, each card
+  says which. Click any card to open that person.
 - **Timeline** — their life in order: birth, marriages, the births of children,
   death, plus any events you add (education, work, homes, military service,
   travel, awards, graduations, retirements, baptisms, naturalisations…). Each
