@@ -102,6 +102,26 @@ storage is switched on (Control panel → Library → Storage), for anyone who m
 edit part of the tree. Files are added to the App files library, in its
 `Family tree` folder, and attached in one step; every member can see them.
 
+## The map
+
+**Map** in the family tree menu shows where the family's lives happened: every
+birth, death, marriage and life event whose place has a pin. Places at the same
+spot share one pin, with a number when more than one thing happened there; the
+pin's colour says what (blue births, rose marriages, green life events, grey
+deaths, gold when it's a mix).
+
+The list beside the map is every place, busiest first. Choose one to fly there
+and see what happened there, oldest first, with each person linked to their
+profile. The buttons above the map switch births, marriages, life events and
+deaths on and off, and the search box narrows the map to the people you type.
+
+On a profile, **Show on map** opens the map with only that person's places,
+joined by a dashed line in the order they lived them.
+
+Only places picked from the place search carry a pin, so a place typed in by
+hand isn't on the map. The page says how many there are; pick them from the
+search when editing to add them.
+
 ## Settings
 
 The gear on the tree page — admins only — holds four things:

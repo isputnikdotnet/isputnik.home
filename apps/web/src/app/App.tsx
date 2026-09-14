@@ -63,6 +63,7 @@ const PhotoInboxPage = lazy(() => import("../features/gallery/PhotoInboxPage").t
 const ReviewPage = lazy(() => import("../features/gallery/review/ReviewPage").then((m) => ({ default: m.ReviewPage })));
 const FamilyTreePage = lazy(() => import("../features/familytree/FamilyTreePage").then((m) => ({ default: m.FamilyTreePage })));
 const FamilyPeoplePage = lazy(() => import("../features/familytree/FamilyPeoplePage").then((m) => ({ default: m.FamilyPeoplePage })));
+const FamilyMapPage = lazy(() => import("../features/familytree/FamilyMapPage").then((m) => ({ default: m.FamilyMapPage })));
 const FamilyFamiliesPage = lazy(() => import("../features/familytree/FamilyFamiliesPage").then((m) => ({ default: m.FamilyFamiliesPage })));
 const FamilyPersonPage = lazy(() => import("../features/familytree/FamilyPersonPage").then((m) => ({ default: m.FamilyPersonPage })));
 const FamilyPersonPhotosPage = lazy(() => import("../features/familytree/FamilyPersonPhotosPage").then((m) => ({ default: m.FamilyPersonPhotosPage })));
@@ -520,6 +521,10 @@ export function App() {
 
     if (route.name === "familyFamilies") {
       return <FamilyFamiliesPage />;
+    }
+
+    if (route.name === "familyMap") {
+      return <FamilyMapPage personId={route.personId} />;
     }
 
     if (route.name === "familyPerson") {

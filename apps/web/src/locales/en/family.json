@@ -407,6 +407,44 @@
     },
     "tagFamily": "Assign family tags to the {{name}} family"
   },
+  "map": {
+    "title": "Map",
+    "searchPlaceholder": "Search family members...",
+    "mapAria": "Map of family places",
+    "kindsAria": "What to show",
+    "placesAria": "Places",
+    "allPlaces": "All places",
+    "focus": "Only {{name}}",
+    "clearFocus": "Show everyone",
+    "clearFocusAria": "Show everyone, not only {{name}}",
+    "kind": {
+      "birth": "Born",
+      "death": "Died",
+      "marriage": "Married",
+      "event": "Life event"
+    },
+    "kindPlural": {
+      "birth": "Births",
+      "death": "Deaths",
+      "marriage": "Marriages",
+      "event": "Life events"
+    },
+    "counts": {
+      "place_one": "{{count}} place",
+      "place_other": "{{count}} places",
+      "entry_one": "{{count}} event here",
+      "entry_other": "{{count}} events here"
+    },
+    "emptyTitle": "Nothing on the map yet",
+    "emptyBody": "A place shows here once it has been picked from the place search — when editing a person's birth or death, a relationship, or a life event. Places typed in by hand stay words only.",
+    "noMatches": "Nothing matches these filters.",
+    "unpinned_one": "{{count}} place is written without a pin, so it isn't on the map. Pick it from the place search when editing to add it.",
+    "unpinned_other": "{{count}} places are written without a pin, so they aren't on the map. Pick them from the place search when editing to add them.",
+    "errors": {
+      "loadTitle": "Unable to load the map",
+      "load": "Unable to load the family's places"
+    }
+  },
   "people": {
     "title": "People",
     "searchPlaceholder": "Search family members...",
@@ -444,6 +482,7 @@
     "actions": {
       "groupAria": "Person actions",
       "viewInTree": "View in tree",
+      "showOnMap": "Show on map",
       "sendTo": "Send to",
       "changePortrait": "Change portrait",
       "deletePerson": "Delete person",

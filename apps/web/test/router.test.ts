@@ -32,6 +32,13 @@ describe("getRoute", () => {
     expect(getRoute().name).toBe(name);
   });
 
+  it("reads the family map, narrowed to one person when ?person= says so", () => {
+    at("/family/map");
+    expect(getRoute()).toEqual({ name: "familyMap", personId: null });
+    at("/family/map?person=abc");
+    expect(getRoute()).toEqual({ name: "familyMap", personId: "abc" });
+  });
+
   it("pulls the token out of an invite link", () => {
     at("/invite/abc123");
     expect(getRoute()).toEqual({ name: "invite", token: "abc123" });
