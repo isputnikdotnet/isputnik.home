@@ -260,6 +260,19 @@ Once enabled, a background job finds faces and groups them into people. You then
 name the ones you care about; naming is what makes a group stick. The **People**
 view lists them, and a person's page shows every photo they appear in.
 
+**Seeing who is where.** In the photo viewer, the **Show faces** button (the face
+icon in the top bar, or the link beside *People* in the details) draws a box around
+each face with its name under it. It stays on for the next photos until you turn it
+off. With it off, resting the pointer on a person's chip in *People* lights up just
+their face.
+
+**Naming one face.** If you can edit the photo, click a box and type who it is, or
+choose **Not *name*** when recognition got it wrong. This changes only that face,
+so everyone else in a group photo stays as they were. When the face belongs to a
+group nobody has named yet, the box ticked by default names the group's other photos
+too. What you say here stays put when faces are regrouped or the library is scanned
+again.
+
 This is also what connects to the [family tree](family-tree.md): link a family
 member to a face group and their profile fills with photos automatically.
 

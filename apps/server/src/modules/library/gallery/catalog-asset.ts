@@ -38,6 +38,23 @@ function turnFocus(x: number, y: number, rotation: number): { x: number; y: numb
   return { x, y };
 }
 
+// The same turn for a whole box: both corners move, and a quarter turn swaps its
+// sides. Clamped to the photo, since a detector box may run past an edge.
+function turnBox(x: number, y: number, w: number, h: number, rotation: number) {
+  const a = turnFocus(x, y, rotation);
+  const b = turnFocus(x + w, y + h, rotation);
+  const clamp = (n: number) => Math.min(1, Math.max(0, n));
+  const left = clamp(Math.min(a.x, b.x));
+  const top = clamp(Math.min(a.y, b.y));
+  const round = (n: number) => Math.round(n * 10000) / 10000;
+  return {
+    x: round(left),
+    y: round(top),
+    w: round(clamp(Math.max(a.x, b.x)) - left),
+    h: round(clamp(Math.max(a.y, b.y)) - top)
+  };
+}
+
 export const ASSET_COLUMNS = `
   library_items.id,
   library_items.library_id,
@@ -176,6 +193,52 @@ const peopleForAssetStmt = db.prepare(`
   ORDER BY gallery_people.name COLLATE NOCASE
 `);
 
+// Where each detected face sits, for the lightbox to draw over the photo. Only scan
+// faces carry a box. A rejected face ("not this person") is still a face on the
+// photo, so it is listed, but as nobody, ready to be named.
+const facesForAssetStmt = db.prepare(`
+  SELECT gallery_faces.id, gallery_faces.box_x, gallery_faces.box_y, gallery_faces.box_w, gallery_faces.box_h,
+    gallery_faces.thumb_storage_key, gallery_faces.assignment,
+    gallery_people.id AS person_id, gallery_people.name AS person_name
+  FROM gallery_faces
+  LEFT JOIN gallery_people ON gallery_people.id = gallery_faces.person_id
+    AND gallery_faces.assignment != 'rejected'
+  WHERE gallery_faces.item_id = ? AND gallery_faces.box_x IS NOT NULL
+    AND gallery_faces.box_y IS NOT NULL AND gallery_faces.box_w IS NOT NULL AND gallery_faces.box_h IS NOT NULL
+  ORDER BY gallery_faces.box_x, gallery_faces.box_y
+`);
+
+type FaceBoxRow = {
+  id: string; box_x: number; box_y: number; box_w: number; box_h: number;
+  thumb_storage_key: string | null; assignment: string;
+  person_id: string | null; person_name: string | null;
+};
+
+export interface AssetFace {
+  id: string;
+  // Fractions of the photo as it is shown (EXIF orientation and manual rotation
+  // both applied), top-left corner plus size.
+  box: { x: number; y: number; w: number; h: number };
+  personId: string | null;
+  // "" for a group face recognition made but nobody has named yet.
+  personName: string | null;
+  // Someone said who this is, rather than the clustering guessing.
+  confirmed: boolean;
+  thumbUrl: string | null;
+}
+
+export function listAssetFaces(itemId: string, rotation: number): AssetFace[] {
+  return (facesForAssetStmt.all(itemId) as FaceBoxRow[]).map((row) => ({
+    id: row.id,
+    box: turnBox(row.box_x, row.box_y, row.box_w, row.box_h, rotation),
+    personId: row.person_id,
+    personName: row.person_id ? row.person_name ?? "" : null,
+    confirmed: row.person_id != null && row.assignment === "confirmed",
+    // Crops are content-addressed per face id, so they cache like the People avatars.
+    thumbUrl: row.thumb_storage_key ? `/api/library/covers/${row.thumb_storage_key}?v=1` : null
+  }));
+}
+
 // Bulk asset lookup by ids, access-filtered — the suggestion-preview grid needs
 // thumbnails for a montage's item ids in one round trip. Results come back in the
 // REQUESTED order (a suggestion's ids are chronological); inaccessible or unknown ids
@@ -206,6 +269,7 @@ function detailOf(row: AssetRow, language: string, reread: () => AssetRow | unde
     ...mapAsset(row),
     placeLabel: describePlace(row.place_id, language),
     people,
+    faces: listAssetFaces(row.id, row.rotation ?? 0),
     voiceNotes: listVoiceNotes(row.id)
   };
 }

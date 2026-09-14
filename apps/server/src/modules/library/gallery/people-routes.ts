@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
@@ -19,7 +19,10 @@ import {
   reassignPersonPhotos,
   tagAssetPerson,
   untagAssetPerson,
-  getGalleryPersonRow
+  getGalleryPersonRow,
+  getGalleryFaceRow,
+  assignGalleryFace,
+  rejectGalleryFace
 } from "./people.js";
 import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary, enabledFaceLibraryIds,
@@ -230,6 +233,94 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     // tags Inbox photos before they are kept).
     const libIds = resolveGalleryScopeLibraryIds(request.user!);
     return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId, placeLanguage(request)) ?? getGalleryAssetUnscoped(request.user!.id, assetId, placeLanguage(request)) });
+  });
+
+  // ── One face on a photo ──
+
+  // Say who one detected face is: an existing person or a name (same create-or-link
+  // rule as tagging). `wholeGroup` also names the unnamed group the face was in —
+  // a rename when the name is new, a merge into the person when it isn't — since
+  // "that's Mum" on one photo usually means the other forty of her too.
+  const faceAssignSchema = z.object({
+    personId: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).max(120).optional(),
+    wholeGroup: z.boolean().optional()
+  }).refine((v) => v.personId || v.name, { message: "Provide a personId or a name." });
+
+  const assetAfterFaceChange = (request: FastifyRequest, assetId: string) => {
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
+    return getGalleryAsset(request.user!.id, libIds, assetId, placeLanguage(request))
+      ?? getGalleryAssetUnscoped(request.user!.id, assetId, placeLanguage(request));
+  };
+
+  app.put("/api/library/gallery/faces/:faceId/person", { preHandler: app.authenticate }, async (request, reply) => {
+    const { faceId } = request.params as { faceId: string };
+    const face = getGalleryFaceRow(faceId);
+    if (!face || face.source !== "scan") {
+      return reply.code(404).send({ error: "Face not found" });
+    }
+    if (!requireAssetWrite(request, face.item_id)) {
+      return reply.code(403).send({ error: "Write access required to tag people in this item." });
+    }
+    const parsed = parseBody(faceAssignSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid tag", details: parsed.error });
+    }
+
+    const group = face.person_id && face.assignment !== "rejected" ? getGalleryPersonRow(face.person_id) : null;
+    const nameGroup = parsed.data.wholeGroup === true && group != null && group.name === "";
+    if (nameGroup && !canWriteAnyGallery(request.user!)) {
+      return reply.code(403).send({ error: "Write access to a gallery library is required." });
+    }
+
+    let personId = parsed.data.personId ?? null;
+    let createdName: string | null = null;
+    if (!personId && parsed.data.name) {
+      const existing = findGalleryPersonByName(parsed.data.name);
+      if (existing) {
+        personId = existing.id;
+      } else if (nameGroup) {
+        // The group itself becomes the new person: no empty person to create first.
+        renameGalleryPerson(group.id, parsed.data.name);
+        personId = group.id;
+        createdName = parsed.data.name;
+      } else {
+        const person = createGalleryPerson(parsed.data.name);
+        personId = person.id;
+        createdName = person.name;
+      }
+    }
+    if (!personId || !getGalleryPersonRow(personId)) {
+      return reply.code(404).send({ error: "Person not found" });
+    }
+    if (nameGroup && group.id !== personId) mergeGalleryPeople(group.id, personId);
+    assignGalleryFace(faceId, personId);
+
+    logActivity({
+      event: "library.gallery.person.tagged",
+      actorUserId: request.user!.id,
+      targetType: "library_item",
+      targetId: face.item_id,
+      detail: createdName
+        ? `Named a face as new person "${createdName}"${nameGroup ? " with its group" : ""}.`
+        : `Named a face${nameGroup ? " and its group" : ""}.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ asset: assetAfterFaceChange(request, face.item_id) });
+  });
+
+  // "Not this person" for one face — the face stays on the photo as nobody.
+  app.delete("/api/library/gallery/faces/:faceId/person", { preHandler: app.authenticate }, async (request, reply) => {
+    const { faceId } = request.params as { faceId: string };
+    const face = getGalleryFaceRow(faceId);
+    if (!face || face.source !== "scan") {
+      return reply.code(404).send({ error: "Face not found" });
+    }
+    if (!requireAssetWrite(request, face.item_id)) {
+      return reply.code(403).send({ error: "Write access required to tag people in this item." });
+    }
+    rejectGalleryFace(faceId);
+    return reply.send({ asset: assetAfterFaceChange(request, face.item_id) });
   });
 
   // Merge person :id into :intoId (move faces, delete the source). Used to fold two

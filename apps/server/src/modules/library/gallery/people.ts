@@ -289,6 +289,77 @@ export function reassignPersonPhotos(sourceId: string, targetId: string, itemIds
   return moved;
 }
 
+export function getGalleryFaceRow(faceId: string): Pick<GalleryFaceRow, "id" | "item_id" | "person_id" | "assignment" | "source"> | null {
+  const row = db.prepare("SELECT id, item_id, person_id, assignment, source FROM gallery_faces WHERE id = ?")
+    .get(faceId) as Pick<GalleryFaceRow, "id" | "item_id" | "person_id" | "assignment" | "source"> | undefined;
+  return row ?? null;
+}
+
+// Whether a person still shows in a photo through some other row than `faceId` —
+// a second detected face, or a whole-photo tag. Decides whether taking one face
+// away from them may also say "they are not in this photo at all".
+function personStillInPhoto(itemId: string, personId: string, faceId: string): boolean {
+  return Boolean(db.prepare(
+    "SELECT 1 FROM gallery_faces WHERE item_id = ? AND person_id = ? AND id != ? AND assignment != 'rejected'"
+  ).get(itemId, personId, faceId));
+}
+
+// Say who ONE detected face is. Unlike a photo-level move this touches just the
+// face picked on the photo, so a group shot keeps everyone else where they were.
+//
+// 'confirmed' pins the face: clustering leaves a confirmed face with its person
+// (cluster.ts), and a rescan carries it over to the re-detected box (scanner.ts).
+// Exclusions follow what was said: the new person is plainly in the photo, and
+// the old one is excluded only when this face was their last trace in it.
+// Returns false when the face or person is unknown.
+export function assignGalleryFace(faceId: string, personId: string): boolean {
+  const face = getGalleryFaceRow(faceId);
+  if (!face || face.source !== "scan") return false;
+  if (!getGalleryPersonRow(personId)) return false;
+  const previous = face.assignment !== "rejected" ? face.person_id : null;
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE gallery_faces SET person_id = ?, assignment = 'confirmed',
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+      WHERE id = ?
+    `).run(personId, faceId);
+    db.prepare("DELETE FROM gallery_face_exclusions WHERE item_id = ? AND person_id = ?").run(face.item_id, personId);
+    // A whole-photo tag for the same person is now said better by the face itself.
+    db.prepare(
+      "DELETE FROM gallery_faces WHERE item_id = ? AND person_id = ? AND box_x IS NULL AND source = 'manual'"
+    ).run(face.item_id, personId);
+    if (previous && previous !== personId && !personStillInPhoto(face.item_id, previous, faceId)) {
+      db.prepare("INSERT OR IGNORE INTO gallery_face_exclusions (item_id, person_id) VALUES (?, ?)").run(face.item_id, previous);
+    }
+    // Deliberate curation, as with a merge or a move: anchor the person so the
+    // next clustering pass keeps them.
+    db.prepare("UPDATE gallery_people SET curated = 1 WHERE id = ?").run(personId);
+    recomputeClusterCentroid(personId);
+    if (previous && previous !== personId) recomputeClusterCentroid(previous);
+  })();
+  return true;
+}
+
+// "This face is not them": the one face leaves its person and stays on the photo
+// as nobody, ready to be named. The person is excluded from the photo only when
+// nothing else of them is left in it, so a wrong box in a photo they really are
+// in doesn't take them out of it. Returns false when the face is unknown.
+export function rejectGalleryFace(faceId: string): boolean {
+  const face = getGalleryFaceRow(faceId);
+  if (!face || face.source !== "scan") return false;
+  const previous = face.assignment !== "rejected" ? face.person_id : null;
+  db.transaction(() => {
+    db.prepare(
+      "UPDATE gallery_faces SET assignment = 'rejected', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+    ).run(faceId);
+    if (previous && !personStillInPhoto(face.item_id, previous, faceId)) {
+      db.prepare("INSERT OR IGNORE INTO gallery_face_exclusions (item_id, person_id) VALUES (?, ?)").run(face.item_id, previous);
+    }
+    if (previous) recomputeClusterCentroid(previous);
+  })();
+  return true;
+}
+
 // Tag one photo with a person (manual, whole-photo). Idempotent: re-tagging the same
 // person on the same photo is a no-op. Returns false if the person doesn't exist.
 export function tagAssetPerson(itemId: string, personId: string): boolean {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, ScanFace, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -11,8 +11,9 @@ import { AddToAlbumModal } from "./AddToAlbumModal";
 import { SendToSheet } from "../social/SendToSheet";
 import { GalleryReplaceModal } from "./GalleryReplaceModal";
 import { GalleryLightboxPanel } from "./GalleryLightboxPanel";
+import { GalleryFaceOverlay } from "./GalleryFaceOverlay";
 import { useIsMobile } from "../../shared/useIsMobile";
-import type { GalleryAsset, SlideshowTransition } from "./types";
+import type { GalleryAsset, GalleryFace, SlideshowTransition } from "./types";
 import { formatTakenDate } from "./taken-date";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 import { Button } from "../../shared/Button";
@@ -42,6 +43,12 @@ function seededTransition(seed: number, id: string): SlideshowTransition {
 // Remembered for the browsing session (module scope survives navigation, resets on
 // reload) so the speed choice sticks across slideshows without persisting to disk.
 let sessionSlideshowInterval = 5;
+
+// "Show faces" is a way of looking at photos, so it is remembered per browser.
+const SHOW_FACES_KEY = "isputnik.gallery.showFaces";
+function readShowFaces(): boolean {
+  try { return localStorage.getItem(SHOW_FACES_KEY) === "1"; } catch { return false; }
+}
 
 // What just happened to the photo on screen. The viewer does not know what its
 // host has loaded, so it says what changed and lets the host decide how much to
@@ -203,6 +210,36 @@ export function GalleryLightbox({
 
   // Moving to another asset closes the overflow menu.
   useEffect(() => { setMoreMenuOpen(false); }, [asset?.id]);
+
+  // Faces over the photo (GalleryFaceOverlay): all of them while "Show faces" is
+  // on, or one person's while their chip in the panel is hovered. The boxes ride
+  // the asset detail, fetched whenever either could show them; a rotation turns
+  // the boxes on the server, so it refetches too.
+  const [showFaces, setShowFaces] = useState(readShowFaces);
+  const toggleFaces = useCallback(() => {
+    setShowFaces((on) => {
+      try { localStorage.setItem(SHOW_FACES_KEY, on ? "0" : "1"); } catch { /* not remembered */ }
+      return !on;
+    });
+  }, []);
+  const [highlightPersonId, setHighlightPersonId] = useState<string | null>(null);
+  const [faceState, setFaceState] = useState<{ id: string; faces: GalleryFace[] } | null>(null);
+  const [facesVersion, setFacesVersion] = useState(0);
+  // Bumped when a face is named on the photo, so the panel rereads who is in it.
+  const [peopleVersion, setPeopleVersion] = useState(0);
+  const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
+  const wantFaces = asset?.kind === "photo" && (showFaces || showInfo);
+  const assetRotation = asset?.rotation;
+  useEffect(() => {
+    if (!wantFaces || !viewedAssetId) return;
+    let alive = true;
+    api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${viewedAssetId}`)
+      .then((res) => { if (alive) setFaceState({ id: viewedAssetId, faces: res.asset.faces ?? [] }); })
+      .catch(() => { /* no boxes, the photo still shows */ });
+    return () => { alive = false; };
+  }, [wantFaces, viewedAssetId, assetRotation, facesVersion]);
+  useEffect(() => { setHighlightPersonId(null); }, [viewedAssetId]);
+  const faces = faceState && faceState.id === asset?.id ? faceState.faces : asset?.faces ?? [];
 
 
   const hasPrev = index > 0;
@@ -460,6 +497,15 @@ export function GalleryLightbox({
       download: true
     },
     { key: "send", icon: Send as LucideIcon, label: t("gallery:common.sendTo"), onClick: () => setSendToOpen(true) },
+    ...(asset.kind === "photo"
+      ? [{
+          key: "faces",
+          icon: ScanFace as LucideIcon,
+          label: showFaces ? t("gallery:faces.hide") : t("gallery:faces.show"),
+          onClick: toggleFaces,
+          active: showFaces
+        }]
+      : []),
     {
       key: "details",
       icon: Info,
@@ -768,15 +814,34 @@ export function GalleryLightbox({
             />
           </div>
         ) : (
-          <img
-            key={asset.id}
-            className="gallery-lightbox-media"
-            data-transition={activeTransition}
-            data-playing={playing ? "true" : undefined}
-            style={{ ["--lb-dwell" as string]: `${intervalSec}s`, ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
-            src={asset.previewUrl ?? asset.fileUrl}
-            alt={asset.title}
-          />
+          <>
+            <img
+              key={asset.id}
+              ref={setImageEl}
+              className="gallery-lightbox-media"
+              data-transition={activeTransition}
+              data-playing={playing ? "true" : undefined}
+              style={{ ["--lb-dwell" as string]: `${intervalSec}s`, ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
+              src={asset.previewUrl ?? asset.fileUrl}
+              alt={asset.title}
+            />
+            {/* Not during a slideshow: boxes would drift under Ken Burns and
+                chatter across every slide. */}
+            {!playing && (
+              <GalleryFaceOverlay
+                image={imageEl}
+                faces={faces}
+                showAll={showFaces}
+                highlightPersonId={highlightPersonId}
+                canEdit={canEdit}
+                onChanged={(updated) => {
+                  setFaceState({ id: updated.id, faces: updated.faces ?? [] });
+                  setPeopleVersion((v) => v + 1);
+                  onChanged({ kind: "asset", id: updated.id });
+                }}
+              />
+            )}
+          </>
         )}
         {hasNext && (
           <Button variant="bare" className="gallery-lightbox-nav next" onClick={() => onIndexChange(index + 1)} aria-label={t("gallery:lightbox.nextAria")}>
@@ -795,6 +860,12 @@ export function GalleryLightbox({
           onRotate={canEdit && asset.kind !== "audio" ? (direction) => void rotate(direction) : undefined}
           rotateBusy={rotateBusy}
           onReplace={canEdit && asset.kind !== "audio" ? () => setReplaceOpen(true) : undefined}
+          faces={asset.kind === "photo" ? faces : []}
+          showFaces={showFaces}
+          onToggleFaces={toggleFaces}
+          onHighlightPerson={setHighlightPersonId}
+          onPeopleChanged={() => setFacesVersion((v) => v + 1)}
+          peopleVersion={peopleVersion}
         />
       )}
 

@@ -57,9 +57,25 @@ export interface GalleryAsset {
   faceFocus: { x: number; y: number } | null;
   // Present only on the single-asset detail (lightbox), not on list/timeline rows.
   people?: GalleryPersonTag[];
+  // Where recognition found faces, for the lightbox to draw. Detail only.
+  faces?: GalleryFace[];
   // Voice notes recorded on the photo (docs/photo-review-plan.md, phase 4).
   // Detail only, like people.
   voiceNotes?: VoiceNote[];
+}
+
+/** One detected face on a photo. */
+export interface GalleryFace {
+  id: string;
+  /** Fractions of the photo as shown (orientation and rotation applied): top-left corner plus size. */
+  box: { x: number; y: number; w: number; h: number };
+  /** null: nobody — never grouped, or someone said it isn't who it was grouped as. */
+  personId: string | null;
+  /** "" for a group nobody has named yet. */
+  personName: string | null;
+  /** Someone said who this is, rather than recognition guessing. */
+  confirmed: boolean;
+  thumbUrl: string | null;
 }
 
 /** A recording kept on a photo. `url` streams through the photo's own route. */

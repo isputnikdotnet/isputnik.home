@@ -61,6 +61,42 @@ interface PhotoRow {
   relative_path: string;
 }
 
+// How much two boxes overlap (intersection over union), 0..1.
+function boxOverlap(a: [number, number, number, number], b: [number, number, number, number]): number {
+  const w = Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]);
+  const h = Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]);
+  if (w <= 0 || h <= 0) return 0;
+  const inter = w * h;
+  return inter / (a[2] * a[3] + b[2] * b[3] - inter);
+}
+
+// Match the faces people named before a rescan to the boxes it found now. The same
+// detector over the same file lands within a few pixels, so a clear overlap is the
+// same face; each named face goes to at most one new box, best overlap first.
+// Returns the person for each new box, or null.
+export function carryConfirmedFaces(
+  named: { person_id: string; box_x: number; box_y: number; box_w: number; box_h: number }[],
+  boxes: [number, number, number, number][]
+): (string | null)[] {
+  const result: (string | null)[] = boxes.map(() => null);
+  const pairs: { overlap: number; from: number; to: number }[] = [];
+  named.forEach((face, from) => {
+    const old: [number, number, number, number] = [face.box_x, face.box_y, face.box_w, face.box_h];
+    boxes.forEach((box, to) => {
+      const overlap = boxOverlap(old, box);
+      if (overlap >= 0.5) pairs.push({ overlap, from, to });
+    });
+  });
+  pairs.sort((a, b) => b.overlap - a.overlap);
+  const used = new Set<number>();
+  for (const pair of pairs) {
+    if (used.has(pair.from) || result[pair.to] !== null) continue;
+    used.add(pair.from);
+    result[pair.to] = named[pair.from].person_id;
+  }
+  return result;
+}
+
 async function scanLibraryFaces(
   libraryId: string,
   force: boolean,
@@ -95,8 +131,8 @@ async function scanLibraryFaces(
 
   const insertFace = db.prepare(`
     INSERT INTO gallery_faces
-      (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, thumb_storage_key, assignment, source)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'auto', 'scan')
+      (id, item_id, person_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, thumb_storage_key, assignment, source)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scan')
   `);
   const markScanned = db.prepare(`
     INSERT INTO gallery_face_scans (item_id, scanned_at, model, face_count, status, attempts)
@@ -152,6 +188,13 @@ async function scanLibraryFaces(
     // The rescan replaces this item's auto faces with fresh rows (fresh ids, fresh crop
     // files), so the outgoing rows' crop files must go too — collect their keys first,
     // delete the files only after the swap commits.
+    // A face someone named survives the rescan: the fresh box that covers the same
+    // spot inherits the name (and stays confirmed), so a forced rescan doesn't
+    // quietly undo what people said on the photo.
+    const namedBefore = db.prepare(
+      "SELECT person_id, box_x, box_y, box_w, box_h FROM gallery_faces WHERE item_id = ? AND source = 'scan' AND assignment = 'confirmed' AND person_id IS NOT NULL AND box_x IS NOT NULL"
+    ).all(photo.id) as { person_id: string; box_x: number; box_y: number; box_w: number; box_h: number }[];
+    const carried = carryConfirmedFaces(namedBefore, prepared.map((p) => p.face.box));
     const staleCropKeys = (db.prepare(
       "SELECT thumb_storage_key AS k FROM gallery_faces WHERE item_id = ? AND source = 'scan' AND thumb_storage_key IS NOT NULL"
     ).all(photo.id) as { k: NonNullable<GalleryFaceRow["thumb_storage_key"]> }[]).map((r) => r.k);
@@ -159,12 +202,14 @@ async function scanLibraryFaces(
       // Replace this item's auto-detected faces (idempotent rescan); manual whole-photo
       // tags (source 'manual') are left untouched. Tiny faces are dropped above.
       const removed = db.prepare("DELETE FROM gallery_faces WHERE item_id = ? AND source = 'scan'").run(photo.id).changes;
-      for (const { faceId, face, thumbKey } of prepared) {
+      prepared.forEach(({ faceId, face, thumbKey }, index) => {
+        const personId = carried[index];
         insertFace.run(
-          faceId, photo.id, face.box[0], face.box[1], face.box[2], face.box[3],
-          face.score, embeddingToBlob(face.embedding), FACE_EMBEDDING_MODEL, thumbKey
+          faceId, photo.id, personId, face.box[0], face.box[1], face.box[2], face.box[3],
+          face.score, embeddingToBlob(face.embedding), FACE_EMBEDDING_MODEL, thumbKey,
+          personId ? "confirmed" : "auto"
         );
-      }
+      });
       markScanned.run(photo.id, FACE_EMBEDDING_MODEL, prepared.length);
       if (removed > 0 || prepared.length > 0) mutated = true;
     })();

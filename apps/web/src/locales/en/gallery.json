@@ -107,6 +107,20 @@
     "chipFrom": "From {{date}}",
     "chipTo": "To {{date}}"
   },
+  "faces": {
+    "show": "Show faces",
+    "hide": "Hide faces",
+    "notNamed": "Not named yet",
+    "nameFaceAria": "Name this face ({{name}})",
+    "whoIsThis": "Who is this?",
+    "wholeGroup": "Also name the other photos recognised as this face",
+    "notPerson": "Not {{name}}",
+    "notThisPerson": "Not this person",
+    "saveError": "Unable to name this face",
+    "rejectError": "Unable to change this face",
+    "unnamedCount_one": "{{count}} face not named yet",
+    "unnamedCount_other": "{{count}} faces not named yet"
+  },
   "lightbox": {
     "fieldDescription": "description",
     "fieldDate": "date",

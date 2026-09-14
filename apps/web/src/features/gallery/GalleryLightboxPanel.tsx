@@ -8,7 +8,7 @@ import { NotesSection } from "../social/NotesSection";
 import { StoryMarkdown } from "../stories/StoryMarkdown";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { VoiceNotes } from "./VoiceNotes";
-import type { GalleryAsset, GalleryPerson, GalleryPersonTag, PlaceLabel, TakenPrecision, VoiceNote } from "./types";
+import type { GalleryAsset, GalleryFace, GalleryPerson, GalleryPersonTag, PlaceLabel, TakenPrecision, VoiceNote } from "./types";
 import type { GalleryAssetChange } from "./GalleryLightbox";
 import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
 import { PLACE_NAMES_CREDIT_URL, formatPlaceLabel } from "./place-label";
@@ -52,7 +52,13 @@ export function GalleryLightboxPanel({
   onClose,
   onRotate,
   rotateBusy,
-  onReplace
+  onReplace,
+  faces = [],
+  showFaces = false,
+  onToggleFaces,
+  onHighlightPerson,
+  onPeopleChanged,
+  peopleVersion = 0
 }: {
   asset: GalleryAsset;
   canEdit: boolean;
@@ -66,6 +72,16 @@ export function GalleryLightboxPanel({
   onRotate?: (direction: "cw" | "ccw") => void;
   rotateBusy?: boolean;
   onReplace?: () => void;
+  // The faces the lightbox draws over the photo. A chip lends its person's face
+  // from THIS photo, and hovering it lights that face up on the stage.
+  faces?: GalleryFace[];
+  showFaces?: boolean;
+  onToggleFaces?: () => void;
+  onHighlightPerson?: (personId: string | null) => void;
+  // A person was tagged or removed here, so the boxes' names are stale.
+  onPeopleChanged?: () => void;
+  // Bumped by the lightbox when a face was named on the photo itself.
+  peopleVersion?: number;
 }) {
   const { t } = useTranslation(["common", "gallery"]);
   // The tab survives moving to the next photo: browsing a trip on the Map tab
@@ -113,7 +129,7 @@ export function GalleryLightboxPanel({
     setPersonError("");
     setVoiceNotes(asset.voiceNotes ?? null);
     setPlaceLabel(asset.placeLabel ?? null);
-    if (asset.people && asset.voiceNotes && asset.placeLabel !== undefined) { setPeople(asset.people); return; }
+    if (peopleVersion === 0 && asset.people && asset.voiceNotes && asset.placeLabel !== undefined) { setPeople(asset.people); return; }
     let alive = true;
     api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${asset.id}`)
       .then((p) => {
@@ -124,7 +140,7 @@ export function GalleryLightboxPanel({
       })
       .catch(() => { /* keep whatever we have */ });
     return () => { alive = false; };
-  }, [asset.id, asset.people, asset]);
+  }, [asset.id, asset.people, asset, peopleVersion]);
 
   // Suggestions for the add-box: the existing people, refreshed after each change so a
   // freshly-created person becomes selectable.
@@ -236,6 +252,7 @@ export function GalleryLightboxPanel({
       setPeople(res.asset.people ?? []);
       setPersonName("");
       setAddingPerson(false);
+      onPeopleChanged?.();
       onChanged({ kind: "asset", id: asset.id });
     } catch (err) {
       setPersonError(err instanceof Error ? err.message : t("gallery:lightbox.errors.tagPerson"));
@@ -251,14 +268,20 @@ export function GalleryLightboxPanel({
         { method: "DELETE" }
       );
       setPeople(res.asset.people ?? []);
+      onHighlightPerson?.(null);
+      onPeopleChanged?.();
       onChanged({ kind: "asset", id: asset.id });
     } catch { /* leave the chip; the user can retry */ }
   };
 
-  // Face crops for the people chips come from the People list when it is loaded
-  // (it is, whenever the viewer can edit); otherwise the chip shows an initial.
+  // A chip's face: the person as they look in THIS photo when recognition found
+  // them here, else their People avatar (loaded whenever the viewer can edit),
+  // else an initial.
   const faceFor = (person: GalleryPersonTag): string | null =>
-    allPeople.find((p) => p.id === person.id)?.coverUrl ?? null;
+    faces.find((face) => face.personId === person.id && face.thumbUrl)?.thumbUrl
+    ?? allPeople.find((p) => p.id === person.id)?.coverUrl ?? null;
+  const hasBox = (person: GalleryPersonTag) => faces.some((face) => face.personId === person.id);
+  const unnamedFaces = faces.filter((face) => !face.personName).length;
 
   // The small "Edit" beside a section's heading, hidden while that field is open.
   const editLink = (field: EditableField, label: string) =>
@@ -421,13 +444,28 @@ export function GalleryLightboxPanel({
 
           {(people.length > 0 || canEdit) && (
             <section className="lb-sec">
-              <div className="lb-sec-h"><Users size={18} aria-hidden="true" /><h3>{t("gallery:lightbox.labelPeople")}</h3></div>
+              <div className="lb-sec-h">
+                <Users size={18} aria-hidden="true" />
+                <h3>{t("gallery:lightbox.labelPeople")}</h3>
+                <span className="lb-grow" />
+                {faces.length > 0 && onToggleFaces && (
+                  <Button variant="bare" className="lb-linkbtn" onClick={onToggleFaces} aria-pressed={showFaces}>
+                    {showFaces ? t("gallery:faces.hide") : t("gallery:faces.show")}
+                  </Button>
+                )}
+              </div>
               <div className="lb-chips">
                 {people.map((person) => {
                   const face = faceFor(person);
                   const name = person.name || t("gallery:common.unnamed");
+                  const boxed = hasBox(person);
                   return (
-                    <span key={person.id} className={`lb-chip${person.name ? "" : " is-unnamed"}`}>
+                    <span
+                      key={person.id}
+                      className={`lb-chip${person.name ? "" : " is-unnamed"}${boxed ? " has-face" : ""}`}
+                      onMouseEnter={boxed ? () => onHighlightPerson?.(person.id) : undefined}
+                      onMouseLeave={boxed ? () => onHighlightPerson?.(null) : undefined}
+                    >
                       <span className="lb-chip-face" aria-hidden="true">
                         {face ? <img src={face} alt="" /> : initial(person.name)}
                       </span>
@@ -479,6 +517,11 @@ export function GalleryLightboxPanel({
                 </form>
               )}
               {personError && <span className="gallery-person-error">{personError}</span>}
+              {canEdit && unnamedFaces > 0 && !showFaces && onToggleFaces && (
+                <Button variant="bare" className="lb-linkbtn lb-faces-hint" onClick={onToggleFaces}>
+                  {t("gallery:faces.unnamedCount", { count: unnamedFaces })}
+                </Button>
+              )}
             </section>
           )}
 
