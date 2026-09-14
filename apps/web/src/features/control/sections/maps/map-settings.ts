@@ -39,6 +39,13 @@ export interface PlacesView {
   /** When GeoNames last changed the data it was built from. */
   sourceDate: string | null;
   places: number;
+  /** Search-only villages, and the countries the current database has them for. */
+  villages?: number;
+  villageCountries?: string[];
+  /** The countries asked for — differs from villageCountries until the next build. */
+  villageCountriesWanted?: string[];
+  /** Every country the database has places in: what "every village in" offers. */
+  countries?: string[];
   build: {
     running: boolean;
     jobId: string | null;
@@ -58,6 +65,21 @@ export interface RoutingDto {
 
 export function loadMapSettings(): Promise<MapSettingsDto> {
   return api<MapSettingsDto>("/api/map/settings");
+}
+
+/** Save the "every village in" countries; the server rebuilds the database when
+ *  there is one. */
+export function saveVillageCountries(countries: string[]): Promise<{ places: PlacesView }> {
+  return api<{ places: PlacesView }>("/api/map/places/villages", { method: "PUT", body: JSON.stringify({ countries }) });
+}
+
+/** A country's name in the reader's language, from its two-letter code. */
+export function countryLabel(code: string, language: string): string {
+  try {
+    return new Intl.DisplayNames([language], { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
 }
 
 /** Queue a build of the place names database (a task; it runs for minutes). */

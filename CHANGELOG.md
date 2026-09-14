@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.0 — Every village of the old country
+
+- **The place list can hold every village of a country.** It only had towns of 500 or more people, so the villages a family came from were often not there: all of Belarus had just 315 places, and a search for Veselovka found nothing. Under **Control panel → Maps → Photo place names**, **Every village in…** now takes the countries you choose; **Save and rebuild** builds the list again with every village GeoNames knows in them. A village shows with its district ("Veselovka, Polatsk District, Vitebsk, Belarus"), so villages of one name read apart, and typing the district after a comma narrows to it.
+- **Villages are only for finding a place, not for naming photos.** They are kept apart from the towns, and only the family tree's place search reads them. A photo taken at the edge of a village is still named after the town, as before.
+- **Place suggestions are real places only.** A place box in the family tree used to also suggest words people had typed before, which looked like places but could not be put on the map. Now it offers towns and villages from the place list, and tree places that were picked from it. Anything can still be typed; when nothing matches, the box says so and keeps the words as written, and when there is no place list at all, it says where an admin switches one on.
+
 ## 4.12.0 — A person's family, drawn as a tree
 
 - **The Relationships tab is a small family tree.** A profile listed relatives in rows of small pills, so it was hard to see which grandparents were whose side, which parent a child came through, or which partner the children belonged to. Now each parent sits under a panel of their own parents ("via Anna Rybina"), the two parents are joined by a line that comes down to this person, siblings are bracketed on one side and partners on the other, and the children hang off a rail below. Every group has its label, and the person whose page it is stands out in the middle with a **This person** badge.

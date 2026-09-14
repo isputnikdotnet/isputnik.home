@@ -44,9 +44,14 @@ export interface PlacesStatus {
   /** When GeoNames last changed the files this was built from. */
   sourceDate: string | null;
   places: number;
+  /** Search-only villages, and the countries they were added for. */
+  villages: number;
+  villageCountries: string[];
+  /** Every country the database has places in — what "every village in" offers. */
+  countries: string[];
 }
 
-const ABSENT: PlacesStatus = { present: false, sizeBytes: 0, builtAt: null, sourceDate: null, places: 0 };
+const ABSENT: PlacesStatus = { present: false, sizeBytes: 0, builtAt: null, sourceDate: null, places: 0, villages: 0, villageCountries: [], countries: [] };
 
 let open: { file: string; mtimeMs: number; db: Database.Database } | null = null;
 
@@ -104,7 +109,10 @@ export function placesStatus(): PlacesStatus {
     sizeBytes,
     builtAt: meta.get("built_at") ?? null,
     sourceDate: meta.get("source_date") ?? null,
-    places: Number(meta.get("places") ?? 0)
+    places: Number(meta.get("places") ?? 0),
+    villages: Number(meta.get("villages") ?? 0),
+    villageCountries: (meta.get("village_countries") ?? "").split(",").filter(Boolean),
+    countries: (db.prepare("SELECT DISTINCT country FROM places ORDER BY country").all() as { country: string }[]).map((row) => row.country)
   };
 }
 

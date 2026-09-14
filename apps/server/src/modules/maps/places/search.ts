@@ -6,9 +6,11 @@
 // types needs to leave the house to find a town the server already knows.
 //
 // What it can find is what the database holds — populated places of 500+ people,
-// in their own spelling and in English and Russian — so a street or a village
-// smaller than that is not here; the page offers the online lookup for those, as
-// a button, one request per press.
+// in their own spelling and in English and Russian — plus, for the countries an
+// admin asked for "every village in", every village of theirs, however small.
+// Villages come after towns (a town called exactly that still leads) and carry
+// their district, so three Veselovkas in one region read apart. A street is never
+// here; Review mode offers the online lookup for those, as a button.
 //
 // The database is read-only and has no index on names: a prefix scan of both name
 // columns measured ~20 ms on the full data, which a debounced search affords.
@@ -22,7 +24,7 @@ export interface PlaceSuggestion {
   lng: number;
 }
 
-const MAX_RESULTS = 6;
+const MAX_RESULTS = 8;
 /** Rows read per name column before the qualifiers ("…, Belarus") filter them. */
 const CANDIDATES = 60;
 
@@ -58,7 +60,14 @@ function countryNames(code: string): string[] {
 }
 
 /** Prepared once per connection; a rebuilt database is a new connection. */
-const statements = new WeakMap<Database.Database, { own: Database.Statement; translated: Database.Statement }>();
+interface Statements {
+  own: Database.Statement;
+  translated: Database.Statement;
+  /** Absent on a database built before villages existed. */
+  villages: Database.Statement | null;
+  translatedVillages: Database.Statement | null;
+}
+const statements = new WeakMap<Database.Database, Statements>();
 
 function statementsFor(db: Database.Database) {
   let prepared = statements.get(db);
@@ -73,8 +82,22 @@ function statementsFor(db: Database.Database) {
         SELECT p.id, n.name, p.lat, p.lng, p.country, p.population FROM names n JOIN places p ON p.id = n.id
         WHERE (n.name LIKE ? ESCAPE '\\' OR n.name LIKE ? ESCAPE '\\') AND p.fcode NOT IN ${NEVER_SQL}
         ORDER BY p.population DESC LIMIT ${CANDIDATES}
-      `)
+      `),
+      villages: null,
+      translatedVillages: null
     };
+    if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'villages'").get()) {
+      prepared.villages = db.prepare(`
+        SELECT id, name, lat, lng, country, population FROM villages
+        WHERE (name LIKE ? ESCAPE '\\' OR name LIKE ? ESCAPE '\\')
+        ORDER BY population DESC LIMIT ${CANDIDATES}
+      `);
+      prepared.translatedVillages = db.prepare(`
+        SELECT v.id, n.name, v.lat, v.lng, v.country, v.population FROM names n JOIN villages v ON v.id = n.id
+        WHERE (n.name LIKE ? ESCAPE '\\' OR n.name LIKE ? ESCAPE '\\')
+        ORDER BY v.population DESC LIMIT ${CANDIDATES}
+      `);
+    }
     statements.set(db, prepared);
   }
   return prepared;
@@ -101,16 +124,20 @@ export function suggestPlaces(query: string, language: string): PlaceSuggestion[
   const qualifiers = rest.map(fold);
 
   const [asTyped, capitalised] = spellings(head);
-  const { own: ownNames, translated: translatedNames } = statementsFor(db);
-  const own = ownNames.all(asTyped, capitalised) as Row[];
-  const translated = translatedNames.all(asTyped, capitalised) as Row[];
+  const prepared = statementsFor(db);
+  const own = prepared.own.all(asTyped, capitalised) as Row[];
+  const translated = prepared.translated.all(asTyped, capitalised) as Row[];
+  const villageRows = [
+    ...((prepared.villages?.all(asTyped, capitalised) ?? []) as Row[]),
+    ...((prepared.translatedVillages?.all(asTyped, capitalised) ?? []) as Row[])
+  ];
 
   const wanted = fold(head);
-  const byId = new Map<number, Row & { exact: boolean }>();
-  for (const row of [...own, ...translated]) {
+  const byId = new Map<number, Row & { exact: boolean; village: boolean }>();
+  for (const [row, village] of [...own.map((r) => [r, false] as const), ...translated.map((r) => [r, false] as const), ...villageRows.map((r) => [r, true] as const)]) {
     const exact = fold(row.name) === wanted;
     const seen = byId.get(row.id);
-    if (!seen || (exact && !seen.exact)) byId.set(row.id, { ...row, exact });
+    if (!seen || (exact && !seen.exact)) byId.set(row.id, { ...row, exact, village });
   }
 
   // GeoNames files Paris's arrondissements as towns ("Paris 16 Passy"); with Paris
@@ -121,7 +148,7 @@ export function suggestPlaces(query: string, language: string): PlaceSuggestion[
     whole.id !== row.id && whole.country === row.country && whole.population > row.population
     && row.name.startsWith(`${whole.name} `) && /^[0-9]/.test(row.name.slice(whole.name.length + 1)));
 
-  const results: (PlaceSuggestion & { exact: boolean; population: number })[] = [];
+  const results: (PlaceSuggestion & { exact: boolean; population: number; village: boolean })[] = [];
   for (const row of rows) {
     if (isPartOfListed(row)) continue;
     const described = namer.describe(row.id, language);
@@ -131,16 +158,19 @@ export function suggestPlaces(query: string, language: string): PlaceSuggestion[
       const haystack = [
         ...countryNames(row.country),
         fold(described.region ?? ""),
-        fold(english?.region ?? "")
+        fold(english?.region ?? ""),
+        fold(described.district ?? ""),
+        fold(english?.district ?? "")
       ].filter(Boolean);
       const matches = qualifiers.every((qualifier) => haystack.some((name) => name.startsWith(qualifier) || name.includes(qualifier)));
       if (!matches) continue;
     }
-    const label = [described.place, described.region, described.country].filter(Boolean).join(", ");
-    results.push({ label, lat: row.lat, lng: row.lng, exact: row.exact, population: row.population });
+    const label = [described.place, described.district, described.region, described.country].filter(Boolean).join(", ");
+    results.push({ label, lat: row.lat, lng: row.lng, exact: row.exact, population: row.population, village: row.village });
   }
 
-  // A town called exactly what she typed first, then the bigger places.
-  results.sort((a, b) => Number(b.exact) - Number(a.exact) || b.population - a.population);
+  // A place called exactly what she typed first — a town before a village of the
+  // same name — then the bigger places.
+  results.sort((a, b) => Number(b.exact) - Number(a.exact) || Number(a.village) - Number(b.village) || b.population - a.population);
   return results.slice(0, MAX_RESULTS).map(({ label, lat, lng }) => ({ label, lat, lng }));
 }

@@ -1,23 +1,26 @@
 import { api } from "../../api";
-import type { PlaceOption, PlacePin } from "../../shared/PlaceField";
+import type { PlaceLoadResult, PlacePin } from "../../shared/PlaceField";
 
 // Suggestions for every place field in the family tree — birth, death, marriage,
-// life events. The tree's own places come first, spelled as they were written
-// before (with their pin when one was picked), then towns from the server's
-// offline places database. One loader, so every field offers the same list.
+// life events. Only real places: the tree's own places that were picked from
+// the places database before (spelled as they were, with their pin), then towns
+// from that database. Words typed by hand are not suggested back. One loader,
+// so every field offers the same list.
 
 interface FamilyPlacesPayload {
+  available: boolean;
   known: { label: string; pin: PlacePin | null }[];
   towns: { label: string; lat: number; lng: number }[];
 }
 
-export async function loadFamilyPlaces(query: string): Promise<PlaceOption[]> {
+export async function loadFamilyPlaces(query: string): Promise<PlaceLoadResult> {
   const payload = await api<FamilyPlacesPayload>(
     `/api/family-tree/places${query ? `?q=${encodeURIComponent(query)}` : ""}`
   );
   const seen = new Set<string>();
-  const options: PlaceOption[] = [];
+  const options: PlaceLoadResult["options"] = [];
   for (const place of payload.known) {
+    if (!place.pin) continue;
     seen.add(place.label.toLocaleLowerCase());
     options.push({ label: place.label, pin: place.pin, kind: "known" });
   }
@@ -25,5 +28,5 @@ export async function loadFamilyPlaces(query: string): Promise<PlaceOption[]> {
     if (seen.has(town.label.toLocaleLowerCase())) continue;
     options.push({ label: town.label, pin: { lat: town.lat, lng: town.lng }, kind: "town" });
   }
-  return options;
+  return { options, available: payload.available };
 }

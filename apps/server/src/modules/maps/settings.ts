@@ -24,9 +24,22 @@ export interface MapSettings {
   cache: boolean;
   /** How much of them may be kept before the oldest go (sweep.ts). */
   cacheLimitMb: CacheLimitMb;
+  /** Countries whose every village is added to the places database for place
+   *  search (ISO 3166-1 alpha-2). Takes effect on the next build. */
+  villageCountries: string[];
 }
 
-const DEFAULTS: MapSettings = { cache: false, cacheLimitMb: 200 };
+const DEFAULTS: MapSettings = { cache: false, cacheLimitMb: 200, villageCountries: [] };
+
+/** At most this many "every village in" countries: each is its own download. */
+export const MAX_VILLAGE_COUNTRIES = 20;
+
+export function normaliseCountries(codes: unknown): string[] {
+  if (!Array.isArray(codes)) return [];
+  return [...new Set(codes.filter((code): code is string => typeof code === "string" && /^[A-Za-z]{2}$/.test(code)).map((code) => code.toUpperCase()))]
+    .sort()
+    .slice(0, MAX_VILLAGE_COUNTRIES);
+}
 
 export function isCacheLimit(value: unknown): value is CacheLimitMb {
   return (CACHE_LIMITS_MB as readonly unknown[]).includes(value);
@@ -41,7 +54,8 @@ export function getMapSettings(): MapSettings {
     const parsed = JSON.parse(row.value) as Partial<MapSettings>;
     return {
       cache: parsed.cache === true,
-      cacheLimitMb: isCacheLimit(parsed.cacheLimitMb) ? parsed.cacheLimitMb : DEFAULTS.cacheLimitMb
+      cacheLimitMb: isCacheLimit(parsed.cacheLimitMb) ? parsed.cacheLimitMb : DEFAULTS.cacheLimitMb,
+      villageCountries: normaliseCountries(parsed.villageCountries)
     };
   } catch {
     return { ...DEFAULTS };

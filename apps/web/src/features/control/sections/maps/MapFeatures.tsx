@@ -13,13 +13,16 @@ import { SelectField } from "../../../../shared/SelectField";
 import { forgetMapConfig } from "../../../../shared/map/map-style";
 import { formatBytes, formatManagedDate } from "../../../../shared/utils";
 import { MapFeatureCard, MapFeaturePart } from "./MapFeatureCard";
+import { VillageCountries } from "./VillageCountries";
 import {
   CACHE_LIMITS_MB,
   cityDatabase,
   countryDatabase,
   limitLabel,
   loadMapSettings,
+  countryLabel,
   placesProgressText,
+  saveVillageCountries,
   startPlacesBuild,
   useFollowPlacesBuild,
   type CacheLimitMb,
@@ -48,6 +51,7 @@ type Pending =
   | { kind: "offlineOff" }
   | { kind: "placesOn" }
   | { kind: "placesOff" }
+  | { kind: "villages"; countries: string[] }
   | { kind: "signInsOn" }
   | { kind: "signInsOff" }
   | { kind: "townsRemove"; name: string }
@@ -63,7 +67,7 @@ function SourceLink({ href, children }: { href: string; children: string }) {
 }
 
 export function MapFeatures() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
+  const { t, i18n } = useTranslation(["common", "controlAdmin"]);
   const [status, setStatus] = useState<MapSettingsDto | null>(null);
   const [routing, setRouting] = useState<RoutingDto["routing"] | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -135,6 +139,9 @@ export function MapFeatures() {
           const result = await api<{ freedBytes: number }>("/api/map/places", { method: "DELETE" });
           return result.freedBytes;
         }, saveFailed);
+        break;
+      case "villages":
+        ok = await act("places", async () => { await saveVillageCountries(pending.countries); }, saveFailed);
         break;
       case "signInsOn":
         ok = await act("countries", async () => { await api("/api/dashboard/locations/database", { method: "POST" }); }, saveFailed);
@@ -345,6 +352,13 @@ export function MapFeatures() {
             )}
           </div>
         )}
+        {places.present && (
+          <VillageCountries
+            places={places}
+            disabled={busy !== null || places.build.running}
+            onSave={(countries) => { setActionError(""); setPending({ kind: "villages", countries }); }}
+          />
+        )}
       </MapFeatureCard>
 
       <MapFeatureCard
@@ -547,6 +561,7 @@ export function MapFeatures() {
       case "offlineOff": return title ? t("controlAdmin:mapFeatures.offlineOffTitle") : t("controlAdmin:mapFeatures.offlineOffLabel");
       case "placesOn": return title ? t("controlAdmin:mapFeatures.placesOnTitle") : t("controlAdmin:mapFeatures.placesOnLabel");
       case "placesOff": return title ? t("controlAdmin:mapFeatures.placesOffTitle") : t("controlAdmin:mapFeatures.placesOffLabel");
+      case "villages": return title ? t("controlAdmin:mapFeatures.villagesConfirmTitle") : t("controlAdmin:mapFeatures.villagesConfirmLabel");
       case "signInsOn": return title ? t("controlAdmin:mapFeatures.signInsOnTitle") : t("controlAdmin:mapFeatures.signInsOnLabel");
       case "signInsOff": return title ? t("controlAdmin:mapFeatures.signInsOffTitle") : t("controlAdmin:mapFeatures.signInsOffLabel");
       case "townsRemove": return title ? t("controlAdmin:mapFeatures.townsRemoveTitle", { name: which.name }) : t("controlAdmin:mapFeatures.townsRemoveLabel");
@@ -562,6 +577,9 @@ export function MapFeatures() {
         : t("controlAdmin:mapFeatures.offlineOffBodyEmpty");
       case "placesOn": return t("controlAdmin:mapFeatures.placesOnBody", { path: folder });
       case "placesOff": return t("controlAdmin:mapFeatures.placesOffBody", { size: formatBytes(places.sizeBytes) });
+      case "villages": return which.countries.length > 0
+        ? t("controlAdmin:mapFeatures.villagesConfirmBody", { countries: which.countries.map((code) => countryLabel(code, i18n.language)).join(", ") })
+        : t("controlAdmin:mapFeatures.villagesConfirmBodyNone");
       case "signInsOn": return t("controlAdmin:mapFeatures.signInsOnBody", { path: locations.directory });
       case "signInsOff": return city
         ? t("controlAdmin:mapFeatures.signInsOffBodyTowns", { size: formatBytes(locationsBytes), name: city.name })

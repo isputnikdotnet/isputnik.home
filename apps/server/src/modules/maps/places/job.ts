@@ -10,6 +10,7 @@ import { jobProgressWriter } from "../../library/shared/job-progress.js";
 import { requeueInterruptedJobs } from "../../library/shared/job-recovery.js";
 import type { JobRow } from "../../../db/rows.js";
 import { buildPlaces, type BuildResult, type BuildStage } from "./build.js";
+import { getMapSettings } from "../settings.js";
 
 export const PLACES_BUILD_JOB_TYPE = "BUILD_PLACES";
 
@@ -132,7 +133,7 @@ export async function processPlacesBuildQueue(): Promise<void> {
             write = jobProgressWriter(job.id, { ...data, stage: next });
           }
           write(done, total);
-        });
+        }, { villageCountries: getMapSettings().villageCountries });
       } catch (err) {
         const message = err instanceof Error ? err.message : "The place names database could not be built.";
         db.prepare(`
@@ -151,7 +152,7 @@ export async function processPlacesBuildQueue(): Promise<void> {
       record(
         "maps.places_built",
         data.actorUserId,
-        `Built the place names database: ${result.places} places, ${(result.sizeBytes / 1_048_576).toFixed(1)} MB, in ${seconds}s.`
+        `Built the place names database: ${result.places} places${result.villages > 0 ? ` and ${result.villages} villages` : ""}, ${(result.sizeBytes / 1_048_576).toFixed(1)} MB, in ${seconds}s.`
       );
       for (const listener of [...afterBuild]) {
         try {

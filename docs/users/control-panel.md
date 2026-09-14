@@ -624,6 +624,13 @@ the source, with a link to it. Maps work with every card off.
   again from GeoNames' latest, and the names already shown stay until the new one is
   ready. No photo's location is ever sent out. Turn it off and the names go with
   it — the photos' locations, and anything people typed as the place, stay.
+
+  The place list holds towns of 500 or more people. **Every village in…** on the
+  same card adds every village of the countries you choose (Belarus, Ukraine…),
+  so a small village of the family's past can be found when typing a place in the
+  family tree. Villages are only for that search: photos keep being named after
+  towns. **Save and rebuild** builds the list again with them, downloading the
+  usual GeoNames files plus one file per country.
 - **Sign-in locations** — where each sign-in came from, on the Dashboard's
   Locations view. It is used for nothing else. Two parts:
   - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when

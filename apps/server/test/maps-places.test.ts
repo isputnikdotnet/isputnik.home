@@ -493,3 +493,110 @@ describe("the places routes", () => {
     expect((db.prepare("SELECT COUNT(*) AS n FROM activity_logs WHERE event = 'maps.places_removed'").get() as { n: number }).n).toBe(1);
   });
 });
+
+// --- Every village in a country -------------------------------------------------
+//
+// cities500 has only places of 500+ people; a country's own GeoNames file has every
+// village. Those are added for the countries asked for, into their own table: the
+// place search finds them (labelled with their district), photo naming never does.
+
+const COUNTRY_BY = [
+  // Already in cities500: not added twice.
+  city(625144, "Minsk", 53.9, 27.56667, "PPLC", "BY", "04", 1742124),
+  // Three villages of one name in one region, told apart by district.
+  [9100001, "Veselovka", "Veselovka", "", 55.4, 27.2, "P", "PPL", "BY", "", "07", "111", "", "", 0, "", "", "", "2026-01-01"].join("\t"),
+  [9100002, "Veselovka", "Veselovka", "", 55.1, 29.1, "P", "PPL", "BY", "", "07", "222", "", "", 0, "", "", "", "2026-01-01"].join("\t"),
+  [9100003, "Veselovka", "Veselovka", "", 54.8, 28.3, "P", "PPL", "BY", "", "07", "333", "", "", 0, "", "", "", "2026-01-01"].join("\t"),
+  // A village right beside Minsk, where a photo must still be named Minsk.
+  [9100004, "Kalodishchy", "Kalodishchy", "", 53.9006, 27.5594, "P", "PPL", "BY", "", "04", "444", "", "", 120, "", "", "", "2026-01-01"].join("\t"),
+  // Not places: a lake, and an abandoned settlement.
+  [9100005, "Veselovka Lake", "Veselovka Lake", "", 55.0, 27.0, "H", "LK", "BY", "", "07", "", "", "", 0, "", "", "", "2026-01-01"].join("\t"),
+  [9100006, "Veselovka Old", "Veselovka Old", "", 55.2, 27.9, "P", "PPLQ", "BY", "", "07", "111", "", "", 0, "", "", "", "2026-01-01"].join("\t")
+].join("\n");
+
+const ADMIN2 = [
+  "BY.07.111\tSharkawshchyna District\tSharkawshchyna District\t8000111",
+  "BY.07.222\tVerkhnyadzvinsk District\tVerkhnyadzvinsk District\t8000222",
+  "BY.07.333\tPolatsk District\tPolatsk District\t8000333",
+  "BY.04.444\tMinsk District\tMinsk District\t8000444",
+  "US.NY.061\tNew York County\tNew York County\t5128594"
+].join("\n");
+
+describe("every village in a country", () => {
+  beforeEach(async () => {
+    served.set("admin2Codes.txt", Buffer.from(ADMIN2));
+    served.set("BY.zip", await zipOf("BY.txt", COUNTRY_BY));
+    const withVillages = [ADMIN1, "BY.07\tVitebsk\tVitebsk\t630428"].join("\n");
+    served.set("admin1CodesASCII.txt", Buffer.from(withVillages));
+    served.set("alternateNamesV2.zip", await zipOf("alternateNamesV2.txt", [
+      ALTERNATES,
+      alt(9100001, "ru", "Весёловка"),
+      alt(8000111, "ru", "Шарковщинский район")
+    ].join("\n")));
+  });
+
+  it("adds the villages of the countries asked for, and only their populated places", async () => {
+    const result = await buildPlaces(undefined, { villageCountries: ["by"] });
+    expect(requested).toEqual(["cities500.zip", "admin1CodesASCII.txt", "alternateNamesV2.zip", "admin2Codes.txt", "BY.zip"]);
+    expect(result).toMatchObject({ places: 15, villages: 4 });
+    expect(placesStatus()).toMatchObject({ places: 15, villages: 4, villageCountries: ["BY"] });
+    expect(placesStatus().countries).toContain("BY");
+  });
+
+  it("finds a village by name, with its district, towns first — in either language", async () => {
+    await buildPlaces(undefined, { villageCountries: ["BY"] });
+    const labels = suggestPlaces("Veselovka", "en").map((hit) => hit.label);
+    expect(labels).toEqual(expect.arrayContaining([
+      "Veselovka, Sharkawshchyna District, Vitebsk, Belarus",
+      "Veselovka, Verkhnyadzvinsk District, Vitebsk, Belarus",
+      "Veselovka, Polatsk District, Vitebsk, Belarus"
+    ]));
+    expect(labels).toHaveLength(3);
+    expect(suggestPlaces("Весёловка", "ru")[0].label).toBe("Весёловка, Шарковщинский район, Vitebsk, Беларусь");
+    // The district narrows like a region does.
+    expect(suggestPlaces("Veselovka, Polatsk", "en").map((hit) => hit.label)).toEqual(["Veselovka, Polatsk District, Vitebsk, Belarus"]);
+  });
+
+  it("never names a photo after a village", async () => {
+    await buildPlaces(undefined, { villageCountries: ["BY"] });
+    const namer = geoNamesNamer()!;
+    const hit = namer.nearest(53.9006, 27.5594)!;
+    expect(namer.describe(hit.id, "en")?.place).toBe("Minsk");
+  });
+
+  it("adds nothing, and downloads nothing extra, when no country is asked for", async () => {
+    const result = await buildPlaces();
+    expect(requested).not.toContain("BY.zip");
+    expect(result.villages).toBe(0);
+    expect(suggestPlaces("Veselovka", "en")).toEqual([]);
+  });
+
+  it("saves the countries for an admin, and rebuilds the database when there is one", async () => {
+    makeUser("dad", "admin");
+    makeUser("kid");
+    const { app, signIn } = await bootApp({ plugins: [mapsPlugin] });
+    try {
+      const kid = await signIn("kid");
+      expect((await app.inject({ method: "PUT", url: "/api/map/places/villages", headers: { cookie: kid }, payload: { countries: ["BY"] } })).statusCode).toBe(403);
+
+      const cookie = await signIn("dad");
+      expect((await app.inject({ method: "PUT", url: "/api/map/places/villages", headers: { cookie }, payload: { countries: ["Belarus"] } })).statusCode).toBe(400);
+
+      // No database yet: saved for when it is turned on, nothing queued.
+      const saved = await app.inject({ method: "PUT", url: "/api/map/places/villages", headers: { cookie }, payload: { countries: ["by"] } });
+      expect(saved.json().places).toMatchObject({ present: false, villageCountriesWanted: ["BY"], build: { running: false } });
+
+      await app.inject({ method: "POST", url: "/api/map/places", headers: { cookie } });
+      await waitForPlacesBuild();
+      expect(placesStatus()).toMatchObject({ villages: 4, villageCountries: ["BY"] });
+
+      // With a database, a change rebuilds it.
+      const cleared = await app.inject({ method: "PUT", url: "/api/map/places/villages", headers: { cookie }, payload: { countries: [] } });
+      expect(cleared.json().places.build.running).toBe(true);
+      await waitForPlacesBuild();
+      expect(placesStatus()).toMatchObject({ villages: 0, villageCountries: [] });
+    } finally {
+      await app.close();
+    }
+  });
+});
