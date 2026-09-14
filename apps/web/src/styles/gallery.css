@@ -1145,6 +1145,12 @@
   overflow-wrap: anywhere;
 }
 
+/* Rendered markdown carries its own breaks; pre-wrap would add the newlines
+   between the block tags as blank lines. (The raw source shown while the
+   renderer loads keeps pre-wrap — it is inside .story-prose too, but has no tags.) */
+.lb-desc .story-prose { line-height: 1.5; }
+.lb-desc .story-prose:has(> *) { white-space: normal; }
+
 /* Map tab without a pin. */
 .lb-map-empty {
   display: grid;

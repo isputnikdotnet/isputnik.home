@@ -29,6 +29,7 @@ export function VoiceNotes({
   onChanged,
   large = false,
   heading = true,
+  showRecord = true,
   thumbnailUrl
 }: {
   assetId: string;
@@ -39,6 +40,8 @@ export function VoiceNotes({
   large?: boolean;
   /** The section heading with the Record button. Off where the host draws its own. */
   heading?: boolean;
+  /** The Record button. Off where the host opens the recorder itself (Review mode). */
+  showRecord?: boolean;
   /** The photo, for the recording dialog's header. */
   thumbnailUrl?: string | null;
 }) {
@@ -96,7 +99,7 @@ export function VoiceNotes({
   const whenOf = (note: VoiceNote) => formatDate(note.createdAt);
   const iconSize = large ? 22 : 18;
 
-  const recordButton = canEdit && supported ? (
+  const recordButton = canEdit && supported && showRecord ? (
     large ? (
       <Button variant="chip" className="review-chip" onClick={() => setRecordOpen(true)}>
         <Mic size={18} aria-hidden="true" /> {t("gallery:voiceNotes.record")}

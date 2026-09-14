@@ -203,25 +203,30 @@ set her language on her profile; the screen is in both.
 
 **What she sees.** Her Home page shows one row — "38 photos arrived in Photo
 Inbox" — with **Add what you know** on it. That opens the photo large, with
-the questions beside it (below it on a tablet held upright):
+the questions beside it on cards (below it on a tablet held upright):
 
-![Review mode: one photo, four questions, Previous, I don't know and Next](images/96-review-mode.png)
+![Review mode: one photo, four questions, Previous, Skip / I don't know and Save & Next](images/96-review-mode.png)
 
-- **When was this taken?** A year from a list, then a month if she knows it,
-  then a day once a month is chosen, and **Exactly** or **About**. Nothing is
-  typed. The scan date is never offered as an answer; the list starts empty.
+- **When was this taken?** First how sure she is — **Exact**, **Approximate**
+  or **Unknown** — then a year from a list, a month if she knows it, and a day
+  once a month is chosen. Nothing is typed. The scan date is never offered as
+  an answer; the list starts empty, and a year picked on its own counts as
+  Approximate unless she pressed Exact first.
 - **Where?** One line, in her own words — "the dacha", "Komarovka". Places she
-  has already written in this box appear above it as buttons, so the second
+  has already written in this box appear under it as buttons, so the second
   photo from the same place is one tap.
-- **Who is in it?** The people the library already knows, as buttons; **Add a
-  name** for someone new, who then joins the People page like any hand-tag.
-- **Anything you remember?** A box for a line or a page.
+- **Who is in it?** A search box: typing narrows the people the library already
+  knows, and a name nobody has yet is offered as **Add "…"** — that person then
+  joins the People page like any hand-tag. Before she types, the most-seen
+  people are listed as **Suggestions**; the people on the photo sit under the
+  box with a cross to take them off again.
+- **What do you remember?** Two big buttons, **Add note** and **Add recording**.
 
-**Same as the last one** under When and under Where copies the previous
-photo's answer. On a box from one summer it is the button she presses most.
-**Next** saves everything and moves on; **Previous** goes back; **I don't know**
-marks the photo as looked at and moves on without changing it. There is no Save
-button, and leaving the page saves the photo she was on. At the end she gets
+**Same as the last one**, beside When and Where, copies the previous photo's
+answer. On a box from one summer it is the button she presses most.
+**Save & Next** saves everything and moves on; **Previous** goes back; **Skip /
+I don't know** marks the photo as looked at and moves on without changing it.
+Leaving the page saves the photo she was on. At the end she gets
 "You went through all of them", and the card leaves her Home page.
 
 **What you see afterwards.** Each delivery chip on the Inbox page reads
@@ -252,14 +257,22 @@ those photos, and only those; the rest of the library is untouched, and
 whoever made the album (or an administrator) is the only one who can ask.
 When she reaches the end, the card leaves her Home page by itself.
 
-**Saying it instead of typing it.** Under the notes box, **Speak instead**
+**Writing a note.** **Add note** opens the same editor a story's text uses:
+buttons for bold, italic, a heading, lists, a quote and a link over the box.
+**Save note** puts it on the card — shown formatted, with **Edit note** to go
+back to it — and **Save & Next** writes it to the photo, where the lightbox
+shows it the same way. Closing the dialog with words typed asks first. When
+the previous photo has a note, **Use the last photo's note** copies it in.
+
+**Saying it instead of typing it.** In the note dialog, **Speak instead**
 turns on the tablet's own dictation where the browser has it (Chrome on
 Android, Safari on an iPad): what she says lands in the box as text, sentence
 by sentence, and nothing else is kept. For the story that does not fit in a
-box, **Record** keeps her voice on the photo itself. It opens a dialog with
+box, **Add recording** keeps her voice on the photo itself. It opens a dialog with
 one big button: press once to start, once to stop, listen back, then
 **Save** — or **Record again** if the dog got in. Up to five minutes each.
-Saved recordings are a list under the box, each with a play button; pressing
+**Upload a recording** takes one she already has, from a phone say.
+Saved recordings are a list on the card, each with a play button; pressing
 one plays it in the card above the list. Anyone who can see the photo can play
 it; the lightbox shows the same recordings under **Recordings** on its Details
 tab, and a story's narration uses the same recorder and player. Recordings are ordinary

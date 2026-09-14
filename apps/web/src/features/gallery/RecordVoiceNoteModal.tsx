@@ -12,6 +12,7 @@ export function RecordVoiceNoteModal({
   assetId,
   thumbnailUrl,
   large = false,
+  allowUpload = false,
   onSaved,
   onClose
 }: {
@@ -20,6 +21,8 @@ export function RecordVoiceNoteModal({
   thumbnailUrl?: string | null;
   /** Review mode's larger controls. */
   large?: boolean;
+  /** Offer "Upload a recording" too — a memory already recorded on a phone. */
+  allowUpload?: boolean;
   onSaved: (notes: VoiceNote[]) => void;
   onClose: () => void;
 }) {
@@ -31,6 +34,7 @@ export function RecordVoiceNoteModal({
       thumbnailUrl={thumbnailUrl}
       maxSeconds={MAX_SECONDS}
       large={large}
+      allowUpload={allowUpload}
       onSave={async (take) => {
         const form = new FormData();
         form.append("file", take.blob, `voice-note.${take.ext}`);

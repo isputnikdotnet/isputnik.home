@@ -20,9 +20,9 @@ const ALLOWED_TAGS = [
   "a"
 ];
 
-async function renderStoryMarkdown(markdown: string): Promise<string> {
+async function renderStoryMarkdown(markdown: string, breaks: boolean): Promise<string> {
   const [{ Marked }, { default: DOMPurify }] = await Promise.all([import("marked"), import("dompurify")]);
-  const marked = new Marked({ gfm: true });
+  const marked = new Marked({ gfm: true, breaks });
   marked.use({
     renderer: {
       // Drop images entirely — keep the alt text so nothing silently vanishes.
@@ -56,17 +56,19 @@ function escapeHtml(value: string): string {
 }
 
 /** Rendered markdown. Shows the raw source until the renderer loads, so a slow
- *  chunk shows the words rather than an empty gap. */
-export function StoryMarkdown({ source, className }: { source: string; className?: string }) {
+ *  chunk shows the words rather than an empty gap. `breaks` keeps a single line
+ *  break as a break — for a photo's note, which was plain text before it was
+ *  markdown and whose line breaks were meant. */
+export function StoryMarkdown({ source, className, breaks = false }: { source: string; className?: string; breaks?: boolean }) {
   const [html, setHtml] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    renderStoryMarkdown(source)
+    renderStoryMarkdown(source, breaks)
       .then((rendered) => { if (alive) setHtml(rendered); })
       .catch(() => { if (alive) setHtml(null); });
     return () => { alive = false; };
-  }, [source]);
+  }, [source, breaks]);
 
   const classes = ["story-prose", className].filter(Boolean).join(" ");
   if (html === null) {

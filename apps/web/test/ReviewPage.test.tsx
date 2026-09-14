@@ -105,11 +105,14 @@ describe("ReviewPage", () => {
     expect(await screen.findByText("1 of 2")).toBeInTheDocument();
 
     await user.selectOptions(await screen.findByLabelText("Year"), "1962");
-    await user.click(screen.getByRole("button", { name: "About" }));
+    await user.click(screen.getByRole("button", { name: "Approximate" }));
     await user.type(screen.getByLabelText("Where?"), "the dacha");
-    await user.type(screen.getByLabelText("Anything you remember?"), "Papa built the fence that summer");
+    await user.click(screen.getByRole("button", { name: "Add note" }));
+    await user.type(await screen.findByLabelText("What do you remember?"), "Papa built the fence that summer");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    expect(await screen.findByRole("button", { name: "Edit note" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Mama" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
 
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0].path).toBe("/api/library/gallery/assets/p1");
@@ -130,7 +133,7 @@ describe("ReviewPage", () => {
     render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
     await screen.findByText("1 of 2");
     expect((await screen.findByLabelText("Year") as HTMLSelectElement).value).toBe("");
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
     await waitFor(() => expect(patches).toHaveLength(1));
     // The stored (scan) date travels back unchanged and no precision is sent.
     expect(patches[0].body.takenAt).toBe("2026-09-07T10:00:00Z");
@@ -144,7 +147,7 @@ describe("ReviewPage", () => {
     await user.selectOptions(await screen.findByLabelText("Year"), "1962");
     await user.selectOptions(screen.getByLabelText("Month"), "7");
     await user.type(screen.getByLabelText("Where?"), "Ratomka");
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
     await screen.findByText("2 of 2");
 
     const same = screen.getAllByRole("button", { name: "Same as the last one" });
@@ -163,9 +166,9 @@ describe("ReviewPage", () => {
     const user = userEvent.setup();
     render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
     await screen.findByText("1 of 2");
-    await user.click(await screen.findByRole("button", { name: "I don't know" }));
+    await user.click(await screen.findByRole("button", { name: "Skip / I don't know" }));
     await screen.findByText("2 of 2");
-    await user.click(screen.getByRole("button", { name: "I don't know" }));
+    await user.click(screen.getByRole("button", { name: "Skip / I don't know" }));
     expect(await screen.findByText("You went through all of them")).toBeInTheDocument();
     expect(patches).toHaveLength(0);
     expect(posts).toEqual(["/api/library/gallery/assets/p1/reviewed", "/api/library/gallery/assets/p2/reviewed"]);
@@ -182,9 +185,9 @@ describe("ReviewPage", () => {
     });
     render(<ReviewPage source={{ kind: "album", albumId: "alb1", recommendationId: "rec9" }} />);
     expect(await screen.findByText("Summer 1971")).toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: "I don't know" }));
+    await user.click(await screen.findByRole("button", { name: "Skip / I don't know" }));
     await screen.findByText("2 of 2");
-    await user.click(screen.getByRole("button", { name: "I don't know" }));
+    await user.click(screen.getByRole("button", { name: "Skip / I don't know" }));
     expect(await screen.findByText("You went through all of them")).toBeInTheDocument();
     await waitFor(() => expect(posts).toContain("/api/social/recommendations/rec9/dismiss"));
   });
@@ -200,13 +203,13 @@ describe("ReviewPage", () => {
     await screen.findByText("1 of 2");
     await user.selectOptions(await screen.findByLabelText("Year"), "1962");
     await user.type(screen.getByLabelText("Where?"), "the dacha");
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
     await screen.findByText("2 of 2");
 
     expect((screen.getByLabelText("Year") as HTMLSelectElement).value).toBe("");
     expect(screen.getByLabelText("Where?")).toHaveValue("");
     // …and the second photo is saved with its OWN blank answers.
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
     await waitFor(() => expect(patches).toHaveLength(2));
     expect(patches[1].path).toBe("/api/library/gallery/assets/p2");
     expect(patches[1].body.placeText).toBeNull();
@@ -221,9 +224,62 @@ describe("ReviewPage", () => {
     // The detail fetch for the photo lands and rewrites the list entry (people +
     // voice notes) — the typed answer has to survive it.
     await waitFor(() => expect(screen.getByLabelText("Where?")).toHaveValue("the dacha"));
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0].body.placeText).toBe("the dacha");
+  });
+
+  // The note is written in the story editor, in a dialog: what is saved there is
+  // markdown, carried by Save & Next like every other answer; closing with words
+  // typed asks first and keeps nothing.
+  it("writes the note in a dialog and asks before throwing typed words away", async () => {
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+
+    await user.click(screen.getByRole("button", { name: "Add note" }));
+    await user.type(await screen.findByLabelText("What do you remember?"), "never mind");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(await screen.findByRole("button", { name: "Discard note" }));
+    await waitFor(() => expect(screen.queryByLabelText("What do you remember?")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Add note" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add note" }));
+    const editor = await screen.findByLabelText("What do you remember?");
+    expect(screen.getByRole("toolbar")).toBeInTheDocument();
+    await user.type(editor, "**Papa** built the fence");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    await user.click(await screen.findByRole("button", { name: "Save & Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].body.description).toBe("**Papa** built the fence");
+  });
+
+  it("finds a known person by search and adds a new name with Enter", async () => {
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+    const search = screen.getByLabelText("Search or add a person");
+
+    await user.type(search, "ma{Enter}");
+    expect(await screen.findByRole("button", { name: "Remove Mama from this photo" })).toBeInTheDocument();
+    await user.type(search, "Dedushka");
+    expect(screen.getByRole("button", { name: "Add “Dedushka”" })).toBeInTheDocument();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("button", { name: "Remove Dedushka from this photo" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove Mama from this photo" }));
+    expect(screen.getByRole("button", { name: "Mama" })).toBeInTheDocument();
+  });
+
+  it("keeps Exact when it is pressed before the year", async () => {
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+    await user.click(screen.getByRole("button", { name: "Exact" }));
+    await user.selectOptions(screen.getByLabelText("Year"), "1962");
+    expect(screen.getByRole("button", { name: "Exact" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].body).toMatchObject({ takenPrecision: "year", takenApprox: false });
   });
 
   it("is read-only without the edit right", async () => {
