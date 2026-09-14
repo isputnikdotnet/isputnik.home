@@ -1,4 +1,4 @@
-import { Children, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Armchair, ArrowLeft, Award, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, Church,
   ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
@@ -20,6 +20,7 @@ import { SendToSheet } from "../social/SendToSheet";
 import { NotesSection } from "../social/NotesSection";
 import { RelatedStories } from "../stories/RelatedStories";
 import { PersonQuotes } from "./PersonQuotes";
+import { RelationshipTree } from "./RelationshipTree";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
 import { faceFocusStyle } from "../gallery/types";
@@ -39,8 +40,8 @@ import i18n from "../../i18n";
 import { formatPartialDate, formatPartialDateRange } from "../../shared/utils";
 import { useSession } from "../../app/SessionContext";
 import {
-  lifeYears, childRelationLabel, childRelativeNoun, eventTypeLabel, genderLabel, unionStatusLabel,
-  type FamilyCitation, type FamilyEvent, type FamilyPerson, type FamilyPersonProfile, type FamilyPhoto,
+  lifeYears, childRelativeNoun, eventTypeLabel, genderLabel, unionStatusLabel,
+  type FamilyCitation, type FamilyEvent, type FamilyPersonProfile, type FamilyPhoto,
   type FamilyTree, type FamilyUnionDetail
 } from "./types";
 
@@ -185,71 +186,6 @@ function citationContext(citation: FamilyCitation, profile: FamilyPersonProfile)
   return i18n.t("family:citation.context.general");
 }
 
-type RelationPerson = Pick<FamilyPerson, "id" | "name" | "gender" | "birthDate" | "deathDate" | "portraitUrl">;
-
-function uniquePeople(people: RelationPerson[]): RelationPerson[] {
-  const seen = new Set<string>();
-  return people.filter((person) => {
-    if (seen.has(person.id)) return false;
-    seen.add(person.id);
-    return true;
-  });
-}
-
-/** Grandparents, still attached to the parent they came through. */
-interface GrandparentGroup {
-  parent: RelationPerson;
-  people: RelationPerson[];
-}
-
-function extendedFamily(profile: FamilyPersonProfile, tree: FamilyTree | null) {
-  if (!tree) return { siblings: [] as RelationPerson[], grandparentGroups: [] as GrandparentGroup[] };
-  const personById = new Map(tree.persons.map((person) => [person.id, person]));
-  const unionById = new Map(tree.unions.map((union) => [union.id, union]));
-  const parentUnionId = tree.children.find((link) => link.childId === profile.id)?.unionId;
-  const siblings = parentUnionId
-    ? tree.children
-        .filter((link) => link.unionId === parentUnionId && link.childId !== profile.id)
-        .map((link) => personById.get(link.childId))
-        .filter((person): person is FamilyPerson => person != null)
-    : [];
-  // Grouped by the parent they came through, not flattened into one row. Four
-  // names in a line say "these are your grandparents"; two pairs, each under the
-  // parent they belong to, say which side of the family each one is — which is
-  // the question anybody actually has when they look.
-  const grandparentGroups = profile.parents.flatMap((parent) => {
-    const parentParentUnionId = tree.children.find((link) => link.childId === parent.id)?.unionId;
-    const union = parentParentUnionId ? unionById.get(parentParentUnionId) : undefined;
-    if (!union) return [];
-    const people = uniquePeople(
-      [union.person1Id, union.person2Id]
-        .map((personId) => (personId ? personById.get(personId) : null))
-        .filter((person): person is FamilyPerson => person != null)
-        // Nothing stops a tree recording somebody as a partner in the very union
-        // they are a child of, which would list a parent among their own parents.
-        // Cheap to refuse, and it stays out of the way otherwise — a grandparent
-        // who merely SHARES a parent’s name is a different person and still shows,
-        // told apart by their dates, which is how namesakes work.
-        .filter((person) => person.id !== parent.id)
-    );
-    // A recorded union with nobody left in it has nothing to show.
-    return people.length > 0 ? [{ parent, people }] : [];
-  });
-  return { siblings: uniquePeople(siblings), grandparentGroups };
-}
-
-// What this person is TO the person whose page this is. The tree shows who is
-// related and, through its shape, roughly how — but "Father" and "Sister" say it
-// outright, which is the difference between a chart you read and one you work
-// out. Gendered where the record says so, neutral where it doesn't: an unknown
-// gender gets "Parent", never a guess.
-type RelationKind = "parent" | "sibling" | "grandparent" | "child" | "partner";
-
-function relationWord(kind: RelationKind, person: Pick<FamilyPerson, "gender">): string {
-  const genderKey = person.gender === "male" || person.gender === "female" ? person.gender : "neutral";
-  return i18n.t(`family:relationWord.${kind}.${genderKey}`);
-}
-
 function ageFromDates(birthDate: string | null, endDate: string | null): number | null {
   if (!birthDate) return null;
   const partialToDate = (date: string, endOfPeriod: boolean) => {
@@ -280,16 +216,6 @@ function currentUnion(profile: FamilyPersonProfile): FamilyUnionDetail | null {
   );
   if (candidates.length === 0) return null;
   return [...candidates].sort((a, b) => (b.marriedDate ?? "").localeCompare(a.marriedDate ?? ""))[0];
-}
-
-// "since 2010", "2010 – 2015", "until 2015" — the union's span for card detail.
-function unionDates(union: FamilyUnionDetail): string {
-  const married = union.marriedDate ? formatPartialDate(union.marriedDate) : "";
-  const divorced = union.divorcedDate ? formatPartialDate(union.divorcedDate) : "";
-  if (married && divorced) return i18n.t("family:person.unionDates.range", { start: married, end: divorced });
-  if (married) return i18n.t("family:person.unionDates.since", { date: married });
-  if (divorced) return i18n.t("family:person.unionDates.until", { date: divorced });
-  return "";
 }
 
 function relationSummary(profile: FamilyPersonProfile): string {
@@ -336,76 +262,6 @@ function TimelineIcon({ entry }: { entry: TimelineEntry }) {
 const NOTE_CLAMP_CHARS = 200;
 // Photos shown on a collapsed timeline row before the "+N" tile.
 const EVENT_PHOTO_PREVIEW = 4;
-
-function RelationCard({
-  person,
-  detail,
-  badge,
-  action
-}: {
-  person: RelationPerson;
-  detail?: string;
-  /** "Father", "Sister" — what they are to the person whose page this is. */
-  badge?: string;
-  action?: React.ReactNode;
-}) {
-  const { t } = useTranslation(["family"]);
-  return (
-    <span className="ft-relation-card-wrap">
-      <a
-        className="ft-relation-card"
-        href={`/family/people/${person.id}`}
-        onClick={(event) => followRoute(event, `/family/people/${person.id}`)}
-      >
-        <PersonAvatar person={person} size={28} />
-        <span className="ft-relation-card-copy">
-          <strong>{person.name}</strong>
-          <small>
-            {badge && <span className="ft-relation-badge">{badge}</span>}
-            {detail || lifeYears(person) || t("family:common.lifeDatesUnknown")}
-          </small>
-        </span>
-      </a>
-      {action}
-    </span>
-  );
-}
-
-// One generation of the little tree on a person's Relationships tab.
-//
-// This used to be FamilyGroup — a labelled grid per category: Parents,
-// Siblings, Grandparents, Partners, Children. Five lists say who is related but
-// not HOW: which parent goes with which, which siblings share which parent,
-// which children came from which partnership. A second marriage is unreadable
-// in that shape, and relationships are the one thing on this page that are
-// inherently spatial.
-//
-// So the same cards are laid out by generation, oldest at the top, with the
-// person themselves marked in their own row. Every action the grid carried —
-// edit a union, remove a child link, add a relative — is still here; only the
-// arrangement changed.
-//
-// Rows are skipped entirely when empty rather than printing "None recorded"
-// five times: a tree with three empty branches drawn is mostly apology.
-function FamilyRow({
-  title,
-  children,
-  connector = true
-}: {
-  title: string;
-  children: React.ReactNode;
-  /** Draw the stem down to the next row. False on the last row. */
-  connector?: boolean;
-}) {
-  const items = Children.toArray(children).filter(Boolean);
-  if (items.length === 0) return null;
-  return (
-    <div className={`ft-tree-row${connector ? " has-connector" : ""}`}>
-      <h3 className="ft-tree-row-label">{title}</h3>
-      <div className="ft-tree-row-cards">{items}</div>
-    </div>
-  );
-}
 
 // One family member: profile fields, relationships, and the merged photo wall
 // (curated attachments + linked face-cluster photos). Admins edit everything;
@@ -620,7 +476,6 @@ export function FamilyPersonPage({ id }: { id: string }) {
           {actionError && <MessageBox tone="error" title={t("family:person.errors.actionFailedTitle")}>{actionError}</MessageBox>}
 
         {profile && (() => {
-          const family = extendedFamily(profile, familyTree);
           const entries = timelineEntries(profile);
           const age = ageFromDates(profile.birthDate, profile.deathDate);
           const subtitle = [
@@ -631,17 +486,6 @@ export function FamilyPersonPage({ id }: { id: string }) {
             age != null ? t("family:person.ageLabel", { age }) : ""
           ].filter(Boolean).join(" · ");
           const current = currentUnion(profile);
-          // Current partner first; former unions follow.
-          const partners = profile.unions
-            .map((union) => ({ union, person: union.partner }))
-            .filter((item) => item.person)
-            .sort((a, b) => Number(b.union.id === current?.id) - Number(a.union.id === current?.id));
-          const children = profile.unions.flatMap((union) => union.children.map((child) => ({ union, child })));
-          const hasRelatives = family.grandparentGroups.length > 0
-            || profile.parents.length > 0
-            || family.siblings.length > 0
-            || partners.length > 0
-            || children.length > 0;
 
           return (
             <div className="book-detail-view ft-person-detail-view">
@@ -846,127 +690,16 @@ export function FamilyPersonPage({ id }: { id: string }) {
                         </div>
                       )}
 
-                      {/* Oldest generation first, reading down to the children.
-                          The person's own row carries them, their partners and
-                          their siblings, which is where a pedigree puts them. */}
-                      {hasRelatives ? (
-                      <div className="ft-tree">
-                        <FamilyRow title={t("family:person.relationships.grandparents")}>
-                          {family.grandparentGroups.map((group) => (
-                            <div className="ft-tree-branch" key={group.parent.id}>
-                              <span className="ft-tree-branch-label">{t("family:person.relationships.viaParent", { name: group.parent.name })}</span>
-                              <div className="ft-tree-branch-cards">
-                                {group.people.map((grandparent) => (
-                                  <RelationCard
-                                    key={grandparent.id}
-                                    person={grandparent}
-                                    badge={relationWord("grandparent", grandparent)}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </FamilyRow>
-                        <FamilyRow title={t("family:person.relationships.parents")}>
-                          {profile.parents.map((parent) => (
-                            <RelationCard
-                              key={parent.id}
-                              person={parent}
-                              badge={relationWord("parent", parent)}
-                              detail={profile.parentRelation && profile.parentRelation !== "biological" ? childRelationLabel(profile.parentRelation) : undefined}
-                            />
-                          ))}
-                        </FamilyRow>
-
-                        <div className={`ft-tree-row ft-tree-self-row${children.length > 0 ? " has-connector" : ""}`}>
-                          <h3 className="ft-tree-row-label">
-                            {family.siblings.length > 0
-                              ? t("family:person.relationships.selfWithPartnersSiblings")
-                              : t("family:person.relationships.selfOnly")}
-                          </h3>
-                          <div className="ft-tree-row-cards">
-                            {family.siblings.map((sibling) => (
-                              <RelationCard key={sibling.id} person={sibling} badge={relationWord("sibling", sibling)} />
-                            ))}
-
-                            {/* Not a link: you are already here. */}
-                            <span className="ft-relation-card-wrap">
-                              <span className="ft-relation-card is-self" aria-current="page">
-                                <PersonAvatar person={profile} size={28} />
-                                <span className="ft-relation-card-copy">
-                                  <strong>{profile.name}</strong>
-                                  <small>{lifeYears(profile) || t("family:common.lifeDatesUnknown")}</small>
-                                </span>
-                              </span>
-                            </span>
-
-                            {partners.map(({ union, person }) => person && (
-                            <RelationCard
-                              key={union.id}
-                              person={person}
-                              badge={union.status === "married" ? relationWord("partner", person) : t("family:relationWord.partner.neutral")}
-                              detail={[
-                                union.id === current?.id ? t("family:person.relationships.current") : "",
-                                unionStatusLabel(union.status),
-                                unionDates(union)
-                              ].filter(Boolean).join(" · ")}
-                              action={canEdit && (
-                                <span className="ft-relation-card-actions">
-                                  <Button
-                                    variant="icon"
-                                    title={t("family:person.relationships.editRelationshipAria", { name: person.name })}
-                                    aria-label={t("family:person.relationships.editRelationshipAria", { name: person.name })}
-                                    onClick={() => setEditUnion(union)}
-                                  >
-                                    <Pencil size={13} aria-hidden="true" />
-                                  </Button>
-                                  {isAdmin && (
-                                    <Button
-                                      variant="icon"
-                                      danger
-                                      title={t("family:person.relationships.removeUnionAria")}
-                                      aria-label={t("family:person.relationships.removeUnionAria")}
-                                      onClick={() => setRemoveUnionId(union.id)}
-                                    >
-                                      <X size={14} aria-hidden="true" />
-                                    </Button>
-                                  )}
-                                </span>
-                              )}
-                            />
-                          ))}
-                          </div>
-                        </div>
-
-                        <FamilyRow title={t("family:person.relationships.children")} connector={false}>
-                          {children.map(({ union, child }) => (
-                            <RelationCard
-                              key={`${union.id}-${child.id}`}
-                              person={child}
-                              badge={relationWord("child", child)}
-                              detail={child.relation !== "biological" ? childRelationLabel(child.relation) : undefined}
-                              action={isAdmin && (
-                                <span className="ft-relation-card-actions">
-                                  <Button
-                                    variant="icon"
-                                    danger
-                                    title={t("family:person.relationships.removeChildAria", { name: child.name })}
-                                    aria-label={t("family:person.relationships.removeChildAria", { name: child.name })}
-                                    onClick={() => void removeChildLink(union.id, child.id)}
-                                  >
-                                    <X size={14} aria-hidden="true" />
-                                  </Button>
-                                </span>
-                              )}
-                            />
-                          ))}
-                        </FamilyRow>
-                      </div>
-                      ) : (
-                        <p className="ft-relation-empty">
-                          {t("family:person.relationships.emptyBase")}{canEdit ? t("family:person.relationships.emptyHint") : ""}
-                        </p>
-                      )}
+                      <RelationshipTree
+                        profile={profile}
+                        tree={familyTree}
+                        current={current}
+                        canEdit={canEdit}
+                        isAdmin={isAdmin}
+                        onEditUnion={setEditUnion}
+                        onRemoveUnion={setRemoveUnionId}
+                        onRemoveChild={(unionId, childId) => void removeChildLink(unionId, childId)}
+                      />
                     </section>
                   )}
 

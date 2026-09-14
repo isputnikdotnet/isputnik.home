@@ -313,205 +313,463 @@
   margin-inline: auto;
 }
 
-/* Relationships, drawn as generations rather than as five category lists.
-   Oldest at the top, reading down to the children, with a stem between rows —
-   the shape carries the meaning that "Parents / Siblings / Grandparents" as
-   separate lists cannot. */
-.ft-tree {
+/* ── Relationships tab (RelationshipTree) ──
+   A family tree, not five lists: grandparents in a panel over the parent they
+   came through, the parents joined by a line that comes down to this person,
+   siblings bracketed on one side, partners on the other, children on a rail
+   below. The lines are drawn with borders and pseudo-elements laid out by the
+   same grid as the cards, so nothing is measured in script — and cards are
+   opaque, so a line running behind one simply disappears under it. */
+
+.ft-rtree {
+  --ft-rtree-line: color-mix(in srgb, var(--muted) 45%, transparent);
+  --ft-rtree-card: var(--surface-raised, var(--surface));
+  --ft-rtree-panel: color-mix(in srgb, var(--ink) 3%, var(--surface));
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0;
-  /* One long generation scrolls inside its own row (below), never the page. */
-  max-width: 100%;
-  min-width: 0;
-}
-
-.ft-tree-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-}
-
-/* The stem to the next generation. A pseudo-element rather than a real node,
-   so an empty row can be skipped without leaving a dangling line. */
-.ft-tree-row.has-connector::after {
-  content: "";
-  width: 2px;
-  height: 20px;
-  margin: 4px 0;
-  /* --line is a hairline for dividers; here the stem carries the structure,
-     so it needs to be seen rather than merely not-absent. */
-  background: color-mix(in srgb, var(--muted) 42%, transparent);
-  border-radius: 1px;
-  flex: 0 0 auto;
-}
-
-.ft-tree-row-label {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 780;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* Cards sit side by side in a generation. A large family scrolls this row
-   sideways rather than pushing the page wide. */
-.ft-tree-row-cards {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
   align-items: stretch;
-  gap: 8px;
   width: 100%;
   min-width: 0;
 }
 
-/* The cards were sized for a single-column list (320px each), so in a row only
-   one fitted per line and a "generation" read as another vertical list. Narrower
-   here so a couple of parents or a few children sit side by side, which is the
-   whole point of the shape. */
-.ft-tree-row-cards .ft-relation-card-wrap {
-  width: min(100%, 216px);
-}
-
-/* What somebody IS to the person whose page this is — Father, Sister, Son.
-   Sits on the detail line beside the dates rather than beside the name, where
-   a 216px card has no room for it. */
-.ft-relation-badge {
-  display: inline-block;
-  margin-right: 6px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--blue) 20%, transparent);
-  color: var(--ink);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  vertical-align: 1px;
-}
-
-/* A branch within a generation: the grandparents that came through one parent,
-   kept together under their name. Two pairs side by side answer "which side of
-   the family" without anybody having to work it out from the surnames. */
-.ft-tree-branch {
+/* A generation's name, centred between two hairlines: "── PARENTS ──". */
+.ft-rtree-label {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
-  border-radius: 12px;
-  min-width: 0;
-}
-
-.ft-tree-branch-label {
+  justify-content: center;
+  gap: 12px;
+  margin: 0 0 8px;
   color: var(--muted);
   font-size: 0.68rem;
-  font-weight: 600;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* A pair stays a pair: a branch never breaks its two grandparents onto
-   separate lines while the branch beside it keeps them together. Branches wrap
-   between themselves instead, which is the honest break point. */
-.ft-tree-branch-cards {
+.ft-rtree-label::before,
+.ft-rtree-label::after {
+  content: "";
+  /* Fixed, not shrinkable: a label sized to its own text would squeeze the
+     hairlines to nothing. */
+  flex: 0 0 56px;
+  height: 1px;
+  background: var(--ft-rtree-line);
+}
+
+/* A line between generations. */
+.ft-rtree-stem {
+  display: block;
+  justify-self: center;
+  width: 2px;
+  background: var(--ft-rtree-line);
+  border-radius: 1px;
+}
+
+/* Grandparents over their parents: one grid column per parent, so each
+   grandparent panel sits straight above the parent it belongs to.
+   Rows: 1 label · 2 panels · 3 stems (and the Parents label) · 4 parents. */
+.ft-rtree-ancestors {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--ft-rtree-cols, 2), minmax(0, 1fr));
+  column-gap: 28px;
+  justify-items: center;
+}
+
+.ft-rtree-ancestors > .ft-rtree-label.is-grandparents {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.ft-rtree-ancestors > .ft-rtree-label.is-parents {
+  grid-column: 1 / -1;
+  align-self: end;
+  margin: 12px 0 10px;
+}
+
+/* One parent: the label steps aside, so the stem above that parent runs past it
+   instead of through it. */
+.ft-rtree-ancestors.is-single.has-grandparents > .ft-rtree-label.is-parents {
+  justify-self: start;
+  padding-left: calc(50% + 18px);
+}
+
+.ft-rtree-ancestors.is-single.has-grandparents > .ft-rtree-label.is-parents::before {
+  display: none;
+}
+
+.ft-rtree-stem.is-branch {
+  align-self: stretch;
+  min-height: 34px;
+}
+
+.ft-rtree-branch {
+  display: grid;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  border-radius: 14px;
+  background: var(--ft-rtree-panel);
+}
+
+.ft-rtree-branch-label {
+  justify-self: center;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* A pair stays a pair. */
+.ft-rtree-branch-cards {
   display: flex;
-  flex-wrap: nowrap;
   justify-content: center;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
 
-/* Narrower than a main-row card so both branches — one per parent — fit across
-   together, which is the whole point of grouping them. */
-.ft-tree-branch .ft-relation-card-wrap {
-  width: 182px;
+.ft-rtree-branch-cards .ft-relation-card-wrap {
+  width: 232px;
+  min-width: 0;
 }
 
-/* A badge plus a life span will not share one line at this width, and the dates
-   are the half that matters — this family has two Ivan Mikhalchenkos a generation
-   apart, told apart by nothing else. So the line wraps and the card grows,
-   rather than ellipsing the years away. */
-.ft-tree-branch .ft-relation-card-copy small {
-  white-space: normal;
+.ft-rtree-parent {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 290px);
 }
 
-/* On its own line, so a life span never breaks across the dash. */
-.ft-tree-branch .ft-relation-badge {
-  display: block;
-  width: fit-content;
-  margin: 0 0 1px;
+.ft-rtree-parent .ft-relation-card-wrap {
+  width: 100%;
 }
 
-.ft-tree-branch .ft-relation-card {
-  align-items: start;
-  padding-top: 7px;
-  padding-bottom: 7px;
+/* The couple: a line from one parent to the other, behind both cards, with a
+   node where the line down to their child leaves it. */
+.ft-rtree-couple-line {
+  grid-column: 1 / -1;
+  align-self: center;
+  justify-self: stretch;
+  position: relative;
+  height: 2px;
+  margin-inline: 25%;
+  background: var(--ft-rtree-line);
 }
 
-/* The person whose page this is. Not a link, and marked so the eye finds the
-   middle of the tree without reading any names. */
-.ft-relation-card.is-self {
-  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
-  background: color-mix(in srgb, var(--gold) 10%, transparent);
-  cursor: default;
+.ft-rtree-couple-line::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transform: translate(-50%, -50%);
 }
 
-.ft-relation-card.is-self:hover {
-  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+.ft-rtree-ancestors > .ft-rtree-stem.is-down {
+  grid-column: 1 / -1;
+  grid-row: 5;
+  height: 28px;
 }
+
+/* The person's own generation: siblings │ this person │ partners. */
+.ft-rtree-family {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.ft-rtree-side {
+  display: grid;
+  min-width: 0;
+}
+
+.ft-rtree-side.is-siblings {
+  justify-items: end;
+}
+
+.ft-rtree-side.is-partners {
+  justify-items: start;
+}
+
+.ft-rtree-self {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  padding-inline: 30px;
+}
+
+.ft-rtree-self .ft-relation-card-wrap {
+  width: 300px;
+}
+
+/* The lines from this person out to each side, from the middle of their own
+   card (not measured from the column, which also holds the label). */
+.ft-rtree-family.has-siblings .ft-rtree-self .ft-relation-card-wrap::before,
+.ft-rtree-family.has-partners .ft-rtree-self .ft-relation-card-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 30px;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--ft-rtree-line);
+}
+
+.ft-rtree-family.has-siblings .ft-rtree-self .ft-relation-card-wrap::before { left: -30px; }
+.ft-rtree-family.has-partners .ft-rtree-self .ft-relation-card-wrap::after { right: -30px; }
+
+/* Siblings and partners hang off a bracket on the side facing this person.
+   Each row (and each partner) draws its own tick and its own piece of the
+   bracket: the first piece starts at its row's middle, the last one ends at its
+   row's middle, and a lone row draws no bracket at all — so the bracket spans
+   exactly the rows there are, and one sibling or one partner is a straight line. */
+.ft-rtree-siblings {
+  display: grid;
+  gap: 10px;
+  padding-right: 18px;
+}
+
+.ft-rtree-sibling-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 250px;
+  gap: 14px;
+}
+
+.ft-rtree-siblings .ft-relation-card-wrap,
+.ft-rtree-partners .ft-relation-card-wrap {
+  z-index: 1;
+  width: 100%;
+}
+
+/* The row's line out to the bracket, drawn behind the card (cards are opaque). */
+.ft-rtree-sibling-row::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  right: -18px;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--ft-rtree-line);
+}
+
+.ft-rtree-sibling-row::before,
+.ft-rtree-partner::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  background: var(--ft-rtree-line);
+}
+
+.ft-rtree-sibling-row::before { right: -18px; }
+.ft-rtree-partner::after { left: -18px; }
+
+.ft-rtree-sibling-row:first-child::before,
+.ft-rtree-partner:first-child::after { top: 50%; }
+
+.ft-rtree-sibling-row:last-child::before,
+.ft-rtree-partner:last-child::after { bottom: 50%; }
+
+.ft-rtree-sibling-row:only-child::before,
+.ft-rtree-partner:only-child::after { display: none; }
+
+/* Partners: one per row. The line to a partner is solid while the partnership
+   lasts and dashed once it has ended. */
+.ft-rtree-partners {
+  display: grid;
+  grid-template-columns: 290px;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.ft-rtree-partner {
+  position: relative;
+}
+
+.ft-rtree-partner::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -18px;
+  width: 18px;
+  margin-top: -1px;
+  border-top: 2px solid var(--ft-rtree-line);
+}
+
+.ft-rtree-partner.is-former::before {
+  border-top-style: dashed;
+}
+
+/* Children on a rail: a line down from this person, a rail across the children,
+   and a short line down to each. */
+.ft-rtree-descendants {
+  display: grid;
+  justify-items: center;
+}
+
+.ft-rtree-descendants > .ft-rtree-stem.is-down {
+  height: 26px;
+  margin-bottom: 6px;
+}
+
+.ft-rtree-children {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px 24px;
+}
+
+.ft-rtree-child {
+  position: relative;
+  width: 270px;
+  padding-top: 18px;
+}
+
+.ft-rtree-child .ft-relation-card-wrap {
+  width: 100%;
+}
+
+.ft-rtree-child::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 18px;
+  background: var(--ft-rtree-line);
+}
+
+.ft-rtree-child::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -12px;
+  right: -12px;
+  height: 2px;
+  background: var(--ft-rtree-line);
+}
+
+.ft-rtree-child:first-child::after { left: 50%; }
+.ft-rtree-child:last-child::after { right: 50%; }
+.ft-rtree-children.is-single .ft-rtree-child::after { display: none; }
+
+/* ── Relation cards ── */
 
 .ft-relation-card-wrap {
   position: relative;
-  display: inline-block;
-  width: min(100%, 320px);
+  display: block;
   min-width: 0;
 }
 
 .ft-relation-card {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  min-height: 42px;
-  padding: 5px 10px 5px 6px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--field) 64%, transparent);
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  border-radius: 14px;
+  background: var(--ft-rtree-card, var(--surface-raised, var(--surface)));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 35%, transparent);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .ft-relation-card:hover,
 .ft-relation-card:focus-visible {
   border-color: color-mix(in srgb, var(--blue) 58%, var(--line));
-  background: color-mix(in srgb, var(--blue) 8%, var(--field));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--shadow) 45%, transparent);
   outline: 0;
 }
 
 .ft-relation-card-copy {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
 .ft-relation-card-copy strong {
-  font-size: 0.78rem;
+  overflow: hidden;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ft-relation-card-copy small,
-.ft-relation-empty {
+.ft-relation-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.ft-relation-card-meta small,
+.ft-relation-card-note {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.76rem;
+}
+
+/* A partnership's status and span matters most on that card, so it wraps
+   rather than losing the date to an ellipsis. */
+.ft-relation-card-copy .ft-relation-card-note {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+/* What somebody IS to the person whose page this is — Father, Sister, Son. */
+.ft-relation-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blue) 22%, transparent);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.ft-relation-card-note.is-current,
+.ft-relation-card-icon.is-current {
+  color: var(--mint);
+}
+
+.ft-relation-card-icon {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+/* The person whose page this is: bigger, gold-edged, not a link. */
+.ft-relation-card.is-self {
+  min-height: 92px;
+  padding: 14px 18px 14px 14px;
+  border: 2px solid color-mix(in srgb, var(--gold) 80%, transparent);
+  background: color-mix(in srgb, var(--gold) 9%, var(--ft-rtree-card, var(--surface)));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 14%, transparent), 0 10px 26px color-mix(in srgb, var(--shadow) 40%, transparent);
+  cursor: default;
+}
+
+.ft-relation-card.is-self strong {
+  font-size: 1.1rem;
+}
+
+.ft-relation-card.is-self .ft-relation-badge {
+  background: color-mix(in srgb, var(--gold) 30%, transparent);
 }
 
 .ft-relation-empty {
@@ -523,22 +781,24 @@
   border: 1px dashed color-mix(in srgb, var(--line) 92%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--field) 42%, transparent);
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
-/* Hover-revealed action cluster (edit / remove) on a relation card's right edge. */
+/* Hover-revealed action cluster (edit / remove) on a relation card's corner. */
 .ft-relation-card-actions {
   position: absolute;
-  top: 50%;
-  right: 4px;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
   display: inline-flex;
   gap: 2px;
-  transform: translateY(-50%);
   opacity: 0;
 }
 
 .ft-relation-card-actions .icon-button {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   min-height: 0;
   border-radius: 50%;
 }
@@ -546,6 +806,80 @@
 .ft-relation-card-wrap:hover .ft-relation-card-actions,
 .ft-relation-card-actions:focus-within {
   opacity: 1;
+}
+
+/* Not enough width for the drawing: one column in reading order — the
+   generation labels stay, the lines go, since cards no longer side by side have
+   nothing to connect. */
+@container (max-width: 760px) {
+  .ft-rtree-ancestors {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 8px;
+  }
+  .ft-rtree-ancestors > *,
+  .ft-rtree-ancestors > .ft-rtree-label.is-parents {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    justify-self: stretch;
+    padding-left: 0 !important;
+  }
+  .ft-rtree-ancestors > .ft-rtree-label.is-parents { order: 1; }
+  .ft-rtree-ancestors > .ft-rtree-parent { order: 2; width: 100%; }
+  .ft-rtree-ancestors > .ft-rtree-label.is-parents::before { display: block !important; }
+  .ft-rtree-stem,
+  .ft-rtree-couple-line,
+  .ft-rtree-family .ft-rtree-self .ft-relation-card-wrap::before,
+  .ft-rtree-family .ft-rtree-self .ft-relation-card-wrap::after,
+  .ft-rtree-sibling-row::before,
+  .ft-rtree-sibling-row::after,
+  .ft-rtree-partner::before,
+  .ft-rtree-partner::after,
+  .ft-rtree-child::before,
+  .ft-rtree-child::after {
+    display: none !important;
+  }
+  .ft-rtree-branch-cards {
+    flex-direction: column;
+  }
+  .ft-rtree-branch-cards .ft-relation-card-wrap {
+    width: 100%;
+  }
+  .ft-rtree-family {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    margin-top: 18px;
+  }
+  .ft-rtree-self {
+    order: 1;
+    padding-inline: 0;
+  }
+  .ft-rtree-side.is-partners { order: 2; }
+  .ft-rtree-side.is-siblings { order: 3; }
+  .ft-rtree-side {
+    justify-items: stretch !important;
+  }
+  .ft-rtree-self .ft-relation-card-wrap,
+  .ft-rtree-siblings,
+  .ft-rtree-sibling-row,
+  .ft-rtree-partners {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px;
+    padding: 0;
+  }
+  .ft-rtree-descendants {
+    justify-items: stretch;
+    margin-top: 18px;
+  }
+  .ft-rtree-children {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .ft-rtree-child {
+    width: 100%;
+    padding-top: 0;
+  }
 }
 
 /* Photo wall: reuse the gallery grid tiles, add a remove control per tile. */
@@ -1309,14 +1643,6 @@
   .ft-person-form-body {
     min-height: 0;
   }
-  /* A generation wraps on a phone rather than scrolling sideways. Scrolling
-     inside the row was tried and abandoned: the row sized itself to its content
-     (888px on a 375px screen) and an ancestor clipped it, so the far cards were
-     hidden with no way to reach them. Wrapping always fits and hides nothing. */
-  .ft-tree-row-cards .ft-relation-card-wrap {
-    width: min(100%, 168px);
-  }
-
   .ft-family-name-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }

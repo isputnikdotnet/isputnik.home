@@ -294,7 +294,10 @@ describe("FamilyPersonPage — Relationships", () => {
     expect(relationCard("Ivan Petrov")).toHaveTextContent("Father");
     expect(relationCard("Olga Petrova")).toHaveTextContent("Mother");
     expect(relationCard("Petr Petrov")).toHaveTextContent("Brother");
-    expect(screen.getByText("This person, partners and siblings")).toBeInTheDocument();
+    for (const label of ["Grandparents", "Parents", "Siblings", "Family", "Partners", "Children"]) {
+      expect(screen.getByRole("heading", { level: 3, name: label })).toBeInTheDocument();
+    }
+    expect(relationCard("Maria Ivanova")).toHaveTextContent("This person");
 
     // The current partner is marked as such; a divorced one is only a Partner.
     expect(relationCard("Sergei Ivanov")).toHaveTextContent(/Husband.*Current · Married · since Aug 1, 1972/);
@@ -322,6 +325,19 @@ describe("FamilyPersonPage — Relationships", () => {
     await screen.findByRole("heading", { level: 1, name: "Maria Ivanova" });
     const names = [...document.querySelectorAll(".ft-tree-self-row .ft-relation-card strong")].map((el) => el.textContent);
     expect(names).toEqual(["Petr Petrov", "Maria Ivanova", "Sergei Ivanov", "Pavel Sidorov"]);
+  });
+
+  it("draws a former partnership apart from the current one, and says which partner a child is with", async () => {
+    const withEx = profile();
+    withEx.unions[0] = { ...withEx.unions[0], children: [{ ...base("kid", "Olga Sidorova", { gender: "female", birthDate: "1969" }), relation: "biological" }] };
+    mount({ person: withEx });
+    await screen.findByRole("heading", { level: 1, name: "Maria Ivanova" });
+
+    expect(relationCard("Sergei Ivanov").closest(".ft-rtree-partner")).toHaveClass("is-current");
+    expect(relationCard("Pavel Sidorov").closest(".ft-rtree-partner")).toHaveClass("is-former");
+    // Children from two partnerships each name the other parent.
+    expect(relationCard("Olga Sidorova")).toHaveTextContent("with Pavel Sidorov");
+    expect(relationCard("Alexei Ivanov")).toHaveTextContent("with Sergei Ivanov");
   });
 
   it("says nobody is recorded instead of drawing empty rows", async () => {
