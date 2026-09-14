@@ -2,7 +2,7 @@ import { Children, useCallback, useEffect, useState } from "react";
 import {
   Armchair, ArrowLeft, Award, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, Church,
   ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
-  Network, Pencil, Plane, Play, Send, Shield, Tags, Trash2, UserRound, UserRoundPlus, UsersRound, X
+  MapPinned, Network, Pencil, Plane, Play, Send, Shield, Tags, Trash2, UserRound, UserRoundPlus, UsersRound, X
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -73,6 +73,14 @@ interface TimelineEntry {
 
 // Both live in shared/utils now — story chapters format the same partial dates.
 const formatDateRange = formatPartialDateRange;
+
+/** Anything of theirs the family map can show: a pinned birth, death, marriage
+ *  or life event. */
+function hasPinnedPlace(profile: FamilyPersonProfile): boolean {
+  return Boolean(profile.birthPin || profile.deathPin
+    || profile.unions.some((union) => union.marriedPin)
+    || profile.events.some((event) => event.placePin));
+}
 
 function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
   const entries: TimelineEntry[] = [];
@@ -663,6 +671,17 @@ export function FamilyPersonPage({ id }: { id: string }) {
                   >
                     <Network size={18} aria-hidden="true" />
                   </a>
+                  {hasPinnedPlace(profile) && (
+                    <a
+                      className="icon-button"
+                      href={`/family/map?person=${encodeURIComponent(profile.id)}`}
+                      onClick={(event) => followRoute(event, `/family/map?person=${encodeURIComponent(profile.id)}`)}
+                      title={t("family:person.actions.showOnMap")}
+                      aria-label={t("family:person.actions.showOnMap")}
+                    >
+                      <MapPinned size={18} aria-hidden="true" />
+                    </a>
+                  )}
                   <Button
                     variant="icon"
                     onClick={() => setSendToOpen(true)}

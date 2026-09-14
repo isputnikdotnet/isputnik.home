@@ -307,6 +307,7 @@ export type Route =
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
   | { name: "familyFamilies" }
+  | { name: "familyMap"; personId: string | null }
   | { name: "familyPerson"; id: string }
   | { name: "familyPersonPhotos"; id: string }
   | { name: "ebookAuthorDetail"; personName: string }
@@ -478,6 +479,12 @@ export function getRoute(): Route {
   // Family names only — the "pick a branch" entry point into the chart.
   if (path === "/family/families") {
     return { name: "familyFamilies" };
+  }
+
+  // Where the family's lives happened. ?person= narrows it to one person (the
+  // profile's "Show on map").
+  if (path === "/family/map") {
+    return { name: "familyMap", personId: new URLSearchParams(window.location.search).get("person") };
   }
 
   const familyFocusMatch = path.match(/^\/family\/tree\/([^/]+)$/);

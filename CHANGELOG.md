@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.11.0 — The family on a map
+
+- **The family tree has a map.** **Map**, in the family tree menu, shows every birth, death, marriage and life event whose place has a pin. Before, a pinned place was only ever seen one person at a time, as words on a profile, so there was no way to see that four children were born in Lancaster or that a family moved from Keswick to Manchester. Things that happened at the same spot share one pin, with a number when there is more than one, coloured by what happened there: births, marriages, life events and deaths each have their own colour, and gold means a mix.
+- **Choose a place to see what happened there.** The list beside the map is every place, busiest first. Choosing one flies the map there and lists what happened, oldest first, with each person linked to their profile. Buttons above the map turn births, marriages, life events and deaths on and off, and the search box narrows the map to the people whose names you type, in any language their name is written in.
+- **One person's life, on the map.** A new **Show on map** button on a profile opens the map with only that person's places, joined by a dashed line in the order they lived them. It appears only when the person has somewhere pinned.
+- **The map says what it cannot show.** Only places picked from the place search carry a pin, so a place typed in by hand is not on the map. Rather than guess where the words point, the page says how many such places there are, so they can be picked from the search the next time someone is edited.
+
 ## 4.10.0 — Where they married, where life happened
 
 - **The place of a marriage and of a life event are found as you type, like a birthplace.** In 4.9.0 only births and deaths got the place search, so a wedding in "Carlisle" or a school in "Penrith" was still a plain text box with no suggestions and no pin. Now **Add relationship**, the relationship editor and the life-event dialog offer the places the tree already uses and towns from the server's own place list, and picking one saves its map pin with the words. Typing is still allowed for anything the list doesn't know, and changing the words afterwards drops the pin.

@@ -17,6 +17,7 @@ import { canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamil
 import { normalizeText } from "../library/shared/tagging.js";
 import { getFamilyDefaultPerson } from "./settings.js";
 import { pinSchema } from "./place-pins.js";
+import { getFamilyMap } from "./map.js";
 import { suggestPlaces } from "../maps/places/search.js";
 import { placeLanguage } from "../library/gallery/places.js";
 
@@ -131,6 +132,10 @@ export function registerPersonRoutes(app: FastifyInstance) {
       towns: q.length >= 2 ? suggestPlaces(q, placeLanguage(request)) : []
     });
   });
+
+  // The family map: every pinned birth, death, marriage and life event, plus how
+  // many places have no pin yet. Read-only, like the tree.
+  app.get("/api/family-tree/map", { preHandler: app.authenticate }, async () => getFamilyMap());
 
   // Family-tag listing: feeds the person-edit autocomplete, the people-page
   // filter, and the admin branch-access modal (editorCount). The library tag

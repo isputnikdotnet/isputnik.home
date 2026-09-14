@@ -43,6 +43,7 @@ import {
   getFamilyDefaultPerson,
   getFamilyUploadLibrary
 } from "../src/modules/familytree/settings.js";
+import { getFamilyMap } from "../src/modules/familytree/map.js";
 import { setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
@@ -436,5 +437,25 @@ describe("other-language names and place pins", () => {
     const places = listFamilyPlaces();
     expect(places[0]).toEqual({ label: "Kyiv", pin: null, uses: 3 });
     expect(places[1]).toEqual({ label: "Minsk, Belarus", pin: { lat: 53.9, lng: 27.56 }, uses: 2 });
+  });
+});
+
+describe("family map", () => {
+  it("lists pinned births, deaths, marriages and events, oldest first, and counts the unpinned", () => {
+    const anna = person("Anna", { birthDate: "1920", birthplace: "Minsk", birthPin: { lat: 53.9, lng: 27.56 }, deathPlace: "Somewhere" });
+    const boris = person("Boris", { birthDate: "1918", birthplace: "Kyiv", birthPin: { lat: 50.45, lng: 30.52 } });
+    const union = createUnion(anna.id, boris.id, { marriedDate: "1945", marriedPlace: "Minsk", marriedPin: { lat: 53.9, lng: 27.56 } });
+    if ("error" in union) throw new Error(union.error);
+    createFamilyEvent(anna.id, { type: "residence", date: "1950", endDate: "1960", place: "Lviv", placePin: { lat: 49.84, lng: 24.03 } });
+    createFamilyEvent(boris.id, { type: "occupation", place: "Factory" });
+
+    const map = getFamilyMap();
+    expect(map.entries.map((entry) => `${entry.kind}:${entry.place}`)).toEqual([
+      "birth:Kyiv", "birth:Minsk", "marriage:Minsk", "event:Lviv"
+    ]);
+    expect(map.entries[2].personIds.sort()).toEqual([anna.id, boris.id].sort());
+    expect(map.entries[3]).toMatchObject({ eventType: "residence", endDate: "1960", lat: 49.84 });
+    // Anna's death place and Boris's workplace are words without a pin.
+    expect(map.unpinned).toBe(2);
   });
 });
