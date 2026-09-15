@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { geoipDirectory, geoipStatus, legacyGeoipDirectory, lookupLocation } from "../src/core/geoip.js";
 import { mapsPlugin } from "../src/modules/maps/index.js";
 import { MAP_DATA_FOLDERS, locationsDir } from "../src/modules/maps/storage.js";
@@ -18,6 +18,7 @@ import { bootApp } from "./helpers/boot.js";
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "geoip");
 
 let mapData = "";
+let workDir = "";
 let app: FastifyInstance | null = null;
 
 const legacy = () => legacyGeoipDirectory();
@@ -33,6 +34,14 @@ beforeEach(() => {
   resetDb();
   mapData = fs.mkdtempSync(path.join(os.tmpdir(), "isputnik-mapdata-"));
   process.env.MAP_DATA_PATH = mapData;
+  // The old folder hangs off the working directory (DB_PATH is :memory:), and the
+  // run's sandbox cwd is shared by every test file. maps.test.ts and
+  // maps-places.test.ts boot the maps plugin in parallel workers, and each boot
+  // collects whatever sits in <cwd>/geoip — so the databases planted here were
+  // carried off into THEIR Map data room before this file's boot looked for them.
+  // A working directory of this file's own keeps the old folder out of their reach.
+  workDir = fs.mkdtempSync(path.join(os.tmpdir(), "isputnik-geoip-cwd-"));
+  vi.spyOn(process, "cwd").mockReturnValue(workDir);
 });
 
 afterEach(async () => {
@@ -41,7 +50,9 @@ afterEach(async () => {
   delete process.env.MAP_DATA_PATH;
   delete process.env.GEOIP_PATH;
   fs.rmSync(mapData, { recursive: true, force: true });
-  fs.rmSync(legacy(), { recursive: true, force: true });
+  fs.rmSync(workDir, { recursive: true, force: true });
+  // Back to the sandbox pin (test/helpers/sandbox.ts re-applies it before each test).
+  vi.restoreAllMocks();
 });
 
 describe("the location databases in the Map data room", () => {
