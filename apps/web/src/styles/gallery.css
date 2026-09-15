@@ -2646,41 +2646,6 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
   .gallery-memory-play { opacity: 1; background: transparent; }
 }
 
-/* ── Year in review ───────────────────────────────────────────────────────── */
-
-/* The Memories view's opening row (MemoriesView): a card that plays the year,
-   with the button that keeps it as a slideshow underneath. */
-.gallery-year-hint {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-/* A shade wider than a memory tile: these are the headline cards of the view. */
-.gallery-year-card {
-  flex: 0 0 auto;
-  width: 210px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-.gallery-suggestion-row .gallery-year-card .gallery-folder-tile { width: 100%; }
-
-/* The year on the cover, so a row of them is scannable without reading titles. */
-.gallery-year-badge {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(18, 18, 20, 0.62);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 /* Suggestion preview modal: subtitle + action row above a read-only photo grid. */
 .suggestion-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .suggestion-preview-head p { margin: 0; }

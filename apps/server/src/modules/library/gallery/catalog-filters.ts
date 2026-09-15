@@ -49,8 +49,7 @@ export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
 // The Likes facet. `item_saves` is already LEFT JOINed for the `saved` column,
 // but the COUNT(*) half of a timeline query doesn't carry that join — so these are
 // EXISTS subqueries, which read the same on both. 'mine' takes the viewer's id; the
-// other two are viewer-independent ("someone in the house liked it"), which is
-// the signal the year-in-review scores on (see year-review.ts).
+// other two are viewer-independent ("someone in the house liked it").
 const LIKE_SQL: Record<string, { sql: string; needsUser: boolean }> = {
   mine:   { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id AND s.user_id = ?)", needsUser: true },
   anyone: { sql: "EXISTS (SELECT 1 FROM item_saves s WHERE s.item_id = library_items.id)", needsUser: false },

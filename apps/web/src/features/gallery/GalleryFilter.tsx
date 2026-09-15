@@ -87,9 +87,8 @@ function getLocationOptions() {
   ];
 }
 
-// The heart, as a filter. "Anyone's" is the household cut — the same signal the
-// year-in-review scores on — so it reads next to "Mine" rather than hiding behind
-// a separate surface.
+// The heart, as a filter. "Anyone's" is the household cut, so it reads next to
+// "Mine" rather than hiding behind a separate surface.
 function getLikeOptions() {
   return [
     { value: "mine", label: i18n.t("gallery:filter.likeMine") },
@@ -105,7 +104,7 @@ function getFacetOrder(): FacetDef<keyof GalleryFilters>[] {
     { key: "libraries", title: i18n.t("gallery:filter.facetLibraries"), searchable: false },
     { key: "kinds", title: i18n.t("gallery:filter.facetMediaType"), searchable: false, fixed: getKindOptions() },
     // High up: "show me the good ones" is a coarser cut than any of the descriptive
-    // facets below, and it's the one the year-in-review is built from.
+    // facets below.
     { key: "likes", title: i18n.t("gallery:filter.facetLikes"), searchable: false, fixed: getLikeOptions() },
     { key: "people", title: i18n.t("gallery:filter.facetPeople"), searchable: true },
     // A family archive can span many decades (scanned prints reach the 1940s), so

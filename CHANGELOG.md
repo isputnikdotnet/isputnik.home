@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.3 — Your years in photos, taken out for now
+
+- **Your years in photos is gone from Memories, for now.** The year cards did not pick a year's photos well enough to keep, so they have been taken out until they can be done properly. Memories is back to **On this day** — photos taken on today's date in earlier years — and shows in the side menu only on days that have some. Slideshows you already created from a year stay as they are, and so do the heart on photos and the **Likes** filter.
+
 ## 4.13.2 — Dropdowns you can read in the dark
 
 - **Dropdown lists are readable in the dark themes.** In a dialog or settings page, opening a dropdown — the country list under **Every village in…**, a status, a language — showed light text on a white list, so the choices could hardly be seen. The list took its background from the dropdown box, which is see-through in these fields, while the text followed the dark theme. The choices now carry the theme's own colours, so the list is dark with light text in the dark themes and stays as it was in the light ones.
