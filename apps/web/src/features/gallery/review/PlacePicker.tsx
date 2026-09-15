@@ -24,14 +24,19 @@ export interface PlacePin {
 
 interface Hit {
   label: string;
+  /** The online lookup's own short form, which knows which part is the town.
+   *  The offline town list sends none — its labels shorten fine by hand. */
+  short?: string;
   lat: number;
   lng: number;
 }
 
 const SUGGEST_DELAY_MS = 250;
 
-/** What goes in the text field for a found place: "Ratomka, Minsk District, Minsk
- *  Region, Belarus" reads as "Ratomka, Belarus" — the pin keeps the rest. */
+/** What goes in the text field for a place the offline list found: "Ratomka, Minsk
+ *  District, Minsk Region, Belarus" reads as "Ratomka, Belarus" — the pin keeps the
+ *  rest. Only ends, because nothing here says which middle part is the town; a hit
+ *  from the online lookup arrives shortened properly and skips this. */
 export function shortPlaceLabel(label: string): string {
   const parts = label.split(",").map((part) => part.trim()).filter(Boolean);
   return parts.length > 2 ? `${parts[0]}, ${parts[parts.length - 1]}` : parts.join(", ");
@@ -95,7 +100,7 @@ export function PlacePicker({
     setTyped("");
     setHits([]);
     setOnline(null);
-    onChange(shortPlaceLabel(hit.label), { lat: hit.lat, lng: hit.lng, label: hit.label });
+    onChange(hit.short ?? shortPlaceLabel(hit.label), { lat: hit.lat, lng: hit.lng, label: hit.label });
   };
 
   const showHits = canPin && query.length >= 2 && hits.length > 0;

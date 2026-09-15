@@ -14,9 +14,38 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_RESULTS = 6;
 
 export interface GeocodeHit {
+  /** The geocoder's full address, for the hit list and the pin. */
   label: string;
+  /** The same place in three parts at most — what goes in a text field. */
+  short: string;
   lat: number;
   lng: number;
+}
+
+// A number sign written apart from its number ("Средняя школа № 4", "school # 4")
+// loses the geocoder: it reads the sign as a word of its own, the rest of the
+// query stops carrying weight, and a bare "4" matches house numbers the world
+// over — which is how "Средняя школа № 4, Минск, Беларусь" came back as a school
+// in Zhodino. Glued to its number the same query finds the Minsk school first.
+function tidyQuery(text: string): string {
+  return text.replace(/([#№])\s+(?=\d)/g, "$1").trim();
+}
+
+/** The parts of an address worth keeping: the place itself, the town it is in,
+ *  and the country. "Сярэдняя школа №4, вуліца Кірава, Пасёлак Велазавода,
+ *  Ленінскі раён, Мінск, 220009, Беларусь" is a mouthful for a text field, and
+ *  trimming it to its ends alone would drop the one part she typed — Minsk. */
+function shortLabel(row: NominatimRow): string {
+  const address = row.address ?? {};
+  const parts = row.display_name?.split(",").map((part) => part.trim()).filter(Boolean) ?? [];
+  const name = row.name?.trim() || parts[0] || "";
+  const town = address.village || address.town || address.city || address.municipality || "";
+  const country = address.country || (parts.length > 1 ? parts[parts.length - 1] : "");
+  const kept: string[] = [];
+  for (const part of [name, town, country]) {
+    if (part && !kept.includes(part)) kept.push(part);
+  }
+  return kept.length > 0 ? kept.join(", ") : (row.display_name ?? "");
 }
 
 // Nominatim asks for no more than one request a second and rewards caching.
@@ -34,7 +63,15 @@ function remember(key: string, hits: GeocodeHit[]) {
 interface NominatimRow {
   lat?: string;
   lon?: string;
+  name?: string;
   display_name?: string;
+  address?: {
+    village?: string;
+    town?: string;
+    city?: string;
+    municipality?: string;
+    country?: string;
+  };
 }
 
 // A Plus Code copied out of Google Maps ("8MW8+4JV, Norman Manley Blvd, Negril,
@@ -48,7 +85,8 @@ async function resolvePlusCode(query: string): Promise<GeocodeHit[]> {
   if (parsed.full) {
     const point = decodePlusCode(parsed.code);
     if (!point) return [];
-    return [{ label: parsed.rest ? `${parsed.code}, ${parsed.rest}` : parsed.code, ...point }];
+    const label = parsed.rest ? `${parsed.code}, ${parsed.rest}` : parsed.code;
+    return [{ label, short: label, ...point }];
   }
 
   if (!parsed.rest) {
@@ -63,7 +101,7 @@ async function resolvePlusCode(query: string): Promise<GeocodeHit[]> {
   if (anchors.length === 0) return [];
   const point = recoverPlusCode(parsed.code, anchors[0]);
   if (!point) return [];
-  return [{ label: `${parsed.code}, ${anchors[0].label}`, ...point }];
+  return [{ label: `${parsed.code}, ${anchors[0].label}`, short: `${parsed.code}, ${anchors[0].short}`, ...point }];
 }
 
 export async function searchPlaces(query: string): Promise<GeocodeHit[]> {
@@ -82,9 +120,11 @@ export async function searchPlaces(query: string): Promise<GeocodeHit[]> {
   }
 
   const params = new URLSearchParams({
-    q: query.trim(),
+    q: tidyQuery(query),
     format: "jsonv2",
-    addressdetails: "0",
+    // On, so a hit can be shortened to "school, town, country" rather than to its
+    // two ends — which is the difference between naming Minsk and losing it.
+    addressdetails: "1",
     limit: String(MAX_RESULTS)
   });
 
@@ -110,7 +150,7 @@ export async function searchPlaces(query: string): Promise<GeocodeHit[]> {
     const lat = Number(row.lat);
     const lng = Number(row.lon);
     if (!row.display_name || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-    hits.push({ label: row.display_name, lat, lng });
+    hits.push({ label: row.display_name, short: shortLabel(row), lat, lng });
     if (hits.length >= MAX_RESULTS) break;
   }
 
