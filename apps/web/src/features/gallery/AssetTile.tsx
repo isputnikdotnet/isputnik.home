@@ -18,10 +18,9 @@ import { Button } from "../../shared/Button";
 // ~70 ms, which is StrictMode double-invoking renders on unminified React, not
 // anything a user ever sees. Profile the preview build, not the dev server.)
 
-/** Which list the lightbox should page through when a tile is opened.
- *  "yearReview" is a year in review being played (useMemories). */
+/** Which list the lightbox should page through when a tile is opened. */
 export type LightboxSource =
-  | "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow" | "yearReview";
+  | "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow";
 
 export function AssetTile({
   asset,

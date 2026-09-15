@@ -307,8 +307,7 @@ export function GalleryPage({
 
   const {
     memories, setMemories, memorySuggestions, previewSuggestion, setPreviewSuggestion, previewAssets,
-    loadMemories, openSuggestionPreview, createFromMemory, memoryItems, openMemoryYear,
-    yearReviews, yearReviewAssets, setYearReviewAssets, playYearReview, createFromYearReview
+    loadMemories, openSuggestionPreview, createFromMemory, memoryItems, openMemoryYear
   } = useMemories({
     scopeParams, setError, setNotice, goToView, openSlideshow, setLightbox,
     resetSlideshow: () => { setSlideshowAssets([]); setSlideshowTotal(0); }
@@ -394,7 +393,6 @@ export function GalleryPage({
     : lightbox?.source === "folder" ? folderAssets
       : lightbox?.source === "person" ? personAssets
         : lightbox?.source === "memory" ? memoryItems
-          : lightbox?.source === "yearReview" ? yearReviewAssets
           : lightbox?.source === "album" ? albumAssets
             : lightbox?.source === "slideshow" ? slideshowAssets : assets;
 
@@ -504,7 +502,6 @@ export function GalleryPage({
     setFolderAssets(patch);
     setPersonAssets(patch);
     setAlbumAssets(patch);
-    setYearReviewAssets(patch);
     setMemories((current) => (current ? { ...current, groups: current.groups.map((g) => ({ ...g, items: patch(g.items) })) } : current));
   }, [setPersonAssets, setAlbumAssets]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -525,7 +522,6 @@ export function GalleryPage({
     });
     setPersonAssets(drop);
     setAlbumAssets(drop);
-    setYearReviewAssets(drop);
     setMemories((current) => (current
       ? { ...current, groups: current.groups.map((g) => ({ ...g, items: drop(g.items) })) }
       : current));
@@ -681,9 +677,7 @@ export function GalleryPage({
       // the album/slideshow cases below.
       ? (selectedPerson ? undefined : t("gallery:common.counts.person", { count: shownPeople.length }))
       : view === "memories"
-        // "0 photos from past years" over a row of whole years would read as
-        // the page being empty; the row speaks for itself then.
-        ? (memoriesTotal === 0 && yearReviews.length > 0 ? undefined : t("gallery:memories.subtitle", { count: memoriesTotal }))
+        ? t("gallery:memories.subtitle", { count: memoriesTotal })
         : view === "albums"
           // An open album shows its own count under its cover title too — see
           // the slideshow case below.
@@ -697,11 +691,11 @@ export function GalleryPage({
             : folderSubtitle;
 
   // Ordinary links to ordinary addresses. Memories and Map only appear when there
-  // is something behind them — no anniversary today and no year to look back on,
-  // nothing geotagged in scope — which is why they are the two conditional entries.
+  // is something behind them — no anniversary today, nothing geotagged in scope —
+  // which is why they are the two conditional entries.
   const galleryNavItems: SectionNavItem[] = [
     { key: "timeline", label: VIEW_TITLES.timeline, href: galleryHref("timeline"), icon: CalendarDays },
-    ...((memories?.groups.length ?? 0) > 0 || yearReviews.length > 0
+    ...((memories?.groups.length ?? 0) > 0
       ? [{ key: "memories", label: VIEW_TITLES.memories, href: galleryHref("memories"), icon: Sparkles }]
       : []),
     { key: "albums", label: VIEW_TITLES.albums, href: galleryHref("albums"), icon: Album },
@@ -1067,9 +1061,6 @@ export function GalleryPage({
             ) : view === "memories" ? (
               <MemoriesView
                 memories={memories}
-                yearReviews={yearReviews}
-                onPlayYearReview={(review) => { setNotice(""); void playYearReview(review); }}
-                onCreateFromYearReview={(review) => void createFromYearReview(review)}
                 toggleDaySelect={toggleDaySelect}
                 canShareAny={canShareAny}
                 onShare={setShareIds}

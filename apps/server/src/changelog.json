@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.13.3",
+    "label": "Your years in photos, taken out for now",
+    "changes": [
+      "**Your years in photos is gone from Memories, for now.** The year cards did not pick a year's photos well enough to keep, so they have been taken out until they can be done properly. Memories is back to **On this day** — photos taken on today's date in earlier years — and shows in the side menu only on days that have some. Slideshows you already created from a year stay as they are, and so do the heart on photos and the **Likes** filter."
+    ]
+  },
+  {
     "version": "4.13.2",
     "label": "Dropdowns you can read in the dark",
     "changes": [

@@ -1,4 +1,4 @@
-// Browsing the gallery: the Timeline, Folders, memories and year reviews, facets
+// Browsing the gallery: the Timeline, Folders, memories, facets
 // and the map.
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -17,7 +17,6 @@ import { placeLanguage } from "./places.js";
 import { queryGalleryMemories } from "./catalog-memories.js";
 import { EMPTY_GALLERY_FILTERS } from "./catalog-filters.js";
 import { suggestGalleryMemories } from "./memories.js";
-import { suggestYearReviews, buildYearReview } from "./year-review.js";
 
 // Query strings. `libraryIds` is ONE comma-separated value (parseLibraryIds), and
 // the numbers stay strings so junk falls back to each route's default, as it
@@ -39,12 +38,6 @@ const memoriesQuerySchema = z.object({
   perYear: z.string().optional()
 });
 const suggestionsQuerySchema = z.object({ libraryIds: z.string().optional(), limit: z.string().optional() });
-const yearReviewQuerySchema = z.object({
-  libraryIds: z.string().optional(),
-  year: z.string().optional(),
-  limit: z.string().optional(),
-  maxItems: z.string().optional()
-});
 const facetsQuerySchema = z.object({ libraryIds: z.string().optional() });
 const mapQuerySchema = z.object({ libraryIds: z.string().optional(), kinds: z.string().optional() }); // kinds: comma-separated
 
@@ -162,32 +155,6 @@ export function registerGalleryBrowseRoutes(app: FastifyInstance) {
     const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "12", 10) || 12, 1), 40);
     return { suggestions: suggestGalleryMemories(libIds, { limit }) };
-  });
-
-  // "2026 in review": a year's best, proposed as a slideshow. Same contract as the
-  // memory suggestions above — nothing is persisted until the user saves one — but
-  // built from the household's likes rather than from time clustering, and
-  // spread across the calendar so the film covers the year (see year-review.ts).
-  //
-  // `year` picks one; without it the most recent few years with material are
-  // returned, newest first. Each one is a real selection pass, so the count stays
-  // small by default.
-  app.get("/api/library/gallery/year-review", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = parseQuery(yearReviewQuerySchema, request.query);
-    if (parsed.error) {
-      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
-    }
-    const qp = parsed.data;
-    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
-    const maxItems = qp.maxItems ? Math.min(Math.max(Number.parseInt(qp.maxItems, 10) || 60, 12), 200) : undefined;
-
-    const year = Number.parseInt(qp.year ?? "", 10);
-    if (Number.isFinite(year) && year > 1800 && year < 3000) {
-      const review = buildYearReview(libIds, request.user!.id, year, { maxItems });
-      return { suggestions: review ? [review] : [] };
-    }
-    const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "3", 10) || 3, 1), 12);
-    return { suggestions: suggestYearReviews(libIds, request.user!.id, { limit, maxItems }) };
   });
 
   // Bulk asset lookup by ids (the suggestion-preview grid fetches a montage's
