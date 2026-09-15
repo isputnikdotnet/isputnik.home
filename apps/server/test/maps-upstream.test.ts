@@ -61,14 +61,34 @@ const { assetPath } = await import("../src/modules/maps/storage.js");
 /** A hillshade tile: needs no TileJSON first, so one tile is one upstream call. */
 const tile = (x: number, y = 0) => ({ kind: "raster" as const, z: 6, x, y });
 
+// A request reaches the queue over several turns of the event loop (a cache read
+// off the disk comes first), and a retry waits a quarter second. So these tests
+// WAIT FOR WHAT THEY EXPECT rather than pausing a fixed few milliseconds: a fixed
+// pause passes here and fails on a slower, busier machine — it failed in CI, which
+// is how they came to be written this way.
+async function until(what: string, ready: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    if (ready()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Waited in vain for ${what}`);
+}
+
+/** Wait for upstream to be holding exactly `count` requests, and no more coming. */
+async function pending(count: number): Promise<void> {
+  await until(`${count} upstream request(s)`, () => upstream.pending.length === count);
+  // Still `count` a moment later: a seventh arriving late would be the bug.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(upstream.pending).toHaveLength(count);
+}
+
 /** Let queued promise work run. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
+const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 /** Six tiles holding every upstream slot, so what is asked next has to queue. */
 async function fillSlots() {
   for (let i = 0; i < 6; i += 1) void resolveAsset(tile(i), new AbortController().signal);
-  await settle();
-  expect(upstream.pending).toHaveLength(6);
+  await pending(6);
 }
 
 let dataDir = "";
@@ -101,24 +121,21 @@ describe("asking upstream", () => {
     // Asked again straight away, before the abandoned fetch has finished failing.
     const again = resolveAsset(tile(100), new AbortController().signal);
     await expect(gone).rejects.toBeInstanceOf(MapRequestAbandoned);
-    await settle();
 
     for (const request of upstream.pending.splice(0)) request.answer(200);
-    await settle();
+    await until("the replacement to reach upstream", () => upstream.pending.length === 1);
     upstream.pending.shift()!.answer(200);
     await expect(again).resolves.toMatchObject({ stale: false });
   });
 
   it("asks at most six at a time, however many tiles are wanted", async () => {
     const wanted = Array.from({ length: 20 }, (_, i) => resolveAsset(tile(i), new AbortController().signal));
-    await settle();
-    expect(upstream.pending).toHaveLength(6);
+    await pending(6);
 
     // Each answer lets exactly one more through.
     upstream.pending.shift()!.answer(200);
-    await settle();
-    expect(upstream.calls).toBe(7);
-    expect(upstream.pending).toHaveLength(6);
+    await until("the seventh request", () => upstream.calls === 7);
+    await pending(6);
 
     while (upstream.calls < 20 || upstream.pending.length > 0) {
       for (const request of upstream.pending.splice(0)) request.answer(200);
@@ -140,8 +157,8 @@ describe("asking upstream", () => {
     await expect(dropped).rejects.toBeInstanceOf(MapRequestAbandoned);
 
     for (const request of upstream.pending.splice(0)) request.answer(200);
-    await settle();
     // Tile 101 went up; tile 100 never did.
+    await pending(1);
     expect(upstream.pending.map((request) => request.url)).toEqual([expect.stringContaining("/6/101/0.png")]);
     upstream.pending.shift()!.answer(200);
     await expect(kept).resolves.toMatchObject({ stale: false });
@@ -159,7 +176,7 @@ describe("asking upstream", () => {
     await expect(gone).rejects.toBeInstanceOf(MapRequestAbandoned);
 
     for (const request of upstream.pending.splice(0)) request.answer(200);
-    await settle();
+    await pending(1);
     expect(upstream.pending.map((request) => request.url)).toEqual([expect.stringContaining("/6/100/0.png")]);
     upstream.pending.shift()!.answer(200);
     await expect(stillWanted).resolves.toMatchObject({ stale: false });
@@ -168,18 +185,18 @@ describe("asking upstream", () => {
 
   it("tries a network failure once more, but takes an upstream answer as it is", async () => {
     const retried = resolveAsset(tile(1), new AbortController().signal);
-    await settle();
+    await pending(1);
     upstream.pending.shift()!.fail(new Error("other side closed"));
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(upstream.pending).toHaveLength(1);
+    await until("the retry", () => upstream.pending.length === 1);
     upstream.pending.shift()!.answer(200);
     await expect(retried).resolves.toMatchObject({ stale: false });
 
     const answered = resolveAsset(tile(2), new AbortController().signal);
-    await settle();
+    await pending(1);
     upstream.pending.shift()!.answer(500);
     await expect(answered).rejects.toThrow("answered 500");
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // An answer is not tried again, so no fourth request ever comes.
+    await new Promise((resolve) => setTimeout(resolve, 400));
     expect(upstream.calls).toBe(3);
   });
 });
@@ -195,8 +212,9 @@ describe("an upstream that keeps failing", () => {
 
     const failing = Array.from({ length: 5 }, (_, i) => resolveAsset(tile(i), new AbortController().signal));
     for (const outcome of failing) outcome.catch(() => {});
+    // Twice round: the second round of requests is each tile's one retry.
     for (let round = 0; round < 2; round += 1) {
-      await new Promise((resolve) => setTimeout(resolve, round === 0 ? 5 : 300));
+      await until("five requests upstream", () => upstream.pending.length === 5);
       for (const request of upstream.pending.splice(0)) request.fail(new Error("connect ENETUNREACH 2606:4700:20::681a:717:443"));
     }
     for (const outcome of failing) await expect(outcome).rejects.toThrow("ENETUNREACH");
@@ -212,13 +230,12 @@ describe("an upstream that keeps failing", () => {
   it("does not count a 404 as the upstream failing", async () => {
     for (let i = 0; i < 6; i += 1) {
       const missing = resolveAsset(tile(i), new AbortController().signal);
-      await settle();
+      await until("the request upstream", () => upstream.pending.length === 1);
       upstream.pending.shift()!.answer(404);
       await expect(missing).rejects.toThrow("Not found upstream.");
     }
     const next = resolveAsset(tile(99), new AbortController().signal);
-    await settle();
-    expect(upstream.pending).toHaveLength(1);
+    await pending(1);
     upstream.pending.shift()!.answer(200);
     await expect(next).resolves.toMatchObject({ stale: false });
   });
@@ -233,7 +250,7 @@ describe("how the service has been behaving", () => {
 
   it("remembers the last answer and the last failure, and says when it is pausing", async () => {
     const answered = resolveAsset(tile(1), new AbortController().signal);
-    await settle();
+    await until("the request upstream", () => upstream.pending.length === 1);
     upstream.pending.shift()!.answer(200);
     await answered;
     const afterSuccess = mapServiceHealth();
@@ -244,7 +261,7 @@ describe("how the service has been behaving", () => {
     const failing = Array.from({ length: 5 }, (_, i) => resolveAsset(tile(10 + i), new AbortController().signal));
     for (const outcome of failing) outcome.catch(() => {});
     for (let round = 0; round < 2; round += 1) {
-      await new Promise((resolve) => setTimeout(resolve, round === 0 ? 5 : 300));
+      await until("five requests upstream", () => upstream.pending.length === 5);
       for (const request of upstream.pending.splice(0)) request.fail(new Error("connect ENETUNREACH"));
     }
     for (const outcome of failing) await expect(outcome).rejects.toThrow();
