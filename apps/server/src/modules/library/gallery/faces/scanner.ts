@@ -18,6 +18,7 @@ import { jobProgressWriter } from "../../shared/job-progress.js";
 import { decodeUpright, detectFacesFromRaw, FACE_EMBEDDING_MODEL, type DecodedImage } from "./arcface.js";
 import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
+import { adoptWholePhotoTag, adoptWholePhotoTags } from "./adopt.js";
 import { cropFaceFromRaw, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
 import { isPhotoInboxLibrary } from "../system-libraries.js";
@@ -102,7 +103,7 @@ async function scanLibraryFaces(
   force: boolean,
   onProgress?: (processed: number, total: number) => void,
   deadline: number = Number.POSITIVE_INFINITY
-): Promise<{ items: number; faces: number; changed?: boolean; skipped?: boolean; failed?: number; remaining?: number; timeLimited?: boolean }> {
+): Promise<{ items: number; faces: number; changed?: boolean; skipped?: boolean; failed?: number; adopted?: number; remaining?: number; timeLimited?: boolean }> {
   if (!faceRecognitionEnabledForLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
   // Faces wait until a photo is kept out of a Photo Inbox (inbox-flag.ts). The
   // queue never enqueues one, but a job written before the flag was set would.
@@ -144,6 +145,8 @@ async function scanLibraryFaces(
 
   let totalFaces = 0;
   let failed = 0;
+  // Whole-photo tags this run handed to the one face they could only have meant.
+  let adopted = 0;
   // Whether this run wrote or removed any face rows — the worker only reclusters when
   // something actually changed, so a no-op batch skips the O(n²) grouping pass.
   let mutated = false;
@@ -211,6 +214,11 @@ async function scanLibraryFaces(
         );
       });
       markScanned.run(photo.id, FACE_EMBEDDING_MODEL, prepared.length);
+      // A photo kept out of a Photo Inbox reaches its first scan already carrying
+      // the reviewer's "who is in it" as a box-less tag. One face, one name: the
+      // detection takes the name (adopt.ts), so it reaches the recogniser instead
+      // of sitting next to it.
+      if (adoptWholePhotoTag(photo.id)) adopted += 1;
       if (removed > 0 || prepared.length > 0) mutated = true;
     })();
     removeFaceCropFiles(staleCropKeys);
@@ -225,6 +233,7 @@ async function scanLibraryFaces(
     items: stoppedAt,
     faces: totalFaces,
     failed,
+    ...(adopted > 0 ? { adopted } : {}),
     ...(mutated ? { changed: true } : {}),
     ...(remaining > 0 ? { remaining } : {}),
     ...(timeLimited ? { timeLimited: true } : {})
@@ -324,10 +333,13 @@ export async function processFaceScanQueue(): Promise<void> {
         if (payload.recompute) {
           // Backfill any missing face crops (existing libraries get avatars), sweep crop
           // files nothing references any more (rescans/purges/deleted libraries from
-          // before the delete paths removed files), then group.
+          // before the delete paths removed files), hand every single-face photo's
+          // whole-photo tag to its face (photos scanned before adopt.ts existed —
+          // before the grouping, so the adopted faces are pinned in it), then group.
           const thumbnails = await backfillFaceThumbnails();
           const orphanCrops = sweepOrphanFaceCrops();
-          result = { reclustered: (await clusterGalleryFaces()).clusters, thumbnails, orphanCrops };
+          const adopted = adoptWholePhotoTags();
+          result = { reclustered: (await clusterGalleryFaces()).clusters, thumbnails, orphanCrops, ...(adopted > 0 ? { adopted } : {}) };
           clusterDirty = false; // just clustered — earlier scan jobs are covered
         } else {
           // The night's time budget spans the whole pre-queued batch GROUP, measured

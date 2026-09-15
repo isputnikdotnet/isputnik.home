@@ -65,6 +65,54 @@ describe("GalleryFaceOverlay", () => {
     });
   });
 
+  it("offers the photo's own unplaced people, and names the face in one tap", async () => {
+    const onChanged = vi.fn();
+    // Mum has a box of her own; Gran was named in Review, where an Inbox photo had
+    // no faces to point at — so she is who this spare face is most likely to be.
+    render(
+      <GalleryFaceOverlay
+        image={sizedImage()}
+        faces={[mum, stranger]}
+        people={[{ id: "p-mum", name: "Mum" }, { id: "p-gran", name: "Gran" }]}
+        showAll
+        highlightPersonId={null}
+        canEdit
+        onChanged={onChanged}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Name this face (Not named yet)" }));
+    expect(screen.getByText("Said to be in this photo")).toBeInTheDocument();
+    // Mum is already drawn on a box, so she is not offered again.
+    expect(screen.queryByTitle("This face is Mum")).toBeNull();
+
+    await userEvent.click(screen.getByTitle("This face is Gran"));
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    // By her id, not her name — and the group goes with her, as a typed name does.
+    expect(api).toHaveBeenCalledWith("/api/library/gallery/faces/f2/person", {
+      method: "PUT",
+      body: JSON.stringify({ personId: "p-gran", wholeGroup: true })
+    });
+  });
+
+  it("offers nobody when every person on the photo already has a face", async () => {
+    render(
+      <GalleryFaceOverlay
+        image={sizedImage()}
+        faces={[mum, stranger]}
+        people={[{ id: "p-mum", name: "Mum" }]}
+        showAll
+        highlightPersonId={null}
+        canEdit
+        onChanged={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Name this face (Not named yet)" }));
+    expect(screen.queryByText("Said to be in this photo")).toBeNull();
+  });
+
   it("says 'Not Mum' for that one face", async () => {
     const onChanged = vi.fn();
     render(<GalleryFaceOverlay image={sizedImage()} faces={[mum, stranger]} showAll highlightPersonId={null} canEdit onChanged={onChanged} />);

@@ -113,6 +113,8 @@
     "notNamed": "Not named yet",
     "nameFaceAria": "Name this face ({{name}})",
     "whoIsThis": "Who is this?",
+    "saidToBeHere": "Said to be in this photo",
+    "thisFaceIs": "This face is {{name}}",
     "wholeGroup": "Also name the other photos recognised as this face",
     "notPerson": "Not {{name}}",
     "notThisPerson": "Not this person",

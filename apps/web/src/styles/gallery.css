@@ -1243,6 +1243,44 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
   font-size: 0.85rem;
 }
 
+/* The photo's own people, offered as one tap each: someone already said they are
+   in this photo, so naming the face is a confirmation, not a search. */
+.gallery-face-editor-suggest {
+  display: grid;
+  gap: 6px;
+}
+
+.gallery-face-editor-suggest-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gallery-face-editor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gallery-face-editor-chip {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f3f1ec;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.gallery-face-editor-chip:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.gallery-face-editor-chip:disabled { opacity: 0.5; cursor: default; }
+
 .gallery-face-editor-check {
   display: flex;
   align-items: flex-start;
