@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.5 — The school in the right town
+
+- **A place with a number in its name is found in the town you named.** Searching online from **Where?** for "Средняя школа № 4, Минск, Беларусь" offered a school in Zhodino, 55 km outside the city, and never the one in Minsk. A number sign written apart from its number — "№ 4", "# 4" — was read by the place service as a word of its own, and everything else you typed, the town included, stopped counting; the bare "4" was then matched against house numbers anywhere in the world. The sign now goes out joined to its number, and the same search finds the Minsk school first. Nothing to set — it works on the next search.
+- **A place you pick keeps the town in the words.** Choosing a school or a street from the online search wrote it down as "Сярэдняя школа №4, Беларусь" — the address was shortened to its first and last parts, so the country stayed and Minsk was lost. It now reads "Сярэдняя школа №4, Мінск, Беларусь": the place, the town it is in, and the country. The pin still keeps the full address.
+
 ## 4.13.4 — Maps that cannot stop the server
 
 - **Zooming a map no longer freezes the whole server.** With offline maps on, zooming in and out quickly could make everything stop responding — on Unraid more than once, until the container was restarted. Every map area not yet kept was fetched from the map service all at once, each over a brand-new connection, and a slow answer held up work the rest of the server was waiting for. Now the server asks the map service for a few pieces at a time over connections it keeps open, and drops the pieces the map stopped needing when you zoomed past them. A map area may take a moment to fill in; the rest of the app keeps working meanwhile.

@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.13.5",
+    "label": "The school in the right town",
+    "changes": [
+      "**A place with a number in its name is found in the town you named.** Searching online from **Where?** for \"Средняя школа № 4, Минск, Беларусь\" offered a school in Zhodino, 55 km outside the city, and never the one in Minsk. A number sign written apart from its number — \"№ 4\", \"# 4\" — was read by the place service as a word of its own, and everything else you typed, the town included, stopped counting; the bare \"4\" was then matched against house numbers anywhere in the world. The sign now goes out joined to its number, and the same search finds the Minsk school first. Nothing to set — it works on the next search.",
+      "**A place you pick keeps the town in the words.** Choosing a school or a street from the online search wrote it down as \"Сярэдняя школа №4, Беларусь\" — the address was shortened to its first and last parts, so the country stayed and Minsk was lost. It now reads \"Сярэдняя школа №4, Мінск, Беларусь\": the place, the town it is in, and the country. The pin still keeps the full address."
+    ]
+  },
+  {
     "version": "4.13.4",
     "label": "Maps that cannot stop the server",
     "changes": [
