@@ -11,6 +11,7 @@ import { registerMapRoutes } from "./routes.js";
 import { adoptLegacyGeoipFolder } from "./locations.js";
 import { locationsDir } from "./storage.js";
 import { startPlacesBuildWorker } from "./places/job.js";
+import { closeUpstream } from "./resolve.js";
 
 export async function mapsPlugin(app: FastifyInstance) {
   setGeoipRoomDirectory(locationsDir);
@@ -36,5 +37,6 @@ export async function mapsPlugin(app: FastifyInstance) {
   app.addHook("onClose", async () => {
     stopPlacesBuildWorker();
     setGeoipRoomDirectory(null);
+    await closeUpstream();
   });
 }

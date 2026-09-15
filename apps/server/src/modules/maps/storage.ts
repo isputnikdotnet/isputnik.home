@@ -87,33 +87,67 @@ export interface CachedBody {
   ageMs: number;
 }
 
-export function readCached(asset: MapAsset): CachedBody | null {
+// --- How big the cache is, without walking it ----------------------------------------
+//
+// A tile cache at its cap is hundreds of thousands of small files, and walking them
+// to learn its size is minutes of disk work on a NAS array. So it is walked once
+// (sweep.ts, off the request path) and then kept up to date by counting what is
+// written. A rewrite of a file already counted is counted again, so the count only
+// errs high — which at worst brings the next walk forward, and the walk corrects it.
+
+/** Bytes this process has written into the cache, ever. */
+let bytesWritten = 0;
+let counted: { dir: string; bytes: number; writtenAt: number } | null = null;
+
+/** The tile cache's size as last walked plus what has been written since, or null
+ *  when it has not been walked (or the cache has moved since). */
+export function knownTileCacheBytes(): number | null {
+  if (!counted || counted.dir !== tileCacheDir()) return null;
+  return counted.bytes + (bytesWritten - counted.writtenAt);
+}
+
+/** Record a walk's result. `writtenBefore` is bytesWrittenSoFar() from when the
+ *  walk started, so what arrived during it is not lost. */
+export function recordTileCacheBytes(dir: string, bytes: number, writtenBefore: number): void {
+  counted = { dir, bytes: bytes + (bytesWritten - writtenBefore), writtenAt: bytesWritten };
+}
+
+export function bytesWrittenSoFar(): number {
+  return bytesWritten;
+}
+
+// Reads and writes are asynchronous: a map asks for a hundred tiles at once, and
+// on a NAS array (Unraid's /mnt/user) a synchronous stat or read can take long
+// enough that a hundred of them in a row stall every other request.
+
+export async function readCached(asset: MapAsset): Promise<CachedBody | null> {
   const file = assetPath(asset);
   if (!file) return null;
   try {
-    const stat = fs.statSync(file);
-    return { body: fs.readFileSync(file), ageMs: Date.now() - stat.mtimeMs };
+    const stat = await fs.promises.stat(file);
+    return { body: await fs.promises.readFile(file), ageMs: Date.now() - stat.mtimeMs };
   } catch {
     return null;
   }
 }
 
 /** Best effort: a full disk or a read-only folder costs the cache, never the
- *  response — the caller already has the bytes it fetched. */
-export function writeCached(asset: MapAsset, stored: Buffer): void {
+ *  response — the caller already has the bytes it fetched. Says whether it wrote. */
+export async function writeCached(asset: MapAsset, stored: Buffer): Promise<boolean> {
   const file = assetPath(asset);
-  if (!file) return;
+  if (!file) return false;
   const temp = `${file}.tmp-${process.pid}-${Math.random().toString(36).slice(2)}`;
   try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(temp, stored);
-    fs.renameSync(temp, file);
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
+    await fs.promises.writeFile(temp, stored);
+    await fs.promises.rename(temp, file);
+    bytesWritten += stored.length;
+    return true;
   } catch {
-    try {
-      fs.rmSync(temp, { force: true });
-    } catch {
+    await fs.promises.rm(temp, { force: true }).catch(() => {
       // Nothing more to do: the next request tries again.
-    }
+    });
+    return false;
   }
 }
 
@@ -146,10 +180,12 @@ export function locationsDir(): string {
   return path.join(mapDataDir(), "Locations");
 }
 
-/** Empty the tile cache. Returns what it freed. */
+/** Empty the tile cache. Returns what it freed. Synchronous, and a walk: only for
+ *  an admin turning caching (or App storage) off, never for anything a map does. */
 export function clearTileCache(): number {
   const dir = tileCacheDir();
   const freed = folderBytes(dir);
   fs.rmSync(dir, { recursive: true, force: true });
+  recordTileCacheBytes(dir, 0, bytesWritten);
   return freed;
 }
