@@ -28,12 +28,16 @@ function summarizeTaskResult(type: string, result: Record<string, unknown> | nul
   if (type === "SCAN_EBOOK_LIBRARY") return result.books != null ? `${result.books} book${result.books === 1 ? "" : "s"}` : null;
   if (type === "SCAN_GALLERY_LIBRARY") return result.assets != null ? `${result.assets} item${result.assets === 1 ? "" : "s"}` : null;
   if (type === "SCAN_GALLERY_FACES") {
+    // A whole-photo tag handed to the single face it could only have meant (adopt.ts).
+    const adopted = num(result.adopted) > 0
+      ? ` · named the face on ${result.adopted} photo${result.adopted === 1 ? "" : "s"}`
+      : "";
     if (result.reclustered != null) {
       const swept = num(result.orphanCrops) > 0 ? ` · removed ${result.orphanCrops} orphaned face crop${result.orphanCrops === 1 ? "" : "s"}` : "";
-      return `Re-grouped faces into ${result.reclustered} groups${swept}`;
+      return `Re-grouped faces into ${result.reclustered} groups${swept}${adopted}`;
     }
     if (result.skipped) return "Face recognition disabled — skipped";
-    const base = `${result.items ?? 0} photos, ${result.faces ?? 0} faces${result.failed ? ` · ${result.failed} failed` : ""}`;
+    const base = `${result.items ?? 0} photos, ${result.faces ?? 0} faces${result.failed ? ` · ${result.failed} failed` : ""}${adopted}`;
     if (!(num(result.remaining) > 0)) return base;
     return result.timeLimited
       ? `${base} · paused at the 3-hour limit, ${result.remaining} photos continue next run`

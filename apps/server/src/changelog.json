@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.13.7",
+    "label": "The name lands on the face",
+    "changes": [
+      "**A name given in Review mode now finds the face it belongs to.** Photos waiting in a Photo Inbox are not searched for faces yet, so saying who is in one could only mean \"somewhere in this photo\". Once the photo is kept and its faces are found, a photo with a single face and a single name puts the two together by itself: the face is named, recognition can look for that person in other photos, and the photo no longer says the name twice. Photos with more than one face are left alone — nothing guesses which face is whose.",
+      "**Naming a face offers the people the photo already names.** Clicking a face used to mean typing the name again, even when someone had just said who was in the photo. The people named on the photo without a face of their own now sit under **Who is this?** as one tap each, and tapping one names the whole group it was recognised as, the same way typing a name does.",
+      "**Photos kept before this update catch up on the next Regroup faces.** Control panel → Photos → People → **Regroup faces** now also matches up the single-face photos that were waiting. The Tasks page says how many it named."
+    ]
+  },
+  {
     "version": "4.13.6",
     "label": "The map says when it cannot reach the map service",
     "changes": [

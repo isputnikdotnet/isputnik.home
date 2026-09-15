@@ -129,6 +129,8 @@
     "notNamed": "Ещё без имени",
     "nameFaceAria": "Подписать лицо ({{name}})",
     "whoIsThis": "Кто это?",
+    "saidToBeHere": "Отмечены на этом фото",
+    "thisFaceIs": "Это {{name}}",
     "wholeGroup": "Подписать и другие фото, где распознано это лицо",
     "notPerson": "Это не {{name}}",
     "notThisPerson": "Это другой человек",

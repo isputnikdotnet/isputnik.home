@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
-import type { GalleryAsset, GalleryFace, GalleryPerson } from "./types";
+import type { GalleryAsset, GalleryFace, GalleryPerson, GalleryPersonTag } from "./types";
 
 // The faces recognition found, drawn over the photo in the lightbox.
 //
@@ -18,6 +18,7 @@ import type { GalleryAsset, GalleryFace, GalleryPerson } from "./types";
 export function GalleryFaceOverlay({
   image,
   faces,
+  people,
   showAll,
   highlightPersonId,
   canEdit,
@@ -25,6 +26,10 @@ export function GalleryFaceOverlay({
 }: {
   image: HTMLImageElement | null;
   faces: GalleryFace[];
+  // Who the photo says is in it. Anyone here without a box of their own was
+  // named without one — in Review mode, usually, where a Photo Inbox has no
+  // faces to point at yet — so they are who this face is most likely to be.
+  people?: GalleryPersonTag[];
   showAll: boolean;
   highlightPersonId: string | null;
   canEdit: boolean;
@@ -62,6 +67,10 @@ export function GalleryFaceOverlay({
     || (highlightPersonId != null && face.personId === highlightPersonId));
   if (visible.length === 0) return null;
   const editing = faces.find((face) => face.id === editingId) ?? null;
+  // A person already drawn on a box is placed; the rest of the photo's people are
+  // still looking for one, and this face is where they could go.
+  const placed = new Set(faces.filter((face) => face.personId).map((face) => face.personId));
+  const unplaced = (people ?? []).filter((person) => !placed.has(person.id));
 
   return (
     <div
@@ -112,6 +121,7 @@ export function GalleryFaceOverlay({
         <FaceEditor
           key={editing.id}
           face={editing}
+          unplaced={unplaced}
           onClose={() => setEditingId(null)}
           onChanged={(asset) => { setEditingId(null); onChanged(asset); }}
         />
@@ -122,12 +132,18 @@ export function GalleryFaceOverlay({
 
 // The small form beside a clicked face: who it is, or that it isn't who it was
 // grouped as. Not a modal: the photo stays in view, since the face is the question.
+//
+// The photo's own unplaced people come first, as one tap each. Someone who said
+// "Mum and Gran are in this one" in Review mode has already done the remembering;
+// asking them to type it again over the face is asking twice.
 function FaceEditor({
   face,
+  unplaced,
   onClose,
   onChanged
 }: {
   face: GalleryFace;
+  unplaced: GalleryPersonTag[];
   onClose: () => void;
   onChanged: (asset: GalleryAsset) => void;
 }) {
@@ -160,10 +176,12 @@ function FaceEditor({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [busy, onClose]);
 
-  const save = async () => {
-    const typed = name.trim();
+  // `chosen` is one of the photo's own people, tapped instead of typed — same save,
+  // no round trip through the text box.
+  const save = async (chosen?: GalleryPersonTag) => {
+    const typed = chosen?.name ?? name.trim();
     if (!typed || busy) return;
-    const match = people.find((person) => person.name.toLowerCase() === typed.toLowerCase());
+    const match = chosen ?? people.find((person) => person.name.toLowerCase() === typed.toLowerCase());
     if (match && match.id === face.personId && face.confirmed) { onClose(); return; }
     setBusy("save");
     setError(null);
@@ -231,6 +249,25 @@ function FaceEditor({
       <datalist id="gallery-face-people">
         {people.map((person) => <option key={person.id} value={person.name} />)}
       </datalist>
+      {unplaced.length > 0 && (
+        <div className="gallery-face-editor-suggest">
+          <span className="gallery-face-editor-suggest-label">{t("gallery:faces.saidToBeHere")}</span>
+          <div className="gallery-face-editor-chips">
+            {unplaced.map((person) => (
+              <Button
+                variant="chip"
+                key={person.id}
+                className="gallery-face-editor-chip"
+                onClick={() => void save(person)}
+                disabled={busy != null}
+                title={t("gallery:faces.thisFaceIs", { name: person.name })}
+              >
+                {person.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
       {unnamedGroup && (
         <label className="gallery-face-editor-check">
           <input type="checkbox" checked={wholeGroup} onChange={(event) => setWholeGroup(event.target.checked)} />

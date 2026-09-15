@@ -13,7 +13,7 @@ import { GalleryReplaceModal } from "./GalleryReplaceModal";
 import { GalleryLightboxPanel } from "./GalleryLightboxPanel";
 import { GalleryFaceOverlay } from "./GalleryFaceOverlay";
 import { useIsMobile } from "../../shared/useIsMobile";
-import type { GalleryAsset, GalleryFace, SlideshowTransition } from "./types";
+import type { GalleryAsset, GalleryFace, GalleryPersonTag, SlideshowTransition } from "./types";
 import { formatTakenDate } from "./taken-date";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 import { Button } from "../../shared/Button";
@@ -223,7 +223,7 @@ export function GalleryLightbox({
     });
   }, []);
   const [highlightPersonId, setHighlightPersonId] = useState<string | null>(null);
-  const [faceState, setFaceState] = useState<{ id: string; faces: GalleryFace[] } | null>(null);
+  const [faceState, setFaceState] = useState<{ id: string; faces: GalleryFace[]; people: GalleryPersonTag[] } | null>(null);
   const [facesVersion, setFacesVersion] = useState(0);
   // Bumped when a face is named on the photo, so the panel rereads who is in it.
   const [peopleVersion, setPeopleVersion] = useState(0);
@@ -234,12 +234,15 @@ export function GalleryLightbox({
     if (!wantFaces || !viewedAssetId) return;
     let alive = true;
     api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${viewedAssetId}`)
-      .then((res) => { if (alive) setFaceState({ id: viewedAssetId, faces: res.asset.faces ?? [] }); })
+      .then((res) => { if (alive) setFaceState({ id: viewedAssetId, faces: res.asset.faces ?? [], people: res.asset.people ?? [] }); })
       .catch(() => { /* no boxes, the photo still shows */ });
     return () => { alive = false; };
   }, [wantFaces, viewedAssetId, assetRotation, facesVersion]);
   useEffect(() => { setHighlightPersonId(null); }, [viewedAssetId]);
-  const faces = faceState && faceState.id === asset?.id ? faceState.faces : asset?.faces ?? [];
+  const sameAsset = faceState != null && faceState.id === asset?.id;
+  const faces = sameAsset ? faceState.faces : asset?.faces ?? [];
+  // Who the photo says is in it, for the face editor to offer (GalleryFaceOverlay).
+  const facePeople = sameAsset ? faceState.people : asset?.people ?? [];
 
 
   const hasPrev = index > 0;
@@ -831,11 +834,12 @@ export function GalleryLightbox({
               <GalleryFaceOverlay
                 image={imageEl}
                 faces={faces}
+                people={facePeople}
                 showAll={showFaces}
                 highlightPersonId={highlightPersonId}
                 canEdit={canEdit}
                 onChanged={(updated) => {
-                  setFaceState({ id: updated.id, faces: updated.faces ?? [] });
+                  setFaceState({ id: updated.id, faces: updated.faces ?? [], people: updated.people ?? [] });
                   setPeopleVersion((v) => v + 1);
                   onChanged({ kind: "asset", id: updated.id });
                 }}

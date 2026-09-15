@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.7 — The name lands on the face
+
+- **A name given in Review mode now finds the face it belongs to.** Photos waiting in a Photo Inbox are not searched for faces yet, so saying who is in one could only mean "somewhere in this photo". Once the photo is kept and its faces are found, a photo with a single face and a single name puts the two together by itself: the face is named, recognition can look for that person in other photos, and the photo no longer says the name twice. Photos with more than one face are left alone — nothing guesses which face is whose.
+- **Naming a face offers the people the photo already names.** Clicking a face used to mean typing the name again, even when someone had just said who was in the photo. The people named on the photo without a face of their own now sit under **Who is this?** as one tap each, and tapping one names the whole group it was recognised as, the same way typing a name does.
+- **Photos kept before this update catch up on the next Regroup faces.** Control panel → Photos → People → **Regroup faces** now also matches up the single-face photos that were waiting. The Tasks page says how many it named.
+
 ## 4.13.6 — The map says when it cannot reach the map service
 
 - **A map says so when part of it could not be downloaded.** Areas that are not kept on this server yet simply stayed blank when the map service could not be reached, which looked like something broken. A small line now appears over the map: the areas already kept still show, and the line goes once the map is filling in again.
