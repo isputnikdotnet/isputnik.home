@@ -18,6 +18,27 @@
   font-size: var(--text-sm);
 }
 
+/* Over a map that DID draw, when pieces of it could not be downloaded — the map
+   service is not answering, so the areas already kept show and the rest is blank.
+   Takes no clicks: the map underneath is still usable. */
+.map-banner {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: min(420px, calc(100% - 32px));
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px var(--shadow);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-align: center;
+  pointer-events: none;
+}
+
 /* A bubble whose size carries a number. Drawn as an SVG <circle> inside an HTML
    marker so the feature's own fill/stroke/hover rules apply as written — and so
    only the disc itself takes a click, not the square around it. */

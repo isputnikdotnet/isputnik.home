@@ -22,11 +22,24 @@ export interface MapSettingsDto {
     bytes: number;
     limitBytes: number;
   };
+  /** How the map service has answered this run of the server. */
+  service?: MapServiceHealth;
   locations: GeoipStatus;
   places: PlacesView;
   /** Kept maps and place names live in App storage's Map data (docs/system-data-plan.md,
    *  decision 11): their switches wait while it is off. */
   appStorage?: { enabled: boolean };
+}
+
+/** The map service as the server has found it — nothing before it first needed
+ *  a piece of map that was not already kept (`reachable: null`). */
+export interface MapServiceHealth {
+  reachable: boolean | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastFailure: string | null;
+  /** Set while the server is leaving a failing service alone. */
+  pausedUntil: string | null;
 }
 
 export type PlacesBuildStage = "download" | "places" | "names" | "write";

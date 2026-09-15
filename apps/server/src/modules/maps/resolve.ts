@@ -122,11 +122,49 @@ function breakerOpen(): boolean {
   return Date.now() < breaker.openUntil;
 }
 
+/** How the map service has been behaving, for the Maps page. Kept here because
+ *  this is where every upstream request ends, and held in memory only: it
+ *  describes this run of the server, not something worth a table. */
+const health = {
+  lastSuccessAt: null as number | null,
+  lastFailureAt: null as number | null,
+  lastFailure: null as string | null
+};
+
+export interface MapServiceHealth {
+  /** True since the last answer, false since the last failure, null if this
+   *  server has not needed the map service yet (everything came from disk). */
+  reachable: boolean | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  /** Why the last failure failed, in the words the fetch used. */
+  lastFailure: string | null;
+  /** While the breaker is open: when it next tries the service again. */
+  pausedUntil: string | null;
+}
+
+export function mapServiceHealth(): MapServiceHealth {
+  const reachable = health.lastSuccessAt === null && health.lastFailureAt === null
+    ? null
+    : (health.lastSuccessAt ?? 0) >= (health.lastFailureAt ?? 0);
+  return {
+    reachable,
+    lastSuccessAt: health.lastSuccessAt === null ? null : new Date(health.lastSuccessAt).toISOString(),
+    lastFailureAt: health.lastFailureAt === null ? null : new Date(health.lastFailureAt).toISOString(),
+    lastFailure: health.lastFailure,
+    pausedUntil: breakerOpen() ? new Date(breaker.openUntil).toISOString() : null
+  };
+}
+
 function recordOutcome(err: unknown): void {
   if (err === undefined || err instanceof MapAssetNotFound) {
+    // A 404 is the service answering, so it counts as reached.
+    health.lastSuccessAt = Date.now();
     breaker.failures = 0;
     return;
   }
+  health.lastFailureAt = Date.now();
+  health.lastFailure = err instanceof Error ? err.message : String(err);
   breaker.failures += 1;
   if (breaker.failures >= BREAKER_THRESHOLD) {
     breaker.openUntil = Date.now() + BREAKER_OPEN_MS;
@@ -296,10 +334,13 @@ export async function resolveAsset(asset: MapAsset, signal?: AbortSignal): Promi
   }
 }
 
-/** For tests: close the breaker. */
+/** For tests: close the breaker and forget how the service has been behaving. */
 export function resetUpstreamState(): void {
   breaker.failures = 0;
   breaker.openUntil = 0;
+  health.lastSuccessAt = null;
+  health.lastFailureAt = null;
+  health.lastFailure = null;
 }
 
 /** Close kept-alive upstream connections (server shutdown). */

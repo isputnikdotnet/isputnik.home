@@ -18,7 +18,7 @@ import {
   type MapStyleName,
   type SpriteFile
 } from "./provider.js";
-import { MapAssetNotFound, MapRequestAbandoned, MapServiceUnavailable, fromStored, resolveAsset } from "./resolve.js";
+import { MapAssetNotFound, MapRequestAbandoned, MapServiceUnavailable, fromStored, mapServiceHealth, resolveAsset } from "./resolve.js";
 import { getMapSettings, isCacheLimit, MAX_VILLAGE_COUNTRIES, normaliseCountries, saveMapSettings, type CacheLimitMb } from "./settings.js";
 import { cacheLimitBytes, sweepTileCache, tileCacheBytes } from "./sweep.js";
 import { clearTileCache, isStoredGzipped, mapDataDir, tileCacheDir } from "./storage.js";
@@ -282,6 +282,9 @@ export function registerMapRoutes(app: FastifyInstance) {
     // folder: the Map data room itself (what the Storage page moves); path: the
     // tile cache inside it (what turning caching off deletes).
     cache: { folder: mapDataDir(), path: tileCacheDir(), bytes: await tileCacheBytes(), limitBytes: cacheLimitBytes() },
+    // How the map service itself has been behaving this run — the thing that was
+    // invisible while a zoom was taking the server down with it.
+    service: mapServiceHealth(),
     locations: geoipStatus(),
     places: placesView(),
     // Kept maps and place names live in App storage's Map data (decision 11): the

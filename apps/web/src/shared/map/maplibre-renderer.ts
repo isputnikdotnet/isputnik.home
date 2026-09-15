@@ -13,6 +13,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 // worker (and what it imports) as a file of its own and gives us its URL.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import i18n from "../../i18n";
+import { createFailureBanner, serviceIsDown, type FailureBanner } from "./failure-banner";
 import { dashFor, glZoom, paddedBounds, toLngLat } from "./maplibre-geometry";
 import { isDarkTheme, loadMapConfig, loadMapStyle } from "./map-style";
 import type { MapCircle, MapHandlers, MapMarker, MapOptions, MapRenderer, MapShapes, MapViewCommand } from "./types";
@@ -76,6 +77,10 @@ export function createMapLibreRenderer(): MapRenderer {
   let pendingView: MapViewCommand | null = null;
   let attribution: AttributionControl | null = null;
   let themeObserver: MutationObserver | null = null;
+  // Shown over a drawn map when pieces of it could not be downloaded
+  // (failure-banner.ts). Not the same thing as `showNotice`, which stands IN
+  // PLACE of a map that could not be drawn at all.
+  let banner: FailureBanner | null = null;
   let probe: SVGPathElement | null = null;
   let refreshQueued = false;
   const credits = new Set<string>();
@@ -478,7 +483,16 @@ export function createMapLibreRenderer(): MapRenderer {
       const at = event.lngLat.wrap();
       handlers.onMapClick?.({ lat: at.lat, lng: at.lng });
     });
-    created.on("error", (event) => console.warn("map:", event.error?.message ?? event));
+    created.on("error", (event) => {
+      console.warn("map:", event.error?.message ?? event);
+      if (!serviceIsDown(event.error) || !container) return;
+      banner ??= createFailureBanner(container, () => i18n.t("common:map.serviceDown"));
+      banner.failed();
+    });
+    // Any piece of map arriving says the service is answering again.
+    created.on("data", (event) => {
+      if (event.dataType === "source" && (event as { tile?: unknown }).tile) banner?.arrived();
+    });
     created.on("style.load", onStyleLoad);
     created.on("render", () => {
       if (options?.cluster) queueRefresh();
@@ -548,6 +562,8 @@ export function createMapLibreRenderer(): MapRenderer {
 
     destroy() {
       destroyed = true;
+      banner?.remove();
+      banner = null;
       for (const id of timers) window.clearTimeout(id);
       timers.clear();
       themeObserver?.disconnect();

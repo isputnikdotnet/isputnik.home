@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.6 — The map says when it cannot reach the map service
+
+- **A map says so when part of it could not be downloaded.** Areas that are not kept on this server yet simply stayed blank when the map service could not be reached, which looked like something broken. A small line now appears over the map: the areas already kept still show, and the line goes once the map is filling in again.
+- **Control panel → Maps says how the map service has been answering.** Under **Offline maps** there is now a **Map service** line — reached a moment ago, not answering since the last try, or not answering and paused for a short while. Before this, an admin had no way to see that the map service was the trouble.
+
 ## 4.13.5 — The school in the right town
 
 - **A place with a number in its name is found in the town you named.** Searching online from **Where?** for "Средняя школа № 4, Минск, Беларусь" offered a school in Zhodino, 55 km outside the city, and never the one in Minsk. A number sign written apart from its number — "№ 4", "# 4" — was read by the place service as a word of its own, and everything else you typed, the town included, stopped counting; the bare "4" was then matched against house numbers anywhere in the world. The sign now goes out joined to its number, and the same search finds the Minsk school first. Nothing to set — it works on the next search.

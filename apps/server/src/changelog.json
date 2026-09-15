@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.13.6",
+    "label": "The map says when it cannot reach the map service",
+    "changes": [
+      "**A map says so when part of it could not be downloaded.** Areas that are not kept on this server yet simply stayed blank when the map service could not be reached, which looked like something broken. A small line now appears over the map: the areas already kept still show, and the line goes once the map is filling in again.",
+      "**Control panel → Maps says how the map service has been answering.** Under **Offline maps** there is now a **Map service** line — reached a moment ago, not answering since the last try, or not answering and paused for a short while. Before this, an admin had no way to see that the map service was the trouble."
+    ]
+  },
+  {
     "version": "4.13.5",
     "label": "The school in the right town",
     "changes": [
