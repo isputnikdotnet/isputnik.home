@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,11 +46,13 @@ describe("the Places view", () => {
     const onCount = vi.fn();
     const { rerender } = render(<PlacesView scopeQuery="" nameTerm="" onOpen={onOpen} onCount={onCount} />);
     await screen.findByText("Milan");
-    expect(onCount).toHaveBeenLastCalledWith(3);
+    // The count is reported from an effect after the list renders; a loaded CI
+    // run can find the list first (it failed the v4.13.2 image build once).
+    await waitFor(() => expect(onCount).toHaveBeenLastCalledWith(3));
 
     rerender(<PlacesView scopeQuery="" nameTerm="lazio" onOpen={onOpen} onCount={onCount} />);
     expect(screen.queryByText("Milan")).toBeNull();
-    expect(onCount).toHaveBeenLastCalledWith(1);
+    await waitFor(() => expect(onCount).toHaveBeenLastCalledWith(1));
 
     await userEvent.setup().click(screen.getByRole("button", { name: /Rome/ }));
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 3169070 }));
