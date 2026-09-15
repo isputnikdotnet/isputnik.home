@@ -55,7 +55,7 @@ vi.mock("../src/modules/maps/settings.js", () => ({
   getMapSettings: () => ({ cache: true, cacheLimitMb: 200, villageCountries: [] })
 }));
 
-const { MapRequestAbandoned, MapServiceUnavailable, resetUpstreamState, resolveAsset } = await import("../src/modules/maps/resolve.js");
+const { MapRequestAbandoned, MapServiceUnavailable, mapServiceHealth, resetUpstreamState, resolveAsset } = await import("../src/modules/maps/resolve.js");
 const { assetPath } = await import("../src/modules/maps/storage.js");
 
 /** A hillshade tile: needs no TileJSON first, so one tile is one upstream call. */
@@ -221,5 +221,39 @@ describe("an upstream that keeps failing", () => {
     expect(upstream.pending).toHaveLength(1);
     upstream.pending.shift()!.answer(200);
     await expect(next).resolves.toMatchObject({ stale: false });
+  });
+});
+
+describe("how the service has been behaving", () => {
+  it("says nothing until the server has had to ask it for something", () => {
+    expect(mapServiceHealth()).toEqual({
+      reachable: null, lastSuccessAt: null, lastFailureAt: null, lastFailure: null, pausedUntil: null
+    });
+  });
+
+  it("remembers the last answer and the last failure, and says when it is pausing", async () => {
+    const answered = resolveAsset(tile(1), new AbortController().signal);
+    await settle();
+    upstream.pending.shift()!.answer(200);
+    await answered;
+    const afterSuccess = mapServiceHealth();
+    expect(afterSuccess.reachable).toBe(true);
+    expect(afterSuccess.lastSuccessAt).toMatch(/^\d{4}-/);
+    expect(afterSuccess.lastFailure).toBeNull();
+
+    const failing = Array.from({ length: 5 }, (_, i) => resolveAsset(tile(10 + i), new AbortController().signal));
+    for (const outcome of failing) outcome.catch(() => {});
+    for (let round = 0; round < 2; round += 1) {
+      await new Promise((resolve) => setTimeout(resolve, round === 0 ? 5 : 300));
+      for (const request of upstream.pending.splice(0)) request.fail(new Error("connect ENETUNREACH"));
+    }
+    for (const outcome of failing) await expect(outcome).rejects.toThrow();
+
+    const afterFailures = mapServiceHealth();
+    expect(afterFailures.reachable).toBe(false);
+    expect(afterFailures.lastFailure).toContain("ENETUNREACH");
+    // The breaker is open, so the page can say when it will be tried again.
+    expect(Date.parse(afterFailures.pausedUntil!)).toBeGreaterThan(Date.now());
+    expect(afterFailures.lastSuccessAt).toBe(afterSuccess.lastSuccessAt);
   });
 });

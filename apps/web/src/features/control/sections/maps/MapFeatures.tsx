@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ExternalLink, Folder, Link as LinkIcon, Map as MapIcon, MapPin, Route, ShieldCheck, Upload } from "lucide-react";
 import { api } from "../../../../api";
@@ -11,6 +12,7 @@ import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { SelectField } from "../../../../shared/SelectField";
 import { forgetMapConfig } from "../../../../shared/map/map-style";
+import { relativeTime } from "../../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../../shared/utils";
 import { MapFeatureCard, MapFeaturePart } from "./MapFeatureCard";
 import { VillageCountries } from "./VillageCountries";
@@ -26,6 +28,7 @@ import {
   startPlacesBuild,
   useFollowPlacesBuild,
   type CacheLimitMb,
+  type MapServiceHealth,
   type MapSettingsDto,
   type RoutingDto
 } from "./map-settings";
@@ -56,6 +59,20 @@ type Pending =
   | { kind: "signInsOff" }
   | { kind: "townsRemove"; name: string }
   | { kind: "routesOff" };
+
+/** What the offline maps card says about the map service itself. Silent until
+ *  the server has actually had to ask it for something. */
+function serviceFact(health: MapServiceHealth | undefined, t: TFunction<["common", "controlAdmin"]>): { label: string; value: string } | null {
+  if (!health || health.reachable === null) return null;
+  const value = health.pausedUntil
+    ? t("controlAdmin:mapFeatures.servicePaused")
+    : health.reachable && health.lastSuccessAt
+      ? t("controlAdmin:mapFeatures.serviceReached", { when: relativeTime(health.lastSuccessAt) })
+      : health.lastFailureAt
+        ? t("controlAdmin:mapFeatures.serviceNotAnswering", { when: relativeTime(health.lastFailureAt) })
+        : null;
+  return value === null ? null : { label: t("controlAdmin:mapFeatures.service"), value };
+}
 
 function SourceLink({ href, children }: { href: string; children: string }) {
   return (
@@ -257,7 +274,7 @@ export function MapFeatures() {
   if (loadError) return <MessageBox tone="error" title={t("controlAdmin:mapFeatures.loadFailed")}>{loadError}</MessageBox>;
   if (!status || !routing) return <p className="muted">{t("controlAdmin:ui.loading")}</p>;
 
-  const { settings, cache, locations, places } = status;
+  const { settings, cache, locations, places, service } = status;
   const country = countryDatabase(locations);
   const city = cityDatabase(locations);
   const signInsOn = locations.databases.length > 0;
@@ -303,7 +320,8 @@ export function MapFeatures() {
             value: settings.cache
               ? t("controlAdmin:mapFeatures.usedOf", { used: formatBytes(cache.bytes), limit: limitLabel(settings.cacheLimitMb) })
               : t("controlAdmin:mapFeatures.upTo", { limit: limitLabel(settings.cacheLimitMb) })
-          }
+          },
+          ...(settings.cache ? [serviceFact(service, t)].filter((fact) => fact !== null) : [])
         ]}
       >
         <div className="map-feature-row">

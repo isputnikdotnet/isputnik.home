@@ -665,7 +665,8 @@
   },
   "map": {
     "unsupported": "This browser can't draw maps: it has no WebGL. A recent Chrome, Edge, Firefox or Safari can.",
-    "unavailable": "The map couldn't load. Check the connection, or ask an admin to turn on map caching so maps work offline."
+    "unavailable": "The map couldn't load. Check the connection, or ask an admin to turn on map caching so maps work offline.",
+    "serviceDown": "Some of this map couldn't be downloaded — the map service isn't answering. Areas already kept are still shown."
   },
   "guide": {
     "notFound": "That guide doesn't exist.",
