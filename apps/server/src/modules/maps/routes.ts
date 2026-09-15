@@ -18,10 +18,10 @@ import {
   type MapStyleName,
   type SpriteFile
 } from "./provider.js";
-import { MapAssetNotFound, fromStored, resolveAsset } from "./resolve.js";
+import { MapAssetNotFound, MapRequestAbandoned, MapServiceUnavailable, fromStored, resolveAsset } from "./resolve.js";
 import { getMapSettings, isCacheLimit, MAX_VILLAGE_COUNTRIES, normaliseCountries, saveMapSettings, type CacheLimitMb } from "./settings.js";
-import { cacheLimitBytes, sweepTileCache } from "./sweep.js";
-import { clearTileCache, folderBytes, isStoredGzipped, mapDataDir, tileCacheDir } from "./storage.js";
+import { cacheLimitBytes, sweepTileCache, tileCacheBytes } from "./sweep.js";
+import { clearTileCache, isStoredGzipped, mapDataDir, tileCacheDir } from "./storage.js";
 import { placesStatus, removePlaces } from "./places/dataset.js";
 import { enqueuePlacesBuild, placesBuildStatus } from "./places/job.js";
 
@@ -119,13 +119,28 @@ function acceptsGzip(request: FastifyRequest): boolean {
   });
 }
 
+/** Aborts when the browser gives up on the request — MapLibre cancels every tile
+ *  it no longer needs the moment the map zooms past it. */
+function abandonedSignal(reply: FastifyReply): AbortSignal {
+  const controller = new AbortController();
+  reply.raw.once("close", () => {
+    if (!reply.raw.writableFinished) controller.abort();
+  });
+  return controller.signal;
+}
+
 async function serveAsset(request: FastifyRequest, reply: FastifyReply, asset: MapAsset) {
   if (!getMapSettings().cache) return cachingOff(reply);
   let resolved;
   try {
-    resolved = await resolveAsset(asset);
+    resolved = await resolveAsset(asset, abandonedSignal(reply));
   } catch (err) {
     if (err instanceof MapAssetNotFound) return reply.code(404).send({ error: "No such map asset." });
+    // Nobody is listening for the answer; nothing to log.
+    if (err instanceof MapRequestAbandoned) return reply.code(499).send({ error: "Cancelled." });
+    // The failures that opened the breaker were each logged below; while it is
+    // open, a line per tile on the screen would only bury them.
+    if (err instanceof MapServiceUnavailable) return reply.code(503).header("retry-after", "30").send({ error: err.message });
     request.log.warn({ err, asset }, "map asset unavailable");
     return reply.code(502).send({ error: "The map service could not be reached." });
   }
@@ -266,7 +281,7 @@ export function registerMapRoutes(app: FastifyInstance) {
     settings: getMapSettings(),
     // folder: the Map data room itself (what the Storage page moves); path: the
     // tile cache inside it (what turning caching off deletes).
-    cache: { folder: mapDataDir(), path: tileCacheDir(), bytes: folderBytes(tileCacheDir()), limitBytes: cacheLimitBytes() },
+    cache: { folder: mapDataDir(), path: tileCacheDir(), bytes: await tileCacheBytes(), limitBytes: cacheLimitBytes() },
     locations: geoipStatus(),
     places: placesView(),
     // Kept maps and place names live in App storage's Map data (decision 11): the
@@ -340,7 +355,7 @@ export function registerMapRoutes(app: FastifyInstance) {
     if (before.cache && !next.cache) {
       freedBytes = clearTileCache();
     } else if (next.cache && next.cacheLimitMb < before.cacheLimitMb) {
-      const swept = sweepTileCache();
+      const swept = await sweepTileCache();
       freedBytes = swept.before - swept.after;
     }
     if (before.cache !== next.cache) {

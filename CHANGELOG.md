@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.4 — Maps that cannot stop the server
+
+- **Zooming a map no longer freezes the whole server.** With offline maps on, zooming in and out quickly could make everything stop responding — on Unraid more than once, until the container was restarted. Every map area not yet kept was fetched from the map service all at once, each over a brand-new connection, and a slow answer held up work the rest of the server was waiting for. Now the server asks the map service for a few pieces at a time over connections it keeps open, and drops the pieces the map stopped needing when you zoomed past them. A map area may take a moment to fill in; the rest of the app keeps working meanwhile.
+- **Keeping the offline maps under their size limit no longer pauses the server.** Every few minutes of map use, the server went through every map file it had kept to add up their size, and with a large limit on a NAS that could take minutes, with every page waiting. It now keeps a running total and looks through the files only when that total is over the limit, without holding anything else up.
+- **When the map service is not answering, the server stops asking for a while.** Before, every missing piece of map was requested again, each one waiting to time out. After several failures in a row the server now waits half a minute before trying again: maps already kept keep showing, and new areas stay blank until the service answers. A server with no IPv6 connection also no longer tries to reach the map service over IPv6 when its name lookup comes back incomplete.
+
 ## 4.13.3 — Your years in photos, taken out for now
 
 - **Your years in photos is gone from Memories, for now.** The year cards did not pick a year's photos well enough to keep, so they have been taken out until they can be done properly. Memories is back to **On this day** — photos taken on today's date in earlier years — and shows in the side menu only on days that have some. Slideshows you already created from a year stay as they are, and so do the heart on photos and the **Likes** filter.

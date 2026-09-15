@@ -99,35 +99,131 @@ async function resolveSafeAddress(hostname: string): Promise<{ address: string; 
   // and, on a background socket, can crash the process. IPv4-first keeps those
   // hosts reachable; a genuinely IPv6-only host still resolves (and simply fails
   // to connect if unroutable, rather than being skipped).
-  const chosen = records.find((record) => record.family === 4) ?? records[0];
+  let chosen = records.find((record) => record.family === 4);
+  if (!chosen && net.isIP(hostname) === 0) {
+    // AAAA alone for a name is not always the whole answer: a resolver under a
+    // burst (Docker's, on Unraid, while a map fetched tiles) can lose the A reply
+    // and hand back what it has — and a pin to that fails with ENETUNREACH on a box
+    // with no IPv6 route. Ask for IPv4 once more before settling for IPv6.
+    const v4 = await dns.lookup(hostname, { all: true, family: 4 }).catch(() => []);
+    for (const record of v4) {
+      if (isBlockedAddress(record.address)) {
+        throw new Error("URL resolves to a disallowed address.");
+      }
+    }
+    chosen = v4.find((record) => record.family === 4);
+  }
+  chosen ??= records[0];
   return { address: chosen.address, family: chosen.family };
 }
 
-// A single-use dispatcher that always connects to the pre-validated IP and never
-// consults DNS again, so the address can't be rebound between check and use.
-// undici still passes the original hostname to the socket for TLS SNI / cert
-// validation and the Host header; only the connect target is overridden.
-function pinnedDispatcher(address: string, family: number): Agent {
+// A dispatcher that always connects to the pre-validated IP and never consults
+// DNS again, so the address can't be rebound between check and use. undici still
+// passes the original hostname to the socket for TLS SNI / cert validation and the
+// Host header; only the connect target is overridden.
+//
+// The lookup answers on the next tick, never inside the call: Node's own lookup is
+// always asynchronous, and a connect that fails at once (ENETUNREACH) inside a
+// synchronous answer destroys the socket before tls.connect has finished setting
+// it up — "Cannot read properties of null (reading 'setServername')".
+function pinnedDispatcher(address: string, family: number, connections?: number): Agent {
   const lookup: net.LookupFunction = (_hostname, options, callback) => {
-    if (options.all) {
-      callback(null, [{ address, family }]);
-    } else {
-      callback(null, address, family);
-    }
+    process.nextTick(() => {
+      if (options.all) {
+        callback(null, [{ address, family }]);
+      } else {
+        callback(null, address, family);
+      }
+    });
   };
-  return new Agent({ connect: { lookup } });
+  return new Agent({ connect: { lookup }, ...(connections ? { connections } : {}) });
+}
+
+interface PinnedHost {
+  dispatcher: Agent;
+  expiresAt: number;
+}
+
+/** How long a retired dispatcher is kept open for requests that picked it up just
+ *  before it was retired. */
+const RETIRE_GRACE_MS = 60_000;
+
+/**
+ * Pinned connections that outlive one fetch, for a caller that asks the same host
+ * many times in a burst — a map fetching tiles asks for a hundred at once.
+ *
+ * Without one, every fetch is its own DNS lookup (on libuv's threadpool, four
+ * threads shared with every async file read in the server), its own TCP connect
+ * and its own TLS handshake. A burst of those against a slow resolver filled the
+ * threadpool, and the whole server waited behind it.
+ *
+ * The rebinding defence is unchanged: a host is resolved and checked, and its
+ * connections go to that address and no other. The check is simply remembered for
+ * `addressTtlMs` rather than repeated per request, and a network failure forgets
+ * it so the next request asks DNS again.
+ */
+export class SafeFetchSession {
+  private readonly hosts = new Map<string, Promise<PinnedHost>>();
+
+  constructor(private readonly options: { connections: number; addressTtlMs: number }) {}
+
+  private pin(hostname: string): Promise<PinnedHost> {
+    const existing = this.hosts.get(hostname);
+    if (existing) return existing;
+    const created = resolveSafeAddress(hostname).then(({ address, family }) => ({
+      dispatcher: pinnedDispatcher(address, family, this.options.connections),
+      expiresAt: Date.now() + this.options.addressTtlMs
+    }));
+    this.hosts.set(hostname, created);
+    // A failed lookup is not remembered: the next request asks again.
+    created.catch(() => {
+      if (this.hosts.get(hostname) === created) this.hosts.delete(hostname);
+    });
+    return created;
+  }
+
+  /** @internal fetchSafely's: the dispatcher for a host, re-checked once expired. */
+  async dispatcherFor(hostname: string): Promise<Agent> {
+    const entry = this.pin(hostname);
+    const pinned = await entry;
+    if (pinned.expiresAt > Date.now()) return pinned.dispatcher;
+    if (this.hosts.get(hostname) === entry) this.retire(hostname, entry);
+    return (await this.pin(hostname)).dispatcher;
+  }
+
+  /** @internal fetchSafely's: a request to this host failed on the network. */
+  forget(hostname: string): void {
+    const entry = this.hosts.get(hostname);
+    if (entry) this.retire(hostname, entry);
+  }
+
+  private retire(hostname: string, entry: Promise<PinnedHost>): void {
+    this.hosts.delete(hostname);
+    void entry.then((pinned) => {
+      setTimeout(() => void pinned.dispatcher.close().catch(() => {}), RETIRE_GRACE_MS).unref();
+    }, () => {});
+  }
+
+  /** Close every connection now. */
+  async close(): Promise<void> {
+    const entries = [...this.hosts.values()];
+    this.hosts.clear();
+    await Promise.all(entries.map((entry) => entry.then((pinned) => pinned.dispatcher.close(), () => {}).catch(() => {})));
+  }
 }
 
 // Shared redirect loop: validate + pin each hop, fetch it with redirects handled
 // manually, and hand the final (non-redirect) response to `consume`, which must
 // fully read the body before returning — the pinned dispatcher is torn down as
-// soon as `consume` resolves.
+// soon as `consume` resolves. With a `session`, the hop's dispatcher is the
+// session's and stays open for the next request instead.
 export async function fetchSafely<T>(
   url: string,
-  options: { accept?: string; timeoutMs: number; failureMessage: string },
+  options: { accept?: string; timeoutMs: number; failureMessage: string; session?: SafeFetchSession },
   consume: (response: Response) => Promise<T>
 ): Promise<T> {
   let current = new URL(url);
+  const { session } = options;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     if (current.protocol !== "http:" && current.protocol !== "https:") {
@@ -137,19 +233,32 @@ export async function fetchSafely<T>(
     // An IPv6 literal's hostname keeps its URL brackets ("[::1]"); unwrapped, the
     // lookup answers with the address itself on every platform, so a literal is
     // judged by isBlockedAddress rather than by whether getaddrinfo takes brackets.
-    const pin = await resolveSafeAddress(current.hostname.replace(/^\[|\]$/g, ""));
-    const dispatcher = pinnedDispatcher(pin.address, pin.family);
+    const hostname = current.hostname.replace(/^\[|\]$/g, "");
+    let dispatcher: Agent;
+    if (session) {
+      dispatcher = await session.dispatcherFor(hostname);
+    } else {
+      const pin = await resolveSafeAddress(hostname);
+      dispatcher = pinnedDispatcher(pin.address, pin.family);
+    }
 
     try {
-      const response = await fetch(current, {
-        redirect: "manual",
-        headers: {
-          "user-agent": REMOTE_FETCH_USER_AGENT,
-          ...(options.accept ? { accept: options.accept } : {})
-        },
-        signal: AbortSignal.timeout(options.timeoutMs),
-        dispatcher
-      });
+      let response: Response;
+      try {
+        response = await fetch(current, {
+          redirect: "manual",
+          headers: {
+            "user-agent": REMOTE_FETCH_USER_AGENT,
+            ...(options.accept ? { accept: options.accept } : {})
+          },
+          signal: AbortSignal.timeout(options.timeoutMs),
+          dispatcher
+        });
+      } catch (err) {
+        // The address may be what failed: the next request resolves again.
+        session?.forget(hostname);
+        throw err;
+      }
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get("location");
@@ -163,7 +272,7 @@ export async function fetchSafely<T>(
 
       return await consume(response);
     } finally {
-      await dispatcher.close().catch(() => {});
+      if (!session) await dispatcher.close().catch(() => {});
     }
   }
 

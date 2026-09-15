@@ -32,7 +32,7 @@ vi.mock("undici", async (importOriginal) => {
   return { ...actual, Agent: RecordingAgent, fetch: hoisted.fetch };
 });
 
-import { fetchSafely, REMOTE_FETCH_USER_AGENT } from "../src/core/safe-fetch.js";
+import { fetchSafely, REMOTE_FETCH_USER_AGENT, SafeFetchSession } from "../src/core/safe-fetch.js";
 import { downloadImage, fetchTextFromUrl } from "../src/modules/library/shared/remote-image.js";
 
 const PUBLIC_A = { address: "93.184.216.34", family: 4 };
@@ -40,6 +40,8 @@ const PUBLIC_B = { address: "198.51.100.20", family: 4 };
 const PUBLIC_V6 = { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 };
 
 let dnsTable: Record<string, { address: string; family: number }[]>;
+// What a resolver answers when asked for IPv4 only, where that differs from dnsTable.
+let dnsTableV4: Record<string, { address: string; family: number }[]>;
 // The resolver as it was before the stub, for the literal addresses the table leaves alone.
 let realLookup: typeof dns.lookup;
 
@@ -51,11 +53,14 @@ beforeEach(() => {
     "cdn.example": [PUBLIC_B],
     "internal.example": [{ address: "10.0.0.7", family: 4 }],
     "dual.example": [PUBLIC_V6, PUBLIC_A],
-    "v6only.example": [PUBLIC_V6]
+    "v6only.example": [PUBLIC_V6],
+    // A burst lost the A reply: the plain answer is AAAA alone, an IPv4 query still has it.
+    "lost-a.example": [PUBLIC_V6]
   };
+  dnsTableV4 = { "lost-a.example": [PUBLIC_A] };
   realLookup = dns.lookup.bind(dns) as typeof dns.lookup;
-  vi.spyOn(dns, "lookup").mockImplementation((async (hostname: string) => {
-    const records = dnsTable[hostname];
+  vi.spyOn(dns, "lookup").mockImplementation((async (hostname: string, options?: { family?: number }) => {
+    const records = (options?.family === 4 ? dnsTableV4[hostname] : undefined) ?? dnsTable[hostname];
     if (!records) throw Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: "ENOTFOUND" });
     return records;
   }) as unknown as typeof dns.lookup);
@@ -71,13 +76,16 @@ const redirect = (location: string | null, status = 302) =>
 /** The URLs fetch was actually asked for, in order. */
 const fetchedUrls = () => hoisted.fetch.mock.calls.map(([url]) => String(url));
 
-/** What a pinned dispatcher's socket would connect to, asked the two ways Node asks. */
-function pinnedTarget(agentIndex: number, hostname = "whatever.example") {
+/** What a pinned dispatcher's socket would connect to, asked the two ways Node asks.
+ *  The answers come on a later tick, never inside the call, as Node's own lookup's do. */
+async function pinnedTarget(agentIndex: number, hostname = "whatever.example") {
   const { lookup } = hoisted.agents[agentIndex];
   let single: unknown;
   let all: unknown;
   lookup(hostname, {}, (_err, address, family) => { single = { address, family }; });
   lookup(hostname, { all: true }, (_err, addresses) => { all = addresses; });
+  expect({ single, all }).toEqual({ single: undefined, all: undefined });
+  await new Promise((resolve) => process.nextTick(resolve));
   return { single, all };
 }
 
@@ -92,8 +100,8 @@ describe("redirects", () => {
     expect(bytes.toString()).toBe("JPEGDATA");
     expect(fetchedUrls()).toEqual(["https://covers.example/c.jpg", "https://cdn.example/real.jpg"]);
     expect(hoisted.agents).toHaveLength(2);
-    expect(pinnedTarget(0).single).toEqual(PUBLIC_A);
-    expect(pinnedTarget(1).single).toEqual(PUBLIC_B);
+    expect((await pinnedTarget(0)).single).toEqual(PUBLIC_A);
+    expect((await pinnedTarget(1)).single).toEqual(PUBLIC_B);
   });
 
   it("refuses a redirect to a host that resolves to a private address, without fetching it", async () => {
@@ -181,7 +189,7 @@ describe("the pinned connection", () => {
 
     await fetchTextFromUrl("https://covers.example/p");
 
-    expect(pinnedTarget(0, "covers.example")).toEqual({ single: PUBLIC_A, all: [PUBLIC_A] });
+    expect(await pinnedTarget(0, "covers.example")).toEqual({ single: PUBLIC_A, all: [PUBLIC_A] });
     expect(dns.lookup).toHaveBeenCalledTimes(1);
   });
 
@@ -192,7 +200,17 @@ describe("the pinned connection", () => {
 
     await fetchTextFromUrl("https://dual.example/p");
 
-    expect(pinnedTarget(0).single).toEqual(PUBLIC_A);
+    expect((await pinnedTarget(0)).single).toEqual(PUBLIC_A);
+  });
+
+  it("asks for IPv4 once more when the answer came back AAAA alone", async () => {
+    // On Unraid a map's burst of lookups got AAAA-only answers, and the pins to
+    // them failed with ENETUNREACH (2606:4700:…) on a box with no IPv6 route.
+    hoisted.fetch.mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+    await fetchTextFromUrl("https://lost-a.example/p");
+
+    expect((await pinnedTarget(0)).single).toEqual(PUBLIC_A);
   });
 
   it("still reaches an IPv6-only host rather than skipping it", async () => {
@@ -200,7 +218,7 @@ describe("the pinned connection", () => {
 
     await fetchTextFromUrl("https://v6only.example/p");
 
-    expect(pinnedTarget(0).single).toEqual(PUBLIC_V6);
+    expect((await pinnedTarget(0)).single).toEqual(PUBLIC_V6);
   });
 
   it("closes every hop's dispatcher, on success and on failure", async () => {
@@ -297,5 +315,64 @@ describe("limits on what comes back", () => {
 
     expect(result).toEqual({ ok: true });
     expect(seen).toEqual([200]);
+  });
+});
+
+describe("a session", () => {
+  const options = (session: SafeFetchSession) => ({ timeoutMs: 1000, failureMessage: "nope", session });
+  const text = async (response: Response) => response.text();
+
+  it("resolves a host once and keeps one pinned connection open across requests", async () => {
+    const session = new SafeFetchSession({ connections: 6, addressTtlMs: 60_000 });
+    hoisted.fetch.mockImplementation(async () => new Response("ok", { status: 200 }));
+
+    for (let i = 0; i < 3; i += 1) {
+      await expect(fetchSafely(`https://covers.example/tile/${i}`, options(session), text)).resolves.toBe("ok");
+    }
+
+    // One lookup and one handshake's worth of connection, not three.
+    expect(dns.lookup).toHaveBeenCalledTimes(1);
+    expect(hoisted.agents).toHaveLength(1);
+    expect(hoisted.agents[0].close).not.toHaveBeenCalled();
+    expect(await pinnedTarget(0, "covers.example")).toEqual({ single: PUBLIC_A, all: [PUBLIC_A] });
+
+    await session.close();
+    expect(hoisted.agents[0].close).toHaveBeenCalledTimes(1);
+  });
+
+  it("still pins to the address it checked, whatever DNS says later", async () => {
+    const session = new SafeFetchSession({ connections: 6, addressTtlMs: 60_000 });
+    hoisted.fetch.mockImplementation(async () => new Response("ok", { status: 200 }));
+    await fetchSafely("https://covers.example/a", options(session), text);
+    dnsTable["covers.example"] = [{ address: "169.254.169.254", family: 4 }];
+    await fetchSafely("https://covers.example/b", options(session), text);
+    expect((await pinnedTarget(0)).single).toEqual(PUBLIC_A);
+    await session.close();
+  });
+
+  it("checks the address again once its time is up, and refuses what it has become", async () => {
+    const session = new SafeFetchSession({ connections: 6, addressTtlMs: 0 });
+    hoisted.fetch.mockImplementation(async () => new Response("ok", { status: 200 }));
+    await fetchSafely("https://covers.example/a", options(session), text);
+    dnsTable["covers.example"] = [{ address: "10.0.0.7", family: 4 }];
+    await expect(fetchSafely("https://covers.example/b", options(session), text)).rejects.toThrow("disallowed address");
+    expect(hoisted.fetch).toHaveBeenCalledTimes(1);
+    await session.close();
+  });
+
+  it("forgets the address after a network failure, so the next request asks DNS again", async () => {
+    const session = new SafeFetchSession({ connections: 6, addressTtlMs: 60_000 });
+    hoisted.fetch
+      .mockRejectedValueOnce(new Error("connect ENETUNREACH"))
+      .mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+    await expect(fetchSafely("https://covers.example/a", options(session), text)).rejects.toThrow("ENETUNREACH");
+    dnsTable["covers.example"] = [PUBLIC_B];
+    await expect(fetchSafely("https://covers.example/a", options(session), text)).resolves.toBe("ok");
+
+    expect(dns.lookup).toHaveBeenCalledTimes(2);
+    expect(hoisted.agents).toHaveLength(2);
+    expect((await pinnedTarget(1)).single).toEqual(PUBLIC_B);
+    await session.close();
   });
 });
