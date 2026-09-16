@@ -72,10 +72,6 @@ function whenToWire(when: WhenValue): { takenAt: string; takenPrecision: TakenPr
   return { takenAt: `${when.year.padStart(4, "0")}-${month}-${day}T00:00:00.000Z`, takenPrecision, takenApprox: when.approx };
 }
 
-function sameWhen(a: WhenValue, b: WhenValue): boolean {
-  return a.year === b.year && a.month === b.month && a.day === b.day && a.approx === b.approx;
-}
-
 function draftOf(asset: GalleryAsset): Draft {
   return {
     when: whenOf(asset),
@@ -246,9 +242,11 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
       };
       // A found place pins the photo — never one that already has a location.
       if (draft.pin && !asset.gps) body.gps = { lat: draft.pin.lat, lng: draft.pin.lng };
-      if (draft.when.year && !sameWhen(draft.when, whenOf(asset))) {
-        Object.assign(body, whenToWire(draft.when));
-      }
+      // The reading goes with every save, not only the one that changed it:
+      // leaving Review re-saves the photo, and a second save that sent the date
+      // without saying how it is read used to harden "about 1983" into an exact
+      // instant — after which Review showed it as Unknown again.
+      if (draft.when.year) Object.assign(body, whenToWire(draft.when));
       const saved = await api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${encodeURIComponent(asset.id)}`, {
         method: "PATCH",
         body: JSON.stringify(body)

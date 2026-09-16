@@ -140,6 +140,30 @@ describe("ReviewPage", () => {
     expect(await screen.findByText("2 of 2")).toBeInTheDocument();
   });
 
+  it("still says how the date is read when leaving re-saves the same answer", async () => {
+    const user = userEvent.setup();
+    // One photo, so Save & Next finishes the box and the page stays on it: the
+    // back button then saves that same photo a second time.
+    items = [photo()];
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 1");
+    await user.selectOptions(await screen.findByLabelText("Year"), "1983");
+    await user.click(screen.getByRole("button", { name: "Approximate" }));
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+
+    // Leaving saves the photo a second time. The date has not changed since the
+    // first save — but a date sent without its reading is an exact instant to
+    // the server, which would harden "about 1983" into 1 Jan 1983, 00:00:00.
+    await user.click(screen.getByRole("button", { name: "box3" }));
+    await waitFor(() => expect(patches).toHaveLength(2));
+    expect(patches[1].body).toMatchObject({
+      takenAt: "1983-01-01T00:00:00.000Z",
+      takenPrecision: "year",
+      takenApprox: true
+    });
+  });
+
   it("does not offer the scan date as an answer, and leaves the date alone when nothing was chosen", async () => {
     const user = userEvent.setup();
     render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);

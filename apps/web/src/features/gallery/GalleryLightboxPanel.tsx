@@ -197,6 +197,11 @@ export function GalleryLightboxPanel({
       title: asset.title,
       description: asset.description,
       takenAt: asset.takenAt,
+      // The date travels with every edit, so its reading has to travel too —
+      // a bare date is a NEW exact instant to the server (edit.ts), which would
+      // turn "about 1983" into 1 Jan 1983 on the way to saving a tag.
+      takenPrecision: asset.takenPrecision,
+      takenApprox: asset.takenApprox,
       tags: asset.tags,
       ...change
     };

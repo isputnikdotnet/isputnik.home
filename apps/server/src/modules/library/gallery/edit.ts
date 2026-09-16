@@ -14,8 +14,10 @@ export interface GalleryAssetEdit {
   description: string | null;
   takenAt: string | null; // ISO; null = leave the existing date untouched
   // How much of takenAt is known (docs/photo-review-plan.md). Omitted with a
-  // takenAt = a full instant was given, so 'time' and exact; omitted without one
-  // = leave the stored precision alone. `takenAt` is floored to the period.
+  // NEW takenAt = a full instant was given, so 'time' and exact; omitted with
+  // the date the photo already has = the caller is echoing it while editing
+  // something else, so the stored reading stands; omitted without a takenAt =
+  // leave the stored precision alone. `takenAt` is floored to the period.
   takenPrecision?: TakenPrecision;
   takenApprox?: boolean;
   // undefined = leave the place as written untouched; null = clear it.
@@ -80,10 +82,22 @@ export function updateGalleryAsset(itemId: string, data: GalleryAssetEdit): bool
     applyItemAlphaIndex(itemId);
 
     if (data.takenAt) {
-      const precision = data.takenPrecision ?? "time";
+      // Every editor sends the photo's CURRENT date alongside whatever field it
+      // is really changing, so "a takenAt with no precision means an exact
+      // instant" quietly hardened "about 1983" into 1 Jan 1983, 00:00:00 — when
+      // a caption or a tag was saved, and when Review was left, which re-saves
+      // the photo. A date that has not changed says nothing about how it is
+      // read, so the stored reading stands; only a NEW instant means 'time'.
+      const current = db.prepare("SELECT taken_at, taken_precision, taken_approx FROM gallery_details WHERE item_id = ?")
+        .get(itemId) as Pick<GalleryDetailRow, "taken_at" | "taken_precision" | "taken_approx"> | undefined;
+      const echoed = current?.taken_at === data.takenAt
+        && data.takenPrecision === undefined && data.takenApprox === undefined;
+      const precision = data.takenPrecision
+        ?? (echoed ? (current!.taken_precision as TakenPrecision | null) ?? "time" : "time");
+      const approx = data.takenApprox ?? (echoed && current!.taken_approx === 1);
       const floored = floorTakenAt(data.takenAt, precision);
       if (floored) {
-        db.prepare(SET_DATE_SQL).run(floored, precision, data.takenApprox ? 1 : 0, itemId);
+        db.prepare(SET_DATE_SQL).run(floored, precision, approx ? 1 : 0, itemId);
       }
     } else if (data.takenPrecision !== undefined || data.takenApprox !== undefined) {
       // Only the reading of an existing date changed ("about", or "just the year").

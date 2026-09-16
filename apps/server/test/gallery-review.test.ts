@@ -95,6 +95,20 @@ describe("editing a photo's date, place and reviewed mark", () => {
     expect(row.taken_approx).toBe(0);
   });
 
+  it("keeps the reading when an editor echoes the date it already had", () => {
+    makePhoto("gal", "p1", "box3/001.jpg", null);
+    updateGalleryAsset("p1", { title: "001.jpg", description: null, tags: [], takenAt: "1983-01-01T00:00:00.000Z", takenPrecision: "year", takenApprox: true });
+
+    // Saving a caption sends the photo's own date along with it, saying nothing
+    // about how it is read. That must not turn "about 1983" into 1 Jan 1983.
+    updateGalleryAsset("p1", { title: "001.jpg", description: "at the camp", tags: [], takenAt: "1983-01-01T00:00:00.000Z" });
+    expect(details("p1")).toMatchObject({ taken_at: "1983-01-01T00:00:00.000Z", taken_precision: "year", taken_approx: 1 });
+
+    // The same echo still can't stop the caller from stating a new reading.
+    updateGalleryAsset("p1", { title: "001.jpg", description: null, tags: [], takenAt: "1983-01-01T00:00:00.000Z", takenPrecision: "day", takenApprox: false });
+    expect(details("p1")).toMatchObject({ taken_precision: "day", taken_approx: 0 });
+  });
+
   it("can change only how an existing date is read", () => {
     makePhoto("gal", "p1", "box3/001.jpg", "1962-07-14T15:30:00.000Z");
     updateGalleryAsset("p1", { title: "001.jpg", description: null, tags: [], takenAt: null, takenApprox: true });
