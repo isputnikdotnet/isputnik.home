@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, ExternalLink, Folder, Link as LinkIcon, Map as MapIcon, MapPin, Route, ShieldCheck, Upload } from "lucide-react";
+import { ChevronRight, ExternalLink, Folder, Globe, Link as LinkIcon, Map as MapIcon, MapPin, Route, ShieldCheck, Upload } from "lucide-react";
 import { api } from "../../../../api";
 import { controlHref, followRoute, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
@@ -14,7 +14,7 @@ import { SelectField } from "../../../../shared/SelectField";
 import { forgetMapConfig } from "../../../../shared/map/map-style";
 import { relativeTime } from "../../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../../shared/utils";
-import { MapFeatureCard, MapFeaturePart } from "./MapFeatureCard";
+import { MapFeatureCard, MapFeatureMeter, MapFeaturePart } from "./MapFeatureCard";
 import { VillageCountries } from "./VillageCountries";
 import {
   CACHE_LIMITS_MB,
@@ -48,6 +48,10 @@ const LINKS = {
   maxmind: "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
   openRouteService: "https://openrouteservice.org/dev/#/signup"
 };
+
+/** The public OpenRouteService — core/routing.ts's default. Saved as the address, it
+ *  is not a server of your own. */
+const ORS_URL = "https://api.openrouteservice.org";
 
 type Pending =
   | { kind: "offlineOn" }
@@ -241,7 +245,9 @@ export function MapFeatures() {
   const routesOn = Boolean(routing?.hasApiKey);
   const endpointValue = endpoint ?? routing?.endpoint ?? "";
   const routesDirty = apiKey.trim() !== "" || endpointValue !== (routing?.endpoint ?? "");
-  const ownServerOpen = ownServerChoice ?? Boolean(routing?.endpoint);
+  const savedEndpoint = routing?.endpoint.trim().replace(/\/+$/, "") ?? "";
+  const ownEndpoint = savedEndpoint !== "" && savedEndpoint !== ORS_URL;
+  const ownServerOpen = ownServerChoice ?? ownEndpoint;
 
   /** Test saves first when something was typed: one button, one answer. */
   const saveAndTest = async () => {
@@ -283,6 +289,7 @@ export function MapFeatures() {
   // Off, there is nowhere to keep maps or place names: switching them on waits, and
   // switching one off that is somehow still on stays possible.
   const needsAppStorage = status.appStorage?.enabled === false;
+  const cachePercent = cache.limitBytes > 0 ? Math.min(100, Math.round((cache.bytes / cache.limitBytes) * 100)) : 0;
 
   return (
     <div className="map-features">
@@ -315,12 +322,12 @@ export function MapFeatures() {
         facts={[
           { label: t("controlAdmin:mapFeatures.source"), value: "OpenFreeMap" },
           { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.offlineArrives") },
-          {
-            label: t("controlAdmin:mapFeatures.space"),
-            value: settings.cache
-              ? t("controlAdmin:mapFeatures.usedOf", { used: formatBytes(cache.bytes), limit: limitLabel(settings.cacheLimitMb) })
-              : t("controlAdmin:mapFeatures.upTo", { limit: limitLabel(settings.cacheLimitMb) })
-          },
+          settings.cache
+            ? {
+                label: t("controlAdmin:mapFeatures.spaceUsed"),
+                value: t("controlAdmin:mapFeatures.usedOfPercent", { used: formatBytes(cache.bytes), limit: limitLabel(settings.cacheLimitMb), percent: cachePercent })
+              }
+            : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.upTo", { limit: limitLabel(settings.cacheLimitMb) }) },
           ...(settings.cache ? [serviceFact(service, t)].filter((fact) => fact !== null) : [])
         ]}
       >
@@ -333,6 +340,14 @@ export function MapFeatures() {
             disabled={busy !== null}
             compact
           />
+          {settings.cache && (
+            <MapFeatureMeter
+              used={cache.bytes}
+              limit={cache.limitBytes}
+              usedLabel={t("controlAdmin:mapFeatures.meterUsed", { used: formatBytes(cache.bytes) })}
+              limitLabel={limitLabel(settings.cacheLimitMb)}
+            />
+          )}
         </div>
       </MapFeatureCard>
 
@@ -351,11 +366,13 @@ export function MapFeatures() {
         facts={[
           { label: t("controlAdmin:mapFeatures.source"), value: "GeoNames" },
           { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.placesArrives") },
-          { label: t("controlAdmin:mapFeatures.space"), value: places.present ? formatBytes(places.sizeBytes) : t("controlAdmin:mapFeatures.placesSpace") }
+          places.present
+            ? { label: t("controlAdmin:mapFeatures.spaceUsed"), value: formatBytes(places.sizeBytes) }
+            : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.placesSpace") }
         ]}
       >
         {(places.present || places.build.running || places.build.error) && (
-          <div className="map-feature-row">
+          <div className="map-feature-strip">
             {places.build.running ? (
               <span className="map-feature-status">{t("controlAdmin:mapFeatures.placesBuilding", { progress: placesProgressText(t, places.build) })}</span>
             ) : places.present ? (
@@ -389,12 +406,15 @@ export function MapFeatures() {
         disabled={busy !== null}
         onToggle={(next) => { setActionError(""); setPending({ kind: next ? "signInsOn" : "signInsOff" }); }}
         facts={[
-          { label: t("controlAdmin:mapFeatures.source"), value: city ? t("controlAdmin:mapFeatures.signInsSourceWithTowns") : "DB-IP" },
+          { label: t("controlAdmin:mapFeatures.source"), value: city ? (country ? t("controlAdmin:mapFeatures.signInsSourceWithTowns") : t("controlAdmin:mapFeatures.signInsSourceTownsOnly")) : "DB-IP" },
           { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.signInsArrives") },
-          { label: t("controlAdmin:mapFeatures.space"), value: signInsOn ? formatBytes(locationsBytes) : t("controlAdmin:mapFeatures.signInsSpace") }
+          signInsOn
+            ? { label: t("controlAdmin:mapFeatures.spaceUsed"), value: formatBytes(locationsBytes) }
+            : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.signInsSpace") }
         ]}
       >
         <MapFeaturePart
+          icon={<Globe size={18} />}
           title={t("controlAdmin:mapFeatures.countries")}
           detail={t("controlAdmin:mapFeatures.countriesDetail")}
           info={
@@ -405,7 +425,7 @@ export function MapFeatures() {
           }
           state={country
             ? <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.installed", { size: formatBytes(country.sizeBytes), date: formatManagedDate(country.buildDate ?? country.updatedAt) })}</span>
-            : <span className="map-feature-status">{t("controlAdmin:mapFeatures.notInstalled")}</span>}
+            : <span className="map-feature-status">{city ? t("controlAdmin:mapFeatures.countriesCovered") : t("controlAdmin:mapFeatures.notInstalled")}</span>}
         >
           <Button
             variant="secondary"
@@ -418,6 +438,7 @@ export function MapFeatures() {
         </MapFeaturePart>
 
         <MapFeaturePart
+          icon={<MapPin size={18} />}
           title={<>{t("controlAdmin:mapFeatures.towns")} <span className="muted">{t("controlAdmin:mapFeatures.optional")}</span></>}
           detail={city ? city.name : t("controlAdmin:mapFeatures.townsDetail")}
           info={
@@ -455,7 +476,7 @@ export function MapFeatures() {
             {t("controlAdmin:mapFeatures.link")}
           </Button>
           {city && (
-            <Button variant="text" compact disabled={busy !== null} onClick={() => { setActionError(""); setPending({ kind: "townsRemove", name: city.name }); }}>
+            <Button variant="text" danger compact disabled={busy !== null} onClick={() => { setActionError(""); setPending({ kind: "townsRemove", name: city.name }); }}>
               {t("controlAdmin:mapFeatures.remove")}
             </Button>
           )}

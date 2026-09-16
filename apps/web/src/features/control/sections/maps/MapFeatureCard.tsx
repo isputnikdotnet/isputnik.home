@@ -55,14 +55,33 @@ export function MapFeatureCard({
   );
 }
 
+/** How much of a limit is in use, as a bar with the two ends named under it. */
+export function MapFeatureMeter({ used, limit, usedLabel, limitLabel }: { used: number; limit: number; usedLabel: string; limitLabel: string }) {
+  const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  return (
+    <div className="map-feature-meter">
+      <div className="map-feature-meter-track" role="meter" aria-valuemin={0} aria-valuemax={limit} aria-valuenow={Math.min(used, limit)} aria-valuetext={usedLabel}>
+        {/* Anything kept shows as a sliver, so 4 MB of 2 GB does not read as empty. */}
+        <span style={{ width: used > 0 ? `max(${percent}%, 6px)` : 0 }} />
+      </div>
+      <div className="map-feature-meter-ends">
+        <span>{usedLabel}</span>
+        <span>{limitLabel}</span>
+      </div>
+    </div>
+  );
+}
+
 /** A part of a card under its facts: a named row with its state and its actions. */
 export function MapFeaturePart({
+  icon,
   title,
   detail,
   info,
   state,
   children
 }: {
+  icon?: ReactNode;
   title: ReactNode;
   detail: string;
   info?: ReactNode;
@@ -71,6 +90,7 @@ export function MapFeaturePart({
 }) {
   return (
     <div className="map-feature-part">
+      {icon && <span className="map-feature-part-icon" aria-hidden="true">{icon}</span>}
       <div className="map-feature-part-text">
         <strong>{title}{info}</strong>
         <small>{detail}</small>

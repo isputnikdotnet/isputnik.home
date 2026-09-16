@@ -14,6 +14,9 @@ import { Button } from "../../../shared/Button";
 //
 // A photo that already has a pin (from the camera, or set by hand) is never
 // re-pinned from here; its words can still change.
+//
+// The lightbox's Details tab edits the place with this same picker (its own dark
+// look is in gallery.css, under .gallery-lightbox-info).
 
 export interface PlacePin {
   lat: number;
@@ -47,7 +50,8 @@ export function PlacePicker({
   pin,
   alreadyPinned,
   onChange,
-  disabled
+  disabled,
+  autoFocus = false
 }: {
   value: string;
   pin: PlacePin | null;
@@ -55,6 +59,7 @@ export function PlacePicker({
   alreadyPinned: boolean;
   onChange: (place: string, pin: PlacePin | null) => void;
   disabled?: boolean;
+  autoFocus?: boolean;
 }) {
   const { t } = useTranslation("galleryReview");
   // What she typed last (not a value set by a pick or a chip) — the only thing
@@ -123,6 +128,7 @@ export function PlacePicker({
         placeholder={t("where.placeholder")}
         maxLength={300}
         disabled={disabled}
+        autoFocus={autoFocus}
         aria-label={t("where.heading")}
       />
 

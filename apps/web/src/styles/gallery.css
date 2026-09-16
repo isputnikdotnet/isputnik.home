@@ -1316,6 +1316,26 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
 .lb-desc .story-prose { line-height: 1.5; }
 .lb-desc .story-prose:has(> *) { white-space: normal; }
 
+/* "What do you remember?": the words, a line under them when there are none, and
+   Add note · Add recording side by side (Review mode's two buttons, panel-sized). */
+.lb-memory-hint {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.lb-memory-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.lb-memory-actions .compact-button {
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 /* Map tab without a pin. */
 .lb-map-empty {
   display: grid;
@@ -1652,6 +1672,104 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
   color: #8eb4bf;
 }
 
+/* The place editor on the Details tab is Review mode's picker (review/PlacePicker):
+   type, pick a town the server knows or search online, and the photo gets a pin.
+   review.css is not loaded here, so its parts are drawn again in the panel's dark
+   palette. */
+.gallery-lightbox-info .review-place {
+  display: grid;
+  gap: 6px;
+}
+
+.gallery-lightbox-info .review-place-hits {
+  display: grid;
+  gap: 1px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gallery-lightbox-info .review-place-hit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gallery-lightbox-info .review-place-hit svg { flex: none; width: 15px; height: 15px; color: #8eb4bf; }
+.gallery-lightbox-info .review-place-hit:hover,
+.gallery-lightbox-info .review-place-hit:focus-visible { background: rgba(255, 255, 255, 0.1); outline: none; }
+
+.gallery-lightbox-info .review-place-online {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
+}
+
+.gallery-lightbox-info .review-place-online svg { width: 14px; height: 14px; }
+.gallery-lightbox-info .review-place-online:hover:not(:disabled) { color: #fff; }
+
+.gallery-lightbox-info .review-hint {
+  margin: 0;
+  padding: 4px 8px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.78rem;
+}
+
+/* The pin a found town will put on the photo, with a cross to leave it off. */
+.gallery-lightbox-info .review-place-pin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 8px;
+  border-radius: 6px;
+  background: rgba(142, 180, 191, 0.18);
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.gallery-lightbox-info .review-place-pin svg { flex: none; width: 15px; height: 15px; color: #8eb4bf; }
+.gallery-lightbox-info .review-place-pin span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.gallery-lightbox-info .review-chip-remove {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+
+.gallery-lightbox-info .review-chip-remove svg { width: 14px; height: 14px; color: inherit; }
+.gallery-lightbox-info .review-chip-remove:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+.gallery-lightbox-info .review-place-already {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+}
+
 /* Inline field editing in the Info panel: a pencil beside the field label, and a
    small form replacing the value while that field is open. */
 /* Link-styled button for Info-panel values that navigate (e.g. the folder). */
@@ -1868,23 +1986,121 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
 .gallery-person-card small { color: var(--muted); }
 
 /* People tags in the lightbox Info panel. */
-.gallery-person-form {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Adding a person or a tag (LightboxSuggestBox): a search box, then what can be
+   picked — avatar, name, a count — and "Add … as new" last. */
+.lb-suggest {
+  display: grid;
+  gap: 4px;
   margin-top: 8px;
 }
 
-.gallery-person-form input {
+.lb-suggest-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lb-suggest-search:focus-within { border-color: var(--lb-accent); }
+.lb-suggest-search > svg { flex: none; color: rgba(255, 255, 255, 0.55); }
+
+.lb-suggest-search input {
   flex: 1;
   min-width: 0;
-  padding: 5px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
+  padding: 7px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: #fff;
   font: inherit;
   font-size: 0.85rem;
+}
+
+.lb-suggest-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.lb-suggest-close:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+.lb-suggest-list {
+  display: grid;
+  gap: 1px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.lb-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 8px 4px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lb-suggest-row.is-active { background: rgba(142, 180, 191, 0.2); }
+.lb-suggest-row:disabled { opacity: 0.6; cursor: default; }
+
+/* The same round face as a person chip wears; a tag's is its icon. */
+.lb-suggest-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(142, 180, 191, 0.35);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.lb-suggest-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.lb-suggest-avatar.is-new { background: transparent; border: 1px dashed rgba(142, 180, 191, 0.6); color: var(--lb-accent); }
+.lb-suggest-row.is-new .lb-suggest-name { color: var(--lb-accent); }
+
+.lb-suggest-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-suggest-detail {
+  flex: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+}
+
+.lb-suggest-empty {
+  margin: 0;
+  padding: 2px 2px 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.8rem;
 }
 
 .gallery-person-error {
