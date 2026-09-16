@@ -1,13 +1,19 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Calendar, FileText, FolderOpen, MapPin, Plus, Replace, RotateCcw, RotateCw, Tag, Users, X } from "lucide-react";
+import { Calendar, FileText, FolderOpen, MapPin, Mic, Pencil, Plus, Replace, RotateCcw, RotateCw, Tag, Users, X } from "lucide-react";
 import { api } from "../../api";
 import { formatBytes } from "../../shared/utils";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
 import { NotesSection } from "../social/NotesSection";
 import { StoryMarkdown } from "../stories/StoryMarkdown";
 import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
+import { PlacePicker, type PlacePin } from "./review/PlacePicker";
 import { VoiceNotes } from "./VoiceNotes";
+import { LightboxPeoplePicker } from "./LightboxPeoplePicker";
+import { LightboxTagPicker } from "./LightboxTagPicker";
+import { RecordVoiceNoteModal } from "./RecordVoiceNoteModal";
+import { ReviewNoteModal } from "./review/ReviewNoteModal";
+import { recordingSupported } from "../../shared/audio/wave";
 import type { GalleryAsset, GalleryFace, GalleryPerson, GalleryPersonTag, PlaceLabel, TakenPrecision, VoiceNote } from "./types";
 import type { GalleryAssetChange } from "./GalleryLightbox";
 import { TAKEN_PRECISIONS, formatTakenDate, precisionLabel, takenInputToIso, takenInputType, takenInputValue } from "./taken-date";
@@ -36,7 +42,7 @@ export type PanelTab = "details" | "map" | "file";
 // Fields editable inline ("gps" opens the map picker on the Map tab). The name and
 // technical fields stay read-only: the title is the file on disk. "placeText" is
 // the place as a person wrote it, beside the pin (docs/photo-review-plan.md).
-type EditableField = "description" | "takenAt" | "placeText" | "tags" | "gps";
+type EditableField = "takenAt" | "placeText" | "gps";
 
 // The letter a person's chip shows when no face crop is known for them.
 function initial(name: string): string {
@@ -83,7 +89,7 @@ export function GalleryLightboxPanel({
   // Bumped by the lightbox when a face was named on the photo itself.
   peopleVersion?: number;
 }) {
-  const { t } = useTranslation(["common", "gallery"]);
+  const { t } = useTranslation(["common", "gallery", "galleryReview"]);
   // The tab survives moving to the next photo: browsing a trip on the Map tab
   // is a thing to do.
   const [tab, setTab] = useState<PanelTab>("details");
@@ -101,7 +107,20 @@ export function GalleryLightboxPanel({
   // moved by hand) and the nonce-keyed instruction that recentres the map on it.
   const [editGpsLabel, setEditGpsLabel] = useState("");
   const [editGpsFocus, setEditGpsFocus] = useState<{ lat: number; lng: number; zoom?: number; nonce: number } | null>(null);
+  // A town found from the place's words, to pin a photo that has none (Review
+  // mode's picker: the same rule, the same search).
+  const [editPin, setEditPin] = useState<PlacePin | null>(null);
   const [editBusy, setEditBusy] = useState(false);
+  // The photo's tags as this panel last saved them. Each save reloads the whole
+  // view behind the lightbox, and those reloads can land out of order — one started
+  // before a removal arriving after it — so the asset's tags are read only when a
+  // photo opens, and after that this panel's own saves are the truth.
+  const [tags, setTags] = useState<string[]>(asset.tags);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setTags(asset.tags), [asset.id]);
+  const [addingTag, setAddingTag] = useState(false);
+  // "What do you remember?": Review mode's note dialog, or the recorder.
+  const [memoryDialog, setMemoryDialog] = useState<"note" | "recording" | null>(null);
   const [editError, setEditError] = useState("");
 
   // People tagged in this asset. The list/timeline rows don't carry `people`, so when
@@ -115,17 +134,15 @@ export function GalleryLightboxPanel({
   const [placeLabel, setPlaceLabel] = useState<PlaceLabel | null>(asset.placeLabel ?? null);
   const [allPeople, setAllPeople] = useState<GalleryPerson[]>([]);
   const [addingPerson, setAddingPerson] = useState(false);
-  const [personName, setPersonName] = useState("");
   const [personBusy, setPersonBusy] = useState(false);
   const [personError, setPersonError] = useState("");
 
   // Moving to another asset abandons any in-progress edit.
-  useEffect(() => { setEditingField(null); setEditError(""); }, [asset.id]);
+  useEffect(() => { setEditingField(null); setEditError(""); setMemoryDialog(null); setAddingTag(false); }, [asset.id]);
 
   // Load the current asset's people (from the detail endpoint when the row lacks them).
   useEffect(() => {
     setAddingPerson(false);
-    setPersonName("");
     setPersonError("");
     setVoiceNotes(asset.voiceNotes ?? null);
     setPlaceLabel(asset.placeLabel ?? null);
@@ -166,11 +183,8 @@ export function GalleryLightboxPanel({
       setEditValue(takenInputValue(asset.takenAt, precision));
       return;
     }
-    setEditValue(
-      field === "description" ? (asset.description ?? "")
-        : field === "placeText" ? (asset.placeText ?? "")
-          : "" // tags: the input adds to the chips, it does not re-edit the list
-    );
+    setEditPin(null);
+    setEditValue(asset.placeText ?? "");
   };
 
   // Switching the date editor's precision re-reads the same date at the new
@@ -191,8 +205,8 @@ export function GalleryLightboxPanel({
     takenPrecision?: TakenPrecision; takenApprox?: boolean; placeText?: string | null;
     gps?: { lat: number; lng: number } | null;
   };
-  const patch = async (change: Partial<PatchBody>, fallbackError: string) => {
-    if (editBusy) return;
+  const patch = async (change: Partial<PatchBody>, fallbackError: string): Promise<boolean> => {
+    if (editBusy) return false;
     const body: PatchBody = {
       title: asset.title,
       description: asset.description,
@@ -202,7 +216,7 @@ export function GalleryLightboxPanel({
       // turn "about 1983" into 1 Jan 1983 on the way to saving a tag.
       takenPrecision: asset.takenPrecision,
       takenApprox: asset.takenApprox,
-      tags: asset.tags,
+      tags,
       ...change
     };
     setEditBusy(true);
@@ -210,9 +224,12 @@ export function GalleryLightboxPanel({
     try {
       await api(`/api/library/gallery/assets/${asset.id}`, { method: "PATCH", body: JSON.stringify(body) });
       setEditingField(null);
+      if (body.tags !== tags) setTags(body.tags);
       onChanged({ kind: "asset", id: asset.id });
+      return true;
     } catch (err) {
       setEditError(err instanceof Error ? err.message : fallbackError);
+      return false;
     } finally {
       setEditBusy(false);
     }
@@ -224,43 +241,50 @@ export function GalleryLightboxPanel({
   const saveEdit = async () => {
     if (!editingField) return;
     const fallback = t("gallery:lightbox.errors.saveChanges");
-    if (editingField === "description") return patch({ description: editValue.trim() || null }, fallback);
-    if (editingField === "placeText") return patch({ placeText: editValue.trim() || null }, fallback);
+    if (editingField === "placeText") {
+      return patch({
+        placeText: editValue.trim() || null,
+        ...(editPin && !asset.gps ? { gps: { lat: editPin.lat, lng: editPin.lng } } : {})
+      }, fallback);
+    }
     if (editingField === "takenAt") {
       // The server floors the instant to the precision; an empty field leaves
       // the date as it is (the PATCH has no "clear the date" — see edit.ts).
       return patch({ takenAt: takenInputToIso(editValue, editPrecision), takenPrecision: editPrecision, takenApprox: editApprox }, fallback);
     }
-    // Tags: whatever was typed (comma-separated) joins the chips already there.
-    const typed = editValue.split(",").map((tag) => tag.trim()).filter(Boolean);
-    if (typed.length === 0) { cancelEdit(); return; }
-    return patch({ tags: Array.from(new Set([...asset.tags, ...typed])) }, fallback);
   };
 
-  const removeTag = (tag: string) =>
-    patch({ tags: asset.tags.filter((other) => other !== tag) }, t("gallery:lightbox.errors.saveChanges"));
+  // A tag from the picker joins the chips; a known tag typed in another case keeps
+  // the photo's own spelling rather than adding a second chip.
+  const addTag = (tag: string) =>
+    tags.some((other) => other.toLowerCase() === tag.toLowerCase())
+      ? Promise.resolve(true)
+      : patch({ tags: [...tags, tag] }, t("gallery:lightbox.errors.saveChanges"));
 
-  // Tag a person: link an existing one when the typed name matches (case-insensitive),
-  // otherwise create a new person. The API returns the updated asset with its people.
-  const addPerson = async () => {
-    const name = personName.trim();
-    if (!name || personBusy) return;
+  const removeTag = (tag: string) =>
+    patch({ tags: tags.filter((other) => other !== tag) }, t("gallery:lightbox.errors.saveChanges"));
+
+  // Tag a person: one picked from the list, or a typed name — which links an existing
+  // person of that name (case-insensitive) and otherwise creates one. The API returns
+  // the updated asset with its people. The picker stays open for the next name.
+  const addPerson = async (choice: { personId: string } | { name: string }): Promise<boolean> => {
+    if (personBusy) return false;
     setPersonBusy(true);
     setPersonError("");
     try {
-      const match = allPeople.find((p) => p.name.toLowerCase() === name.toLowerCase());
-      const body = match ? { personId: match.id } : { name };
+      const match = "name" in choice ? allPeople.find((p) => p.name.toLowerCase() === choice.name.toLowerCase()) : undefined;
+      const body = match ? { personId: match.id } : choice;
       const res = await api<{ asset: GalleryAsset }>(
         `/api/library/gallery/assets/${asset.id}/people`,
         { method: "POST", body: JSON.stringify(body) }
       );
       setPeople(res.asset.people ?? []);
-      setPersonName("");
-      setAddingPerson(false);
       onPeopleChanged?.();
       onChanged({ kind: "asset", id: asset.id });
+      return true;
     } catch (err) {
       setPersonError(err instanceof Error ? err.message : t("gallery:lightbox.errors.tagPerson"));
+      return false;
     } finally {
       setPersonBusy(false);
     }
@@ -318,9 +342,7 @@ export function GalleryLightboxPanel({
       onSubmit={(event) => { event.preventDefault(); void saveEdit(); }}
       onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); cancelEdit(); } }}
     >
-      {field === "description" ? (
-        <textarea value={editValue} onChange={(event) => setEditValue(event.target.value)} rows={4} maxLength={5000} autoFocus aria-label={t("gallery:lightbox.labelDescription")} />
-      ) : field === "takenAt" ? (
+      {field === "takenAt" ? (
         <>
           <div className="gallery-info-date-grain">
             <select
@@ -349,23 +371,16 @@ export function GalleryLightboxPanel({
           />
         </>
       ) : field === "placeText" ? (
-        <input
+        <PlacePicker
+          key={asset.id}
           value={editValue}
-          onChange={(event) => setEditValue(event.target.value)}
-          placeholder={t("gallery:lightbox.placePlaceholder")}
-          maxLength={300}
-          aria-label={t("gallery:lightbox.labelPlace")}
+          pin={editPin}
+          alreadyPinned={Boolean(asset.gps)}
+          onChange={(place, pin) => { setEditValue(place); setEditPin(pin); }}
+          disabled={editBusy}
           autoFocus
         />
-      ) : (
-        <input
-          value={editValue}
-          onChange={(event) => setEditValue(event.target.value)}
-          placeholder={t("gallery:lightbox.tagsPlaceholder")}
-          aria-label={t("gallery:lightbox.labelTags")}
-          autoFocus
-        />
-      )}
+      ) : null}
       {formActions}
       {editError && <span className="gallery-info-error">{editError}</span>}
     </form>
@@ -496,30 +511,14 @@ export function GalleryLightboxPanel({
                 )}
               </div>
               {canEdit && addingPerson && (
-                <form className="gallery-person-form" onSubmit={(event) => { event.preventDefault(); void addPerson(); }}>
-                  <input
-                    list="gallery-people-suggestions"
-                    value={personName}
-                    onChange={(event) => setPersonName(event.target.value)}
-                    placeholder={t("gallery:common.name")}
-                    maxLength={120}
-                    aria-label={t("gallery:lightbox.addPersonButton")}
-                    autoFocus
-                  />
-                  <datalist id="gallery-people-suggestions">
-                    {allPeople.map((person) => <option key={person.id} value={person.name} />)}
-                  </datalist>
-                  <Button variant="secondary" compact type="submit" disabled={personBusy || !personName.trim()}>
-                    {personBusy ? t("gallery:common.adding") : t("gallery:common.add")}
-                  </Button>
-                  <Button
-                    variant="icon"
-                    onClick={() => { setAddingPerson(false); setPersonName(""); setPersonError(""); }}
-                    aria-label={t("common:common.cancel")}
-                  >
-                    <X size={14} aria-hidden="true" />
-                  </Button>
-                </form>
+                <LightboxPeoplePicker
+                  key={asset.id}
+                  people={allPeople}
+                  tagged={people}
+                  busy={personBusy}
+                  onPick={addPerson}
+                  onClose={() => { setAddingPerson(false); setPersonError(""); }}
+                />
               )}
               {personError && <span className="gallery-person-error">{personError}</span>}
               {canEdit && unnamedFaces > 0 && !showFaces && onToggleFaces && (
@@ -530,11 +529,11 @@ export function GalleryLightboxPanel({
             </section>
           )}
 
-          {(asset.tags.length > 0 || canEdit) && (
+          {(tags.length > 0 || canEdit) && (
             <section className="lb-sec">
               <div className="lb-sec-h"><Tag size={18} aria-hidden="true" /><h3>{t("gallery:lightbox.labelTags")}</h3></div>
               <div className="lb-chips">
-                {asset.tags.map((tag) => (
+                {tags.map((tag) => (
                   <span key={tag} className="lb-chip is-tag">
                     {tag}
                     {canEdit && (
@@ -551,49 +550,89 @@ export function GalleryLightboxPanel({
                     )}
                   </span>
                 ))}
-                {canEdit && editingField !== "tags" && (
-                  <Button variant="chip" className="lb-chip-add" onClick={() => startEdit("tags")} aria-label={t("gallery:lightbox.addTagButton")} title={t("gallery:lightbox.addTagButton")}>
+                {canEdit && !addingTag && (
+                  <Button variant="chip" className="lb-chip-add" onClick={() => { setEditError(""); setAddingTag(true); }} aria-label={t("gallery:lightbox.addTagButton")} title={t("gallery:lightbox.addTagButton")}>
                     <Plus size={16} aria-hidden="true" />
                   </Button>
                 )}
               </div>
-              {editingField === "tags" && editForm("tags")}
-              {editingField !== "tags" && editError && <span className="gallery-info-error">{editError}</span>}
+              {canEdit && addingTag && (
+                <LightboxTagPicker
+                  key={asset.id}
+                  tags={tags}
+                  busy={editBusy}
+                  onPick={addTag}
+                  onClose={() => { setAddingTag(false); setEditError(""); }}
+                />
+              )}
+              {addingTag && editError && <span className="gallery-info-error">{editError}</span>}
             </section>
           )}
 
-          {(asset.description || canEdit) && (
+          {/* What do you remember: Review mode's question, in the panel — the words
+              (the description, written in the note dialog with dictation) and the
+              recordings, under one heading with one button for each. */}
+          {(asset.description || (voiceNotes?.length ?? 0) > 0 || canEdit) && (
             <section className="lb-sec">
               <div className="lb-sec-h">
                 <FileText size={18} aria-hidden="true" />
-                <h3>{t("gallery:lightbox.labelDescription")}</h3>
-                <span className="lb-grow" />
-                {editLink("description", t("gallery:lightbox.fieldDescription"))}
+                <h3>{t("galleryReview:notes.heading")}</h3>
               </div>
-              {editingField === "description" ? editForm("description") : (
+              {asset.description ? (
                 <div className="lb-desc">
                   {/* Markdown since Review mode's note editor; plain text reads the same. */}
-                  {asset.description ? <StoryMarkdown source={asset.description} breaks /> : <span className="muted">{t("gallery:lightbox.noDescription")}</span>}
+                  <StoryMarkdown source={asset.description} breaks />
                 </div>
+              ) : (voiceNotes?.length ?? 0) === 0 && (
+                <p className="lb-memory-hint muted">{canEdit ? t("galleryReview:notes.hint") : t("galleryReview:notes.nothingYet")}</p>
               )}
-              {asset.reviewedAt && asset.reviewedBy && editingField !== "description" && (
+              {asset.reviewedAt && asset.reviewedBy && (
                 <span className="gallery-info-noted muted">
                   {t("gallery:lightbox.notedBy", { name: asset.reviewedBy, date: formatDate(asset.reviewedAt) })}
                 </span>
               )}
-            </section>
-          )}
-
-          {((voiceNotes?.length ?? 0) > 0 || canEdit) && (
-            <section className="lb-sec">
+              {canEdit && (
+                <div className="lb-memory-actions">
+                  <Button variant="secondary" compact onClick={() => setMemoryDialog("note")} disabled={editBusy}>
+                    {asset.description ? <Pencil size={14} aria-hidden="true" /> : <FileText size={14} aria-hidden="true" />}
+                    {asset.description ? t("galleryReview:notes.editNote") : t("galleryReview:notes.addNote")}
+                  </Button>
+                  {recordingSupported() && (
+                    <Button variant="secondary" compact onClick={() => setMemoryDialog("recording")} disabled={editBusy}>
+                      <Mic size={14} aria-hidden="true" /> {t("galleryReview:notes.addRecording")}
+                    </Button>
+                  )}
+                </div>
+              )}
+              {editingField === null && !addingTag && editError && <span className="gallery-info-error">{editError}</span>}
               <VoiceNotes
                 assetId={asset.id}
                 notes={voiceNotes ?? []}
                 canEdit={canEdit}
                 onChanged={setVoiceNotes}
+                heading={false}
+                showRecord={false}
                 thumbnailUrl={asset.coverUrl}
               />
             </section>
+          )}
+
+          {memoryDialog === "note" && (
+            <ReviewNoteModal
+              initial={asset.description ?? ""}
+              thumbnailUrl={asset.coverUrl}
+              onSave={(text) => void patch({ description: text || null }, t("gallery:lightbox.errors.saveChanges"))}
+              onClose={() => setMemoryDialog(null)}
+            />
+          )}
+          {memoryDialog === "recording" && (
+            <RecordVoiceNoteModal
+              assetId={asset.id}
+              thumbnailUrl={asset.coverUrl}
+              allowUpload
+              onSaved={setVoiceNotes}
+              onClose={() => setMemoryDialog(null)}
+            />
           )}
 
           <NotesSection entityType="gallery" entityId={asset.id} compact placeholder={t("gallery:lightbox.notePlaceholder")} />

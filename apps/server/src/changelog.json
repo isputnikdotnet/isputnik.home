@@ -1,5 +1,19 @@
 [
   {
+    "version": "4.14.0",
+    "label": "Say it about a photo the way Review mode does",
+    "changes": [
+      "**The photo panel now edits a photo the way Review mode does.** Review mode had the easier ways in — towns offered as you type, a proper note editor with dictation, and people to pick from rather than names to remember. The panel beside a photo, where most photos actually get edited, still had bare text boxes. Now both work the same.",
+      "**Where? offers the place as you type.** Click **Edit** beside the place and start typing: towns and villages from this server's own place list appear under the box, and **Search online** asks OpenStreetMap only when you press it. Picking one writes a short name, such as \"Ratomka, Belarus\", and puts a photo that is not on the map yet on it. A photo that already has a pin keeps it — moving a pin is the Map tab's job, so a precise camera location is never swapped for a town centre by accident.",
+      "**The Map tab offers places as you type too.** **Mark where it was taken** and **Move the pin** used to find nothing until **Search** was pressed. Towns now appear as you type and pick straight onto the map, and the **Set location** dialog for a selection of photos works the same way.",
+      "**What do you remember? replaces Description and Recordings.** One section holds the words and the recordings, with **Add note** and **Add recording** under them. **Add note** opens Review mode's note dialog — bold, lists and quotes, and **Speak instead** to dictate — instead of a small text box. Arrow keys pressed in a dialog opened over a photo no longer turn to the next photo behind it.",
+      "**Adding a person shows who you are picking.** The **+** under People opens a search box listing the people seen most often, each with their face and how many photos they are in, so two Annas can be told apart. Names starting with what you type come first, a name nobody has yet is offered as a new person, ↑ ↓ and Enter work, and the box stays open so a whole group can be tagged in one go. It replaces the browser's plain light list of names.",
+      "**Adding a tag works the same way.** The **+** under Tags lists the tags the gallery already uses, most-used first, with how often each is used, and offers a new tag when nothing matches — no more commas in a text field. Typing a tag the photo already has in other capitals does not add it twice.",
+      "**Removing tags quickly no longer brings them back.** Taking two tags off a photo one after the other removed both, but the panel could show them again a moment later, until the photo was reopened. Each change reloads the gallery behind the photo, and an older reload arriving last put the old tags back on screen. The panel now keeps what it saved.",
+      "**Control panel → Maps reads more clearly.** Offline maps shows a bar of the space used against the limit, with the share in percent. What is already on disk is labelled **Space used**, and the place-names build sits on its own strip with **Update** beside it. The Countries and Towns rows carry icons, their buttons line up on the right, and **Remove** is red. With a towns database added, Countries now says it is not needed rather than \"Not installed\" — the towns database answers countries too. A saved OpenRouteService address no longer opens **Use your own routing server** as though it were a server of your own."
+    ]
+  },
+  {
     "version": "4.13.8",
     "label": "About 1983 stays about 1983",
     "changes": [

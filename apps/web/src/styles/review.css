@@ -470,32 +470,7 @@
 
 .review-note-preview .story-prose { line-height: 1.55; }
 
-/* The note dialog: the story editor, wide enough to write a page in. */
-.confirm-modal.review-note-modal { width: min(100%, 680px); }
-
-/* Review mode's targets are finger-sized, the editor's marks included. */
-.review-note-modal .markdown-tool { width: 40px; height: 40px; border-radius: 9px; }
-.review-note-modal .markdown-tool svg { width: 18px; height: 18px; }
-
-.review-note-modal .story-text-input {
-  min-height: 240px;
-  font-family: inherit;
-  font-size: 1.02rem;
-}
-
-.review-note-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.review-note-count {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 14px;
-}
+/* The note dialog's own look is in review-note.css, which comes with the dialog. */
 
 /* ── The button row ──────────────────────────────────────────────────────── */
 

@@ -96,9 +96,57 @@
 
 /* The limit reads as one short choice, not a field across the card. */
 .map-feature-row .select-field {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-width: 140px;
+  max-width: 100%;
 }
+
+/* Kept maps against their limit, beside the limit's list. */
+.map-feature-meter {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.map-feature-meter-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-raised);
+}
+
+.map-feature-meter-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.map-feature-meter-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* A built database's state on a tinted strip, its one action at the end. */
+.map-feature-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.map-feature-strip .map-feature-status { flex: 1 1 auto; }
+.map-feature-strip > button { margin-left: auto; }
 
 /* A named part of a card (Countries, Towns): its text, its state, its actions. */
 .map-feature-part {
@@ -111,10 +159,18 @@
   border-top: 1px solid var(--line);
 }
 
+.map-feature-part-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  color: var(--muted);
+}
+
 .map-feature-part-text {
   display: grid;
   gap: 1px;
-  flex: 1 1 240px;
+  flex: 1 1 160px;
   min-width: 0;
 }
 
@@ -131,11 +187,27 @@
   overflow-wrap: anywhere;
 }
 
+/* Pushed to the card's right edge, so every part's buttons end in one column, and
+   still there when a narrow card wraps them under their text. */
 .map-feature-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
+  margin-left: auto;
 }
+
+/* A part's buttons sit a size below the page's, beside small text. */
+.map-feature-actions .compact-button,
+.map-feature-strip .compact-button {
+  min-height: 0;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 0.88rem;
+  gap: 5px;
+}
+
+.map-feature-actions .text-button.compact-button { padding: 0 8px; }
 
 /* "Every village in…": the chosen countries as chips, then the add list and Save. */
 .village-countries {

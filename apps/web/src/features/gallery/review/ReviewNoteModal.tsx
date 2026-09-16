@@ -6,6 +6,8 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MarkdownEditor } from "../../../shared/MarkdownEditor";
 import { Modal } from "../../../shared/Modal";
 import { useDictation } from "./useDictation";
+// The dialog's stylesheet: it comes with the dialog, in Review mode and in the lightbox (docs/css-map.md).
+import "../../../styles/review-note.css";
 
 // Review mode's "Add note": the words about a photo, written in the same editor
 // a story's text uses (shared/MarkdownEditor — bold, lists, a quote), with the
@@ -14,7 +16,8 @@ import { useDictation } from "./useDictation";
 //
 // The note is the photo's description, stored as markdown and read back through
 // StoryMarkdown. Save hands it to the page's answer for this photo; Save & Next
-// writes it, as it writes the date and the place.
+// writes it, as it writes the date and the place. The lightbox's "What do you
+// remember?" opens the same dialog, and saves the description straight away.
 
 export const NOTE_MAX = 5000;
 
@@ -27,7 +30,7 @@ export function ReviewNoteModal({
 }: {
   initial: string;
   /** The previous photo's note, offered as a starting point. */
-  previousNote: string | null;
+  previousNote?: string | null;
   thumbnailUrl?: string | null;
   onSave: (text: string) => void;
   onClose: () => void;

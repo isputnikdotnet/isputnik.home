@@ -1,0 +1,67 @@
+/* The note dialog (features/gallery/review/ReviewNoteModal.tsx): the story editor,
+   dictation and "use the last photo's note". It opens from Review mode and from
+   the lightbox's "What do you remember?", so its look travels with the dialog
+   rather than with review.css (docs/css-map.md). */
+
+/* Wide enough to write a page in. */
+.confirm-modal.review-note-modal { width: min(100%, 680px); }
+
+/* Finger-sized targets, the editor's marks included. */
+.review-note-modal .markdown-tool { width: 40px; height: 40px; border-radius: 9px; }
+.review-note-modal .markdown-tool svg { width: 18px; height: 18px; }
+
+.review-note-modal .story-text-input {
+  min-height: 240px;
+  font-family: inherit;
+  font-size: 1.02rem;
+}
+
+.review-note-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Speak instead · Use the last photo's note: Review mode's chips. */
+.review-note-options .review-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.review-note-options .review-chip[aria-pressed="true"] {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 18%, var(--field));
+}
+
+.review-note-options .review-chip-same {
+  flex: none;
+  min-height: 38px;
+  padding: 0 14px;
+  border-color: transparent;
+  background: var(--active);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.review-note-options .review-chip:focus-visible {
+  outline: 3px solid var(--mint);
+  outline-offset: 2px;
+}
+
+.review-note-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 14px;
+}

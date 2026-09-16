@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info,
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { isInOpenModal } from "../../shared/Modal";
 import { MessageBox } from "../../shared/MessageBox";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
@@ -374,6 +375,9 @@ export function GalleryLightbox({
       // lightbox: arrows move the caret there, and Escape cancels the form.
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      // Nor may a dialog opened over it from the panel (the note editor, the
+      // recorder): its buttons are not the photo's.
+      if (isInOpenModal(target)) return;
       if (event.key === "Escape") onClose();
       else if (event.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
       else if (event.key === "ArrowRight" && index < assets.length - 1) onIndexChange(index + 1);

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MapPin, Search } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 
 interface PlaceHit { label: string; lat: number; lng: number }
+
+const SUGGEST_DELAY_MS = 250;
 
 // "53.9, 27.56" (or "53.9 27.56") typed into the search box is a location, not a
 // place name — resolve it locally instead of asking the geocoder.
@@ -19,8 +21,13 @@ function parseCoordinates(value: string): { lat: number; lng: number } | null {
 }
 
 // Find a spot by name instead of hunting for it on a world map. Shared by the
-// bulk "Set location" dialog and the lightbox Info panel, which style it through
+// bulk "Set location" dialog and the lightbox Map tab, which style it through
 // their own scopes — this only owns the query, the hit list, and the pick.
+//
+// Towns are offered as you type from the server's places database (Maps → Photo
+// place names), which is offline — the same list Review mode's PlacePicker uses.
+// Search asks the online geocoder, one request per press: OpenStreetMap's policy
+// forbids search-as-you-type against it.
 export function GalleryPlaceSearch({
   onPick,
   disabled = false,
@@ -34,15 +41,43 @@ export function GalleryPlaceSearch({
 }) {
   const { t } = useTranslation(["common", "gallery"]);
   const [search, setSearch] = useState("");
+  // Towns the offline list matched to what is typed.
+  const [suggestions, setSuggestions] = useState<PlaceHit[]>([]);
+  // The online answer to the last press of Search; typing again puts it away.
   const [hits, setHits] = useState<PlaceHit[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
+  const request = useRef(0);
+
+  const query = search.trim();
+
+  // A moment after typing stops; a late answer for an older query is dropped.
+  useEffect(() => {
+    if (disabled || query.length < 2 || parseCoordinates(query)) {
+      request.current += 1;
+      setSuggestions([]);
+      return;
+    }
+    const id = ++request.current;
+    const timer = window.setTimeout(() => {
+      api<{ available: boolean; results: PlaceHit[] }>(`/api/library/gallery/place-suggest?q=${encodeURIComponent(query)}`)
+        .then((payload) => { if (request.current === id) setSuggestions(payload.results ?? []); })
+        .catch(() => { if (request.current === id) setSuggestions([]); });
+    }, SUGGEST_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [query, disabled]);
+
+  const pick = (hit: PlaceHit) => {
+    request.current += 1;
+    setSuggestions([]);
+    setHits(null);
+    onPick(hit, hit.label);
+  };
 
   const runSearch = async () => {
-    const q = search.trim();
-    if (q.length < 2) return;
+    if (query.length < 2) return;
 
-    const coords = parseCoordinates(q);
+    const coords = parseCoordinates(query);
     if (coords) {
       setHits(null);
       setError("");
@@ -50,10 +85,12 @@ export function GalleryPlaceSearch({
       return;
     }
 
+    request.current += 1;
+    setSuggestions([]);
     setSearching(true);
     setError("");
     try {
-      const payload = await api<{ results: PlaceHit[] }>(`/api/library/gallery/geocode?q=${encodeURIComponent(q)}`);
+      const payload = await api<{ results: PlaceHit[] }>(`/api/library/gallery/geocode?q=${encodeURIComponent(query)}`);
       setHits(payload.results);
     } catch (err) {
       setHits(null);
@@ -62,6 +99,8 @@ export function GalleryPlaceSearch({
       setSearching(false);
     }
   };
+
+  const shown = hits ?? suggestions;
 
   return (
     <>
@@ -73,8 +112,15 @@ export function GalleryPlaceSearch({
           <input
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => { setSearch(event.target.value); setHits(null); setError(""); }}
             onKeyDown={(event) => {
+              if (event.key === "Escape" && shown.length > 0) {
+                event.stopPropagation();
+                request.current += 1;
+                setSuggestions([]);
+                setHits(null);
+                return;
+              }
               if (event.key !== "Enter") return;
               event.preventDefault();
               void runSearch();
@@ -88,7 +134,7 @@ export function GalleryPlaceSearch({
           variant="secondary"
           compact
           onClick={() => void runSearch()}
-          disabled={search.trim().length < 2 || searching || disabled}
+          disabled={query.length < 2 || searching || disabled}
         >
           <Search size={15} aria-hidden="true" /> {searching ? t("gallery:placeSearch.searching") : t("gallery:placeSearch.searchButton")}
         </Button>
@@ -96,23 +142,21 @@ export function GalleryPlaceSearch({
 
       {error && <span className="gallery-place-search-error">{error}</span>}
 
-      {hits !== null && (
-        hits.length > 0 ? (
-          <ul className="gallery-place-results">
-            {hits.map((hit) => (
-              <li key={`${hit.lat},${hit.lng},${hit.label}`}>
-                <Button variant="bare" onClick={() => { onPick(hit, hit.label); setHits(null); }} disabled={disabled}>
-                  <MapPin size={15} aria-hidden="true" />
-                  <span>{hit.label}</span>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="gallery-place-search-empty">
-            {t("gallery:placeSearch.noResults", { query: search.trim() })}
-          </span>
-        )
+      {shown.length > 0 ? (
+        <ul className="gallery-place-results">
+          {shown.map((hit) => (
+            <li key={`${hit.lat},${hit.lng},${hit.label}`}>
+              <Button variant="bare" onClick={() => pick(hit)} disabled={disabled}>
+                <MapPin size={15} aria-hidden="true" />
+                <span>{hit.label}</span>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : hits !== null && (
+        <span className="gallery-place-search-empty">
+          {t("gallery:placeSearch.noResults", { query })}
+        </span>
       )}
     </>
   );

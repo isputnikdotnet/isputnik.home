@@ -57,6 +57,12 @@ function isInside(entry: ModalEntry, ancestor: ModalEntry): boolean {
   return false;
 }
 
+/** Whether a node is inside an open modal — for a surface with its own keys (the
+ *  gallery lightbox) to leave alone the presses meant for a dialog opened over it. */
+export function isInOpenModal(node: Node | null): boolean {
+  return Boolean(node) && stack.some((entry) => entry.host.contains(node));
+}
+
 function topModal(): ModalEntry | null {
   return stack[stack.length - 1] ?? null;
 }

@@ -40,6 +40,7 @@ dashboard's `LocationsMap`, …).
 | `library-browse.css` | Main audiobook catalog / landing + shared browse toolbar (split from `library.css`) |
 | `gallery.css` | Photo/video timeline + folder grid and the full-screen lightbox |
 | `review.css` | *Page* — Review mode: one photo, its questions, full screen ([`photo-review-plan.md`](photo-review-plan.md)) |
+| `review-note.css` | *Page* — the note dialog (editor, dictation) that Review mode and the lightbox's "What do you remember?" both open |
 | `family-tree.css` | People grid, person profile, pickers — what the family pages share, and the `ft-*` avatar, person card and person header the audiobook person and tag pages reuse |
 | `family-tree-chart.css` | *Page* — the tree page (`/family`): tree search, generation rows, the SVG chart with its rail, zoom and legend |
 | `library-collections.css` | Category, series & people pages (split from `library.css`) |
@@ -81,6 +82,7 @@ dashboard's `LocationsMap`, …).
 | `map-features.css` | `features/control/sections/maps/MapFeatures.tsx` | Control panel → Maps, and the setup guide's Maps step |
 | `system-data.css` | `features/control/sections/storage/SystemDataPanel.tsx` | Control panel → Library → Storage, and the setup guide's Storage step |
 | `review.css` | `features/gallery/review/ReviewPage.tsx` | Review mode |
+| `review-note.css` | `features/gallery/review/ReviewNoteModal.tsx` | the note dialog, from Review mode or the lightbox |
 | `person-edit.css` | `features/audiobooks/PersonPage.tsx` | a person's page |
 | `book-media.css` | `features/audiobooks/BookDetailPage.tsx` | the book page — and so it is precached with it |
 | `install.css` | `pages/ProfilePage.tsx` | Profile |
