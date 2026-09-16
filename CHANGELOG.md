@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.13.8 — About 1983 stays about 1983
+
+- **A date given as "about 1983", or as just a year, stays that way.** Saving anything else about the photo afterwards hardened it into an exact 1 January 1983, 00:00:00 — a caption, a tag, a place or a location did it, and so did leaving Review mode, which saves the photo once more on the way out. Review then offered the date as unknown again, as though nobody had answered. How a date is read now travels with it wherever the photo is saved, and a date that has not changed is never re-read as exact.
+- **Photos this already happened to keep the date they have.** An exact date that came from this and one somebody meant look the same from the outside, so nothing is changed behind your back. Set the date again — from **Edit** beside it on the photo, or in Review mode — and this time it stays.
+
 ## 4.13.7 — The name lands on the face
 
 - **A name given in Review mode now finds the face it belongs to.** Photos waiting in a Photo Inbox are not searched for faces yet, so saying who is in one could only mean "somewhere in this photo". Once the photo is kept and its faces are found, a photo with a single face and a single name puts the two together by itself: the face is named, recognition can look for that person in other photos, and the photo no longer says the name twice. Photos with more than one face are left alone — nothing guesses which face is whose.
