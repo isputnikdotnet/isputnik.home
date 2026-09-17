@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.15.2 — Two people with one name stay two people
+
+- **The person filter on Logs picks an account, not a name.** It matched on display names, so two members called the same thing showed up as one person, each with the other's sign-ins and changes. Choosing a person now shows only that account's rows; the filter still lists people by name.
+- **Links to Logs from before this update still work.** An address that named a person opens Logs on the account with that name.
+
 ## 4.15.1 — From a person's sign-ins to everything they did
 
 - **Sign-ins narrowed to one person now links to Logs for them.** An address already offered its entries in Logs; a person didn't, so following up meant opening Logs and finding them in the person filter by hand. **Everything they did, in Logs** opens the page already filtered to that person.

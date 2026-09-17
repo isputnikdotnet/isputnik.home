@@ -286,7 +286,7 @@ internet](exposing-to-the-internet.md).
   Blocked IPs with the Block dialog filled in (not offered for your own network or
   an address already blocked); and the lockout and auto-block settings. Narrowed
   to one person, it offers **Everything they did, in Logs** — Logs filtered to
-  that person by name.
+  that person's account, so two people with the same name stay apart.
 - **Sign-in locations** — where sign-ins came from, over the window you pick: a world map
   shaded by how many connections each country sent, and a table of countries with
   connections, failures and how many distinct addresses were behind them. Sign-ins

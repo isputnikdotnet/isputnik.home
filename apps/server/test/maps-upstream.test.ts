@@ -55,7 +55,7 @@ vi.mock("../src/modules/maps/settings.js", () => ({
   getMapSettings: () => ({ cache: true, cacheLimitMb: 200, villageCountries: [] })
 }));
 
-const { MapRequestAbandoned, MapServiceUnavailable, mapServiceHealth, resetUpstreamState, resolveAsset } = await import("../src/modules/maps/resolve.js");
+const { MapRequestAbandoned, MapServiceUnavailable, mapServiceHealth, resetUpstreamState, resolveAsset, upstreamActivity } = await import("../src/modules/maps/resolve.js");
 const { assetPath } = await import("../src/modules/maps/storage.js");
 
 /** A hillshade tile: needs no TileJSON first, so one tile is one upstream call. */
@@ -103,9 +103,18 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  // Nothing left hanging into the next test.
-  for (const request of upstream.pending.splice(0)) request.answer(200);
-  await settle();
+  // Nothing left hanging into the next test. The queue is module state shared by
+  // every test in this file, so a test is over only when it is idle: every slot
+  // free, nothing waiting, every fetch settled (a fetch stays in flight until its
+  // file is written). Answering what is pending and pausing 20ms was not enough
+  // under a busy full run: fetches for tiles 0-5 were still writing, and the next
+  // test's fillSlots JOINED them instead of asking upstream, and waited in vain
+  // for six requests — which took every later test in the file down with it.
+  await until("the upstream queue to go idle", () => {
+    for (const request of upstream.pending.splice(0)) request.answer(200);
+    const activity = upstreamActivity();
+    return activity.running === 0 && activity.waiting === 0 && activity.inFlight === 0;
+  });
   delete process.env.MAP_DATA_PATH;
   fs.rmSync(dataDir, { recursive: true, force: true });
 });

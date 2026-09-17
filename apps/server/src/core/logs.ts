@@ -21,8 +21,10 @@ const isoInstant = z
 const logQuerySchema = z.object({
   q: z.string().trim().max(100).default(""),
   // Facet selections (multi-select). `event` holds event categories (the part
-  // before the first ".", e.g. "share"); `user` holds actor display names, with
+  // before the first ".", e.g. "share"); `user` holds actor account ids, with
   // the literal "System" matching automated/null-actor rows; `ip` holds addresses.
+  // Ids, not display names, since 4.15.2: two accounts can share a name, and a
+  // name filter showed both people's rows as one person's.
   event: multiParam,
   user: multiParam,
   ip: multiParam,
@@ -92,14 +94,14 @@ function buildLogQuery(data: z.infer<typeof logQuerySchema>) {
     }
 
     if (usersFilter.length) {
-      const named = usersFilter.filter((name) => name !== SYSTEM_ACTOR);
+      const accounts = usersFilter.filter((id) => id !== SYSTEM_ACTOR);
       const parts: string[] = [];
-      if (named.length) {
-        const placeholders = named.map((name, i) => {
-          filterParams[`user${i}`] = name;
+      if (accounts.length) {
+        const placeholders = accounts.map((id, i) => {
+          filterParams[`user${i}`] = id;
           return `@user${i}`;
         });
-        parts.push(`users.display_name IN (${placeholders.join(", ")})`);
+        parts.push(`activity_logs.actor_user_id IN (${placeholders.join(", ")})`);
       }
       if (usersFilter.includes(SYSTEM_ACTOR)) {
         parts.push("activity_logs.actor_user_id IS NULL");
@@ -212,13 +214,13 @@ export async function logsPlugin(app: FastifyInstance) {
       FROM activity_logs
       ORDER BY value
     `).all() as { value: ActivityLogRow["event"] }[];
+    // Every account that has done something, by id, with the name to show for it.
     const userRows = db.prepare(`
-      SELECT DISTINCT users.display_name AS value
+      SELECT DISTINCT users.id AS id, users.display_name AS name
       FROM activity_logs
       JOIN users ON users.id = activity_logs.actor_user_id
-      WHERE users.display_name IS NOT NULL
-      ORDER BY value
-    `).all() as { value: UserRow["display_name"] }[];
+      ORDER BY users.display_name COLLATE NOCASE, users.id
+    `).all() as { id: UserRow["id"]; name: UserRow["display_name"] }[];
     const hasSystem = db.prepare(
       "SELECT 1 FROM activity_logs WHERE actor_user_id IS NULL LIMIT 1"
     ).get() != null;
@@ -241,8 +243,13 @@ export async function logsPlugin(app: FastifyInstance) {
       })),
       facets: {
         event: eventRows.map((row) => row.value),
-        user: [...(hasSystem ? [SYSTEM_ACTOR] : []), ...userRows.map((row) => row.value)],
+        user: [...(hasSystem ? [SYSTEM_ACTOR] : []), ...userRows.map((row) => row.id)],
         ip: ipRows.map((row) => row.value)
+      },
+      // What to call a facet value where it isn't its own label: an account id's
+      // display name. "System" is left for the page to word in its own language.
+      facetLabels: {
+        user: Object.fromEntries(userRows.map((row) => [row.id, row.name ?? row.id]))
       },
       page,
       pageSize,

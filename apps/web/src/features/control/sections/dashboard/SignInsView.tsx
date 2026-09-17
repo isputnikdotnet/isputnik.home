@@ -210,7 +210,7 @@ export function SignInsView() {
   // The back button restores the scope the URL now names.
   useEffect(() => {
     // Only while the address is still this page's: leaving for Logs fires a popstate
-    // before this unmounts, and Logs' ?user= is a name, not the id this sends.
+    // before this unmounts, and would read Logs' filters as this page's dive.
     const onPop = () => {
       if (window.location.pathname === controlHref("signIns")) setScope(scopeFromUrl());
     };
@@ -430,10 +430,9 @@ export function SignInsView() {
               );
             })()}
 
-            {/* A person: everything else they did. Matched by display name, which is
-                what the Logs person filter works on. */}
-            {data.scope.kind === "user" && data.scope.label && (() => {
-              const href = logsHref({ user: data.scope.label });
+            {/* A person: everything else they did, matched by account. */}
+            {data.scope.kind === "user" && data.scope.userId && (() => {
+              const href = logsHref({ user: data.scope.userId });
               return (
                 <p className="signins-next-links">
                   <a href={href} onClick={(event) => followRoute(event, href)}>
