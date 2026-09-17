@@ -639,6 +639,29 @@ const SHOTS = [
       if (!step) return "no App storage step";
       step.click(); await sleep(400);
       "App storage step";`
+  },
+
+  // Help & guides (docs/users/README.md). The page as an admin sees it, the
+  // search open on a query, and the FAQ with one answer open.
+  { name: "115-help", url: "help" },
+  {
+    name: "116-help-search",
+    url: "help",
+    setup: `
+      const box = document.querySelector(".help-search-box input");
+      if (!box) return "no search box";
+      box.focus(); setInput(box, "backup"); await sleep(1500);
+      "searching";`
+  },
+  {
+    name: "117-help-faq",
+    url: "help",
+    setup: `
+      const toggle = button(document, "I lost my phone");
+      if (!toggle) return "no FAQ question";
+      toggle.click(); await sleep(800);
+      document.querySelector(".help-faq").scrollIntoView({ block: "center" }); await sleep(300);
+      "answer open";`
   }
 ];
 

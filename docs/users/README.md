@@ -21,6 +21,28 @@ Friendly, task-focused guides for people using and running isputnik.home.
 > keep those links working — `check:ui` checks them. Headings are also what the
 > Help page's search results open at, so name sections for what a reader would type.
 
+## Finding help inside the app
+
+**About → Help & guides** opens these guides inside iSputnik. A few **Quick start**
+cards lead to where most people begin, **Browse by topic** groups the guides, and
+**View all guides** lists every one. Administrators also see the setup and server
+guides; members see only the guides for what they can use.
+
+![The Help & guides page: search, Quick start cards and the topics](images/115-help.png)
+
+The search box looks through every guide at once and lists the sections that
+match, not just the guides. Choosing a result opens the guide at that heading.
+Press **/** anywhere on the page to jump to it. It searches the copy of the guides
+that ships with the app, so it works without an internet connection.
+
+![Searching the guides for "backup": each result names a guide section, with the matching words highlighted](images/116-help-search.png)
+
+Below the topics, **Frequently asked questions** open in place with a short
+answer and a link to the part of the guide that explains it. If nothing there
+helps, **Report a bug** at the bottom of the page opens an issue on GitHub.
+
+![A frequently asked question opened, with its answer and a link into the two-factor guide](images/117-help-faq.png)
+
 ## Getting started
 
 New install? These three, in order, take you from a blank page to a working
