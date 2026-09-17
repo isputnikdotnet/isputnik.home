@@ -3428,3 +3428,166 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
   max-width: 420px;
   margin-top: 8px;
 }
+
+/* ── Phones: the viewer is the photo ─────────────────────────────────────────
+   The bars shrink to what they must say (back, which photo this is, a ⋮), the
+   actions move to a labelled tray at the bottom where a thumb reaches, the
+   desktop arrows go (a swipe moves between photos, see GalleryLightbox), and a
+   tap on the picture hides the lot. */
+@media (max-width: 740px) {
+  .gallery-lightbox-bar {
+    padding: 8px 10px calc(8px + env(safe-area-inset-top, 0px));
+    gap: 8px;
+  }
+
+  .gallery-lightbox-bar .gallery-lightbox-count {
+    flex: 1;
+    font-size: 0.86rem;
+  }
+
+  /* Swipe replaces them; at 26px over the photo they were a miss waiting to
+     happen, and they covered the edges of every landscape shot. */
+  .gallery-lightbox-nav {
+    display: none;
+  }
+
+  .gallery-lightbox-stage {
+    padding: 0;
+  }
+
+  .gallery-lightbox-tray {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  .gallery-lightbox-tray-action {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    min-height: 54px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.66rem;
+    font-weight: 650;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .gallery-lightbox-tray-action span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .gallery-lightbox-tray-action.is-on {
+    color: var(--rose);
+  }
+
+  .gallery-lightbox-tray-action:disabled {
+    opacity: 0.5;
+  }
+
+  /* Tapped away: the bars slide out and the photo keeps the whole screen. */
+  .gallery-lightbox.is-bare .gallery-lightbox-bar,
+  .gallery-lightbox.is-bare .gallery-lightbox-tray {
+    display: none;
+  }
+}
+
+/* ── Phones: the timeline as a wall of photos ────────────────────────────────
+   The grid runs to both edges with hairline gaps, so a screen holds nine photos
+   instead of four; the day header keeps the date and drops the controls (Share
+   and the day's checkbox belong to Select, which the toolbar offers); and an
+   unliked photo carries no heart, because on a touch screen every tile showed
+   one (see the hover: none rule above) and the hearts read as the content. */
+@media (max-width: 740px) {
+  .gallery-grid {
+    /* Full-bleed: .home-main's 14px gutter is cancelled for the grid alone, so
+       the photos meet the edges the way a phone's own gallery does. */
+    margin-inline: -14px;
+    gap: 2px;
+  }
+
+  .gallery-grid.tiles-small { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .gallery-grid.tiles-medium { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gallery-grid.tiles-large { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .gallery-grid .gallery-tile,
+  .gallery-grid .gallery-tile-wrap {
+    border-radius: 0;
+  }
+
+  .gallery-day-head {
+    gap: 6px;
+    margin: 12px 0 5px;
+    padding: 4px 0;
+  }
+
+  .gallery-day-label {
+    font-size: 0.86rem;
+  }
+
+  /* Sharing a day and ticking a day are Select's job on a phone; as standing
+     controls they repeated down the page and pushed the photos apart. */
+  .gallery-day-share {
+    display: none;
+  }
+
+  .gallery-page:not(.is-selecting) .gallery-day-select {
+    display: none;
+  }
+
+  /* One photo that day: give it the width. Two: half each. */
+  .gallery-grid.day-of-1 { grid-template-columns: minmax(0, 1fr); }
+  .gallery-grid.day-of-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .gallery-grid.day-of-1 .gallery-tile { aspect-ratio: 4 / 3; }
+
+  .gallery-grid .gallery-tile-like:not(.on) {
+    display: none;
+  }
+
+  /* Folders, albums and slideshows: two to a row. The desktop grid asks for
+     170px columns, which is 3px too wide to fit twice on a 375px phone, so it
+     fell back to ONE card per row — about a screen each. */
+  .gallery-folder-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .gallery-folder-tile {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .gallery-folder-tile strong {
+    font-size: 0.84rem;
+  }
+
+  .gallery-folder-tile small {
+    font-size: 0.76rem;
+  }
+
+  /* Browse and the search box each take the full width instead of splitting a
+     row that leaves the placeholder cut off mid-word. */
+  .gallery-page .audiobook-page-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .gallery-page .audiobook-library-shortcuts,
+  .gallery-page .audiobook-page-search {
+    width: 100%;
+  }
+}
