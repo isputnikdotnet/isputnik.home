@@ -257,10 +257,8 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
           index={lightbox.index}
           onClose={() => setLightbox(null)}
           onIndexChange={(next) => setLightbox((state) => (state ? { ...state, index: next } : state))}
-          // A story is a reading surface: editing a photo belongs in the gallery.
-          onChanged={() => {}}
-          canDelete={false}
-          canEdit={false}
+          // The photo itself is edited in place; a deleted one leaves the story on its next load.
+          onChanged={(change) => { if (change.kind === "deleted") setLightbox(null); }}
           autoPlay={lightbox.autoPlay}
           transition={lightbox.transition}
           transitionSeconds={lightbox.transitionSeconds}

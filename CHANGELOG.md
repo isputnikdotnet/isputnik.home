@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.17.2 — The same photo viewer everywhere
+
+- **A photo opens the same way wherever you find it.** Opened from Home — Around this day or New photos — a tag, a family member, their photos or a story, the viewer used to offer only looking: no changing the date or place, naming people, tagging or adding notes. Now every one of those places offers what the Gallery offers, as far as your access to that photo’s library allows.
+- **A memory is a good place to review a photo, so the photo stays put while you do.** Correcting a photo’s date on Home moved it out of that day, and the viewer jumped to another photo mid-edit. It now stays on screen until you close the viewer.
+- **Opening a photo’s folder works from every viewer**, not only Home and the Gallery. Deleting a photo from a tag page takes it off the page straight away.
+
 ## 4.17.1 — Help, pictured
 
 - **The guides show the Help page.** The guide index now walks through Help & guides — the search, Quick start and topics, and the questions — with pictures of each.
