@@ -683,7 +683,26 @@
   "help": {
     "eyebrow": "Support",
     "heading": "Help & guides",
-    "intro": "Friendly, task-focused guides for using and running iSputnik. They're part of this install, so they work without an internet connection and describe the version you're running."
+    "intro": "Find answers and learn how to use iSputnik. The guides are part of this install, so they work without an internet connection and describe the version you're running.",
+    "searchLabel": "Search the guides",
+    "searchPlaceholder": "Search help articles…",
+    "searchShortcut": "Press <kbd>/</kbd> to search",
+    "searchLoading": "Searching the guides…",
+    "searchUnavailable": "Unable to search the guides right now.",
+    "searchNoResults": "Nothing in the guides matches “{{query}}”.",
+    "searchResultCount_one": "{{count}} section",
+    "searchResultCount_other": "{{count}} sections",
+    "searchKeys": "↑ ↓ to move · Enter to open",
+    "quickStart": "Quick start",
+    "viewAllGuides": "View all guides",
+    "browseByTopic": "Browse by topic",
+    "faqHeading": "Frequently asked questions",
+    "adminBadge": "Admin",
+    "stillNeedHelp": "Still need help?",
+    "stillNeedHelpBody": "Something broken or confusing? Open an issue on GitHub and describe what happened.",
+    "reportBug": "Report a bug",
+    "guidesHeading": "All guides",
+    "guidesIntro": "Every guide in this install, grouped by topic."
   },
   "map": {
     "unsupported": "This browser can't draw maps: it has no WebGL. A recent Chrome, Edge, Firefox or Safari can.",

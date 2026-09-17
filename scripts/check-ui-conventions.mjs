@@ -139,24 +139,53 @@ const VARIANT_CLASS = /(?<![\w-])(primary-button|secondary-button|danger-button|
 // guide without listing it fails silently — the doc exists, nobody can reach it.
 // Checked both ways, so a renamed or deleted guide leaves no dead card behind.
 const GUIDES_DIR = join(REPO, "docs", "users");
-const HELP_PAGE = join(ROOT, "pages", "HelpPage.tsx");
+const HELP_CATALOG = join(ROOT, "features", "help", "catalog.ts");
 
-if (existsSync(GUIDES_DIR) && existsSync(HELP_PAGE)) {
-  const help = readFileSync(HELP_PAGE, "utf8");
-  // The page builds hrefs with a guide("file.md") helper.
+if (existsSync(GUIDES_DIR) && existsSync(HELP_CATALOG)) {
+  const help = readFileSync(HELP_CATALOG, "utf8");
+  // The catalog names every guide with a guide("file.md") helper.
   const listed = new Set([...help.matchAll(/guide\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]));
-  // README.md is the folder's own index, not a guide the app links to.
-  const onDisk = readdirSync(GUIDES_DIR).filter((name) => name.endsWith(".md") && name !== "README.md");
+  // README.md is the folder's own index, and faq.md holds the Help page's questions
+  // (checked below) — neither is a guide the page lists.
+  const onDisk = readdirSync(GUIDES_DIR).filter((name) => name.endsWith(".md") && name !== "README.md" && name !== "faq.md");
 
   for (const name of onDisk) {
     if (!listed.has(name)) {
-      console.error(`docs/users/${name}  Guide isn't listed on the Help page (apps/web/src/pages/HelpPage.tsx).`);
+      console.error(`docs/users/${name}  Guide isn't listed on the Help page (apps/web/src/features/help/catalog.ts).`);
       failures++;
     }
   }
   for (const name of listed) {
     if (!existsSync(join(GUIDES_DIR, name))) {
-      console.error(`apps/web/src/pages/HelpPage.tsx  Links to docs/users/${name}, which doesn't exist.`);
+      console.error(`apps/web/src/features/help/catalog.ts  Links to docs/users/${name}, which doesn't exist.`);
+      failures++;
+    }
+  }
+}
+
+// ── FAQ answers ↔ guide headings ──
+// Each FAQ answer ends on a link into the section that says it properly. A guide
+// renamed or a heading reworded leaves that link landing at the top of the wrong
+// page, or nowhere — so every guide.md#anchor in faq.md must still resolve. The
+// anchor is made the way GuidePage makes heading ids (features/help/search.ts).
+const FAQ = join(GUIDES_DIR, "faq.md");
+
+if (existsSync(FAQ)) {
+  const anchorOf = (text) => text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+  const faq = readFileSync(FAQ, "utf8");
+  for (const [, file, anchor] of faq.matchAll(/\]\(([a-z0-9-]+\.md)(?:#([^)]+))?\)/g)) {
+    const target = join(GUIDES_DIR, file);
+    if (!existsSync(target)) {
+      console.error(`docs/users/faq.md  Links to ${file}, which doesn't exist.`);
+      failures++;
+      continue;
+    }
+    if (!anchor) continue;
+    const anchors = new Set(
+      [...readFileSync(target, "utf8").matchAll(/^#{1,6}\s+(.+?)\s*#*\s*$/gm)].map((m) => anchorOf(m[1]))
+    );
+    if (!anchors.has(anchor)) {
+      console.error(`docs/users/faq.md  Links to ${file}#${anchor}, but that guide has no such heading.`);
       failures++;
     }
   }

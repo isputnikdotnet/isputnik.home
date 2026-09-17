@@ -29,6 +29,7 @@ const ProfilePage = lazy(() => import("../pages/ProfilePage").then((m) => ({ def
 const AboutPage = lazy(() => import("../pages/AboutPage").then((m) => ({ default: m.AboutPage })));
 const HelpPage = lazy(() => import("../pages/HelpPage").then((m) => ({ default: m.HelpPage })));
 const GuidePage = lazy(() => import("../pages/GuidePage").then((m) => ({ default: m.GuidePage })));
+const HelpGuidesPage = lazy(() => import("../pages/HelpGuidesPage").then((m) => ({ default: m.HelpGuidesPage })));
 const SharePage = lazy(() => import("../pages/SharePage").then((m) => ({ default: m.SharePage })));
 const DropPage = lazy(() => import("../pages/DropPage").then((m) => ({ default: m.DropPage })));
 const DeviceLinkPage = lazy(() => import("../pages/DeviceLinkPage").then((m) => ({ default: m.DeviceLinkPage })));
@@ -426,6 +427,10 @@ export function App() {
 
     if (route.name === "help") {
       return <HelpPage />;
+    }
+
+    if (route.name === "helpGuides") {
+      return <HelpGuidesPage />;
     }
 
     if (route.name === "guide") {

@@ -352,6 +352,7 @@ export type Route =
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
   | { name: "help" }
+  | { name: "helpGuides" }
   | { name: "guide"; slug: string }
   | { name: "profile"; tab: ProfileTab }
   | { name: "invite"; token: string }
@@ -724,6 +725,12 @@ export function getRoute(): Route {
 
   if (path === "/help") {
     return { name: "help" };
+  }
+
+  // Every guide, grouped by topic — ahead of the guide match, which would read
+  // "guides" as a slug.
+  if (path === "/help/guides") {
+    return { name: "helpGuides" };
   }
 
   // One user guide, rendered in-app from the copy of docs/users/ in the build.
