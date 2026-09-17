@@ -67,7 +67,6 @@ export function InboxRow({
           <span className="inbox-title">{card.title}</span>
         )}
         {card.subtitle && <p className="inbox-subtitle">{card.subtitle}</p>}
-        {card.message && <p className="inbox-message">“{card.message}”</p>}
         {!card.available && <p className="inbox-gone">{t("user:social.unavailable")}</p>}
       </div>
 
@@ -79,33 +78,37 @@ export function InboxRow({
       <div className="inbox-actions">
         {asks ? (
           <>
-            <a className="primary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
-              <MessageSquareText size={16} aria-hidden />
-              <span>{t("user:social.addWhatYouKnow")}</span>
+            <a className="primary-button compact-button" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("user:social.addWhatYouKnow")} title={t("user:social.addWhatYouKnow")}>
+              <MessageSquareText size={15} aria-hidden />
+              <span className="inbox-action-label">{t("user:social.addWhatYouKnow")}</span>
             </a>
-            <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
-              <X size={16} aria-hidden />
-              <span>{t("user:social.notNow")}</span>
+            <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")} aria-label={t("user:social.notNow")} title={t("user:social.notNow")}>
+              <X size={15} aria-hidden />
+              <span className="inbox-action-label">{t("user:social.notNow")}</span>
             </Button>
           </>
         ) : canLike ? (
           <>
-            <Button variant="primary" compact disabled={busy} onClick={() => void onAct(card, "save")}>
-              <Heart size={16} aria-hidden />
-              <span>{busy ? t("user:likes.liking") : t("user:likes.like")}</span>
+            <Button variant="primary" compact disabled={busy} onClick={() => void onAct(card, "save")} aria-label={busy ? t("user:likes.liking") : t("user:likes.like")} title={busy ? t("user:likes.liking") : t("user:likes.like")}>
+              <Heart size={15} aria-hidden />
+              <span className="inbox-action-label">{busy ? t("user:likes.liking") : t("user:likes.like")}</span>
             </Button>
-            <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
-              <X size={16} aria-hidden />
-              <span>{t("user:social.notNow")}</span>
+            <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")} aria-label={t("user:social.notNow")} title={t("user:social.notNow")}>
+              <X size={15} aria-hidden />
+              <span className="inbox-action-label">{t("user:social.notNow")}</span>
             </Button>
           </>
         ) : (
-          <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")}>
-            <Check size={16} aria-hidden />
-            <span>{t("common:common.done")}</span>
+          <Button variant="secondary" compact disabled={busy} onClick={() => void onAct(card, "dismiss")} aria-label={t("common:common.done")} title={t("common:common.done")}>
+            <Check size={15} aria-hidden />
+            <span className="inbox-action-label">{t("common:common.done")}</span>
           </Button>
         )}
       </div>
+
+      {/* Under the whole row, not squeezed into the text column beside the
+          actions: a sentence someone wrote deserves the card's full width. */}
+      {card.message && <p className="inbox-message">“{card.message}”</p>}
     </li>
   );
 }

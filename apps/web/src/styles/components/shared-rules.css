@@ -70,8 +70,6 @@
 .layout-tree-text,
 .layout-unmatched li,
 .send-to-subject-text strong,
-.activity-sentence,
-.activity-body,
 .story-row-body strong {
   overflow: hidden;
   text-overflow: ellipsis;

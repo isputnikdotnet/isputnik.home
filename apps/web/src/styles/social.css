@@ -664,8 +664,24 @@ a.inbox-title:hover {
   white-space: nowrap;
 }
 
-.inbox-message {
-  margin: 4px 0 0;
+/* The message sits under the whole row (cover · text · actions) on a line of
+   its own; the card wraps to make room. On desktop it lines up with the text
+   column (cover 56px + gap 14px); on phones it takes the full width. */
+.inbox-card:has(> .inbox-message) {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+/* A zero basis keeps cover · text · actions on the first line once the card
+   wraps — with an auto basis a long title would push the actions down. */
+.inbox-card:has(> .inbox-message) > .inbox-card-body {
+  flex-basis: 0;
+}
+
+.inbox-card > .inbox-message {
+  flex: 1 0 100%;
+  margin: 0;
+  padding-left: 70px;
   font-style: italic;
   color: var(--ink);
 }
@@ -678,19 +694,44 @@ a.inbox-title:hover {
 
 .inbox-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex: 0 0 auto;
 }
 
-/* Phones: the action buttons drop under the text rather than squeezing it. */
+/* The row's decisions are small: the card is the thing, not its buttons. */
+.inbox-actions .compact-button {
+  min-height: 30px;
+  gap: 6px;
+  padding: 0 11px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Phones: the actions shrink to round icon buttons beside the text (the label
+   rides on aria-label/title), so a row stays one row instead of growing a
+   second line of wrapped buttons under it. */
 @media (max-width: 740px) {
   .inbox-card {
-    flex-wrap: wrap;
+    gap: 12px;
+    padding: 10px;
   }
 
-  .inbox-actions {
-    width: 100%;
-    justify-content: flex-end;
+  .inbox-actions .compact-button {
+    width: 34px;
+    min-height: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .inbox-action-label {
+    display: none;
+  }
+
+  .inbox-card > .inbox-message {
+    padding: 8px 2px 0;
+    border-top: 1px solid var(--line);
   }
 }
 
@@ -836,75 +877,6 @@ a.inbox-title:hover {
   font-size: 0.85rem;
   font-weight: 500;
   white-space: nowrap;
-}
-
-/* ── Activity rows (the home feed's activity cards) ──────────────────────── */
-
-/* Sentences, not cards. The row is a line of text with a thumbnail and a time;
-   anything more decorative would compete with the words, which are the point. */
-.activity-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.activity-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 10px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  color: var(--ink);
-  text-decoration: none;
-  min-width: 0;
-}
-
-.activity-row:hover,
-.activity-row:focus-visible {
-  background: var(--hover);
-  border-color: var(--line);
-}
-
-.activity-thumb {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
-  border-radius: 7px;
-  overflow: hidden;
-  background: var(--surface-raised);
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-}
-
-.activity-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.activity-copy {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.activity-body {
-  font-size: 0.85rem;
-  font-style: italic;
-  color: var(--muted);
-}
-
-.activity-when {
-  flex: 0 0 auto;
-  font-size: 0.78rem;
-  color: var(--muted);
 }
 
 /* ── Emoji picker ────────────────────────────────────────────────────────── */

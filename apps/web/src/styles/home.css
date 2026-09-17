@@ -740,18 +740,6 @@
   font-weight: 650;
 }
 
-/* Activity events ride the shared activity-row (social.css) inside a card. */
-.home-card-activity {
-  padding: 6px 8px;
-}
-
-.home-card-activity .activity-list {
-  display: block;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 /* Next in the series — the one rotating suggestion. */
 /* Quote of the day. Typography-led on purpose — no cover, no thumbnail: the
    words ARE the card, and it sits among cards that are mostly pictures. */
@@ -862,6 +850,50 @@
   color: var(--home-ink);
   font-size: 0.98rem;
   font-weight: 650;
+}
+
+/* Every activity event (features/social/ActivityCard.tsx) wears the suggestion
+   card, with a square cover — a photo, a story, a person is not a book jacket —
+   and a corner badge saying what kind of thing it is. */
+.home-activity-cover {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  overflow: visible;
+}
+
+.home-activity-cover img {
+  border-radius: 7px;
+}
+
+/* The album's cover sits on a second "photo" behind it — a stack, not a slide. */
+.home-card-activity.is-album .home-activity-cover {
+  box-shadow: 4px -4px 0 -1px var(--home-panel), 4px -4px 0 0 var(--home-line);
+}
+
+/* A note's own words, under its title. */
+.home-card-activity .activity-body {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--home-ink);
+  font-size: 0.86rem;
+  font-style: italic;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.home-activity-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--home-panel);
+  border-radius: 50%;
+  background: var(--home-ink);
+  color: var(--home-panel);
 }
 
 .home-card-suggest:hover .home-suggest-title,
@@ -1069,7 +1101,7 @@
     padding: 6px max(8px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
     border-top: 1px solid color-mix(in srgb, var(--home-line) 86%, transparent);
     background: color-mix(in srgb, var(--home-panel-raised) 94%, transparent);
-    box-shadow: 0 -14px 34px color-mix(in srgb, var(--home-shadow-color) 68%, transparent);
+    box-shadow: 0 -4px 14px color-mix(in srgb, var(--home-shadow-color) 30%, transparent);
     backdrop-filter: blur(18px);
   }
 
@@ -1077,17 +1109,17 @@
     display: grid;
     justify-items: center;
     align-content: center;
-    gap: 3px;
+    gap: 4px;
     min-width: 0;
-    min-height: 45px;
+    min-height: 46px;
     padding: 0;
     border: none;
     border-radius: 8px;
     background: transparent;
     color: var(--home-muted);
     font-family: inherit;
-    font-size: 0.54rem;
-    font-weight: 760;
+    font-size: 0.66rem;
+    font-weight: 700;
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
@@ -1611,9 +1643,9 @@
 
   .home-brand-mark {
     flex: 0 0 auto;
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
   }
 
   .home-brand-copy {
@@ -1624,8 +1656,11 @@
   }
 
   .home-brand-copy strong {
+    overflow: hidden;
     color: var(--home-ink);
-    font-size: 1.06rem;
+    font-size: 1.14rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-weight: 760;
     line-height: 1.1;
   }
@@ -1636,6 +1671,95 @@
     font-size: 0.76rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* For you, from the top of Home: a round button, with the unseen count on it. */
+  .home-header-foryou {
+    position: relative;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--home-line);
+    border-radius: 50%;
+    background: var(--home-panel);
+    color: var(--home-ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .home-header-foryou:hover,
+  .home-header-foryou:focus-visible {
+    background: var(--home-soft-strong);
+    outline: 0;
+  }
+
+  .home-header-foryou-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    padding: 0 5px;
+    border: 2px solid var(--home-panel);
+    border-radius: 999px;
+    background: var(--home-accent);
+    color: var(--home-panel);
+    font-size: 0.66rem;
+    font-weight: 750;
+    line-height: 14px;
+    text-align: center;
+  }
+
+  /* "Updated to X" as one line: title, What changed, and a dismiss ✕. */
+  .home-whats-new.is-compact {
+    align-items: center;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .home-whats-new.is-compact > div {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .home-whats-new.is-compact > div > strong {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.86rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-whats-new.is-compact .message-box-body {
+    display: none;
+  }
+
+  .home-whats-new.is-compact .message-box-action {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-top: 0;
+  }
+
+  .home-whats-new.is-compact .text-button {
+    padding: 0 4px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .home-whats-new.is-compact .icon-button {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--home-muted);
   }
 
   .home-net {
@@ -1679,10 +1803,18 @@
 
 /* ── "Media" tab drop-up sheet (libraries + browse views) ─────────────────── */
 @media (max-width: 740px) {
+  /* Dims the page so a tap outside the sheet visibly means "close". */
   .mobile-media-backdrop {
     position: fixed;
     z-index: calc(var(--z-nav) - 2);
     inset: 0;
+    background: color-mix(in srgb, #000 30%, transparent);
+    animation: mobile-backdrop-in 0.2s ease;
+  }
+
+  @keyframes mobile-backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   .mobile-media-menu {
@@ -1691,7 +1823,7 @@
     bottom: calc(58px + env(safe-area-inset-bottom));
     left: 0;
     right: 0;
-    padding: 16px max(16px, env(safe-area-inset-left)) 14px max(16px, env(safe-area-inset-right));
+    padding: 8px max(16px, env(safe-area-inset-left)) 14px max(16px, env(safe-area-inset-right));
     background: color-mix(in srgb, var(--home-panel-raised) 96%, transparent);
     border: 1px solid color-mix(in srgb, var(--home-line) 86%, transparent);
     border-bottom: none;
@@ -1699,6 +1831,102 @@
     box-shadow: 0 -12px 36px color-mix(in srgb, var(--home-shadow-color) 56%, transparent);
     backdrop-filter: blur(24px);
     animation: mobile-sheet-in 0.2s ease;
+  }
+
+  .mobile-sheet-handle {
+    display: block;
+    width: 38px;
+    height: 4px;
+    margin: 0 auto 12px;
+    border-radius: 999px;
+    background: var(--home-line);
+  }
+
+  /* Profile sheet, second band: rows for what is waiting on you and the account. */
+  .mobile-sheet-list {
+    display: grid;
+    margin-top: 12px;
+    border: 1px solid var(--home-line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--home-field);
+  }
+
+  .mobile-sheet-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--home-ink);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 650;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-sheet-row + .mobile-sheet-row {
+    border-top: 1px solid var(--home-line);
+  }
+
+  .mobile-sheet-row svg {
+    flex: 0 0 auto;
+    color: var(--home-accent);
+  }
+
+  .mobile-sheet-row > span:first-of-type {
+    flex: 1 1 auto;
+  }
+
+  .mobile-sheet-row:hover,
+  .mobile-sheet-row:focus-visible {
+    background: var(--home-soft-strong);
+    outline: 0;
+  }
+
+  .mobile-sheet-row .mobile-sheet-chevron {
+    color: var(--home-muted);
+  }
+
+  .mobile-sheet-badge {
+    min-width: 20px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--home-accent);
+    color: var(--home-panel);
+    font-size: 0.72rem;
+    font-weight: 750;
+    line-height: 16px;
+    text-align: center;
+  }
+
+  /* Third band: the About links the hidden sidebar carries on desktop. */
+  .mobile-sheet-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 4px 16px;
+    margin-top: 12px;
+    color: var(--home-muted);
+    font-size: 0.8rem;
+  }
+
+  .mobile-sheet-footer a {
+    color: var(--home-ink);
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .mobile-sheet-version {
+    color: var(--home-muted);
   }
 
   .mobile-media-menu-grid {
@@ -1895,4 +2123,88 @@
   min-height: 0;
   margin: 0;
   padding: 0;
+}
+
+/* ── Phones: quote card, photo strips, activity rows ─────────────────────────
+   The quote card stops being the tallest thing in the feed, a strip with one or
+   two photos fills its row instead of leaving most of it empty, and an activity
+   row keeps the part of its sentence that says WHAT happened. */
+@media (max-width: 740px) {
+  .home-card-quote {
+    gap: 6px;
+  }
+
+  .home-quote-head {
+    min-height: 28px;
+  }
+
+  .home-card-quote .home-quote-tune {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .home-quote-text {
+    font-size: 0.98rem;
+    line-height: 1.45;
+  }
+
+  /* Long citations ("… as quoted by …, Ch. 2, Sect. 2") keep one line; the
+     whole of it is on the title. */
+  .home-quote-byline {
+    overflow: hidden;
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-quote-categories {
+    flex-wrap: nowrap;
+    margin-right: -14px;
+    padding-right: 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .home-quote-categories::-webkit-scrollbar {
+    display: none;
+  }
+
+  .home-quote-category {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+}
+
+@media (max-width: 680px) {
+  .home-memory-strip.is-count-1 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-memory-strip.is-count-1 .home-memory-photo {
+    aspect-ratio: 16 / 9;
+  }
+
+  .home-memory-strip.is-count-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* "· 25 min ago" stays in one piece when the lead line wraps. */
+.home-card-activity .activity-when {
+  white-space: nowrap;
+}
+
+.home-card-activity .activity-meta {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }

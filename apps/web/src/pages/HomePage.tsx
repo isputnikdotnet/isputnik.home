@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
-import { ActivityList } from "../features/social/ActivityList";
+import { Bell, BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ActivityFeedCard } from "../features/social/ActivityCard";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -26,6 +26,7 @@ import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobook
 import type { GalleryAsset, GalleryMemories } from "../features/gallery/types";
 import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 import { useSession } from "../app/SessionContext";
+import { useInboxSummary } from "../features/social/useInboxSummary";
 
 // The resume hero — the single most-recent in-progress book, pinned above the
 // feed on every screen size (it grew up on mobile; desktop adopted it in the
@@ -175,7 +176,7 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
           <ChevronRight size={16} aria-hidden="true" />
         </a>
       </header>
-      <div className="home-memory-strip">
+      <div className={`home-memory-strip is-count-${Math.min(photos.length, 3)}`}>
         {photos.map(({ item, year }) => (
           <Button
             variant="tile"
@@ -215,7 +216,7 @@ function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: 
           <ChevronRight size={16} aria-hidden="true" />
         </a>
       </header>
-      <div className="home-memory-strip">
+      <div className={`home-memory-strip is-count-${Math.min(card.strip.length, 3)}`}>
         {card.strip.map((item) => (
           <Button
             variant="tile"
@@ -339,7 +340,7 @@ function QuoteFeedCard({ card }: { card: QuoteCard }) {
         )}
       </div>
       <blockquote className="home-quote-text">{quote.text}</blockquote>
-      {byline && <p className="home-quote-byline">{byline}</p>}
+      {byline && <p className="home-quote-byline" title={byline}>{byline}</p>}
       {quote.categories.length > 0 && (
         <div className="home-quote-categories" role="group" aria-label={t("home.quoteCategoryLabel")}>
           <Button
@@ -544,6 +545,7 @@ export function HomePage() {
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
   const online = useOnlineStatus();
+  const unseen = useInboxSummary();
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [downloads, setDownloads] = useState<DownloadRecord[] | null>(null);
   const [ebookDownloads, setEbookDownloads] = useState<EbookDownloadRecord[] | null>(null);
@@ -790,11 +792,7 @@ export function HomePage() {
       case "quote":
         return <QuoteFeedCard key="quote" card={card} />;
       default:
-        return (
-          <div key={card.id} className="home-card home-card-activity">
-            <ActivityList items={[toActivityItem(card as ActivityCard)]} />
-          </div>
-        );
+        return <ActivityFeedCard key={card.id} item={toActivityItem(card as ActivityCard)} />;
     }
   };
 
@@ -803,24 +801,42 @@ export function HomePage() {
     <DashboardShell active="home">
       <section className="home-page" aria-label="Home">
         {isMobile ? (
+          // Phones: a greeting beside a small mark, and on the right whichever
+          // of two things matters now — "Offline" when the connection is gone
+          // (the page has become a downloads browser), otherwise a For you
+          // button that says when something is waiting. "Online" is the normal
+          // state and not worth the space.
           <header className="home-header home-header-mobile">
             <div className="home-brand">
               <img
                 className="home-brand-mark"
                 src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg"
                 alt=""
-                width={36}
-                height={36}
+                width={30}
+                height={30}
               />
               <span className="home-brand-copy">
-                <strong>iSputnik</strong>
-                <small>isputnik.home</small>
+                <strong>{t("home.greeting", { name: user.displayName.split(" ")[0] || user.displayName })}</strong>
+                <small>iSputnik</small>
               </span>
             </div>
-            <span className={`home-net ${online ? "is-online" : "is-offline"}`} role="status" aria-live="polite">
-              <span className="home-net-dot" aria-hidden="true" />
-              {online ? t("common.online") : t("common.offline")}
-            </span>
+            {online ? (
+              <a
+                className="home-header-foryou"
+                href={FOR_YOU_PATH}
+                onClick={(event) => followRoute(event, FOR_YOU_PATH)}
+                aria-label={t("nav.forYou")}
+                title={t("nav.forYou")}
+              >
+                <Bell size={19} aria-hidden="true" />
+                {unseen > 0 && <span className="home-header-foryou-count">{unseen}</span>}
+              </a>
+            ) : (
+              <span className="home-net is-offline" role="status" aria-live="polite">
+                <span className="home-net-dot" aria-hidden="true" />
+                {t("common.offline")}
+              </span>
+            )}
           </header>
         ) : (
           <header className="home-header">

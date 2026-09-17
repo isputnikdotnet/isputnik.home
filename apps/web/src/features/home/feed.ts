@@ -6,7 +6,7 @@ import i18n from "../../i18n";
 import { formatDate, formatRelativeDays } from "../../shared/dates";
 import type { InboxCard } from "../social/InboxRow";
 import type { DeliveryCard } from "../social/DeliveryRow";
-import type { ActivityItem } from "../social/ActivityList";
+import type { ActivityItem } from "../social/ActivityCard";
 import type { GalleryAsset, GalleryMemoryGroup } from "../gallery/types";
 
 /** A row on For you (docs/for-you-plan.md): something sent, or a delivery into
@@ -207,7 +207,7 @@ export function tightMemoryGroups(groups: GalleryMemoryGroup[]): GalleryMemoryGr
   return dayCount >= MEMORY_STRIP_SIZE ? day : groups;
 }
 
-/** An activity card back in the shape ActivityList renders. */
+/** An activity card back in the shape ActivityFeedCard renders. */
 export function toActivityItem(card: ActivityCard): ActivityItem {
   const { type, ...rest } = card;
   return { ...rest, kind: type };

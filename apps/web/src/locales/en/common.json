@@ -269,6 +269,7 @@
   },
   "home": {
     "welcome": "Welcome back, {{name}}",
+    "greeting": "Hi, {{name}}",
     "subtitle": "Here's what's happening in your library",
     "resumeAria": "Pick up where you left off",
     "continueReading": "Continue reading",

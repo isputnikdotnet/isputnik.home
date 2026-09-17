@@ -5,6 +5,8 @@ import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { versionLabel } from "../../shared/appVersion";
+import { useIsMobile } from "../../shared/useIsMobile";
+import { X } from "lucide-react";
 
 interface WhatsNew {
   version: string;
@@ -22,6 +24,7 @@ const ABOUT_PATH = "/about";
 export function WhatsNewNote() {
   const { t } = useTranslation();
   const [note, setNote] = useState<WhatsNew | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     let alive = true;
@@ -42,6 +45,38 @@ export function WhatsNewNote() {
     void api("/api/home/whats-new/seen", { method: "POST" }).catch(() => { /* shown again next visit */ });
   };
   const earlier = note.total - note.releases.length;
+
+  // Phones: one line. The release list pushed the page's first real content
+  // off the first screen; the headlines are one tap away on About anyway.
+  if (isMobile) {
+    return (
+      <MessageBox
+        tone="info"
+        className="home-whats-new is-compact"
+        // No stage ("· Beta") on the one-liner: it is what pushed the title into an ellipsis.
+        title={t("whatsNew.title", { version: versionLabel(t, note.version, null) })}
+        action={
+          <>
+            <a
+              className="text-button"
+              href={ABOUT_PATH}
+              onClick={(event) => {
+                markSeen();
+                followRoute(event, ABOUT_PATH);
+              }}
+            >
+              {t("whatsNew.readMore")}
+            </a>
+            <Button variant="icon" onClick={markSeen} aria-label={t("whatsNew.dismiss")} title={t("whatsNew.dismiss")}>
+              <X size={16} aria-hidden="true" />
+            </Button>
+          </>
+        }
+      >
+        {null}
+      </MessageBox>
+    );
+  }
 
   return (
     <MessageBox

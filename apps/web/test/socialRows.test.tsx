@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { InboxRow, type InboxCard } from "../src/features/social/InboxRow";
 import { DeliveryRow, type DeliveryCard } from "../src/features/social/DeliveryRow";
-import { ActivityList, type ActivityItem } from "../src/features/social/ActivityList";
+import { ActivityFeedCard, type ActivityItem } from "../src/features/social/ActivityCard";
 
 // Two small renderers whose whole job is saying the right words. Both had bugs
 // that only showed up against real data, so the words are pinned here.
@@ -119,48 +119,56 @@ const activity = (over: Partial<ActivityItem> = {}): ActivityItem => ({
 });
 
 describe("activity cards", () => {
+  // The card splits the sentence into a lead line and a title, so the whole
+  // sentence — in the order that reads — is pinned on the link's accessible name.
+  const sentence = (item: ActivityItem) => {
+    render(<ActivityFeedCard item={item} />);
+    return screen.getByRole("link").getAttribute("aria-label")?.split(", ")[0];
+  };
+
   it("reads as a sentence, with the title in the middle where it belongs", () => {
     // The first version put the title last in every line, which produced
     // "Dad added to the family tree Grandma".
-    const { container } = render(<ActivityList items={[activity({ kind: "person", actorName: "Dad", title: "Grandma" })]} />);
-    // The sentence only — the row also carries a timestamp beside it.
-    expect(container.querySelector(".activity-sentence")?.textContent).toBe("Dad added Grandma to the family tree");
+    expect(sentence(activity({ kind: "person", actorName: "Dad", title: "Grandma" }))).toBe("Dad added Grandma to the family tree");
   });
 
   it("ends the sentence on the title where that is what reads", () => {
-    const { container } = render(<ActivityList items={[activity()]} />);
-    expect(container.querySelector(".activity-sentence")?.textContent).toBe("Anna left a note on Dune");
+    expect(sentence(activity())).toBe("Anna left a note on Dune");
+  });
+
+  it("shows who did what above the title, and the title on its own", () => {
+    const { container } = render(<ActivityFeedCard item={activity({ kind: "person", actorName: "Dad", title: "Grandma" })} />);
+    expect(container.querySelector(".activity-lead")?.textContent).toBe("Dad added to the family tree");
+    expect(container.querySelector(".activity-title")?.textContent).toBe("Grandma");
   });
 
   it("carries a note's own words, since a title alone says nothing happened", () => {
-    render(<ActivityList items={[activity({ body: "the middle drags" })]} />);
+    render(<ActivityFeedCard item={activity({ body: "the middle drags" })} />);
     expect(screen.getByText(/the middle drags/)).toBeInTheDocument();
   });
 
-  it("links each line to the thing it is about", () => {
-    render(<ActivityList items={[activity()]} />);
+  it("links each card to the thing it is about", () => {
+    render(<ActivityFeedCard item={activity()} />);
     expect(screen.getByRole("link")).toHaveAttribute("href", "/ebooks/books/b1");
   });
 
   it("names an added chapter in the story's own words, then the story", () => {
-    const { container } = render(<ActivityList items={[activity({
+    expect(sentence(activity({
       kind: "story_update", actorName: "Dad", title: "Alps in summer",
       chapter: { id: "c4", title: "The last climb", noun: "Day", number: 4 }
-    })]} />);
-    expect(container.querySelector(".activity-sentence")?.textContent).toBe("Dad added Day 4 to Alps in summer");
+    }))).toBe("Dad added Day 4 to Alps in summer");
   });
 
   it("falls back to the chapter's title, then a plain chapter number", () => {
-    const titled = render(<ActivityList items={[activity({
+    const titled = render(<ActivityFeedCard item={activity({
       kind: "story_update", actorName: "Dad", title: "Alps in summer",
       chapter: { id: "c4", title: "The last climb", noun: null, number: 4 }
-    })]} />);
-    expect(titled.container.querySelector(".activity-sentence")?.textContent).toBe("Dad added The last climb to Alps in summer");
+    })} />);
+    expect(titled.getByRole("link").getAttribute("aria-label")?.split(", ")[0]).toBe("Dad added The last climb to Alps in summer");
     titled.unmount();
-    const bare = render(<ActivityList items={[activity({
+    expect(sentence(activity({
       kind: "story_update", actorName: "Dad", title: "Alps in summer",
       chapter: { id: "c4", title: null, noun: null, number: 4 }
-    })]} />);
-    expect(bare.container.querySelector(".activity-sentence")?.textContent).toBe("Dad added Chapter 4 to Alps in summer");
+    }))).toBe("Dad added Chapter 4 to Alps in summer");
   });
 });

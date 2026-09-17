@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { createPortal } from "react-dom";
@@ -8,6 +8,7 @@ import {
   BookText,
   Bug,
   ChevronDown,
+  ChevronRight,
   DownloadCloud,
   Headphones,
   Heart,
@@ -155,12 +156,17 @@ function MobileNav({
   }, [openSheet]);
 
   const close = () => setOpenSheet(null);
+  // While a sheet is open it is the only lit tab — the page underneath is
+  // dimmed, so also lighting the tab you came from reads as two selections.
+  const lit = (tab: "home" | "media" | "offline" | "profile", onRoute: boolean) =>
+    openSheet ? openSheet === tab : onRoute;
 
   return (
     <>
       {openSheet && <div className="mobile-media-backdrop" onClick={close} aria-hidden="true" />}
       {openSheet === "media" && (
         <div className="mobile-media-menu" role="dialog" aria-label={t("nav.aria.chooseLibrary")}>
+          <span className="mobile-sheet-handle" aria-hidden="true" />
           <div className="mobile-media-menu-grid">
             <a className="mobile-media-option" href="/audiobooks" onClick={(event) => { followRoute(event, "/audiobooks"); close(); }}>
               <Headphones size={26} aria-hidden="true" />
@@ -191,11 +197,11 @@ function MobileNav({
       )}
       {openSheet === "profile" && (
         <div className="mobile-media-menu" role="dialog" aria-label={t("nav.aria.accountAndLibrary")}>
+          <span className="mobile-sheet-handle" aria-hidden="true" />
+          {/* Three bands, most-used first: the things you keep (tiles), what
+              is waiting on you and your account (rows), then the quiet
+              About links that the hidden sidebar carries on desktop. */}
           <div className="mobile-media-menu-grid">
-            <a className="mobile-media-option" href="/profile" onClick={(event) => { followRoute(event, "/profile"); close(); }}>
-              <UserRound size={26} aria-hidden="true" />
-              <span>{t("nav.profile")}</span>
-            </a>
             <a className="mobile-media-option" href="/likes" onClick={(event) => { followRoute(event, "/likes"); close(); }}>
               <Heart size={26} aria-hidden="true" />
               <span>{t("nav.likes")}</span>
@@ -212,59 +218,83 @@ function MobileNav({
               <ListMusic size={26} aria-hidden="true" />
               <span>{t("nav.collections")}</span>
             </a>
-            <a className="mobile-media-option" href={FOR_YOU_PATH} onClick={(event) => { followRoute(event, FOR_YOU_PATH); close(); }}>
-              <UsersRound size={26} aria-hidden="true" />
+          </div>
+          <div className="mobile-sheet-list">
+            <a className="mobile-sheet-row" href={FOR_YOU_PATH} onClick={(event) => { followRoute(event, FOR_YOU_PATH); close(); }}>
+              <UsersRound size={19} aria-hidden="true" />
               <span>{t("nav.forYou")}</span>
+              {unseen > 0 && <span className="mobile-sheet-badge">{unseen}</span>}
+              <ChevronRight size={16} className="mobile-sheet-chevron" aria-hidden="true" />
+            </a>
+            <a className="mobile-sheet-row" href="/profile" onClick={(event) => { followRoute(event, "/profile"); close(); }}>
+              <UserRound size={19} aria-hidden="true" />
+              <span>{t("nav.profile")}</span>
+              <ChevronRight size={16} className="mobile-sheet-chevron" aria-hidden="true" />
             </a>
             {isAdmin && (
-              <a className="mobile-media-option" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>
-                <Settings size={26} aria-hidden="true" />
+              <a className="mobile-sheet-row" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>
+                <Settings size={19} aria-hidden="true" />
                 <span>{t("nav.controlPanel")}</span>
+                <ChevronRight size={16} className="mobile-sheet-chevron" aria-hidden="true" />
               </a>
             )}
-            <Button variant="bare" className="mobile-media-option" onClick={() => { close(); void logout(); }}>
-              <LogOut size={26} aria-hidden="true" />
+            <Button variant="bare" className="mobile-sheet-row" onClick={() => { close(); void logout(); }}>
+              <LogOut size={19} aria-hidden="true" />
               <span>{t("nav.logout")}</span>
             </Button>
+          </div>
+          <div className="mobile-sheet-footer">
+            {aboutMenuLinks(t).map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                {...(item.external
+                  ? { target: "_blank", rel: "noreferrer", onClick: close }
+                  : { onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => { followRoute(event, item.href); close(); } })}
+              >
+                {item.label}
+              </a>
+            ))}
+            <span className="mobile-sheet-version">{versionLabel(t)}</span>
           </div>
         </div>
       )}
       <nav className="home-mobile-nav" aria-label={t("nav.aria.primaryTabs")}>
         <a
-          className={`home-mobile-nav-item${active === "home" && currentPath === "/" ? " is-active" : ""}`}
+          className={`home-mobile-nav-item${lit("home", active === "home" && currentPath === "/") ? " is-active" : ""}`}
           href="/"
           onClick={(event) => { followRoute(event, "/"); close(); }}
         >
-          <Home size={17} aria-hidden="true" />
+          <Home size={20} aria-hidden="true" />
           <span>{t("nav.home")}</span>
         </a>
         <Button
           variant="bare"
-          className={`home-mobile-nav-item${mediaActive || openSheet === "media" ? " is-active" : ""}`}
+          className={`home-mobile-nav-item${lit("media", mediaActive) ? " is-active" : ""}`}
           onClick={() => setOpenSheet((current) => (current === "media" ? null : "media"))}
           aria-haspopup="dialog"
           aria-expanded={openSheet === "media"}
         >
-          <Library size={17} aria-hidden="true" />
+          <Library size={20} aria-hidden="true" />
           <span>{t("nav.media")}</span>
         </Button>
         <a
-          className={`home-mobile-nav-item${downloadsActive ? " is-active" : ""}`}
+          className={`home-mobile-nav-item${lit("offline", downloadsActive) ? " is-active" : ""}`}
           href="/downloads"
           onClick={(event) => { followRoute(event, "/downloads"); close(); }}
         >
-          <DownloadCloud size={17} aria-hidden="true" />
+          <DownloadCloud size={20} aria-hidden="true" />
           <span>{t("nav.offline")}</span>
         </a>
         <Button
           variant="bare"
-          className={`home-mobile-nav-item${profileActive || openSheet === "profile" ? " is-active" : ""}`}
+          className={`home-mobile-nav-item${lit("profile", profileActive) ? " is-active" : ""}`}
           onClick={() => setOpenSheet((current) => (current === "profile" ? null : "profile"))}
           aria-haspopup="dialog"
           aria-expanded={openSheet === "profile"}
         >
           <span className="home-mobile-nav-icon">
-            <UserRound size={17} aria-hidden="true" />
+            <UserRound size={20} aria-hidden="true" />
             {unseen > 0 && <span className="nav-dot" />}
           </span>
           <span>{t("nav.profile")}</span>
