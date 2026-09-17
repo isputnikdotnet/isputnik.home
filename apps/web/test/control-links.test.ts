@@ -16,6 +16,7 @@ describe("control page links", () => {
     [tasksHref(), "/control/maintenance/tasks", "tasks"],
     [recycleBinHref({ source: "duplicate_cleanup", library: undefined }), "/control/maintenance/recycle-bin?source=duplicate_cleanup", "recycleBin"],
     [logsHref({ ip: "203.0.113.9" }), "/control/overview/logs?ip=203.0.113.9", "logs"],
+    [logsHref({ user: "Anna Smith" }), "/control/overview/logs?user=Anna+Smith", "logs"],
     [blockIpHref("203.0.113.9"), "/control/security/blocked-ips?block=203.0.113.9", "securityBlocked"],
     [libraryRowHref("lib1"), "/control/libraries#library-lib1", "libraries"],
     [storageHref("app-storage"), "/control/libraries/storage#app-storage", "storage"]

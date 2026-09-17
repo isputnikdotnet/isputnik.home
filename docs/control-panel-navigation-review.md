@@ -9,9 +9,9 @@ Reviewed September 10, 2026, against app version 3.90.0.
 > *not* adopted: every group keeps one row of its tabs, and labels were not renamed
 > (Users, Storage stay). Step 3 is implemented too: typed links between pages
 > (`features/control/links.ts`) with filters read from the address, and the phone
-> menu. Not done from step 3: links for a *person* dive (Logs has no person filter in
-> its address), and a Recycle Bin → Storage link, since the bin's location is
-> already edited on the bin page itself.
+> menu. Not done from step 3: a Recycle Bin → Storage link, since the bin's location
+> is already edited on the bin page itself. (A person dive on Sign-ins links to Logs
+> filtered to that person since 4.15.1.)
 
 The recommended direction is six groups with consistent navigation: Overview, Libraries & storage, Members, Security, Maintenance, and Settings. Remove Utilities by moving photo cleanup into Maintenance and Quotes into Settings. Bring the Dashboard's destinations into those groups, and put personal reader tokens under Profile.
 

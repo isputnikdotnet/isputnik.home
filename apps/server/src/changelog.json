@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.15.1",
+    "label": "From a person's sign-ins to everything they did",
+    "changes": [
+      "**Sign-ins narrowed to one person now links to Logs for them.** An address already offered its entries in Logs; a person didn't, so following up meant opening Logs and finding them in the person filter by hand. **Everything they did, in Logs** opens the page already filtered to that person.",
+      "**Logs keeps its address and person filters in the address bar.** A filtered view can be bookmarked or reloaded and shows the same rows, and clearing a filter clears it from the address too."
+    ]
+  },
+  {
     "version": "4.15.0",
     "label": "Every page where you'd look for it",
     "changes": [

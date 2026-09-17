@@ -367,7 +367,8 @@
     "revokeNote": "The account, its password, and its other sessions are not changed.",
     "nextLogs": "Everything this address did, in Logs",
     "nextBlock": "Block this address",
-    "nextPolicies": "Lockout and auto-block settings"
+    "nextPolicies": "Lockout and auto-block settings",
+    "nextLogsPerson": "Everything {{name}} did, in Logs"
   },
   "system": {
     "members": "Members",

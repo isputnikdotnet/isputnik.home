@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.15.1 — From a person's sign-ins to everything they did
+
+- **Sign-ins narrowed to one person now links to Logs for them.** An address already offered its entries in Logs; a person didn't, so following up meant opening Logs and finding them in the person filter by hand. **Everything they did, in Logs** opens the page already filtered to that person.
+- **Logs keeps its address and person filters in the address bar.** A filtered view can be bookmarked or reloaded and shows the same rows, and clearing a filter clears it from the address too.
+
 ## 4.15.0 — Every page where you'd look for it
 
 - **The control panel has six sections, and every one works the same way.** Overview, Library, Members, Security, Maintenance and Settings each open on their first page, with one row of that section's pages across the top. Utilities folded out into branches of its own and Maps was a section of one page, so both were places you had to learn; their pages now sit where you would look for them.
