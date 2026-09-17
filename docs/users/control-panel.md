@@ -44,7 +44,7 @@ where a setting lives.
 page links there, already narrowed to what you were looking at: a library's scan
 to its tasks, a failed task to its library and the schedule, a finished cleanup to
 what it put in the Recycle Bin, a sign-in you're looking into to that address's
-logs and the Block dialog. These are ordinary links, so Back and "open in new tab"
+(or that person's) logs and the Block dialog. These are ordinary links, so Back and "open in new tab"
 work.
 
 **On a phone** the left-hand nav becomes one row: **Home**, a button naming the
@@ -284,7 +284,9 @@ internet](exposing-to-the-internet.md).
   Narrowed to one address, a line under the chip offers the usual next steps:
   **Everything this address did, in Logs**; **Block this address**, which opens
   Blocked IPs with the Block dialog filled in (not offered for your own network or
-  an address already blocked); and the lockout and auto-block settings.
+  an address already blocked); and the lockout and auto-block settings. Narrowed
+  to one person, it offers **Everything they did, in Logs** — Logs filtered to
+  that person by name.
 - **Sign-in locations** — where sign-ins came from, over the window you pick: a world map
   shaded by how many connections each country sent, and a table of countries with
   connections, failures and how many distinct addresses were behind them. Sign-ins

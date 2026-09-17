@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Download, FileText, Search, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { navigate } from "../../../router";
-import { initialParam } from "../links";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -73,11 +72,26 @@ export function LogsSection() {
   const [error, setError] = useState("");
   const [logSearchInput, setLogSearchInput] = useState("");
   const [logSearch, setLogSearch] = useState("");
-  // ?ip= arrives from a sign-in being looked into (logsHref): everything that address did.
+  // ?ip= or ?user= arrives from a sign-in being looked into (logsHref): everything
+  // that address, or that person, did.
   const [filters, setFilters] = useState<Record<LogFilterKey, string[]>>(() => {
-    const ip = initialParam("ip");
-    return ip ? { ...EMPTY_LOG_FILTERS, ip: [ip] } : EMPTY_LOG_FILTERS;
+    const params = new URLSearchParams(window.location.search);
+    return { ...EMPTY_LOG_FILTERS, ip: params.getAll("ip"), user: params.getAll("user") };
   });
+
+  // And kept in step as the filters change, so clearing a chip doesn't leave the
+  // address saying otherwise, and a reload or bookmark shows the same rows.
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    for (const key of ["ip", "user"] as const) {
+      query.delete(key);
+      filters[key].forEach((value) => query.append(key, value));
+    }
+    const next = `${window.location.pathname}${query.size ? `?${query}` : ""}`;
+    if (next !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(window.history.state, "", next);
+    }
+  }, [filters]);
   const [facets, setFacets] = useState<Partial<Record<LogFilterKey, string[]>>>({});
   const [range, setRange] = useState<DateRangeValue>(ALL_TIME);
   const [sort, setSort] = useState<LogSort>("time");
