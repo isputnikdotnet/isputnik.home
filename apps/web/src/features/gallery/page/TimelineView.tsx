@@ -145,7 +145,10 @@ export function TimelineView({
               )}
               <h2 className="gallery-day-label">{day.label}</h2>
             </div>
-            <div className={gridClass}>
+            {/* A day of one or two photos fills its row rather than leaving two
+                thirds of the screen empty (styles: .gallery-grid.day-of-1/2 on
+                phones); three or more use the normal grid. */}
+            <div className={day.items.length <= 2 ? `${gridClass} day-of-${day.items.length}` : gridClass}>
               {day.items.map(({ asset, index }) => (
                 <AssetTile
                   key={asset.id}

@@ -126,6 +126,9 @@ export function GalleryLightbox({
     navigate(`/gallery/folders/${path}${asset ? `?library=${encodeURIComponent(asset.libraryId)}` : ""}`);
   });
   const isMobile = useIsMobile();
+  // Phones: a tap on the photo hides the bars so the picture has the screen.
+  const [chromeHidden, setChromeHidden] = useState(false);
+  const touchRef = useRef<{ x: number; y: number; t: number } | null>(null);
   // The Info panel opens with the photo on desktop — details are part of viewing,
   // not an extra. A slideshow starts immersive, though: no side panel eating the
   // frame. On mobile the panel is a near-full overlay (gallery.css), so it stays
@@ -570,19 +573,19 @@ export function GalleryLightbox({
       : [])
   ];
   const candidateActions = [...primaryActions, ...secondaryActions];
-  // Mobile: 6 icons in the actions group, matching the detail page's cap —
-  // play/pause when slideshowable plus up to 5 more, with the overflow trigger
-  // swapped in for the last slot once there isn't room for everything. (The bar
-  // also carries a back button ahead of the group, like the book detail pages.)
-  const fixedSlots = canSlideshow ? 1 : 0 /* play/pause */;
-  const rowCap = Math.max(1, 6 - fixedSlots);
-  const mobileOverflow = isMobile && candidateActions.length > rowCap;
+  // On a phone the actions leave the top bar entirely: four of them sit in a row
+  // at the BOTTOM of the screen, where a thumb reaches without shifting grip,
+  // and everything else is in the ⋮ up top. Six icons squeezed across the top
+  // of a 375px screen were 38px each and unreachable one-handed.
+  const PHONE_BOTTOM_ACTIONS = ["like", "details", "send", "album"];
   const visibleActions = !isMobile
     ? primaryActions
-    : mobileOverflow ? candidateActions.slice(0, rowCap - 1) : candidateActions.slice(0, rowCap);
+    : PHONE_BOTTOM_ACTIONS
+      .map((key) => candidateActions.find((action) => action.key === key))
+      .filter((action): action is LightboxAction => action != null);
   const overflowActions = !isMobile
     ? secondaryActions
-    : mobileOverflow ? candidateActions.slice(visibleActions.length) : [];
+    : candidateActions.filter((action) => !visibleActions.includes(action));
 
   const renderAction = (a: LightboxAction) =>
     a.href ? (
@@ -641,7 +644,7 @@ export function GalleryLightbox({
     );
 
   return createPortal(
-    <div className={`gallery-lightbox${showInfo ? " has-info" : ""}${playing ? " is-playing" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
+    <div className={`gallery-lightbox${showInfo ? " has-info" : ""}${playing ? " is-playing" : ""}${isMobile && chromeHidden ? " is-bare" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
       {musicUrl && <audio ref={musicRef} src={musicUrl} loop />}
       <div className="gallery-lightbox-bar">
         {/* Mobile/PWA mirrors the audiobook/ebook detail topbar: a back button
@@ -652,7 +655,7 @@ export function GalleryLightbox({
             <Button variant="bare" className="gallery-lightbox-action" onClick={onClose} aria-label={t("gallery:common.back")} title={t("gallery:common.back")}>
               <ArrowLeft size={18} aria-hidden="true" />
             </Button>
-            <span className="gallery-lightbox-divider" aria-hidden="true" />
+            {assets.length > 1 && <span className="gallery-lightbox-count">{index + 1} / {assets.length}</span>}
           </>
         ) : (
           <div className="gallery-lightbox-title">
@@ -694,7 +697,7 @@ export function GalleryLightbox({
               )}
             </>
           )}
-          {visibleActions.map(renderAction)}
+          {!isMobile && visibleActions.map(renderAction)}
           {overflowActions.length > 0 && (
             <div className="gallery-lightbox-menu-wrap" ref={moreMenuRef}>
               <Button
@@ -723,7 +726,31 @@ export function GalleryLightbox({
         </div>
       </div>
 
-      <div className="gallery-lightbox-stage" ref={stageRef}>
+      <div
+        className="gallery-lightbox-stage"
+        ref={stageRef}
+        onTouchStart={(event) => {
+          if (event.touches.length !== 1) { touchRef.current = null; return; }
+          touchRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now() };
+        }}
+        onTouchEnd={(event) => {
+          const start = touchRef.current;
+          touchRef.current = null;
+          if (!start || !isMobile) return;
+          const touch = event.changedTouches[0];
+          const dx = touch.clientX - start.x;
+          const dy = touch.clientY - start.y;
+          // A flick sideways moves a photo; a tap (barely moved) shows or hides
+          // the bars, the way a phone's own photo viewer does. Anything more
+          // vertical than horizontal is a scroll attempt and is left alone.
+          if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx < 0 && hasNext) onIndexChange(index + 1);
+            else if (dx > 0 && hasPrev) onIndexChange(index - 1);
+          } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && Date.now() - start.t < 400) {
+            setChromeHidden((hidden) => !hidden);
+          }
+        }}
+      >
         {hasPrev && (
           <Button variant="bare" className="gallery-lightbox-nav prev" onClick={() => onIndexChange(index - 1)} aria-label={t("gallery:lightbox.previousAria")}>
             <ChevronLeft size={26} aria-hidden="true" />
@@ -874,6 +901,27 @@ export function GalleryLightbox({
           </Button>
         )}
       </div>
+
+      {/* Phones: the actions live down here, in thumb reach, with their names
+          under the icons — an unlabelled row taught nobody what Send to was. */}
+      {isMobile && visibleActions.length > 0 && (
+        <div className="gallery-lightbox-tray" aria-label={t("gallery:lightbox.moreActionsAria")}>
+          {visibleActions.map((action) => (
+            <Button
+              variant="bare"
+              key={action.key}
+              className={`gallery-lightbox-tray-action${action.active ? " is-on" : ""}`}
+              onClick={action.onClick}
+              disabled={action.disabled}
+              aria-pressed={action.active}
+              aria-label={action.label}
+            >
+              <action.icon size={20} aria-hidden="true" />
+              <span>{action.label}</span>
+            </Button>
+          ))}
+        </div>
+      )}
 
       {showInfo && (
         <GalleryLightboxPanel
