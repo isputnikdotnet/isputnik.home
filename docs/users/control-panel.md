@@ -1,36 +1,55 @@
 # The control panel
 
-Everything an administrator runs the server with. It's the last item in the menu
-with your name on it, and only administrators see it.
+Everything an administrator runs the server with. **Control panel** sits at the
+bottom of the sidebar, above the menu with your name on it, and only administrators
+see it. Inside the panel that link steps aside; **Home** at the top of the panel's
+own nav is the way back out.
 
-The left-hand nav has seven sections, each with a row of tabs across the top of the
-page. This guide walks them in order; where a page already has a guide of its own,
-it points there rather than repeating it.
+The left-hand nav has six sections. Each opens on its first tab, with a row of tabs
+across the top of the page. This guide walks them in order; where a page already has
+a guide of its own, it points there rather than repeating it.
 
 | Section | Tabs |
 |---|---|
-| **Overview** | Dashboard, Logs |
-| **Library** | Libraries, Storage, Categories, Tags |
+| **Overview** | Dashboard, Activity, Library statistics, Logs |
+| **Library** | Libraries, Storage, Storage contents, Categories, Tags |
 | **Members** | Users, Groups, Invite links |
-| **Security** | Overview, Policies, Trusted networks, Blocked IPs |
-| **Maintenance** | Backup, Scheduled jobs, Recycle Bin |
-| **Utilities** | Gallery → Duplicate cleanup, Missing photos |
-| **Maps** | Offline maps, photo place names, sign-in locations, road routes (one page) |
-| **Settings** | Appearance, Email, Notifications, Stories, Reader access, About |
+| **Security** | Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs |
+| **Maintenance** | Tasks, Scheduled jobs, Backup, Recycle Bin, Duplicate cleanup, Missing photos |
+| **Settings** | Appearance, Quotes, Maps, Stories, Email, Notifications, About |
 
-Every tab has its own address, so any page here can be bookmarked or linked to.
-**Utilities** expands in the left nav to a **Gallery** branch, since everything under
-it so far works on photos.
+Every tab has its own address, so any page here can be bookmarked, linked to, or
+opened in a new tab.
+
+> **Rearranged in 4.15.** The Dashboard's row of views became tabs where they
+> belong — Sign-ins and Sign-in locations under Security, Tasks under Maintenance,
+> Activity and Library statistics under Overview. Utilities is gone: Duplicate
+> cleanup and Missing photos are under Maintenance, Quotes under Settings. Maps is
+> a Settings tab again. **Reader access** moved to your own Profile, since the
+> tokens are yours, which also means every member can now make them. Old
+> bookmarks still land on the right page.
 
 ## Finding things
 
-**Search…** at the top of the nav — or **Ctrl+K** (**⌘K** on a Mac) from anywhere in
+**Search…** under the nav — or **Ctrl+K** (**⌘K** on a Mac) from anywhere in
 the control panel — searches every page *and* the settings on them. Typing `smtp`
-goes to Settings → Email; `lockout` goes to Security → Policies; `duplicate` goes to
-Utilities → Duplicate cleanup. Arrow keys move through the results, Enter opens one.
+goes to Settings → Email; `lockout` goes to Security → Policies and scrolls to the
+lockout card, which flashes so you can see which one it means; `duplicate` goes to
+Maintenance → Duplicate cleanup. Arrow keys move through the results, Enter opens one.
 
 Use it rather than hunting through tabs. It's usually faster even when you know
 where a setting lives.
+
+**One page usually leads to the next.** Where a task carries on somewhere else, the
+page links there, already narrowed to what you were looking at: a library's scan
+to its tasks, a failed task to its library and the schedule, a finished cleanup to
+what it put in the Recycle Bin, a sign-in you're looking into to that address's
+logs and the Block dialog. These are ordinary links, so Back and "open in new tab"
+work.
+
+**On a phone** the left-hand nav becomes one row: **Home**, a button naming the
+group and page you're on, and search. The button opens a menu of every group and
+its pages, scrolled to where you are.
 
 ---
 
@@ -38,133 +57,39 @@ where a setting lives.
 
 ### Dashboard
 
-Server health and activity trends in one page, switched with the row of pill-shaped
-tabs under the heading — real tabs, not a dropdown:
+Is the server well? The panel opens here.
 
-![The Dashboard on its Sign-ins view, with the tab row above it](images/60-dashboard.png)
+![The Dashboard](images/60-dashboard.png)
 
-- **System** — is the server well? Four cards: uptime with the version and Node
-  release under it, memory in use, free space on the data disk (green until a
-  fifth is left, amber below that, red below a tenth), and the database on disk
-  with its file and WAL sizes (the WAL is SQLite's write-ahead log, which grows
-  between checkpoints and is normal). Under them, a short table of counts that
-  have pages of their own — members, signed-in devices, open invite links, log
-  entries, and when the last backup was taken — each row a door to that page. Go
-  here first when something feels wrong.
-- **Libraries** — what's *in* the catalogue, every media type on one page: a card
-  each for audiobooks, ebooks and photos & videos, and one for the total on disk;
-  every library in one table, biggest first, with its share of the storage drawn
-  beside it; and four short lists, paired two by two. People first — top authors
-  across both book types, top narrators by hours — then what is on the disk: the
-  biggest gallery files, and the folders holding the most photos. That last one
-  counts the folder each photo actually sits in, not its subfolders rolled up, so
-  it names the place to go rather than the library it is somewhere inside.
-- **Tasks** — scans and other background work. Four cards say what is running,
-  what is queued, how many tasks failed this week, and when the last one
-  finished; a row under them says when the next scheduled run is due and opens
-  Maintenance → Scheduled jobs. Running and queued tasks sit in their own tables
-  with live progress and a cancel button. The finished history can be narrowed
-  to failures only, to one kind of task, or to one library — so "which scans
-  failed, and where?" is a filter, not a scroll. A failed row's error opens
-  underneath it.
-- **Sign-ins** — the view the page opens on: who got in, from where, and what is
-  still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
-  end) and everything below follows it: cards for attempts, successes (with the
-  methods behind them) and failures (with any addresses blocked in that window),
-  and how many people signed in from how many addresses.
+Is the server well? Four cards: uptime with the version and Node
+release under it, memory in use, free space on the data disk (green until a
+fifth is left, amber below that, red below a tenth), and the database on disk
+with its file and WAL sizes (the WAL is SQLite's write-ahead log, which grows
+between checkpoints and is normal). Under them, a short table of counts that
+have pages of their own — members, signed-in devices, open invite links, log
+entries, and when the last backup was taken — each row a door to that page. Come
+here first when something feels wrong.
 
-  Under the cards, the two halves of "who is at the door" share one card, with a
-  count on each so you can see what is in the half you are not looking at:
+### Activity
 
-  **Devices still signed in** — every live session, a display, phone, tablet or
-  computer, who it belongs to, its address, when it was last seen and when it
-  expires, with a revoke button on every row but your own. That is where you go
-  when a laptop is lost, or when a sign-in alert names a device you don't
-  recognise. Above the table, a bar per person split by device kind — who is
-  holding the sessions, which fifty rows only answer by scrolling — and the
-  counter chips, which both count each kind and narrow the panel to it.
+What the household has been doing with the library, over the
+window you pick with the same date toolbar as Security → Sign-ins: cards for uploads,
+downloads and deletes (each compared with the stretch before) and storage used;
+two charts (uploads, downloads and deletes; and what was played, read or
+viewed); the content events themselves; and what's currently in progress for
+every member — a snapshot that doesn't follow the range, since a book's reading
+position is overwritten as you go rather than logged session by session.
 
-  **Sign-ins in this range** — the chart of successful against failed sign-ins
-  over the window, and under it every attempt in it, 10, 20, 50 or 100 rows to a
-  page, and it remembers which you picked. A row shows the address with the
-  person under it, the method as an icon (hover for its name),
-  the result, and — with an AbuseIPDB key set under Security → Policies — a
-  coloured reputation light: one shield whose colour is the signal: green for a
-  clean address, amber for one with some history, red for one the community calls
-  abusive, an outlined shield for an address nobody has checked, and a muted
-  house for your own network. Hover it for the score and where the address sits.
-  The arrow at the start of a row opens the full record underneath it: user,
-  address, method, result, time, the event name, the logged detail, and the
-  reputation in words with a **Check with AbuseIPDB** button when that address has
-  never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
-  addresses are never sent at all. Click IP address, User, Method or Time in the
-  heading to sort by it, and again to reverse it. Only the newest few hundred
-  attempts are kept in the panel; the count beside the tab is the true total for
-  the window, and Logs holds the rest.
+### Library statistics
 
-  Three tables follow the card. **Addresses** is one row per address with its
-  location, how many connections and failures came from it, whether it is
-  blocked, and any scanner traffic counted against it. **People** is the same by
-  person, with the methods they used; failed attempts prove nothing about who
-  typed them, so they gather under "Not signed in" rather than being hidden.
-  **Names tried** appears when a stranger has been guessing: the sign-in names
-  they tried that belong to no account here.
-
-  **Narrowing it.** Everything above answers one scope at a time, shown as a chip
-  at the top: everything by default, or one country, town, address or person.
-  **Filter** sets it by hand, and the arrow at the end of any row on this page —
-  or on the Locations tables, the Logs page, or Security → Blocked IPs — dives
-  into that address or person. The scope lives in the address bar, so a dive can
-  be sent to somebody, and Back walks up out of it. The ✕ on the chip returns to
-  everything.
-- **Locations** — where sign-ins came from, over the window you pick: a world map
-  shaded by how many connections each country sent, and a table of countries with
-  connections, failures and how many distinct addresses were behind them. Sign-ins
-  from inside your own house are counted separately as "Home network" rather than
-  being dropped, so the numbers always add up to what Sign-ins shows — the
-  line under the map spells that out: how many sign-ins the range holds, how many
-  the map could place, how many came from your own network, and how many no
-  database could place.
-
-  Countries are worked out on your server from a database file, so no address is
-  ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
-  **Sign-in locations** on [Maps](#maps) and it fetches DB-IP's Country
-  Lite database (about 8 MB, free, no account) into your data folder. Until then
-  the map still draws, with a notice offering the way there. That download is the
-  only outbound call; lookups after it never leave the machine. Worth fetching
-  again every few months, since addresses move between networks. The databases
-  themselves are on the **Sign-in locations** card on [Maps](#maps), which
-  **Location database** under the map opens.
-
-  **Want town-level detail?** That database is yours to choose. Download any
-  city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
-  whichever licence suits you — and give it to the server from the **Towns** part of
-  the **Sign-in locations** card on [Maps](#maps): **Link** to paste its download
-  link and let the server fetch it, or **Upload** to pick the file from your
-  computer. Dropping the `.mmdb` straight into the `Locations` folder of Map data
-  works too. A `.mmdb.gz` from the vendor
-  is fine either way — it is unpacked here — and a file that turns out not to be a
-  database is refused rather than kept. It is picked up on the next lookup with no
-  restart and nothing to configure, a city database always wins over the country
-  one, and
-  each town appears as a gold dot on the map (named in your own language, like
-  photos are, once **Photo place names** is on under [Maps](#maps)) — placed from its coordinates and
-  sized by how many connections came from it — with a **Towns and cities** table
-  under it. The app never fetches these
-  itself: they run from 70 MB to 400 MB and their terms are yours to accept.
-  **Where is home?** Your own network never leaves the house, so no database can
-  place it — but you can. Use **Set home location**, the second button under the
-  map, click the spot, and give it a name ("The house", "Nan's flat"). Your own
-  connections then get a ringed dot of their own, and the count card and table row
-  take that name. It is stored on your server for that one purpose, never sent
-  anywhere, and **Take it off the map** removes it again.
-- **Activity** — what the household has been doing with the library, over the
-  window you pick with the same date toolbar Sign-ins has: cards for uploads,
-  downloads and deletes (each compared with the stretch before) and storage used;
-  two charts (uploads, downloads and deletes; and what was played, read or
-  viewed); the content events themselves; and what's currently in progress for
-  every member — a snapshot that doesn't follow the range, since a book's reading
-  position is overwritten as you go rather than logged session by session.
+What's *in* the catalogue, every media type on one page: a card
+each for audiobooks, ebooks and photos & videos, and one for the total on disk;
+every library in one table, biggest first, with its share of the storage drawn
+beside it; and four short lists, paired two by two. People first — top authors
+across both book types, top narrators by hours — then what is on the disk: the
+biggest gallery files, and the folders holding the most photos. That last one
+counts the folder each photo actually sits in, not its subfolders rolled up, so
+it names the place to go rather than the library it is somewhere inside.
 
 ### Logs
 
@@ -180,13 +105,13 @@ row opens the whole record underneath. A person's name or an outside address in
 a row is a link into their Sign-ins dive. The download button exports exactly
 what is on screen — every row matching the window, filters and sort, not just
 the page — as a CSV, and the bin button clears records older than an age you
-choose at the moment of deleting; the Dashboard's System tab tells you when
-they've grown large enough to be worth it.
+choose at the moment of deleting; the Dashboard tells you when they've grown
+large enough to be worth it.
 
 **What the app records about visitors.** Most entries here carry the address the
 request came from, and that includes people without an account: a guest who opens
 or downloads from a share link, or sends photos through a drop link, is logged
-with their address like everyone else. Sign-in attempts (what Dashboard → Sign-ins
+with their address like everyone else. Sign-in attempts (what Security → Sign-ins
 reads) and signed-in devices keep their addresses too. Two things to know if you
 share links outside the house:
 
@@ -265,7 +190,7 @@ that bring new ones in.
 
 ![The Invite links tab: one active link, unused, with its expiry](images/67-invites.png)
 
-Signed-in devices moved to the Dashboard's Sign-ins view, which lists every
+Signed-in devices are on Security → Sign-ins, which lists every
 session with the ability to revoke any of them — where you go when a laptop is
 lost, or when a sign-in alert names a device you don't recognise.
 
@@ -305,6 +230,102 @@ internet](exposing-to-the-internet.md).
   (**Strong**, **Medium** or **Weak**) and an arrow to the policy that owns it. Proxy trust is the one to read first: if the
   server isn't reading visitor addresses correctly through your reverse proxy,
   every address looks the same and lockouts hit the wrong people.
+- **Sign-ins** — who got in, from where, and what is
+  still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
+  end) and everything below follows it: cards for attempts, successes (with the
+  methods behind them) and failures (with any addresses blocked in that window),
+  and how many people signed in from how many addresses.
+
+  Under the cards, the two halves of "who is at the door" share one card, with a
+  count on each so you can see what is in the half you are not looking at:
+
+  **Devices still signed in** — every live session, a display, phone, tablet or
+  computer, who it belongs to, its address, when it was last seen and when it
+  expires, with a revoke button on every row but your own. That is where you go
+  when a laptop is lost, or when a sign-in alert names a device you don't
+  recognise. Above the table, a bar per person split by device kind — who is
+  holding the sessions, which fifty rows only answer by scrolling — and the
+  counter chips, which both count each kind and narrow the panel to it.
+
+  **Sign-ins in this range** — the chart of successful against failed sign-ins
+  over the window, and under it every attempt in it, 10, 20, 50 or 100 rows to a
+  page, and it remembers which you picked. A row shows the address with the
+  person under it, the method as an icon (hover for its name),
+  the result, and — with an AbuseIPDB key set under Security → Policies — a
+  coloured reputation light: one shield whose colour is the signal: green for a
+  clean address, amber for one with some history, red for one the community calls
+  abusive, an outlined shield for an address nobody has checked, and a muted
+  house for your own network. Hover it for the score and where the address sits.
+  The arrow at the start of a row opens the full record underneath it: user,
+  address, method, result, time, the event name, the logged detail, and the
+  reputation in words with a **Check with AbuseIPDB** button when that address has
+  never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
+  addresses are never sent at all. Click IP address, User, Method or Time in the
+  heading to sort by it, and again to reverse it. Only the newest few hundred
+  attempts are kept in the panel; the count beside the tab is the true total for
+  the window, and Logs holds the rest.
+
+  Three tables follow the card. **Addresses** is one row per address with its
+  location, how many connections and failures came from it, whether it is
+  blocked, and any scanner traffic counted against it. **People** is the same by
+  person, with the methods they used; failed attempts prove nothing about who
+  typed them, so they gather under "Not signed in" rather than being hidden.
+  **Names tried** appears when a stranger has been guessing: the sign-in names
+  they tried that belong to no account here.
+
+  **Narrowing it.** Everything above answers one scope at a time, shown as a chip
+  at the top: everything by default, or one country, town, address or person.
+  **Filter** sets it by hand, and the arrow at the end of any row on this page —
+  or on the Sign-in locations tables, the Logs page, or Security → Blocked IPs — dives
+  into that address or person. The scope lives in the address bar, so a dive can
+  be sent to somebody, and Back walks up out of it. The ✕ on the chip returns to
+  everything.
+
+  Narrowed to one address, a line under the chip offers the usual next steps:
+  **Everything this address did, in Logs**; **Block this address**, which opens
+  Blocked IPs with the Block dialog filled in (not offered for your own network or
+  an address already blocked); and the lockout and auto-block settings.
+- **Sign-in locations** — where sign-ins came from, over the window you pick: a world map
+  shaded by how many connections each country sent, and a table of countries with
+  connections, failures and how many distinct addresses were behind them. Sign-ins
+  from inside your own house are counted separately as "Home network" rather than
+  being dropped, so the numbers always add up to what Sign-ins shows — the
+  line under the map spells that out: how many sign-ins the range holds, how many
+  the map could place, how many came from your own network, and how many no
+  database could place.
+
+  Countries are worked out on your server from a database file, so no address is
+  ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
+  **Sign-in locations** on [Maps](#maps) and it fetches DB-IP's Country
+  Lite database (about 8 MB, free, no account) into your data folder. Until then
+  the map still draws, with a notice offering the way there. That download is the
+  only outbound call; lookups after it never leave the machine. Worth fetching
+  again every few months, since addresses move between networks. The databases
+  themselves are on the **Sign-in locations** card on [Maps](#maps), which
+  **Location database** under the map opens.
+
+  **Want town-level detail?** That database is yours to choose. Download any
+  city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
+  whichever licence suits you — and give it to the server from the **Towns** part of
+  the **Sign-in locations** card on [Maps](#maps): **Link** to paste its download
+  link and let the server fetch it, or **Upload** to pick the file from your
+  computer. Dropping the `.mmdb` straight into the `Locations` folder of Map data
+  works too. A `.mmdb.gz` from the vendor
+  is fine either way — it is unpacked here — and a file that turns out not to be a
+  database is refused rather than kept. It is picked up on the next lookup with no
+  restart and nothing to configure, a city database always wins over the country
+  one, and
+  each town appears as a gold dot on the map (named in your own language, like
+  photos are, once **Photo place names** is on under [Maps](#maps)) — placed from its coordinates and
+  sized by how many connections came from it — with a **Towns and cities** table
+  under it. The app never fetches these
+  itself: they run from 70 MB to 400 MB and their terms are yours to accept.
+  **Where is home?** Your own network never leaves the house, so no database can
+  place it — but you can. Use **Set home location**, the second button under the
+  map, click the spot, and give it a name ("The house", "Nan's flat"). Your own
+  connections then get a ringed dot of their own, and the count card and table row
+  take that name. It is stored on your server for that one purpose, never sent
+  anywhere, and **Take it off the map** removes it again.
 - **Policies** — the settings themselves, in order of how much they matter:
   lockout and auto-block thresholds, two-factor outside the house, sign-in
   alerts, deletion protection, device linking, the password policy, and the
@@ -335,6 +356,59 @@ The alerts these produce only reach you if email is set up.
 ---
 
 ## Maintenance
+
+### Tasks
+
+Scans and other background work. Four cards say what is running,
+what is queued, how many tasks failed this week, and when the last one
+finished; a row under them says when the next scheduled run is due and opens
+Maintenance → Scheduled jobs. Running and queued tasks sit in their own tables
+with live progress and a cancel button. The finished history can be narrowed
+to failures only, to one kind of task, or to one library — so "which scans
+failed, and where?" is a filter, not a scroll. A failed row's error opens
+underneath it, with links to where a failure is usually put right: the library
+the task was working on, and Scheduled jobs.
+
+The filters live in the page's address, which is how **Follow on Tasks** — on the
+Libraries page while a scan runs — opens straight onto that library's tasks, and
+how a filtered view can be bookmarked.
+
+### Scheduled jobs
+
+The recurring work, one row each: scanning each library type for new files, scanning
+new photos for faces, looking for duplicate photos, purging missing photos, cleaning
+task history, purging expired recycle bin items, converting unplayable videos,
+tidying the thumbnail store, and the two backups — full and minimal — that the
+Backup page shows as well.
+Sensible defaults ship enabled, except the two backups, which are off until you
+choose one; the face scan runs after the nightly library scans so the day's new
+photos are already cataloged.
+
+None of them ever removes something ahead of its time. **Purge expired recycle bin
+items** takes only what has outlived the window it was given when it was deleted —
+emptying the bin outright stays a button on the Recycle Bin page, where you can see
+what you're about to lose.
+
+Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
+system chores — and each carries a matching tag, so the library scans sit together
+instead of being scattered through the list. Hover a job's **i** for the full
+description of what it does.
+
+Each row carries how often it runs and at what time, when it last ran and when it
+runs next, an on/off switch, and **Run now**. There's no Save button: a change to
+the cadence, the day, the time or the switch is saved as you make it, and the "next
+run" beside it updates to match.
+
+**Run now** starts a job immediately, whatever its schedule says — and keeps
+reporting until the work is genuinely finished. That matters because most of these
+jobs don't do the work themselves; they queue it. A photo library scan hands off to
+the scanner and returns in milliseconds, while the scan itself may run for an hour.
+So the button stays spinning, and the message above the table says what was queued
+with a link straight to **Maintenance → Tasks**, where you can watch the progress bars.
+When the last queued task finishes, the message says so. Jobs that do their work on
+the spot — purging expired recycle bin items, purging missing photos — simply report their
+result and are done. Only one job can be started by hand at a time; several of them
+skip themselves anyway when another heavy task is already running.
 
 ### Backup
 
@@ -435,43 +509,6 @@ older later and need to go back.
 > everyone using two-factor has to set it up again, so either copy `mfa.key` across
 > by hand or take a new backup first.
 
-### Scheduled jobs
-
-The recurring work, one row each: scanning each library type for new files, scanning
-new photos for faces, looking for duplicate photos, purging missing photos, cleaning
-task history, purging expired recycle bin items, converting unplayable videos,
-tidying the thumbnail store, and the two backups — full and minimal — that the
-Backup page shows as well.
-Sensible defaults ship enabled, except the two backups, which are off until you
-choose one; the face scan runs after the nightly library scans so the day's new
-photos are already cataloged.
-
-None of them ever removes something ahead of its time. **Purge expired recycle bin
-items** takes only what has outlived the window it was given when it was deleted —
-emptying the bin outright stays a button on the Recycle Bin page, where you can see
-what you're about to lose.
-
-Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
-system chores — and each carries a matching tag, so the library scans sit together
-instead of being scattered through the list. Hover a job's **i** for the full
-description of what it does.
-
-Each row carries how often it runs and at what time, when it last ran and when it
-runs next, an on/off switch, and **Run now**. There's no Save button: a change to
-the cadence, the day, the time or the switch is saved as you make it, and the "next
-run" beside it updates to match.
-
-**Run now** starts a job immediately, whatever its schedule says — and keeps
-reporting until the work is genuinely finished. That matters because most of these
-jobs don't do the work themselves; they queue it. A photo library scan hands off to
-the scanner and returns in milliseconds, while the scan itself may run for an hour.
-So the button stays spinning, and the message above the table says what was queued
-with a link straight to **Overview → Tasks**, where you can watch the progress bars.
-When the last queued task finishes, the message says so. Jobs that do their work on
-the spot — purging expired recycle bin items, purging missing photos — simply report their
-result and are done. Only one job can be started by hand at a time; several of them
-skip themselves anyway when another heavy task is already running.
-
 ### Recycle Bin
 
 Deleting from the app moves things here rather than erasing them. They keep their
@@ -496,6 +533,10 @@ Each item is given its date **when it is deleted**, and keeps it. Shortening eit
 setting therefore applies to what you delete from then on — it never brings forward
 the date on something already in the bin, which would delete files you were promised
 a month to think about.
+
+Nothing on this page removes an item when its date comes: the **Purge expired
+recycle bin items** job under [Scheduled jobs](#scheduled-jobs) does, once a day
+while it is switched on. The settings dialog links there.
 
 Above the tiles is what the bin holds: how many items, how much space they take, and
 how many files that is. It follows the library picker, so it counts what you're
@@ -555,13 +596,6 @@ Note that the search box and the source/retention filters narrow the *tiles*, no
 the action. Empty and Restore all always work on the whole library you have picked,
 which is why their dialogs count that rather than what is on screen.
 
----
-
-## Utilities
-
-Tools that work *on* a library rather than configuring one. They live under a
-**Gallery** branch in the left nav, since everything here so far works on photos.
-
 ### Duplicate cleanup
 
 A folder imported twice, a phone backup copied in beside the originals, a whole
@@ -572,6 +606,11 @@ through it whenever you like.
 It has [its own guide](duplicate-cleanup.md), which is worth reading before the first
 one: what it looks for, how sure it is of each answer, and what happens when you
 confirm.
+
+Once a cleanup has removed anything, its card links to **the copies it removed in
+the Recycle Bin** — the bin opened on cleanup removals only, and on the one library
+when the cleanup covered one. While it scans, **Follow it on Tasks** opens the scan
+among the other background work.
 
 > **Experimental.** Duplicate detection is still being proven. Look at what a set
 > contains before removing anything, and start with a few rather than the bulk action.
@@ -596,10 +635,32 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
 
 ---
 
-## Maps
+## Settings
 
-The maps across the app — the gallery map, a photo's location, a story's route, the
-Dashboard's sign-in locations — and what this server keeps for them. It is one page
+- **Appearance** — the default theme for new accounts. Everyone can override it in
+  their own profile.
+- **Quotes** — the house's quotes for the home page's Quote of the day: import a
+  pack, and take one back out. It has [its own guide](quotes.md).
+- **Maps** — below.
+- **Stories** — whether members may start a recipe from a link, and which library
+  narration goes to (App files, shown here, not chosen). Narration recorded
+  before recordings lived in the gallery moves into App files by itself once App
+  storage is on; the page says how many recordings are still waiting.
+- **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
+  to e-reader. It has [its own guide](email.md).
+- **Notifications** — whether members are emailed when something is shared with
+  them or sent to them by a family member. Off until you turn them on, and they
+  need Email set up first.
+- **About** — version, credits, and what changed in each release.
+
+**Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
+Thorium) browse your ebooks — is under **Profile → Reader access** now. Each person
+makes tokens for their own devices: one per device, read-only, removable at any time.
+
+### Maps
+
+The maps across the app — the gallery map, a photo's location, a story's route,
+Security → Sign-in locations — and what this server keeps for them. It is one page
 of four cards. Each says in a line what it does, where its data comes from, how that
 gets here and how much space it takes, with a switch to turn it on or off. Turning
 one on says what will be downloaded, how big it is and where it goes before it does
@@ -620,7 +681,7 @@ the source, with a link to it. Maps work with every card off.
   Veneto, Italy" in the photo viewer, and a **Places** view and filter in the
   gallery. Turning it on downloads about 220 MB from [GeoNames](https://www.geonames.org)
   once and builds a 27 MB database in the background, which takes a few minutes;
-  the card, and **Overview → Tasks**, show how far it has got. **Update** builds it
+  the card, and **Maintenance → Tasks**, show how far it has got. **Update** builds it
   again from GeoNames' latest, and the names already shown stay until the new one is
   ready. No photo's location is ever sent out. Turn it off and the names go with
   it — the photos' locations, and anything people typed as the place, stay.
@@ -631,8 +692,8 @@ the source, with a link to it. Maps work with every card off.
   family tree. Villages are only for that search: photos keep being named after
   towns. **Save and rebuild** builds the list again with them, downloading the
   usual GeoNames files plus one file per country.
-- **Sign-in locations** — where each sign-in came from, on the Dashboard's
-  Locations view. It is used for nothing else. Two parts:
+- **Sign-in locations** — where each sign-in came from, on Security →
+  Sign-in locations. It is used for nothing else. Two parts:
   - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when
     you turn the card on. **Update** fetches the latest; addresses move between
     networks, so every few months is worth it.
@@ -662,23 +723,6 @@ the source, with a link to it. Maps work with every card off.
 Everything the cards keep is in the **Map data** part of App storage
 ([Storage](#storage)), named at the bottom of the page. Offline maps and place names
 wait while App storage is off: their switches are disabled, with a link to Storage.
-
----
-
-## Settings
-
-- **Appearance** — the default theme for new accounts. Everyone can override it in
-  their own profile.
-- **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
-  to e-reader. It has [its own guide](email.md).
-- **Stories** — whether members may start a recipe from a link, and which library
-  narration goes to (App files, shown here, not chosen). Narration recorded
-  before recordings lived in the gallery moves into App files by itself once App
-  storage is on; the page says how many recordings are still waiting.
-- **Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
-  Thorium) browse your ebooks. One token per device, read-only, removable at any
-  time.
-- **About** — version, credits, and what changed in each release.
 
 ---
 

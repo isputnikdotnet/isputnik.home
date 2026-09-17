@@ -17,7 +17,9 @@ import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
+import { controlHref, followRoute } from "../../../router";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { initialParam } from "../links";
 import { TrashRootEditor, type TrashRootSettings } from "./TrashRootEditor";
 
 interface TrashedItem {
@@ -231,8 +233,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // want when you've just deleted something by mistake.
   const [sort, setSort] = useState<TrashSort>("recent");
   const [search, setSearch] = useState("");
-  const [scopeId, setScopeId] = useState(""); // "" = every library
-  const [sourceFilter, setSourceFilter] = useState(""); // "" = however it was removed
+  // Both seeded from the address, so a finished cleanup can link straight to what it
+  // removed (recycleBinHref).
+  const [scopeId, setScopeId] = useState(() => initialParam("library")); // "" = every library
+  const [sourceFilter, setSourceFilter] = useState(() => initialParam("source")); // "" = however it was removed
   const [retentionFilter, setRetentionFilter] = useState(""); // "" = however long it's kept
   const [perPage, setPerPage] = useState("24");
   const [page, setPage] = useState(1);
@@ -257,7 +261,9 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const sourceOptions = useMemo(() => {
     const counts = new Map<string, number>();
     for (const item of items) counts.set(item.source, (counts.get(item.source) ?? 0) + 1);
-    if (counts.size < 2) return [];
+    // A filter that arrived in a link stays offered even with one kind present, or
+    // there would be no way to clear it.
+    if (counts.size < 2 && !sourceFilter) return [];
     return [
       { value: "", label: t("controlAdmin:recycleBin.howeverRemoved", { count: items.length }) },
       ...[...counts].map(([source, count]) => ({
@@ -265,7 +271,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         label: `${sourceLabel(source)} (${count})`
       }))
     ];
-  }, [items, t]);
+  }, [items, sourceFilter, t]);
 
   // The windows actually present, not a fixed 30/90/180: a bin holds whatever the
   // settings were when each row was stamped, so the menu is built from the rows.
@@ -1041,6 +1047,14 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
               to change a number and might expect it to reach what is already in the bin. */}
           <p className="datagrid-muted trash-retention-note">
             {t("controlAdmin:recycleBin.retentionNote")}
+          </p>
+          {/* Nothing here removes anything: the scheduled job does, and it can be off. */}
+          <p className="datagrid-muted trash-retention-note">
+            <Trans
+              i18nKey="recycleBin.expiryJobNote"
+              ns="controlAdmin"
+              components={{ lnk: <a href={controlHref("scheduledJobs")} onClick={(event) => { closeSettings(); followRoute(event, controlHref("scheduledJobs")); }} /> }}
+            />
           </p>
 
           {/* The location was reachable only from Library → Storage, which nobody

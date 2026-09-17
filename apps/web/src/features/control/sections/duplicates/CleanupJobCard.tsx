@@ -10,6 +10,8 @@ import { formatBytes } from "../../../../shared/utils";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Button } from "../../../../shared/Button";
 import { formatWhen } from "./shared";
+import { followRoute } from "../../../../router";
+import { recycleBinHref, tasksHref } from "../../links";
 import { cleanupKindSummary, statusWord, type DuplicateJob } from "./cleanup-types";
 
 export function CleanupHero() {
@@ -149,6 +151,13 @@ export function JobCard({
             {job.scanProgress === 0
               ? t("controlDash:dupes.waitingToStart")
               : t("controlDash:dupes.fingerprinting", { percent: job.scanProgress })}
+            {" "}
+            <a
+              href={tasksHref({ type: "SCAN_GALLERY_DUPLICATES" })}
+              onClick={(event) => followRoute(event, tasksHref({ type: "SCAN_GALLERY_DUPLICATES" }))}
+            >
+              {t("controlDash:dupes.followOnTasks")}
+            </a>
           </p>
         </div>
       )}
@@ -162,6 +171,20 @@ export function JobCard({
           <JobMetric icon={<TriangleAlert size={22} />} value={job.totals.errors} label={t("controlDash:dupes.metricWithProblems")} />
         )}
       </div>
+
+      {/* What it removed is in the Recycle Bin, among everything deleted by hand —
+          so the link opens the bin on the cleanup's removals only, and on the one
+          library when the cleanup covered one. */}
+      {job.totals.deleted > 0 && (
+        <p className="datagrid-muted dup-job-bin-link">
+          <a
+            href={recycleBinHref({ source: "duplicate_cleanup", library: included.length === 1 ? included[0].libraryId : undefined })}
+            onClick={(event) => followRoute(event, recycleBinHref({ source: "duplicate_cleanup", library: included.length === 1 ? included[0].libraryId : undefined }))}
+          >
+            {t("controlDash:dupes.seeRemovedInBin", { count: job.totals.deleted })}
+          </a>
+        </p>
+      )}
 
       {changed.length > 0 && (
         <MessageBox tone="warning" title={t("controlDash:dupes.changedTitle")}>

@@ -754,12 +754,21 @@
   white-space: nowrap;
 }
 
-/* Profile fits five tabs into the row the control panel gives four, so its own
-   run slightly tighter — enough that "Appearance" still clears its padding. */
+/* Profile fits six tabs into the row the control panel gives four, so its own
+   run slightly tighter, and a long label ("Reader access", or most of them in
+   Russian) takes a second line rather than spilling out of its column. */
 .control-tabs a.profile-tab {
   min-height: 66px;
   padding: 0 10px;
   font-size: 0.92rem;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Between words only — never "Appeara / nce" (spans elsewhere set anywhere). */
+.control-tabs a.profile-tab span {
+  overflow-wrap: normal;
 }
 
 .config-tab.text-button:hover,

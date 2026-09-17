@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Download, FileText, Search, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { navigate } from "../../../router";
+import { initialParam } from "../links";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -72,7 +73,11 @@ export function LogsSection() {
   const [error, setError] = useState("");
   const [logSearchInput, setLogSearchInput] = useState("");
   const [logSearch, setLogSearch] = useState("");
-  const [filters, setFilters] = useState<Record<LogFilterKey, string[]>>(EMPTY_LOG_FILTERS);
+  // ?ip= arrives from a sign-in being looked into (logsHref): everything that address did.
+  const [filters, setFilters] = useState<Record<LogFilterKey, string[]>>(() => {
+    const ip = initialParam("ip");
+    return ip ? { ...EMPTY_LOG_FILTERS, ip: [ip] } : EMPTY_LOG_FILTERS;
+  });
   const [facets, setFacets] = useState<Partial<Record<LogFilterKey, string[]>>>({});
   const [range, setRange] = useState<DateRangeValue>(ALL_TIME);
   const [sort, setSort] = useState<LogSort>("time");

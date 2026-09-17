@@ -1,10 +1,6 @@
 import {
   Activity,
-  Image,
-  Map as MapIcon,
   LibraryBig,
-  PocketKnife,
-  LayoutDashboard,
   Settings,
   ShieldCheck,
   UsersRound,
@@ -18,41 +14,36 @@ import { controlHref, type ControlSection } from "../../router";
 // the declared `control:nav.groups.*` / `control:nav.tabs.*` keys (pitfall #4).
 import i18n from "../../i18n";
 
-// The shape of the control panel, in one place. The left nav renders the groups
-// and their branches, the tab row renders the tabs of the branch you are standing
-// in, each page takes its eyebrow from the group (and its branch) and its <h1>
-// from the tab label, and the search palette indexes the lot. Adding a control
-// page means adding one tab here — there is nowhere else to keep in sync.
+// The shape of the control panel, in one place. The left nav renders the groups,
+// the tab row renders the tabs of the group you are standing in, each page takes
+// its eyebrow from the group and its <h1> from the tab label, and the search
+// palette indexes the lot. Adding a control page means adding one tab here —
+// there is nowhere else to keep in sync.
 //
-// Eight groups, and that is the budget. A new page almost always belongs as a tab
-// inside an existing group rather than as a ninth: a long left nav is what this
+// Six groups, and that is the budget. A new page almost always belongs as a tab
+// inside an existing group rather than as a seventh: a long left nav is what this
 // structure exists to prevent, and the tab row is free to grow where the nav isn't.
 //
-// Maps is the one group that earned its place past the old budget of seven
-// (2026-09-12, the owner's call): maps became a feature you switch on, with
-// storage, downloads and a wizard behind it, rather than a single setting — too
-// much to sit as a tab under Settings, and nothing else it could belong to.
+// Every group is the same thing — a link to its first tab, over one row of its
+// tabs — and nothing else. Two exceptions were tried and retired in 4.15
+// (docs/control-panel-navigation-review.md):
 //
-// ONE row of tabs, and only one. A second row under it was tried, to say that the
-// three duplicate pages are three views of a single scan; it was more chrome than
-// the relationship was worth, and the page titles carry it anyway. Related pages
-// sit side by side as peers and share a `context` instead — and that row shows
-// only the branch you are in, so unrelated peers never crowd it. A branch of one
-// page shows no row at all.
+//   * Utilities folded out into "Gallery" and "Widgets" branches, each with a tab
+//     row of its own. It was the one group you had to learn; its pages were a
+//     cleanup job and a widget's content, which are Maintenance and Settings.
+//   * Maps was a group of one page (4.4–4.14): four cards with a switch on each.
+//     A page of switches is what Settings is, and a group of one draws no tab row,
+//     so it read differently from every other group.
+//
+// ONE row of tabs, and only one. A second row under it was tried twice — for the
+// duplicate pages, and as the Dashboard's six views — and both times it was more
+// chrome than the relationship was worth. A page whose content wants to be split
+// is split into tabs; a view switch inside a page is for views of one task.
 
-export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "utilities" | "maps" | "settings";
-
-/** The branch a group's tabs can hang off in the left nav — a stable id, not the
- *  displayed word, so a language switch never breaks the active-branch match. */
-export type ContextKey = "gallery" | "widgets";
+export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "settings";
 
 export interface ControlTabDef {
   section: ControlSection;
-  /** Grouping that earns a branch in the left nav, a word in the eyebrow, and a
-   *  tab row of its own peers — never a SECOND row. "Gallery" says what those
-   *  pages work on, "Widgets" what the home page shows, without either costing a
-   *  level of navigation or listing the other's pages. */
-  context?: ContextKey;
 }
 
 export interface ControlGroupDef {
@@ -65,11 +56,14 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "overview",
     icon: Activity,
-    // Sign-ins was a tab of its own until it became the Dashboard's opening
-    // view: it and the Dashboard's Logins view drew the same chart over the same
-    // events, and only one of them could answer "from where, and by whom".
+    // What state the server is in and what has been happening. The Dashboard is
+    // the health page; the analysis that used to hang off it as views is here as
+    // tabs, or went to the group whose question it answers (sign-ins to Security,
+    // tasks to Maintenance).
     tabs: [
       { section: "dashboard" },
+      { section: "activity" },
+      { section: "libraryStats" },
       { section: "logs" }
     ]
   },
@@ -78,11 +72,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     icon: LibraryBig,
     tabs: [
       { section: "libraries" },
-      // Storage and what it holds sit side by side as plain tabs. They were a
-      // branch for one release: a group that MIXES plain tabs with a branch
-      // loses its own link in the left nav (the group becomes a fold-out of its
-      // branches), so Libraries, Categories and Tags had no way in. A branch
-      // only works where every tab of the group is in one, as in Utilities.
       { section: "storage" },
       { section: "storageContents" },
       { section: "categories" },
@@ -101,8 +90,12 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "security",
     icon: ShieldCheck,
+    // Investigate access, then configure protection: who got in and from where
+    // sit beside the policies and lists that decide who may.
     tabs: [
       { section: "security" },
+      { section: "signIns" },
+      { section: "signInLocations" },
       { section: "securityPolicies" },
       { section: "securityTrusted" },
       { section: "securityBlocked" }
@@ -111,45 +104,30 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "maintenance",
     icon: Wrench,
+    // Follow work, recover data, clean up. Tasks leads: it is where a scan, a
+    // backup or a cleanup job is followed, whichever page started it.
     tabs: [
-      { section: "backup" },
+      { section: "tasks" },
       { section: "scheduledJobs" },
-      { section: "recycleBin" }
-    ]
-  },
-  {
-    key: "utilities",
-    icon: PocketKnife,
-    // Two peers. There were three duplicate pages here — cleanup, photos, folders —
-    // which were three views of one install-wide scan: opening any of them rebuilt it
-    // and renumbered everything underneath whoever else was looking. Duplicate cleanup
-    // holds its own snapshot and does everything they did, so they are gone.
-    tabs: [
-      { section: "duplicateCleanup", context: "gallery" },
-      { section: "missingPhotos", context: "gallery" },
-      // What the home page shows the family, rather than what a library holds.
-      { section: "quotes", context: "widgets" }
-    ]
-  },
-  {
-    key: "maps",
-    icon: MapIcon,
-    // One page: every map feature is a card with a switch on it — offline maps,
-    // photo place names, sign-in locations, road routes. Data and Routing were
-    // tabs until the cards took them in; a group of one page draws no tab row.
-    tabs: [
-      { section: "mapSetup" }
+      { section: "backup" },
+      { section: "recycleBin" },
+      { section: "duplicateCleanup" },
+      { section: "missingPhotos" }
     ]
   },
   {
     key: "settings",
     icon: Settings,
+    // How the app looks and what it can do. Quotes is the home widget's content,
+    // Maps a page of feature switches. Reader access left for Profile in 4.15:
+    // the tokens are the signed-in person's own, not the server's.
     tabs: [
       { section: "appearance" },
+      { section: "quotes" },
+      { section: "mapSetup" },
+      { section: "storySettings" },
       { section: "email" },
       { section: "notifications" },
-      { section: "storySettings" },
-      { section: "readerAccess" },
       { section: "about" }
     ]
   }
@@ -180,73 +158,14 @@ export function tabLabel(section: ControlSection): string {
   return i18n.t(`control:nav.tabs.${section}`);
 }
 
-export function contextLabel(context: ContextKey): string {
-  return i18n.t(`control:nav.contexts.${context}`);
-}
-
 /** The page's own name — its <h1>. The eyebrow above carries the rest of the path. */
 export function sectionTitle(section: ControlSection): string {
   return tabLabel(section);
 }
 
-/** The branch a page sits in, where its group has any. */
-const CONTEXT_BY_SECTION = new Map<ControlSection, ContextKey>(
-  ALL_TABS.flatMap((tab) => (tab.context ? [[tab.section, tab.context] as const] : []))
-);
-
-export function sectionContext(section: ControlSection): ContextKey | null {
-  return CONTEXT_BY_SECTION.get(section) ?? null;
-}
-
-/**
- * The tabs the row should show: the ones sharing the active section's branch.
- *
- * A branch is a place of its own, so Gallery's tabs and Widgets' tabs are not
- * peers just because both hang off Utilities — moving between branches is what
- * the left nav is for. A group with no contexts is a single branch, so this
- * returns all of its tabs and nothing changes for it.
- *
- * A branch holding one page returns one tab, and the caller drops the row
- * entirely rather than drawing a row of one.
- */
-export function tabsInScope(section: ControlSection): ControlTabDef[] {
-  const context = CONTEXT_BY_SECTION.get(section) ?? null;
-  return groupForSection(section).tabs.filter((tab) => (tab.context ?? null) === context);
-}
-
-/** Where the page sits, as a trail: "Maintenance", or "Utilities › Gallery". */
+/** Where the page sits: its group's name. */
 export function sectionEyebrow(section: ControlSection): string {
-  const context = CONTEXT_BY_SECTION.get(section);
-  return [groupLabel(groupForSection(section).key), context ? contextLabel(context) : null]
-    .filter(Boolean)
-    .join(" › ");
-}
-
-/** What the left nav shows underneath a group: one child per distinct `context`
- *  among its tabs, in declaration order, each landing on the first tab that
- *  carries it. Derived rather than listed, so a second Gallery tab joins the
- *  existing branch instead of adding a second one with the same name.
- *
- *  A group with no contexts has no children and stays a plain link. */
-export interface ControlNavChild {
-  context: ContextKey;
-  section: ControlSection;
-  icon: LucideIcon;
-}
-
-/** Icons for the branches. A context without one falls back to its group's. */
-const CONTEXT_ICONS: Record<ContextKey, LucideIcon> = { gallery: Image, widgets: LayoutDashboard };
-
-export function navChildrenFor(group: ControlGroupDef): ControlNavChild[] {
-  const seen = new Map<ContextKey, ControlSection>();
-  for (const tab of group.tabs) {
-    if (tab.context && !seen.has(tab.context)) seen.set(tab.context, tab.section);
-  }
-  return [...seen].map(([context, section]) => ({
-    context,
-    section,
-    icon: CONTEXT_ICONS[context] ?? group.icon
-  }));
+  return groupLabel(groupForSection(section).key);
 }
 
 export function sectionHref(section: ControlSection): string {

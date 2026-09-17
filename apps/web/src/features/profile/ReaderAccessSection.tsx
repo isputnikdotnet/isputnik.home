@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useTranslation } from "react-i18next";
-import { formatDate } from "../../../shared/dates";
+import { Trans, useTranslation } from "react-i18next";
+import { formatDate } from "../../shared/dates";
 import { QRCodeSVG } from "qrcode.react";
-import { BookOpen, Check, Copy, Plus, Trash2 } from "lucide-react";
-import { api } from "../../../api";
-import { ControlSectionHead } from "../ControlSectionHead";
-import { Button } from "../../../shared/Button";
-import { Field } from "../../../shared/Field";
-import { Modal } from "../../../shared/Modal";
-import { MessageBox } from "../../../shared/MessageBox";
-import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Check, Copy, Plus, Trash2 } from "lucide-react";
+import { api } from "../../api";
+import { followRoute, profileHref } from "../../router";
+import { Button } from "../../shared/Button";
+import { Field } from "../../shared/Field";
+import { Modal } from "../../shared/Modal";
+import { MessageBox } from "../../shared/MessageBox";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
 
 interface OpdsToken {
   id: string;
@@ -43,7 +43,10 @@ function CopyRow({ label, value, copied, onCopy }: { label: string; value: strin
   );
 }
 
-export function OpdsAccessSection() {
+// Profile › Reader access: OPDS tokens that let a reading app open your ebooks.
+// Every token is the signed-in person's own (/api/account/tokens is scoped to the
+// caller), which is why this left the admin-only control panel in 4.15.
+export function ReaderAccessSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [tokens, setTokens] = useState<OpdsToken[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,16 +135,21 @@ export function OpdsAccessSection() {
   };
 
   return (
-    <section className="opds-access">
-      <ControlSectionHead
-        section="readerAccess"
-        icon={<BookOpen size={30} />}
-        iconClassName="blue"
-        description={t("controlAdmin:opds.headDescription")}
-      />
-
+    <section className="opds-access" aria-labelledby="reader-access-heading">
+      <h2 id="reader-access-heading">{t("controlAdmin:opds.title")}</h2>
       <p className="opds-intro">
-        {t("controlAdmin:opds.intro")}
+        {t("controlAdmin:opds.headDescription")} {t("controlAdmin:opds.intro")}
+      </p>
+      {/* The two ways a book reaches a device sit on neighbouring tabs; each points at the other. */}
+      <p className="opds-intro">
+        <Trans
+          i18nKey="opds.nextLinks"
+          ns="controlAdmin"
+          components={{
+            guide: <a href="/help/your-account#reader-access" onClick={(event) => followRoute(event, "/help/your-account#reader-access")} />,
+            devices: <a href={profileHref("devices")} onClick={(event) => followRoute(event, profileHref("devices"))} />
+          }}
+        />
       </p>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:opds.errorTitle")}>{error}</MessageBox>}

@@ -393,9 +393,17 @@ The control panel's shape lives in one file: `features/control/nav.ts`. It defin
 six nav groups, each holding a row of tabs. Adding an admin page means adding one
 tab entry there — nothing else keeps a parallel list.
 
-- **Six groups is the budget.** A seventh almost always means the new page belongs
-  as a tab inside an existing group. A long left nav is what this structure exists
-  to prevent.
+- **Six groups is the budget** — Overview, Library, Members, Security, Maintenance,
+  Settings. A seventh almost always means the new page belongs as a tab inside an
+  existing group. A long left nav is what this structure exists to prevent.
+- **Every group is the same shape**: a nav link to its first tab, over one row of
+  its tabs. No fold-out branches inside a group, no group of a single page, and no
+  second row of views inside a page (all three were tried and retired in 4.15 —
+  the reasons are in `nav.ts` and `docs/control-panel-navigation-review.md`).
+  Content that wants splitting becomes tabs.
+- **Personal things live in Profile, not here.** The control panel is admin-only;
+  anything that belongs to the signed-in person (reader tokens, devices, theme)
+  goes under `PROFILE_PATHS` so every member can reach their own.
 - **Every tab is a route.** Canonical paths live in `CONTROL_PATHS` in `router.ts`;
   link through `controlHref(section)`, never a string literal. In-page `useState`
   tab rows are not allowed in the control panel — a setting with no URL can't be
@@ -411,7 +419,17 @@ tab entry there — nothing else keeps a parallel list.
   Pass `description` for the one-line summary and `children` for header actions.
 - **New settings get search keywords.** Add the terms someone would actually type
   to `TAB_KEYWORDS` in `features/control/search-index.ts`, and a `SETTING_ENTRIES`
-  row for anything notable buried inside a page.
+  row for anything notable buried inside a page. When that page has several cards,
+  give the card an `id` and the entry an `anchor`: the hit then scrolls to the
+  card and flashes it (`useAnchorScroll`) instead of leaving you at the top.
+- **Link to where the task continues, already narrowed.** Build the address with
+  `features/control/links.ts` (`tasksHref`, `recycleBinHref`, `logsHref`,
+  `blockIpHref`, `storageHref`…) and have the target page seed its filters from the
+  query (`initialParam`). Links, never copies of another page's form.
+- **Phones get one row and a menu.** At the mobile breakpoint `ControlPanelPage`
+  swaps the nav for Home · current page (opens every group and page in a `Modal`) ·
+  search, and drops the tab row. Both are drawn from `nav.ts`, so there is nothing
+  to keep in step.
 
 ---
 

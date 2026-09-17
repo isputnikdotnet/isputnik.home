@@ -104,6 +104,9 @@ read the EPUB.
   approve the server's sender address, or it drops the mail silently. The same
   **Send to** button also passes a book to someone in the family — see
   [Sharing with family](family-sharing.md).
+- **A reading app** — KOReader, Moon+ Reader, Thorium — can browse and download
+  your ebooks itself over OPDS, with a token you make under
+  [Profile → Reader access](your-account.md#reader-access).
 - The app is installable: add it to your home screen and downloaded books stay
   readable offline.
 

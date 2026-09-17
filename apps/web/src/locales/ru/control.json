@@ -18,12 +18,12 @@
       "members": "Участники",
       "security": "Безопасность",
       "maintenance": "Обслуживание",
-      "utilities": "Утилиты",
-      "maps": "Карты",
       "settings": "Настройки"
     },
     "tabs": {
       "dashboard": "Панель",
+      "activity": "Активность",
+      "libraryStats": "Статистика библиотек",
       "logs": "Журналы",
       "libraries": "Библиотеки",
       "storage": "Хранилище",
@@ -34,32 +34,31 @@
       "groups": "Группы",
       "invites": "Ссылки-приглашения",
       "security": "Обзор",
+      "signIns": "Входы",
+      "signInLocations": "Места входов",
       "securityPolicies": "Политики",
       "securityTrusted": "Доверенные сети",
       "securityBlocked": "Заблокированные IP",
-      "backup": "Резервная копия",
+      "tasks": "Задачи",
       "scheduledJobs": "Задания по расписанию",
+      "backup": "Резервная копия",
       "recycleBin": "Корзина",
       "duplicateCleanup": "Очистка дублей",
       "missingPhotos": "Утерянные фото",
       "appearance": "Внешний вид",
+      "quotes": "Цитаты",
+      "mapSetup": "Карты",
+      "storySettings": "Истории",
       "email": "Почта",
       "notifications": "Уведомления",
-      "storySettings": "Истории",
-      "mapSetup": "Карты",
-      "readerAccess": "Доступ для читалок",
-      "about": "О программе",
-      "quotes": "Цитаты"
-    },
-    "contexts": {
-      "gallery": "Галерея",
-      "widgets": "Виджеты"
+      "about": "О программе"
     },
     "exit": "Домой",
     "aria": "Навигация панели управления",
-    "nestedAria": "Разделы: {{group}}",
     "tabsAria": "Вкладки: {{group}}",
-    "searchTrigger": "Поиск…"
+    "searchTrigger": "Поиск…",
+    "menuOpen": "Меню панели управления — {{page}}",
+    "searchAria": "Поиск по панели управления"
   },
   "search": {
     "title": "Поиск по панели управления",
@@ -67,11 +66,6 @@
     "hint": "Перейти на страницу или к настройке",
     "empty": "Ничего не найдено по запросу «{{query}}». Попробуйте название настройки или слово из него.",
     "settings": {
-      "systemHealth": "Здоровье системы",
-      "libraryStatistics": "Статистика библиотек",
-      "tasks": "Задания",
-      "activity": "Активность",
-      "locationsMap": "Карта расположений",
       "logRetention": "Хранение журнала",
       "thumbnailStorage": "Хранилище миниатюр",
       "systemData": "Системные данные",
@@ -92,7 +86,6 @@
       "defaultTheme": "Тема по умолчанию",
       "smtpServer": "SMTP-сервер",
       "sendTestEmail": "Отправка тестового письма",
-      "opdsReaderTokens": "Токены доступа для читалок (OPDS)",
       "twoFactorAlertsDelivery": "Доставка кодов и оповещений безопасности",
       "shareNotifications": "Уведомления о доступе",
       "houseLibrary": "Библиотека «Файлы приложения»",
@@ -625,7 +618,8 @@
     "systemNo": "Нет",
     "systemBadgeTitle": "Системная библиотека, которую приложение ведёт само. Её нельзя переименовать или удалить здесь.",
     "systemNoteTitle": "Системная библиотека",
-    "systemNoteBody": "Эту библиотеку создало приложение, и название у неё постоянное. Кто может её видеть и изменять, по-прежнему решаете вы."
+    "systemNoteBody": "Эту библиотеку создало приложение, и название у неё постоянное. Кто может её видеть и изменять, по-прежнему решаете вы.",
+    "followOnTasks": "Следить в «Задачах»"
   },
   "libraryMembers": {
     "viewerTagline": "Только просмотр",

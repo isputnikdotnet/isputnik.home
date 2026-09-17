@@ -2,10 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Mic } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, followRoute } from "../../../router";
+import { followRoute } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { storageHref } from "../links";
 
 interface StorySettingsDto {
   recordingsLibrary: { id: string; name: string } | null;
@@ -67,7 +68,8 @@ export function StorySettingsSection() {
     }
   };
 
-  const galleryPath = controlHref("storage");
+  // Narration goes to App files, which is set on Storage's App storage card.
+  const galleryPath = storageHref("app-storage");
 
   return (
     <>

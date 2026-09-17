@@ -219,7 +219,7 @@ function MobileNav({
             {isAdmin && (
               <a className="mobile-media-option" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>
                 <Settings size={26} aria-hidden="true" />
-                <span>{t("nav.settings")}</span>
+                <span>{t("nav.controlPanel")}</span>
               </a>
             )}
             <Button variant="bare" className="mobile-media-option" onClick={() => { close(); void logout(); }}>
@@ -459,20 +459,23 @@ export function DashboardShell({
           document.body
         )}
 
-        {/* The standard footer every page shares: Settings (admins only), then a
+        {/* The standard footer every page shares: Control panel (admins only), then a
             Profile menu bundling the account's own pages and Logout — same two
             destinations regardless of which nav (primary, control, user-area, or a
             media section) sits above it. The menu opens upward: its trigger sits at
             the bottom of the sidebar, so there's no room to drop down. */}
         <div className="home-sidebar-bottom">
-          {isAdmin && (
+          {/* Named "Control panel", not "Settings": the panel has a Settings group
+              of its own, and one word leading to two places was a trap. Inside the
+              panel it is left out — the panel's own Home link is the way around. */}
+          {isAdmin && !isControlPanel && (
             <a
-              className={`home-nav-link${currentPath === CONTROL_HOME || currentPath.startsWith("/control") ? " is-active" : ""}`}
+              className="home-nav-link"
               href={CONTROL_HOME}
               onClick={(event) => followRoute(event, CONTROL_HOME)}
             >
               <Settings size={21} aria-hidden="true" />
-              <span>{t("nav.settings")}</span>
+              <span>{t("nav.controlPanel")}</span>
             </a>
           )}
 

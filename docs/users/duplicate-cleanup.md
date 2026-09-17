@@ -1,6 +1,6 @@
 # Duplicate cleanup
 
-**Control panel → Utilities → Duplicate cleanup**
+**Control panel → Maintenance → Duplicate cleanup**
 
 Photo libraries collect copies. A phone backup runs twice, a card gets imported into a
 new folder as well as the old one, a sync client copies a folder into itself. Duplicate

@@ -106,18 +106,24 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   `t(key, { count })`, never hand-built plurals (Russian has three forms). The
   sweep is complete (2026-08-27; the record is `docs/i18n-plan.md`), so every file
   counts as swept: new user-facing strings must be keys, not literals.
-- **Control panel**: its whole shape (8 nav groups × their tabs — Maps is the one
-  admitted past the old budget of seven; the note in `nav.ts` says why) is declared in
+- **Control panel**: its whole shape (6 nav groups × their tabs — Overview, Library,
+  Members, Security, Maintenance, Settings; six is the budget) is declared in
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.
-  **One tab row only** — a second row under it was tried for Duplicates and removed as
-  too much chrome. Related pages sit as peers sharing a `context`, which draws a branch
-  in the left nav (Utilities → Gallery, Utilities → Widgets) and a word in the eyebrow,
-  never another row. That single row shows the tabs of the branch you are in
-  (`tabsInScope`), so branches don't list each other's pages, and a branch holding one
-  page shows no row at all.
-  New settings get search terms in `features/control/search-index.ts`. Profile's
-  tabs follow the same rule (`PROFILE_PATHS` / `profileHref()`).
+  **Every group is the same shape**: a nav link to its first tab over ONE row of its
+  tabs. Retired in 4.15 and not to be brought back: fold-out branches inside a group
+  (Utilities → Gallery/Widgets), a group of one page (Maps), and a second row of views
+  inside a page (the Dashboard's six views; Duplicates before that) — the reasons are
+  in `nav.ts` and `docs/control-panel-navigation-review.md`. Retired addresses stay
+  in `CONTROL_ALIASES` (and the Dashboard's `?view=` in `LEGACY_DASHBOARD_VIEWS`);
+  `ControlPanelPage` rewrites them to the canonical path.
+  New settings get search terms in `features/control/search-index.ts`; a setting on a
+  page of several cards gets an `anchor` (the card's `id`) so search scrolls to it.
+  Links between control pages go through `features/control/links.ts` and carry their
+  filters in the query; the target page seeds its state from it (`initialParam`).
+  Anything that is the signed-in person's own (reader tokens, devices, theme) goes in
+  Profile, not the admin-only panel; Profile's tabs follow the same rule
+  (`PROFILE_PATHS` / `profileHref()`).
 
 After UI changes run `npm run typecheck` and `npm run check:ui`.

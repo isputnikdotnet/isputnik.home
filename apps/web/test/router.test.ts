@@ -81,6 +81,52 @@ describe("getRoute", () => {
       expect((route as { section: string }).section, legacy).toBe("duplicateCleanup");
     }
   });
+
+  // 4.15 retired Utilities and the Maps group, and turned the Dashboard's views
+  // into pages; every address those had still reaches the page that took it.
+  it.each([
+    ["/control/utilities/duplicate-cleanup", "duplicateCleanup"],
+    ["/control/utilities/missing-photos", "missingPhotos"],
+    ["/control/utilities/quotes", "quotes"],
+    ["/control/utilities", "duplicateCleanup"],
+    ["/control/maps", "mapSetup"],
+    ["/control/maps/routing", "mapSetup"],
+    ["/control/overview/sign-ins", "signIns"],
+    ["/control/members/sessions", "signIns"],
+    ["/control/overview/tasks", "tasks"],
+    ["/control/maintenance", "tasks"],
+    ["/control/libraries/stats", "libraryStats"]
+  ])("sends the retired address %s to %s", (path, section) => {
+    at(path);
+    expect(getRoute()).toEqual({ name: "control", section });
+  });
+
+  it.each([
+    ["signins", "signIns"],
+    ["logins", "signIns"],
+    ["devices", "signIns"],
+    ["locations", "signInLocations"],
+    ["activity", "activity"],
+    ["playback", "activity"],
+    ["libraries", "libraryStats"],
+    ["tasks", "tasks"],
+    ["system", "dashboard"]
+  ])("reads the Dashboard's retired ?view=%s as the %s page", (view, section) => {
+    at(`/control/overview?view=${view}&ip=10.0.0.1`);
+    expect(getRoute()).toEqual({ name: "control", section });
+  });
+
+  it("leaves the bare Dashboard, and an unknown view, on the Dashboard", () => {
+    at("/control/overview");
+    expect(getRoute()).toEqual({ name: "control", section: "dashboard" });
+    at("/control/overview?view=nonsense");
+    expect(getRoute()).toEqual({ name: "control", section: "dashboard" });
+  });
+
+  it("sends the old control-panel Reader access address to Profile, where members can reach it", () => {
+    at("/control/settings/reader-access");
+    expect(getRoute()).toEqual({ name: "profile", tab: "readerAccess" });
+  });
 });
 
 describe("getReferrer", () => {
@@ -126,7 +172,7 @@ describe("href builders", () => {
   });
 
   it("round-trips profile tabs the same way", () => {
-    for (const tab of ["account", "security", "shares", "appearance", "devices"] as const) {
+    for (const tab of ["account", "security", "shares", "appearance", "devices", "readerAccess"] as const) {
       at(profileHref(tab));
       const route = getRoute();
       expect(route.name, tab).toBe("profile");

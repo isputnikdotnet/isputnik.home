@@ -126,12 +126,12 @@ type TaskRow = Pick<
   JobRow,
   | "id" | "type" | "status" | "attempts" | "created_at" | "started_at" | "locked_at"
   | "completed_at" | "failed_at" | "error" | "payload"
-> & { library_name: LibraryRow["name"] | null };
+> & { library_id: LibraryRow["id"] | null; library_name: LibraryRow["name"] | null };
 
 const TASK_COLUMNS = `
   jobs.id, jobs.type, jobs.status, jobs.attempts, jobs.created_at, jobs.started_at, jobs.locked_at,
   jobs.completed_at, jobs.failed_at, jobs.error, jobs.payload,
-  libraries.name AS library_name
+  libraries.id AS library_id, libraries.name AS library_name
 `;
 
 // How long a running task may go without a sign of life before the page says it may
@@ -180,6 +180,8 @@ function taskView(row: TaskRow) {
     type: row.type,
     status: row.status,
     attempts: row.attempts,
+    // The id, so a failed scan can link to the library it was scanning.
+    libraryId: row.library_id,
     libraryName: row.library_name,
     createdAt: row.created_at,
     // When the job actually began running (null until claimed); the UI measures

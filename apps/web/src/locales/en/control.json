@@ -18,12 +18,12 @@
       "members": "Members",
       "security": "Security",
       "maintenance": "Maintenance",
-      "utilities": "Utilities",
-      "maps": "Maps",
       "settings": "Settings"
     },
     "tabs": {
       "dashboard": "Dashboard",
+      "activity": "Activity",
+      "libraryStats": "Library statistics",
       "logs": "Logs",
       "libraries": "Libraries",
       "storage": "Storage",
@@ -34,32 +34,31 @@
       "groups": "Groups",
       "invites": "Invite links",
       "security": "Overview",
+      "signIns": "Sign-ins",
+      "signInLocations": "Sign-in locations",
       "securityPolicies": "Policies",
       "securityTrusted": "Trusted networks",
       "securityBlocked": "Blocked IPs",
-      "backup": "Backup",
+      "tasks": "Tasks",
       "scheduledJobs": "Scheduled jobs",
+      "backup": "Backup",
       "recycleBin": "Recycle Bin",
       "duplicateCleanup": "Duplicate cleanup",
       "missingPhotos": "Missing photos",
       "appearance": "Appearance",
+      "quotes": "Quotes",
+      "mapSetup": "Maps",
+      "storySettings": "Stories",
       "email": "Email",
       "notifications": "Notifications",
-      "storySettings": "Stories",
-      "mapSetup": "Maps",
-      "readerAccess": "Reader access",
-      "about": "About",
-      "quotes": "Quotes"
-    },
-    "contexts": {
-      "gallery": "Gallery",
-      "widgets": "Widgets"
+      "about": "About"
     },
     "exit": "Home",
     "aria": "Control panel",
-    "nestedAria": "{{group}} destinations",
     "tabsAria": "{{group}} sections",
-    "searchTrigger": "Search…"
+    "searchTrigger": "Search…",
+    "menuOpen": "Control panel menu — on {{page}}",
+    "searchAria": "Search the control panel"
   },
   "search": {
     "title": "Search the control panel",
@@ -67,11 +66,6 @@
     "hint": "Jump to a page or a setting",
     "empty": "Nothing matches “{{query}}”. Try the name of the setting, or a word from it.",
     "settings": {
-      "systemHealth": "System health",
-      "libraryStatistics": "Library statistics",
-      "tasks": "Tasks",
-      "activity": "Activity",
-      "locationsMap": "Locations map",
       "logRetention": "Log retention",
       "thumbnailStorage": "Thumbnail storage",
       "systemData": "System data",
@@ -92,7 +86,6 @@
       "defaultTheme": "Default theme",
       "smtpServer": "SMTP server",
       "sendTestEmail": "Send a test email",
-      "opdsReaderTokens": "OPDS reader tokens",
       "twoFactorAlertsDelivery": "Two-factor & security alerts delivery",
       "shareNotifications": "Share notifications",
       "houseLibrary": "App files library",
@@ -605,7 +598,8 @@
     "systemNo": "No",
     "systemBadgeTitle": "A system library the app keeps for itself. It can't be renamed or deleted here.",
     "systemNoteTitle": "A system library",
-    "systemNoteBody": "The app made this library and keeps its name. Who can see and change it is still yours to set."
+    "systemNoteBody": "The app made this library and keeps its name. Who can see and change it is still yours to set.",
+    "followOnTasks": "Follow on Tasks"
   },
   "libraryMembers": {
     "viewerTagline": "View only",

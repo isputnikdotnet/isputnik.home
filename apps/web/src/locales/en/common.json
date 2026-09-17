@@ -111,7 +111,7 @@
     "info": "Info",
     "help": "Help",
     "bugs": "Bugs",
-    "settings": "Settings",
+    "controlPanel": "Control panel",
     "profile": "Profile",
     "logout": "Logout",
     "likes": "Likes",
@@ -342,7 +342,8 @@
       "security": "Security",
       "shares": "Shared links",
       "appearance": "Appearance",
-      "devices": "Devices"
+      "devices": "Devices",
+      "readerAccess": "Reader access"
     },
     "account": {
       "displayName": "Display name",
@@ -370,7 +371,8 @@
       "saved": "Saved",
       "savedBody": "Your e-reader email has been updated.",
       "save": "Save",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "readerAccessLink": "Reading in an app like KOReader, Moon+ Reader or Thorium instead? <lnk>Reader access</lnk> connects it to your ebooks."
     },
     "install": {
       "title": "Install the mobile app",
@@ -536,7 +538,7 @@
     "backupSavedMore": "Change it any time in Control panel → Maintenance → Backup, where you can also make one now or restore from one.",
     "backupSaveFailed": "Unable to save the backup schedule",
     "mapsHeading": "Maps",
-    "mapsNote": "Maps work without any of this. Each part can be turned on or off here or later under Control panel → Maps.",
+    "mapsNote": "Maps work without any of this. Each part can be turned on or off here or later under Control panel → Settings → Maps.",
     "alertsHeading": "Tell me about sign-ins",
     "alertsIntro": "The app can write to you when an account signs in from a network it has not seen before — the earliest sign that a password has been guessed, phished or reused.",
     "alertsToggle": "Email me about sign-ins from a new network",
@@ -592,7 +594,7 @@
     "clear": "Clear place",
     "showPlaces": "Show places",
     "noMatch": "No town called “{{text}}” in the place list. It is kept as you typed it, without a map pin.",
-    "unavailable": "There is no place list to search yet (an admin can switch on Photo place names under Control panel → Maps). What you type is kept as written.",
+    "unavailable": "There is no place list to search yet (an admin can switch on Photo place names under Control panel → Settings → Maps). What you type is kept as written.",
     "noneYet": "No places picked yet. Type a town to search the place list."
   },
   "markdown": {

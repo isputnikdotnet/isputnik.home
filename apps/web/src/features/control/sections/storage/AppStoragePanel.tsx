@@ -222,7 +222,7 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
   const copy = pendingCopy();
 
   return (
-    <section className="system-data-panel app-storage-block">
+    <section id="app-storage" className="system-data-panel app-storage-block">
       <div className="app-storage-head">
         <div>
           <h2 className="system-data-title">

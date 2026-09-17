@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
+import { tasksHref } from "../links";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
@@ -456,7 +457,20 @@ export function LibrariesSection() {
         </MessageBox>
       )}
       {scanningLibraries.length > 0 && (
-        <MessageBox tone="info" title={t("control:libraries.scanInProgressTitle")}>
+        <MessageBox
+          tone="info"
+          title={t("control:libraries.scanInProgressTitle")}
+          action={
+            // One scan: its own tasks. Several: every task, since the list is one filter.
+            <a
+              className="secondary-button compact-button"
+              href={tasksHref({ library: scanningLibraries.length === 1 ? scanningLibraries[0].id : undefined })}
+              onClick={(event) => followRoute(event, tasksHref({ library: scanningLibraries.length === 1 ? scanningLibraries[0].id : undefined }))}
+            >
+              {t("control:libraries.followOnTasks")}
+            </a>
+          }
+        >
           {t("control:libraries.scanInProgress", { count: scanningLibraries.length, name: scanningLibraries[0]?.name })}
         </MessageBox>
       )}
@@ -510,7 +524,7 @@ export function LibrariesSection() {
                 const TypeIcon = TYPE_ICON[library.type];
                 const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
                 return (
-                  <tr key={library.id}>
+                  <tr key={library.id} id={`library-${library.id}`}>
                     <td>
                       <div className="library-name-cell">
                         <span className={`library-folder-icon ${library.type}`} aria-hidden="true">
