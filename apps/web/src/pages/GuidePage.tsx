@@ -5,6 +5,8 @@ import { DashboardShell } from "../app/DashboardShell";
 import { followBack, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { repoFileUrl } from "../shared/links";
+import { fetchGuideMarkdown } from "../features/help/guideSource";
+import { headingAnchor } from "../features/help/search";
 
 // The guides are the same markdown files as docs/users/, copied into the build
 // (see vite.config.ts) and rendered here rather than sent to GitHub. That keeps
@@ -58,7 +60,7 @@ export async function renderGuideHtml(markdown: string): Promise<string> {
       // makes, so links keep being written the way authors expect.
       heading({ tokens, depth, text }) {
         const inner = this.parser.parseInline(tokens);
-        const id = text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+        const id = headingAnchor(text);
         return `<h${depth} id="${escapeAttr(id)}">${inner}</h${depth}>`;
       },
       image({ href, title, text }) {
@@ -87,14 +89,8 @@ export function GuidePage({
     setError("");
 
     (async () => {
-      // An unknown guide doesn't 404: both Vite and the server answer any unmatched
-      // path with index.html at status 200, so the status alone can't be trusted.
-      // The give-away is the body — a guide always starts with its "# Title", never
-      // with a tag. Without this check a bad slug renders the app's own HTML as if
-      // it were prose.
-      const response = await fetch(`/guides/${slug}.md`, { headers: { Accept: "text/markdown" } });
-      const markdown = response.ok ? await response.text() : "";
-      if (!markdown || markdown.trimStart().startsWith("<")) throw new Error(t("guide.notFound"));
+      const markdown = await fetchGuideMarkdown(slug);
+      if (markdown === null) throw new Error(t("guide.notFound"));
 
       const rendered = await renderGuideHtml(markdown);
       if (alive) setHtml(rendered);
@@ -104,6 +100,44 @@ export function GuidePage({
 
     return () => { alive = false; };
   }, [slug, t]);
+
+  // A link into a section (a search result, an FAQ answer, another guide) names
+  // it in the hash. The browser can't jump there on its own — the headings only
+  // exist once the markdown has rendered — so do it then, and again whenever the
+  // hash changes on a guide that's already open.
+  const hash = window.location.hash;
+  useEffect(() => {
+    if (!html || !hash) return;
+    let id = hash.slice(1);
+    try {
+      id = decodeURIComponent(id);
+    } catch {
+      // A malformed escape: look it up as written.
+    }
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView({ block: "start" });
+
+    // Screenshots above the heading load after the jump and push it down the page
+    // (control-panel.md has dozens). Follow the heading as each one arrives — until
+    // the reader scrolls for themselves.
+    const pending = [...document.querySelectorAll<HTMLImageElement>(".guide-body img")].filter(
+      (image) => !image.complete && image.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    if (!pending.length) return;
+    const follow = () => target.scrollIntoView({ block: "start" });
+    const stop = () => {
+      pending.forEach((image) => image.removeEventListener("load", follow));
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+    };
+    pending.forEach((image) => image.addEventListener("load", follow));
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    window.addEventListener("keydown", stop);
+    return stop;
+  }, [html, hash]);
 
   return (
     <DashboardShell active="help">
@@ -144,7 +178,7 @@ export function GuidePage({
 // Links between guides are plain <a> elements inside rendered HTML, so they'd
 // reload the whole app. Catch them on the way up and route instead — while still
 // letting a modified click (new tab, new window) behave normally.
-function followGuideLink(event: React.MouseEvent<HTMLElement>) {
+export function followGuideLink(event: React.MouseEvent<HTMLElement>) {
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const href = (event.target as Element).closest?.("a[data-guide]")?.getAttribute("href");
   if (!href) return;

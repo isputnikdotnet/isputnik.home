@@ -515,10 +515,13 @@ sees it. There is almost never a reason to: `variant="bare"` takes any custom
 chrome as-is. (`shared/` is exempt — it is where the primitives are built.)
 
 It also checks the **Help page against `docs/users/`**, both directions: a guide
-that nothing on `HelpPage.tsx` links to, and a `guide("…")` link pointing at a file
-that no longer exists. The Help page is the only way into the guides from inside
-the app, so a missing entry means a doc nobody can reach — and it fails silently,
-which is exactly what happened three commits running before this check existed.
+that the Help catalog (`features/help/catalog.ts`) doesn't list, and a `guide("…")`
+entry pointing at a file that no longer exists. The Help page is the only way into
+the guides from inside the app, so a missing entry means a doc nobody can reach —
+and it fails silently, which is exactly what happened three commits running before
+this check existed. `docs/users/faq.md` is the Help page's questions rather than a
+guide; the check instead follows every `guide.md#heading` link in it and fails
+when that guide or heading is gone.
 
 It **warns**, without failing, about every `var(--x)` that nothing defines — no
 `--x:` in any stylesheet, no `"--x"` set from a component's inline style. Such a

@@ -13,6 +13,13 @@ Friendly, task-focused guides for people using and running isputnik.home.
 > Two things follow from that: link between guides with a plain relative name
 > (`[Storage](storage.md)`), which is rewritten to an in-app route, and keep images
 > under `images/`, which is rewritten to `/guides/images/`.
+>
+> A new guide also needs an entry (and a topic) in
+> `apps/web/src/features/help/catalog.ts`, which is what the Help page and
+> `/help/guides` list. [faq.md](faq.md) holds the Help page's frequently asked
+> questions: link each answer to a guide section, and headings renamed here must
+> keep those links working — `check:ui` checks them. Headings are also what the
+> Help page's search results open at, so name sections for what a reader would type.
 
 ## Getting started
 

@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.17.0 — Find the answer, not just the guide
+
+- **Help has a search box, and it finds the section, not just the guide.** The guides grew to twenty, and the only way in was a long list of cards to read through. Type what you are after — backup codes, slideshow, drop link — and each result names the part of a guide that covers it, with the matching words highlighted. Choosing one opens the guide at that heading. Press **/** to jump to the box. It searches the guides that come with the app, so it works with no internet, and a member only finds guides they can use.
+- **Help is laid out to get you started.** A few **Quick start** cards lead to the places most people begin, **Browse by topic** gathers the guides into eight topics, and **View all guides** lists every guide under its topic. An administrator sees the setup guides and a **Control panel** topic; a member sees what they can use instead of pages for a panel they cannot open.
+- **Frequently asked questions, answered where you ask them.** Questions such as how to sign in after losing your phone, how to share a story with someone who has no account, or how to back up the server open in place with a short answer and a link to the part of the guide that explains it.
+- **A link into a guide lands on its heading.** Links that named a section opened the guide at the top, and the screenshots that load above a section used to push it out of view. The page now scrolls to the heading and stays on it while the pictures arrive.
+- **Still need help?** The bottom of the page links straight to reporting a bug.
+
 ## 4.16.0 — One way to tag anything
 
 - **Tags are edited the same way everywhere.** A photo in the lightbox, an album or slideshow, a story, a book, a quote and a person in the family tree each had their own tag field — a chip list, a comma box, a plain suggestion list — and each behaved a little differently. They all now work like the lightbox: the tags as chips with ×, a round **+** that opens a search box, the most-used tags listed first with how often they are used, and **Add … as a new tag** for one nobody has used yet.

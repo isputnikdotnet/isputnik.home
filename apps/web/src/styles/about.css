@@ -293,56 +293,270 @@
 
 /* ── Help & guides ──────────────────────────────────────────────── */
 
+/* One accent for the whole page, the same the control panel's buttons wear. */
 .help-area {
-  width: min(100%, 760px);
+  --help-accent: var(--control-primary-button, var(--blue));
+  width: min(100%, 1040px);
 }
 
 .help-area .section-description {
   margin: 6px 0 0;
-  max-width: 620px;
+  max-width: 680px;
 }
 
-/* Guides are grouped (getting started, your libraries, …) so the list stays
-   scannable as it grows. */
-.help-section {
-  margin-top: 30px;
+/* ── Search ── */
+
+.help-search {
+  position: relative;
+  margin-top: 22px;
 }
 
-.help-section-title {
+.help-search-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 0 16px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--field, var(--surface));
+  color: var(--muted);
+  cursor: text;
+}
+
+.help-search-box:focus-within {
+  border-color: color-mix(in srgb, var(--help-accent) 60%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--help-accent) 18%, transparent);
+}
+
+.help-search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.help-search-shortcut {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.help-search-shortcut kbd {
+  margin: 0 3px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+}
+
+.help-search-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow: 0 14px 36px var(--shadow);
+}
+
+.help-search-status {
   margin: 0;
-  font-size: 1.02rem;
+  padding: 16px 18px;
+  color: var(--muted);
+}
+
+.help-search-results {
+  display: grid;
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+
+.help-search-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.help-search-result:first-child {
+  border-top: 0;
+}
+
+.help-search-result.is-active {
+  background: color-mix(in srgb, var(--help-accent) 10%, var(--surface-raised));
+}
+
+.help-search-result > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.help-search-result-copy {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+}
+
+.help-search-result-copy small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.help-search-result-copy strong {
+  font-weight: 650;
+}
+
+.help-search-snippet {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.help-search-snippet mark {
+  border-radius: 3px;
+  padding: 0 2px;
+  background: color-mix(in srgb, var(--gold) 32%, transparent);
+  color: var(--ink);
+}
+
+.help-search-footer {
+  display: flex;
+  gap: 16px;
+  margin: 0;
+  padding: 9px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.help-search-keys {
+  margin-left: auto;
+}
+
+/* ── Blocks ── */
+
+.help-block {
+  margin-top: 40px;
+}
+
+.help-block h2 {
+  margin: 0 0 16px;
+  font-size: 1.3rem;
+}
+
+.help-block-ruled {
+  padding-top: 36px;
+  border-top: 1px solid var(--line);
+}
+
+.help-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--help-accent);
+  font-size: 0.92rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.help-more:hover {
+  text-decoration: underline;
+}
+
+/* ── Quick start ── */
+
+.help-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.help-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  text-decoration: none;
+}
+
+.help-tile strong {
+  margin-top: 10px;
   font-weight: 700;
 }
 
-.help-section-blurb {
-  margin: 4px 0 0;
-  max-width: 620px;
+.help-tile > span:last-child {
   color: var(--muted);
   font-size: 0.9rem;
+  line-height: 1.45;
 }
 
-.help-card-list {
+.help-tile-icon {
   display: grid;
-  gap: 12px;
-  margin-top: 14px;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  color: var(--help-accent);
+  background: color-mix(in srgb, var(--help-accent) 10%, transparent);
 }
 
-.help-card {
+/* ── Topics, guide cards and the closing card share one card look ── */
+
+.help-topics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.help-topic,
+.help-card,
+.help-contact {
   display: grid;
   grid-template-columns: 46px minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 15px 18px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
   text-decoration: none;
 }
 
+.help-tile:hover,
+.help-tile:focus-visible,
+.help-topic:hover,
+.help-topic:focus-visible,
 .help-card:hover,
 .help-card:focus-visible {
-  border-color: color-mix(in srgb, var(--control-primary-button, var(--blue)) 45%, var(--line));
+  border-color: color-mix(in srgb, var(--help-accent) 45%, var(--line));
   background: var(--surface-raised);
   outline: 0;
 }
@@ -352,9 +566,9 @@
   place-items: center;
   width: 46px;
   height: 46px;
-  border-radius: 8px;
-  color: var(--control-primary-button, var(--blue));
-  background: color-mix(in srgb, var(--control-primary-button, var(--blue)) 10%, transparent);
+  border-radius: 10px;
+  color: var(--help-accent);
+  background: color-mix(in srgb, var(--help-accent) 10%, transparent);
 }
 
 .help-card-copy {
@@ -368,7 +582,7 @@
   font-weight: 700;
 }
 
-.help-card-copy span {
+.help-card-copy > span {
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.5;
@@ -376,6 +590,167 @@
 
 .help-card-arrow {
   color: var(--muted);
+}
+
+.help-admin-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 20%, transparent);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 650;
+  vertical-align: 2px;
+}
+
+/* ── FAQ ── */
+
+.help-faq {
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.help-faq-item + .help-faq-item {
+  border-top: 1px solid var(--line);
+}
+
+.help-faq-question {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.help-faq-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.help-faq-toggle span {
+  flex: 1;
+}
+
+.help-faq-toggle svg {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.help-faq-item.is-open .help-faq-toggle {
+  font-weight: 650;
+}
+
+.help-faq-item.is-open .help-faq-toggle svg {
+  transform: rotate(180deg);
+}
+
+.help-faq-answer.guide-body {
+  margin: 0;
+  padding: 0 0 16px;
+  color: var(--muted);
+}
+
+.help-faq-answer p {
+  margin: 0 0 8px;
+}
+
+.help-faq-answer a {
+  color: var(--help-accent);
+  font-weight: 650;
+}
+
+/* ── Still need help? ── */
+
+.help-contact {
+  margin-top: 40px;
+}
+
+.help-contact-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ── /help/guides ── */
+
+.help-section {
+  margin-top: 30px;
+  scroll-margin-top: 18px;
+}
+
+.help-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.help-section-title svg {
+  color: var(--help-accent);
+}
+
+.help-card-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.help-card {
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .help-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 740px) {
+  .help-topics,
+  .help-card-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .help-tiles {
+    gap: 10px;
+  }
+
+  .help-tile {
+    padding: 16px 10px;
+  }
+
+  /* A phone has no slash key to press and no arrow keys to move with. */
+  .help-search-shortcut,
+  .help-search-keys {
+    display: none;
+  }
+
+  .help-contact {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .help-contact-button {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
 }
 
 /* ── Password ───────────────────────────────────────────────────── */
@@ -1363,6 +1738,11 @@
   margin: 0 0 8px;
   font-size: 1.9rem;
   line-height: 1.2;
+}
+
+/* Search results and FAQ answers open a guide at a heading; leave it some air. */
+.guide-body :is(h2, h3, h4) {
+  scroll-margin-top: 18px;
 }
 
 .guide-body h2 {
