@@ -607,8 +607,28 @@
     "quote": "Quote",
     "link": "Link"
   },
-  "tagInput": {
-    "placeholder": "Add a tag"
+  "tagEditor": {
+    "add": "Add a tag",
+    "remove": "Remove “{{tag}}”",
+    "searchPlaceholder": "Search or add a tag…",
+    "listLabel": "Tags",
+    "addNew": "Add “{{name}}” as a new tag",
+    "noneYet": "Type a tag to add the first one.",
+    "uses_one": "used once",
+    "uses_other": "used {{count}} times",
+    "onSome_one": "on {{count}} of {{total}}",
+    "onSome_other": "on {{count}} of {{total}}",
+    "removeFromAll": "Take “{{tag}}” off every selected item",
+    "keep": "Keep “{{tag}}”",
+    "dropAdded": "Don’t add “{{tag}}”",
+    "reading": "Reading the tags already on the selection…",
+    "unableToRead": "Unable to read the tags already on the selection",
+    "noneOnSelection": "None of the selected items has a tag yet.",
+    "pendingAdd_one": "{{count}} tag to add",
+    "pendingAdd_other": "{{count}} tags to add",
+    "pendingRemove_one": "{{count}} tag to take off",
+    "pendingRemove_other": "{{count}} tags to take off",
+    "bulkHint": "A tag you pick goes on every selected item; × takes a tag off all of them. Each item keeps its other tags."
   },
   "access": {
     "grantTitle": "Give access",

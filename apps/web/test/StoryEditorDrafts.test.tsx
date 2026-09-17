@@ -120,7 +120,7 @@ describe("StoryOverviewPane drafts", () => {
     const [tick, setTick] = useState(0);
     return (
       <>
-        <StoryOverviewPane key={current.id} story={current} busy={false} onPatch={() => {}} onTags={() => {}} />
+        <StoryOverviewPane key={current.id} story={current} busy={false} onPatch={() => {}} onTags={async () => true} />
         <button type="button" onClick={() => setCurrent(story({ updatedAt: "later" }))}>reload</button>
         <button type="button" onClick={() => setCurrent(second)}>other story</button>
         <button type="button" onClick={() => setTick(tick + 1)}>re-render {tick}</button>

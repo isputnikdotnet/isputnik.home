@@ -1,0 +1,248 @@
+/* ── Tags: TagEditor, BulkTagEditor and the SuggestBox under them ─────────────
+
+   One look for tagging anything, taken from the lightbox: pill chips with ×, a
+   round + at the end, and a search box whose list shows what is most used. It
+   paints with the theme tokens so it sits in any page or dialog; the lightbox
+   panel restates the tokens to its dark palette at the end of this file. */
+
+.tag-editor {
+  --tag-accent: var(--mint);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised, var(--surface));
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.tag-chip:not(:has(.tag-chip-remove)) { padding-right: 12px; }
+
+.tag-chip > span,
+.tag-chip > a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-chip > a { color: inherit; text-decoration: none; }
+.tag-chip > a:hover { color: var(--tag-accent); text-decoration: underline; }
+
+/* "on 3 of 12" — a tag only part of a selection wears. */
+.tag-chip-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+/* Marked to come off every selected item; the button beside it undoes that. */
+.tag-chip.is-removed {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tag-chip.is-removed > span:first-child { text-decoration: line-through; }
+
+/* About to go on every selected item. */
+.tag-chip.is-added {
+  padding-left: 9px;
+  border-color: color-mix(in srgb, var(--tag-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--tag-accent) 12%, transparent);
+}
+
+.tag-chip.is-added > svg { flex: none; color: var(--tag-accent); }
+
+.tag-chip-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tag-chip-remove:hover { background: var(--active); color: var(--ink); }
+
+.tag-chip-add {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tag-accent) 14%, transparent);
+  color: var(--tag-accent);
+  cursor: pointer;
+}
+
+.tag-chip-add:hover { background: color-mix(in srgb, var(--tag-accent) 26%, transparent); }
+
+.tag-editor-status {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+/* The search box, then what can be picked — avatar, name, a count — and
+   "Add … as new" last. */
+.suggest-box {
+  --tag-accent: var(--mint);
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tag-editor .suggest-box { --tag-accent: inherit; }
+
+.suggest-box-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.suggest-box-search:focus-within { border-color: var(--tag-accent); }
+.suggest-box-search > svg { flex: none; color: var(--muted); }
+
+.suggest-box-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 7px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  box-shadow: none;
+}
+
+.suggest-box-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.suggest-box-close:hover { background: var(--active); color: var(--ink); }
+
+.suggest-box-list {
+  display: grid;
+  gap: 1px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised, var(--surface));
+}
+
+.suggest-box-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 8px 4px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggest-box-row.is-active { background: color-mix(in srgb, var(--tag-accent) 18%, transparent); }
+.suggest-box-row:disabled { opacity: 0.6; cursor: default; }
+
+/* A person's round face; a tag's is its icon. */
+.suggest-box-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tag-accent) 30%, transparent);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.suggest-box-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.suggest-box-avatar.is-new { background: transparent; border: 1px dashed color-mix(in srgb, var(--tag-accent) 60%, transparent); color: var(--tag-accent); }
+.suggest-box-row.is-new .suggest-box-name { color: var(--tag-accent); }
+
+.suggest-box-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggest-box-detail {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.suggest-box-empty {
+  margin: 0;
+  padding: 2px 2px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* In the lightbox's Details panel: a dark sidebar over a dark stage whatever the
+   theme, so the tokens are restated to its palette, and the accent is its own. */
+.gallery-lightbox-info .tag-editor,
+.gallery-lightbox-info .suggest-box {
+  --tag-accent: var(--lb-accent);
+  --surface-raised: var(--lb-raised);
+  --field: rgba(255, 255, 255, 0.08);
+  --ink: #fff;
+  --muted: var(--lb-dim);
+  --line: var(--lb-line-2);
+  --active: rgba(255, 255, 255, 0.2);
+}
+
+/* The panel's own hairlines, as its people chips wear. */
+.gallery-lightbox-info .tag-chip { border-color: var(--lb-line); }
+.gallery-lightbox-info .suggest-box-list { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.14); }

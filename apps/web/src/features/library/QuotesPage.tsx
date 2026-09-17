@@ -14,7 +14,8 @@ import { relativeTime } from "../../shared/relativeTime";
 import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import i18n from "../../i18n";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
-import { PeopleCombobox } from "../../shared/PeopleCombobox";
+import { TagEditor } from "../../shared/tags/TagEditor";
+import type { TagSuggestion } from "../../shared/tags/useTagSuggestions";
 import type { Quote } from "../audiobooks/types";
 
 // In-reader quotes can be opened back at their spot; the deep link mirrors the
@@ -164,7 +165,7 @@ function QuoteEditor({
   busy: boolean;
   error: string;
   /** Categories already in use, so the house converges on a few rather than 50. */
-  knownTags: string[];
+  knownTags: TagSuggestion[];
   /** The family tree, for saying WHO said it. Empty on installs with no tree. */
   familyMembers: { id: string; name: string }[];
   onSave: (draft: QuoteDraft) => void;
@@ -316,11 +317,11 @@ function QuoteEditor({
 
         <div className="quote-field">
           <span>{t("user:quotes.tagsField")} <em>{t("user:form.optional")}</em></span>
-          <PeopleCombobox
-            value={draft.tags}
-            onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
+          <TagEditor
+            tags={draft.tags}
             suggestions={knownTags}
-            placeholder={t("user:quotes.tagsPlaceholder")}
+            onAdd={(tag) => setDraft((d) => ({ ...d, tags: [...d.tags, tag] }))}
+            onRemove={(tag) => setDraft((d) => ({ ...d, tags: d.tags.filter((other) => other !== tag) }))}
           />
         </div>
 
@@ -510,7 +511,7 @@ export function QuotesPage() {
   // Categories the server counted over the whole match, so a chip says how many
   // there are rather than how many happen to be loaded.
   const knownTags = useMemo(
-    () => categories.map((entry) => entry.name).sort((a, b) => a.localeCompare(b)),
+    () => categories.map((entry) => ({ name: entry.name, uses: entry.count })),
     [categories]
   );
   const offered = useMemo<QuoteFilter[]>(

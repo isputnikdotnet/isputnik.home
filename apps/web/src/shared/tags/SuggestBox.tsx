@@ -1,17 +1,23 @@
 import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Search, X } from "lucide-react";
-import { Button } from "../../shared/Button";
+import { Button } from "../Button";
 
-// A search box with a list under it, in the lightbox panel's dark palette: how the
-// Details tab adds a person (LightboxPeoplePicker) and a tag (LightboxTagPicker).
-// It replaced browser <datalist>s and a comma-separated text field.
+// A search box with a list under it: how a tag goes on anything (TagEditor,
+// BulkTagEditor) and how a person goes on a photo in the lightbox
+// (LightboxPeoplePicker). It replaced browser <datalist>s, a comma-separated text
+// field and a generic combobox, so every one of those reads the same way.
 //
 // The list works as Review mode's "Who is in it?" does (review/PeopleChips): the
 // most-used entries before anything is typed, then names starting with what was
 // typed ahead of names containing it, and a name nothing has yet offered as a new
 // one, last. ↑/↓ move, Enter picks; the first Escape clears, the second closes.
 // The box stays open after a pick, so a whole group goes on in one go.
+//
+// It paints with the theme tokens (--field, --line, --ink, --muted), so it sits in a
+// dialog as it is; the lightbox panel restates those tokens to its dark palette.
+// Without `onClose` the box is there for good — no close button, and an Escape on
+// an empty box is left to whatever it sits in (a dialog closes).
 
 export interface SuggestItem {
   id: string;
@@ -32,7 +38,7 @@ const MATCHES = 8;
 
 type Row = { kind: "item"; item: SuggestItem } | { kind: "new"; name: string };
 
-export function LightboxSuggestBox({
+export function SuggestBox({
   items,
   takenNames,
   busy,
@@ -42,22 +48,25 @@ export function LightboxSuggestBox({
   emptyHint,
   newLabel,
   onPick,
-  onClose
+  onClose,
+  autoFocus = true
 }: {
-  /** What can be picked — already without what is on the photo. */
+  /** What can be picked — already without what is on the thing. */
   items: SuggestItem[];
-  /** Names on the photo already; typing one is not offered as new. */
+  /** Names on the thing already; typing one is not offered as new. */
   takenNames: string[];
   busy: boolean;
   placeholder: string;
   ariaLabel: string;
   listLabel: string;
-  /** Under the box when there is nothing to offer yet — for a photo with nothing on it. */
+  /** Under the box when there is nothing to offer yet. */
   emptyHint?: string;
   newLabel: (name: string) => string;
   /** Resolves true when it went on, which clears the box for the next one. */
   onPick: (choice: SuggestChoice) => Promise<boolean>;
-  onClose: () => void;
+  /** Without it the box has no close button and never closes itself. */
+  onClose?: () => void;
+  autoFocus?: boolean;
 }) {
   const { t } = useTranslation(["common"]);
   const listId = useId();
@@ -89,8 +98,8 @@ export function LightboxSuggestBox({
   const rowId = (index: number) => `${listId}-${index}`;
 
   return (
-    <div className="lb-suggest">
-      <div className="lb-suggest-search">
+    <div className="suggest-box">
+      <div className="suggest-box-search">
         <Search size={15} aria-hidden="true" />
         <input
           value={query}
@@ -99,17 +108,18 @@ export function LightboxSuggestBox({
             if (event.key === "ArrowDown" && rows.length > 0) { event.preventDefault(); setActive((current + 1) % rows.length); }
             else if (event.key === "ArrowUp" && rows.length > 0) { event.preventDefault(); setActive((current - 1 + rows.length) % rows.length); }
             else if (event.key === "Enter") {
+              // Never the surrounding form's submit: Enter here means "this one".
               event.preventDefault();
               if (!busy && rows[current]) void choose(rows[current]);
-            } else if (event.key === "Escape") {
+            } else if (event.key === "Escape" && (query || onClose)) {
               event.stopPropagation();
-              if (query) setQuery(""); else onClose();
+              if (query) setQuery(""); else onClose?.();
             }
           }}
           placeholder={placeholder}
           maxLength={120}
           disabled={busy}
-          autoFocus
+          autoFocus={autoFocus}
           role="combobox"
           aria-label={ariaLabel}
           aria-expanded={rows.length > 0}
@@ -117,19 +127,21 @@ export function LightboxSuggestBox({
           aria-autocomplete="list"
           aria-activedescendant={rows.length > 0 ? rowId(current) : undefined}
         />
-        <Button
-          variant="bare"
-          className="lb-suggest-close"
-          onClick={onClose}
-          aria-label={t("common:common.close")}
-          title={t("common:common.close")}
-        >
-          <X size={14} aria-hidden="true" />
-        </Button>
+        {onClose && (
+          <Button
+            variant="bare"
+            className="suggest-box-close"
+            onClick={onClose}
+            aria-label={t("common:common.close")}
+            title={t("common:common.close")}
+          >
+            <X size={14} aria-hidden="true" />
+          </Button>
+        )}
       </div>
 
       {rows.length > 0 ? (
-        <div className="lb-suggest-list" id={listId} role="listbox" aria-label={listLabel}>
+        <div className="suggest-box-list" id={listId} role="listbox" aria-label={listLabel}>
           {rows.map((row, index) => (
             <Button
               key={row.kind === "item" ? row.item.id : "new"}
@@ -137,7 +149,7 @@ export function LightboxSuggestBox({
               variant="bare"
               role="option"
               aria-selected={index === current}
-              className={`lb-suggest-row${index === current ? " is-active" : ""}${row.kind === "new" ? " is-new" : ""}`}
+              className={`suggest-box-row${index === current ? " is-active" : ""}${row.kind === "new" ? " is-new" : ""}`}
               // Keep the caret in the box: the next one can be typed straight away.
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setActive(index)}
@@ -146,21 +158,21 @@ export function LightboxSuggestBox({
             >
               {row.kind === "item" ? (
                 <>
-                  <span className="lb-suggest-avatar" aria-hidden="true">{row.item.avatar}</span>
-                  <span className="lb-suggest-name">{row.item.name}</span>
-                  {row.item.detail && <small className="lb-suggest-detail">{row.item.detail}</small>}
+                  <span className="suggest-box-avatar" aria-hidden="true">{row.item.avatar}</span>
+                  <span className="suggest-box-name">{row.item.name}</span>
+                  {row.item.detail && <small className="suggest-box-detail">{row.item.detail}</small>}
                 </>
               ) : (
                 <>
-                  <span className="lb-suggest-avatar is-new" aria-hidden="true"><Plus size={14} /></span>
-                  <span className="lb-suggest-name">{newLabel(row.name)}</span>
+                  <span className="suggest-box-avatar is-new" aria-hidden="true"><Plus size={14} /></span>
+                  <span className="suggest-box-name">{newLabel(row.name)}</span>
                 </>
               )}
             </Button>
           ))}
         </div>
       ) : (
-        !trimmed && emptyHint && <p className="lb-suggest-empty">{emptyHint}</p>
+        !trimmed && emptyHint && <p className="suggest-box-empty">{emptyHint}</p>
       )}
     </div>
   );

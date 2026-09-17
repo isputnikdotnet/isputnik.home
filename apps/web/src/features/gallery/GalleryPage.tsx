@@ -1227,16 +1227,14 @@ export function GalleryPage({
       {bulkTagsOpen && (
         <GalleryTagsModal
           itemIds={[...selectedIds]}
-          suggestions={facets?.tags ?? []}
           onClose={() => setBulkTagsOpen(false)}
-          onApplied={(updated, forbidden, mode, tags) => {
+          onApplied={(updated, forbidden, change) => {
             setBulkTagsOpen(false);
             exitSelection();
             const parts = [
-              mode === "add"
-                ? t("gallery:bulk.taggedNotice", { count: updated, tags: tags.join(", ") })
-                : t("gallery:bulk.untaggedNotice", { count: updated, tags: tags.join(", ") })
-            ];
+              change.add.length > 0 ? t("gallery:bulk.taggedNotice", { count: updated, tags: change.add.join(", ") }) : null,
+              change.remove.length > 0 ? t("gallery:bulk.untaggedNotice", { count: updated, tags: change.remove.join(", ") }) : null
+            ].filter((part): part is string => part !== null);
             if (forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: forbidden }));
             setNotice(`${parts.join(" · ")}.`);
             refreshView();

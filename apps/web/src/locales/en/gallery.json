@@ -151,13 +151,6 @@
     "tabFile": "File",
     "edit": "Edit",
     "labelAdded": "Added",
-    "addTagButton": "Add a tag",
-    "tagSearchPlaceholder": "Search or add a tag…",
-    "addNewTag": "Add “{{name}}” as a new tag",
-    "tagsNoneYet": "Type a tag to add the first one.",
-    "tagUses_one": "used once",
-    "tagUses_other": "used {{count}} times",
-    "removeTagAria": "Remove the tag {{tag}}",
     "notePlaceholder": "Say something about this photo",
     "noLocation": "No place is marked on this one.",
     "placeNamesCredit": "Place names from <lnk>GeoNames</lnk>",
@@ -746,11 +739,6 @@
     "keptTitle": "The current file is kept",
     "keptBody": "It moves into a \"replaced\" folder beside the Recycle Bin rather than being overwritten, so a wrong file can be put back by hand.",
     "hint": "It has to be the same kind — a photo for a photo, a video for a video. The date this item shows stays as it is, even if the new file has a different one."
-  },
-  "setTags": {
-    "add": "Add tags",
-    "edit": "Edit tags",
-    "saving": "Saving…"
   },
   "inbox": {
     "title": "Photo Inbox",

@@ -7,7 +7,8 @@ import { Button } from "../../shared/Button";
 import { InlineEdit } from "../../shared/InlineEdit";
 import { MessageBox } from "../../shared/MessageBox";
 import { SelectField } from "../../shared/SelectField";
-import { PeopleCombobox } from "../../shared/PeopleCombobox";
+import { TagEditor } from "../../shared/tags/TagEditor";
+import { useTagSuggestions } from "../../shared/tags/useTagSuggestions";
 import { SuggestInput } from "../../shared/SuggestInput";
 import { StoryCoverBanner } from "./StoryCoverBanner";
 import { StoryMap } from "./StoryMap";
@@ -31,7 +32,8 @@ export function StoryOverviewPane({
   story: StoryDetail;
   busy: boolean;
   onPatch: (fields: Record<string, unknown>) => void;
-  onTags: (tags: string[]) => void;
+  /** Saves the story's whole set; resolves false when it didn't. */
+  onTags: (tags: string[]) => Promise<boolean>;
 }) {
   const { t } = useTranslation(["common", "stories"]);
   // Folds away like the chapter's own settings card, and opens itself for a
@@ -49,10 +51,8 @@ export function StoryOverviewPane({
   // The names this author has signed with before, their account name first.
   const [bylines, setBylines] = useState<string[]>([]);
   // The vocabulary other stories already use ("Minnesota"), so an author picks
-  // an existing tag instead of inventing a near-duplicate. Tags are
-  // cross-type, so this asks for the ones stories carry — offering every
-  // photo's and every book's tag as well is a list nobody can read.
-  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  // an existing tag instead of inventing a near-duplicate.
+  const tagSuggestions = useTagSuggestions("story");
   // Shelves this author may put the story on (plus wherever it already is).
   const [collections, setCollections] = useState<StoryCollectionSummary[]>([]);
 
@@ -66,11 +66,6 @@ export function StoryOverviewPane({
     api<{ bylines: string[] }>("/api/stories/bylines")
       .then((payload) => setBylines(payload.bylines))
       .catch(() => setBylines([]));
-    api<{ tags: { name: string; storyCount: number }[] }>("/api/library/tags")
-      .then((payload) => setTagSuggestions(
-        payload.tags.filter((tag) => tag.storyCount > 0).map((tag) => tag.name)
-      ))
-      .catch(() => setTagSuggestions([]));
     api<{ collections: StoryCollectionSummary[] }>("/api/stories/collections")
       .then((payload) => setCollections(payload.collections))
       .catch(() => setCollections([]));
@@ -303,12 +298,12 @@ export function StoryOverviewPane({
 
             <div className="field story-edit-setting story-edit-setting-wide">
               <span>{t("stories:tags.label")}</span>
-              <PeopleCombobox
-                value={story.tags}
-                onChange={onTags}
+              <TagEditor
+                tags={story.tags}
                 suggestions={tagSuggestions}
-                placeholder={t("stories:tags.placeholder")}
-                disabled={busy}
+                busy={busy}
+                onAdd={(tag) => onTags([...story.tags, tag])}
+                onRemove={(tag) => onTags(story.tags.filter((other) => other !== tag))}
               />
               <span className="muted">{t("stories:tags.hint")}</span>
             </div>

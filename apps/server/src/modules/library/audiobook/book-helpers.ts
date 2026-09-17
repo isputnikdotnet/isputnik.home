@@ -9,7 +9,7 @@ import { writeCoverImages } from "./scan/covers.js";
 import { writeMetadataExport } from "../shared/metadata.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { pathIsInside } from "../shared/storage-roots.js";
-import { setEntityTags, addEntityTags } from "../shared/tagging.js";
+import { setEntityTags, addEntityTags, removeEntityTags } from "../shared/tagging.js";
 import { type AudiobookBookRow, type BookFileRow } from "./types.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { downloadImage } from "../shared/remote-image.js";
@@ -397,7 +397,8 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
 
 // Bulk overwrite of shared metadata across many selected books. Only the fields
 // present in the payload are written; an absent field leaves each book untouched.
-// Tags replace the book's existing tags. Author/narrator accept a comma-separated
+// `tags` replaces the book's existing tags; `addTags` / `removeTags` (what the bulk
+// tag editor sends) change only the named ones, so each book keeps the rest. Author/narrator accept a comma-separated
 // list. Touched books are flipped to source='manual' like a single-book edit.
 export const bulkMetadataSchema = z.object({
   bookIds: z.array(z.string().trim().min(1)).min(1).max(1000),
@@ -406,10 +407,12 @@ export const bulkMetadataSchema = z.object({
   categoryKey: z.string().trim().min(1).max(64).optional(),
   language: z.string().trim().min(1).max(24).optional(),
   description: z.string().trim().max(20000).optional(),
-  tags: z.array(z.string().trim().min(1).max(120)).max(50).optional()
+  tags: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+  addTags: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+  removeTags: z.array(z.string().trim().min(1).max(120)).max(50).optional()
 });
 
-export const BULK_METADATA_FIELDS = ["authors", "narrators", "categoryKey", "language", "description", "tags"] as const;
+export const BULK_METADATA_FIELDS = ["authors", "narrators", "categoryKey", "language", "description", "tags", "addTags", "removeTags"] as const;
 
 export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMetadataSchema>): boolean {
   const current = getBookForMetadata(bookId);
@@ -446,6 +449,12 @@ export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMeta
     }
     if (patch.tags !== undefined) {
       setEntityTags("library_item", bookId, patch.tags);
+    }
+    if (patch.removeTags?.length) {
+      removeEntityTags("library_item", bookId, patch.removeTags);
+    }
+    if (patch.addTags?.length) {
+      addEntityTags("library_item", bookId, patch.addTags);
     }
   })();
 

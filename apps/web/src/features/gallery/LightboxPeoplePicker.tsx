@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { LightboxSuggestBox } from "./LightboxSuggestBox";
+import { SuggestBox } from "../../shared/tags/SuggestBox";
 import type { GalleryPerson, GalleryPersonTag } from "./types";
 
-// Tagging a person from the lightbox's Details tab (LightboxSuggestBox): each row
+// Tagging a person from the lightbox's Details tab (shared/tags/SuggestBox): each row
 // wears the person's face and photo count, so two Annas can be told apart.
 export function LightboxPeoplePicker({
   people,
@@ -33,7 +33,7 @@ export function LightboxPeoplePicker({
     }));
 
   return (
-    <LightboxSuggestBox
+    <SuggestBox
       items={items}
       takenNames={tagged.map((person) => person.name)}
       busy={busy}

@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Link2, Pencil, RotateCcw, Save, Search, Upload } from "lucide-react";
 import { api } from "../../api";
 import { PeopleCombobox } from "../../shared/PeopleCombobox";
+import { TagEditor } from "../../shared/tags/TagEditor";
+import { useTagSuggestions } from "../../shared/tags/useTagSuggestions";
 import { SuggestInput } from "../../shared/SuggestInput";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
@@ -114,7 +116,8 @@ export function EditMetadataModal({
   const [hiddenCoverUrls, setHiddenCoverUrls] = useState<Set<string>>(new Set());
   const [libraryPeople, setLibraryPeople] = useState<string[]>([]);
   const [librarySeries, setLibrarySeries] = useState<string[]>([]);
-  const [libraryTags, setLibraryTags] = useState<string[]>([]);
+  // Tags books already wear — audiobooks and ebooks share one vocabulary.
+  const bookTags = useTagSuggestions(["audiobook", "ebook"]);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   // Seeded from the book on open. It deliberately does NOT follow `book`: the
   // hosts hand a new object down on every refresh (a scan poll, a cover applied),
@@ -156,9 +159,6 @@ export function EditMetadataModal({
       .catch(() => {});
     api<{ categories: CategorySummary[] }>("/api/library/categories")
       .then((payload) => setCategories(payload.categories))
-      .catch(() => {});
-    api<{ tags: { name: string; count: number }[] }>("/api/library/tags")
-      .then((payload) => setLibraryTags(payload.tags.map((t) => t.name)))
       .catch(() => {});
   }, [book.libraryId]);
 
@@ -483,11 +483,12 @@ export function EditMetadataModal({
               <div className="metadata-edit-grid">
                 <div className="field metadata-field-wide">
                   <span>{t("book:metadata.fieldTags")}</span>
-                  <PeopleCombobox
-                    value={editForm.tags}
-                    onChange={(v) => setEditForm((form) => ({ ...form, tags: v }))}
-                    suggestions={libraryTags}
-                    placeholder={t("book:metadata.addTag")}
+                  <TagEditor
+                    tags={editForm.tags}
+                    suggestions={bookTags}
+                    alwaysOpen
+                    onAdd={(tag) => setEditForm((form) => ({ ...form, tags: [...form.tags, tag] }))}
+                    onRemove={(tag) => setEditForm((form) => ({ ...form, tags: form.tags.filter((other) => other !== tag) }))}
                   />
                 </div>
               </div>
