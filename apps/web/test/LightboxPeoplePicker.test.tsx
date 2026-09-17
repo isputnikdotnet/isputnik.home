@@ -26,7 +26,7 @@ function setup(tagged = [{ id: "p4", name: "Boris" }]) {
     const list = screen.queryByRole("listbox");
     if (!list) return [];
     return within(list).getAllByRole("option").map((row) =>
-      [...row.querySelectorAll(".lb-suggest-name, .lb-suggest-detail")].map((part) => part.textContent).join(""));
+      [...row.querySelectorAll(".suggest-box-name, .suggest-box-detail")].map((part) => part.textContent).join(""));
   };
   return { onPick, onClose, names };
 }

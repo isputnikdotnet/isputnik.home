@@ -7,7 +7,8 @@ import { MarkdownEditor } from "../../shared/MarkdownEditor";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { PartialDateInput } from "../../shared/PartialDateInput";
-import { PeopleCombobox } from "../../shared/PeopleCombobox";
+import { TagEditor } from "../../shared/tags/TagEditor";
+import type { TagSuggestion } from "../../shared/tags/useTagSuggestions";
 import { PlaceField, type PlacePin } from "../../shared/PlaceField";
 import { SelectField } from "../../shared/SelectField";
 import { loadFamilyPlaces } from "./familyPlaces";
@@ -61,7 +62,7 @@ export function PersonEditModal({
   const [deathPin, setDeathPin] = useState<PlacePin | null>(person?.deathPin ?? null);
   const [bio, setBio] = useState(person?.bio ?? "");
   const [tags, setTags] = useState<string[]>(person?.tags ?? []);
-  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<TagSuggestion[]>([]);
   const [activeTab, setActiveTab] = useState<"details" | "notes" | "tags">("details");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +70,7 @@ export function PersonEditModal({
   useEffect(() => {
     if (!showTags) return;
     api<{ tags: FamilyTag[] }>("/api/family-tree/tags")
-      .then((payload) => setTagSuggestions(payload.tags.map((t) => t.name)))
+      .then((payload) => setTagSuggestions(payload.tags.map((tag) => ({ name: tag.name, uses: tag.count }))))
       .catch(() => {});
   }, [showTags]);
 
@@ -309,11 +310,12 @@ export function PersonEditModal({
       {activeTab === "tags" && showTags && (
         <div className="field">
           <span>{t("family:person.meta.familyTags")}</span>
-          <PeopleCombobox
-            value={tags}
-            onChange={setTags}
+          <TagEditor
+            tags={tags}
             suggestions={tagSuggestions}
-            placeholder={t("family:personEdit.tagsPlaceholder")}
+            alwaysOpen
+            onAdd={(tag) => setTags((current) => [...current, tag])}
+            onRemove={(tag) => setTags((current) => current.filter((other) => other !== tag))}
           />
           <small className="ft-modal-hint">{t("family:personEdit.tagsHint")}</small>
         </div>

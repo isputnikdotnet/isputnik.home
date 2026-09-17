@@ -635,8 +635,36 @@
     "quote": "Цитата",
     "link": "Ссылка"
   },
-  "tagInput": {
-    "placeholder": "Добавить тег"
+  "tagEditor": {
+    "add": "Добавить тег",
+    "remove": "Убрать «{{tag}}»",
+    "searchPlaceholder": "Найдите или добавьте тег…",
+    "listLabel": "Теги",
+    "addNew": "Добавить новый тег «{{name}}»",
+    "noneYet": "Введите тег, чтобы добавить первый.",
+    "uses_one": "используется {{count}} раз",
+    "uses_few": "используется {{count}} раза",
+    "uses_many": "используется {{count}} раз",
+    "uses_other": "используется {{count}} раза",
+    "onSome_one": "у {{count}} из {{total}}",
+    "onSome_few": "у {{count}} из {{total}}",
+    "onSome_many": "у {{count}} из {{total}}",
+    "onSome_other": "у {{count}} из {{total}}",
+    "removeFromAll": "Убрать «{{tag}}» у всех выбранных",
+    "keep": "Оставить «{{tag}}»",
+    "dropAdded": "Не добавлять «{{tag}}»",
+    "reading": "Читаем теги выбранных элементов…",
+    "unableToRead": "Не удалось прочитать теги выбранных элементов",
+    "noneOnSelection": "Ни у одного из выбранных элементов пока нет тегов.",
+    "pendingAdd_one": "{{count}} тег будет добавлен",
+    "pendingAdd_few": "{{count}} тега будут добавлены",
+    "pendingAdd_many": "{{count}} тегов будут добавлены",
+    "pendingAdd_other": "{{count}} тега будут добавлены",
+    "pendingRemove_one": "{{count}} тег будет убран",
+    "pendingRemove_few": "{{count}} тега будут убраны",
+    "pendingRemove_many": "{{count}} тегов будут убраны",
+    "pendingRemove_other": "{{count}} тега будут убраны",
+    "bulkHint": "Выбранный тег добавится ко всем выбранным элементам; × уберёт тег у всех. Остальные теги каждого элемента останутся."
   },
   "access": {
     "grantTitle": "Выдать доступ",

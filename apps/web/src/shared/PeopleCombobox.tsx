@@ -4,9 +4,8 @@ import { useTranslation } from "react-i18next";
 
 // Multi-select chip input with type-ahead suggestions: chips and the box that
 // adds them share one field, and the matches drop under it as you type, with
-// "Add …" for a value nobody has used yet. Every place a set of names or tags
-// is edited wears this — book authors, narrators and tags, a person's tags,
-// a quote's, a story's — so they all behave the same way.
+// "Add …" for a value nobody has used yet. Book authors and narrators wear this.
+// Tags do not: they have their own shared editor (shared/tags/TagEditor).
 export function PeopleCombobox({
   value,
   onChange,

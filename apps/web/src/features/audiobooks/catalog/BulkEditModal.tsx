@@ -5,25 +5,26 @@ import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { PeopleCombobox } from "../../../shared/PeopleCombobox";
+import { BulkTagEditor, NO_TAG_CHANGE, type BulkTagChange } from "../../../shared/tags/BulkTagEditor";
+import { useTagSuggestions } from "../../../shared/tags/useTagSuggestions";
 import { SelectField } from "../../../shared/SelectField";
 import type { CategorySummary } from "../types";
 
 // Bulk-edit dialog: overwrite shared metadata across the selected books. Any
-// field left blank is skipped (keeps each book's existing value); Tags replace
-// the existing tags on every selected book.
+// field left blank is skipped (keeps each book's existing value). Tags are the
+// shared BulkTagEditor: added to or taken off every selected book, nothing else
+// about a book's tags changes.
 export function BulkEditModal({
-  count,
+  bookIds,
   categories,
   peopleSuggestions,
-  tagSuggestions,
   showNarrator = true,
   onClose,
   onSubmit
 }: {
-  count: number;
+  bookIds: string[];
   categories: CategorySummary[];
   peopleSuggestions: string[];
-  tagSuggestions: string[];
   // Audiobooks edit narrators; ebooks have none, so that field is hidden there.
   showNarrator?: boolean;
   onClose: () => void;
@@ -34,7 +35,9 @@ export function BulkEditModal({
   const [narrators, setNarrators] = useState<string[]>([]);
   const [categoryKey, setCategoryKey] = useState("");
   const [language, setLanguage] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [tagChange, setTagChange] = useState<BulkTagChange>(NO_TAG_CHANGE);
+  const tagSuggestions = useTagSuggestions(["audiobook", "ebook"]);
+  const count = bookIds.length;
   const [description, setDescription] = useState("");
   const [tab, setTab] = useState<"details" | "tags">("details");
   const [saving, setSaving] = useState(false);
@@ -47,7 +50,8 @@ export function BulkEditModal({
     if (narrators.length) payload.narrators = narrators;
     if (categoryKey) payload.categoryKey = categoryKey;
     if (language.trim()) payload.language = language.trim();
-    if (tags.length) payload.tags = tags;
+    if (tagChange.add.length) payload.addTags = tagChange.add;
+    if (tagChange.remove.length) payload.removeTags = tagChange.remove;
     if (description.trim()) payload.description = description.trim();
 
     if (Object.keys(payload).length === 0) {
@@ -123,11 +127,7 @@ export function BulkEditModal({
           )}
           {tab === "tags" && (
             <div className="bulk-tags-tab">
-              <div className="field">
-                <span>{t("book:metadata.fieldTags")}</span>
-                <PeopleCombobox value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t("book:metadata.addTag")} />
-              </div>
-              <p className="muted bulk-tags-note">{t("book:catalog.bulkTagsNote")}</p>
+              <BulkTagEditor itemIds={bookIds} suggestions={tagSuggestions} value={tagChange} onChange={setTagChange} busy={saving} />
             </div>
           )}
         </div>

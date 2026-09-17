@@ -194,7 +194,7 @@ export function StoryEditorPage({
             story={story}
             busy={busy}
             onPatch={(fields) => void editor.patchStory(fields)}
-            onTags={(tags) => void editor.setTags(tags)}
+            onTags={editor.setTags}
           />
         )}
 

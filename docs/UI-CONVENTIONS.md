@@ -315,6 +315,23 @@ Error message copy: say what failed and keep the server message when it's useful
 
 ---
 
+### Tags — `shared/tags/`
+
+Tags on anything are edited one way: `TagEditor` for one thing (a photo, book,
+story, album, slideshow, quote, family-tree person), `BulkTagEditor` for a
+selection (Gallery and the book catalogs). Chips with ×, a round + that opens
+`SuggestBox` (most-used first, "Add … as a new tag"), or `alwaysOpen` on a tab or
+dialog that is only about tags. The bulk editor opens on the tags the selection
+already wears ("on 3 of 12", from `POST /api/library/items/tags/current`) and
+produces `{ add, remove }` — never a replace. Suggestions come from
+`useTagSuggestions(scope)`, scoped to the kinds of thing being tagged.
+
+Never hand-roll a tag field (a `<datalist>`, comma-separated text, or
+`PeopleCombobox`, which is for authors and narrators). The editors paint with the
+theme tokens; the lightbox panel restates them in `components/tag-editor.css`.
+Family-tree branch access (`BulkTagPeopleModal`) is not tagging and keeps its own
+dialog.
+
 ### Maps — `shared/mapTiles.ts`
 
 Every Leaflet map draws on the same base layer, and it is declared once:

@@ -10,7 +10,8 @@ import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { PlacePicker, type PlacePin } from "./review/PlacePicker";
 import { VoiceNotes } from "./VoiceNotes";
 import { LightboxPeoplePicker } from "./LightboxPeoplePicker";
-import { LightboxTagPicker } from "./LightboxTagPicker";
+import { TagEditor } from "../../shared/tags/TagEditor";
+import { useTagSuggestions } from "../../shared/tags/useTagSuggestions";
 import { RecordVoiceNoteModal } from "./RecordVoiceNoteModal";
 import { ReviewNoteModal } from "./review/ReviewNoteModal";
 import { recordingSupported } from "../../shared/audio/wave";
@@ -118,7 +119,9 @@ export function GalleryLightboxPanel({
   const [tags, setTags] = useState<string[]>(asset.tags);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => setTags(asset.tags), [asset.id]);
-  const [addingTag, setAddingTag] = useState(false);
+  // Whether the last edit came from the Tags section, so its error shows there.
+  const [taggedLast, setTaggedLast] = useState(false);
+  const tagSuggestions = useTagSuggestions("gallery", canEdit);
   // "What do you remember?": Review mode's note dialog, or the recorder.
   const [memoryDialog, setMemoryDialog] = useState<"note" | "recording" | null>(null);
   const [editError, setEditError] = useState("");
@@ -138,7 +141,7 @@ export function GalleryLightboxPanel({
   const [personError, setPersonError] = useState("");
 
   // Moving to another asset abandons any in-progress edit.
-  useEffect(() => { setEditingField(null); setEditError(""); setMemoryDialog(null); setAddingTag(false); }, [asset.id]);
+  useEffect(() => { setEditingField(null); setEditError(""); setMemoryDialog(null); setTaggedLast(false); }, [asset.id]);
 
   // Load the current asset's people (from the detail endpoint when the row lacks them).
   useEffect(() => {
@@ -172,6 +175,7 @@ export function GalleryLightboxPanel({
 
   const startEdit = (field: EditableField) => {
     setEditError("");
+    setTaggedLast(false);
     setEditingField(field);
     // Reopening the editor starts from the asset's own point, with no leftover
     // search result naming or recentring it.
@@ -256,13 +260,17 @@ export function GalleryLightboxPanel({
 
   // A tag from the picker joins the chips; a known tag typed in another case keeps
   // the photo's own spelling rather than adding a second chip.
-  const addTag = (tag: string) =>
-    tags.some((other) => other.toLowerCase() === tag.toLowerCase())
+  const addTag = (tag: string) => {
+    setTaggedLast(true);
+    return tags.some((other) => other.toLowerCase() === tag.toLowerCase())
       ? Promise.resolve(true)
       : patch({ tags: [...tags, tag] }, t("gallery:lightbox.errors.saveChanges"));
+  };
 
-  const removeTag = (tag: string) =>
-    patch({ tags: tags.filter((other) => other !== tag) }, t("gallery:lightbox.errors.saveChanges"));
+  const removeTag = (tag: string) => {
+    setTaggedLast(true);
+    return patch({ tags: tags.filter((other) => other !== tag) }, t("gallery:lightbox.errors.saveChanges"));
+  };
 
   // Tag a person: one picked from the list, or a typed name — which links an existing
   // person of that name (case-insensitive) and otherwise creates one. The API returns
@@ -532,40 +540,15 @@ export function GalleryLightboxPanel({
           {(tags.length > 0 || canEdit) && (
             <section className="lb-sec">
               <div className="lb-sec-h"><Tag size={18} aria-hidden="true" /><h3>{t("gallery:lightbox.labelTags")}</h3></div>
-              <div className="lb-chips">
-                {tags.map((tag) => (
-                  <span key={tag} className="lb-chip is-tag">
-                    {tag}
-                    {canEdit && (
-                      <Button
-                        variant="bare"
-                        className="lb-chip-remove"
-                        onClick={() => void removeTag(tag)}
-                        disabled={editBusy}
-                        aria-label={t("gallery:lightbox.removeTagAria", { tag })}
-                        title={t("gallery:lightbox.removeTagAria", { tag })}
-                      >
-                        <X size={12} aria-hidden="true" />
-                      </Button>
-                    )}
-                  </span>
-                ))}
-                {canEdit && !addingTag && (
-                  <Button variant="chip" className="lb-chip-add" onClick={() => { setEditError(""); setAddingTag(true); }} aria-label={t("gallery:lightbox.addTagButton")} title={t("gallery:lightbox.addTagButton")}>
-                    <Plus size={16} aria-hidden="true" />
-                  </Button>
-                )}
-              </div>
-              {canEdit && addingTag && (
-                <LightboxTagPicker
-                  key={asset.id}
-                  tags={tags}
-                  busy={editBusy}
-                  onPick={addTag}
-                  onClose={() => { setAddingTag(false); setEditError(""); }}
-                />
-              )}
-              {addingTag && editError && <span className="gallery-info-error">{editError}</span>}
+              <TagEditor
+                key={asset.id}
+                tags={tags}
+                suggestions={tagSuggestions}
+                busy={editBusy}
+                onAdd={canEdit ? addTag : undefined}
+                onRemove={canEdit ? removeTag : undefined}
+              />
+              {taggedLast && editError && <span className="gallery-info-error">{editError}</span>}
             </section>
           )}
 
@@ -604,7 +587,7 @@ export function GalleryLightboxPanel({
                   )}
                 </div>
               )}
-              {editingField === null && !addingTag && editError && <span className="gallery-info-error">{editError}</span>}
+              {editingField === null && !taggedLast && editError && <span className="gallery-info-error">{editError}</span>}
               <VoiceNotes
                 assetId={asset.id}
                 notes={voiceNotes ?? []}

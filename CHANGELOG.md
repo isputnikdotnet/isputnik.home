@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.16.0 — One way to tag anything
+
+- **Tags are edited the same way everywhere.** A photo in the lightbox, an album or slideshow, a story, a book, a quote and a person in the family tree each had their own tag field — a chip list, a comma box, a plain suggestion list — and each behaved a little differently. They all now work like the lightbox: the tags as chips with ×, a round **+** that opens a search box, the most-used tags listed first with how often they are used, and **Add … as a new tag** for one nobody has used yet.
+- **Tagging a selection shows the tags it already has.** Choosing **Add or remove tags** for photos picked in the Gallery used to open an empty box with an Add/Remove switch, so taking a tag off meant remembering its exact spelling. The dialog now lists every tag on the selected photos — "on 4 of 5" when only some of them wear it. **×** takes a tag off all of them, a tag you pick goes on all of them, and nothing is saved until **Apply**.
+- **Bulk-editing books no longer wipes their tags.** The **Tags** tab of **Edit** for a selection of audiobooks or ebooks replaced every selected book's tags with whatever was typed, so adding one tag to ten books erased everything else they carried. It is now the same editor as the Gallery's: it shows the tags the books already have, and adds or removes only the ones you choose.
+- **Albums and slideshows save a tag as soon as it is added or removed.** There is no separate **Edit tags** step and **Save** button any more, and each tag still links to everything else that wears it.
+
 ## 4.15.2 — Two people with one name stay two people
 
 - **The person filter on Logs picks an account, not a name.** It matched on display names, so two members called the same thing showed up as one person, each with the other's sign-ins and changes. Choosing a person now shows only that account's rows; the filter still lists people by name.

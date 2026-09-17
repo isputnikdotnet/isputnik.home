@@ -72,6 +72,24 @@ export function addEntityTags(entityType: string, entityId: string, displayNames
   }
 }
 
+// What the shared bulk tag editor opens on: every tag a selection of library items
+// already carries and on how many of them — "Crete 2019" on all 40, "beach" on 12 —
+// so one can be taken off the whole selection. `items` counts the ids that are live
+// library items; anything else (a deleted item, a stray id) counts for nothing.
+export function itemTagCounts(itemIds: string[]): { items: number; tags: { name: string; count: number }[] } {
+  if (itemIds.length === 0) return { items: 0, tags: [] };
+  const ids = (db.prepare(
+    `SELECT id FROM library_items WHERE deleted_at IS NULL AND id IN (${itemIds.map(() => "?").join(", ")})`
+  ).all(...itemIds) as { id: LibraryItemRow["id"] }[]).map((row) => row.id);
+  const counts = new Map<string, number>();
+  for (const names of entityTagsByIds("library_item", ids).values()) {
+    for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  const tags = [...counts].map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  return { items: ids.length, tags };
+}
+
 // Detach tags from an entity, leaving the rest of its tags (and the tag rows
 // themselves — an unused tag is pruned by the manage screen, not here) alone.
 // Matches on the normalized key, so "Family Trip" removes "family trip".

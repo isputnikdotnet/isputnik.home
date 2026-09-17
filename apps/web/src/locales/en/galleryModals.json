@@ -80,19 +80,10 @@
     "hintEmpty": "Search above, or click the map to mark where these were taken."
   },
   "tags": {
-    "title": "Add or remove tags",
+    "title": "Tags",
     "appliesTo_one": "Applies to {{count}} selected item. Tags you set here survive the next scan.",
     "appliesTo_other": "Applies to {{count}} selected items. Tags you set here survive the next scan.",
-    "unableToUpdate": "Unable to tag the selected items",
-    "modeAria": "Add or remove tags",
-    "modeAdd": "Add tags",
-    "modeRemove": "Remove tags",
-    "inputSr": "Tag",
-    "placeholder": "Type a tag and press Enter",
-    "addHint": "Each item keeps the tags it already has — these are added on top.",
-    "removeHint": "Only these tags come off; the rest of each item’s tags stay.",
-    "suggestionsLabel": "In use:",
-    "removeChipTitle": "Remove “{{tag}}”"
+    "unableToUpdate": "Unable to tag the selected items"
   },
   "faceSettings": {
     "unnamed": "Unnamed",

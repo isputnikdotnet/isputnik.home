@@ -5,10 +5,13 @@
 // Gallery / Family tree filter) and the detail returns each type's matches.
 // Lives at the library level like the home feeds and the category browse.
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { db } from "../../db.js";
-import { normalizeText } from "./shared/tagging.js";
+import { itemTagCounts, normalizeText } from "./shared/tagging.js";
+import { parseBody } from "../../core/shared.js";
+import { mediaKind } from "./shared/library-types.js";
 import { bookLibraryIds, crossTypeBooksByFilter } from "./feed.js";
-import { accessibleLibraryIds } from "./shared/library-access.js";
+import { accessibleLibraryIds, canUserAccessBook, getLibraryForBook } from "./shared/library-access.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./gallery/catalog-asset.js";
 import { listFamilyPersonsByTag } from "../familytree/persons.js";
 import { listStories } from "../stories/list.js";
@@ -177,5 +180,26 @@ export function registerTagRoutes(app: FastifyInstance) {
         slideshows: listSlideshows(user, galleryIds).filter((show) => taggedIds.has(show.id))
       }
     });
+  });
+
+  // The tags a selection of library items already carries — any type, photos or
+  // books — and on how many of them. The shared bulk tag editor (web
+  // shared/tags/BulkTagEditor) lists these before anything is added or taken off.
+  // Only items the viewer can open are counted.
+  const currentSchema = z.object({
+    ids: z.array(z.string().trim().min(1).max(64)).min(1).max(1000)
+  });
+
+  app.post("/api/library/items/tags/current", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(currentSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid selection", details: parsed.error });
+    }
+    const user = request.user!;
+    const visible = parsed.data.ids.filter((id) => {
+      const lib = getLibraryForBook(id);
+      return !!lib && canUserAccessBook(id, lib, user.id, user.role, mediaKind(lib.type));
+    });
+    return reply.send(itemTagCounts(visible));
   });
 }

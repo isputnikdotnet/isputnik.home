@@ -508,10 +508,9 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
 
         {selection.bulkOpen && (
           <BulkEditModal
-            count={selection.selectedIds.size}
+            bookIds={[...selection.selectedIds]}
             categories={categories}
             peopleSuggestions={peopleSuggestions}
-            tagSuggestions={cat.facets.tags}
             showNarrator={config.narrators}
             onClose={() => selection.setBulkOpen(false)}
             onSubmit={selection.submitBulk}
