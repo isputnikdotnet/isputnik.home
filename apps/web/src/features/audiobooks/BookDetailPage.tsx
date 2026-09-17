@@ -848,14 +848,6 @@ function BookDetailView({
      *  there, and the people this app is for do not hover to find out. */
     showLabel?: boolean;
   };
-  // Listen/Read: on mobile these render as icons right after the back button;
-  // on desktop they stay as the big primary/secondary buttons under the cover.
-  const ctaActions: IconAction[] = isEbook
-    ? [{ key: "cta", icon: BookOpen, label: progressActionLabel, onClick: openPrimaryReader, disabled: !canReadPrimaryDoc, cta: true }]
-    : [
-        { key: "cta", icon: Play, label: progressActionLabel, onClick: openPlayer, cta: true },
-        ...(canReadPrimaryDoc ? [{ key: "read", icon: BookOpen as LucideIcon, label: t("book:detail.read"), onClick: openPrimaryReader, cta: true }] : [])
-      ];
   const collectionAction: IconAction = { key: "collection", icon: ListMusic, label: t("book:detail.addToCollection"), onClick: () => setAddToCollectionOpen(true) };
   const otherActions: IconAction[] = [
     ...(!isEbook && isStandalone() && capabilities.canDownload && book.files.some((f) => f.status === "available")
@@ -912,13 +904,13 @@ function BookDetailView({
         }]
       : [])
   ];
-  // Like + the CTA icon(s) + the overflow trigger (always shown on mobile —
-  // progress actions and Add to collection always live there) all take a slot
-  // in the 6-icon row, so whatever's left over shrinks with them.
-  const fixedSlots = 1 /* like */ + (isMobile ? ctaActions.length + 1 /* trigger */ : 0);
-  const rowCap = isMobile ? Math.max(0, 6 - fixedSlots) : otherActions.length;
-  const visibleIconActions = isMobile ? otherActions.slice(0, rowCap) : otherActions;
-  const overflowIconActions = isMobile ? otherActions.slice(rowCap) : [];
+  // On a phone the top bar is Back · Like · ⋮ and nothing else. Listening and
+  // reading became the big button under the title, where the one thing you came
+  // to do belongs, and a row of six unlabelled 36px icons — Save offline, Edit,
+  // Download, Send, Delete — said nothing at that size; they read as words in
+  // the menu instead. Desktop keeps the full row.
+  const visibleIconActions = isMobile ? [] : otherActions;
+  const overflowIconActions = isMobile ? otherActions : [];
 
   // Mobile-only overflow menu: progress actions, Add to collection (always), and
   // whatever else didn't fit in the row.
@@ -1011,7 +1003,6 @@ function BookDetailView({
         </Button>
         <span className="library-toolbar-divider" aria-hidden="true" />
         <div className="book-detail-secondary-actions" aria-label={t("book:detail.bookActions")}>
-          {isMobile && ctaActions.map(renderIconAction)}
           <Button
             variant="icon"
             className={cx(save?.saved && "on")}
@@ -1132,10 +1123,11 @@ function BookDetailView({
             </div>
           )}
           <div className="book-detail-actions">
-            {/* On mobile these move into the top bar's overflow menu (mobileMenuItems)
-                instead, to keep the page to one screen. */}
-            {!isMobile && (
-              <div className="book-detail-primary-actions">
+            {/* The page's one action, full width on a phone (responsive.css):
+                Play / Continue, plus Read when the book has a document too. The
+                progress ⋮ beside it stays desktop-only — on a phone those two
+                entries live in the top bar's menu. */}
+            <div className="book-detail-primary-actions">
                 {isEbook ? (
                   <Button
                     variant="primary"
@@ -1166,7 +1158,7 @@ function BookDetailView({
                     )}
                   </>
                 )}
-                {showProgressMenu && (
+                {showProgressMenu && !isMobile && (
                   <div className="book-progress-menu-wrap" ref={progressMenuRef}>
                     <Button
                       variant="bare"
@@ -1209,8 +1201,7 @@ function BookDetailView({
                     )}
                   </div>
                 )}
-              </div>
-            )}
+            </div>
             <div className="book-progress-inline" aria-label={progressTitle}>
               <Clock size={16} aria-hidden="true" />
               {episodic ? (
