@@ -141,8 +141,26 @@
   }
 
   .book-detail-head {
-    grid-template-columns: 1fr;
-    gap: 22px;
+    display: flex;
+    flex-direction: column;
+    /* The desktop grid sets align-items: start, which in a column flex box means
+       "as narrow as your content" — the words and the Play button came out at
+       246px of a 347px screen. */
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  /* The cover column dissolves, so its two children become items of the head
+     and can be ordered independently: cover, then the words, then the tags. */
+  .book-detail-cover-col {
+    display: contents;
+  }
+
+  .book-detail-head > .book-detail-info { order: 2; }
+
+  .book-detail-cover-col > .book-tags-under-cover {
+    order: 3;
+    justify-content: center;
   }
 
   .book-detail-topbar {
@@ -163,8 +181,83 @@
     padding: 8px;
   }
 
-  .book-detail-cover-col {
-    width: min(100%, 280px);
+  /* The cover is the page's picture, not its first screen: at 280px it filled
+     the phone top to bottom and pushed the title, the author and the one thing
+     you came to press below the fold. */
+  /* The column dissolves (display: contents below), so the cover itself
+     carries the width — a grid item with only an aspect-ratio collapses to
+     nothing once its parent stops being a grid. */
+  .book-detail-cover {
+    width: min(62%, 230px);
+    align-self: center;
+  }
+
+  .book-detail-cover {
+    box-shadow: 0 10px 22px var(--shadow);
+  }
+
+  /* Title · author · Play, then the details. The action block is written after
+     the meta grid (desktop reads cover, then facts, then button), so the phone
+     re-orders it rather than the markup carrying two copies. */
+  .book-detail-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .book-detail-title { order: 1; }
+  .book-detail-author { order: 2; }
+  .book-detail-actions { order: 3; }
+  .book-detail-meta-grid { order: 4; }
+  .book-detail-more-details { order: 5; }
+  .book-detail-info > .message-box { order: 6; }
+
+  .book-detail-actions {
+    margin-top: 16px;
+  }
+
+  /* One full-width button; a second (Read) shares the line with it. */
+  .book-detail-primary-actions {
+    width: 100%;
+  }
+
+  .book-detail-primary-actions .primary-button,
+  .book-detail-primary-actions .secondary-button {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  .book-detail-meta-grid {
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .book-progress-inline {
+    padding-bottom: 14px;
+    font-size: 0.85rem;
+  }
+
+  /* Editions: the Primary / Viewing flags drop under the title rather than
+     squeezing it, and Leave group stops being the biggest target in the row. */
+  .editions-switch-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 8px;
+  }
+
+  .editions-switch-main {
+    flex: 1 1 100%;
+  }
+
+  .editions-switch-side {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .editions-switch-side .icon-button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 6px;
   }
 
   .book-detail-meta-grid,
@@ -190,7 +283,7 @@
 
   .book-detail-primary-actions .primary-button,
   .book-detail-primary-actions .secondary-button {
-    flex: 1 1 160px;
+    flex: 1 1 140px;
   }
 
   .book-progress-inline {

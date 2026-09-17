@@ -2315,8 +2315,12 @@
    thumb is. The huge ring dims the page without a backdrop element of its own;
    a tap on it lands outside the menu, which is what closes it. */
 @media (max-width: 740px) {
+  .book-detail-menu,
   .book-detail-action-menu {
     position: fixed !important;
+    /* book-detail.css sets 12 on this menu and loads later, so the sheet has
+       to insist — page content was painting over it. */
+    z-index: var(--z-menu) !important;
     top: auto !important;
     right: 0 !important;
     bottom: 0 !important;
@@ -2331,6 +2335,8 @@
     animation: mobile-sheet-in 0.2s ease;
   }
 
+  .book-detail-menu > button,
+  .book-detail-menu > a,
   .book-detail-action-menu > button,
   .book-detail-action-menu > a,
   .book-detail-action-menu .audiobook-sort-group > button {
@@ -2338,6 +2344,7 @@
     font-size: 0.95rem;
   }
 
+  .book-detail-menu::before,
   .book-detail-action-menu::before {
     content: "";
     display: block;
