@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { BookOpen, Link2, Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
@@ -42,6 +42,13 @@ export function ProfilePage({
 }) {
   const { user } = useSession();
   const { t } = useTranslation();
+
+  // The tab row scrolls sideways on a phone, so the tab you are on has to be
+  // in the part of it you can see: landing on Devices otherwise showed a row
+  // reading Account / Security / Shared links with nothing marked.
+  useEffect(() => {
+    document.querySelector(".profile-tabs .profile-tab.active")?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [activeTab]);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
