@@ -63,25 +63,25 @@ export function DeliveryRow({
       <div className="inbox-actions">
         {card.canReview ? (
           <>
-            <a className="primary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
-              <Inbox size={16} aria-hidden />
-              <span>{t("user:forYou.review")}</span>
+            <a className="primary-button compact-button" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("user:forYou.review")} title={t("user:forYou.review")}>
+              <Inbox size={15} aria-hidden />
+              <span className="inbox-action-label">{t("user:forYou.review")}</span>
             </a>
-            <a className="secondary-button compact-button" href={reviewHref} onClick={(event) => followRoute(event, reviewHref)}>
-              <MessageSquareText size={16} aria-hidden />
-              <span>{t("user:forYou.oneAtATime")}</span>
+            <a className="secondary-button compact-button" href={reviewHref} onClick={(event) => followRoute(event, reviewHref)} aria-label={t("user:forYou.oneAtATime")} title={t("user:forYou.oneAtATime")}>
+              <MessageSquareText size={15} aria-hidden />
+              <span className="inbox-action-label">{t("user:forYou.oneAtATime")}</span>
             </a>
           </>
         ) : (
-          <a className="primary-button compact-button" href={reviewHref} onClick={(event) => followRoute(event, reviewHref)}>
-            <MessageSquareText size={16} aria-hidden />
-            <span>{t("user:social.addWhatYouKnow")}</span>
+          <a className="primary-button compact-button" href={reviewHref} onClick={(event) => followRoute(event, reviewHref)} aria-label={t("user:social.addWhatYouKnow")} title={t("user:social.addWhatYouKnow")}>
+            <MessageSquareText size={15} aria-hidden />
+            <span className="inbox-action-label">{t("user:social.addWhatYouKnow")}</span>
           </a>
         )}
         {onDismiss && (
-          <Button variant="secondary" compact disabled={busy} onClick={() => void onDismiss(card)} title={t("user:forYou.notNowTitle")}>
-            <X size={16} aria-hidden />
-            <span>{t("user:social.notNow")}</span>
+          <Button variant="secondary" compact disabled={busy} onClick={() => void onDismiss(card)} title={t("user:forYou.notNowTitle")} aria-label={t("user:social.notNow")}>
+            <X size={15} aria-hidden />
+            <span className="inbox-action-label">{t("user:social.notNow")}</span>
           </Button>
         )}
       </div>
