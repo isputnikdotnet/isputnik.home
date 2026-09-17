@@ -14,6 +14,8 @@ import { GalleryReplaceModal } from "./GalleryReplaceModal";
 import { GalleryLightboxPanel } from "./GalleryLightboxPanel";
 import { GalleryFaceOverlay } from "./GalleryFaceOverlay";
 import { useIsMobile } from "../../shared/useIsMobile";
+import { navigate } from "../../router";
+import { useGalleryLibraryAccess } from "./useGalleryLibraryAccess";
 import type { GalleryAsset, GalleryFace, GalleryPersonTag, SlideshowTransition } from "./types";
 import { formatTakenDate } from "./taken-date";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
@@ -73,8 +75,8 @@ export function GalleryLightbox({
   onIndexChange,
   onChanged,
   onOpenFolder,
-  canDelete,
-  canEdit,
+  canDelete: canDeleteOverride,
+  canEdit: canEditOverride,
   autoPlay = false,
   transition,
   transitionSeconds,
@@ -86,11 +88,15 @@ export function GalleryLightbox({
   onClose: () => void;
   onIndexChange: (next: number) => void;
   onChanged: (change: GalleryAssetChange) => void;
-  // When set, the Info panel's Folder entry becomes a link that closes the
-  // lightbox and opens that folder in the gallery's Folders view.
+  // The Info panel's Folder entry closes the lightbox and opens that folder.
+  // Absent → the gallery's Folders page at that folder; the gallery itself
+  // passes its own so it can stay on the page it already has loaded.
   onOpenFolder?: (folder: string) => void;
-  canDelete: boolean;
-  canEdit: boolean;
+  // What the viewer may do to the current photo. Absent → the photo's own
+  // library decides (useGalleryLibraryAccess), the same answer on every page;
+  // pass them only where a surface has its own rule (the Photo Inbox).
+  canDelete?: boolean;
+  canEdit?: boolean;
   // Start a slideshow immediately (opened via the gallery's Slideshow button).
   autoPlay?: boolean;
   // Presentation settings when previewing a saved slideshow: the transition style
@@ -108,6 +114,17 @@ export function GalleryLightbox({
 }) {
   const { t } = useTranslation(["common", "gallery"]);
   const asset = assets[index];
+  const library = useGalleryLibraryAccess(
+    asset?.libraryId,
+    canEditOverride === undefined || canDeleteOverride === undefined
+  );
+  const canEdit = canEditOverride ?? library?.canWrite ?? false;
+  const canDelete = canDeleteOverride ?? library?.canDelete ?? false;
+  const openFolder = onOpenFolder ?? ((folder: string) => {
+    const path = folder.split("/").filter(Boolean).map(encodeURIComponent).join("/");
+    onClose();
+    navigate(`/gallery/folders/${path}${asset ? `?library=${encodeURIComponent(asset.libraryId)}` : ""}`);
+  });
   const isMobile = useIsMobile();
   // The Info panel opens with the photo on desktop — details are part of viewing,
   // not an extra. A slideshow starts immersive, though: no side panel eating the
@@ -863,7 +880,7 @@ export function GalleryLightbox({
           asset={asset}
           canEdit={canEdit}
           onChanged={onChanged}
-          onOpenFolder={onOpenFolder}
+          onOpenFolder={openFolder}
           onClose={() => setShowInfo(false)}
           onRotate={canEdit && asset.kind !== "audio" ? (direction) => void rotate(direction) : undefined}
           rotateBusy={rotateBusy}

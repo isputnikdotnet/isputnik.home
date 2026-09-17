@@ -23,7 +23,7 @@ import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownlo
 import { isFoliateFormat } from "../shared/utils";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
-import type { GalleryAsset, GalleryLibrary, GalleryMemories } from "../features/gallery/types";
+import type { GalleryAsset, GalleryMemories } from "../features/gallery/types";
 import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 import { useSession } from "../app/SessionContext";
 
@@ -523,10 +523,6 @@ export function HomePage() {
     { items: GalleryAsset[]; index: number; source: PhotoSource } | null
   >(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
-  // Gallery libraries with their permission flags, so the memory lightbox can
-  // offer exactly what the Timeline offers (edit/rotate/delete/guest link).
-  // Fetched once, the first time the viewer opens.
-  const [galleryLibraries, setGalleryLibraries] = useState<GalleryLibrary[] | null>(null);
   const [busySent, setBusySent] = useState<string | null>(null);
   // The first few things waiting on this person, and how many there are in all.
   const [waiting, setWaiting] = useState<ForYouRow[]>([]);
@@ -619,20 +615,13 @@ export function HomePage() {
     }
   }, [memoryLoading]);
 
-  // Load the permission flags alongside the first viewer open. Until they
-  // land the viewer is read-only, which is also the safe answer on failure.
-  useEffect(() => {
-    if (!photoLightbox || galleryLibraries !== null) return;
-    api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries")
-      .then((payload) => setGalleryLibraries(payload.libraries))
-      .catch(() => setGalleryLibraries([]));
-  }, [photoLightbox, galleryLibraries]);
-
   // After the viewer changes something (a rotate, an edit, a delete), re-fetch
   // the day and find the photo we were on again — or the one that took its
   // place when it was the one deleted. The same job refreshView does on the
-  // gallery pages.
-  const refreshPhotoLightbox = useCallback(async (source: PhotoSource) => {
+  // gallery pages. An edit that moves the photo off this day (a corrected
+  // date) keeps it on screen where it was until the viewer closes, so
+  // reviewing a memory never snatches the photo away mid-edit.
+  const refreshPhotoLightbox = useCallback(async (source: PhotoSource, deletedId?: string) => {
     try {
       let items: GalleryAsset[];
       if (source.kind === "added") {
@@ -644,8 +633,12 @@ export function HomePage() {
       }
       setPhotoLightbox((current) => {
         if (!current) return current;
+        const currentItem = current.items[current.index];
+        if (currentItem && currentItem.id !== deletedId && !items.some((item) => item.id === currentItem.id)) {
+          items = [...items.slice(0, current.index), currentItem, ...items.slice(current.index)];
+        }
         if (items.length === 0) return null;
-        const currentId = current.items[current.index]?.id;
+        const currentId = currentItem?.id;
         const found = items.findIndex((item) => item.id === currentId);
         const index = found >= 0 ? found : Math.min(current.index, items.length - 1);
         return { items, index, source: current.source };
@@ -654,16 +647,6 @@ export function HomePage() {
       // Keep showing what we have; the next open refetches anyway.
     }
   }, []);
-
-  // The Details panel's folder line: close the viewer and land in the gallery's
-  // Folders view on that folder, the way the Timeline's viewer does. Segments
-  // are encoded one by one so names with #/% survive while slashes stay slashes.
-  const openMemoryFolder = useCallback((folder: string) => {
-    const asset = photoLightbox ? photoLightbox.items[photoLightbox.index] : null;
-    const path = folder.split("/").filter(Boolean).map(encodeURIComponent).join("/");
-    setPhotoLightbox(null);
-    navigate(`/gallery/folders/${path}${asset ? `?library=${encodeURIComponent(asset.libraryId)}` : ""}`);
-  }, [photoLightbox]);
 
   // Open an ebook in the inline reader. Works offline: the epub document id comes
   // from the live detail when the server is reachable, else from the saved
@@ -965,24 +948,17 @@ export function HomePage() {
       document.body
     )}
 
-    {photoLightbox && photoLightbox.items[photoLightbox.index] && (() => {
-      // Per-photo permissions, exactly as the gallery pages compute them.
-      const library = galleryLibraries?.find(
-        (candidate) => candidate.id === photoLightbox.items[photoLightbox.index].libraryId
-      );
-      return (
-        <GalleryLightbox
-          assets={photoLightbox.items}
-          index={photoLightbox.index}
-          canDelete={library?.canDelete ?? false}
-          canEdit={library?.canWrite ?? false}
-          onClose={() => setPhotoLightbox(null)}
-          onIndexChange={(next) => setPhotoLightbox((current) => (current ? { ...current, index: next } : current))}
-          onChanged={(change) => { if (change.kind !== "like") void refreshPhotoLightbox(photoLightbox.source); }}
-          onOpenFolder={openMemoryFolder}
-        />
-      );
-    })()}
+    {photoLightbox && photoLightbox.items[photoLightbox.index] && (
+      <GalleryLightbox
+        assets={photoLightbox.items}
+        index={photoLightbox.index}
+        onClose={() => setPhotoLightbox(null)}
+        onIndexChange={(next) => setPhotoLightbox((current) => (current ? { ...current, index: next } : current))}
+        onChanged={(change) => {
+          if (change.kind !== "like") void refreshPhotoLightbox(photoLightbox.source, change.kind === "deleted" ? change.id : undefined);
+        }}
+      />
+    )}
 
     {viewer && createPortal(
       <EbookReader

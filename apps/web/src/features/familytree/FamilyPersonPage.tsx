@@ -1148,8 +1148,6 @@ export function FamilyPersonPage({ id }: { id: string }) {
         <GalleryLightbox
           assets={lightbox.assets}
           index={lightbox.index}
-          canDelete={false}
-          canEdit={false}
           onClose={() => setLightbox(null)}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
           onChanged={(change) => { if (change.kind !== "like") refresh(); }}

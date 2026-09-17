@@ -396,13 +396,6 @@ export function GalleryPage({
           : lightbox?.source === "album" ? albumAssets
             : lightbox?.source === "slideshow" ? slideshowAssets : assets;
 
-  const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
-  const currentLibrary = lightbox != null && activeAssets[lightbox.index]
-    ? libraryFor(activeAssets[lightbox.index].libraryId)
-    : undefined;
-  const canDeleteCurrent = currentLibrary?.canDelete ?? false;
-  const canEditCurrent = currentLibrary?.canWrite ?? false;
-
   // The movie-target libraries are needed by the slideshow editor as well as the list,
   // and a deep link opens the editor without ever passing through the list — so load them
   // whenever the Slideshows view is active rather than only on the way in.
@@ -1106,8 +1099,6 @@ export function GalleryPage({
         <GalleryLightbox
           assets={activeAssets}
           index={lightbox.index}
-          canDelete={canDeleteCurrent}
-          canEdit={canEditCurrent}
           autoPlay={lightbox.autoPlay}
           transition={lightbox.source === "slideshow" ? selectedSlideshow?.transition : undefined}
           transitionSeconds={lightbox.source === "slideshow" ? selectedSlideshow?.transitionSeconds : undefined}

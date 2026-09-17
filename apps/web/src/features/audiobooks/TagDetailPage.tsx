@@ -229,11 +229,12 @@ export function TagDetailPage({
         <GalleryLightbox
           assets={tag.photos}
           index={lightboxIndex}
-          canDelete={false}
-          canEdit={false}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
-          onChanged={() => { /* read-only browse; counts refresh on next load */ }}
+          onChanged={(change) => {
+            if (change.kind !== "deleted") return;
+            setTag((current) => (current ? { ...current, photos: current.photos.filter((photo) => photo.id !== change.id) } : current));
+          }}
         />
       )}
     </DashboardShell>

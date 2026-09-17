@@ -116,8 +116,6 @@ export function FamilyPersonPhotosPage({
         <GalleryLightbox
           assets={photos}
           index={lightboxIndex}
-          canDelete={false}
-          canEdit={false}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
           onChanged={(change) => { if (change.kind !== "like") void loadPhotos(0); }}

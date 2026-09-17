@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.17.2",
+    "label": "The same photo viewer everywhere",
+    "changes": [
+      "**A photo opens the same way wherever you find it.** Opened from Home — Around this day or New photos — a tag, a family member, their photos or a story, the viewer used to offer only looking: no changing the date or place, naming people, tagging or adding notes. Now every one of those places offers what the Gallery offers, as far as your access to that photo’s library allows.",
+      "**A memory is a good place to review a photo, so the photo stays put while you do.** Correcting a photo’s date on Home moved it out of that day, and the viewer jumped to another photo mid-edit. It now stays on screen until you close the viewer.",
+      "**Opening a photo’s folder works from every viewer**, not only Home and the Gallery. Deleting a photo from a tag page takes it off the page straight away."
+    ]
+  },
+  {
     "version": "4.17.1",
     "label": "Help, pictured",
     "changes": [
