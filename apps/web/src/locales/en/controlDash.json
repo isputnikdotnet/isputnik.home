@@ -1,16 +1,14 @@
 {
   "dash": {
-    "viewSignIns": "Sign-ins",
-    "viewLocations": "Locations",
-    "viewActivity": "Activity",
-    "viewLibraries": "Libraries",
-    "viewTasks": "Tasks",
-    "viewSystem": "System",
-    "description": "Server health, and activity trends: sign-ins, uploads, downloads, deletes, and what's being read or played.",
+    "description": "Server health at a glance: uptime, memory, disk space, the database and the last backup.",
     "loadFailed": "Unable to load dashboard",
     "refreshFailed": "Unable to refresh dashboard",
     "errorTitle": "Dashboard error",
-    "viewsAria": "Dashboard views"
+    "activityDescription": "Trends over time: uploads, downloads, deletes, and what is being read, played or viewed.",
+    "libraryStatsDescription": "What each library holds: counts, formats, top authors and narrators, and size on disk.",
+    "tasksDescription": "Scans, backups and other background work: what is running, queued, finished or failed.",
+    "signInsDescription": "Who signed in, from where and on which devices, and the attempts that failed.",
+    "locationsDescription": "Where sign-ins came from, by country and town, on a map."
   },
   "bucket": {
     "byHour": "By hour",
@@ -366,7 +364,10 @@
     "revoking": "Revoking…",
     "revokeBodyDevice": "This signs {{person}} out on that device.",
     "revokeBodyNamed": "This signs {{person}} out on “{{name}}”.",
-    "revokeNote": "The account, its password, and its other sessions are not changed."
+    "revokeNote": "The account, its password, and its other sessions are not changed.",
+    "nextLogs": "Everything this address did, in Logs",
+    "nextBlock": "Block this address",
+    "nextPolicies": "Lockout and auto-block settings"
   },
   "system": {
     "members": "Members",
@@ -461,7 +462,9 @@
     "noneYet": "No finished tasks yet.",
     "statusCompleted": "completed",
     "statusFailed": "failed",
-    "showSkipped": "Show skipped items"
+    "showSkipped": "Show skipped items",
+    "openLibrary": "Open {{name}} in Libraries",
+    "openSchedule": "Scheduled jobs"
   },
   "dupes": {
     "status": {
@@ -806,6 +809,9 @@
     "replaceLargerBody1": "Every set on screen whose incoming copy is larger than the library's in both width and height is replaced. Sets where it is smaller, or the same file, are left for you.",
     "sweepButtonInbox_one": "Discard {{count}} identical copy",
     "sweepButtonInbox_other": "Discard {{count}} identical copies",
-    "badgeIncoming": "Incoming"
+    "badgeIncoming": "Incoming",
+    "followOnTasks": "Follow it on Tasks",
+    "seeRemovedInBin_one": "See the {{count}} copy it removed in the Recycle Bin",
+    "seeRemovedInBin_other": "See the {{count}} copies it removed in the Recycle Bin"
   }
 }

@@ -4,20 +4,17 @@ import { useState, useEffect, startTransition } from "react";
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
   // Overview
-  | "dashboard" | "logs"
+  | "dashboard" | "activity" | "libraryStats" | "logs"
   // Library
   | "libraries" | "storage" | "storageContents" | "categories" | "tags"
   // Members
   | "users" | "groups" | "invites"
   // Security
-  | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
+  | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
-  | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
-  | "duplicateCleanup" | "quotes"
-  // Maps
-  | "mapSetup"
+  | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   // Settings
-  | "appearance" | "email" | "notifications" | "storySettings" | "readerAccess" | "about";
+  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -26,6 +23,8 @@ export type ControlSection =
 // jump straight to a setting.
 export const CONTROL_PATHS: Record<ControlSection, string> = {
   dashboard: "/control/overview",
+  activity: "/control/overview/activity",
+  libraryStats: "/control/overview/statistics",
   logs: "/control/overview/logs",
 
   libraries: "/control/libraries",
@@ -39,27 +38,25 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   invites: "/control/members/invites",
 
   security: "/control/security",
+  signIns: "/control/security/sign-ins",
+  signInLocations: "/control/security/sign-in-locations",
   securityPolicies: "/control/security/policies",
   securityTrusted: "/control/security/trusted-networks",
   securityBlocked: "/control/security/blocked-ips",
 
-  backup: "/control/maintenance/backup",
+  tasks: "/control/maintenance/tasks",
   scheduledJobs: "/control/maintenance/scheduled-jobs",
+  backup: "/control/maintenance/backup",
   recycleBin: "/control/maintenance/recycle-bin",
-
-  // Gallery utilities: tools that work on a library rather than configuring one.
-  // One flat row of them, so one flat level of addresses.
-  duplicateCleanup: "/control/utilities/duplicate-cleanup",
-  missingPhotos: "/control/utilities/missing-photos",
-  quotes: "/control/utilities/quotes",
-
-  mapSetup: "/control/maps",
+  duplicateCleanup: "/control/maintenance/duplicate-cleanup",
+  missingPhotos: "/control/maintenance/missing-photos",
 
   appearance: "/control/settings",
+  quotes: "/control/settings/quotes",
+  mapSetup: "/control/settings/maps",
+  storySettings: "/control/settings/stories",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
-  storySettings: "/control/settings/stories",
-  readerAccess: "/control/settings/reader-access",
   about: "/control/settings/about"
 };
 
@@ -84,46 +81,36 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/database": "dashboard",
   "/control/maintenance/database": "dashboard",
   "/control/system/database": "dashboard",
+  "/control/system": "dashboard",
   // Dashboard briefly lived at its own sub-path before absorbing System (the
   // group's former landing tab) and taking over the group's root address.
   "/control/overview/dashboard": "dashboard",
 
-  // Routing was Settings › Maps before maps became a group of their own, and the
-  // group had Data and Routing tabs before each became a card on its one page
-  // (docs/map-approach-proposal.md); saved links still land on the cards.
-  "/control/settings/maps": "mapSetup",
-  "/control/maps/data": "mapSetup",
-  "/control/maps/routing": "mapSetup",
+  // The per-media-type stat pages became one Statistics page, then a Dashboard
+  // view, and a page of its own again when the Dashboard's views became tabs.
+  "/control/status/audiobook-stats": "libraryStats",
+  "/control/status/stats": "libraryStats",
+  "/control/status/ebook-stats": "libraryStats",
+  "/control/status/ebooks-stats": "libraryStats",
+  "/control/status/gallery-stats": "libraryStats",
+  "/control/status/galleries-stats": "libraryStats",
+  "/control/library/stats": "libraryStats",
+  "/control/libraries/stats": "libraryStats",
 
-  // The per-media-type stat pages became one Statistics page, which became the
-  // Dashboard's Libraries view. DashboardSection reads these paths to pick it.
-  "/control/overview/statistics": "dashboard",
-  "/control/status/audiobook-stats": "dashboard",
-  "/control/status/stats": "dashboard",
-  "/control/status/ebook-stats": "dashboard",
-  "/control/status/ebooks-stats": "dashboard",
-  "/control/status/gallery-stats": "dashboard",
-  "/control/status/galleries-stats": "dashboard",
-  "/control/library/stats": "dashboard",
-  "/control/libraries/stats": "dashboard",
+  // Sign-ins: a Members tab (Sessions), an Overview tab, the Dashboard's opening
+  // view, and now Security's — it answers "who got in, and from where".
+  "/control/overview/sign-ins": "signIns",
+  "/control/accounts/sessions": "signIns",
+  "/control/sessions": "signIns",
+  "/control/members/sessions": "signIns",
 
-  // Sign-ins became the Dashboard's opening view — it and the Logins view it
-  // absorbed were two readings of one question, and the duplicated chart above
-  // them had to be kept in step by hand. Three generations of the Sessions tab's
-  // address land there too, since the table with revoke is one of its panels.
-  // DashboardSection reads these paths to pick the view.
-  "/control/overview/sign-ins": "dashboard",
-  "/control/accounts/sessions": "dashboard",
-  "/control/sessions": "dashboard",
-  "/control/members/sessions": "dashboard",
-
-  // Tasks became a Dashboard view; DashboardSection reads these paths to pick it.
-  "/control/overview/tasks": "dashboard",
-  "/control/libraries/tasks": "dashboard",
-  "/control/libraries/jobs": "dashboard",
-  "/control/maintenance/jobs": "dashboard",
-  "/control/system": "dashboard",
-  "/control/jobs": "dashboard",
+  // Tasks: a Libraries tab, an Overview tab, a Dashboard view, and now the first
+  // page of Maintenance, beside the schedule that starts most of them.
+  "/control/overview/tasks": "tasks",
+  "/control/libraries/tasks": "tasks",
+  "/control/libraries/jobs": "tasks",
+  "/control/maintenance/jobs": "tasks",
+  "/control/jobs": "tasks",
 
   "/control/activity": "logs",
   "/control/logs": "logs",
@@ -147,22 +134,26 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/accounts/invites": "invites",
   "/control/invites": "invites",
 
-  // Backup used to hide behind Config; it is Maintenance's first tab now, so the
-  // bare /control/maintenance lands there rather than on Tasks.
-  "/control/maintenance": "backup",
+  // Maintenance opens on Tasks, its first tab.
+  "/control/maintenance": "tasks",
   "/control/config/backup": "backup",
   "/control/system/backup": "backup",
   "/control/libraries/scheduled-jobs": "scheduledJobs",
   "/control/scheduled-jobs": "scheduledJobs",
   "/control/recycle-bin": "recycleBin",
   "/control/trash": "recycleBin",
+
+  // Utilities held the cleanup pages and Quotes until 4.15, when its pages went
+  // to Maintenance and Settings and the group itself was retired.
+  "/control/utilities": "duplicateCleanup",
+  "/control/utilities/missing-photos": "missingPhotos",
+  "/control/utilities/quotes": "quotes",
   "/control/libraries/missing-photos": "missingPhotos",
   "/control/missing-photos": "missingPhotos",
-  "/control/maintenance/missing-photos": "missingPhotos",
-  // Duplicates left Maintenance for Utilities, spent one release nested under a
-  // "Duplicates" tab, and were three pages before Duplicate cleanup absorbed the other
-  // two. Every address any of them has ever had lands on the cleanup, because that is
-  // now the only page that answers the question they were asked.
+  // Duplicates were three pages before Duplicate cleanup absorbed the other two,
+  // and have lived under Maintenance, Utilities and a "Duplicates" tab. Every
+  // address any of them has ever had lands on the cleanup.
+  "/control/utilities/duplicate-cleanup": "duplicateCleanup",
   "/control/utilities/duplicate-photos": "duplicateCleanup",
   "/control/utilities/duplicate-folders": "duplicateCleanup",
   "/control/libraries/duplicate-photos": "duplicateCleanup",
@@ -175,12 +166,32 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maintenance/folders-elsewhere": "duplicateCleanup",
   "/control/utilities/stored-elsewhere": "duplicateCleanup",
   "/control/utilities/duplicates/stored-elsewhere": "duplicateCleanup",
-  "/control/utilities": "duplicateCleanup",
   "/control/utilities/duplicates": "duplicateCleanup",
+
+  // Maps was a group of its own (4.4–4.14) with Data and Routing tabs before those
+  // became cards on its one page; it is a Settings tab again, as it began.
+  "/control/maps": "mapSetup",
+  "/control/maps/data": "mapSetup",
+  "/control/maps/routing": "mapSetup",
 
   // Config split into the Settings tabs; its old landing page was Appearance.
   "/control/config": "appearance",
   "/control/about": "about"
+};
+
+// The Dashboard's views became pages when its second tab row went (4.15). A link
+// still carrying ?view= — a bookmark, an old guide — names the page it meant.
+const LEGACY_DASHBOARD_VIEWS: Record<string, ControlSection> = {
+  system: "dashboard",
+  activity: "activity",
+  content: "activity",
+  playback: "activity",
+  libraries: "libraryStats",
+  tasks: "tasks",
+  signins: "signIns",
+  logins: "signIns",
+  devices: "signIns",
+  locations: "signInLocations"
 };
 
 // The gallery's browse views, under the same rule as the control panel's tabs:
@@ -236,14 +247,17 @@ export function galleryReviewAlbumHref(albumId: string, recommendationId: string
 
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
-export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices";
+export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices" | "readerAccess";
 
 export const PROFILE_PATHS: Record<ProfileTab, string> = {
   account: "/profile",
   security: "/profile/security",
   shares: "/profile/shares",
   appearance: "/profile/appearance",
-  devices: "/profile/devices"
+  devices: "/profile/devices",
+  // Reader tokens belong to the person who makes them. They sat in the control
+  // panel until 4.15, where only administrators could reach their own.
+  readerAccess: "/profile/reader-access"
 };
 
 export function profileHref(tab: ProfileTab): string {
@@ -253,6 +267,9 @@ export function profileHref(tab: ProfileTab): string {
 const PROFILE_TAB_BY_PATH = new Map<string, ProfileTab>([
   // Theme had its own page before it moved under Profile.
   ["/theme", "appearance" as ProfileTab],
+  // Reader access was Control panel › Settings before it moved here. It resolves
+  // ahead of the control panel, so a member following an old link isn't turned away.
+  ["/control/settings/reader-access", "readerAccess" as ProfileTab],
   ...Object.entries(PROFILE_PATHS).map(([tab, path]) => [path, tab as ProfileTab] as const)
 ]);
 
@@ -680,8 +697,17 @@ export function getRoute(): Route {
   // editor is the single control route that isn't a section, so it is matched
   // after the table — that way /control/libraries/categories/tags-style tab
   // paths win over the editor's `:id` wildcard.
+  const profileTab = PROFILE_TAB_BY_PATH.get(path);
+  if (profileTab) {
+    return { name: "profile", tab: profileTab };
+  }
+
   if (path === "/admin" || path.startsWith("/control")) {
     const section = CONTROL_SECTION_BY_PATH.get(path);
+    if (section === "dashboard") {
+      const view = new URLSearchParams(window.location.search).get("view");
+      return { name: "control", section: (view && LEGACY_DASHBOARD_VIEWS[view]) || section };
+    }
     if (section) {
       return { name: "control", section };
     }
@@ -689,13 +715,6 @@ export function getRoute(): Route {
     const categoryEditMatch = path.match(/^\/control\/(?:libraries\/)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
-    }
-  }
-
-  if (path === "/theme" || path === "/profile" || path.startsWith("/profile/")) {
-    const tab = PROFILE_TAB_BY_PATH.get(path);
-    if (tab) {
-      return { name: "profile", tab };
     }
   }
 

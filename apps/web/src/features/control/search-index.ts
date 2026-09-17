@@ -1,5 +1,5 @@
 import { ALL_TABS, sectionEyebrow, sectionHref, tabLabel } from "./nav";
-import type { ControlSection } from "../../router";
+import { profileHref, type ControlSection } from "../../router";
 // Plain module-level data, not a component — see nav.ts's note on the same pattern.
 import i18n from "../../i18n";
 
@@ -32,19 +32,18 @@ export interface ControlSearchEntry {
   /** Shown under the title: "Settings › Email". */
   breadcrumb: string;
   href: string;
-  section: ControlSection;
   keywords: string;
 }
 
 // Extra search terms for the tab pages themselves — English, then the Russian
 // equivalent of the same words, concatenated.
 const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
-  // Sign-ins' own terms are folded in here: it is the Dashboard's opening view,
-  // so a search for "revoke session" or "blocked scanner" has to land on it.
-  dashboard: "sign-ins sign-in details login analytics drill down dive connection ip address country city user person failed attempts blocked scanner probes guessed names sessions devices displays phones tablets computers signed in until expires registered revoke sign out logout tokens linked tv display " +
-    "system health cpu memory uptime version disk free space database sqlite activity trends charts graphs logins uploads downloads deletes played read viewed in progress playback reading libraries statistics stats numbers counts totals audiobook ebook gallery top authors narrators formats storage " +
-    "вход входы подробности аналитика адрес ip страна город пользователь человек неудачные попытки заблокирован сканер зондирование предполагаемые имена сессии устройства экраны телефоны планшеты компьютеры истекает зарегистрирован отозвать выйти выход токены привязанный тв дисплей " +
-    "система здоровье процессор память время работы версия диск свободное место база данных активность тренды графики диаграммы входы загрузки скачивания удаления прослушано прочитано просмотрено в процессе воспроизведение чтение библиотеки статистика цифры количество всего аудиокнига электронная книга галерея топ авторы чтецы форматы хранилище",
+  dashboard: "system health cpu memory uptime version node disk free space database sqlite wal size last backup status " +
+    "система здоровье состояние процессор память время работы версия диск свободное место база данных размер последняя резервная копия",
+  activity: "activity trends charts graphs uploads downloads deletes played read viewed in progress content playback reading " +
+    "активность тренды графики диаграммы загрузки скачивания удаления прослушано прочитано просмотрено в процессе воспроизведение чтение",
+  libraryStats: "statistics stats numbers counts totals audiobook ebook gallery photos videos top authors narrators formats storage on disk biggest library " +
+    "статистика цифры количество всего аудиокнига электронная книга галерея фото видео топ авторы чтецы форматы размер на диске",
   logs: "activity audit trail events sign-in history retention prune clear " +
     "активность аудит журнал события история входов хранение очистка удалить",
 
@@ -68,6 +67,10 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 
   security: "posture summary proxy hops addresses trust client ip mode overview " +
     "состояние сводка прокси хопы адреса доверие клиент ip режим обзор",
+  signIns: "sign-ins sign-in details login logins analytics drill down dive connection ip address country city user person failed attempts blocked scanner probes guessed names sessions devices displays phones tablets computers signed in until expires registered revoke sign out logout tokens linked tv display " +
+    "вход входы подробности аналитика адрес ip страна город пользователь человек неудачные попытки заблокирован сканер зондирование предполагаемые имена сессии устройства экраны телефоны планшеты компьютеры истекает зарегистрирован отозвать выйти выход токены привязанный тв дисплей",
+  signInLocations: "map countries towns cities where sign-ins came from geoip home location locations " +
+    "карта страны города откуда входили домашнее расположение местоположения",
   securityPolicies:
     "lockout brute force threshold attempts password minimum length complexity sign-in alerts email abuseipdb reputation abuse score threat intelligence read only readonly delete trusted network protect deletions " +
     "блокировка перебор порог попытки пароль минимальная длина сложность оповещения о входе почта репутация угрозы только чтение удаление доверенная сеть защита удалений",
@@ -77,6 +80,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "banned ip block unblock auto-block ban permanent never expires forever make permanent reputation abuseipdb abuse score check " +
     "заблокированный ip блокировка разблокировать автоблокировка бан навсегда никогда не истекает сделать постоянным репутация проверка",
 
+  tasks: "jobs job scan progress worker queue running queued failed history cancel background work next scheduled " +
+    "задания задача задачи сканирование прогресс очередь выполняется история отменить фоновая работа",
   backup: "restore zip archive download snapshot schedule retention export full minimal quick database copy sqlite " +
     "восстановить архив скачать снимок расписание хранение экспорт резервная копия полная минимальная быстрая копия базы",
   scheduledJobs: "cron schedule nightly automatic recurring timer " +
@@ -103,8 +108,6 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "route roads openrouteservice api key directions " +
     "геолокация база расположений страны города входы загрузить удалить маршрут дороги ключ прокладка " +
     "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
-  readerAccess: "opds catalog token koreader thorium moon+ reader ereader e-reader basic auth device " +
-    "каталог токен читалка электронная книга устройство",
   about: "version credits licences licenses changelog release notes what's new " +
     "версия авторы лицензии список изменений заметки о выпуске что нового"
 };
@@ -113,63 +116,60 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 // that names it — a literal union so the template-literal t() call below
 // type-checks (docs/i18n-plan.md's namespace-key typing pitfall #4).
 type SettingKey =
-  | "systemHealth" | "libraryStatistics" | "tasks" | "activity" | "locationsMap"
   | "logRetention" | "systemData" | "appStorage" | "thumbnailStorage" | "backupFolder" | "libraryContainers" | "scanSources"
   | "libraryAccessMembers" | "accountLockout" | "ipAutoBlock" | "passwordPolicy"
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
-  | "smtpServer" | "sendTestEmail" | "opdsReaderTokens" | "twoFactorAlertsDelivery"
+  | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting"
   | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase";
 
 // Settings that live inside a page. `section` is where they are; search takes
-// you to that tab and the setting is on it.
-// `query` lands inside a page that keeps views in its query string (the
-// Dashboard's tabs), so a search hit opens the right view, not the page's first.
-const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords: string; query?: string }[] = [
-  { titleKey: "systemHealth", section: "dashboard", query: "view=system", keywords: "sqlite wal database size bytes memory uptime free disk space version node last backup здоровье системы база данных размер память диск версия" },
-  { titleKey: "libraryStatistics", section: "dashboard", query: "view=libraries", keywords: "statistics stats numbers counts totals audiobook ebook gallery photos videos top authors narrators formats storage on disk biggest library статистика библиотек количество авторы чтецы форматы" },
-  { titleKey: "tasks", section: "dashboard", query: "view=tasks", keywords: "jobs job scan progress worker queue running queued failed history cancel background work next scheduled задания задача сканирование прогресс очередь выполняется история отменить" },
-  { titleKey: "activity", section: "dashboard", query: "view=activity", keywords: "uploads downloads deletes played read viewed in progress content activity playback reading charts активность загрузки скачивания удаления прослушано прочитано просмотрено" },
-  { titleKey: "locationsMap", section: "dashboard", query: "view=locations", keywords: "map countries towns cities where sign-ins came from geoip home location карта страны города откуда входили домашнее расположение" },
+// you to that tab. `anchor` is the id of the card the setting sits in, where the
+// page has more than one, so the hit scrolls to it (useAnchorScroll) rather than
+// leaving you at the top of a long page to find it again.
+const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords: string; anchor?: string }[] = [
   { titleKey: "logRetention", section: "logs", keywords: "keep days delete old activity prune хранение дней удалить старые записи журнала" },
-  { titleKey: "systemData", section: "storage", keywords: "system data required folder config database metadata disk space free move системные данные обязательная папка база данных метаданные место на диске перенос" },
-  { titleKey: "appStorage", section: "storage", keywords: "app storage switch on off enable one folder system data custom folder photo inbox app files made in the app renders music map data move in disk space хранилище приложения включить выключить одна папка системные данные своя папка входящие файлы приложения рендеры музыка данные карт перенести место на диске" },
-  { titleKey: "thumbnailStorage", section: "storage", keywords: "thumbnails cache folder path move own folder system data миниатюры кэш папка путь отдельная папка системные данные" },
-  { titleKey: "backupFolder", section: "storage", keywords: "backups backup folder path another disk same disk move резервные копии папка путь другой диск тот же диск перенос" },
-  { titleKey: "libraryContainers", section: "storage", keywords: "approved allowed root folders mount разрешённые корневые папки" },
+  { titleKey: "systemData", section: "storage", anchor: "system-data", keywords: "system data required folder config database metadata disk space free move системные данные обязательная папка база данных метаданные место на диске перенос" },
+  { titleKey: "appStorage", section: "storage", anchor: "app-storage", keywords: "app storage switch on off enable one folder system data custom folder photo inbox app files made in the app renders music map data move in disk space хранилище приложения включить выключить одна папка системные данные своя папка входящие файлы приложения рендеры музыка данные карт перенести место на диске" },
+  { titleKey: "thumbnailStorage", section: "storage", anchor: "system-data", keywords: "thumbnails cache folder path move own folder system data миниатюры кэш папка путь отдельная папка системные данные" },
+  { titleKey: "backupFolder", section: "storage", anchor: "system-data", keywords: "backups backup folder path another disk same disk move резервные копии папка путь другой диск тот же диск перенос" },
+  { titleKey: "libraryContainers", section: "storage", anchor: "storage-containers", keywords: "approved allowed root folders mount разрешённые корневые папки" },
   { titleKey: "scanSources", section: "libraries", keywords: "folder path watch include exclude extensions папка путь включить исключить расширения" },
   { titleKey: "libraryAccessMembers", section: "libraries", keywords: "who can see private share group user кто видит приватная поделиться группа доступ" },
-  { titleKey: "accountLockout", section: "securityPolicies", keywords: "failed attempts lock minutes brute force блокировка неудачные попытки минуты перебор" },
-  { titleKey: "ipAutoBlock", section: "securityPolicies", keywords: "automatic ban failed window minutes автоблокировка бан окно минуты" },
-  { titleKey: "passwordPolicy", section: "securityPolicies", keywords: "minimum length complexity require strong пароль минимальная длина сложность" },
-  { titleKey: "newSignInAlerts", section: "securityPolicies", keywords: "email notify unknown network login оповещение почта неизвестная сеть вход" },
+  { titleKey: "accountLockout", section: "securityPolicies", anchor: "lockout", keywords: "failed attempts lock minutes brute force блокировка неудачные попытки минуты перебор" },
+  { titleKey: "ipAutoBlock", section: "securityPolicies", anchor: "lockout", keywords: "automatic ban failed window minutes автоблокировка бан окно минуты" },
+  { titleKey: "passwordPolicy", section: "securityPolicies", anchor: "password-policy", keywords: "minimum length complexity require strong пароль минимальная длина сложность" },
+  { titleKey: "newSignInAlerts", section: "securityPolicies", anchor: "sign-in-alerts", keywords: "email notify unknown network login оповещение почта неизвестная сеть вход" },
   {
     titleKey: "twoFactorSignIn",
     section: "securityPolicies",
+    anchor: "two-factor",
     keywords: "mfa 2fa require second factor outside trusted network force totp email code fallback remote двухфакторная проверка вторая ступень код почта резервный"
   },
   {
     titleKey: "linkingDevices",
     section: "securityPolicies",
+    anchor: "device-linking",
     keywords: "link a device tv television wall display kiosk qr code scan sign in without password home network only outside remote привязка устройства тв дисплей код вход без пароля"
   },
   {
     titleKey: "ipReputation",
     section: "securityPolicies",
+    anchor: "ip-reputation",
     keywords: "abuseipdb api key reputation abuse confidence score escalate permanent known malicious репутация ip ключ api оценка угрозы"
   },
   {
     titleKey: "deletionProtection",
     section: "securityPolicies",
+    anchor: "deletion-protection",
     keywords: "allow deletions only trusted networks read only readonly refuse delete away from home stolen credentials защита удалений только доверенные сети только чтение отклонить удаление"
   },
   { titleKey: "addTrustedNetwork", section: "securityTrusted", keywords: "cidr range lan skip lockout добавить доверенную сеть подсеть диапазон" },
-  { titleKey: "scheduledBackups", section: "backup", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
+  { titleKey: "scheduledBackups", section: "backup", anchor: "scheduled-backups", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
   { titleKey: "smtpServer", section: "email", keywords: "host port username password tls outgoing mail сервер порт имя пользователя пароль исходящая почта" },
   { titleKey: "sendTestEmail", section: "email", keywords: "verify smtp check delivery отправить тестовое письмо проверить доставку" },
-  { titleKey: "opdsReaderTokens", section: "readerAccess", keywords: "create token catalog link qr device создать токен каталог ссылка устройство" },
   { titleKey: "twoFactorAlertsDelivery", section: "email", keywords: "mfa totp codes alert emails двухфакторные коды оповещения безопасности почта" },
   {
     titleKey: "shareNotifications",
@@ -179,39 +179,46 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   {
     titleKey: "mapRouting",
     section: "mapSetup",
+    anchor: "road-routes",
     keywords: "route roads driving walking cycling openrouteservice api key directions story map itinerary travel маршрут дороги машина пешком велосипед ключ прокладка карта путешествие"
   },
   {
     titleKey: "mapCaching",
     section: "mapSetup",
+    anchor: "offline-maps",
     keywords: "offline maps keep maps on this server cache tiles limit size privacy provider sees where storage map data " +
       "хранить карты на сервере офлайн кэш тайлы конфиденциальность провайдер видит хранилище данные карт"
   },
   {
     titleKey: "namedPlaces",
     section: "mapSetup",
+    anchor: "named-places",
     keywords: "named places place names reverse geocoding geonames town city where photo was taken places filter update rebuild " +
       "названия мест обратное геокодирование город где сделан снимок фильтр места обновить пересобрать"
   },
   {
     titleKey: "locationDatabase",
     section: "mapSetup",
+    anchor: "sign-in-locations",
     keywords: "sign-in locations geoip database country city mmdb dbip geolite maxmind fetch upload remove " +
       "расположение входов геолокация база страна город скачать загрузить удалить"
   },
   {
     titleKey: "houseLibrary",
     section: "storage",
+    anchor: "app-storage",
     keywords: "made in the app house library where files go destination recordings narration family tree uploads slideshow movies rendered saved folder сделано в приложении домашняя библиотека куда попадают файлы записи озвучка семейное древо загрузки фильмы слайд-шоу папка"
   },
   {
     titleKey: "photoInboxSetup",
     section: "storage",
+    anchor: "app-storage",
     keywords: "photo inbox set up create new inbox scans holding review drop link storage container folder входящие фото создать настроить сканы разбор ссылка контейнер папка"
   },
   {
     titleKey: "recordingsLibrary",
     section: "storage",
+    anchor: "app-storage",
     keywords: "story narration audio recording voice record microphone library destination where recordings saved озвучка история запись аудио голос микрофон библиотека записей куда сохраняются"
   },
   {
@@ -234,17 +241,25 @@ export function getControlSearchEntries(): ControlSearchEntry[] {
       title: tabLabel(tab.section),
       breadcrumb: sectionEyebrow(tab.section),
       href: sectionHref(tab.section),
-      section: tab.section,
       keywords: `${sectionEyebrow(tab.section)} ${TAB_KEYWORDS[tab.section] ?? ""}`
     })),
     ...SETTING_ENTRIES.map((entry, index) => ({
       id: `setting:${index}`,
       title: i18n.t(`control:search.settings.${entry.titleKey}`),
       breadcrumb: breadcrumbFor(entry.section),
-      href: entry.query ? `${sectionHref(entry.section)}?${entry.query}` : sectionHref(entry.section),
-      section: entry.section,
+      href: entry.anchor ? `${sectionHref(entry.section)}#${entry.anchor}` : sectionHref(entry.section),
       keywords: entry.keywords
-    }))
+    })),
+    // Reader tokens left the control panel for Profile (they are each person's
+    // own), but an administrator who has always found them here still can.
+    {
+      id: "profile:readerAccess",
+      title: i18n.t("profile.tabs.readerAccess"),
+      breadcrumb: i18n.t("nav.profile"),
+      href: profileHref("readerAccess"),
+      keywords: "opds catalog token koreader thorium moon+ reader ereader e-reader basic auth device create qr " +
+        "каталог токен читалка электронная книга устройство создать"
+    }
   ];
 }
 

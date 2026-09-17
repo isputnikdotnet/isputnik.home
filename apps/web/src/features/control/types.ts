@@ -224,6 +224,8 @@ export interface Job {
   type: string;
   status: "pending" | "running" | "completed" | "failed";
   attempts: number;
+  /** The library the task works on, when it works on one. */
+  libraryId: string | null;
   libraryName: string | null;
   createdAt: string;
   // When the worker began running the job (null until claimed). Duration is measured

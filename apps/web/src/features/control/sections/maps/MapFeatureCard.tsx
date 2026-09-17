@@ -6,6 +6,7 @@ import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
 // three facts every card gives — where the data comes from, how it gets here, and
 // what it costs. Anything the feature needs beyond the switch sits under them.
 export function MapFeatureCard({
+  id,
   icon,
   title,
   description,
@@ -17,6 +18,8 @@ export function MapFeatureCard({
   facts,
   children
 }: {
+  /** The card's anchor, so control-panel search can land on it. */
+  id?: string;
   icon: ReactNode;
   title: string;
   description: string;
@@ -30,7 +33,7 @@ export function MapFeatureCard({
   children?: ReactNode;
 }) {
   return (
-    <section className="map-feature">
+    <section id={id} className="map-feature">
       <div className="map-feature-head">
         <span className="map-feature-icon" aria-hidden="true">{icon}</span>
         <div className="map-feature-title">

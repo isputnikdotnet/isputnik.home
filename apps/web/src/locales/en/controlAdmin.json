@@ -138,7 +138,7 @@
     "villagesConfirmBodyNone": "The place list is built again without extra villages. The usual GeoNames files (about 220 MB) are downloaded again; place names keep working meanwhile.",
     "villagesConfirmLabel": "Save and rebuild",
     "signInsTitle": "Sign-in locations",
-    "signInsDescription": "Show where sign-ins came from, on the Dashboard map",
+    "signInsDescription": "Show where sign-ins came from, on the Sign-in locations map",
     "signInsInfo": "Where an address is, read from a database on this server — no address is ever sent out. Countries come from DB-IP; towns need a city database of your own.",
     "signInsSourceWithTowns": "DB-IP, and your city database",
     "signInsSourceTownsOnly": "Your city database",
@@ -233,6 +233,7 @@
     "savedBody": "Notification settings updated."
   },
   "opds": {
+    "title": "Reader access",
     "headDescription": "Open your ebooks in KOReader, Moon+ Reader or Thorium over OPDS.",
     "intro": "Create a token for a device, then paste its catalog link into the reader. Each token is read-only and can be removed at any time.",
     "loadFailed": "Unable to load reader tokens",
@@ -263,7 +264,8 @@
     "removeFailed": "Unable to remove token",
     "confirmRemoveTitle": "Remove \"{{label}}\"?",
     "removing": "Removing…",
-    "confirmRemoveBody": "That device will lose access to your ebooks at its next catalog refresh. Your other devices are not affected."
+    "confirmRemoveBody": "That device will lose access to your ebooks at its next catalog refresh. Your other devices are not affected.",
+    "nextLinks": "How to add the catalog to a reading app is in <guide>the guide</guide>. To have books emailed to a Kindle or Kobo instead, set your device address under <devices>Devices</devices>."
   },
   "recycleBin": {
     "loadFailed": "Unable to load the Recycle Bin",
@@ -412,7 +414,8 @@
     "replacedConfirmAllBody_other": "All {{count}} files kept beside the bin ({{size}}) are removed from disk for good. The photos they were replaced under are not touched.",
     "replacedDeleting": "Deleting…",
     "replacedLoadFailed": "Unable to list the replaced originals",
-    "replacedDeleteFailed": "Unable to delete the replaced original"
+    "replacedDeleteFailed": "Unable to delete the replaced original",
+    "expiryJobNote": "Nothing leaves the bin by itself here: the <lnk>Purge expired recycle bin items</lnk> scheduled job removes what has run out, once a day while it is switched on."
   },
   "scanRules": {
     "browseFolders": "Browse folders"
@@ -793,7 +796,7 @@
     "mfaLabel": "Require a second factor outside trusted networks",
     "mfaHelp": "Even a stolen or guessed password is then not enough to get in from the internet. Accounts with two-factor set up use their usual method; accounts without get a one-time code emailed to their sign-in address. Passkey sign-ins already count as two factors. At home — on a trusted network — nothing changes.",
     "noMailTitle": "Email is not set up",
-    "mfaNoMailBody": "The emailed-code fallback needs SMTP, configured under Control panel → Settings → Email. Without it, accounts that haven't set up two-factor cannot sign in from outside at all until they enroll from home.",
+    "mfaNoMailBody": "The emailed-code fallback needs SMTP, configured under <lnk>Settings → Email</lnk>. Without it, accounts that haven't set up two-factor cannot sign in from outside at all until they enroll from home.",
     "usersWithoutTitle": "Accounts without two-factor set up",
     "usersWithoutMail_one": "{{list}} — this account will get a code by email when signing in from outside.",
     "usersWithoutMail_other": "{{list}} — these accounts will get a code by email when signing in from outside.",
@@ -808,7 +811,7 @@
     "alertsDesc": "Warn about a successful sign-in from somewhere the account has never been used.",
     "alertsLabel": "Email on a sign-in from a new network",
     "alertsHelp": "The account owner and the admins are emailed. Networks are matched loosely (the /24 for IPv4, the /64 for IPv6) so a changing home or mobile address doesn't alert every time. Sign-ins from trusted networks never alert.",
-    "alertsNoMailBody": "These alerts are sent over SMTP. Configure it under Control panel → Settings → Email, or this setting has no effect.",
+    "alertsNoMailBody": "These alerts are sent over SMTP. Configure it under <lnk>Settings → Email</lnk>, or this setting has no effect.",
     "ipsInaccurateTitle": "Client IPs aren't accurate yet",
     "ipsInaccurateBody": "Requests arrive through a proxy but neither <cd>TRUST_PROXY</cd> nor <cd>TRUST_PROXY_HOPS</cd> is set, so every visitor looks like the proxy address. Until you set one, a new network is never detected.",
     "alertsSaved": "Sign-in alerts updated.",
@@ -1006,7 +1009,8 @@
     "deleteFailed": "Unable to delete the file",
     "confirmDeleteTitle": "Delete the orphaned file \"{{name}}\"?",
     "confirmDeleteBody": "It goes to the Recycle Bin like any deleted file and is removed for good when the bin's clock runs out. Nothing in the app points at it any more.",
-    "moreEntries": "Showing the newest {{shown}} of {{count}}."
+    "moreEntries": "Showing the newest {{shown}} of {{count}}.",
+    "storageSettings": "Storage settings"
   },
   "systemData": {
     "title": "System data",

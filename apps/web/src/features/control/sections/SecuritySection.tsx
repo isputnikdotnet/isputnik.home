@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useCallback, type FormEvent } from "react";
+import { initialParam } from "../links";
 import { Trans, useTranslation } from "react-i18next";
 import {
   Ban,
@@ -21,7 +22,7 @@ import {
   UserRound
 } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, navigate, type ControlSection } from "../../../router";
+import { controlHref, followRoute, navigate, type ControlSection } from "../../../router";
 import { Pager } from "../../../shared/Pager";
 import { signInsHref } from "./dashboard/SignInsView";
 import { ProtectionCard, gradePolicies, type Exposure } from "./SecurityProtection";
@@ -319,6 +320,20 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     }
   };
 
+  // ?block=<address> arrives from a sign-in worth shutting out (blockIpHref): open
+  // the Block dialog with the address filled in, then drop the parameter so a
+  // reload or Back doesn't open it again.
+  useEffect(() => {
+    if (section !== "securityBlocked") return;
+    const address = initialParam("block");
+    if (!address) return;
+    setIp(address);
+    setBlockOpen(true);
+    const query = new URLSearchParams(window.location.search);
+    query.delete("block");
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${query.size ? `?${query}` : ""}`);
+  }, [section]);
+
   const closeBlockModal = () => {
     setBlockOpen(false);
     setIp("");
@@ -489,16 +504,18 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <table className="datagrid locations-table">
                       <tbody>
                         {(() => {
-                          const ROW_PRESENTATION: Record<string, { icon: typeof ShieldCheck; target: { section: ControlSection } | { href: string } }> = {
+                          // `anchor` is the policy card's id, so the arrow lands on the
+                          // card that grade is about rather than the top of Policies.
+                          const ROW_PRESENTATION: Record<string, { icon: typeof ShieldCheck; target: { section: ControlSection; anchor: string } | { href: string } }> = {
                             proxy: { icon: UserRound, target: { href: repoFileUrl("docs/users/exposing-to-the-internet.md") } },
-                            lockout: { icon: LockKeyhole, target: { section: "securityPolicies" } },
-                            autoblock: { icon: Globe, target: { section: "securityPolicies" } },
-                            mfa: { icon: LockKeyhole, target: { section: "securityPolicies" } },
-                            alerts: { icon: MailWarning, target: { section: "securityPolicies" } },
-                            deletes: { icon: Trash2, target: { section: "securityPolicies" } },
-                            devices: { icon: MonitorSmartphone, target: { section: "securityPolicies" } },
-                            password: { icon: KeyRound, target: { section: "securityPolicies" } },
-                            reputation: { icon: ShieldQuestion, target: { section: "securityPolicies" } }
+                            lockout: { icon: LockKeyhole, target: { section: "securityPolicies", anchor: "lockout" } },
+                            autoblock: { icon: Globe, target: { section: "securityPolicies", anchor: "lockout" } },
+                            mfa: { icon: LockKeyhole, target: { section: "securityPolicies", anchor: "two-factor" } },
+                            alerts: { icon: MailWarning, target: { section: "securityPolicies", anchor: "sign-in-alerts" } },
+                            deletes: { icon: Trash2, target: { section: "securityPolicies", anchor: "deletion-protection" } },
+                            devices: { icon: MonitorSmartphone, target: { section: "securityPolicies", anchor: "device-linking" } },
+                            password: { icon: KeyRound, target: { section: "securityPolicies", anchor: "password-policy" } },
+                            reputation: { icon: ShieldQuestion, target: { section: "securityPolicies", anchor: "ip-reputation" } }
                           };
                           const rows = gradePolicies({
                             policy: data.policy,
@@ -510,7 +527,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           return rows.map((row) => {
                             const Icon = row.icon;
                             const open = () =>
-                              "section" in row.target ? navigate(controlHref(row.target.section)) : window.open(row.target.href, "_blank", "noreferrer");
+                              "section" in row.target ? navigate(`${controlHref(row.target.section)}#${row.target.anchor}`) : window.open(row.target.href, "_blank", "noreferrer");
                             return (
                               <tr key={row.label} className="system-pointer-row" onClick={open}>
                                 <td>
@@ -563,7 +580,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               id="security-panel-policies"
               hidden={activeTab !== "policies"}
             >
-              <section className="security-block security-policy-card" aria-labelledby="policy-heading">
+              <section id="lockout" className="security-block security-policy-card" aria-labelledby="policy-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
                     <ShieldCheck size={24} />
@@ -666,7 +683,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <section className="security-block security-policy-card" aria-labelledby="mfa-outside-heading">
+              <section id="two-factor" className="security-block security-policy-card" aria-labelledby="mfa-outside-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
                     <ShieldCheck size={24} />
@@ -700,7 +717,11 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                     {policyForm.requireMfaOutside && !data.mailConfigured && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
-                        {t("controlAdmin:security.mfaNoMailBody")}
+                        <Trans
+                          i18nKey="security.mfaNoMailBody"
+                          ns="controlAdmin"
+                          components={{ lnk: <a href={controlHref("email")} onClick={(event) => followRoute(event, controlHref("email"))} /> }}
+                        />
                       </MessageBox>
                     )}
 
@@ -739,7 +760,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <section className="security-block security-policy-card" aria-labelledby="signin-alert-heading">
+              <section id="sign-in-alerts" className="security-block security-policy-card" aria-labelledby="signin-alert-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
                     <MailWarning size={24} />
@@ -771,7 +792,11 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                     {!data.mailConfigured && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
-                        {t("controlAdmin:security.alertsNoMailBody")}
+                        <Trans
+                          i18nKey="security.alertsNoMailBody"
+                          ns="controlAdmin"
+                          components={{ lnk: <a href={controlHref("email")} onClick={(event) => followRoute(event, controlHref("email"))} /> }}
+                        />
                       </MessageBox>
                     )}
 
@@ -802,7 +827,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <section className="security-block security-policy-card" aria-labelledby="deletes-heading">
+              <section id="deletion-protection" className="security-block security-policy-card" aria-labelledby="deletes-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
                     <Trash2 size={24} />
@@ -856,7 +881,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   </form>
                 )}
               </section>
-              <section className="security-block security-policy-card" aria-labelledby="device-link-heading">
+              <section id="device-linking" className="security-block security-policy-card" aria-labelledby="device-link-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
                     <MonitorSmartphone size={24} />
@@ -926,7 +951,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <section className="security-block security-policy-card" aria-labelledby="pw-heading">
+              <section id="password-policy" className="security-block security-policy-card" aria-labelledby="pw-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
                     <LockKeyhole size={24} />
@@ -980,7 +1005,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <section className="security-block security-policy-card" aria-labelledby="reputation-heading">
+              <section id="ip-reputation" className="security-block security-policy-card" aria-labelledby="reputation-heading">
                 <div className="security-policy-card-head">
                   <span className="security-policy-icon" aria-hidden="true">
                     <ShieldQuestion size={24} />

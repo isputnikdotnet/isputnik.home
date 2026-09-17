@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, ListTodo, Loader2, XCircle } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref, navigate } from "../../../../router";
+import { controlHref, followRoute, navigate } from "../../../../router";
+import { initialParam, libraryRowHref } from "../../links";
 import { Button } from "../../../../shared/Button";
 import { KpiCard } from "../../../../shared/KpiCard";
 import { MessageBox } from "../../../../shared/MessageBox";
@@ -15,7 +16,7 @@ import { relativeTime } from "../../../../shared/relativeTime";
 import type { Job } from "../../types";
 import { formatNumber } from "../../../../shared/dates";
 
-// Overview › Dashboard › Tasks — scans and other background work. It opens on
+// Maintenance › Tasks — scans and other background work. It opens on
 // the glance (running, queued, failed this week, last finished), keeps the
 // in-flight tables that live-poll and cancel, and turns the finished history
 // from an unfiltered dump into one that answers "which scans failed, and on
@@ -108,9 +109,23 @@ export function TasksView() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("");
-  const [type, setType] = useState("");
-  const [library, setLibrary] = useState("");
+  // Seeded from the address, so a link from a scan can open this page already on
+  // that library's tasks (tasksHref), and kept in it as the filters change.
+  const [status, setStatus] = useState(() => (["failed", "completed"].includes(initialParam("status")) ? initialParam("status") : ""));
+  const [type, setType] = useState(() => initialParam("type"));
+  const [library, setLibrary] = useState(() => initialParam("library"));
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    for (const [key, value] of [["status", status], ["type", type], ["library", library]] as const) {
+      if (value) query.set(key, value);
+      else query.delete(key);
+    }
+    const next = `${window.location.pathname}${query.size ? `?${query}` : ""}`;
+    if (next !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(window.history.state, "", next);
+    }
+  }, [status, type, library]);
   const [nextScheduled, setNextScheduled] = useState<ScheduledSummary | null | undefined>(undefined);
 
   const loadTasks = useCallback(async () => {
@@ -501,6 +516,20 @@ export function TasksView() {
                             <tr>
                               <td colSpan={6}>
                                 <pre className="job-error-detail">{errorText}</pre>
+                                {/* Where a failure is usually put right: the library the
+                                    task was working on, or the schedule that started it. */}
+                                {task.status === "failed" && (
+                                  <p className="task-next-links">
+                                    {task.libraryId && (
+                                      <a href={libraryRowHref(task.libraryId)} onClick={(event) => followRoute(event, libraryRowHref(task.libraryId!))}>
+                                        {t("controlDash:tasks.openLibrary", { name: task.libraryName ?? "" })}
+                                      </a>
+                                    )}
+                                    <a href={controlHref("scheduledJobs")} onClick={(event) => followRoute(event, controlHref("scheduledJobs"))}>
+                                      {t("controlDash:tasks.openSchedule")}
+                                    </a>
+                                  </p>
+                                )}
                               </td>
                             </tr>
                           )}

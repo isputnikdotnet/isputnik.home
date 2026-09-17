@@ -10,7 +10,7 @@ which is your account settings, and the list of things you've saved.
 
 ## Profile — your account settings
 
-**Profile** opens a page with five tabs. Each has its own address, so you can
+**Profile** opens a page with six tabs. Each has its own address, so you can
 bookmark the one you use and the back button returns you to it rather than
 leaving the page.
 
@@ -81,6 +81,24 @@ theme follows you to your phone.
 - **Install the app** — add iSputnik to your phone's home screen. Installed, it
   gets a bottom nav and an offline **Downloads** screen, so books you download stay
   readable and listenable with no connection.
+
+### Reader access
+
+Read your ebooks in a reading app — KOReader, Moon+ Reader, Thorium — instead of
+the browser. The app browses the library over OPDS, a catalog format most reading
+apps understand, and downloads what you open.
+
+1. **Create token**, and name it after the device ("Kobo Clara").
+2. Copy the **catalog link** into your reading app's OPDS catalogs, or scan the QR
+   code with a phone or tablet. An app that asks for a username and password
+   instead gets them under **Prefer a username & password?**
+3. That's the only time the token is shown. If you lose it, remove it and make a
+   new one.
+
+Each token is yours, reads only what you can already see, and can't change
+anything. Removing one cuts that device off at its next catalog refresh and leaves
+your other devices alone. Every member can make their own; before 4.15 this was in
+the control panel, where only administrators could reach it.
 
 ## Send to e-reader
 

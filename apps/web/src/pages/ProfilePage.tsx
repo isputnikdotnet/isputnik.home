@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Link2, Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
+import { BookOpen, Link2, Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { LANGUAGES, setAppLanguage, type Language } from "../i18n";
 import { ChoiceGroup } from "../shared/ChoiceGroup";
@@ -18,6 +18,7 @@ import { MfaSection } from "../features/profile/MfaSection";
 import { PasskeysSection } from "../features/profile/PasskeysSection";
 import { SharedLinksSection } from "../features/profile/SharedLinksSection";
 import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
+import { ReaderAccessSection } from "../features/profile/ReaderAccessSection";
 import { useSession } from "../app/SessionContext";
 // The install card's stylesheet (Profile is the only page that shows it): loads with this page, not on every route (docs/css-map.md).
 import "../styles/install.css";
@@ -28,7 +29,8 @@ const PROFILE_TABS: { key: ProfileTab; icon: LucideIcon }[] = [
   { key: "security", icon: ShieldCheck },
   { key: "shares", icon: Link2 },
   { key: "appearance", icon: Palette },
-  { key: "devices", icon: Smartphone }
+  { key: "devices", icon: Smartphone },
+  { key: "readerAccess", icon: BookOpen }
 ];
 
 export function ProfilePage({
@@ -274,6 +276,12 @@ export function ProfilePage({
               <p className="ereader-intro">
                 <Trans i18nKey="profile.ereader.intro" components={{ code: <code /> }} />
               </p>
+              <p className="ereader-intro">
+                <Trans
+                  i18nKey="profile.ereader.readerAccessLink"
+                  components={{ lnk: <a href={profileHref("readerAccess")} onClick={(event) => followRoute(event, profileHref("readerAccess"))} /> }}
+                />
+              </p>
               <form className="ereader-form" onSubmit={saveEreader}>
                 <Field
                   label={t("profile.ereader.emailLabel")}
@@ -297,6 +305,17 @@ export function ProfilePage({
             </section>
 
             <InstallCard title={t("profile.install.title")} subtitle={t("profile.install.subtitle")} />
+          </div>
+
+          <div
+            className="profile-tab-panel"
+            role="tabpanel"
+            id="profile-panel-readerAccess"
+            aria-labelledby="profile-tab-readerAccess"
+            hidden={activeTab !== "readerAccess"}
+          >
+            {/* Mounted only when open: it fetches the person's tokens on arrival. */}
+            {activeTab === "readerAccess" && <ReaderAccessSection />}
           </div>
         </div>
       </section>

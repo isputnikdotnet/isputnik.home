@@ -2,6 +2,17 @@
 
 Reviewed September 10, 2026, against app version 3.90.0.
 
+> **Status (2026-09-16, in-code for 4.15):** steps 1 and 2 are implemented, with two
+> deliberate departures. **Maps** went into Settings as a tab (it had become its own
+> group in 4.4 and then shrank to one page of cards), so the panel has six groups as
+> proposed. The proposal’s **fold-out group menu** that would replace the tab row was
+> *not* adopted: every group keeps one row of its tabs, and labels were not renamed
+> (Users, Storage stay). Step 3 is implemented too: typed links between pages
+> (`features/control/links.ts`) with filters read from the address, and the phone
+> menu. Not done from step 3: links for a *person* dive (Logs has no person filter in
+> its address), and a Recycle Bin → Storage link, since the bin's location is
+> already edited on the bin page itself.
+
 The recommended direction is six groups with consistent navigation: Overview, Libraries & storage, Members, Security, Maintenance, and Settings. Remove Utilities by moving photo cleanup into Maintenance and Quotes into Settings. Bring the Dashboard's destinations into those groups, and put personal reader tokens under Profile.
 
 This is a proposal. No application behavior has been changed. The review used the current navigation definitions, router, page components, search index, responsive CSS, user documentation, and the existing desktop Dashboard screenshot. It did not include a live browser walkthrough or user testing. Findings about behavior below are based on the implementation; recommendations about findability should be validated with representative tasks.

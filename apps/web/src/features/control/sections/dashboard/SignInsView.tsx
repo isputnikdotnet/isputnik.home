@@ -20,7 +20,8 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref, pushPath } from "../../../../router";
+import { controlHref, followRoute, pushPath } from "../../../../router";
+import { blockIpHref, logsHref } from "../../links";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import {
@@ -57,7 +58,7 @@ import { formatDate, formatNumber, formatTime } from "../../../../shared/dates";
 // irreplaceable panel — the attempt-by-attempt table with AbuseIPDB reputation —
 // is at the bottom of this page, narrowed by the dive like everything else.
 //
-// The scope lives in the URL (?view=signins&country=/&ip=/&user=), which is what
+// The scope lives in the URL (?country=/&ip=/&user=), which is what
 // makes a dive shareable and the back button honest: every arrow here and on the
 // Locations tables is just a link to this address with a different query string.
 
@@ -75,10 +76,8 @@ export function signInsHref(scope: SignInsScopeParams): string {
   for (const [key, value] of Object.entries(scope)) {
     if (value !== undefined) query.set(key, value);
   }
-  // view= first, so the address reads as the Dashboard tab it is before the
-  // dive that narrows it.
   const suffix = query.toString();
-  return `${controlHref("dashboard")}?view=signins${suffix ? `&${suffix}` : ""}`;
+  return `${controlHref("signIns")}${suffix ? `?${suffix}` : ""}`;
 }
 
 function scopeFromUrl(): SignInsScopeParams {
@@ -403,6 +402,29 @@ export function SignInsView() {
                 {t("common:filters.button")}
               </Button>
             </div>
+
+            {/* Diving into one address is usually the start of deciding what to do
+                about it: see everything else it did, shut it out, or tighten the
+                rules that let it try. Block is left out for your own network and for an
+                address already blocked. */}
+            {data.scope.kind === "ip" && data.scope.ip && (() => {
+              const address = data.scope.ip;
+              const row = data.ips.find((entry) => entry.ip === address);
+              // Your own network is never something to block.
+              const blockable = !row?.local && !(row?.blocked && !row.blocked.lapsed);
+              const links = [
+                { href: logsHref({ ip: address }), label: t("controlDash:signIns.nextLogs") },
+                ...(blockable ? [{ href: blockIpHref(address), label: t("controlDash:signIns.nextBlock") }] : []),
+                { href: `${controlHref("securityPolicies")}#lockout`, label: t("controlDash:signIns.nextPolicies") }
+              ];
+              return (
+                <p className="signins-next-links">
+                  {links.map((link) => (
+                    <a key={link.href} href={link.href} onClick={(event) => followRoute(event, link.href)}>{link.label}</a>
+                  ))}
+                </p>
+              );
+            })()}
 
             <div className="kpi-cards">
               <KpiCard
@@ -819,7 +841,7 @@ export function SignInsView() {
             {(data.scope.kind === "country" || data.scope.kind === "place") && (
               <p className="status-empty">
                 <MapPin size={13} aria-hidden="true" /> {t("controlDash:signIns.scopedFrom")}{" "}
-                <a href={`${controlHref("dashboard")}?view=locations`}>{t("controlDash:signIns.locationsMap")}</a> ·{" "}
+                <a href={controlHref("signInLocations")} onClick={(event) => followRoute(event, controlHref("signInLocations"))}>{t("controlDash:signIns.locationsMap")}</a> ·{" "}
                 <Globe2 size={13} aria-hidden="true" /> {t("controlDash:locations.attribution")}
               </p>
             )}

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Download, FileUp, Images, Settings, UserRound, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
-import { controlHref, followRoute } from "../../router";
+import { followRoute } from "../../router";
+import { storageHref } from "../control/links";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
@@ -130,7 +131,7 @@ export function FamilyTreeSettingsModal({
                   : t("family:treeSettings.photosHouseUnset")}
               </p>
               {isAdmin && (
-                <a href={controlHref("storage")} onClick={(event) => followRoute(event, controlHref("storage"))}>
+                <a href={storageHref("app-storage")} onClick={(event) => followRoute(event, storageHref("app-storage"))}>
                   {t("family:treeSettings.photosHouseLink")}
                 </a>
               )}

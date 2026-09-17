@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Archive, CalendarClock, Database, DatabaseBackup, Download, FileArchive, Folder, Trash2, RotateCcw, UploadCloud } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
+import { storageHref } from "../links";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
@@ -286,7 +287,7 @@ export function BackupSection() {
         {error && <MessageBox tone="error" title={t("control:backup.errorTitle")}>{error}</MessageBox>}
         {notice && <MessageBox tone="success" title={t("control:backup.listTitle")}>{notice}</MessageBox>}
 
-        <section className="backup-card backup-settings">
+        <section id="scheduled-backups" className="backup-card backup-settings">
           <h2>{t("control:backup.scheduledTitle")}</h2>
           <p className="muted backup-schedule-intro">
             {t("control:backup.scheduleIntro")}{" "}
@@ -307,7 +308,7 @@ export function BackupSection() {
                       {kind === "full" && data && !data.coversAvailable && (
                         <>
                           {" "}{t("control:backup.noThumbnailStore")}{" "}
-                          <a href={controlHref("storage")} onClick={(event) => followRoute(event, controlHref("storage"))}>
+                          <a href={storageHref("system-data")} onClick={(event) => followRoute(event, storageHref("system-data"))}>
                             {t("control:backup.storageLink")}
                           </a>
                         </>

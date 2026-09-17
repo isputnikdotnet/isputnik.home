@@ -388,47 +388,74 @@
   border-radius: 8px;
 }
 
-/* A second, visually lighter row of tabs for switching views inside a single
-   control-panel page (Dashboard's System/Activity/Logins/Content/Playback).
-   Pills instead of the underline `.control-tabs` style, so it reads as
-   sub-navigation within the page rather than a second copy of the page-level
-   tab row above it. */
-.dashboard-subtabs {
+/* A search hit that names a card inside a page (useAnchorScroll): the card
+   scrolls to the top with a little room, and its outline pulses once so the eye
+   finds it. Focus is set programmatically, so the ring is the flash, not :focus. */
+.control-work [id] {
+  scroll-margin-top: 24px;
+}
+
+.control-work section[id][tabindex="-1"]:focus {
+  outline: none;
+}
+
+.control-anchor-flash {
+  animation: control-anchor-flash 1.8s ease-out;
+}
+
+/* A table row has no box to draw a ring on, so a row target (Libraries, from a
+   failed task) lights its cells instead. */
+tr.control-anchor-flash {
+  animation: none;
+}
+
+tr.control-anchor-flash > td {
+  animation: control-anchor-row-flash 1.8s ease-out;
+}
+
+@keyframes control-anchor-row-flash {
+  0%,
+  35% {
+    background: var(--active);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* "Where next" links under a page's own content: a failed task's library and
+   schedule, a sign-in dive's Logs / Block / Policies, a cleanup's removals in the
+   bin. A quiet row of plain links, never buttons: they leave
+   the page rather than act on it. */
+.task-next-links,
+.signins-next-links,
+.dup-job-bin-link {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 2px 0 22px;
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
 }
 
-.dashboard-subtabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
+.signins-next-links {
+  margin: 0 0 var(--space-4);
 }
 
-.dashboard-subtabs button:hover {
-  color: var(--ink);
-  border-color: var(--mint);
+@keyframes control-anchor-flash {
+  0%,
+  35% {
+    box-shadow: 0 0 0 3px var(--mint);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
 }
 
-.dashboard-subtabs button:focus-visible {
-  outline: 2px solid var(--mint);
-  outline-offset: 1px;
-}
-
-.dashboard-subtabs button.active {
-  color: var(--mint);
-  background: var(--active);
-  border-color: transparent;
+@media (prefers-reduced-motion: reduce) {
+  .control-anchor-flash {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--mint);
+  }
 }
 
 /* A failed sign-in in the Logins table reads as plain text like every other
@@ -2257,5 +2284,121 @@
 @media (max-width: 430px) {
   .log-search {
     flex-basis: 100%;
+  }
+}
+
+/* ── The control panel on a phone ───────────────────────────────── */
+/* ControlPanelPhoneNav: Home · where you are (opens the menu) · search, in one row
+   that never scrolls sideways; the menu lists every group and page. Rendered only
+   at the mobile breakpoint (useIsMobile), and styled only there. */
+@media (max-width: 740px) {
+  .home-control-nav.control-phone-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    overflow: visible;
+  }
+
+  .control-phone-nav .control-phone-icon {
+    flex: 0 0 auto;
+    justify-content: center;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: transparent;
+  }
+
+  .control-phone-menu-trigger {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .control-phone-menu-trigger:focus-visible {
+    outline: 2px solid var(--mint);
+    outline-offset: 1px;
+  }
+
+  .control-phone-menu-label {
+    display: grid;
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.15;
+  }
+
+  .control-phone-menu-label small {
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .control-phone-menu-label strong,
+  .control-phone-menu-label small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .metadata-modal.control-phone-menu {
+    grid-template-rows: auto minmax(0, 1fr);
+    width: calc(100vw - 24px);
+    height: auto;
+    min-height: 0;
+    max-height: calc(100dvh - 32px);
+  }
+
+  .control-phone-menu-groups {
+    display: grid;
+    gap: var(--space-4);
+    overflow-y: auto;
+    padding: var(--space-3) var(--space-4) var(--space-5);
+  }
+
+  .control-phone-menu-group h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-1);
+    color: var(--muted);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .control-phone-menu-group ul {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .control-phone-menu-group a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .control-phone-menu-group a.is-active {
+    color: var(--mint);
+    background: var(--active);
+    font-weight: 650;
   }
 }

@@ -131,8 +131,8 @@ and each author's lines gather under their name.
 
 ## Importing a pack
 
-**Administrators only**, and it lives in the control panel: **Utilities ›
-Widgets › Quotes**. A pack decides what the whole house reads, so bringing one in
+**Administrators only**, and it lives in the control panel: **Settings ›
+Quotes**. A pack decides what the whole house reads, so bringing one in
 is an administrative act in the same way adding a library is — and that page is
 where a pack is taken back out again. Everyone can still add their own quotes one
 at a time from the Quotes page.

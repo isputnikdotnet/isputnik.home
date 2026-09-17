@@ -51,7 +51,7 @@ eight steps, in the order they depend on each other:
 4. **Backups** — a nightly full backup of the catalogue, settings and covers, and how
    many to keep. The Backup page in the control panel has the smaller kinds and the
    weekly and monthly cadences.
-5. **Maps** — the same four cards as [Control panel → Maps](control-panel.md#maps),
+5. **Maps** — the same four cards as [Control panel → Settings → Maps](control-panel.md#maps),
    each with its switch: offline maps, the names of the places photos were taken
    in, where sign-ins came from, and roads for story routes. Maps work with all of
    them off.

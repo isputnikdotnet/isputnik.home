@@ -530,7 +530,7 @@
     "browsing": "Browsing by folder",
     "itemsInFoldersTemplate": "{{items}} in {{folders}}",
     "hereWithSubTemplate": "{{here}} here · {{subtree}} with subfolders",
-    "rescanNotice": "Rescanning \"{{folder}}\" — new, changed, and removed files there update shortly. Follow progress under Control panel → Overview → Tasks.",
+    "rescanNotice": "Rescanning \"{{folder}}\" — new, changed, and removed files there update shortly. Follow progress under Control panel → Maintenance → Tasks.",
     "askSomeone": "Ask someone",
     "askSomeoneTitle": "Ask someone what they remember about this folder's photos: they become an album, sent with the question",
     "lockedNotice": "Locked \"{{folder}}\" — nothing in it (or its subfolders) can be deleted from the app until it’s unlocked.",

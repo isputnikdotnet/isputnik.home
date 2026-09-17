@@ -159,7 +159,7 @@ export function ScheduledJobsSection() {
           {run.taskIds.length > 0 && (
             <>
               {" "}
-              <a href={`${controlHref("dashboard")}?view=tasks`} onClick={(event) => followRoute(event, `${controlHref("dashboard")}?view=tasks`)}>
+              <a href={controlHref("tasks")} onClick={(event) => followRoute(event, controlHref("tasks"))}>
                 {run.phase === "working" ? t("controlAdmin:scheduledJobs.watchProgress") : t("controlAdmin:scheduledJobs.seeOnTasks")}
               </a>
               .

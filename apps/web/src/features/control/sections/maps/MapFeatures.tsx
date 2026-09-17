@@ -3,7 +3,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ExternalLink, Folder, Globe, Link as LinkIcon, Map as MapIcon, MapPin, Route, ShieldCheck, Upload } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref, followRoute, navigate } from "../../../../router";
+import { followRoute, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Field } from "../../../../shared/Field";
@@ -16,6 +16,7 @@ import { relativeTime } from "../../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../../shared/utils";
 import { MapFeatureCard, MapFeatureMeter, MapFeaturePart } from "./MapFeatureCard";
 import { VillageCountries } from "./VillageCountries";
+import { storageHref } from "../../links";
 import {
   CACHE_LIMITS_MB,
   cityDatabase,
@@ -301,13 +302,14 @@ export function MapFeatures() {
       {needsAppStorage && (
         <MessageBox tone="info" title={t("controlAdmin:mapFeatures.needsAppStorageTitle")}>
           {t("controlAdmin:mapFeatures.needsAppStorage")}{" "}
-          <a href={controlHref("storage")} onClick={(event) => followRoute(event, controlHref("storage"))}>
+          <a href={storageHref("app-storage")} onClick={(event) => followRoute(event, storageHref("app-storage"))}>
             {t("controlAdmin:mapFeatures.needsAppStorageLink")}
           </a>
         </MessageBox>
       )}
 
       <MapFeatureCard
+        id="offline-maps"
         icon={<MapIcon size={22} />}
         title={t("controlAdmin:mapFeatures.offlineTitle")}
         description={t("controlAdmin:mapFeatures.offlineDescription")}
@@ -352,6 +354,7 @@ export function MapFeatures() {
       </MapFeatureCard>
 
       <MapFeatureCard
+        id="named-places"
         icon={<MapPin size={22} />}
         title={t("controlAdmin:mapFeatures.placesTitle")}
         description={t("controlAdmin:mapFeatures.placesDescription")}
@@ -397,6 +400,7 @@ export function MapFeatures() {
       </MapFeatureCard>
 
       <MapFeatureCard
+        id="sign-in-locations"
         icon={<ShieldCheck size={22} />}
         title={t("controlAdmin:mapFeatures.signInsTitle")}
         description={t("controlAdmin:mapFeatures.signInsDescription")}
@@ -484,6 +488,7 @@ export function MapFeatures() {
       </MapFeatureCard>
 
       <MapFeatureCard
+        id="road-routes"
         icon={<Route size={22} />}
         title={t("controlAdmin:mapFeatures.routesTitle")}
         description={t("controlAdmin:mapFeatures.routesDescription")}
@@ -551,7 +556,7 @@ export function MapFeatures() {
       <p className="map-features-folder">
         <Folder size={15} aria-hidden="true" />
         <span>{t("controlAdmin:mapFeatures.folder", { path: folder })}</span>
-        <Button variant="text" compact onClick={() => navigate(controlHref("storage"))}>{t("controlAdmin:mapFeatures.changeFolder")}</Button>
+        <Button variant="text" compact onClick={() => navigate(storageHref("app-storage"))}>{t("controlAdmin:mapFeatures.changeFolder")}</Button>
       </p>
 
       {linkOpen && (

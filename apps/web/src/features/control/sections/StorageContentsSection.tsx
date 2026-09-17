@@ -7,7 +7,8 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
-import { controlHref } from "../../../router";
+import { followRoute } from "../../../router";
+import { storageHref } from "../links";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { formatNumber } from "../../../shared/dates";
 
@@ -161,7 +162,13 @@ export function StorageContentsSection() {
         iconClassName="storage"
         description={t("controlAdmin:storageContents.description")}
       >
-        <RefreshButton onRefresh={load} />
+        {/* Where these files are is decided on Storage; this page only shows what is in them. */}
+        <div className="row-actions">
+          <a className="secondary-button compact-button" href={storageHref("app-storage")} onClick={(event) => followRoute(event, storageHref("app-storage"))}>
+            {t("controlAdmin:storageContents.storageSettings")}
+          </a>
+          <RefreshButton onRefresh={load} />
+        </div>
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:storageContents.loadFailed")}>{error}</MessageBox>}
@@ -169,7 +176,7 @@ export function StorageContentsSection() {
       {contents && !contents.path && (
         <MessageBox tone="info" title={t("controlAdmin:storageContents.notSetTitle")}>
           {t("controlAdmin:storageContents.notSetBody")}{" "}
-          <a href={controlHref("storage")}>{t("controlAdmin:storageContents.openStorage")}</a>
+          <a href={storageHref("app-storage")} onClick={(event) => followRoute(event, storageHref("app-storage"))}>{t("controlAdmin:storageContents.openStorage")}</a>
         </MessageBox>
       )}
 

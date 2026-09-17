@@ -97,7 +97,7 @@ export function StorageSection() {
 
       {error && <MessageBox tone="error" title={t("controlAdmin:storage.errorTitle")}>{error}</MessageBox>}
 
-      <section className="storage-section">
+      <section id="storage-containers" className="storage-section">
         <div className="storage-section-head">
           <div>
             <h2>{t("controlAdmin:storage.containersTitle")}</h2>

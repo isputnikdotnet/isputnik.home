@@ -1,5 +1,20 @@
 [
   {
+    "version": "4.15.0",
+    "label": "Every page where you'd look for it",
+    "changes": [
+      "**The control panel has six sections, and every one works the same way.** Overview, Library, Members, Security, Maintenance and Settings each open on their first page, with one row of that section's pages across the top. Utilities folded out into branches of its own and Maps was a section of one page, so both were places you had to learn; their pages now sit where you would look for them.",
+      "**The Dashboard's row of views became pages.** The Dashboard itself is the server's health. **Activity** and **Library statistics** are pages beside it under Overview, **Sign-ins** and **Sign-in locations** moved to Security, and **Tasks** leads Maintenance. They were buttons in a second row under the page, so Back skipped over them and none could be opened in a new tab. Now each has its own address.",
+      "**Duplicate cleanup and Missing photos are under Maintenance, Quotes and Maps under Settings.**",
+      "**Reader access moved to your Profile, and every member can use it now.** The tokens that let KOReader, Moon+ Reader or Thorium open your ebooks belong to the person who makes them, but the only page for them was in the control panel, where only administrators could go. Profile has a **Reader access** tab of its own.",
+      "**The sidebar link says Control panel.** It said Settings, and inside the panel there was a second Settings that went somewhere else. Inside the panel it steps aside; **Home** is the way back out.",
+      "**Search lands on the setting, not just its page.** Searching for password policy, deletion protection or a map feature now scrolls to that card and flashes it once, instead of leaving you at the top of a long page. The arrows on Security's Overview land on the card they grade the same way.",
+      "**Pages lead to the next step, already narrowed.** A running scan offers **Follow on Tasks**, opened on that library's tasks. A failed task links to its library and to Scheduled jobs. A cleanup that removed copies links to exactly those copies in the Recycle Bin. A sign-in address you are looking into offers its entries in Logs, **Block this address** with the address filled in, and the lockout settings. The links to Storage from Stories, Maps, Backup, the family tree and Storage contents now scroll to the card they mean.",
+      "**On a phone the control panel is one row.** Home, a button that names the page you are on, and search. The button opens every section and page in one list, scrolled to where you are, instead of a strip that scrolled sideways past most of its own links.",
+      "**Old links still work.** Every address the moved pages used to have, including Dashboard links that named a view, opens the page that took it over."
+    ]
+  },
+  {
     "version": "4.14.0",
     "label": "Say it about a photo the way Review mode does",
     "changes": [

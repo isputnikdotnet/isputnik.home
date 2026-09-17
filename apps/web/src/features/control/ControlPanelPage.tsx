@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Home, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
@@ -7,22 +7,21 @@ import { controlHref, followRoute } from "../../router";
 import type { ControlSection } from "../../router";
 import {
   CONTROL_GROUPS,
-  contextLabel,
   groupForSection,
   groupLabel,
-  navChildrenFor,
-  sectionContext,
   sectionEyebrow,
   tabLabel,
-  tabsInScope,
   type ControlTabDef
 } from "./nav";
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
+import { useAnchorScroll } from "./useAnchorScroll";
 import { LoadErrorBoundary } from "../../shared/LoadErrorBoundary";
 import { useSession } from "../../app/SessionContext";
 // The control panel's own stylesheet: it loads with this page, not on every route (docs/css-map.md).
 import "../../styles/admin.css";
 import { Button } from "../../shared/Button";
+import { Modal } from "../../shared/Modal";
+import { useIsMobile } from "../../shared/useIsMobile";
 
 // Each section is its own chunk, loaded when its tab is first opened. Imported
 // statically they made this page one ~700 KB file — the dashboard's charts, the
@@ -36,6 +35,11 @@ const StorageSection = lazy(() => import("./sections/StorageSection").then((m) =
 const StorageContentsSection = lazy(() => import("./sections/StorageContentsSection").then((m) => ({ default: m.StorageContentsSection })));
 const LibrariesSection = lazy(() => import("./sections/LibrariesSection").then((m) => ({ default: m.LibrariesSection })));
 const DashboardSection = lazy(() => import("./sections/DashboardSection").then((m) => ({ default: m.DashboardSection })));
+const ActivitySection = lazy(() => import("./sections/ActivitySection").then((m) => ({ default: m.ActivitySection })));
+const LibraryStatsSection = lazy(() => import("./sections/LibraryStatsSection").then((m) => ({ default: m.LibraryStatsSection })));
+const TasksSection = lazy(() => import("./sections/TasksSection").then((m) => ({ default: m.TasksSection })));
+const SignInsSection = lazy(() => import("./sections/SignInsSection").then((m) => ({ default: m.SignInsSection })));
+const SignInLocationsSection = lazy(() => import("./sections/SignInsSection").then((m) => ({ default: m.SignInLocationsSection })));
 const BackupSection = lazy(() => import("./sections/BackupSection").then((m) => ({ default: m.BackupSection })));
 const CategoriesSection = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoriesSection })));
 const CategoryEditorPage = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoryEditorPage })));
@@ -50,7 +54,6 @@ const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ d
 const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
-const OpdsAccessSection = lazy(() => import("./sections/OpdsAccessSection").then((m) => ({ default: m.OpdsAccessSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
 const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
 
@@ -66,10 +69,30 @@ export function ControlPanelPage({
   const [searchOpen, setSearchOpen] = useState(false);
   const openSearch = useCallback(() => setSearchOpen(true), []);
   useControlSearchShortcut(openSearch);
+  useAnchorScroll(section);
 
   // The category editor is a sub-page of Categories, not a tab of its own, so it
   // keeps the nav highlight but drops the tab row.
   const editingCategory = section === "categories" && categoryId !== undefined;
+
+  // An old address — an alias, or the Dashboard with a retired ?view= — shows the
+  // page it meant; the address bar is then tidied to that page's own. replaceState,
+  // so Back never returns to the dead address, and the rest of the query and the
+  // hash ride along, because a Sign-ins link carrying ?ip=… is a dive, not a page.
+  useEffect(() => {
+    if (categoryId !== undefined) return;
+    const canonical = controlHref(section);
+    const params = new URLSearchParams(window.location.search);
+    if (window.location.pathname === canonical && !params.has("view")) return;
+    params.delete("view");
+    const query = params.toString();
+    window.history.replaceState(window.history.state, "", `${canonical}${query ? `?${query}` : ""}${window.location.hash}`);
+  }, [section, categoryId]);
+
+  const tabs = groupForSection(section).tabs;
+  // On a phone the menu lists every page, and its button names the one you are on,
+  // so the tab row would be a third copy squeezed into 375px.
+  const isMobile = useIsMobile();
 
   return (
     <DashboardShell
@@ -78,11 +101,10 @@ export function ControlPanelPage({
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
-          {/* The row shows the branch you are in, not the whole group — and
-              disappears when that branch holds a single page. */}
-          {!editingCategory && tabsInScope(section).length > 1 && (
+          {/* A group of one page draws no row. */}
+          {!editingCategory && !isMobile && tabs.length > 1 && (
             <ControlTabs
-              tabs={tabsInScope(section)}
+              tabs={tabs}
               section={section}
               label={t("control:nav.tabsAria", { group: sectionEyebrow(section) })}
             />
@@ -113,6 +135,8 @@ function ControlSectionBody({
 }) {
   switch (section) {
     case "dashboard":       return <DashboardSection />;
+    case "activity":        return <ActivitySection />;
+    case "libraryStats":    return <LibraryStatsSection />;
     case "logs":            return <LogsSection />;
 
     case "libraries":       return <LibrariesSection />;
@@ -125,25 +149,26 @@ function ControlSectionBody({
     case "groups":          return <GroupsSection />;
     case "invites":         return <InvitesSection />;
 
+    case "signIns":         return <SignInsSection />;
+    case "signInLocations": return <SignInLocationsSection />;
     case "security":
     case "securityPolicies":
     case "securityTrusted":
     case "securityBlocked": return <SecuritySection section={section} />;
 
-    case "backup":          return <BackupSection />;
+    case "tasks":           return <TasksSection />;
     case "scheduledJobs":   return <ScheduledJobsSection />;
+    case "backup":          return <BackupSection />;
     case "recycleBin":      return <RecycleBinSection currentUser={currentUser} />;
-    case "missingPhotos":   return <MissingPhotosSection />;
     case "duplicateCleanup": return <DuplicateCleanupSection currentUser={currentUser} />;
-    case "quotes":          return <QuotesSection />;
-
-    case "mapSetup":        return <MapSetupSection />;
+    case "missingPhotos":   return <MissingPhotosSection />;
 
     case "appearance":      return <AppearanceSection />;
+    case "quotes":          return <QuotesSection />;
+    case "mapSetup":        return <MapSetupSection />;
+    case "storySettings":   return <StorySettingsSection />;
     case "email":           return <MailSection />;
     case "notifications":   return <NotificationsSection />;
-    case "storySettings":   return <StorySettingsSection />;
-    case "readerAccess":    return <OpdsAccessSection />;
     case "about":           return <AboutSection />;
   }
 }
@@ -151,24 +176,9 @@ function ControlSectionBody({
 function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
   const { t } = useTranslation(["common", "control"]);
   const activeGroup = groupForSection(section);
-  const activeContext = sectionContext(section);
-  // Open on the branch you are standing in. Landing on a page whose group shows as a
-  // collapsed toggle — with nothing marked current anywhere — reads as having left
-  // the nav behind entirely.
-  const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
-    () => (activeContext ? new Set([activeGroup.key]) : new Set())
-  );
-  const toggleBranch = useCallback((key: string) => {
-    setExpandedBranches((previous) => {
-      const next = new Set(previous);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  }, []);
+  const isMobile = useIsMobile();
+
+  if (isMobile) return <ControlPanelPhoneNav section={section} onSearch={onSearch} />;
 
   return (
     <nav className="home-control-nav" aria-label={t("control:nav.aria")}>
@@ -183,69 +193,19 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
         {CONTROL_GROUPS.map((group) => {
           const Icon = group.icon;
           const active = group.key === activeGroup.key;
-          const label = groupLabel(group.key);
           // Each group links to its first tab, which is its landing page.
           const href = controlHref(group.tabs[0].section);
-          // Derived from the tabs' own `context`, so a second Gallery tab joins the
-          // Gallery branch rather than adding a second link with the same name.
-          const nestedLinks = navChildrenFor(group);
-          const expanded = expandedBranches.has(group.key);
-          const nestedId = `control-nav-${group.key}-nested`;
           return (
-            <div className="control-nav-branch" key={group.key}>
-              {nestedLinks.length > 0 ? (
-                <Button
-                  variant="bare"
-                  className={`home-nav-link control-nav-toggle${active ? " is-active" : ""}`}
-                  aria-expanded={expanded}
-                  aria-controls={nestedId}
-                  onClick={() => toggleBranch(group.key)}
-                >
-                  <Icon size={21} aria-hidden="true" />
-                  <span>{label}</span>
-                  <ChevronDown className="control-nav-toggle-icon" size={16} aria-hidden="true" />
-                </Button>
-              ) : (
-                <a
-                  className={`home-nav-link${active ? " is-active" : ""}`}
-                  href={href}
-                  aria-current={active ? "page" : undefined}
-                  onClick={(event) => followRoute(event, href)}
-                >
-                  <Icon size={21} aria-hidden="true" />
-                  <span>{label}</span>
-                </a>
-              )}
-              {nestedLinks.length > 0 && (
-                <div
-                  className="control-nav-nested"
-                  id={nestedId}
-                  aria-label={t("control:nav.nestedAria", { group: label })}
-                  hidden={!expanded}
-                >
-                  {nestedLinks.map((item) => {
-                    const ChildIcon = item.icon;
-                    const childHref = controlHref(item.section);
-                    const childLabel = contextLabel(item.context);
-                    // The branch you are actually in, not merely the group — with two
-                    // branches, highlighting on the group alone would light both.
-                    const childActive = active && activeContext === item.context;
-                    return (
-                      <a
-                        className={`home-nav-link control-nav-child${childActive ? " is-active" : ""}`}
-                        href={childHref}
-                        aria-current={childActive ? "page" : undefined}
-                        onClick={(event) => followRoute(event, childHref)}
-                        key={item.context}
-                      >
-                        <ChildIcon size={17} aria-hidden="true" />
-                        <span>{childLabel}</span>
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <a
+              key={group.key}
+              className={`home-nav-link${active ? " is-active" : ""}`}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              onClick={(event) => followRoute(event, href)}
+            >
+              <Icon size={21} aria-hidden="true" />
+              <span>{groupLabel(group.key)}</span>
+            </a>
           );
         })}
       </div>
@@ -257,6 +217,115 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
         <span>{t("control:nav.searchTrigger")}</span>
         <kbd aria-hidden="true">Ctrl K</kbd>
       </Button>
+    </nav>
+  );
+}
+
+// The panel on a phone: Home, one button that says where you are and opens every
+// group and page, and search — always the same three, never a strip that scrolls
+// sideways past most of its own links. The menu is the desktop nav and tab rows in
+// one list, from the same nav.ts, so the two can never disagree.
+function ControlPanelPhoneNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
+  const { t } = useTranslation(["common", "control"]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const activeGroup = groupForSection(section);
+  const ActiveIcon = activeGroup.icon;
+
+  // A page change — from the menu, search or a link on the page — closes the menu.
+  useEffect(() => setMenuOpen(false), [section]);
+
+  // Thirty-odd pages is taller than a phone: open on the one you are on.
+  useEffect(() => {
+    if (!menuOpen) return;
+    document.querySelector(".control-phone-menu [aria-current='page']")?.scrollIntoView({ block: "center" });
+  }, [menuOpen]);
+
+  return (
+    <nav className="home-control-nav control-phone-nav" aria-label={t("control:nav.aria")}>
+      <a
+        className="home-nav-link control-nav-exit control-phone-icon"
+        href="/"
+        aria-label={t("control:nav.exit")}
+        title={t("control:nav.exit")}
+        onClick={(event) => followRoute(event, "/")}
+      >
+        <Home size={20} aria-hidden="true" />
+      </a>
+
+      <Button
+        variant="bare"
+        className="control-phone-menu-trigger"
+        aria-haspopup="dialog"
+        aria-expanded={menuOpen}
+        aria-label={t("control:nav.menuOpen", { page: `${groupLabel(activeGroup.key)} › ${tabLabel(section)}` })}
+        onClick={() => setMenuOpen(true)}
+      >
+        <ActiveIcon size={18} aria-hidden="true" />
+        <span className="control-phone-menu-label">
+          <small>{groupLabel(activeGroup.key)}</small>
+          <strong>{tabLabel(section)}</strong>
+        </span>
+        <ChevronDown size={18} aria-hidden="true" />
+      </Button>
+
+      <Button
+        variant="icon"
+        className="control-phone-icon"
+        aria-label={t("control:nav.searchAria")}
+        title={t("control:nav.searchAria")}
+        onClick={onSearch}
+      >
+        <Search size={20} aria-hidden="true" />
+      </Button>
+
+      {menuOpen && (
+        <Modal
+          variant="panel"
+          className="control-phone-menu"
+          title={t("control:nav.aria")}
+          onClose={() => setMenuOpen(false)}
+        >
+          <div className="control-phone-menu-groups">
+            {CONTROL_GROUPS.map((group) => {
+              const Icon = group.icon;
+              const headingId = `control-phone-menu-${group.key}`;
+              return (
+                <section key={group.key} className="control-phone-menu-group" aria-labelledby={headingId}>
+                  <h2 id={headingId}>
+                    <Icon size={17} aria-hidden="true" />
+                    {groupLabel(group.key)}
+                  </h2>
+                  <ul>
+                    {group.tabs.map((tab) => {
+                      const href = controlHref(tab.section);
+                      const current = tab.section === section;
+                      return (
+                        <li key={tab.section}>
+                          <a
+                            href={href}
+                            className={current ? "is-active" : undefined}
+                            aria-current={current ? "page" : undefined}
+                            onClick={(event) => {
+                              if (current) {
+                                event.preventDefault();
+                                setMenuOpen(false);
+                                return;
+                              }
+                              followRoute(event, href);
+                            }}
+                          >
+                            {tabLabel(tab.section)}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
     </nav>
   );
 }

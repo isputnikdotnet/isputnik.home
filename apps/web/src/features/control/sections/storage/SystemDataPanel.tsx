@@ -213,7 +213,7 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
   const pendingCopy = pending ? confirmCopy(pending) : null;
 
   return (
-    <section className="library-settings-panel storage-settings-panel system-data-panel">
+    <section id="system-data" className="library-settings-panel storage-settings-panel system-data-panel">
       <div>
         <h2 className="system-data-title">
           <span>{t("controlAdmin:systemData.title")}</span>
