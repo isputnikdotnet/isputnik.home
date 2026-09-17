@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Eye, EyeOff, LogOut, Send as SendIcon, Trash2 } from "lucide-react";
+import { Eye, EyeOff, LogOut, MoreVertical, Send as SendIcon, Trash2 } from "lucide-react";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followReplace, goBack, navigate, replaceNavigate, storyEditorHref } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { useIsMobile } from "../../shared/useIsMobile";
+import { useAnchoredMenu } from "../../shared/useAnchoredMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { SendToSheet } from "../social/SendToSheet";
@@ -41,6 +43,7 @@ export function StoryEditorPage({
   // The panes live in the sidebar, and a phone has no sidebar — the same strip
   // the reading view uses carries them there instead.
   const isMobile = useIsMobile();
+  const moreMenu = useAnchoredMenu();
 
   const chapterIndex = story && chapterId
     ? story.chapters.findIndex((chapter) => chapter.id === chapterId)
@@ -111,24 +114,63 @@ export function StoryEditorPage({
             {published ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
           </Button>
           {/* Handing the story on is one door everywhere in the app: Send holds
-              both the people and the guest link, and manages both itself. */}
-          <Button
-            variant="icon"
-            aria-label={t("stories:actions.send")}
-            title={t("stories:actions.send")}
-            onClick={() => setSending(true)}
-          >
-            <SendIcon size={18} aria-hidden="true" />
-          </Button>
-          <Button
-            variant="icon"
-            danger
-            aria-label={t("stories:actions.delete")}
-            title={t("stories:actions.delete")}
-            onClick={() => setConfirmDelete(true)}
-          >
-            <Trash2 size={18} aria-hidden="true" />
-          </Button>
+              both the people and the guest link, and manages both itself.
+              On a phone these two go behind a ⋮ as words: Delete sat one 36px
+              icon away from Send, with nothing but a glyph to tell them apart. */}
+          {isMobile ? (
+            <>
+              <Button
+                variant="icon"
+                ref={moreMenu.triggerRef}
+                onClick={moreMenu.toggle}
+                aria-haspopup="menu"
+                aria-expanded={moreMenu.open}
+                aria-label={t("stories:edit.storyActions")}
+                title={t("stories:edit.storyActions")}
+              >
+                <MoreVertical size={18} aria-hidden="true" />
+              </Button>
+              {moreMenu.open && moreMenu.pos && createPortal(
+                <div
+                  ref={moreMenu.menuRef}
+                  className="book-detail-action-menu audiobook-library-menu"
+                  role="menu"
+                  aria-label={t("stories:edit.storyActions")}
+                  style={{ position: "fixed", top: moreMenu.pos.top, left: moreMenu.pos.left ?? undefined, right: moreMenu.pos.right ?? undefined }}
+                >
+                  <Button variant="bare" role="menuitem" onClick={() => { moreMenu.close(); setSending(true); }}>
+                    <SendIcon size={16} aria-hidden="true" />
+                    <span>{t("stories:actions.send")}</span>
+                  </Button>
+                  <Button variant="bare" role="menuitem" danger onClick={() => { moreMenu.close(); setConfirmDelete(true); }}>
+                    <Trash2 size={16} aria-hidden="true" />
+                    <span>{t("stories:actions.delete")}</span>
+                  </Button>
+                </div>,
+                document.body
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                variant="icon"
+                aria-label={t("stories:actions.send")}
+                title={t("stories:actions.send")}
+                onClick={() => setSending(true)}
+              >
+                <SendIcon size={18} aria-hidden="true" />
+              </Button>
+              <Button
+                variant="icon"
+                danger
+                aria-label={t("stories:actions.delete")}
+                title={t("stories:actions.delete")}
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 size={18} aria-hidden="true" />
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>
