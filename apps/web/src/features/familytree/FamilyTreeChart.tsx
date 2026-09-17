@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Download,
   FileUp,
   House,
   Maximize,
   Minus,
+  MoreVertical,
   Network,
   Pencil,
   Plus,
@@ -17,6 +19,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
+import { useAnchoredMenu } from "../../shared/useAnchoredMenu";
+import { useIsMobile } from "../../shared/useIsMobile";
 import {
   computeChartLayout,
   isEndedUnion,
@@ -28,6 +32,11 @@ import {
 import { lifeYears, unionStatusLabel, type FamilyPerson, type FamilyTree, type FamilyUnion } from "./types";
 
 const MIN_SCALE = 0.3;
+// A phone never opens further out than this. Fitting a whole tree into 375px
+// put the names at 31% — four pixels tall, with card menus too small to hit —
+// so the chart opens readable AROUND THE PERSON IN FOCUS and is panned from
+// there; Fit (the ⤢ button) still shows the whole tree on demand.
+const PHONE_MIN_SCALE = 0.62;
 const MAX_SCALE = 3;
 // Hover text on the union badge — the icon says current or ended, this says why.
 function unionBadgeLabel(status: FamilyUnion["status"], t: TFunction<readonly ["family"], undefined>): string {
@@ -214,7 +223,13 @@ export function FamilyTreeChart({
   // badge twice toggles instead of closing-then-reopening.
   const cardMenuAtPointerDown = useRef<string | null>(null);
 
-  const fit = () => {
+  const isPhone = useIsMobile();
+  const railMenu = useAnchoredMenu();
+
+  // "opening" is the automatic fit when a layout is built: on a phone that one
+  // refuses to go below PHONE_MIN_SCALE and centres on the focus person. The ⤢
+  // button passes nothing, so it always shows the whole tree, however small.
+  const fit = (opening = false) => {
     const svg = svgRef.current;
     if (!svg || layout.nodes.length === 0) return;
     const { minX, minY, maxX, maxY } = layout.bounds;
@@ -222,10 +237,17 @@ export function FamilyTreeChart({
     const contentW = maxX - minX;
     const contentH = maxY - minY;
     // Fit the content, but never zoom a small tree past 1:1.
-    const scale = Math.min(rect.width / contentW, rect.height / contentH, 1);
+    const fitScale = Math.min(rect.width / contentW, rect.height / contentH, 1);
+    const phone = opening && window.matchMedia("(max-width: 740px)").matches;
+    const scale = phone ? Math.min(Math.max(fitScale, PHONE_MIN_SCALE), 1) : fitScale;
     const w = rect.width / scale;
     const h = rect.height / scale;
-    setView({ x: minX + contentW / 2 - w / 2, y: minY + contentH / 2 - h / 2, w, h });
+    // Centred on the whole tree, unless the phone's floor means it no longer
+    // fits — then the focus person is what the screen is spent on.
+    const focus = phone && scale > fitScale ? layout.nodes.find((node) => node.isFocus) : null;
+    const centerX = focus ? focus.x : minX + contentW / 2;
+    const centerY = focus ? focus.y : minY + contentH / 2;
+    setView({ x: centerX - w / 2, y: centerY - h / 2, w, h });
   };
 
   // Measure the chart, then keep measuring it: the window resizes, the browser
@@ -250,7 +272,7 @@ export function FamilyTreeChart({
 
   // Re-fit when the focus changes (the layout is rebuilt around a new origin);
   // a card menu anchored to the old layout goes with it.
-  useEffect(() => { fit(); setCardMenuId(null); }, [layout]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fit(true); setCardMenuId(null); }, [layout]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!cardMenuId) return;
@@ -388,7 +410,7 @@ export function FamilyTreeChart({
     };
   })();
 
-  const goHome = () => { onHome(); fit(); };
+  const goHome = () => { onHome(); fit(true); };
 
   return (
     <div className="ft-chart-wrap">
@@ -564,6 +586,70 @@ export function FamilyTreeChart({
       {/* Standing rail, top-left of the frame: the call to action, then the ways
           out of the current view. Kept out of the page header so the chart owns
           its own chrome. */}
+      {/* A phone gets one ⋮ instead of the rail: seven unlabelled icons stood
+          over the left edge of the chart, on top of the cards. */}
+      {isPhone ? (
+        <div className="ft-chart-rail is-phone">
+          <Button
+            variant="icon"
+            ref={railMenu.triggerRef}
+            onClick={railMenu.toggle}
+            aria-haspopup="menu"
+            aria-expanded={railMenu.open}
+            aria-label={t("family:chart.treeNavigationAria")}
+            title={t("family:chart.treeNavigationAria")}
+          >
+            <MoreVertical size={18} aria-hidden="true" />
+          </Button>
+          {railMenu.open && railMenu.pos && createPortal(
+            <div
+              ref={railMenu.menuRef}
+              className="book-detail-action-menu audiobook-library-menu"
+              role="menu"
+              aria-label={t("family:chart.treeNavigationAria")}
+              style={{ position: "fixed", top: railMenu.pos.top, left: railMenu.pos.left ?? undefined, right: railMenu.pos.right ?? undefined }}
+            >
+              {onAddPerson && (
+                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onAddPerson(); }}>
+                  <UserRoundPlus size={16} aria-hidden="true" />
+                  <span>{t("family:common.addPerson")}</span>
+                </Button>
+              )}
+              <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); goHome(); }}>
+                <House size={16} aria-hidden="true" />
+                <span>{t("family:chart.backToStartTitle")}</span>
+              </Button>
+              <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); navigate("/family/people"); }}>
+                <UsersRound size={16} aria-hidden="true" />
+                <span>{t("family:chart.allPeopleButton")}</span>
+              </Button>
+              <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); navigate("/family/families"); }}>
+                <Network size={16} aria-hidden="true" />
+                <span>{t("family:families.title")}</span>
+              </Button>
+              {onImport && (
+                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onImport(); }}>
+                  <FileUp size={16} aria-hidden="true" />
+                  <span>{t("family:chart.importButton")}</span>
+                </Button>
+              )}
+              {onExport && (
+                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onExport(); }}>
+                  <Download size={16} aria-hidden="true" />
+                  <span>{t("family:chart.exportButton")}</span>
+                </Button>
+              )}
+              {onSettings && (
+                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onSettings(); }}>
+                  <Settings size={16} aria-hidden="true" />
+                  <span>{t("family:treeSettings.title")}</span>
+                </Button>
+              )}
+            </div>,
+            document.body
+          )}
+        </div>
+      ) : (
       <nav className="ft-chart-rail" aria-label={t("family:chart.treeNavigationAria")}>
         {onAddPerson && (
           <>
@@ -629,6 +715,7 @@ export function FamilyTreeChart({
           </Button>
         )}
       </nav>
+      )}
 
       <aside className="ft-chart-legend" aria-label={t("family:chart.legendAria")}>
         <strong className="ft-chart-legend-title">{t("family:chart.legendTitle")}</strong>
@@ -678,7 +765,7 @@ export function FamilyTreeChart({
         <Button variant="icon" aria-label={t("family:chart.zoomIn")} title={t("family:chart.zoomIn")} onClick={() => zoomAt(1.3)}>
           <Plus size={17} />
         </Button>
-        <Button variant="icon" aria-label={t("family:chart.fitAria")} title={t("family:chart.fitTitle")} onClick={fit}>
+        <Button variant="icon" aria-label={t("family:chart.fitAria")} title={t("family:chart.fitTitle")} onClick={() => fit()}>
           <Maximize size={17} />
         </Button>
       </div>
