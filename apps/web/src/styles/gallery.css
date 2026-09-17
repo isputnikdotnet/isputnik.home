@@ -3578,16 +3578,33 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
     font-size: 0.76rem;
   }
 
-  /* Browse and the search box each take the full width instead of splitting a
-     row that leaves the placeholder cut off mid-word. */
+  /* Browse keeps the row it shares with search, but only as its compass: the
+     word cost a whole line of the first screen, and the button already carries
+     its name for screen readers. */
   .gallery-page .audiobook-page-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
-  .gallery-page .audiobook-library-shortcuts,
+  .gallery-page .audiobook-library-shortcuts {
+    flex: 0 0 auto;
+  }
+
   .gallery-page .audiobook-page-search {
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .gallery-page .audiobook-library-tab {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .gallery-page .audiobook-library-tab > span,
+  .gallery-page .audiobook-library-tab > svg:last-child {
+    display: none;
   }
 }

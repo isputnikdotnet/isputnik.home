@@ -1517,6 +1517,17 @@ input.library-filter {
     box-shadow: none;
   }
 
+  /* A page with nothing in the scope slot (Gallery puts Browse in the header)
+     left half the toolbar empty with the controls crowded on the right. */
+  .library-toolbar-scope:empty {
+    display: none;
+  }
+
+  .library-toolbar-row:has(> .library-toolbar-scope:empty) .library-toolbar-tools {
+    flex: 1 1 auto;
+    justify-content: space-between;
+  }
+
   /* Big enough to hit: the strip is now the phone's way down a long shelf. */
   .library-toolbar-strip .alphabet-bar button {
     min-width: 32px;
