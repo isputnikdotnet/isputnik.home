@@ -23,7 +23,10 @@ export function CatalogRowMobile({
   onDownload,
   onDownloaded,
   onToast,
-  onOpenReader
+  onOpenReader,
+  selectionMode,
+  selected,
+  onToggleSelect
 }: {
   book: AudiobookBook & { format?: string | null; documentId?: string | null };
   kind: "audiobook" | "ebook";
@@ -38,6 +41,10 @@ export function CatalogRowMobile({
   onDownloaded?: (id: string) => void;
   onToast?: (message: string) => void;
   onOpenReader?: () => void;
+  /** Picking several books (the toolbar's Select), as the desktop tiles do. */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   const { t } = useTranslation(["common", "book"]);
   // An ebook is finished in its READING progress, like the desktop ebook tile. The
@@ -94,6 +101,9 @@ export function CatalogRowMobile({
       onDownloaded={onDownloaded}
       onToast={onToast}
       onRead={onOpenReader ? () => Promise.resolve(onOpenReader()) : undefined}
+      selectionMode={selectionMode}
+      selected={selected}
+      onToggleSelect={onToggleSelect}
     />
   );
 }
