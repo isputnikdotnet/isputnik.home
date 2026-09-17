@@ -50,6 +50,21 @@ export function StoryDetailPage({ id, chapterId }: { id: string; chapterId?: str
     : -1;
   const chapter = chapterIndex >= 0 ? story!.chapters[chapterIndex] : null;
 
+  // Each chapter is its own page, but the app never reloads, so the reader
+  // kept the scroll they had on the page before — tapping Day 2 from the foot
+  // of the story landed halfway through it. Start every chapter at its top.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [chapterId]);
+
+  // The chapter row scrolls sideways on a phone: the chapter being read has to
+  // be in the part of it you can see, or a long story opens showing Day 1 while
+  // you read Day 9.
+  useEffect(() => {
+    if (!chapterId) return;
+    document.querySelector(".story-site-strip a.is-current")?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [chapterId, story]);
+
   useEffect(() => {
     if (!story) return;
     document.title = chapter

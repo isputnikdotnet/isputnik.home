@@ -417,6 +417,11 @@
     font-size: 0.9rem;
   }
 
+  /* The index sets its own serif title, which beats the shared phone size. */
+  .story-index .audiobook-page-title h1 {
+    font-size: 1.6rem;
+  }
+
   .story-index .audiobook-page-actions {
     width: 100%;
     flex-wrap: wrap;
@@ -3527,3 +3532,44 @@
 .story-access { display: flex; flex-direction: column; gap: 18px; }
 
 .metadata-modal.story-access-modal { width: min(calc(100vw - 48px), 860px); }
+
+/* ── Phones: the stories index ───────────────────────────────────────────────
+   Search, New collection and New story each had a row of their own, which put
+   the first story below the fold on every visit. */
+@media (max-width: 740px) {
+  .story-index .audiobook-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .story-index .audiobook-page-search {
+    flex: 1 1 100%;
+  }
+
+  /* New story keeps its words and the rest of the row; New collection shrinks
+     to its icon beside it — it is the rarer of the two by a long way. */
+  .story-index .audiobook-page-actions > .primary-button {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+
+  .story-index .audiobook-page-actions > .secondary-button {
+    flex: 0 0 auto;
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .story-index .audiobook-page-actions > .secondary-button > span {
+    display: none;
+  }
+
+  /* Every story on this page is published, so the badge said nothing and sat
+     over the cover of each one; a draft still announces itself. */
+  .story-index .story-status-badge.is-published {
+    display: none;
+  }
+}
