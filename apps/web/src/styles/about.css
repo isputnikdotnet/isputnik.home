@@ -1493,20 +1493,57 @@
 }
 
 @media (max-width: 740px) {
+  /* One row you swipe, like the chapter strip in a story. Two columns of six
+     tabs took 185px — a quarter of the screen — before the page began, and a
+     grid of equal boxes doesn't read as "you are here" the way a row does. */
   .profile-tabs.control-tabs {
-    /* Back to rows here: one column per tab is fine on a desktop row, but on a
-       phone it would squeeze five tabs into 375px. */
-    grid-auto-flow: row;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -14px;
+    padding-inline: 14px;
+    margin-bottom: 20px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  .config-tab.text-button,
+  .profile-tabs.control-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
   .control-tabs a.profile-tab {
+    flex: 0 0 auto;
+    min-height: 46px;
+    padding: 0 14px;
+    border-top: 0;
+    border-left: 0;
+    border-right: 0;
+    white-space: nowrap;
+    font-size: 0.9rem;
+  }
+
+  /* Underline only: a filled box in a scrolling row reads as a button. */
+  .control-tabs a.profile-tab.active {
+    background: transparent;
+    border-color: transparent;
+    border-bottom-color: var(--control-primary-button, var(--mint));
+  }
+
+  .config-tab.text-button {
     min-height: 62px;
     padding: 0 14px;
     white-space: normal;
     line-height: 1.2;
+  }
+
+  /* The page says what it is in its title; the sentence under it cost three
+     lines above the tabs. */
+  .profile-area .section-head .section-description {
+    display: none;
+  }
+
+  .profile-area .user-heading-copy h1 {
+    font-size: 1.5rem;
   }
 
   .security-network-callout.message-box {
