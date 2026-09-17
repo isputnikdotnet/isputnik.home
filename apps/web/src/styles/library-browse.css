@@ -1476,3 +1476,70 @@ input.library-filter {
 .book-upload-library {
   margin-bottom: 12px;
 }
+
+/* ── Phones: the browse page as an app screen ────────────────────────────────
+   The page name, the search box and the toolbar took 250px before the first
+   book. They keep their desktop sizes above this breakpoint. */
+@media (max-width: 740px) {
+  .audiobook-page-header {
+    gap: 12px;
+  }
+
+  .audiobook-page-title h1 {
+    font-size: 1.5rem;
+  }
+
+  /* The count line moves under the toolbar (.library-mobile-status), where it
+     also names the order the list is in. */
+  .audiobook-page-title p {
+    display: none;
+  }
+
+  .audiobook-page-search {
+    min-height: 44px;
+    padding: 0 14px;
+    gap: 9px;
+    box-shadow: none;
+  }
+
+  .audiobook-page-search svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .audiobook-page-search input {
+    font-size: 0.92rem;
+  }
+
+  .library-toolbar {
+    padding: 6px;
+    gap: 6px;
+    box-shadow: none;
+  }
+
+  /* Big enough to hit: the strip is now the phone's way down a long shelf. */
+  .library-toolbar-strip .alphabet-bar button {
+    min-width: 32px;
+    padding: 7px 8px;
+    font-size: 0.88rem;
+  }
+
+  .library-toolbar-strip .alphabet-letters {
+    gap: 1px;
+  }
+
+  /* How many books, and in what order — the header's line, where it costs
+     nothing, plus the one thing the list can't show about itself. */
+  .library-mobile-status {
+    margin: -6px 2px 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  /* Covers on a phone: two to a row, which is what a cover needs to be a
+     cover. Rows stay the default — most people are looking for a title. */
+  .audiobook-catalog.grid.phone-covers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 12px;
+  }
+}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { BookMarked, BookOpen, CheckCheck, CheckSquare, Layers, LayoutGrid, Library, LibraryBig, Loader2, Pencil, Trash2, UploadCloud, X } from "lucide-react";
+import { BookMarked, BookOpen, CheckCheck, CheckSquare, Layers, LayoutGrid, Library, LibraryBig, List, Loader2, Pencil, Rows3, Trash2, UploadCloud, X } from "lucide-react";
 import { api } from "../../../api";
 import { DashboardShell } from "../../../app/DashboardShell";
 import { useSession } from "../../../app/SessionContext";
@@ -28,6 +28,7 @@ import { AddToSeriesModal } from "./AddToSeriesModal";
 import { BulkEditModal } from "./BulkEditModal";
 import { CatalogBookCard } from "./CatalogBookCard";
 import { CatalogBrowseMenu } from "./CatalogBrowseMenu";
+import { CatalogMoreMenu } from "./CatalogMoreMenu";
 import { CATALOG_KINDS, type CatalogKind, type CatalogLibrary, type EbookBook } from "./catalogKinds";
 import { CatalogRowMobile } from "./CatalogRowMobile";
 import { CatalogTail } from "./CatalogTail";
@@ -37,6 +38,26 @@ import { GroupAsEditionsModal } from "./GroupAsEditionsModal";
 import { UploadBookModal } from "./UploadBookModal";
 import { useCatalogSelection } from "./useCatalogSelection";
 import { Button } from "../../../shared/Button";
+
+// Rows or covers on a phone, per media type. localStorage can be empty or throw
+// (private window, cleared site data), and either just means rows.
+const MOBILE_VIEW_KEY = "isputnik.catalogMobileView";
+
+function readMobileView(persistKey: string): "list" | "covers" {
+  try {
+    return localStorage.getItem(`${MOBILE_VIEW_KEY}.${persistKey}`) === "covers" ? "covers" : "list";
+  } catch {
+    return "list";
+  }
+}
+
+function writeMobileView(persistKey: string, view: "list" | "covers") {
+  try {
+    localStorage.setItem(`${MOBILE_VIEW_KEY}.${persistKey}`, view);
+  } catch {
+    // A view that isn't remembered still works for this visit.
+  }
+}
 
 // The Audiobooks page and the Ebooks page — one browse page over the server's
 // paged catalog, drawn for either kind of library. What differs between the two
@@ -75,6 +96,9 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
   // Mobile / PWA: render the catalog as homepage-style rows (with a live download
   // banner + toast) instead of the desktop card grid. Desktop is untouched.
   const isMobile = useIsMobile();
+  // Rows or covers on a phone. A per-viewer convenience, so it lives in the
+  // browser rather than the view store the server-backed settings use.
+  const [mobileView, setMobileView] = useState<"list" | "covers">(() => readMobileView(config.persistKey));
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [activeDownload, setActiveDownload] = useState<{ title: string; progress: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -363,15 +387,35 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
                       <span className="toolbar-label">{t("book:catalog.select")}</span>
                     </Button>
                   )}
-                  {uploadLibraries.length > 0 && (
+                  {!isMobile && uploadLibraries.length > 0 && (
                     <Button variant="toolbar" className="primary" onClick={() => { setUploadOpen(true); setNotice(""); }}>
                       <UploadCloud size={18} aria-hidden="true" />
                       <span className="toolbar-label">{t("book:catalog.upload")}</span>
                     </Button>
                   )}
+                  {/* The phone's toolbar carries what NARROWS the list; what acts
+                      on it (picking several, uploading) and how it is drawn go one
+                      tap deeper, so Browse · Filter · Sort stay readable words. */}
+                  {isMobile && (
+                    <CatalogMoreMenu
+                      items={[
+                        {
+                          icon: mobileView === "covers" ? List : Rows3,
+                          label: mobileView === "covers" ? t("book:catalog.viewAsList") : t("book:catalog.viewAsCovers"),
+                          onClick: () => {
+                            const next = mobileView === "covers" ? "list" : "covers";
+                            setMobileView(next);
+                            writeMobileView(config.persistKey, next);
+                          }
+                        },
+                        ...(canSelect ? [{ icon: CheckSquare, label: t("book:catalog.select"), onClick: () => { selection.enter(); setNotice(""); } }] : []),
+                        ...(uploadLibraries.length > 0 ? [{ icon: UploadCloud, label: t("book:catalog.upload"), onClick: () => { setUploadOpen(true); setNotice(""); } }] : [])
+                      ]}
+                    />
+                  )}
                 </>
               }
-              selection={!isMobile && selection.active ? {
+              selection={selection.active ? {
                 count: selection.selectedIds.size,
                 // Labelled, like the standard row: an unlabelled trash icon is
                 // exactly where hesitation costs the most.
@@ -438,12 +482,12 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
                   </>
                 )
               } : null}
-              // Desktop only. On a phone the letters are a 30-target row nobody
-              // can hit accurately, competing with the list they're meant to
-              // reach — scrolling and search do that job better there.
-              strip={!isMobile && (
+              // On a phone the strip scrolls sideways instead of wrapping into
+              // three rows of tiny targets (library-browse.css): on a screen that
+              // shows six books at a time it is the fastest way down a long shelf.
+              strip={
                 <AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel={t(K.letterAria)} />
-              )}
+              }
             />
 
             <FilterChips value={cat.filters} onChange={cat.setFilters} libraries={libraries} />
@@ -454,7 +498,18 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
               </MessageBox>
             )}
 
-            {isMobile ? (
+            {/* Phones drop the header's count line — it costs a line of the first
+                screen — and read it back here beside the order the list is in,
+                which the list itself cannot show. */}
+            {isMobile && (
+              <p className="library-mobile-status">
+                {t(isEbook ? "book:catalog.counts.ebook" : "book:catalog.counts.audiobook", { count: cat.total })}
+                {" · "}
+                {(isEbook ? getEbookSortOptions() : getSortOptions()).find((option) => option.value === sort)?.label}
+              </p>
+            )}
+
+            {isMobile && mobileView === "list" ? (
               <div className="home-feed-list">
                 {cat.books.map((book) => {
                   const lib = libraryFor(book.libraryId);
@@ -474,13 +529,16 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
                       onDownload={setActiveDownload}
                       onDownloaded={handleDownloaded}
                       onToast={showToast}
+                      selectionMode={selection.active}
+                      selected={selection.selectedIds.has(book.id)}
+                      onToggleSelect={selection.toggle}
                     />
                   );
                 })}
                 {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyMessage}</p>}
               </div>
             ) : (
-              <div className={cx("audiobook-catalog", "grid", density)}>
+              <div className={cx("audiobook-catalog", "grid", isMobile ? "phone-covers" : density)}>
                 {cat.books.map((book) => {
                   const lib = libraryFor(book.libraryId);
                   const tile = {

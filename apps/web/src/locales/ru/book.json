@@ -590,7 +590,10 @@
     "combobox": {
       "removeAria": "Убрать «{{name}}»",
       "addNew": "Добавить «{{name}}»"
-    }
+    },
+    "viewAsCovers": "Показать обложки",
+    "viewAsList": "Показать списком",
+    "moreActions": "Ещё"
   },
   "sectionNav": {
     "allAudiobooks": "Все аудиокниги",

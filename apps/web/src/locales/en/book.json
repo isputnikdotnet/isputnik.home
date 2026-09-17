@@ -511,7 +511,10 @@
     "combobox": {
       "removeAria": "Remove {{name}}",
       "addNew": "Add \"{{name}}\""
-    }
+    },
+    "viewAsCovers": "Show covers",
+    "viewAsList": "Show list",
+    "moreActions": "More"
   },
   "sectionNav": {
     "allAudiobooks": "All Audiobooks",
