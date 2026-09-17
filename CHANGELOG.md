@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.17.1 — Help, pictured
+
+- **The guides show the Help page.** The guide index now walks through Help & guides — the search, Quick start and topics, and the questions — with pictures of each.
+- **A search match inside a longer word no longer splits it.** Searching for backup highlighted the start of "backups" with a gap before the rest, so it read as "backup s".
+- **Report a bug looks like a button.** At the bottom of Help it took the colour of a link instead of matching the other buttons.
+
 ## 4.17.0 — Find the answer, not just the guide
 
 - **Help has a search box, and it finds the section, not just the guide.** The guides grew to twenty, and the only way in was a long list of cards to read through. Type what you are after — backup codes, slideshow, drop link — and each result names the part of a guide that covers it, with the matching words highlighted. Choosing one opens the guide at that heading. Press **/** to jump to the box. It searches the guides that come with the app, so it works with no internet, and a member only finds guides they can use.

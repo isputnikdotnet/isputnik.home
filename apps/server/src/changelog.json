@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.17.1",
+    "label": "Help, pictured",
+    "changes": [
+      "**The guides show the Help page.** The guide index now walks through Help & guides — the search, Quick start and topics, and the questions — with pictures of each.",
+      "**A search match inside a longer word no longer splits it.** Searching for backup highlighted the start of \"backups\" with a gap before the rest, so it read as \"backup s\".",
+      "**Report a bug looks like a button.** At the bottom of Help it took the colour of a link instead of matching the other buttons."
+    ]
+  },
+  {
     "version": "4.17.0",
     "label": "Find the answer, not just the guide",
     "changes": [

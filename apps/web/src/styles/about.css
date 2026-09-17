@@ -426,9 +426,10 @@
   line-height: 1.45;
 }
 
+/* No side padding: a hit inside a longer word ("backups") must not split it. */
 .help-search-snippet mark {
-  border-radius: 3px;
-  padding: 0 2px;
+  border-radius: 2px;
+  padding: 0;
   background: color-mix(in srgb, var(--gold) 32%, transparent);
   color: var(--ink);
 }
@@ -677,10 +678,13 @@
   margin-top: 40px;
 }
 
-.help-contact-button {
+/* A link wearing the secondary button: keep the button's ink, not link blue. */
+.help-contact-button,
+.help-contact-button:visited {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: var(--ink);
   text-decoration: none;
   white-space: nowrap;
 }
