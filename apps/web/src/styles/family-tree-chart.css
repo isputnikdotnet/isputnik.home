@@ -732,8 +732,30 @@
     flex: 1 1 100%;
   }
 
+  /* The chart takes the screen: edge to edge, and as tall as what is left
+     under the page header and over the tab bar. Boxed with a gutter and a
+     radius it was using about half the height for a tree nobody could read. */
   .ft-chart-wrap {
-    height: clamp(430px, calc(100dvh - 190px), 650px);
+    height: calc(100dvh - 210px);
+    min-height: 420px;
+    margin-inline: -14px;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* One ⋮ where the rail was. */
+  .ft-chart-rail.is-phone {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    z-index: 2;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(8px);
   }
 
   .ft-chart-controls {
