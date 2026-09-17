@@ -140,11 +140,14 @@ function DateRangeSection({
 }
 
 export function FacetFilterButton<K extends string>({
-  order, facets, value, onChange, empty, compact = false
+  order, facets, labels, value, onChange, empty, compact = false
 }: {
   order: FacetDef<K>[];
   // Server-supplied options for the non-fixed facets, keyed like `value`.
   facets: Partial<Record<K, string[]>>;
+  // What to show for a server option whose value isn't fit to read (an account id
+  // → its name), per facet. An option without an entry shows its value.
+  labels?: Partial<Record<K, Record<string, string>>>;
   value: Record<K, string[]>;
   onChange: (filters: Record<K, string[]>) => void;
   // The all-clear value for "Clear all".
@@ -181,7 +184,7 @@ export function FacetFilterButton<K extends string>({
                     />
                   );
                 }
-                const options = facet.fixed ?? (facets[facet.key] ?? []).map((v) => ({ value: v, label: v }));
+                const options = facet.fixed ?? (facets[facet.key] ?? []).map((v) => ({ value: v, label: labels?.[facet.key]?.[v] ?? v }));
                 return (
                   <FacetSection
                     key={facet.key}

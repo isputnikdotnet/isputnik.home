@@ -26,8 +26,7 @@ export function recycleBinHref(filters: { library?: string; source?: string } = 
   return withQuery(controlHref("recycleBin"), filters);
 }
 
-/** Overview › Logs, filtered to one address or one person. `user` is the person's
- *  display name — what the Logs person filter matches on, as its own list shows. */
+/** Overview › Logs, filtered to one address or one person. `user` is an account id. */
 export function logsHref(filters: { ip?: string; user?: string } = {}): string {
   return withQuery(controlHref("logs"), filters);
 }

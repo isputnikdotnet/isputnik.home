@@ -343,6 +343,14 @@ export function resetUpstreamState(): void {
   health.lastFailure = null;
 }
 
+/** For tests: what the upstream queue is still doing — slots taken, requests
+ *  waiting for one, and fetches not yet settled (a fetch holds its entry until its
+ *  file is written). All zero means nothing started by one test can reach into
+ *  the next. */
+export function upstreamActivity(): { running: number; waiting: number; inFlight: number } {
+  return { running, waiting: waiting.length, inFlight: inFlight.size };
+}
+
 /** Close kept-alive upstream connections (server shutdown). */
 export function closeUpstream(): Promise<void> {
   return session.close();

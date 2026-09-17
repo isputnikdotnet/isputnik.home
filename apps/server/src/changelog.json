@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.15.2",
+    "label": "Two people with one name stay two people",
+    "changes": [
+      "**The person filter on Logs picks an account, not a name.** It matched on display names, so two members called the same thing showed up as one person, each with the other's sign-ins and changes. Choosing a person now shows only that account's rows; the filter still lists people by name.",
+      "**Links to Logs from before this update still work.** An address that named a person opens Logs on the account with that name."
+    ]
+  },
+  {
     "version": "4.15.1",
     "label": "From a person's sign-ins to everything they did",
     "changes": [

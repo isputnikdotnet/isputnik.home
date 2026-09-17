@@ -33,6 +33,10 @@ type LogSort = "time" | "user" | "event" | "ip";
 
 const EMPTY_LOG_FILTERS: Record<LogFilterKey, string[]> = { event: [], user: [], ip: [] };
 
+// The person filter's value for rows no account did (scans, schedules) — the
+// server's own sentinel, shown under the page's word for it.
+const SYSTEM_ACTOR = "System";
+
 const PAGE_SIZE_VALUES = [10, 25, 50, 100];
 
 // Typing straight into the results, without a Search button to press. Each query
@@ -78,6 +82,26 @@ export function LogsSection() {
     const params = new URLSearchParams(window.location.search);
     return { ...EMPTY_LOG_FILTERS, ip: params.getAll("ip"), user: params.getAll("user") };
   });
+  // The person filter works on account ids (two people can share a name); this is
+  // what each id is called, from the server, plus the automated rows' own word.
+  const [accountNames, setAccountNames] = useState<Record<string, string>>({});
+  const personLabels = { [SYSTEM_ACTOR]: t("control:logs.system"), ...accountNames };
+
+  // 4.15.1 linked here with ?user=<display name>. Once the names are known, such
+  // a value becomes the account (or accounts) called that, so an old link still
+  // shows what it did then rather than nothing.
+  useEffect(() => {
+    const ids = Object.keys(accountNames);
+    if (ids.length === 0) return;
+    const stale = filters.user.filter((value) => value !== SYSTEM_ACTOR && !(value in accountNames));
+    if (stale.length === 0) return;
+    const matched = ids.filter((id) => stale.includes(accountNames[id]));
+    if (matched.length === 0) return;
+    setFilters((current) => ({
+      ...current,
+      user: [...new Set([...current.user.filter((value) => !stale.includes(value)), ...matched])]
+    }));
+  }, [accountNames, filters.user]);
 
   // And kept in step as the filters change, so clearing a chip doesn't leave the
   // address saying otherwise, and a reload or bookmark shows the same rows.
@@ -126,6 +150,7 @@ export function LogsSection() {
     const payload = await api<{
       logs: LogEvent[];
       facets: Record<LogFilterKey, string[]>;
+      facetLabels?: { user?: Record<string, string> };
       page: number;
       pageSize: number;
       total: number;
@@ -133,6 +158,7 @@ export function LogsSection() {
     }>(`/api/logs?${query}`);
     setLogs(payload.logs);
     setFacets(payload.facets);
+    setAccountNames(payload.facetLabels?.user ?? {});
     setLogPage(payload.page);
     setLogTotal(payload.total);
     setLogTotalPages(payload.totalPages);
@@ -254,6 +280,7 @@ export function LogsSection() {
         <FacetFilterButton
           order={LOG_FACET_ORDER}
           facets={facets}
+          labels={{ user: personLabels }}
           value={filters}
           onChange={changeFilters}
           empty={EMPTY_LOG_FILTERS}
@@ -299,7 +326,7 @@ export function LogsSection() {
         </div>
       </div>
 
-      <FacetFilterChips value={filters} onChange={changeFilters} empty={EMPTY_LOG_FILTERS} />
+      <FacetFilterChips value={filters} onChange={changeFilters} empty={EMPTY_LOG_FILTERS} labels={personLabels} />
 
       {logs.length > 0 ? (
         <>
