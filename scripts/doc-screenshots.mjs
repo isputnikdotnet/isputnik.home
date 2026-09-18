@@ -699,6 +699,21 @@ function findBrowser() {
   return found;
 }
 
+// Poll until the app has rendered something into #root (or the page is a plain
+// document with visible text, which covers the install/login pages). Gives up
+// after ~20s and says so rather than writing a white rectangle to the repo.
+async function waitForApp(ws, name) {
+  for (let i = 0; i < 80; i += 1) {
+    const result = await send(ws, "Runtime.evaluate", {
+      expression: "(() => { const root = document.getElementById('root'); const painted = root ? root.childElementCount > 0 : document.body && document.body.innerText.trim().length > 0; return Boolean(painted); })()",
+      returnByValue: true
+    }).catch(() => null);
+    if (result?.result?.value === true) return;
+    await sleep(250);
+  }
+  console.warn(`  ${name}: the page never rendered — the shot may be blank`);
+}
+
 const portOpen = (port) => new Promise((resolve) => {
   const socket = net.connect(port, "127.0.0.1");
   socket.on("connect", () => { socket.destroy(); resolve(true); });
@@ -833,6 +848,11 @@ async function main() {
         width: WIDTH, height: shot.height ?? HEIGHT, deviceScaleFactor: 1, mobile: false
       });
       await send(ws, "Page.navigate", { url: `${BASE}/${shot.url}` });
+      // Wait for the app to have PAINTED, then for the shot's own settling time.
+      // A blind sleep shot a blank page whenever the dev server was cold: the
+      // browser starts with an empty profile and has to fetch the whole module
+      // graph, which takes longer than three seconds more often than not.
+      await waitForApp(ws, shot.name);
       await sleep(shot.wait ?? 3000);
 
       if (shot.setup) {
