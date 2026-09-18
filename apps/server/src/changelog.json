@@ -1,5 +1,21 @@
 [
   {
+    "version": "4.18.0",
+    "label": "The app in your pocket, page by page",
+    "changes": [
+      "**Every page has been gone through on a phone.** Home, Audiobooks and Ebooks, a book's page, the Gallery and its photo viewer, Stories, the family tree, Profile, and reading and listening themselves. The app on a computer is unchanged — this is about the screen you hold.",
+      "**Menus open from the bottom of the screen, where your thumb is.** Choosing a library, sorting a shelf, the ⋮ beside a book or a photo, filters — all of them now slide up from the bottom with the page dimmed behind, instead of a small menu dropped somewhere near the top. **Help and Info can be reached on a phone at last**: they live at the foot of the Profile menu, which is now your things (Likes, Bookmarks, Quotes, Collections), then For you with a count, Profile, Control panel and Logout.",
+      "**The front page starts with what is happening, not with chrome.** A greeting and a bell that says how many things are waiting replace the logo and an \"Online\" badge that was almost always green; \"What's new\" is one line; and the rows waiting on you carry round buttons with the message underneath, instead of buttons that broke across two lines.",
+      "**A new album, slideshow, story, chapter, family member or note all look the same on the front page** — a cover, who did what and when, and the name of the thing in full. They used to be one-line sentences that cut off exactly where the name began.",
+      "**Your shelves behave like an app.** The A–Z strip is back on a phone as a row you swipe, covers can replace the list, picking several books works, and each row fits more: the author and the running time on one line, the progress bar with its percentage, a tick on the cover of a book kept offline. Saving for offline moved into the ⋮ menu, which opens headed by the book it belongs to.",
+      "**A book's page leads with the one thing you came for.** A full-width **Continue listening** or **Read** under the title, a smaller cover so the title and that button fit the first screen, and everything else — save offline, edit, download, send, delete — as words in a menu rather than six unlabelled icons.",
+      "**The Gallery is a wall of photos again.** They run edge to edge, nine to a screen; a day of one photo fills its row instead of leaving two thirds empty; and the date is all a day carries — sharing and picking belong to **Select**. In the viewer, swipe between photos, tap the photo to hide everything but the photo, and reach Like, Details, Send to and Add to album along the bottom. Folders, albums and slideshows come two to a row instead of one a screen.",
+      "**Reading turns by tapping the page** — the right edge forward, the left edge back — so the arrows no longer sit on top of the words. Listening drops the volume slider your phone already has on its side, and gives the room to speed and the sleep timer.",
+      "**The family tree opens where you can read it.** It used to fit the whole tree into the width of a phone, which left the names four pixels tall; it now opens around the person in focus, and the button that shows the whole tree is still there.",
+      "**A story chapter opens at its beginning.** Tapping Day 2 from the foot of a story used to drop you halfway into it. The same fix reached Profile, where opening a tab such as Devices left the row of tabs showing none of them as chosen."
+    ]
+  },
+  {
     "version": "4.17.2",
     "label": "The same photo viewer everywhere",
     "changes": [
