@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.18.1 — The same release, this time as an image
+
+- **Everything in 4.18.0, published.** That release's version was tagged but its image never finished building, so there was nothing for a server to upgrade to. This one carries exactly the same changes — the phone pass over every page — and builds.
+
 ## 4.18.0 — The app in your pocket, page by page
 
 - **Every page has been gone through on a phone.** Home, Audiobooks and Ebooks, a book's page, the Gallery and its photo viewer, Stories, the family tree, Profile, and reading and listening themselves. The app on a computer is unchanged — this is about the screen you hold.

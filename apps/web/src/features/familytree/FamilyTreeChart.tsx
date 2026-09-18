@@ -224,7 +224,10 @@ export function FamilyTreeChart({
   const cardMenuAtPointerDown = useRef<string | null>(null);
 
   const isPhone = useIsMobile();
-  const railMenu = useAnchoredMenu();
+  // Destructured, like every other caller: reading the hook's object property
+  // by property in render is what react-hooks/refs objects to (the object
+  // carries the two refs), and the properties are the same values either way.
+  const { open: menuOpen, pos: menuPos, toggle: toggleMenu, close: closeMenu, triggerRef: menuTriggerRef, menuRef } = useAnchoredMenu();
 
   // "opening" is the automatic fit when a layout is built: on a phone that one
   // refuses to go below PHONE_MIN_SCALE and centres on the focus person. The ⤢
@@ -592,55 +595,55 @@ export function FamilyTreeChart({
         <div className="ft-chart-rail is-phone">
           <Button
             variant="icon"
-            ref={railMenu.triggerRef}
-            onClick={railMenu.toggle}
+            ref={menuTriggerRef}
+            onClick={toggleMenu}
             aria-haspopup="menu"
-            aria-expanded={railMenu.open}
+            aria-expanded={menuOpen}
             aria-label={t("family:chart.treeNavigationAria")}
             title={t("family:chart.treeNavigationAria")}
           >
             <MoreVertical size={18} aria-hidden="true" />
           </Button>
-          {railMenu.open && railMenu.pos && createPortal(
+          {menuOpen && menuPos && createPortal(
             <div
-              ref={railMenu.menuRef}
+              ref={menuRef}
               className="book-detail-action-menu audiobook-library-menu"
               role="menu"
               aria-label={t("family:chart.treeNavigationAria")}
-              style={{ position: "fixed", top: railMenu.pos.top, left: railMenu.pos.left ?? undefined, right: railMenu.pos.right ?? undefined }}
+              style={{ position: "fixed", top: menuPos.top, left: menuPos.left ?? undefined, right: menuPos.right ?? undefined }}
             >
               {onAddPerson && (
-                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onAddPerson(); }}>
+                <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); onAddPerson(); }}>
                   <UserRoundPlus size={16} aria-hidden="true" />
                   <span>{t("family:common.addPerson")}</span>
                 </Button>
               )}
-              <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); goHome(); }}>
+              <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); goHome(); }}>
                 <House size={16} aria-hidden="true" />
                 <span>{t("family:chart.backToStartTitle")}</span>
               </Button>
-              <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); navigate("/family/people"); }}>
+              <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); navigate("/family/people"); }}>
                 <UsersRound size={16} aria-hidden="true" />
                 <span>{t("family:chart.allPeopleButton")}</span>
               </Button>
-              <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); navigate("/family/families"); }}>
+              <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); navigate("/family/families"); }}>
                 <Network size={16} aria-hidden="true" />
                 <span>{t("family:families.title")}</span>
               </Button>
               {onImport && (
-                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onImport(); }}>
+                <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); onImport(); }}>
                   <FileUp size={16} aria-hidden="true" />
                   <span>{t("family:chart.importButton")}</span>
                 </Button>
               )}
               {onExport && (
-                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onExport(); }}>
+                <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); onExport(); }}>
                   <Download size={16} aria-hidden="true" />
                   <span>{t("family:chart.exportButton")}</span>
                 </Button>
               )}
               {onSettings && (
-                <Button variant="bare" role="menuitem" onClick={() => { railMenu.close(); onSettings(); }}>
+                <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); onSettings(); }}>
                   <Settings size={16} aria-hidden="true" />
                   <span>{t("family:treeSettings.title")}</span>
                 </Button>

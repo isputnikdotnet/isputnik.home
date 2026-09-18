@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.18.1",
+    "label": "The same release, this time as an image",
+    "changes": [
+      "**Everything in 4.18.0, published.** That release's version was tagged but its image never finished building, so there was nothing for a server to upgrade to. This one carries exactly the same changes — the phone pass over every page — and builds."
+    ]
+  },
+  {
     "version": "4.18.0",
     "label": "The app in your pocket, page by page",
     "changes": [

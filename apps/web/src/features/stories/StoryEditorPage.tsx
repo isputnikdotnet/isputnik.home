@@ -43,7 +43,10 @@ export function StoryEditorPage({
   // The panes live in the sidebar, and a phone has no sidebar — the same strip
   // the reading view uses carries them there instead.
   const isMobile = useIsMobile();
-  const moreMenu = useAnchoredMenu();
+  // Destructured, like every other caller: reading the hook's object property
+  // by property in render is what react-hooks/refs objects to (the object
+  // carries the two refs), and the properties are the same values either way.
+  const { open: menuOpen, pos: menuPos, toggle: toggleMenu, close: closeMenu, triggerRef: menuTriggerRef, menuRef } = useAnchoredMenu();
 
   const chapterIndex = story && chapterId
     ? story.chapters.findIndex((chapter) => chapter.id === chapterId)
@@ -121,28 +124,28 @@ export function StoryEditorPage({
             <>
               <Button
                 variant="icon"
-                ref={moreMenu.triggerRef}
-                onClick={moreMenu.toggle}
+                ref={menuTriggerRef}
+                onClick={toggleMenu}
                 aria-haspopup="menu"
-                aria-expanded={moreMenu.open}
+                aria-expanded={menuOpen}
                 aria-label={t("stories:edit.storyActions")}
                 title={t("stories:edit.storyActions")}
               >
                 <MoreVertical size={18} aria-hidden="true" />
               </Button>
-              {moreMenu.open && moreMenu.pos && createPortal(
+              {menuOpen && menuPos && createPortal(
                 <div
-                  ref={moreMenu.menuRef}
+                  ref={menuRef}
                   className="book-detail-action-menu audiobook-library-menu"
                   role="menu"
                   aria-label={t("stories:edit.storyActions")}
-                  style={{ position: "fixed", top: moreMenu.pos.top, left: moreMenu.pos.left ?? undefined, right: moreMenu.pos.right ?? undefined }}
+                  style={{ position: "fixed", top: menuPos.top, left: menuPos.left ?? undefined, right: menuPos.right ?? undefined }}
                 >
-                  <Button variant="bare" role="menuitem" onClick={() => { moreMenu.close(); setSending(true); }}>
+                  <Button variant="bare" role="menuitem" onClick={() => { closeMenu(); setSending(true); }}>
                     <SendIcon size={16} aria-hidden="true" />
                     <span>{t("stories:actions.send")}</span>
                   </Button>
-                  <Button variant="bare" role="menuitem" danger onClick={() => { moreMenu.close(); setConfirmDelete(true); }}>
+                  <Button variant="bare" role="menuitem" danger onClick={() => { closeMenu(); setConfirmDelete(true); }}>
                     <Trash2 size={16} aria-hidden="true" />
                     <span>{t("stories:actions.delete")}</span>
                   </Button>
