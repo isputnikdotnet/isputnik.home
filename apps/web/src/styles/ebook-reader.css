@@ -247,3 +247,13 @@
   .ebk-page-prev { left: 6px; }
   .ebk-page-next { right: 6px; }
 }
+
+/* ── Phones: the page turns by tapping its edge (EbookReader onLoad) ─────────
+   so the floating arrows go: at 44px in the middle of the screen they sat on
+   top of the words, and moving them down only put them over the last line.
+   The progress slider and the contents list are still there for jumping. */
+@media (max-width: 740px) {
+  .ebk-page-nav {
+    display: none;
+  }
+}
