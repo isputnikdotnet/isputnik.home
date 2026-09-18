@@ -373,6 +373,24 @@ export function EbookReader({
       else if (e.key === "ArrowRight") { e.preventDefault(); void viewRef.current?.goRight(); }
     });
 
+    // Phones: tap the edge of the page to turn it, as every reading app does.
+    // The page is an iframe, so a tap on the words never reaches the host and
+    // the only control was a 36px arrow sitting ON the text. The middle band is
+    // left alone — that is where a word is tapped, or text is selected.
+    doc.addEventListener("click", (e: MouseEvent) => {
+      if (!window.matchMedia("(max-width: 740px)").matches) return;
+      if (!doc.getSelection()?.isCollapsed) return;
+      // A tap on something the book itself handles (a link, a footnote) is its.
+      if ((e.target as Element | null)?.closest?.("a, button, input, textarea, select, [contenteditable]")) return;
+      // The frame's own viewport, NOT documentElement.clientWidth: a paginated
+      // section is one very wide element (4935px for this book at 375px), and
+      // measuring against that put the forward zone off the end of the screen.
+      const width = doc.defaultView?.innerWidth || 1;
+      const zone = width * 0.28;
+      if (e.clientX <= zone) void viewRef.current?.goLeft();
+      else if (e.clientX >= width - zone) void viewRef.current?.goRight();
+    });
+
     // Repaint this freshly-loaded section's highlights. addAnnotation only draws on
     // the section whose overlayer currently exists, so this must run on every load.
     const view = viewRef.current;
