@@ -106,6 +106,54 @@ describe("what a link exposes", () => {
     expect(loadStoryShareMediaItem(link, photos[0])).toBeDefined();
   });
 
+  it("serves every photo of a group, not just a preview of it", () => {
+    // A group IS the page the author made, so expandAlbums has no say over it:
+    // unlike an album block, there is no larger set it is a window onto.
+    createBlock(chapterId, storyId, "photos", {
+      layout: "mosaic",
+      items: photos.slice(0, 8).map((itemId) => ({ itemId, caption: null }))
+    });
+    const { link } = mintLink();
+    expect(photos.slice(0, 8).length).toBeGreaterThan(BLOCK_PREVIEW_LIMIT);
+    expect([...storyShareReach(storyLinkContext(link)!).itemIds].sort())
+      .toEqual(photos.slice(0, 8).sort());
+  });
+
+  it("puts a group on the guest page with its plate and its own lines", () => {
+    createBlock(chapterId, storyId, "photos", {
+      layout: "grid",
+      items: [
+        { itemId: photos[1], caption: "Dad on the balcony" },
+        { itemId: photos[0], caption: null }
+      ]
+    });
+    updateStory(storyId, { status: "published" });
+    const { token, link } = mintLink();
+    const block = buildStorySharePayload(link, token)!.payload.story.chapters[0].blocks[0];
+    expect(block.kind).toBe("photos");
+    if (block.kind !== "photos") throw new Error("expected a photos block");
+    expect(block.layout).toBe("grid");
+    // In the author's order, with the line each carries on this plate.
+    expect(block.items.map((item) => [item.id, item.blockCaption]))
+      .toEqual([[photos[1], "Dad on the balcony"], [photos[0], null]]);
+    expect(block.items[0].previewUrl).toContain(`/api/share/${token}/items/${photos[1]}/preview`);
+  });
+
+  it("drops a group's photo the creator can no longer reach, keeping the rest", () => {
+    createBlock(chapterId, storyId, "photos", {
+      layout: "mosaic",
+      items: [{ itemId: photos[0], caption: null }, { itemId: secret, caption: null }]
+    });
+    updateStory(storyId, { status: "published" });
+    // The link's reach is the creator's libraries; drop PRIV from under them.
+    db.prepare("DELETE FROM assignments WHERE object_id = 'PRIV'").run();
+    const { token, link } = mintLink();
+    const block = buildStorySharePayload(link, token)!.payload.story.chapters[0].blocks[0];
+    if (block.kind !== "photos") throw new Error("expected a photos block");
+    expect(block.items.map((item) => item.id)).toEqual([photos[0]]);
+    expect(loadStoryShareMediaItem(link, secret)).toBeUndefined();
+  });
+
   it("refuses an item the story doesn't show", () => {
     createBlock(chapterId, storyId, "media", { entityId: photos[0] });
     const { link } = mintLink();

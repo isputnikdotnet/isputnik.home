@@ -12,13 +12,31 @@ export type StoryStatus = "draft" | "published";
 export type StoryKind = "free" | "memory" | "journal" | "review" | "recipe";
 export const STORY_KINDS: StoryKind[] = ["free", "memory", "journal", "review", "recipe"];
 
-/** text = markdown prose · media = one photo/video · album/slideshow = a set ·
- *  map = a place · person = someone in the family tree · quote = a pull quote.
- *  Everything but text and map carries an entity reference. */
+/** text = markdown prose · media = one photo/video · photos = a group of them
+ *  on one plate · album/slideshow = a set · map = a place · person = someone in
+ *  the family tree · quote = a pull quote. Everything but text, photos and map
+ *  carries a single entity reference; a photos group carries a LIST (`items`). */
 export type StoryBlockKind =
-  | "text" | "media" | "album" | "slideshow" | "map" | "person" | "quote" | "audio" | "book";
+  | "text" | "media" | "photos" | "album" | "slideshow" | "map" | "person" | "quote" | "audio" | "book";
 
-export type StoryBlockLayout = "default" | "wide" | "grid";
+/** How a photo group is drawn, chosen by the author. `mosaic` is the default —
+ *  an uneven plate that keeps each photo's own shape; `grid` is equal tiles;
+ *  `stack` is one photo after another at full width. */
+export const PHOTO_GROUP_LAYOUTS = ["mosaic", "grid", "stack"] as const;
+export type PhotoGroupLayout = (typeof PHOTO_GROUP_LAYOUTS)[number];
+
+/** Most photos one group may hold — the server's own cap (PHOTO_GROUP_MAX). */
+export const PHOTO_GROUP_MAX = 50;
+
+/** `default`/`wide` belong to a single media block; the rest are a group's. */
+export type StoryBlockLayout = "default" | "wide" | PhotoGroupLayout;
+
+/** One photo of a group: the gallery asset, plus the line the author wrote
+ *  under it HERE (`blockCaption`) — distinct from the photo's own title, and
+ *  from the group's caption, which belongs to the plate as a whole. */
+export interface StoryGroupPhoto extends GalleryAsset {
+  blockCaption: string | null;
+}
 
 export interface StorySummary {
   id: string;
@@ -118,6 +136,9 @@ export interface StoryBlock {
   href: string | null;
   /** The photo/video itself (media blocks). */
   asset: GalleryAsset | null;
+  /** The group's photos in authored order (photos blocks). Ones this viewer
+   *  can't reach are already gone from the list, so the plate never has gaps. */
+  items: StoryGroupPhoto[];
   /** First few visible photos of an album/slideshow, for the inline strip. */
   preview: GalleryAsset[];
   /** Narration recorded for this story (audio blocks only). */

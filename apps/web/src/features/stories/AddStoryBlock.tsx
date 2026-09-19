@@ -18,29 +18,33 @@ import {
 import { Button } from "../../shared/Button";
 import { Modal } from "../../shared/Modal";
 import { PhotoPicker } from "../gallery/PhotoPicker";
-import { StoryBlockPicker, type MediaOnly, type PickableKind } from "./StoryBlockPicker";
+import { StoryBlockPicker, isPickable, type MediaOnly, type PickableKind } from "./StoryBlockPicker";
 import { useRecordingsTarget } from "./useRecordingsTarget";
-import type { StoryBlockKind } from "./types";
+import { PHOTO_GROUP_MAX, type StoryBlockKind } from "./types";
 
 /** What the dialog offers. A choice is a block kind plus, for the gallery, how
- *  to browse it: "Photo", "Photos" and "Video" all make media blocks, but a
- *  video is a hunt through a gallery of photos unless the picker lists videos
- *  alone, and a handful of photos is one trip through the picker rather than
- *  five — so the choice, not the block, carries the difference. */
+ *  to browse it: "Photo" and "Video" both make a media block, but a video is a
+ *  hunt through a gallery of photos unless the picker lists videos alone — so
+ *  the choice, not the block, carries the difference.
+ *
+ *  "Photos" makes a different block entirely: a `photos` GROUP holding the
+ *  whole batch. It used to make one media block per photo and let the reading
+ *  view guess they belonged together; the group says so, and carries how it is
+ *  laid out (mosaic, grid or stacked). */
 interface BlockChoice {
   key: "text" | "media" | "photos" | "video" | "album" | "slideshow" | "map" | "person" | "quote" | "book" | "audio";
   kind: StoryBlockKind;
   icon: LucideIcon;
   only?: MediaOnly;
-  /** Pick several; each becomes a block of its own, in the order chosen. */
-  many?: boolean;
+  /** Pick several, into ONE group block. */
+  group?: boolean;
 }
 
 /** The order they are offered in: prose first, then what the library can lend. */
 const BLOCK_CHOICES: BlockChoice[] = [
   { key: "text", kind: "text", icon: Type },
   { key: "media", kind: "media", icon: Image },
-  { key: "photos", kind: "media", icon: Images, many: true },
+  { key: "photos", kind: "photos", icon: LayoutGrid, group: true },
   { key: "video", kind: "media", icon: Clapperboard, only: "video" },
   { key: "album", kind: "album", icon: Images },
   { key: "slideshow", kind: "slideshow", icon: Play },
@@ -63,20 +67,23 @@ export function AddStoryBlock({
   storyId: string;
   storyTags: string[];
   busy: boolean;
-  /** One entry per block to make: a single pick is a list of one, a handful of
-   *  photos a list of several, in the order they were chosen. */
+  /** One entry per block to make. Almost always a list of one — a handful of
+   *  photos is ONE group block carrying them all, not a block each. */
   onAdd: (kind: StoryBlockKind, fieldsList: Record<string, unknown>[]) => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
   const recordings = useRecordingsTarget();
   const [choosing, setChoosing] = useState(false);
-  const [picking, setPicking] = useState<{ kind: PickableKind; only?: MediaOnly; many?: boolean } | null>(null);
+  const [picking, setPicking] = useState<
+    { kind: "photos"; group: true } | { kind: PickableKind; only?: MediaOnly; group?: false }
+  >();
 
   const choose = (choice: BlockChoice) => {
     setChoosing(false);
     // Prose has nothing to pick: the block is the writing surface.
     if (choice.kind === "text") onAdd("text", [{ body: "" }]);
-    else setPicking({ kind: choice.kind, only: choice.only, many: choice.many });
+    else if (choice.group) setPicking({ kind: "photos", group: true });
+    else if (isPickable(choice.kind)) setPicking({ kind: choice.kind, only: choice.only });
   };
 
   return (
@@ -137,29 +144,33 @@ export function AddStoryBlock({
         </Modal>
       )}
 
-      {picking && picking.many && (
+      {picking?.group && (
         // Several photos in one go: the picker's multi-select mode, with its
-        // tray and Add button. The batch lands as consecutive blocks — which
-        // the page lays out side by side — and the dialog closes on it, since
-        // the author asked for these photos here, not for a session of adding.
+        // tray and Add button. The batch becomes ONE group block, in the order
+        // it was chosen, wearing the mosaic plate until the author says
+        // otherwise. The dialog closes on it, since the author asked for these
+        // photos here, not for a session of adding.
         <PhotoPicker
           title={t("stories:picker.photosTitle")}
           onAttach={async (itemIds) => {
-            setPicking(null);
-            onAdd("media", itemIds.map((entityId) => ({ entityId })));
+            setPicking(undefined);
+            onAdd("photos", [{
+              layout: "mosaic",
+              items: itemIds.slice(0, PHOTO_GROUP_MAX).map((itemId) => ({ itemId }))
+            }]);
           }}
-          onClose={() => setPicking(null)}
+          onClose={() => setPicking(undefined)}
         />
       )}
 
-      {picking && !picking.many && (
+      {picking && !picking.group && (
         <StoryBlockPicker
           kind={picking.kind}
           only={picking.only}
           storyId={storyId}
           storyTags={storyTags}
           onPick={(fields) => onAdd(picking.kind, [fields])}
-          onClose={() => setPicking(null)}
+          onClose={() => setPicking(undefined)}
         />
       )}
     </div>

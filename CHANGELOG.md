@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.19.0 — Photos that belong together
+
+- **Several photos now go into a story as one group, and you say how they sit on the page.** Adding a handful used to drop them in as separate blocks and let the page guess they belonged together — three side by side, unless you wrote a caption under one, which quietly broke the row apart. Choose **Photos**, tick the ones you want, and they arrive as a single block holding them all, in the order you picked them.
+- **Three ways to lay a group out, chosen right under the photos themselves.** **Collage** puts them in uneven rows where every photo keeps its own shape, so portraits sit side by side and a wide shot spans the page. **Grid** makes them equal squares, all the same size. **One by one** gives each the full width, with room for a line underneath. A group starts as a collage, and on a phone a collage becomes two photos to a row so they stay big enough to see.
+- **A group is arranged where you can see what a reader gets.** Under the plate is a strip of its photos: move any one of them earlier or later, give it **its own line** — separate from the caption on the group as a whole — take it out, or add more. A group holds up to 50 photos; for more than that, an album is still the better block. Clicking any photo of a group opens the whole set, so a reader can walk through it without coming back to the page in between.
+- **A shared link carries a group exactly as the family sees it** — every photo in it, its layout, and the lines under them. Stories written before this are untouched and still read the way they always did.
+
 ## 4.18.1 — The same release, this time as an image
 
 - **Everything in 4.18.0, published.** That release's version was tagged but its image never finished building, so there was nothing for a server to upgrade to. This one carries exactly the same changes — the phone pass over every page — and builds.

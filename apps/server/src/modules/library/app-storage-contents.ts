@@ -147,9 +147,13 @@ function ownerByKind(key: Exclude<AppFileFolderKey, "other">, itemId: string): A
           OR EXISTS (SELECT 1 FROM story_chapters c WHERE c.story_id = s.id AND c.hero_item_id = ?)
           OR EXISTS (SELECT 1 FROM story_blocks b JOIN story_chapters c ON c.id = b.chapter_id
                      WHERE c.story_id = s.id AND b.entity_type = 'gallery' AND b.entity_id = ?)
+          OR EXISTS (SELECT 1 FROM story_block_items bi
+                     JOIN story_blocks b ON b.id = bi.block_id
+                     JOIN story_chapters c ON c.id = b.chapter_id
+                     WHERE c.story_id = s.id AND bi.item_id = ?)
         )
         LIMIT 1
-      `).get(itemId, itemId, itemId) as Pick<StoryRow, "id" | "title"> | undefined;
+      `).get(itemId, itemId, itemId, itemId) as Pick<StoryRow, "id" | "title"> | undefined;
       return row ? { type: "story", id: row.id, title: row.title } : null;
     }
     case "voiceNotes": {

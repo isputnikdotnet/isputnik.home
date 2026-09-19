@@ -5,12 +5,14 @@ import { StoryMapModal } from "./StoryMapModal";
 import { StoryRefPicker } from "./StoryRefPicker";
 import type { StoryBlock, StoryBlockKind } from "./types";
 
-/** Every kind that points at something, and so has something to pick. `text` is
- *  the exception — it carries its own content and is written in place. */
-export type PickableKind = Exclude<StoryBlockKind, "text">;
+/** Every kind that points at ONE thing, and so has one thing to pick. Two
+ *  exceptions: `text` carries its own content and is written in place, and
+ *  `photos` holds a list that is arranged in place (StoryPhotoGroupEditor) —
+ *  there is no single photo to re-pick for a plate of them. */
+export type PickableKind = Exclude<StoryBlockKind, "text" | "photos">;
 
 export function isPickable(kind: StoryBlockKind): kind is PickableKind {
-  return kind !== "text";
+  return kind !== "text" && kind !== "photos";
 }
 
 /** Narrow a media pick to one gallery kind. "video" lists videos alone — the

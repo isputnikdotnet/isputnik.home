@@ -5,6 +5,7 @@ import { deleteSharesForResource } from "../library/shared/share-access.js";
 import { getTrashRetentionDays } from "../library/shared/trash-settings.js";
 import { deleteStoryAudioFiles } from "./audio.js";
 import { getStory } from "./access.js";
+import { COVER_BLOCK_JOINS, COVER_BLOCK_ORDER, COVER_BLOCK_WHERE } from "./cover-sql.js";
 import { RECIPE_CHAPTERS, STORY_ENTITY_TYPE, type StoryKind, type StoryRow, type StoryStatus } from "./stories.js";
 import type { StoryRow as DbStoryRow, UserRow } from "../../db/rows.js";
 
@@ -257,13 +258,10 @@ export function listDeletedStories() {
           JOIN item_metadata ON item_metadata.item_id = library_items.id
           WHERE library_items.id = stories.cover_item_id AND library_items.deleted_at IS NULL),
         (SELECT item_metadata.cover_storage_key FROM story_blocks
-          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
-          JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
-          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id${COVER_BLOCK_JOINS}
           WHERE story_chapters.story_id = stories.id
-            AND story_blocks.entity_type = 'gallery' AND story_blocks.kind = 'media'
-            AND item_metadata.cover_storage_key IS NOT NULL
-          ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
+            AND ${COVER_BLOCK_WHERE}
+          ${COVER_BLOCK_ORDER})
       ) AS cover_key
     FROM stories
     LEFT JOIN users ON users.id = stories.created_by

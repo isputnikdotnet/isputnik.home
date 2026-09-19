@@ -3,10 +3,16 @@ import { z } from "zod";
 import { parseBody } from "../../core/shared.js";
 import { TRAVEL_MODES } from "../../core/routing.js";
 import { resolveRouteGeometry } from "./route-geometry.js";
-import { STORY_BLOCK_KINDS, BOOK_ENTITY_TYPES } from "./stories.js";
+import { STORY_BLOCK_KINDS, BOOK_ENTITY_TYPES, PHOTO_GROUP_LAYOUTS, PHOTO_GROUP_MAX } from "./stories.js";
 import { getChapter, getChapters } from "./chapters.js";
 import { getBlock, blockPointsByIds, createBlock, updateBlock, deleteBlock, reorderBlocks } from "./blocks.js";
-import { editableStory, entityId, referenceIsReachable, reorderSchema } from "./route-shared.js";
+import {
+  editableStory,
+  entityId,
+  galleryItemsAreReachable,
+  referenceIsReachable,
+  reorderSchema
+} from "./route-shared.js";
 
 // Markdown source. The cap is generous — a chapter of prose is the point —
 // but bounded so one block can't become an unbounded blob.
@@ -37,8 +43,16 @@ const blockCreateSchema = z.object({
     label: z.string().trim().max(200).nullable().default(null),
     mode: z.enum(TRAVEL_MODES).nullable().default(null)
   })).max(50).optional(),
+  // Photo groups: the members, in the order the author arranged them. Each may
+  // carry its own line under it; the block's own caption is the group's.
+  items: z.array(z.object({
+    itemId: entityId,
+    caption: z.string().trim().max(500).nullable().default(null)
+  })).max(PHOTO_GROUP_MAX).optional(),
   caption: z.string().trim().max(500).nullable().optional(),
-  layout: z.enum(["default", "wide", "grid"]).nullable().optional()
+  // "default"/"wide" belong to a single media block (wide = full measure); the
+  // rest are a photo group's plate. "grid" predates the group and is kept.
+  layout: z.enum(["default", "wide", ...PHOTO_GROUP_LAYOUTS]).nullable().optional()
 });
 
 // A block's kind — and a book block's chosen type — are settled at creation.
@@ -64,6 +78,10 @@ export function registerBlockRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid block", details: "A book block needs its book type." });
     }
     if (!referenceIsReachable(parsed.data.kind, parsed.data.entityId, user, parsed.data.kind === "book" ? parsed.data.entityType : undefined)) {
+      return reply.code(400).send({ error: "That content isn't available to add." });
+    }
+    // A group's photos get the same check the single reference above gets.
+    if (parsed.data.items && !galleryItemsAreReachable(parsed.data.items.map((item) => item.itemId), user)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
     const { points: stops, ...fields } = parsed.data;
@@ -105,6 +123,9 @@ export function registerBlockRoutes(app: FastifyInstance) {
     }
     if (parsed.data.entityId !== undefined
       && !referenceIsReachable(block.kind, parsed.data.entityId, user, block.kind === "book" ? block.entity_type : undefined)) {
+      return reply.code(400).send({ error: "That content isn't available to add." });
+    }
+    if (parsed.data.items && !galleryItemsAreReachable(parsed.data.items.map((item) => item.itemId), user)) {
       return reply.code(400).send({ error: "That content isn't available to add." });
     }
     const { points: stops, ...fields } = parsed.data;

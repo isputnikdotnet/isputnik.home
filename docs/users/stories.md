@@ -141,12 +141,26 @@ opens a dialog of the kinds with a line each on what they put on the page:
 - **Text** — your words, with a row of marks over the field for bold, italic,
   headings, lists, quotes and links (see Writing text above). A preview button
   shows exactly what a reader gets.
-- **Photo** — picked from your gallery. Consecutive photos are laid out side
-  by side like a photo essay; any photo can go **full width**.
-- **Photos** — several at once, without making an album of them. Tick the
-  ones you want and they land as a run of photo blocks, in the order you chose
-  them, side by side on the page; each is still its own block afterwards, with
-  its own caption, and can be moved or removed alone.
+- **Photo** — one photo, picked from your gallery, with a caption of its own.
+  It can go **full width**. (Photos added one at a time are still laid out side
+  by side where they sit next to each other, as they always were.)
+- **Photos** — several at once, on one plate, without making an album of them.
+  Tick the ones you want and they land as a **single block** holding them all,
+  in the order you chose them, and you say how they sit on the page:
+
+  - **Collage** — uneven rows where every photo keeps its own shape, so
+    portraits sit side by side and a wide shot spans. The one it starts on.
+  - **Grid** — equal squares, all the same size.
+  - **One by one** — full width, one after another, with room for a line
+    under each.
+
+  Under the plate is the row of those three and a strip of the photos in it.
+  Each photo in the strip can be moved earlier or later, given **its own line**
+  (separate from the block's caption, which belongs to the whole plate), or
+  taken out; **Add photos** puts more on the same plate. A group holds up to
+  50 — past that, an **Album** is the better block. A reader clicking any photo
+  of a plate opens the whole group, so they can walk through it without coming
+  back to the page between photos.
 - **Video** — one clip from your gallery, played right on the page. Its
   picker lists only your videos, so there is no hunting for them among the
   photos. (A video chosen through **Photo** works just the same.)

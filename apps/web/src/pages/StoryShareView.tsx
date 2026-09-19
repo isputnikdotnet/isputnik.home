@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, ChevronLeft, ChevronRight, Download, Headphones, Images, MapPin, Mic, Play, Quote, Route, Star, UserRound, X } from "lucide-react";
 import { StoryMap } from "../features/stories/StoryMap";
 import { StoryMarkdown } from "../features/stories/StoryMarkdown";
+import { StoryPhotoGroup } from "../features/stories/StoryPhotoGroup";
 import { StoryStep } from "../features/stories/StoryStep";
 import { RouteCaption } from "../features/stories/RouteCaption";
 import { RecipeFacts, hasRecipeFacts } from "../features/stories/RecipeFacts";
@@ -40,6 +41,11 @@ export interface StoryShareAsset {
   downloadUrl: string;
 }
 
+/** A photo group's member: the asset plus the line under it on this plate. */
+export interface StoryShareGroupPhoto extends StoryShareAsset {
+  blockCaption: string | null;
+}
+
 // Every kind may carry its own heading, so it rides alongside the union rather
 // than being repeated in nine places.
 export type StoryShareBlock = StoryShareBlockBody & { heading?: string | null };
@@ -47,6 +53,9 @@ export type StoryShareBlock = StoryShareBlockBody & { heading?: string | null };
 type StoryShareBlockBody =
   | { kind: "text"; body: string }
   | { kind: "media"; caption: string | null; layout: string | null; asset: StoryShareAsset }
+  // A photo group: every member travels with the link, with its own line, and
+  // the plate the author chose (mosaic | grid | stack) rides in `layout`.
+  | { kind: "photos"; caption: string | null; layout: string | null; items: StoryShareGroupPhoto[] }
   | { kind: "album" | "slideshow"; title: string | null; caption: string | null; itemCount: number; items: StoryShareAsset[] }
   | {
       kind: "map";
@@ -113,8 +122,8 @@ function chapterAssets(chapter: StoryShareChapter): StoryShareAsset[] {
   const seen = new Set<string>();
   const out: StoryShareAsset[] = [];
   for (const block of chapter.blocks) {
-    const assets = block.kind === "media" ? [block.asset]
-      : block.kind === "album" || block.kind === "slideshow" ? block.items : [];
+    const assets: StoryShareAsset[] = block.kind === "media" ? [block.asset]
+      : block.kind === "photos" || block.kind === "album" || block.kind === "slideshow" ? block.items : [];
     for (const asset of assets) {
       if (seen.has(asset.id)) continue;
       seen.add(asset.id);
@@ -598,6 +607,22 @@ function ShareBlock({ block, onOpen }: { block: StoryShareBlock; onOpen: (id: st
             <img src={asset.previewUrl} alt={asset.title} loading="lazy" />
           </Button>
         )}
+        {block.caption && <figcaption>{block.caption}</figcaption>}
+      </figure>
+    );
+  }
+
+  // The same plate the family sees, drawn by the same component — the guest
+  // page has its own asset shape, which is why StoryPhotoGroup takes the
+  // narrower PlatePhoto rather than a gallery asset.
+  if (block.kind === "photos") {
+    return (
+      <figure className="story-block story-block-photos">
+        <StoryPhotoGroup
+          photos={block.items}
+          layout={block.layout}
+          onOpen={(index) => onOpen(block.items[index].id)}
+        />
         {block.caption && <figcaption>{block.caption}</figcaption>}
       </figure>
     );

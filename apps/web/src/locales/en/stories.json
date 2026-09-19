@@ -295,6 +295,7 @@
     "unavailable": {
       "text": "This text is no longer available.",
       "media": "This photo has been removed, or isn't in a library you can see.",
+      "photos": "These photos have been removed, or aren't in a library you can see.",
       "album": "This album has been removed, or isn't in a library you can see.",
       "slideshow": "This slideshow has been removed, or isn't in a library you can see.",
       "map": "This place is no longer available.",
@@ -437,10 +438,35 @@
     "save": "Add to favorites",
     "unsave": "Remove from favorites"
   },
+  "photos": {
+    "layoutLabel": "How these photos are laid out",
+    "layout": {
+      "mosaic": "Collage",
+      "grid": "Grid",
+      "stack": "One by one"
+    },
+    "layoutHint": {
+      "mosaic": "Uneven rows that keep each photo's own shape.",
+      "grid": "Equal squares, all the same size.",
+      "stack": "Full width, one after another, with room for a line under each."
+    },
+    "add": "Add photos",
+    "remove": "Take out of this group",
+    "removeAria": "Take {{title}} out of this group",
+    "moveEarlier": "Move earlier",
+    "moveLater": "Move later",
+    "captionAria": "Caption for {{title}}",
+    "captionPlaceholder": "A line under this photo",
+    "count_one": "{{count}} photo",
+    "count_other": "{{count}} photos",
+    "fullHint": "A group holds up to {{max}} photos. For more than that, add an album instead.",
+    "emptyTitle": "No photos yet",
+    "emptyBody": "Add photos to this group and choose how they sit on the page."
+  },
   "kindHint": {
     "text": "Your own writing, in Markdown.",
     "media": "One photo or video from the gallery.",
-    "photos": "Several at once, laid out side by side.",
+    "photos": "Several on one plate — a collage, a grid, or one after another.",
     "video": "One clip from the gallery, played on the page.",
     "album": "A whole album, shown as a strip.",
     "slideshow": "A slideshow that plays on the page.",

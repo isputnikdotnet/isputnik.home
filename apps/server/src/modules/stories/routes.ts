@@ -48,6 +48,7 @@ import { getChapters } from "./chapters.js";
 import {
   getBlocks,
   blockPointsByIds,
+  blockItemsByIds,
   galleryAssetsByIds,
   blockPreviewAssets
 } from "./blocks.js";
@@ -367,6 +368,8 @@ export async function storiesPlugin(app: FastifyInstance) {
     const libIds = resolveGalleryScopeLibraryIds(user);
     const chapters = getChapters(story.id);
     const blocks = getBlocks(story.id);
+    // A photo group's members, for the whole story in one go.
+    const blockItems = blockItemsByIds(blocks.filter((block) => block.kind === "photos").map((block) => block.id));
 
     const hydrated = hydrateEntities(
       blocks
@@ -385,6 +388,9 @@ export async function storiesPlugin(app: FastifyInstance) {
           .filter((block) => block.entity_id
             && (block.kind === "media" || (block.kind === "audio" && block.entity_type === "gallery")))
           .map((block) => block.entity_id!),
+        // Every photo of every group: they are gallery assets like a media
+        // block's own, just held as a list.
+        ...[...blockItems.values()].flatMap((items) => items.map((item) => item.itemId)),
         // Chapter-page heroes and the story cover ride the same per-viewer
         // hydration.
         ...chapters.filter((chapter) => chapter.hero_item_id).map((chapter) => chapter.hero_item_id!),
@@ -407,6 +413,13 @@ export async function storiesPlugin(app: FastifyInstance) {
         : undefined;
       const isReference = Boolean(BLOCK_ENTITY_TYPE[block.kind]);
       const audio = audioView(block, narration, assets, story.id);
+      // A group keeps only the photos this viewer can actually see, in the
+      // author's order — one they can't reach drops out rather than leaving a
+      // gap in the plate, exactly as a guest link already does.
+      const items = (blockItems.get(block.id) ?? []).flatMap((item) => {
+        const asset = assets.get(item.itemId);
+        return asset ? [{ ...asset, blockCaption: item.caption }] : [];
+      });
       return {
         id: block.id,
         chapterId: block.chapter_id,
@@ -425,13 +438,20 @@ export async function storiesPlugin(app: FastifyInstance) {
         layout: block.layout,
         // Text and map blocks are always "available" — they carry their own
         // content and have nothing to point at.
-        available: block.kind === "audio" ? Boolean(audio) : isReference ? view?.available ?? false : true,
+        // A group is "available" while it still has a photo to show: with every
+        // one of them purged or out of reach there is nothing to draw, and the
+        // reader says so instead of leaving a blank.
+        available: block.kind === "audio" ? Boolean(audio)
+          : block.kind === "photos" ? items.length > 0
+          : isReference ? view?.available ?? false : true,
         title: view?.title ?? null,
         subtitle: view?.subtitle ?? null,
         coverUrl: view?.coverUrl ?? null,
         itemCount: view?.fileCount ?? 0,
         href: view?.href ?? null,
         asset: block.kind === "media" && block.entity_id ? assets.get(block.entity_id) ?? null : null,
+        // The group's photos, each with its own line (blockCaption).
+        items,
         // Narration: the clip plus a URL the reader can play it from.
         audio,
         preview: view?.available && block.entity_id

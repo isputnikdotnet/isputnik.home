@@ -17,6 +17,7 @@ import { MarkdownEditor } from "../../shared/MarkdownEditor";
 import { InlineEdit } from "../../shared/InlineEdit";
 import { StoryBlockPicker, isPickable } from "./StoryBlockPicker";
 import { StoryBlockView } from "./StoryBlockView";
+import { StoryPhotoGroupEditor } from "./StoryPhotoGroupEditor";
 import { StoryMarkdown } from "./StoryMarkdown";
 import type { StoryBlock, StoryChapter } from "./types";
 
@@ -201,6 +202,17 @@ export function StoryBlockEditor({
               ? <StoryMarkdown source={block.body} />
               : <p className="muted">{t("stories:block.textPlaceholder")}</p>}
           </div>
+        ) : block.kind === "photos" ? (
+          // A group is arranged in place: the reader's own plate, with the
+          // controls for it underneath. An empty one has no plate to show yet
+          // — StoryBlockView would call it unavailable, which is true of a
+          // group whose photos are GONE and wrong of one still being filled.
+          <>
+            {block.available && (
+              <StoryBlockView block={block} onOpenMedia={() => {}} onPlaySlideshow={() => {}} />
+            )}
+            <StoryPhotoGroupEditor block={block} busy={busy} onPatch={onPatch} />
+          </>
         ) : (
           <StoryBlockView block={block} onOpenMedia={() => {}} onPlaySlideshow={() => {}} />
         )}

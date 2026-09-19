@@ -165,7 +165,7 @@ describe("StoryBlockEditor prose draft", () => {
       id: "bl1", chapterId: "c1", position: 0, kind: "text", entityType: null, entityId: null,
       body: "We drove up on the Friday.", heading: null, lat: null, lng: null, zoom: null,
       label: null, points: [], caption: null, layout: null, available: true, title: null,
-      subtitle: null, coverUrl: null, itemCount: 0, href: null, asset: null, preview: [],
+      subtitle: null, coverUrl: null, itemCount: 0, href: null, asset: null, items: [], preview: [],
       audio: null,
       ...over
     };

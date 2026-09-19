@@ -76,6 +76,12 @@ const VISIBLE_APP_FILES_SQL = `
     JOIN story_chapters c ON c.id = b.chapter_id
     JOIN af_stories s ON s.id = c.story_id
     WHERE b.entity_type = 'gallery' AND b.entity_id IS NOT NULL
+  -- A photo group's members are owned by their story exactly as a single photo
+  -- block's is; they just live in story_block_items.
+  UNION SELECT bi.item_id FROM story_block_items bi
+    JOIN story_blocks b ON b.id = bi.block_id
+    JOIN story_chapters c ON c.id = b.chapter_id
+    JOIN af_stories s ON s.id = c.story_id
   UNION SELECT c.hero_item_id FROM story_chapters c JOIN af_stories s ON s.id = c.story_id WHERE c.hero_item_id IS NOT NULL
   UNION SELECT cover_item_id FROM af_stories WHERE cover_item_id IS NOT NULL
   UNION SELECT cover_item_id FROM story_collections
@@ -102,6 +108,10 @@ const OWNED_APP_FILES_SQL = `
     JOIN story_chapters c ON c.id = b.chapter_id
     JOIN stories s ON s.id = c.story_id AND s.deleted_at IS NULL
     WHERE b.entity_type = 'gallery' AND b.entity_id IS NOT NULL
+  UNION SELECT bi.item_id FROM story_block_items bi
+    JOIN story_blocks b ON b.id = bi.block_id
+    JOIN story_chapters c ON c.id = b.chapter_id
+    JOIN stories s ON s.id = c.story_id AND s.deleted_at IS NULL
   UNION SELECT c.hero_item_id FROM story_chapters c
     JOIN stories s ON s.id = c.story_id AND s.deleted_at IS NULL
     WHERE c.hero_item_id IS NOT NULL

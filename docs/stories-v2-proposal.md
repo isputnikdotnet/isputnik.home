@@ -212,6 +212,7 @@ and maps only.
 | `text` | authored | Markdown, same sanitizer pipeline as v1 |
 | `map` | authored | lat/lng/zoom/label, as v1 |
 | `media` | Gallery | one photo or video, as v1 |
+| `photos` | Gallery (many) | a plate of several, ordered, with a layout — see "Photo spread shipped" below |
 | `album` | Gallery | as v1 |
 | `slideshow` | Gallery | as v1 |
 | `person` | Family tree | as v1 |
@@ -234,6 +235,15 @@ and maps only.
 whole editing surface. If editing friction ever proves real, the next step is
 a few *editorial* block options — callout, divider, heading, photo spread —
 never free-form layout.
+
+> **Photo spread shipped** as block kind `photos`: one block holding several
+> gallery photos (`story_block_items`, ordered, a caption each) with the plate
+> chosen by the author — `mosaic` (justified uneven rows, the default), `grid`
+> (equal squares) or `stack` (full measure, one after another). It replaces the
+> reading view's *guess* that a run of consecutive `media` blocks belonged
+> together — a guess a caption silently undid, and one that could not express
+> "these five are one plate" at all. The old grouping stays for stories written
+> under it (`groupIntoRows`); nothing was migrated.
 
 ## Narration → the recordings library
 

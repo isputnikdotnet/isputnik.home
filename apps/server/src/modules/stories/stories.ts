@@ -24,10 +24,28 @@ import type { StoryBlockRow, StoryChapterRow, StoryRow as DbStoryRow } from "../
  *  carries library items, family-tree people and quotes. */
 export const STORY_ENTITY_TYPE = "story";
 
+/** How a gallery photo, video or recording appears in the subjects registry —
+ *  the entity type a media block, a photo group's member and a v2 audio block
+ *  all reference. */
+export const GALLERY_ENTITY_TYPE = "gallery";
+
 export const STORY_BLOCK_KINDS = [
-  "text", "media", "album", "slideshow", "map", "person", "quote", "audio", "book"
+  "text", "media", "photos", "album", "slideshow", "map", "person", "quote", "audio", "book"
 ] as const;
 export type StoryBlockKind = (typeof STORY_BLOCK_KINDS)[number];
+
+/** How a `photos` group is drawn. The author chooses it — before this existed,
+ *  a run of single-photo blocks was grouped by the reading view on a guess
+ *  (up to three abreast, unless one had a caption), so adding a caption quietly
+ *  broke the plate apart and "these belong together" could not be said at all.
+ *  `mosaic` is the default: an uneven plate that keeps each photo's own shape.
+ *  `grid` is equal tiles, `stack` one photo after another at full width. */
+export const PHOTO_GROUP_LAYOUTS = ["mosaic", "grid", "stack"] as const;
+export type PhotoGroupLayout = (typeof PHOTO_GROUP_LAYOUTS)[number];
+
+/** Most photos one group may hold. A plate is a handful the eye takes in at
+ *  once; a hundred photos is an album, and album blocks already exist. */
+export const PHOTO_GROUP_MAX = 50;
 
 /** A book card references an ebook or an audiobook — the one block whose
  *  entity type is chosen per block rather than fixed by its kind. */
@@ -60,6 +78,11 @@ export const BLOCK_PREVIEW_LIMIT = 6;
 export const BLOCK_ENTITY_TYPE: Record<StoryBlockKind, string | null> = {
   text: null,
   media: "gallery",
+  // A group holds MANY photos, so its members are rows in story_block_items
+  // rather than the block's single (entity_type, entity_id) pair — null here
+  // means "this block carries no one reference", and its items are reached,
+  // validated and hydrated as a list (blocks.ts, block-routes.ts).
+  photos: null,
   album: "gallery_album",
   slideshow: "gallery_slideshow",
   map: null,

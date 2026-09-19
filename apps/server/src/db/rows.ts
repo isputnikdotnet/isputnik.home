@@ -1133,6 +1133,15 @@ export interface StoryAudioRow {
   created_at: string;
 }
 
+/** `story_block_items` */
+export interface StoryBlockItemRow {
+  id: string;
+  block_id: string;
+  position: number;
+  item_id: string;
+  caption: string | null;
+}
+
 /** `story_block_points` */
 export interface StoryBlockPointRow {
   id: string;
@@ -1430,6 +1439,7 @@ export interface TableRows {
   storage_roots: StorageRootRow;
   stories: StoryRow;
   story_audio: StoryAudioRow;
+  story_block_items: StoryBlockItemRow;
   story_block_points: StoryBlockPointRow;
   story_blocks: StoryBlockRow;
   story_chapters: StoryChapterRow;
