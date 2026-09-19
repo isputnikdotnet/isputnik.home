@@ -10,14 +10,21 @@ import {
   BLOCK_ENTITY_TYPE,
   BLOCK_PREVIEW_LIMIT,
   type BlockRow,
+  PHOTO_GROUP_MAX,
   type RoutePoint,
   type StoryBlockKind
 } from "./stories.js";
-import type { StoryBlockPointRow, StoryBlockRow } from "../../db/rows.js";
+import type { StoryBlockItemRow, StoryBlockPointRow, StoryBlockRow } from "../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
 type BlockPointRow = Pick<StoryBlockPointRow, "block_id" | "lat" | "lng" | "label" | "mode" | "geometry">;
+
+/** One member of a photo group, as the editor sends it and the reader gets it. */
+export interface BlockItem {
+  itemId: string;
+  caption: string | null;
+}
 
 export function getBlocks(storyId: string): BlockRow[] {
   return db.prepare(`
@@ -68,6 +75,47 @@ function writeBlockPoints(blockId: string, points: RoutePoint[]): void {
   });
 }
 
+/** The members of every given photo group, keyed by block id and already in
+ *  authored order. A group with no photos is simply absent. */
+export function blockItemsByIds(blockIds: string[]): Map<string, BlockItem[]> {
+  const out = new Map<string, BlockItem[]>();
+  if (blockIds.length === 0) return out;
+  const rows = db.prepare(`
+    SELECT block_id, item_id, caption FROM story_block_items
+    WHERE block_id IN (${inClause(blockIds.length)})
+    ORDER BY block_id, position ASC
+  `).all(...blockIds) as Pick<StoryBlockItemRow, "block_id" | "item_id" | "caption">[];
+  for (const row of rows) {
+    const list = out.get(row.block_id) ?? [];
+    list.push({ itemId: row.item_id, caption: row.caption });
+    out.set(row.block_id, list);
+  }
+  return out;
+}
+
+/** Replace a group's photos wholesale — same bargain as writeBlockPoints: the
+ *  editor always sends the whole list, because reordering and removing are the
+ *  common edits and diffing would buy nothing on a handful of rows. */
+function writeBlockItems(blockId: string, items: BlockItem[]): void {
+  // Members are a photo group's business; a list sent for any other kind is
+  // dropped rather than left as rows nothing will ever read.
+  const row = db.prepare("SELECT kind FROM story_blocks WHERE id = ?").get(blockId) as Pick<StoryBlockRow, "kind"> | undefined;
+  if (row?.kind !== "photos") return;
+  db.prepare("DELETE FROM story_block_items WHERE block_id = ?").run(blockId);
+  const insert = db.prepare(
+    "INSERT INTO story_block_items (id, block_id, position, item_id, caption) VALUES (?, ?, ?, ?, ?)"
+  );
+  // The same photo twice in one group is a slip, not an intention, so the
+  // first place it was put is the one that keeps it.
+  const seen = new Set<string>();
+  let position = 0;
+  for (const item of items) {
+    if (seen.has(item.itemId) || seen.size >= PHOTO_GROUP_MAX) continue;
+    seen.add(item.itemId);
+    insert.run(nanoid(16), blockId, ++position, item.itemId, item.caption ?? null);
+  }
+}
+
 export function getBlock(blockId: string): BlockRow | undefined {
   return db.prepare("SELECT * FROM story_blocks WHERE id = ?").get(blockId) as BlockRow | undefined;
 }
@@ -87,6 +135,9 @@ export interface BlockFields {
   /** Map blocks: the route's stops, in travel order. Omitted leaves them as
    *  they are; an empty array clears them back to a single-pin map. */
   points?: RoutePoint[];
+  /** Photo groups: the members, in authored order. Omitted leaves them as they
+   *  are; an empty array empties the group. */
+  items?: BlockItem[];
 }
 
 export function createBlock(chapterId: string, storyId: string, kind: StoryBlockKind, fields: BlockFields): BlockRow {
@@ -116,6 +167,7 @@ export function createBlock(chapterId: string, storyId: string, kind: StoryBlock
       fields.layout ?? null
     );
     if (fields.points) writeBlockPoints(id, fields.points);
+    if (fields.items) writeBlockItems(id, fields.items);
     touchStory(storyId);
   })();
   return getBlock(id)!;
@@ -149,6 +201,7 @@ export function updateBlock(blockId: string, storyId: string, fields: BlockField
       blockId
     );
     if (fields.points !== undefined) writeBlockPoints(blockId, fields.points);
+    if (fields.items !== undefined) writeBlockItems(blockId, fields.items);
     touchStory(storyId);
   })();
 }

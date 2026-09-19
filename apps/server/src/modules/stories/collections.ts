@@ -7,6 +7,7 @@
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
+import { COVER_BLOCK_JOINS, COVER_BLOCK_ORDER, COVER_BLOCK_WHERE } from "./cover-sql.js";
 import {
   canContributeToCollection,
   canManageCollection,
@@ -109,14 +110,11 @@ export function listCollections(user: { id: string; role: string }, libIds: stri
             AND library_items.deleted_at IS NULL AND library_items.library_id IN (${libIn})),
         (SELECT item_metadata.cover_storage_key FROM stories
           JOIN story_chapters ON story_chapters.story_id = stories.id
-          JOIN story_blocks ON story_blocks.chapter_id = story_chapters.id
-          JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
-          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          JOIN story_blocks ON story_blocks.chapter_id = story_chapters.id${COVER_BLOCK_JOINS}
           WHERE stories.collection_id = story_collections.id AND ${storyVisible}
-            AND story_blocks.entity_type = 'gallery' AND story_blocks.kind = 'media'
+            AND ${COVER_BLOCK_WHERE}
             AND library_items.library_id IN (${libIn})
-            AND item_metadata.cover_storage_key IS NOT NULL
-          ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
+          ${COVER_BLOCK_ORDER})
       ) AS cover_key
     FROM story_collections
     ${visible === null ? "" : `WHERE story_collections.id IN (${inClause(visible.length)})`}

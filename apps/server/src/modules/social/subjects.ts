@@ -11,6 +11,7 @@ import path from "node:path";
 import { db } from "../../db.js";
 import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/library-access.js";
 import { visibleCollectionIds } from "../stories/collection-access.js";
+import { COVER_BLOCK_JOINS, COVER_BLOCK_ORDER, COVER_BLOCK_WHERE } from "../stories/cover-sql.js";
 import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
 import type {
@@ -525,16 +526,13 @@ const hydrateStories: Hydrator = (entityIds, user) => {
           WHERE library_items.id = stories.cover_item_id AND library_items.deleted_at IS NULL
             AND library_items.library_id IN (${coverLibIn})),
         -- The fallback stays gallery-only: it is looking for a photograph the
-        -- story SHOWS, and only a media block is one.
+        -- story SHOWS — a single photo block, or one of a photo group's.
         (SELECT item_metadata.cover_storage_key FROM story_blocks
-          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
-          JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
-          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id${COVER_BLOCK_JOINS}
           WHERE story_chapters.story_id = stories.id
-            AND story_blocks.entity_type = 'gallery' AND story_blocks.kind = 'media'
+            AND ${COVER_BLOCK_WHERE}
             AND library_items.library_id IN (${libIn})
-            AND item_metadata.cover_storage_key IS NOT NULL
-          ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
+          ${COVER_BLOCK_ORDER})
       ) AS cover_key
     FROM stories
     WHERE stories.id IN (${idIn})

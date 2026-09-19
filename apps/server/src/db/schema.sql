@@ -2142,6 +2142,23 @@ CREATE TABLE IF NOT EXISTS story_block_points (
 );
 CREATE INDEX IF NOT EXISTS idx_story_block_points_block ON story_block_points(block_id, position);
 
+-- The members of a `photos` block: several gallery photos held by ONE block, in
+-- the order the author arranged them, with a caption each. A single photo stays
+-- a `media` block (entity_id), so a group is never a block-per-photo run the
+-- reading view has to guess at — the grouping and its layout are authored.
+-- item_id has no FK for the same reason story_blocks.entity_id has none: a
+-- purged photo drops out of the group (stories/cleanup.ts) instead of taking
+-- rows with it.
+CREATE TABLE IF NOT EXISTS story_block_items (
+  id       TEXT PRIMARY KEY,
+  block_id TEXT NOT NULL REFERENCES story_blocks(id) ON DELETE CASCADE,
+  position REAL NOT NULL,
+  item_id  TEXT NOT NULL,
+  caption  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_story_block_items_block ON story_block_items(block_id, position);
+CREATE INDEX IF NOT EXISTS idx_story_block_items_item  ON story_block_items(item_id);
+
 -- idx_stories_collection deliberately lives in migration 58, NOT here: this
 -- file executes on every boot BEFORE migrations, and on an upgraded database
 -- the collection_id column doesn't exist until 58 runs — an index on it here

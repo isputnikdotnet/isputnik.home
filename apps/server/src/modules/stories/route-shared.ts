@@ -4,7 +4,7 @@ import type { FastifyReply } from "fastify";
 import { z } from "zod";
 import { hydrateEntities } from "../social/subjects.js";
 import { partialDateSchema } from "../familytree/persons.js";
-import { BLOCK_ENTITY_TYPE, type StoryRow, type StoryBlockKind } from "./stories.js";
+import { BLOCK_ENTITY_TYPE, GALLERY_ENTITY_TYPE, type StoryRow, type StoryBlockKind } from "./stories.js";
 import { getStory, canEditStory, canViewStory } from "./access.js";
 
 export const optionalDate = partialDateSchema.nullable().optional();
@@ -47,4 +47,19 @@ export const referenceIsReachable = (
   // only ever reference a library recording). Legacy 'story_audio' rows are
   // read-path only: nothing can create or re-point one any more.
   return Boolean(hydrateEntities([{ entityType, entityId: id }], user).get(`${entityType}:${id}`)?.available);
+};
+
+// The same rule over a list: every photo of a group has to be one the author can
+// actually reach, or a group would be the backdoor a single reference isn't.
+// One hydration for the whole list — a plate of photos is one question.
+export const galleryItemsAreReachable = (
+  itemIds: string[],
+  user: { id: string; role: string }
+): boolean => {
+  if (itemIds.length === 0) return true;
+  const hydrated = hydrateEntities(
+    itemIds.map((id) => ({ entityType: GALLERY_ENTITY_TYPE, entityId: id })),
+    user
+  );
+  return itemIds.every((id) => hydrated.get(`${GALLERY_ENTITY_TYPE}:${id}`)?.available);
 };

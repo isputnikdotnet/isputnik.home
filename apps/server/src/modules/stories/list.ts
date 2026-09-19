@@ -4,6 +4,7 @@ import { accessibleLibraryIds } from "../library/shared/library-access.js";
 import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
 import { visibleCollectionIds } from "./collection-access.js";
 import { canEditStory } from "./access.js";
+import { COVER_BLOCK_JOINS, COVER_BLOCK_ORDER, COVER_BLOCK_WHERE } from "./cover-sql.js";
 import { STORY_ENTITY_TYPE, type StoryRow } from "./stories.js";
 import type { LibraryRow, NonNull, StoryBlockRow, StoryChapterRow } from "../../db/rows.js";
 
@@ -92,17 +93,11 @@ export function listStories(
           WHERE library_items.id = stories.cover_item_id AND library_items.deleted_at IS NULL
             AND library_items.library_id IN (${coverLibIn})),
         (SELECT item_metadata.cover_storage_key FROM story_blocks
-          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id
-          JOIN library_items ON library_items.id = story_blocks.entity_id AND library_items.deleted_at IS NULL
-          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          JOIN story_chapters ON story_chapters.id = story_blocks.chapter_id${COVER_BLOCK_JOINS}
           WHERE story_chapters.story_id = stories.id
-            AND story_blocks.entity_type = 'gallery'
-            -- media only: a recording's embedded cover art must not become the
-            -- story's card (audio blocks are entity_type 'gallery' too).
-            AND story_blocks.kind = 'media'
+            AND ${COVER_BLOCK_WHERE}
             AND library_items.library_id IN (${libIn})
-            AND item_metadata.cover_storage_key IS NOT NULL
-          ORDER BY story_chapters.position, story_blocks.position LIMIT 1)
+          ${COVER_BLOCK_ORDER})
       ) AS cover_key
     FROM stories
     WHERE stories.deleted_at IS NULL

@@ -6,6 +6,7 @@ import { AudioPlayer } from "../../shared/audio/AudioPlayer";
 import { followRoute } from "../../router";
 import type { GalleryAsset } from "../gallery/types";
 import { StoryMap } from "./StoryMap";
+import { StoryPhotoGroup } from "./StoryPhotoGroup";
 import { StoryMarkdown } from "./StoryMarkdown";
 import { RouteCaption } from "./RouteCaption";
 import { routePins, routeStops } from "./story-route";
@@ -65,6 +66,22 @@ export function StoryBlockView({
             <img src={asset.previewUrl ?? asset.coverUrl ?? ""} alt={asset.title} loading="lazy" />
           </Button>
         )}
+        {block.caption && <figcaption>{block.caption}</figcaption>}
+      </figure>
+    );
+  }
+
+  // A group of photos on one plate — mosaic, grid or stacked, as authored.
+  // The lightbox opens over the WHOLE group, so a reader can walk the plate
+  // without going back to it between photos.
+  if (block.kind === "photos") {
+    return (
+      <figure className="story-block story-block-photos">
+        <StoryPhotoGroup
+          photos={block.items}
+          layout={block.layout}
+          onOpen={(index) => onOpenMedia(block.items, index)}
+        />
         {block.caption && <figcaption>{block.caption}</figcaption>}
       </figure>
     );

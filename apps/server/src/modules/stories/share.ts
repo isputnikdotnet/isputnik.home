@@ -32,7 +32,7 @@ import { getStoryAudio } from "./audio.js";
 import { BLOCK_PREVIEW_LIMIT, type BlockRow, type RoutePoint, type StoryRow } from "./stories.js";
 import { getStory, canEditStory } from "./access.js";
 import { getChapters } from "./chapters.js";
-import { getBlocks, blockPointsByIds } from "./blocks.js";
+import { getBlocks, blockPointsByIds, blockItemsByIds } from "./blocks.js";
 import type {
   FamilyTreePersonRow,
   GalleryAlbumRow,
@@ -128,6 +128,15 @@ type ShareAsset = ReturnType<typeof getAlbumItems>["assets"][number];
 /** Photos a block contributes to the link: the media block's own item, or the
  *  set's members — capped at the inline preview unless the link expands. */
 function blockAssets(block: BlockRow, ctx: StoryLinkContext): ShareAsset[] {
+  // A photo group holds its members in story_block_items, not in the block's
+  // own entity_id — so it is answered before the single-reference guard below.
+  // Every member travels: the group IS what the author put on the page, not a
+  // preview of a set that lives elsewhere, so expandAlbums has no say here.
+  if (block.kind === "photos") {
+    if (ctx.libIds.length === 0) return [];
+    return (blockItemsByIds([block.id]).get(block.id) ?? [])
+      .flatMap((item) => mediaAssetById(ctx, item.itemId));
+  }
   if (!block.entity_id) return [];
   const limit = ctx.expandAlbums ? EXPANDED_LIMIT : BLOCK_PREVIEW_LIMIT;
 
@@ -422,6 +431,24 @@ function storyShareBlock(
       caption: block.caption,
       layout: block.layout,
       asset: shareAssetView(assets[0], token)
+    };
+  }
+
+  if (block.kind === "photos") {
+    // With every photo out of reach there is no plate to draw, so the block
+    // drops out — the same bargain a single media block makes.
+    if (assets.length === 0) return null;
+    const captions = new Map(
+      (blockItemsByIds([block.id]).get(block.id) ?? []).map((item) => [item.itemId, item.caption])
+    );
+    return {
+      kind: "photos" as const,
+      caption: block.caption,
+      layout: block.layout,
+      items: assets.map((asset) => ({
+        ...shareAssetView(asset, token),
+        blockCaption: captions.get(asset.id) ?? null
+      }))
     };
   }
 

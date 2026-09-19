@@ -719,6 +719,114 @@
   object-fit: cover;
 }
 
+/* A PHOTO GROUP: one block holding several photos, drawn the way its author
+   asked. Three layouts, one container — data-layout picks which.
+
+   The row above (.story-media-row) is the old implicit grouping of separate
+   blocks and stays for the stories written under it; everything below belongs
+   to a real group, where "these go together" was said rather than guessed. */
+.story-photo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.story-photo-button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.story-photo-group figure {
+  margin: 0;
+  min-width: 0;
+}
+
+.story-photo-group figcaption {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.story-photo-group img {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  background: var(--field);
+}
+
+/* MOSAIC — justified rows. The row's box carries the summed aspect of its
+   photos and each photo grows by its own, so the row fills the measure while
+   every photo keeps its shape. The height therefore comes from aspect-ratio,
+   never from JS measuring the container. */
+.story-photo-group[data-layout="mosaic"] .story-photo-mosaic-row {
+  display: flex;
+  gap: 10px;
+  aspect-ratio: var(--row-aspect);
+}
+
+.story-photo-group[data-layout="mosaic"] .story-photo-cell {
+  position: relative;
+  height: 100%;
+  flex: 0 1 0;
+  flex-grow: var(--cell-grow, 1);
+  width: var(--cell-width, auto);
+}
+
+.story-photo-group[data-layout="mosaic"] .story-photo-cell img {
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A caption inside a mosaic cell sits ON the photo: the cells of a row are all
+   the same height, so a line of text under one would push its photo shorter
+   than its neighbours' and break the row. */
+.story-photo-group[data-layout="mosaic"] figcaption {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: 18px 10px 8px;
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(to top, rgb(0 0 0 / 72%), transparent);
+  color: #fff;
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+/* GRID — equal square tiles, uniform on purpose. */
+.story-photo-group[data-layout="grid"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.story-photo-group[data-layout="grid"] img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+/* STACK — one after another at full measure, each at its own shape, with room
+   for a line under every one. */
+.story-photo-group[data-layout="stack"] {
+  gap: 20px;
+}
+
+.story-photo-group[data-layout="stack"] img {
+  height: auto;
+  border-radius: 12px;
+}
+
+/* The group's own caption, under the whole plate. */
+.story-block-photos > figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 /* A map block inside a story, with the same containment as the story map above:
    Leaflet's panes and controls stay inside this box, under any open dialog. */
 .story-map {
@@ -1203,6 +1311,110 @@
 .story-edit-block-caption {
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+/* ARRANGING A PHOTO GROUP. Sits under the reader's own plate, so an author
+   changes the layout and the order while looking at what a reader will get. */
+.story-photo-group-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* The layout choice: a tab row, because the three are one decision with one
+   answer showing. */
+.story-photo-layouts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.story-photo-layout {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.story-photo-layout:hover:not(.active) { color: var(--ink); }
+
+.story-photo-layout.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* The photos themselves: a wrapping strip of thumbnails, each with its place
+   in the order, a line of its own and a way out. */
+.story-photo-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.story-photo-strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.story-photo-strip-thumb {
+  position: relative;
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.story-photo-strip-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: var(--field);
+}
+
+/* The controls appear over the thumbnail on hover, and whenever one of them
+   has focus — so a keyboard reaches them at all. */
+.story-photo-strip-tools {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 2px;
+  background: linear-gradient(to top, rgb(0 0 0 / 75%), transparent);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.story-photo-strip-thumb:hover .story-photo-strip-tools,
+.story-photo-strip-tools:focus-within {
+  opacity: 1;
+}
+
+.story-photo-strip-tools .icon-button { color: #fff; }
+
+.story-photo-strip-caption {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.story-photo-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .story-text-input {
@@ -1698,6 +1910,35 @@
 @media (max-width: 740px) {
   .story-media-row,
   .story-media-row[data-count="3"] { grid-template-columns: 1fr; }
+
+  /* A justified row of four photos is a row of stamps on a phone, so the
+     mosaic becomes a two-up plate: the shapes stop mattering below the width
+     where they can be seen, and the photos stay big enough to read.
+
+     The rows go `display: contents` rather than becoming grids of their own —
+     every photo then flows into ONE grid on the group, so a row of three and a
+     row of two make a continuous plate instead of two ragged lines. The row's
+     aspect and the cell widths are custom properties precisely so they can be
+     dropped here. */
+  .story-photo-group[data-layout="mosaic"] {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .story-photo-group[data-layout="mosaic"] .story-photo-mosaic-row {
+    display: contents;
+  }
+
+  .story-photo-group[data-layout="mosaic"] .story-photo-cell {
+    width: auto;
+    height: auto;
+  }
+
+  .story-photo-group[data-layout="mosaic"] .story-photo-cell img {
+    aspect-ratio: 1 / 1;
+  }
+
+  .story-photo-group[data-layout="grid"] { grid-template-columns: repeat(2, 1fr); }
   .story-map { height: 240px; }
   .story-set-head { align-items: flex-start; }
 }
