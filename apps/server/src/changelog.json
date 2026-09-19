@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.19.1",
+    "label": "The whole photo, on any screen",
+    "changes": [
+      "**Going through photos one at a time shows the whole photo again.** On a smaller window — and on a phone or a tablet held upright — a tall photo was drawn at its own size and the frame cut off whatever did not fit, so you were answering when and where about the top half of a picture. It now shrinks to the space it has, however small that is, and tapping it still fills the screen."
+    ]
+  },
+  {
     "version": "4.19.0",
     "label": "Photos that belong together",
     "changes": [

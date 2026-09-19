@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.19.1 — The whole photo, on any screen
+
+- **Going through photos one at a time shows the whole photo again.** On a smaller window — and on a phone or a tablet held upright — a tall photo was drawn at its own size and the frame cut off whatever did not fit, so you were answering when and where about the top half of a picture. It now shrinks to the space it has, however small that is, and tapping it still fills the screen.
+
 ## 4.19.0 — Photos that belong together
 
 - **Several photos now go into a story as one group, and you say how they sit on the page.** Adding a handful used to drop them in as separate blocks and let the page guess they belonged together — three side by side, unless you wrote a caption under one, which quietly broke the row apart. Choose **Photos**, tick the ones you want, and they arrive as a single block holding them all, in the order you picked them.
