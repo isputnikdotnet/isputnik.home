@@ -11,7 +11,7 @@ import { PhotoPicker } from "../gallery/PhotoPicker";
 import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
 import { PartialDateInput } from "../../shared/PartialDateInput";
 import { PlaceField, type PlacePin } from "../../shared/PlaceField";
-import { loadFamilyPlaces } from "./familyPlaces";
+import { loadFamilyPlaces, searchFamilyPlacesOnline } from "./familyPlaces";
 import { EVENT_TYPE_OPTIONS, eventLabelHint, eventTypeLabel, type FamilyEvent } from "./types";
 
 // Create or edit a timeline event. Dates are free-text partial dates — a year
@@ -145,6 +145,7 @@ export function EventEditModal({
           value={place}
           pin={placePin}
           load={loadFamilyPlaces}
+          searchOnline={searchFamilyPlacesOnline}
           onChange={(text, pin) => { setPlace(text); setPlacePin(pin); }}
         />
       </div>

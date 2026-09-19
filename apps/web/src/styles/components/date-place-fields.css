@@ -89,21 +89,27 @@
   border-radius: 0 6px 6px 0;
 }
 
-.place-field-list {
+/* Everything that drops under the box lives in one panel: the list of places,
+   the line that says nothing matched, and the button that asks the internet.
+   The panel carries the chrome so the three can be shown together. */
+.place-field-panel {
   position: absolute;
   z-index: 30;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  max-height: 264px;
-  margin: 0;
-  padding: 5px;
+  max-height: 300px;
   overflow-y: auto;
-  list-style: none;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--surface-raised);
   box-shadow: 0 14px 34px var(--shadow);
+}
+
+.place-field-list {
+  margin: 0;
+  padding: 5px;
+  list-style: none;
 }
 
 .place-field-list li {
@@ -124,19 +130,27 @@
 /* Nothing found: said in place of the list, so an empty dropdown never looks
    like a broken field. */
 .place-field-hint {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
   margin: 0;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface-raised);
-  box-shadow: 0 14px 34px var(--shadow);
   color: var(--muted);
   font-size: var(--text-sm);
+}
+
+/* The online lookup, offered under whatever the place list could manage. A row
+   of its own width so it reads as the last thing to try, not as a place. */
+.place-field-online {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  border-radius: 0;
+  text-align: left;
+}
+
+.place-field-list + .place-field-online,
+.place-field-hint + .place-field-online {
+  border-top: 1px solid var(--line);
 }
 
 .place-field-list li.is-active {

@@ -8,7 +8,7 @@ import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { PartialDateInput } from "../../shared/PartialDateInput";
 import { PlaceField, type PlacePin } from "../../shared/PlaceField";
-import { loadFamilyPlaces } from "./familyPlaces";
+import { loadFamilyPlaces, searchFamilyPlacesOnline } from "./familyPlaces";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
 import { UNION_STATUS_OPTIONS, unionStatusLabel, type FamilyPerson, type FamilyUnion } from "./types";
@@ -116,6 +116,7 @@ export function AddUnionModal({
           value={marriedPlace}
           pin={marriedPin}
           load={loadFamilyPlaces}
+          searchOnline={searchFamilyPlacesOnline}
           onChange={(place, pin) => { setMarriedPlace(place); setMarriedPin(pin); }}
         />
       </div>

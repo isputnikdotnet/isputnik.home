@@ -29,7 +29,15 @@ picked from it before. Picking one fills the place in and pins it on the map;
 changing the words afterwards removes the pin. When nothing matches, the box
 says so and keeps your words as typed. Towns there have 500 or more people; for
 small villages an admin can add a country under **Every village in…** on that
-card. The place of a marriage and of a life event work the same way.
+card.
+
+Under that list is **Search online for “…”**. The place list is offline and holds
+towns; a parish, a hospital, a street or a village too small for it can still be
+found by pressing that button, which asks OpenStreetMap for the words you typed
+— the one moment they leave the house, which is why it is a button and not
+search-as-you-type. What it finds is shown in full so you can tell one Veselovka
+from another; picking it shortens the place for the field and pins it on the map.
+The place of a marriage and of a life event work the same way.
 
 **Other language name(s)** holds the same person's name as written in another
 language — *Владимир Посс* beside *Vladimir Posse*. The profile shows it under
@@ -127,7 +135,8 @@ joined by a dashed line in the order they lived them.
 
 Only places picked from the place search carry a pin, so a place typed in by
 hand isn't on the map. The page says how many there are; pick them from the
-search when editing to add them.
+search when editing to add them — including with **Search online for “…”**,
+for the places the offline list does not hold.
 
 ## Settings
 

@@ -596,7 +596,12 @@
     "showPlaces": "Show places",
     "noMatch": "No town called “{{text}}” in the place list. It is kept as you typed it, without a map pin.",
     "unavailable": "There is no place list to search yet (an admin can switch on Photo place names under Control panel → Settings → Maps). What you type is kept as written.",
-    "noneYet": "No places picked yet. Type a town to search the place list."
+    "noneYet": "No places picked yet. Type a town to search the place list.",
+    "online": "Search online for “{{text}}”",
+    "onlineBusy": "Searching online…",
+    "onlineTitle": "Sends what you typed to OpenStreetMap to find the place",
+    "onlineNone": "Nothing found online for “{{text}}”. The place is kept as written.",
+    "onlineError": "The online search did not answer. The place is kept as written."
   },
   "markdown": {
     "toolbar": "Formatting",
