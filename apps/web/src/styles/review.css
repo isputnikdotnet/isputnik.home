@@ -85,7 +85,15 @@
 /* ── The photo, framed on a card ─────────────────────────────────────────── */
 
 .review-photo {
+  /* Both grids name their single track, and both tracks are minmax(0, 1fr):
+     an auto track is sized by its content, which leaves the photo's own
+     max-height: 100% resolving against an indefinite height — i.e. against
+     nothing — so a tall photo laid itself out at its natural height and the
+     frame simply clipped what did not fit (a portrait photo lost its bottom
+     on any short window). A 1fr track is definite, so the percentage lands. */
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   padding: 28px 24px 28px 36px;
   cursor: zoom-in;
@@ -94,6 +102,8 @@
 
 .review-photo-frame {
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   min-height: 0;
   padding: 8px;
@@ -534,9 +544,12 @@
 
 /* Portrait tablet and phone: the photo above the questions, which scroll together. */
 @media (max-width: 900px) {
+  /* Stacked, the two panels are simply blocks that scroll past: as grid rows
+     they were squeezed to share the screen between them (nothing stops a row
+     shrinking past an item that hides its overflow), which cut the bottom off
+     the photo and spilled the questions out of their own row. */
   .review-body {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto;
+    display: block;
     overflow-y: auto;
   }
 
