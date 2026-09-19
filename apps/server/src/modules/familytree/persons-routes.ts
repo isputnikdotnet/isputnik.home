@@ -21,6 +21,7 @@ import { getFamilyMap } from "./map.js";
 import { suggestPlaces } from "../maps/places/search.js";
 import { placesStatus } from "../maps/places/dataset.js";
 import { placeLanguage } from "../library/gallery/places.js";
+import { searchPlaces } from "../library/gallery/geocode.js";
 
 export const optionalDate = partialDateSchema.nullable().optional();
 
@@ -138,6 +139,31 @@ export function registerPersonRoutes(app: FastifyInstance) {
       towns: q.length >= 2 ? suggestPlaces(q, placeLanguage(request)) : []
     });
   });
+
+  // The same lookup Review mode offers a photo, for a place the offline database
+  // does not hold — a village, a parish, a street. Not search-as-you-type:
+  // OpenStreetMap’s policy forbids that, and this is the moment what she typed
+  // leaves the house, so it is one request per press of a button. Rate-limited
+  // well below the global ceiling for the same reason the gallery’s is.
+  app.get(
+    "/api/family-tree/places/online",
+    { preHandler: app.authenticate, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const parsed = parseQuery(placesQuerySchema, request.query);
+      if (parsed.error) {
+        return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+      }
+      const q = (parsed.data.q ?? "").trim();
+      if (q.length < 2) {
+        return reply.code(400).send({ error: "Type at least two characters to search for a place." });
+      }
+      try {
+        return reply.send({ results: await searchPlaces(q) });
+      } catch (err) {
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "The place lookup failed." });
+      }
+    }
+  );
 
   // The family map: every pinned birth, death, marriage and life event, plus how
   // many places have no pin yet. Read-only, like the tree.

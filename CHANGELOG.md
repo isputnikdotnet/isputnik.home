@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.19.2 — A parish is a place too
+
+- **A birthplace the place list has never heard of can now be found online.** The village, parish, hospital or street where someone was born, married or died is often too small for the offline list of towns — which left it as words on the page and nothing on the map. Under the suggestions there is now **Search online for “…”**: press it and the words go to OpenStreetMap, exactly as when you go through photos one at a time. What it finds is shown in full, so one Veselovka can be told from another, and picking it shortens the place for the box and puts the person on the family map. It is a button rather than something that searches as you type, because pressing it is the moment your words leave the house. Birth, death, a marriage and a life event all offer it.
+
 ## 4.19.1 — The whole photo, on any screen
 
 - **Going through photos one at a time shows the whole photo again.** On a smaller window — and on a phone or a tablet held upright — a tall photo was drawn at its own size and the frame cut off whatever did not fit, so you were answering when and where about the top half of a picture. It now shrinks to the space it has, however small that is, and tapping it still fills the screen.

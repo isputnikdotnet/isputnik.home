@@ -8,7 +8,7 @@ import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { PartialDateInput } from "../../shared/PartialDateInput";
 import { PlaceField, type PlacePin } from "../../shared/PlaceField";
-import { loadFamilyPlaces } from "./familyPlaces";
+import { loadFamilyPlaces, searchFamilyPlacesOnline } from "./familyPlaces";
 import { UNION_STATUS_OPTIONS, unionStatusLabel, type FamilyUnionDetail } from "./types";
 
 // Edit an existing union's status and dates. The divorce date is what marks a
@@ -93,6 +93,7 @@ export function UnionEditModal({
           value={marriedPlace}
           pin={marriedPin}
           load={loadFamilyPlaces}
+          searchOnline={searchFamilyPlacesOnline}
           onChange={(place, pin) => { setMarriedPlace(place); setMarriedPin(pin); }}
         />
         <PartialDateInput

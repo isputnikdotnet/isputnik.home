@@ -11,7 +11,7 @@ import { TagEditor } from "../../shared/tags/TagEditor";
 import type { TagSuggestion } from "../../shared/tags/useTagSuggestions";
 import { PlaceField, type PlacePin } from "../../shared/PlaceField";
 import { SelectField } from "../../shared/SelectField";
-import { loadFamilyPlaces } from "./familyPlaces";
+import { loadFamilyPlaces, searchFamilyPlacesOnline } from "./familyPlaces";
 import { GENDER_OPTIONS, genderOptionLabel, type FamilyPerson, type FamilyPersonName, type FamilyTag } from "./types";
 
 // Create or edit a family member's profile. Names up top (with the name as
@@ -270,6 +270,7 @@ export function PersonEditModal({
               value={birthplace}
               pin={birthPin}
               load={loadFamilyPlaces}
+              searchOnline={searchFamilyPlacesOnline}
               onChange={(place, pin) => { setBirthplace(place); setBirthPin(pin); }}
             />
           </div>
@@ -284,6 +285,7 @@ export function PersonEditModal({
               value={deathPlace}
               pin={deathPin}
               load={loadFamilyPlaces}
+              searchOnline={searchFamilyPlacesOnline}
               onChange={(place, pin) => { setDeathPlace(place); setDeathPin(pin); }}
             />
           </div>

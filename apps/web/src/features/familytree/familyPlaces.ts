@@ -1,5 +1,5 @@
 import { api } from "../../api";
-import type { PlaceLoadResult, PlacePin } from "../../shared/PlaceField";
+import type { PlaceLoadResult, PlaceOption, PlacePin } from "../../shared/PlaceField";
 
 // Suggestions for every place field in the family tree — birth, death, marriage,
 // life events. Only real places: the tree's own places that were picked from
@@ -29,4 +29,21 @@ export async function loadFamilyPlaces(query: string): Promise<PlaceLoadResult> 
     options.push({ label: town.label, pin: { lat: town.lat, lng: town.lng }, kind: "town" });
   }
   return { options, available: payload.available };
+}
+
+// The online lookup behind the field's button — OpenStreetMap, through the
+// server, one request per press. For the places the offline database will never
+// hold: a village too small for it, a parish, a hospital, a street. The
+// geocoder's full address is what the list shows, so she can see which
+// Veselovka it found; its own short form is what goes in the field.
+export async function searchFamilyPlacesOnline(query: string): Promise<PlaceOption[]> {
+  const payload = await api<{ results: { label: string; short: string; lat: number; lng: number }[] }>(
+    `/api/family-tree/places/online?q=${encodeURIComponent(query)}`
+  );
+  return (payload.results ?? []).map((hit) => ({
+    label: hit.label,
+    insert: hit.short || hit.label,
+    pin: { lat: hit.lat, lng: hit.lng },
+    kind: "online" as const
+  }));
 }
