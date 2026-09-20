@@ -465,7 +465,8 @@
     "statusFailed": "failed",
     "showSkipped": "Show skipped items",
     "openLibrary": "Open {{name}} in Libraries",
-    "openSchedule": "Scheduled jobs"
+    "openSchedule": "Scheduled jobs",
+    "typeFaststart": "Video streaming fix"
   },
   "dupes": {
     "status": {

@@ -15,7 +15,7 @@ a guide of its own, it points there rather than repeating it.
 | **Library** | Libraries, Storage, Storage contents, Categories, Tags |
 | **Members** | Users, Groups, Invite links |
 | **Security** | Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs |
-| **Maintenance** | Tasks, Scheduled jobs, Backup, Recycle Bin, Duplicate cleanup, Missing photos |
+| **Maintenance** | Tasks, Scheduled jobs, Backup, Recycle Bin, Duplicate cleanup, Missing photos, Videos |
 | **Settings** | Appearance, Quotes, Maps, Stories, Email, Notifications, About |
 
 Every tab has its own address, so any page here can be bookmarked, linked to, or
@@ -634,6 +634,33 @@ Each row shows the photo's last known thumbnail, where it was, and when it went
 missing. Restore the drive and the next library scan clears the row on its own.
 Photos missing longer than the window at the top are purged automatically — catalog
 entry, thumbnail and all — and **Purge eligible now** does it immediately.
+
+### Videos
+
+Videos that are slower to start than they need to be.
+
+An MP4 keeps a small index of itself — where every frame is — and most phones and
+video editors write that index at the *end* of the file, after the picture. Nothing
+can start playing until a player has it, so before the first frame appears the
+player has to reach all the way to the end of the file and fetch it. At home you
+may not notice. Over the internet, or on a phone, it is a pause before anything
+happens, on every video, every time.
+
+This page lists the videos in that state, biggest first, and **Optimise** rewrites
+one with its index at the front. The picture and the sound are copied across
+exactly as they are — nothing is re-encoded, nothing loses quality, and the file
+stays the same size. It takes a minute or two for a large video and runs in the
+background, yielding to any scan already going; follow it on **Tasks**.
+
+This is the one thing in the app that changes an original file, so it only ever
+happens when you ask for it — there is no schedule. The new file is checked against
+the old one first (same tracks, same running time, index in front) and only then
+replaces it; if any check fails, the original is kept exactly as it was. A video in
+a [locked folder](libraries.md) or in a library the app only reads is listed with
+the reason, and left alone.
+
+Videos already written this way never appear here, and nothing new needs doing
+after a video is optimised once.
 
 ---
 

@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.20.0 — Videos that start when you press play
+
+- **A new page finds the videos that are slow to start, and fixes them.** An MP4 keeps a small index of itself — where every frame is — and most phones and video editors write it at the *end* of the file, after the picture. Nothing can play until a player has that index, so before the first frame appears it has to reach all the way to the end of the file and fetch it. At home you may not notice; over the internet, or on a phone, it is a pause before anything happens, on every video, every time.
+- **Control panel → Maintenance → Videos** lists the videos in that state, biggest first — the big ones being where the wait is worst — and rewrites them with the index at the front, one video or all of them. The picture and the sound are copied across exactly as they are: nothing is re-encoded, nothing loses quality, and the file stays the same size. Every video already scanned is checked on the next library scan, without re-reading a single frame.
+- **This is the one thing in the app that changes an original file, so it only ever happens when you ask.** There is no schedule. The new file is checked against the old one first — the same tracks, the same running time, the index really in front — and only then replaces it; if any check fails, the original is kept exactly as it was. A video in a locked folder, or in a library the app only reads, is listed with the reason and left alone.
+
 ## 4.19.2 — A parish is a place too
 
 - **A birthplace the place list has never heard of can now be found online.** The village, parish, hospital or street where someone was born, married or died is often too small for the offline list of towns — which left it as words on the page and nothing on the map. Under the suggestions there is now **Search online for “…”**: press it and the words go to OpenStreetMap, exactly as when you go through photos one at a time. What it finds is shown in full, so one Veselovka can be told from another, and picking it shortens the place for the box and puts the person on the family map. It is a button rather than something that searches as you type, because pressing it is the moment your words leave the house. Birth, death, a marriage and a life event all offer it.

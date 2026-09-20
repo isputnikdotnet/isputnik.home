@@ -13,6 +13,7 @@ export type ControlSection =
   | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
+  | "videoStreaming"
   // Settings
   | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "about";
 
@@ -50,6 +51,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   recycleBin: "/control/maintenance/recycle-bin",
   duplicateCleanup: "/control/maintenance/duplicate-cleanup",
   missingPhotos: "/control/maintenance/missing-photos",
+  videoStreaming: "/control/maintenance/videos",
 
   appearance: "/control/settings",
   quotes: "/control/settings/quotes",

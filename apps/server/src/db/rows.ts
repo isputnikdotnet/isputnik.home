@@ -485,6 +485,7 @@ export interface GalleryDetailRow {
   content_hash_at: string | null;
   web_video_key: string | null;
   web_video_attempts: number;
+  faststart: number | null;
   updated_at: string;
 }
 

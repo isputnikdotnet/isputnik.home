@@ -112,7 +112,8 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "backup" },
       { section: "recycleBin" },
       { section: "duplicateCleanup" },
-      { section: "missingPhotos" }
+      { section: "missingPhotos" },
+      { section: "videoStreaming" }
     ]
   },
   {

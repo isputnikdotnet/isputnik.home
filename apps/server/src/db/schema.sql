@@ -468,6 +468,12 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- can't be converted. web_video_attempts guards against retrying a bad file forever.
   web_video_key       TEXT,
   web_video_attempts  INTEGER NOT NULL DEFAULT 0,
+  -- Video only: 1 = the MP4 index (`moov`) sits in front of the picture data, so a
+  -- player can start without first fetching the end of the file; 0 = it is at the
+  -- back (what most editors write). NULL = photo / WebM / not probed. Read from the
+  -- file's first few boxes by the scan; 0 is what Maintenance -> Videos offers to fix
+  -- (faststart.ts), which rewrites the file in place.
+  faststart           INTEGER,
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
