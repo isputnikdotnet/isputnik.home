@@ -15,6 +15,7 @@ import {
 import { importBucketMusicIfDue, removeBuiltinMusic } from "./music.js";
 import { startSlideshowRenderWorker } from "./slideshow-render-queue.js";
 import { startTranscodeWorker } from "./transcode.js";
+import { startFaststartWorker } from "./faststart.js";
 import { galleryStreamPlugin } from "./stream.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
@@ -46,6 +47,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   const stopFaceWorker = startFaceScanWorker();
   const stopRenderWorker = startSlideshowRenderWorker();
   const stopTranscodeWorker = startTranscodeWorker();
+  const stopFaststartWorker = startFaststartWorker();
   const stopDuplicateWorker = startDuplicateScanWorker();
   // Photos named after where they were taken, once there is a place names
   // database to name them from (docs/map-approach-proposal.md, phase 2).
@@ -74,6 +76,7 @@ export async function galleryPlugin(app: FastifyInstance) {
     stopFaceWorker();
     stopRenderWorker();
     stopTranscodeWorker();
+    stopFaststartWorker();
     stopDuplicateWorker();
     stopPlaceNaming();
     clearTimeout(musicKickoff);

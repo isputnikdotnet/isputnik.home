@@ -14,6 +14,7 @@ import { relativePathWithinRoot } from "../shared/storage-roots.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
 import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
 import { FolderMoveError, planFolderMove, queueFolderMove } from "./folder-move.js";
+import { enqueueFaststartJobs, faststartBacklogCount, listFaststartCandidates } from "./faststart.js";
 import { folderMoveStatuses } from "../shared/storage-move.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
@@ -218,5 +219,37 @@ export function registerGalleryLibraryRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: "No such missing photo." });
     }
     return reply.send({ purged: true });
+  });
+
+  // ── Videos not ready for streaming (faststart.ts) ──
+  // Admin-only, and never on a schedule: the fix rewrites the original file, so it
+  // is always something somebody asked for.
+  app.get("/api/library/gallery/video-streaming", { preHandler: app.requireAdmin }, async () => {
+    return { items: listFaststartCandidates(), total: faststartBacklogCount() };
+  });
+
+  const optimiseSchema = z.object({
+    /** Item ids to fix, or every one that can be. */
+    itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500).optional(),
+    all: z.boolean().optional()
+  }).refine((body) => Boolean(body.all) !== Boolean(body.itemIds), {
+    message: "Name the videos to optimise, or ask for all of them."
+  });
+
+  app.post("/api/library/gallery/video-streaming/optimise", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(optimiseSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
+    }
+    const queued = enqueueFaststartJobs(parsed.data.all ? "all" : parsed.data.itemIds!);
+    logActivity({
+      event: "library.gallery.video_faststart",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: `Queued ${queued} video${queued === 1 ? "" : "s"} to be rewritten for streaming.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ queued });
   });
 }

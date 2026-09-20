@@ -147,6 +147,7 @@ const STALE_AFTER_SECONDS: Record<string, number> = {
   SCAN_GALLERY_FACES: 15 * 60,
   SCAN_GALLERY_DUPLICATES: 15 * 60,
   TRANSCODE_GALLERY_VIDEO: 60 * 60,
+  FASTSTART_GALLERY_VIDEO: 60 * 60,
   "gallery-slideshow-render": 60 * 60,
   // One unit of a move can be a whole library bucket or a bin item of many files
   // copied across volumes; progress ticks per unit, not per file.

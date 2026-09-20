@@ -531,7 +531,8 @@
     "statusFailed": "не удалось",
     "showSkipped": "Показать пропущенные элементы",
     "openLibrary": "Открыть «{{name}}» в библиотеках",
-    "openSchedule": "Задания по расписанию"
+    "openSchedule": "Задания по расписанию",
+    "typeFaststart": "Подготовка видео к просмотру"
   },
   "dupes": {
     "status": {

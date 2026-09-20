@@ -90,6 +90,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "корзина удалено восстановить очистить хранение сколько дней очистка истечение расположение папка путь",
   quotes: "quotes quote of the day import pack json wikiquote widget home card sayings " +
     "categories delete import undo bulk famous family",
+  videoStreaming: "video streaming faststart moov slow to start buffering optimise videos for streaming mp4 index rewrite remux playback delay starts slowly phone mobile stream",
   missingPhotos: "gallery missing gone offline broken files photos videos " +
     "галерея пропавшие исчезли недоступно повреждённые файлы фото видео утерянные",
   // Short labels now that they are views of Duplicates, so the words someone would

@@ -33,6 +33,7 @@ import {
   type AssetKind
 } from "./media.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
+import { readFaststart } from "./faststart.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import type { GalleryDetailRow, ItemMetadataRow, JobRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 import { requestPhotoPlaceSweep } from "./places.js";
@@ -135,14 +136,23 @@ export async function ingestGalleryAsset(
   // by the gallery_details UPSERT, which never writes it).
   let existingRotation = 0;
   if (existing) {
-    const prior = stmt("SELECT size, modified_at, preview_storage_key, rotation, playable, phash, taken_at, taken_at_source FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as Pick<GalleryDetailRow, "size" | "modified_at" | "preview_storage_key" | "rotation" | "playable" | "phash" | "taken_at" | "taken_at_source"> | undefined;
+    const prior = stmt("SELECT size, modified_at, preview_storage_key, rotation, playable, faststart, phash, taken_at, taken_at_source FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as Pick<GalleryDetailRow, "size" | "modified_at" | "preview_storage_key" | "rotation" | "playable" | "faststart" | "phash" | "taken_at" | "taken_at_source"> | undefined;
     existingRotation = prior?.rotation ?? 0;
     // Re-probe an unchanged video whose playable flag was never computed (rows from
     // before this feature) so a single rescan backfills the grid hint.
     const needsPlayableBackfill = file.kind === "video" && prior?.playable == null;
     const unchanged = prior && prior.size === file.size && prior.modified_at === modifiedIso && prior.preview_storage_key && !needsPlayableBackfill;
     if (unchanged) {
+      // Backfill the streaming flag onto videos cataloged before it existed. A few
+      // reads of the file's first boxes — no ffprobe, no thumbnail work — so an
+      // ordinary incremental scan fills it in without re-ingesting anything.
+      if (file.kind === "video" && prior!.faststart == null) {
+        const front = await readFaststart(file.absolutePath, file.extension);
+        if (front != null) {
+          stmt("UPDATE gallery_details SET faststart = ? WHERE item_id = ?").run(front ? 1 : 0, itemId);
+        }
+      }
       // Backfill the perceptual hash for photos cataloged before the phash column
       // existed — hashed from the cached preview, so no thumbnail regeneration and
       // no original-file read. A failure just leaves NULL for the next scan.
@@ -187,6 +197,10 @@ export async function ingestGalleryAsset(
   const playable = file.kind === "video"
     ? (() => { const p = browserPlayability(file.extension, metadata); return p == null ? null : p ? 1 : 0; })()
     : null;
+  // Where the MP4 index sits, for the "not ready for streaming" list (faststart.ts).
+  // Photos, WebM and unreadable files stay NULL.
+  const indexInFront = file.kind === "video" ? await readFaststart(file.absolutePath, file.extension) : null;
+  const faststart = indexInFront == null ? null : indexInFront ? 1 : 0;
   const thumbs = await generateGalleryThumbnails(libraryId, itemId, file.kind, file.absolutePath, existingRotation);
   // Perceptual fingerprint for near-duplicate detection, hashed from the preview just
   // written (a small webp — cheap). Videos stay NULL.
@@ -225,12 +239,13 @@ export async function ingestGalleryAsset(
 
     stmt(`
       INSERT INTO gallery_details
-        (item_id, kind, relative_path, mime_type, size, width, height, orientation, duration_seconds, taken_at, modified_at, gps_lat, gps_lng, camera_make, camera_model, preview_storage_key, playable, phash)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (item_id, kind, relative_path, mime_type, size, width, height, orientation, duration_seconds, taken_at, modified_at, gps_lat, gps_lng, camera_make, camera_model, preview_storage_key, playable, faststart, phash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(item_id) DO UPDATE SET
         kind = excluded.kind, relative_path = excluded.relative_path, mime_type = excluded.mime_type,
         size = excluded.size, width = excluded.width, height = excluded.height, orientation = excluded.orientation,
         duration_seconds = excluded.duration_seconds, modified_at = excluded.modified_at, playable = excluded.playable,
+        faststart = excluded.faststart,
         -- A user-set date/location is preserved; scan-owned values track the file.
         taken_at = CASE WHEN gallery_details.taken_at_source = 'manual' THEN gallery_details.taken_at ELSE excluded.taken_at END,
         gps_lat = CASE WHEN gallery_details.gps_source = 'manual' THEN gallery_details.gps_lat ELSE excluded.gps_lat END,
@@ -250,7 +265,7 @@ export async function ingestGalleryAsset(
       itemId, file.kind, file.relativePath, mimeForExtension(file.extension), file.size,
       metadata.width, metadata.height, metadata.orientation, metadata.durationSeconds,
       takenAt, modifiedIso, metadata.gpsLat, metadata.gpsLng, metadata.cameraMake, metadata.cameraModel,
-      thumbs?.previewKey ?? null, playable, phash
+      thumbs?.previewKey ?? null, playable, faststart, phash
     );
   })();
 

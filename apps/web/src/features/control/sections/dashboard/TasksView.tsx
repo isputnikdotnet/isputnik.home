@@ -35,6 +35,7 @@ function taskTypeLabel(type: string, t: T) {
     case "SCAN_GALLERY_FACES": return t("controlDash:tasks.typeFaceScan");
     case "gallery-slideshow-render": return t("controlDash:tasks.typeSlideshow");
     case "TRANSCODE_GALLERY_VIDEO": return t("controlDash:tasks.typeTranscode");
+    case "FASTSTART_GALLERY_VIDEO": return t("controlDash:tasks.typeFaststart");
     case "SCAN_GALLERY_DUPLICATES": return t("controlDash:tasks.typeDuplicateScan");
     case "MOVE_STORAGE": return t("controlDash:tasks.typeStorageMove");
     case "BUILD_PLACES": return t("controlDash:tasks.typeBuildPlaces");

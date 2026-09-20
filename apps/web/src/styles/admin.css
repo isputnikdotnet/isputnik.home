@@ -1442,6 +1442,9 @@ tr.control-anchor-flash > td {
 /* The relative path wraps rather than stretching the table on deep folders. */
 .missing-path { word-break: break-all; }
 
+/* Why a video cannot be optimised, in the column where its button would be. */
+.video-blocked { display: inline-flex; align-items: center; gap: 6px; }
+
 /* ── Recycle Bin ────────────────────────────────────────────────── */
 
 /* What the bin holds, above its toolbar — same line style as the duplicate pages. */

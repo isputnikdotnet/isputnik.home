@@ -59,6 +59,7 @@ import * as m077 from "./077-app-files-access.js";
 import * as m078 from "./078-family-person-place-pins.js";
 import * as m079 from "./079-family-union-event-place-pins.js";
 import * as m080 from "./080-merge-duplicate-family-unions.js";
+import * as m081 from "./081-gallery-faststart.js";
 
 export interface Migration {
   readonly version: number;
@@ -70,5 +71,6 @@ export const migrations: readonly Migration[] = [
   m043, m044, m045, m046, m047, m048, m049, m050, m051, m052,
   m053, m054, m055, m056, m057, m058, m059, m060, m061, m062,
   m063, m064, m065, m066, m067, m068, m069, m070, m071, m072,
-  m073, m074, m075, m076, m077, m078, m079, m080
+  m073, m074, m075, m076, m077, m078, m079, m080,
+  m081
 ];
