@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.20.1 — Face boxes that stay on the face
+
+- **On a computer, the boxes around faces now come and go with the Details panel.** "Show faces" is remembered by the browser, so once it was on, every photo opened with a box drawn over someone even with the panel closed — it looked as if a face had been picked. Now the photo on its own is just the photo; open Details and the boxes are there. Pressing Show faces with the panel closed opens it. On a phone, where the panel covers the photo, Show faces still works on its own.
+- **Fixed: a face box landing beside the face after the panel opened or closed.** The panel slides a tall photo sideways without changing its size, and the boxes only followed the photo when it changed size — so they stayed where the photo used to be. They now follow it wherever it moves. Pointing at a person in the panel and then closing it no longer leaves their box lit, either.
+
 ## 4.20.0 — Videos that start when you press play
 
 - **A new page finds the videos that are slow to start, and fixes them.** An MP4 keeps a small index of itself — where every frame is — and most phones and video editors write it at the *end* of the file, after the picture. Nothing can play until a player has that index, so before the first frame appears it has to reach all the way to the end of the file and fetch it. At home you may not notice; over the internet, or on a phone, it is a pause before anything happens, on every video, every time.
