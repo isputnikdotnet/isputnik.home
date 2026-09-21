@@ -50,6 +50,9 @@ export function GalleryFaceOverlay({
     measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(image);
+    // The panel opening or closing moves a height-bound photo sideways without
+    // resizing it, so watch the stage it is centred in as well.
+    if (image.parentElement) observer?.observe(image.parentElement);
     image.addEventListener("load", measure);
     return () => { observer?.disconnect(); image.removeEventListener("load", measure); };
   }, [image]);

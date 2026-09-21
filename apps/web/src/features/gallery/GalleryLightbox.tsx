@@ -243,6 +243,10 @@ export function GalleryLightbox({
       return !on;
     });
   }, []);
+  // On desktop the boxes belong to the Info panel: with it closed the photo is
+  // just the photo, whatever "Show faces" remembers. On a phone the panel covers
+  // the photo, so there the toggle stands on its own.
+  const facesShown = showFaces && (isMobile || showInfo);
   const [highlightPersonId, setHighlightPersonId] = useState<string | null>(null);
   const [faceState, setFaceState] = useState<{ id: string; faces: GalleryFace[]; people: GalleryPersonTag[] } | null>(null);
   const [facesVersion, setFacesVersion] = useState(0);
@@ -259,7 +263,9 @@ export function GalleryLightbox({
       .catch(() => { /* no boxes, the photo still shows */ });
     return () => { alive = false; };
   }, [wantFaces, viewedAssetId, assetRotation, facesVersion]);
-  useEffect(() => { setHighlightPersonId(null); }, [viewedAssetId]);
+  // A chip's highlight ends with the chip: closing the panel takes it away
+  // without a mouseleave, and a box left lit with no panel reads as selected.
+  useEffect(() => { setHighlightPersonId(null); }, [viewedAssetId, showInfo]);
   const sameAsset = faceState != null && faceState.id === asset?.id;
   const faces = sameAsset ? faceState.faces : asset?.faces ?? [];
   // Who the photo says is in it, for the face editor to offer (GalleryFaceOverlay).
@@ -528,9 +534,13 @@ export function GalleryLightbox({
       ? [{
           key: "faces",
           icon: ScanFace as LucideIcon,
-          label: showFaces ? t("gallery:faces.hide") : t("gallery:faces.show"),
-          onClick: toggleFaces,
-          active: showFaces
+          label: facesShown ? t("gallery:faces.hide") : t("gallery:faces.show"),
+          onClick: () => {
+            if (facesShown) { toggleFaces(); return; }
+            if (!showFaces) toggleFaces();
+            if (!isMobile) setShowInfo(true);
+          },
+          active: facesShown
         }]
       : []),
     {
@@ -883,7 +893,7 @@ export function GalleryLightbox({
                 image={imageEl}
                 faces={faces}
                 people={facePeople}
-                showAll={showFaces}
+                showAll={facesShown}
                 highlightPersonId={highlightPersonId}
                 canEdit={canEdit}
                 onChanged={(updated) => {
