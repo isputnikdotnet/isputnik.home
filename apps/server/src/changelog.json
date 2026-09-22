@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.20.2",
+    "label": "Fresh pictures in the guides",
+    "changes": [
+      "**Four pictures in the built-in guides were taken again.** The ones showing a photo open in the viewer, recording a voice memory, going through photos one at a time and asking someone what they remember now show today's screens, with the demo library's own photos in them."
+    ]
+  },
+  {
     "version": "4.20.1",
     "label": "Face boxes that stay on the face",
     "changes": [

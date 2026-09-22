@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.20.2 — Fresh pictures in the guides
+
+- **Four pictures in the built-in guides were taken again.** The ones showing a photo open in the viewer, recording a voice memory, going through photos one at a time and asking someone what they remember now show today's screens, with the demo library's own photos in them.
+
 ## 4.20.1 — Face boxes that stay on the face
 
 - **On a computer, the boxes around faces now come and go with the Details panel.** "Show faces" is remembered by the browser, so once it was on, every photo opened with a box drawn over someone even with the panel closed — it looked as if a face had been picked. Now the photo on its own is just the photo; open Details and the boxes are there. Pressing Show faces with the panel closed opens it. On a phone, where the panel covers the photo, Show faces still works on its own.
