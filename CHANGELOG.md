@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.20.3 — Fresh pictures in the Inbox guide
+
+- **Two more pictures in the built-in guides were taken again.** The Photo Inbox guide's pictures of keeping photos — into a new folder, or into one the library already has — now show today's screens, with the demo library's own photos in them.
+
 ## 4.20.2 — Fresh pictures in the guides
 
 - **Four pictures in the built-in guides were taken again.** The ones showing a photo open in the viewer, recording a voice memory, going through photos one at a time and asking someone what they remember now show today's screens, with the demo library's own photos in them.

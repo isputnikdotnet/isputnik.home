@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.20.3",
+    "label": "Fresh pictures in the Inbox guide",
+    "changes": [
+      "**Two more pictures in the built-in guides were taken again.** The Photo Inbox guide's pictures of keeping photos — into a new folder, or into one the library already has — now show today's screens, with the demo library's own photos in them."
+    ]
+  },
+  {
     "version": "4.20.2",
     "label": "Fresh pictures in the guides",
     "changes": [
