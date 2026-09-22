@@ -125,8 +125,8 @@ const SHOTS = [
         .find((b) => /\\.(jpe?g|png|webp|heic)$/i.test(b.getAttribute("aria-label")));
       if (!tile) return "no photo tile on the Gallery page";
       tile.click(); await sleep(1800);
-      const record = document.querySelector(".voice-notes-head button");
-      if (!record) return "no Record button — no edit right, or not a secure context";
+      const record = button(document, "Add recording");
+      if (!record) return "no Add recording button — no edit right, or not a secure context";
       record.click(); await sleep(700);
       "recording dialog";`
   },
@@ -544,8 +544,8 @@ const SHOTS = [
       const start = button(document, "Select");
       if (!start) return "no Select button — page not ready, or too narrow for the toolbar";
       start.click(); await sleep(500);
-      const tiles = [...document.querySelectorAll('button[aria-label^="Select "]')];
-      tiles[0]?.click(); tiles[1]?.click(); tiles[2]?.click(); await sleep(400);
+      // The first day's "select this day" box: two photos on the demo library.
+      document.querySelector('button[aria-label^="Select all from "]')?.click(); await sleep(400);
       const ask = button(document, "Ask someone");
       if (!ask) return "nothing selected — no Ask someone button";
       ask.click(); await sleep(900);
