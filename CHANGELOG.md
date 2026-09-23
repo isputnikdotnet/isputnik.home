@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.21.0 — Portraits cut from any photo
+
+- **A family-tree portrait can be cut out of a group photo.** After you choose a photo, every face the gallery found on it has a box around it; click one and the frame fits around that person. Drag the frame, pull a corner or use the mouse wheel to adjust it, and a round preview shows what the tree will show. **Adjust portrait**, under the picture, reopens the frame on the same photo. Before, a portrait was the whole photo, so a picture of five people showed all five, very small.
+- **Every member now sees every portrait.** A portrait chosen from the gallery used to be that photo's own thumbnail, so anyone who couldn't open its library saw an empty circle in the tree. A portrait is now a picture of the tree's own; portraits chosen before this update get theirs when the server starts.
+- **A cut portrait is kept in App files**, in `Family tree/Portraits`, named after the person. It isn't counted as a new photo of them, so it doesn't turn up again among their photos or under People. Replacing or removing a portrait moves the old copy to the Recycle Bin.
+
 ## 4.20.3 — Fresh pictures in the Inbox guide
 
 - **Two more pictures in the built-in guides were taken again.** The Photo Inbox guide's pictures of keeping photos — into a new folder, or into one the library already has — now show today's screens, with the demo library's own photos in them.

@@ -124,6 +124,7 @@ async function scanLibraryFaces(
         FROM library_items li
         JOIN gallery_details gd ON gd.item_id = li.id
         WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready' AND gd.kind = 'photo'
+          AND gd.derived_from_item_id IS NULL
       `).all(libraryId)
     : db.prepare(`
         SELECT li.id AS id, gd.relative_path AS relative_path ${UNSCANNED_PHOTOS_SQL}

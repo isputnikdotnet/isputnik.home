@@ -474,6 +474,10 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- file's first few boxes by the scan; 0 is what Maintenance -> Videos offers to fix
   -- (faststart.ts), which rewrites the file in place.
   faststart           INTEGER,
+  -- A picture the app made FROM another one (a family-tree portrait cut from a
+  -- group photo): the source item. The face scan skips these, or the crop would
+  -- grow a second copy of the same face (migration 82).
+  derived_from_item_id TEXT,
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
@@ -1865,11 +1869,15 @@ CREATE TABLE IF NOT EXISTS family_tree_persons (
   death_lat         REAL,
   death_lng         REAL,
   bio               TEXT,
-  -- Portrait is EITHER an uploaded image in the thumbnail store (bucket
-  -- 'familytree') OR a chosen gallery item whose cover is used; app code clears
-  -- one when setting the other.
+  -- The portrait shown is always an image in the thumbnail store (bucket
+  -- 'familytree'), readable by everyone who can read the tree. When it was cut
+  -- from a gallery photo, portrait_item_id is that photo, portrait_crop_json the
+  -- frame ({x,y,w,h} fractions of the photo as shown) and portrait_file_item_id
+  -- the cropped copy kept in App files (migration 82).
   portrait_storage_key TEXT,
   portrait_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  portrait_crop_json TEXT,
+  portrait_file_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   gallery_person_id TEXT REFERENCES gallery_people(id) ON DELETE SET NULL,
   created_by        TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

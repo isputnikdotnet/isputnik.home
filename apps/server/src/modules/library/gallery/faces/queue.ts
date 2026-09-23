@@ -29,6 +29,8 @@ export const UNSCANNED_PHOTOS_SQL = `
   JOIN gallery_details gd ON gd.item_id = li.id
   LEFT JOIN gallery_face_scans s ON s.item_id = li.id AND s.model = ?
   WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready' AND gd.kind = 'photo'
+    -- A picture made from another (a portrait crop) holds a face already found.
+    AND gd.derived_from_item_id IS NULL
     AND (s.item_id IS NULL OR (s.status = 'failed' AND s.attempts < ${MAX_FACE_SCAN_ATTEMPTS}))
 `;
 

@@ -1461,6 +1461,50 @@
   grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
+/* Cutting a portrait out of a photo: the picture with its frame, and beside it
+   the round preview the tree will show. Sized to the picture, not a fixed box. */
+.metadata-modal.ft-portrait-crop-modal {
+  width: min(100%, 1040px);
+  height: auto;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.ft-portrait-crop {
+  display: grid;
+  gap: 14px;
+  min-height: 0;
+  padding: 16px 20px 20px;
+  overflow: auto;
+}
+
+.ft-portrait-crop-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  gap: 20px;
+  align-items: start;
+}
+
+.ft-portrait-crop-stage {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.ft-portrait-crop-side {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.ft-portrait-crop-side .ft-modal-hint { margin: 0; }
+
+@media (max-width: 740px) {
+  .ft-portrait-crop { padding: 12px; }
+  .ft-portrait-crop-body { grid-template-columns: minmax(0, 1fr); }
+  .ft-portrait-crop-side { justify-items: start; }
+}
+
 .ft-settings-content {
   display: grid;
   align-content: start;

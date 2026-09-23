@@ -55,6 +55,7 @@ const base = (id: string, name: string, over: Partial<FamilyPerson> = {}): Famil
   bio: null,
   portraitUrl: null,
   portraitItemId: null,
+  portraitCrop: null,
   galleryPersonId: null,
   tags: [],
   canEdit: false,

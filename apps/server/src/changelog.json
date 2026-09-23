@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.21.0",
+    "label": "Portraits cut from any photo",
+    "changes": [
+      "**A family-tree portrait can be cut out of a group photo.** After you choose a photo, every face the gallery found on it has a box around it; click one and the frame fits around that person. Drag the frame, pull a corner or use the mouse wheel to adjust it, and a round preview shows what the tree will show. **Adjust portrait**, under the picture, reopens the frame on the same photo. Before, a portrait was the whole photo, so a picture of five people showed all five, very small.",
+      "**Every member now sees every portrait.** A portrait chosen from the gallery used to be that photo's own thumbnail, so anyone who couldn't open its library saw an empty circle in the tree. A portrait is now a picture of the tree's own; portraits chosen before this update get theirs when the server starts.",
+      "**A cut portrait is kept in App files**, in `Family tree/Portraits`, named after the person. It isn't counted as a new photo of them, so it doesn't turn up again among their photos or under People. Replacing or removing a portrait moves the old copy to the Recycle Bin."
+    ]
+  },
+  {
     "version": "4.20.3",
     "label": "Fresh pictures in the Inbox guide",
     "changes": [

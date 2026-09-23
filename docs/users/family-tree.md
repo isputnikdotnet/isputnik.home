@@ -117,6 +117,24 @@ storage is switched on (Control panel → Library → Storage), for anyone who m
 edit part of the tree. Files are added to the App files library, in its
 `Family tree` folder, and attached in one step; every member can see them.
 
+### The portrait
+
+The camera button on a profile picks the portrait from the same three places:
+face matches, the gallery, or a new upload. You then **frame it**: every face the
+gallery found on the photo has a box around it, and clicking one frames that
+person, even in a crowded group photo. Drag the frame to move it, drag a corner
+to resize it, or use the mouse wheel to zoom. The round preview beside it is what
+the tree will show. **Save portrait** keeps it.
+
+A portrait is its own picture: everyone who can see the family tree sees it,
+even when the photo it was cut from is in a library they can't open. A copy is
+kept in App files, in `Family tree/Portraits`, named after the person. It isn't
+counted as a new photo of them, so it won't show up again in their photos or
+under People.
+
+**Adjust portrait**, under the picture, reopens the frame on the same photo.
+**Remove portrait** takes it off and moves the copy to the Recycle Bin.
+
 ## The map
 
 **Map** in the family tree menu shows where the family's lives happened: every

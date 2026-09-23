@@ -63,6 +63,7 @@ const person = (id: string, name: string, over: Partial<FamilyPerson> = {}): Fam
   bio: null,
   portraitUrl: null,
   portraitItemId: null,
+  portraitCrop: null,
   galleryPersonId: null,
   tags: [],
   canEdit: false,

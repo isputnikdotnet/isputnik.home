@@ -31,6 +31,7 @@ import { AddUnionModal } from "./AddUnionModal";
 import { CitationEditModal } from "./CitationEditModal";
 import { EventEditModal } from "./EventEditModal";
 import { PhotoPicker } from "../gallery/PhotoPicker";
+import { PortraitCropModal } from "./PortraitCropModal";
 import { useFamilyUploadTarget } from "./useFamilyUploadTarget";
 import { GalleryPersonLinkModal } from "./GalleryPersonLinkModal";
 import { PersonAvatar } from "./PersonAvatar";
@@ -306,6 +307,8 @@ export function FamilyPersonPage({ id }: { id: string }) {
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [expandedEventPhotos, setExpandedEventPhotos] = useState<Set<string>>(new Set());
   const [portraitPicker, setPortraitPicker] = useState(false);
+  // The photo a portrait is being cut from.
+  const [portraitCropItem, setPortraitCropItem] = useState<string | null>(null);
   const uploadTo = useFamilyUploadTarget();
 
   const loadProfile = useCallback(async () => {
@@ -418,21 +421,13 @@ export function FamilyPersonPage({ id }: { id: string }) {
     }
   };
 
-  // Every portrait is a gallery item now — a face match, a browsed photo, or a
-  // file uploaded into the tree's photo library, which becomes an item like any
-  // other. Setting one clears an uploaded portrait left over from before.
-  const setPortraitFromGallery = async (itemId: string) => {
+  // Every portrait comes from a gallery photo — a face match, a browsed photo, or
+  // a file uploaded into the tree's photo library, which becomes a photo like any
+  // other — and is cut from it in PortraitCropModal, one face out of a group.
+  const pickPortraitPhoto = (itemId: string) => {
     setActionError("");
-    try {
-      await api(`/api/family-tree/persons/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ portraitItemId: itemId })
-      });
-      setPortraitPicker(false);
-      refresh();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : t("family:person.errors.setPortrait"));
-    }
+    setPortraitPicker(false);
+    setPortraitCropItem(itemId);
   };
 
   const removePortrait = async () => {
@@ -576,6 +571,11 @@ export function FamilyPersonPage({ id }: { id: string }) {
                   </div>
                   {canEdit && (profile.portraitUrl || profile.portraitItemId) && (
                     <div className="book-tags book-tags-under-cover ft-person-cover-actions" aria-label={t("family:person.actions.portraitActionsAria")}>
+                      {profile.portraitItemId && (
+                        <Button variant="text" compact onClick={() => setPortraitCropItem(profile.portraitItemId)}>
+                          {t("family:person.actions.adjustPortrait")}
+                        </Button>
+                      )}
                       <Button variant="text" compact danger onClick={() => void removePortrait()}>
                         {t("family:person.actions.removePortrait")}
                       </Button>
@@ -1117,8 +1117,16 @@ export function FamilyPersonPage({ id }: { id: string }) {
           pick="any"
           facePerson={profile.galleryPerson}
           uploadTo={uploadTo}
-          onPick={(asset) => void setPortraitFromGallery(asset.id)}
+          onPick={(asset) => pickPortraitPhoto(asset.id)}
           onClose={() => setPortraitPicker(false)}
+        />
+      )}
+      {portraitCropItem && profile && (
+        <PortraitCropModal
+          person={profile}
+          itemId={portraitCropItem}
+          onClose={() => setPortraitCropItem(null)}
+          onSaved={() => { setPortraitCropItem(null); refresh(); }}
         />
       )}
       {photoPicker && profile && (

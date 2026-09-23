@@ -55,24 +55,26 @@ export interface FamilyPersonSummary {
   bio: string | null;
   portraitUrl: string | null;
   portraitItemId: string | null;
+  /** The frame the portrait was cut to, in fractions of the source photo as shown. */
+  portraitCrop: { x: number; y: number; w: number; h: number } | null;
   galleryPersonId: string | null;
 }
 
 type PersonRow = Pick<FamilyTreePersonRow,
   "id" | "name" | "maiden_name" | "gender" | "birth_date" | "death_date" | "birthplace" | "death_place"
   | "birth_lat" | "birth_lng" | "death_lat" | "death_lng" | "bio"
-  | "portrait_storage_key" | "portrait_item_id" | "gallery_person_id" | "updated_at"> & {
+  | "portrait_storage_key" | "portrait_item_id" | "portrait_crop_json" | "gallery_person_id" | "updated_at"> & {
   portrait_item_cover: ItemMetadataRow["cover_storage_key"] | null;
   portrait_item_updated: GalleryDetailRow["updated_at"] | null;
 };
 
-// The portrait is an uploaded file in the thumbnail store, or a chosen gallery
-// item's cover. Both go through the shared covers route; ?v= busts the browser
-// cache when the underlying image is replaced or the photo is edited/rotated.
+// The portrait is an image in the thumbnail store (portraits.ts). A gallery
+// portrait chosen before 4.21 that startup has not rendered yet still shows its
+// photo's cover. Both go through the shared covers route; ?v= busts the cache.
 const PERSON_SELECT = `
   SELECT p.id, p.name, p.maiden_name, p.gender, p.birth_date, p.death_date,
     p.birthplace, p.death_place, p.birth_lat, p.birth_lng, p.death_lat, p.death_lng,
-    p.bio, p.portrait_storage_key, p.portrait_item_id,
+    p.bio, p.portrait_storage_key, p.portrait_item_id, p.portrait_crop_json,
     p.gallery_person_id, p.updated_at,
     im.cover_storage_key AS portrait_item_cover,
     gd.updated_at AS portrait_item_updated
@@ -105,6 +107,16 @@ function mapPersons(rows: PersonRow[], allPeople = false): FamilyPersonSummary[]
   return rows.map((row) => mapPerson(row, names.get(row.id) ?? []));
 }
 
+function parseCrop(json: string | null): FamilyPersonSummary["portraitCrop"] {
+  if (!json) return null;
+  try {
+    const c = JSON.parse(json) as FamilyPersonSummary["portraitCrop"];
+    return c && [c.x, c.y, c.w, c.h].every((n) => typeof n === "number") ? c : null;
+  } catch {
+    return null;
+  }
+}
+
 function mapPerson(row: PersonRow, otherNames: FamilyPersonName[]): FamilyPersonSummary {
   let portraitUrl: string | null = null;
   if (row.portrait_storage_key) {
@@ -128,6 +140,7 @@ function mapPerson(row: PersonRow, otherNames: FamilyPersonName[]): FamilyPerson
     bio: row.bio,
     portraitUrl,
     portraitItemId: row.portrait_item_id,
+    portraitCrop: parseCrop(row.portrait_crop_json),
     galleryPersonId: row.gallery_person_id
   };
 }
@@ -299,12 +312,11 @@ export function createFamilyPerson(fields: FamilyPersonFields, createdBy: string
   return getFamilyPerson(id)!;
 }
 
-// Patch-style update: only the provided keys change. galleryPersonId / portraitItemId
-// accept null to unlink. Choosing a gallery portrait clears any uploaded portrait
-// file key (the caller removes the file); the two sources are mutually exclusive.
+// Patch-style update: only the provided keys change. galleryPersonId accepts null
+// to unlink. The portrait is not set here but in portraits.ts, which renders it.
 export function updateFamilyPerson(
   personId: string,
-  fields: Partial<FamilyPersonFields> & { galleryPersonId?: string | null; portraitItemId?: string | null; tags?: string[] }
+  fields: Partial<FamilyPersonFields> & { galleryPersonId?: string | null; tags?: string[] }
 ): FamilyPersonSummary | null {
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -325,10 +337,6 @@ export function updateFamilyPerson(
   }
   if (fields.bio !== undefined) set("bio", fields.bio?.trim() || null);
   if (fields.galleryPersonId !== undefined) set("gallery_person_id", fields.galleryPersonId);
-  if (fields.portraitItemId !== undefined) {
-    set("portrait_item_id", fields.portraitItemId);
-    if (fields.portraitItemId) set("portrait_storage_key", null);
-  }
   // Tags and other names live in their own tables, not columns — they apply even
   // when no column changed.
   if (sets.length === 0 && fields.tags === undefined && fields.otherNames === undefined) return getFamilyPerson(personId);
@@ -349,14 +357,6 @@ export function getPortraitStorageKey(personId: string): string | null {
   const row = db.prepare("SELECT portrait_storage_key FROM family_tree_persons WHERE id = ?")
     .get(personId) as Pick<FamilyTreePersonRow, "portrait_storage_key"> | undefined;
   return row?.portrait_storage_key ?? null;
-}
-
-export function setUploadedPortrait(personId: string, storageKey: string | null): void {
-  db.prepare(`
-    UPDATE family_tree_persons
-    SET portrait_storage_key = ?, portrait_item_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    WHERE id = ?
-  `).run(storageKey, null, personId);
 }
 
 // Deleting a person must not orphan the other partner's children: each union the

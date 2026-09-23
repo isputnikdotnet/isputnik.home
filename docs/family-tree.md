@@ -172,19 +172,40 @@ linking into the gallery because this merged set has no equivalent gallery view.
 Photos open in a lightbox **in place** on whichever family page you clicked from —
 closing one returns you there instead of stranding you in the gallery.
 
-**Portraits** are either an uploaded file (thumbnail store, bucket `familytree`)
-or a chosen gallery item's cover. The two are mutually exclusive; picking one
-clears the other — `PATCH …/persons/:id` with `portraitItemId` deletes the
-uploaded file, and `PUT …/persons/:id/portrait` clears the item.
+**Portraits** are always an image of the tree's own, in the thumbnail store
+(bucket `familytree`), which the covers route does not gate by library — so a
+member who cannot open the photo's library still sees every face in the tree
+(4.21, [people-sharing-plan.md](people-sharing-plan.md) phases 3–4; the code is
+`familytree/portraits.ts`). Before 4.21 a gallery portrait was the photo's cover
+and came up blank for anyone without that library; startup renders those once
+(`renderPendingPortraits`).
 
-The camera button on the profile opens the same `FamilyPhotoPicker` in `single`
-mode, with the same three sources as the photo wall: **Face matches**, **Browse
-gallery**, and **Upload** — one click, or one file, sets the portrait. A portrait
-upload goes into the tree's photo library like every other upload, becoming a
-gallery item that is then set with `portraitItemId`; the raw
-`PUT …/persons/:id/portrait` route stays for existing portraits and for API use,
-but nothing in the UI writes to the thumbnail store any more. Uploading is gated
-the same way everywhere: **no photo library nominated, no Upload tab.**
+When a portrait is cut from a gallery photo, `portrait_item_id` is that photo,
+`portrait_crop_json` the frame (`{x,y,w,h}`, fractions of the photo **as
+shown**: EXIF orientation and the user's rotation applied, the same frame face
+boxes use), and `portrait_file_item_id` the cropped copy kept in App files under
+`Family tree/Portraits/<name>.jpg`. That copy carries
+`gallery_details.derived_from_item_id`, which the face scan skips, or the crop
+would grow a second copy of the same face. Replacing or removing a portrait
+deletes its rendered image and bins the App files copy unless the tree still
+uses it as a photo.
+
+- `POST …/persons/:id/portrait/crop { itemId, crop }` cuts a portrait
+  (the UI's path; also saves the App files copy).
+- `PATCH …/persons/:id` with `portraitItemId` renders the photo uncropped,
+  or cut to the linked face cluster's face when the photo shows it; `null`
+  clears the portrait.
+- `PUT …/persons/:id/portrait` (raw image body) and `DELETE` stay for API use.
+
+Both require the editor to be able to see the photo.
+
+The camera button on the profile opens `PhotoPicker` with the same three
+sources as the photo wall (**Face matches**, **Browse gallery**, **Upload**).
+The chosen photo opens `PortraitCropModal`: `shared/ImageCropper` draws the
+photo's face boxes, the linked face is framed first, and clicking any face frames
+it (`frameAroundBox`, mirrored by the server's `frameAroundFace`). **Adjust
+portrait** reopens it on the saved frame. Uploading is gated the same way
+everywhere: **no photo library nominated, no Upload tab.**
 
 ### Adding photos
 

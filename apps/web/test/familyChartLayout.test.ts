@@ -31,6 +31,7 @@ const person = (id: string, over: Partial<FamilyPerson> = {}): FamilyPerson => (
   bio: null,
   portraitUrl: null,
   portraitItemId: null,
+  portraitCrop: null,
   galleryPersonId: null,
   tags: [],
   canEdit: false,

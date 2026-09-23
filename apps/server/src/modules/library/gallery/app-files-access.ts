@@ -68,6 +68,7 @@ const VISIBLE_APP_FILES_SQL = `
   SELECT item_id FROM family_tree_photos
   UNION SELECT item_id FROM family_tree_event_photos
   UNION SELECT portrait_item_id FROM family_tree_persons WHERE portrait_item_id IS NOT NULL
+  UNION SELECT portrait_file_item_id FROM family_tree_persons WHERE portrait_file_item_id IS NOT NULL
   UNION SELECT item_id FROM gallery_music_tracks WHERE item_id IS NOT NULL
   UNION SELECT v.audio_item_id FROM gallery_voice_notes v
     JOIN library_items photo ON photo.id = v.item_id AND photo.deleted_at IS NULL
@@ -101,6 +102,7 @@ const OWNED_APP_FILES_SQL = `
   SELECT item_id FROM family_tree_photos
   UNION SELECT item_id FROM family_tree_event_photos
   UNION SELECT portrait_item_id FROM family_tree_persons WHERE portrait_item_id IS NOT NULL
+  UNION SELECT portrait_file_item_id FROM family_tree_persons WHERE portrait_file_item_id IS NOT NULL
   UNION SELECT item_id FROM gallery_music_tracks WHERE item_id IS NOT NULL
   UNION SELECT v.audio_item_id FROM gallery_voice_notes v
     JOIN library_items photo ON photo.id = v.item_id AND photo.deleted_at IS NULL

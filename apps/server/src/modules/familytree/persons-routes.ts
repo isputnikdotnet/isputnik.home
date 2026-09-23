@@ -9,10 +9,13 @@ import {
   partialDateSchema, GENDERS,
   listFamilyPersons, listFamilyPlaces, getFamilyPerson, getFamilyPersonProfile, getFamilyTree,
   createFamilyPerson, updateFamilyPerson, deleteFamilyPerson,
-  getPortraitStorageKey, setUploadedPortrait,
   expandToRelatives, applyFamilyPersonTags
 } from "./persons.js";
 import { getFamilyEventPhotos } from "./photos.js";
+import {
+  canUsePortraitPhoto, discardPortraitFile, portraitCropSchema, portraitFileItemId, PortraitError,
+  setPortraitFromPhoto, setUploadedPortraitFile
+} from "./portraits.js";
 import { canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags } from "./access.js";
 import { normalizeText } from "../library/shared/tagging.js";
 import { getFamilyDefaultPerson } from "./settings.js";
@@ -240,24 +243,28 @@ export function registerPersonRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: "Gallery person not found" });
       }
     }
-    if (parsed.data.portraitItemId) {
-      const item = db.prepare(`
-        SELECT 1 FROM library_items
-        JOIN gallery_details ON gallery_details.item_id = library_items.id
-        WHERE library_items.id = ? AND library_items.deleted_at IS NULL
-      `).get(parsed.data.portraitItemId);
-      if (!item) {
-        return reply.code(404).send({ error: "Gallery item not found" });
-      }
-    }
-    // Switching to a gallery portrait replaces an uploaded one; remove the file.
-    const oldPortraitKey = parsed.data.portraitItemId ? getPortraitStorageKey(personId) : null;
-    const person = updateFamilyPerson(personId, parsed.data);
-    if (!person) {
+    const { portraitItemId, ...fields } = parsed.data;
+    if (!getFamilyPerson(personId)) {
       return reply.code(404).send({ error: "Person not found" });
     }
-    if (oldPortraitKey) {
-      await fs.rm(thumbnailAbsolutePath(oldPortraitKey), { force: true }).catch(() => {});
+    // A gallery portrait is rendered into the tree's own storage (portraits.ts):
+    // cut to the linked face when the photo shows it, else the whole photo.
+    if (portraitItemId) {
+      if (!canUsePortraitPhoto(user, portraitItemId)) {
+        return reply.code(404).send({ error: "Gallery item not found" });
+      }
+      try {
+        await setPortraitFromPhoto(personId, portraitItemId, null, user.id);
+      } catch (err) {
+        if (err instanceof PortraitError) return reply.code(err.statusCode).send({ error: err.message });
+        throw err;
+      }
+    } else if (portraitItemId === null) {
+      await setUploadedPortraitFile(personId, null, user.id);
+    }
+    const person = updateFamilyPerson(personId, fields);
+    if (!person) {
+      return reply.code(404).send({ error: "Person not found" });
     }
     return reply.send({ person: decoratePersons(user, [person])[0] });
   });
@@ -331,10 +338,12 @@ export function registerPersonRoutes(app: FastifyInstance) {
     if (!person) {
       return reply.code(404).send({ error: "Person not found" });
     }
+    const fileItemId = portraitFileItemId(personId);
     const { portraitKey } = deleteFamilyPerson(personId);
     if (portraitKey) {
       await fs.rm(thumbnailAbsolutePath(portraitKey), { force: true }).catch(() => {});
     }
+    if (fileItemId) discardPortraitFile(fileItemId, request.user!.id);
     logActivity({
       event: "familytree.person.deleted",
       actorUserId: request.user!.id,
@@ -344,6 +353,42 @@ export function registerPersonRoutes(app: FastifyInstance) {
       ipAddress: request.ip
     });
     return reply.send({ deleted: true });
+  });
+
+  // ── Portrait cut from a gallery photo (admin or branch editor) ──
+  //
+  // `crop` is a frame in fractions of the photo as shown (orientation and
+  // rotation applied), the same frame face boxes come in. The cut portrait is
+  // also kept in App files → Family tree → Portraits when App storage is on.
+
+  const portraitCropBody = z.object({
+    itemId: z.string().trim().min(1),
+    crop: portraitCropSchema
+  });
+
+  app.post("/api/family-tree/persons/:id/portrait/crop", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const personId = (request.params as { id: string }).id;
+    const parsed = parseBody(portraitCropBody, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid portrait", details: parsed.error });
+    }
+    if (!getFamilyPerson(personId)) {
+      return reply.code(404).send({ error: "Person not found" });
+    }
+    if (!canEditPerson(user, personId)) {
+      return reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+    }
+    if (!canUsePortraitPhoto(user, parsed.data.itemId)) {
+      return reply.code(404).send({ error: "Gallery item not found" });
+    }
+    try {
+      const { keptInAppFiles } = await setPortraitFromPhoto(personId, parsed.data.itemId, parsed.data.crop, user.id);
+      return reply.send({ person: decoratePersons(user, [getFamilyPerson(personId)!])[0], keptInAppFiles });
+    } catch (err) {
+      if (err instanceof PortraitError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
   });
 
   // ── Portrait upload (admin or branch editor) ──
@@ -374,11 +419,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, body);
 
-    const oldKey = getPortraitStorageKey(personId);
-    setUploadedPortrait(personId, storageKey);
-    if (oldKey && oldKey !== storageKey) {
-      await fs.rm(thumbnailAbsolutePath(oldKey), { force: true }).catch(() => {});
-    }
+    await setUploadedPortraitFile(personId, storageKey, request.user!.id);
     return reply.send({ person: getFamilyPerson(personId) });
   });
 
@@ -390,12 +431,8 @@ export function registerPersonRoutes(app: FastifyInstance) {
     if (!canEditPerson(request.user!, personId)) {
       return reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
     }
-    const oldKey = getPortraitStorageKey(personId);
-    // Clears both portrait sources (uploaded file and gallery item).
-    setUploadedPortrait(personId, null);
-    if (oldKey) {
-      await fs.rm(thumbnailAbsolutePath(oldKey), { force: true }).catch(() => {});
-    }
+    // Clears the portrait, its gallery source and its App files copy.
+    await setUploadedPortraitFile(personId, null, request.user!.id);
     return reply.send({ person: getFamilyPerson(personId) });
   });
 }

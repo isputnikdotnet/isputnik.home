@@ -484,6 +484,7 @@
       "showOnMap": "Show on map",
       "sendTo": "Send to",
       "changePortrait": "Change portrait",
+      "adjustPortrait": "Adjust portrait",
       "deletePerson": "Delete person",
       "removePortrait": "Remove portrait",
       "portraitActionsAria": "Portrait actions"
@@ -600,6 +601,19 @@
     "quotes": {
       "empty": "Nothing recorded that {{name}} said yet.",
       "goToQuotes": "Go to Quotes"
+    }
+  },
+  "portraitCrop": {
+    "title": "Portrait of {{name}}",
+    "loading": "Loading photo…",
+    "hint": "Click a face to frame it, then drag the frame or its corners to adjust. The mouse wheel zooms.",
+    "hintNoFaces": "No faces were found on this photo. Drag the frame or its corners to choose the part you want.",
+    "keptNote": "The portrait is shown to everyone who can see the family tree, and a copy is kept in App files → Family tree → Portraits.",
+    "save": "Save portrait",
+    "saving": "Saving…",
+    "errors": {
+      "loadPhoto": "Unable to load the photo",
+      "save": "Unable to save the portrait"
     }
   },
   "personPhotos": {

@@ -636,6 +636,12 @@
     "pendingRemove_other": "{{count}} tags to take off",
     "bulkHint": "A tag you pick goes on every selected item; × takes a tag off all of them. Each item keeps its other tags."
   },
+  "imageCropper": {
+    "frameAria": "Crop frame. Drag to move it, drag a corner to resize it. Arrow keys move it, plus and minus resize it.",
+    "unnamedFace": "Unnamed face",
+    "frameFace": "Frame {{name}}",
+    "frameUnnamedFace": "Frame this face"
+  },
   "access": {
     "grantTitle": "Give access",
     "pickSubject": "Add a person or group…",

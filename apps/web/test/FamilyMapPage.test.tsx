@@ -46,7 +46,7 @@ const mockApi = vi.mocked(api);
 const person = (id: string, name: string): FamilyPerson => ({
   id, name, maidenName: null, otherNames: [], gender: "unknown", birthDate: null, deathDate: null,
   birthplace: null, deathPlace: null, birthPin: null, deathPin: null, bio: null,
-  portraitUrl: null, portraitItemId: null, galleryPersonId: null, tags: [], canEdit: false
+  portraitUrl: null, portraitItemId: null, portraitCrop: null, galleryPersonId: null, tags: [], canEdit: false
 });
 
 const entry = (over: Partial<FamilyMapEntry> & Pick<FamilyMapEntry, "id" | "kind" | "personIds" | "place">): FamilyMapEntry => ({

@@ -28,6 +28,8 @@ export interface FamilyPerson {
   bio: string | null;
   portraitUrl: string | null;
   portraitItemId: string | null;
+  /** The frame the portrait was cut to, in fractions of the source photo as shown. */
+  portraitCrop: { x: number; y: number; w: number; h: number } | null;
   galleryPersonId: string | null;
   // Family tags (branch names) on this person; also the edit-permission scope.
   tags: string[];

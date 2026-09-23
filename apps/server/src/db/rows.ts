@@ -390,6 +390,8 @@ export interface FamilyTreePersonRow {
   bio: string | null;
   portrait_storage_key: string | null;
   portrait_item_id: string | null;
+  portrait_crop_json: string | null;
+  portrait_file_item_id: string | null;
   gallery_person_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -486,6 +488,7 @@ export interface GalleryDetailRow {
   web_video_key: string | null;
   web_video_attempts: number;
   faststart: number | null;
+  derived_from_item_id: string | null;
   updated_at: string;
 }
 

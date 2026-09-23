@@ -185,11 +185,11 @@ function ownerByKind(key: Exclude<AppFileFolderKey, "other">, itemId: string): A
     case "familyTree": {
       const row = db.prepare(`
         SELECT p.id, p.name FROM family_tree_persons p
-        WHERE p.portrait_item_id = ?
+        WHERE p.portrait_item_id = ? OR p.portrait_file_item_id = ?
           OR p.id IN (SELECT person_id FROM family_tree_photos WHERE item_id = ?)
           OR p.id IN (SELECT ev.person_id FROM family_tree_event_photos ep JOIN family_tree_events ev ON ev.id = ep.event_id WHERE ep.item_id = ?)
         LIMIT 1
-      `).get(itemId, itemId, itemId) as Pick<FamilyTreePersonRow, "id" | "name"> | undefined;
+      `).get(itemId, itemId, itemId, itemId) as Pick<FamilyTreePersonRow, "id" | "name"> | undefined;
       return row ? { type: "person", id: row.id, title: row.name } : null;
     }
   }
