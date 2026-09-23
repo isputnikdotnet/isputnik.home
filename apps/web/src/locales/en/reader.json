@@ -74,6 +74,9 @@
   "ebook": {
     "openLocationFailed": "Could not open that location.",
     "loadFailed": "Could not load this ebook.",
+    "unreachable": "Couldn't reach the server — the book was not downloaded.",
+    "openFailed": "This file could not be opened.",
+    "tryAgain": "Try again",
     "bookmarkSavedOffline": "Bookmark saved — will sync when online.",
     "unableSaveBookmark": "Unable to save this bookmark.",
     "bookmarkOpenFailed": "This bookmark could not be opened.",

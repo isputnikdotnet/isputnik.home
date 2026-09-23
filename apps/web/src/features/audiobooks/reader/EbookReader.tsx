@@ -66,6 +66,18 @@ interface SearchHit {
 
 type Panel = "toc" | "bookmarks" | "search" | "settings" | "text" | null;
 
+// Why the book did not open, and whether trying again could help. Fetching the
+// file can fail for a moment and succeed on the next try; a file that cannot be
+// parsed will fail the same way every time, so only the first offers a retry.
+class LoadError extends Error {
+  readonly retryable: boolean;
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.name = "LoadError";
+    this.retryable = retryable;
+  }
+}
+
 const FONT_KEY = "isputnik-ebk-font";
 const FAMILY_KEY = "isputnik-ebk-family";
 const LAYOUT_KEY = "isputnik-ebk-layout";
@@ -250,7 +262,10 @@ export function EbookReader({
   const startingProgress = startingProgressRef.current;
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ message: string; retryable: boolean } | null>(null);
+  // Bumped by "Try again", which is the whole of the retry: it rebuilds the view
+  // from scratch, so a half-opened one is torn down by this effect's own cleanup.
+  const [attempt, setAttempt] = useState(0);
   // Download href for an offline book is derived from its Blob here so the
   // object URL is created and revoked inside this component (StrictMode-safe),
   // never handed in from a parent that might revoke it early.
@@ -488,10 +503,23 @@ export function EbookReader({
         if (blob) {
           data = blob;
         } else {
-          if (!url) throw new Error(t("reader:ebook.loadFailed"));
-          const res = await fetch(url, { credentials: "include" });
-          if (!res.ok) throw new Error(t("reader:ebook.loadFailed"));
-          data = await res.blob();
+          if (!url) throw new LoadError(t("reader:ebook.loadFailed"), false);
+          // Fetching the file is the step that fails transiently — a dropped
+          // connection, or the server restarting behind a proxy that answers 502.
+          // That is worth offering again; a file we managed to fetch but cannot
+          // parse is not, so the two are told apart here.
+          let res: Response;
+          try {
+            res = await fetch(url, { credentials: "include" });
+          } catch {
+            throw new LoadError(t("reader:ebook.unreachable"), true);
+          }
+          if (!res.ok) throw new LoadError(t("reader:ebook.unreachable"), true);
+          try {
+            data = await res.blob();
+          } catch {
+            throw new LoadError(t("reader:ebook.unreachable"), true);
+          }
         }
         if (cancelled) return;
         // foliate's makeBook does format detection on the file *name* (e.g.
@@ -567,7 +595,11 @@ export function EbookReader({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t("reader:ebook.loadFailed"));
+          // Anything thrown past the fetch came from opening or laying out the
+          // file, so it names that rather than blaming the connection.
+          setError(err instanceof LoadError
+            ? { message: err.message, retryable: err.retryable }
+            : { message: t("reader:ebook.openFailed"), retryable: false });
           setLoading(false);
         }
       }
@@ -591,7 +623,7 @@ export function EbookReader({
     // once-per-mount opening position, so it never actually changes and never
     // rebuilds the view.
     // eslint-disable-next-line react-hooks/refs
-  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, title, author, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest, t]);
+  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, title, author, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest, t, attempt]);
 
   // Typography / theme changes — applied live, no view rebuild.
   useEffect(() => {
@@ -891,8 +923,19 @@ export function EbookReader({
     return (
       <div className="ebk-reader" data-theme={theme} style={{ background: colors.bg, color: colors.fg }}>
         <div className="ebk-status">
-          <p>{error}</p>
-          <Button variant="bare" className="ebk-text-button" onClick={onExit}>{t("common.close")}</Button>
+          <p>{error.message}</p>
+          <div className="ebk-status-actions">
+            {error.retryable && (
+              <Button
+                variant="bare"
+                className="ebk-text-button"
+                onClick={() => { setError(null); setLoading(true); setAttempt((n) => n + 1); }}
+              >
+                {t("reader:ebook.tryAgain")}
+              </Button>
+            )}
+            <Button variant="bare" className="ebk-text-button" onClick={onExit}>{t("common.close")}</Button>
+          </div>
         </div>
       </div>
     );

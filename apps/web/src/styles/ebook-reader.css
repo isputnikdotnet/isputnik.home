@@ -87,7 +87,9 @@
 .ebk-status {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 12px; color: var(--ebk-muted); font-size: 14px;
+  padding: 0 16px; text-align: center;
 }
+.ebk-status-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
 .ebk-text-button { border: 1px solid var(--ebk-border); background: transparent; color: var(--ebk-fg); padding: 7px 16px; border-radius: 8px; cursor: pointer; }
 
 /* Side drawers + scrim */
