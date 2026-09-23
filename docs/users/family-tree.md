@@ -115,9 +115,10 @@ than dropping you in the gallery.
 **Uploading new photos** works from the same picker's *Upload* tab, once App
 storage is switched on (Control panel → Library → Storage), for anyone who may
 edit part of the tree. Files are added to the App files library, in its
-`Family tree` folder, and attached in one step; every member can see them. They
-also show in the Gallery like any other photo (Folders → *Family tree*), so you
-can pick them again for someone else or as a portrait.
+`Family tree` folder, and attached in one step; every member can see them. Every
+photo picker lists them again (Folders → *Family tree*), so you can use them for
+someone else or as a portrait; in the Gallery they show when you choose **Family
+tree photos** under Filter → Libraries.
 
 ### The portrait
 
@@ -134,11 +135,10 @@ kept in App files, in `Family tree/Portraits`, named after the person. It isn't
 counted as a new photo of them, so it won't show up again in their photos or
 under People.
 
-**Adjust portrait**, under the picture, reopens the frame on the same photo. A
-portrait uploaded before frames existed can be adjusted too: the first time, its
-picture is kept as a photo in App files, in `Family tree/Uploaded portraits`, and
-the frame opens on it. Face boxes appear on it once the gallery has looked for
-faces.
+**Adjust portrait**, under the picture, reopens the frame on the same photo.
+Portraits uploaded before frames existed are kept as photos in App files, in
+`Family tree/Uploaded portraits` (the server does this by itself when it
+starts), so they show in the pickers, and Adjust opens the frame on them. Face boxes appear on them once the gallery has looked for faces.
 **Remove portrait** takes it off and moves the copy to the Recycle Bin.
 
 ## The map

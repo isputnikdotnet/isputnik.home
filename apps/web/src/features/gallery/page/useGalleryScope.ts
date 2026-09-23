@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../api";
 import type { GalleryView } from "../../../router";
-import { EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "../GalleryFilter";
+import { EMPTY_GALLERY_FILTERS, FAMILY_TREE_SCOPE, activeGalleryFilterCount, type GalleryFilters } from "../GalleryFilter";
 import { galleryGridClass, readGalleryView, writeGalleryView, type GalleryViewPrefs } from "../gallery-view";
 import type { GalleryFacets } from "../types";
 import type { TimelineSort } from "./gallery-page-model";
@@ -82,7 +82,8 @@ export function useGalleryScope({
   // A few actions — rescanning a folder, Folders' own scope — only make sense
   // against exactly one library, the same way Audiobooks only offers "Add to
   // series" once its library filter narrows to one.
-  const soleLibraryId = filters.libraries.length === 1 ? filters.libraries[0] : null;
+  // The family-tree entry is not a library: Folders' rescan, lock and move need one.
+  const soleLibraryId = filters.libraries.length === 1 && filters.libraries[0] !== FAMILY_TREE_SCOPE ? filters.libraries[0] : null;
 
   // Omitted entirely when no library is chosen — every accessible one, same as before.
   const scopeParams = useCallback(() => (

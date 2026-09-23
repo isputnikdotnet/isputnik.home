@@ -307,6 +307,31 @@ export async function portraitSourcePhoto(personId: string): Promise<string> {
   return itemId;
 }
 
+/** Portraits uploaded straight to the tree before uploads went through the
+ *  gallery exist only in the thumbnail store, so no gallery page or picker can
+ *  show them. Give each one its source photo in App files → Family tree →
+ *  Uploaded portraits, as the first Adjust would. Run once at startup, in the
+ *  background; a no-op once they all have one, and while App storage is off
+ *  (the next start tries again). One that can't be read is left as it is. */
+export async function keepUploadedPortraitsAsPhotos(): Promise<number> {
+  if (!getHouseLibrary()) return 0;
+  const rows = db.prepare(`
+    SELECT p.id FROM family_tree_persons p
+    LEFT JOIN library_items li ON li.id = p.portrait_item_id AND li.deleted_at IS NULL
+    WHERE p.portrait_storage_key IS NOT NULL AND li.id IS NULL
+  `).all() as Pick<FamilyTreePersonRow, "id">[];
+  let done = 0;
+  for (const row of rows) {
+    try {
+      await portraitSourcePhoto(row.id);
+      done += 1;
+    } catch {
+      // Left as it was; Adjust says why when someone tries it.
+    }
+  }
+  return done;
+}
+
 /** The App files copy a person's portrait keeps, for the route to bin after the
  *  person is deleted. */
 export function portraitFileItemId(personId: string): string | null {

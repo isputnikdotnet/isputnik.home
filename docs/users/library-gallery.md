@@ -179,10 +179,13 @@ and that is where you meet them. Who sees each one follows the same thing: a
 recording is seen by whoever can see its story, a voice note by whoever can see its
 photo, a family-tree photo by every member ([Storage](storage.md)).
 
-**Photos uploaded from the family tree are the exception.** They are the family's
-photos, so they show in the Timeline, Folders (under *Family tree*), the map,
-People and the pickers like any others, for everyone who may see them. Portraits
-the app cut out of a photo stay out, so the same face doesn't appear twice. A photo placed
+**Photos uploaded from the family tree are one choice away.** They stay out of the
+Gallery unless you ask for them: open **Filter → Libraries** and choose **Family
+tree photos** (on its own for just those, or with your libraries for everything).
+The photo pickers — for a person, an event, a portrait, a story — always include
+them, under Folders → *Family tree*, so a photo uploaded once can be used again.
+Portraits the app cut out of a photo never show, so the same face doesn't appear
+twice. A photo placed
 in a story, an album or a slideshow keeps showing there for those people, and opens
 in the viewer as any other. To see everything it holds, open **Control panel →
 Library → Storage contents**.

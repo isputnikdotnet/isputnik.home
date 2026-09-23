@@ -64,7 +64,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   });
 
   // Strings, not numbers: junk falls back to the defaults below.
-  const pageQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional() });
+  const pageQuerySchema = z.object({ libraryIds: z.string().optional(), limit: z.string().optional(), offset: z.string().optional() });
 
   app.get("/api/library/gallery/people/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
@@ -75,7 +75,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     const qp = parsed.data;
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
-    const libIds = resolveGalleryBrowseLibraryIds(request.user!);
+    const libIds = resolveGalleryBrowseLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     // Hidden people 404 for non-admins, mirroring the list's includeHidden gate.
     const result = getGalleryPersonPhotos(request.user!.id, libIds, personId, limit, offset, request.user!.role === "admin");
     if (!result) {

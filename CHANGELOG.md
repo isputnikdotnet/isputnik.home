@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.21.2 — Family tree photos, one choice away
+
+- **The Gallery is back to your photo libraries, with the family tree's photos one choice away.** 4.21.1 mixed the photos uploaded from the family tree into the Timeline, Folders, the map and the Home page. Now they stay out unless you ask: **Filter → Libraries → Family tree photos** shows them, on their own or with your libraries.
+- **Every photo picker always includes the family tree's photos**, under Folders → *Family tree* — for a person, an event, a portrait or a story — so a photo uploaded once can be used again.
+- **Portraits uploaded before 4.21 are now photos too.** They existed only as the round picture in the tree, so no picker could offer them. When the server starts it keeps each one as a photo in App files, in `Family tree/Uploaded portraits`, named after the person. The portraits themselves don't change, and **Adjust portrait** opens the frame on them.
+
 ## 4.21.1 — Family uploads in the Gallery
 
 - **Photos uploaded from the family tree now show in the Gallery.** They were kept with the files the app makes for itself, which stay out of sight, so a photo uploaded to a person or an event could not be found again, or picked for anyone else. Now they appear in the Timeline, under Folders → *Family tree*, on the map and in every photo picker, for everyone who may see them. Recordings, voice notes, movies and cut-out portraits stay out as before.

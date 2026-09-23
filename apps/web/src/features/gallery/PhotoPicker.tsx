@@ -8,7 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectField } from "../../shared/SelectField";
 import { useDebouncedValue } from "../../shared/useDebouncedValue";
-import { EMPTY_GALLERY_FILTERS } from "./GalleryFilter";
+import { EMPTY_GALLERY_FILTERS, ALL_LIBRARIES_SCOPE, FAMILY_TREE_SCOPE } from "./GalleryFilter";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary, GalleryPerson } from "./types";
 import { faceFocusStyle } from "./types";
 import { formatNumber } from "../../shared/dates";
@@ -134,10 +134,16 @@ export function PhotoPicker({
       .catch(() => undefined);
   }, []);
 
-  const scopeParam = useCallback(() => (scope === "all" ? "" : `&libraryIds=${encodeURIComponent(scope)}`), [scope]);
-  const scopeFilters = useCallback(
-    () => ({ ...EMPTY_GALLERY_FILTERS, libraries: scope === "all" ? [] : [scope] }),
+  // "All libraries" here also means the photos uploaded from the family tree,
+  // which the Gallery leaves out until asked: a picker is where they get reused.
+  const scopeLibraries = useCallback(
+    () => (scope === "all" ? [ALL_LIBRARIES_SCOPE, FAMILY_TREE_SCOPE] : [scope]),
     [scope]
+  );
+  const scopeParam = useCallback(() => `&libraryIds=${encodeURIComponent(scopeLibraries().join(","))}`, [scopeLibraries]);
+  const scopeFilters = useCallback(
+    () => ({ ...EMPTY_GALLERY_FILTERS, libraries: scopeLibraries() }),
+    [scopeLibraries]
   );
 
   // ── Folders ────────────────────────────────────────────────────────────────
@@ -217,7 +223,7 @@ export function PhotoPicker({
     setError("");
     try {
       const payload = await api<{ assets: GalleryAsset[]; total: number }>(
-        `/api/library/gallery/people/${who.id}?limit=${PAGE}&offset=${offset}`
+        `/api/library/gallery/people/${who.id}?limit=${PAGE}&offset=${offset}${scopeParam()}`
       );
       setPersonAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setPersonTotal(payload.total);
@@ -226,7 +232,7 @@ export function PhotoPicker({
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, scopeParam]);
 
   useEffect(() => {
     if (tab !== "people" || !person) return;

@@ -23,6 +23,13 @@ export interface GalleryFilters {
   likes: string[]; // codes: mine | anyone | none
 }
 
+/** A Libraries entry that is not a library: photos uploaded from the family tree
+ *  (kept in App files, so off unless chosen). The server's FAMILY_TREE_SCOPE. */
+export const FAMILY_TREE_SCOPE = "family-tree";
+/** "Every library I'd see by default" — lets a picker ask for that together with
+ *  FAMILY_TREE_SCOPE. The server's ALL_LIBRARIES_SCOPE. */
+export const ALL_LIBRARIES_SCOPE = "all";
+
 export const EMPTY_GALLERY_FILTERS: GalleryFilters = {
   libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: [], places: [], likes: []
 };

@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.21.2",
+    "label": "Family tree photos, one choice away",
+    "changes": [
+      "**The Gallery is back to your photo libraries, with the family tree's photos one choice away.** 4.21.1 mixed the photos uploaded from the family tree into the Timeline, Folders, the map and the Home page. Now they stay out unless you ask: **Filter → Libraries → Family tree photos** shows them, on their own or with your libraries.",
+      "**Every photo picker always includes the family tree's photos**, under Folders → *Family tree* — for a person, an event, a portrait or a story — so a photo uploaded once can be used again.",
+      "**Portraits uploaded before 4.21 are now photos too.** They existed only as the round picture in the tree, so no picker could offer them. When the server starts it keeps each one as a photo in App files, in `Family tree/Uploaded portraits`, named after the person. The portraits themselves don't change, and **Adjust portrait** opens the frame on them."
+    ]
+  },
+  {
     "version": "4.21.1",
     "label": "Family uploads in the Gallery",
     "changes": [

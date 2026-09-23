@@ -22,12 +22,16 @@ not see any per-item rule. They all ask through `galleryScopeSql` now, and skip
 themselves on `scopeIsEmpty(libIds)`, never `libIds.length === 0` — a relative
 with no library but a person grant has an empty list and a rule. The first rule
 on the browse scope is family-tree uploads (`withFamilyUploads`, attached by
-`resolveGalleryBrowseLibraryIds`), which the owner wanted in the Gallery. The
-people rule goes beside it. Note that it must NOT reach `queryGalleryFolders` /
+`resolveGalleryBrowseLibraryIds`). Since 4.21.2 it is opt-in: only when the
+library filter carries `FAMILY_TREE_SCOPE` ("family-tree"); the pickers send
+`ALL_LIBRARIES_SCOPE` + it, the Gallery's Libraries facet offers it as an entry.
+The people rule goes beside it — and must be ON by default, unlike this one. Note that it must NOT reach `queryGalleryFolders` /
 `searchGalleryFolders` (folder names; see the privacy table), which today take
 the same scope — give the people rule a flag the folder queries leave off.
-Uploaded portraits (pre-4.21) get a source photo on the first Adjust
-(`portraitSourcePhoto`, App files → `Family tree/Uploaded portraits`).
+Uploaded portraits (pre-4.21) get a source photo in App files → `Family
+tree/Uploaded portraits` (`portraitSourcePhoto`) — on the first Adjust, and since
+4.21.2 for all of them at startup (`keepUploadedPortraitsAsPhotos`), so the
+Gallery shows them.
 
 Companion to [permissions.md](permissions.md) (the assignments engine
 this extends), [gallery-library.md](gallery-library.md),

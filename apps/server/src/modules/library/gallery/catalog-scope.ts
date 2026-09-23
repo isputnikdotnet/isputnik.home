@@ -40,20 +40,39 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
   return accessible.filter((row) => requested.has(row.id)).map((row) => row.id);
 }
 
+/** A library filter entry that is not a library: photos uploaded from the family
+ *  tree (App files → Family tree). Off unless chosen — the Gallery's Libraries
+ *  facet offers it; the photo pickers always ask for it. */
+export const FAMILY_TREE_SCOPE = "family-tree";
+/** A library filter entry meaning "every library I would browse by default", so
+ *  a picker can ask for that AND the family-tree photos in one list. */
+export const ALL_LIBRARIES_SCOPE = "all";
+
 // The BROWSING scope: the timeline, folders, memories, the map, the facets,
 // the People list and the Home feed's photo cards — the surfaces that resurface
 // photos on their own. On top of the Inbox, App files (what the app keeps for
 // itself) is left out unless it is named in the library filter: both are system
-// libraries (system-libraries.ts). The exception is what was uploaded from the
-// family tree into App files → Family tree: those are the family's photos, and
-// the list carries a rule that lets them through (withFamilyUploads). Everything
-// named by id elsewhere (a story's block, an album, a slideshow, the viewer)
-// uses the reachable scope above.
+// libraries (system-libraries.ts). Photos uploaded from the family tree into App
+// files → Family tree are the family's own, so the filter can ask for them with
+// FAMILY_TREE_SCOPE: the list then carries a rule that lets them through
+// (withFamilyUploads). Not by default — the owner wanted the Gallery as it was,
+// with them one choice away (2026-09-23). Everything named by id elsewhere (a
+// story's block, an album, a slideshow, the viewer) uses the reachable scope above.
 //
 // Queries must ask through galleryScopeSql, not a bare `library_id IN (...)`,
 // or the rule is lost.
 export function resolveGalleryBrowseLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
-  if (libraryIds && libraryIds.length > 0) return resolveGalleryScopeLibraryIds(user, libraryIds);
-  const leftOut = galleryLibrariesLeftOutOfScope();
-  return withFamilyUploads(user, resolveGalleryScopeLibraryIds(user).filter((id) => !leftOut.has(id)));
+  const asked = libraryIds ?? [];
+  const familyTree = asked.includes(FAMILY_TREE_SCOPE);
+  const all = asked.includes(ALL_LIBRARIES_SCOPE);
+  const named = asked.filter((id) => id !== FAMILY_TREE_SCOPE && id !== ALL_LIBRARIES_SCOPE);
+  const defaultScope = () => {
+    const leftOut = galleryLibrariesLeftOutOfScope();
+    return resolveGalleryScopeLibraryIds(user).filter((id) => !leftOut.has(id));
+  };
+  const base = all || (named.length === 0 && !familyTree)
+    ? defaultScope()
+    : named.length > 0 ? resolveGalleryScopeLibraryIds(user, named) : [];
+  // A fresh array: the rule is attached to this list, never to one another caller holds.
+  return familyTree ? withFamilyUploads(user, [...base]) : base;
 }

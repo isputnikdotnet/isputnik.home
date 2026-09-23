@@ -23,7 +23,7 @@ import { useGallerySlideshows } from "./useGallerySlideshows";
 import { useGalleryPeople } from "./useGalleryPeople";
 import { GalleryLightbox, type GalleryAssetChange } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
-import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, type GalleryFilters } from "./GalleryFilter";
+import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, type GalleryFilters, FAMILY_TREE_SCOPE } from "./GalleryFilter";
 import { getGroupingOptions, getTileSizeOptions, type GalleryGrouping, type GalleryTileSize } from "./gallery-view";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
@@ -98,7 +98,12 @@ export function GalleryPage({
   // the one place they can be asked for.
   // Since 4.6 neither is listed at all (docs/system-data-plan.md, decision 17): the
   // Inbox is reached from its review page, App files through what made each file.
-  const filterLibraries = useMemo(() => libraries.filter((library) => !library.role), [libraries]);
+  // One entry is not a library: photos uploaded from the family tree, which live
+  // in App files and so stay out until chosen here (4.21.2).
+  const filterLibraries = useMemo(() => [
+    ...libraries.filter((library) => !library.role),
+    { id: FAMILY_TREE_SCOPE, name: t("gallery:filter.familyTreePhotos") }
+  ], [libraries, t]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const isAdmin = user.role === "admin";

@@ -4,17 +4,21 @@
 // depends on it. See docs/architecture.md.
 import type { FastifyInstance } from "fastify";
 import { familyTreeRoutesPlugin } from "./routes.js";
-import { renderPendingPortraits } from "./portraits.js";
+import { keepUploadedPortraitsAsPhotos, renderPendingPortraits } from "./portraits.js";
 
 export async function familyTreePlugin(app: FastifyInstance) {
   await app.register(familyTreeRoutesPlugin);
 
   // Gallery portraits chosen before 4.21 get an image of their own, so they show
-  // for members who cannot open the photo's library (portraits.ts). In the
-  // background, one render at a time; a no-op once they are all done.
+  // for members who cannot open the photo's library; portraits uploaded straight
+  // to the tree get a photo in App files, so the Gallery and pickers show them
+  // (portraits.ts). In the background, one at a time; a no-op once all are done.
   app.addHook("onReady", async () => {
-    void renderPendingPortraits()
-      .then((count) => { if (count > 0) app.log.info(`Rendered ${count} family-tree portrait${count === 1 ? "" : "s"}.`); })
-      .catch((err) => app.log.warn({ err }, "Rendering family-tree portraits failed; they show as before."));
+    void (async () => {
+      const rendered = await renderPendingPortraits();
+      if (rendered > 0) app.log.info(`Rendered ${rendered} family-tree portrait${rendered === 1 ? "" : "s"}.`);
+      const kept = await keepUploadedPortraitsAsPhotos();
+      if (kept > 0) app.log.info(`Kept ${kept} uploaded family-tree portrait${kept === 1 ? "" : "s"} as photos in App files.`);
+    })().catch((err) => app.log.warn({ err }, "Preparing family-tree portraits failed; they show as before."));
   });
 }
