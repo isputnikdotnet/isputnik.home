@@ -1,5 +1,6 @@
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type AssetRow } from "./catalog-asset.js";
+import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -54,13 +55,13 @@ export function queryGalleryRecentlyAdded(userId: string, libIds: string[], days
   newestAt: string | null;
   assets: ReturnType<typeof mapAsset>[];
 } {
-  if (libIds.length === 0) return { total: 0, newestAt: null, assets: [] };
+  if (scopeIsEmpty(libIds)) return { total: 0, newestAt: null, assets: [] };
   // Interpolated because SQLite's date modifier is a literal, not a bindable
   // parameter; both numbers are clamped integers, never caller text.
   const windowDays = Math.max(1, Math.min(365, Math.trunc(days)));
   const take = Math.max(1, Math.min(200, Math.trunc(limit)));
-  const libIn = inClause(libIds.length);
-  const where = `library_items.library_id IN (${libIn})
+  const scope = galleryScopeSql(libIds);
+  const where = `${scope.sql}
     AND library_items.deleted_at IS NULL
     AND gallery_details.kind != 'audio'
     AND library_items.discovered_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${windowDays} days')`;
@@ -70,7 +71,7 @@ export function queryGalleryRecentlyAdded(userId: string, libIds: string[], days
     FROM library_items
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     WHERE ${where}
-  `).get(...libIds) as { n: number; newest: string | null };
+  `).get(...scope.params) as { n: number; newest: string | null };
   if (summary.n === 0) return { total: 0, newestAt: null, assets: [] };
 
   const rows = db.prepare(`
@@ -78,7 +79,7 @@ export function queryGalleryRecentlyAdded(userId: string, libIds: string[], days
     WHERE ${where}
     ORDER BY library_items.discovered_at DESC, library_items.id DESC
     LIMIT ?
-  `).all(userId, ...libIds, take) as AssetRow[];
+  `).all(userId, ...scope.params, take) as AssetRow[];
 
   return { total: summary.n, newestAt: summary.newest, assets: rows.map(mapAsset) };
 }
@@ -89,8 +90,8 @@ export function queryGalleryMemories(userId: string, libIds: string[], today: st
   precision: GalleryMemoriesPrecision;
   groups: GalleryMemoryGroup[];
 } {
-  if (libIds.length === 0) return { precision: "day", groups: [] };
-  const libIn = inClause(libIds.length);
+  if (scopeIsEmpty(libIds)) return { precision: "day", groups: [] };
+  const scope = galleryScopeSql(libIds);
   const exactDay = today.slice(5, 10);
 
   // Day and ±3 days in one pass. Ranking and counting partition on (year, exact)
@@ -103,7 +104,7 @@ export function queryGalleryMemories(userId: string, libIds: string[], today: st
         substr(gallery_details.taken_at, 1, 4) AS mem_year,
         CASE WHEN substr(gallery_details.taken_at, 6, 5) = ? THEN 1 ELSE 0 END AS mem_exact
       ${ASSET_JOINS}
-      WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+      WHERE ${scope.sql} AND library_items.deleted_at IS NULL
         AND gallery_details.kind != 'audio'
         AND substr(gallery_details.taken_at, 1, 4) < ?
         AND substr(gallery_details.taken_at, 6, 5) IN (${inClause(7)})
@@ -115,7 +116,7 @@ export function queryGalleryMemories(userId: string, libIds: string[], today: st
       FROM matched
     )
     SELECT * FROM ranked WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_exact DESC, mem_rank
-  `).all(exactDay, userId, ...libIds, today.slice(0, 4), ...monthDayWindow(today, 3), perYear) as MemoryRow[];
+  `).all(exactDay, userId, ...scope.params, today.slice(0, 4), ...monthDayWindow(today, 3), perYear) as MemoryRow[];
 
   if (nearRows.length > 0) {
     const groups: GalleryMemoryGroup[] = [];
@@ -156,13 +157,13 @@ export function queryGalleryMemories(userId: string, libIds: string[], today: st
         ) AS mem_rank,
         COUNT(*) OVER (PARTITION BY substr(gallery_details.taken_at, 1, 4)) AS mem_count
       ${ASSET_JOINS}
-      WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+      WHERE ${scope.sql} AND library_items.deleted_at IS NULL
         AND gallery_details.kind != 'audio'
         AND substr(gallery_details.taken_at, 1, 4) < ?
         AND substr(gallery_details.taken_at, 6, 2) = ?
     )
     SELECT * FROM matched WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_rank
-  `).all(userId, ...libIds, today.slice(0, 4), today.slice(5, 7), perYear) as (AssetRow & { mem_year: string; mem_count: number })[];
+  `).all(userId, ...scope.params, today.slice(0, 4), today.slice(5, 7), perYear) as (AssetRow & { mem_year: string; mem_count: number })[];
   if (monthRows.length === 0) return { precision: "day", groups: [] };
 
   const groups: GalleryMemoryGroup[] = [];

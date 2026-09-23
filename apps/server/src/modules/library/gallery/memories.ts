@@ -8,6 +8,7 @@
 import { db } from "../../../db.js";
 import { pickVisuallyDistinct } from "./similarity.js";
 import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, NonNull } from "../../../db/rows.js";
+import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -107,7 +108,8 @@ function coverKeyFor(cluster: ItemRow[]): string | null {
 }
 
 export function suggestGalleryMemories(libIds: string[], opts: { limit?: number } = {}): MemorySuggestion[] {
-  if (libIds.length === 0) return [];
+  if (scopeIsEmpty(libIds)) return [];
+  const scope = galleryScopeSql(libIds);
   const limit = Math.min(Math.max(opts.limit ?? 12, 1), 40);
 
   const rows = db.prepare(`
@@ -117,13 +119,13 @@ export function suggestGalleryMemories(libIds: string[], opts: { limit?: number 
     FROM library_items
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
-    WHERE library_items.library_id IN (${inClause(libIds.length)})
+    WHERE ${scope.sql}
       AND library_items.deleted_at IS NULL
       AND gallery_details.taken_at IS NOT NULL
       -- Moments are visual: audio recordings never seed or join a memory.
       AND gallery_details.kind != 'audio'
     ORDER BY gallery_details.taken_at ASC, library_items.id ASC
-  `).all(...libIds) as ItemRow[];
+  `).all(...scope.params) as ItemRow[];
   if (rows.length < MIN_ITEMS) return [];
 
   // Split the chronological stream into moments on time gaps, capping each moment's

@@ -13,7 +13,7 @@ import {
 } from "./persons.js";
 import { getFamilyEventPhotos } from "./photos.js";
 import {
-  canUsePortraitPhoto, discardPortraitFile, portraitCropSchema, portraitFileItemId, PortraitError,
+  canUsePortraitPhoto, discardPortraitFile, portraitCropSchema, portraitFileItemId, PortraitError, portraitSourcePhoto,
   setPortraitFromPhoto, setUploadedPortraitFile
 } from "./portraits.js";
 import { canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags } from "./access.js";
@@ -385,6 +385,24 @@ export function registerPersonRoutes(app: FastifyInstance) {
     try {
       const { keptInAppFiles } = await setPortraitFromPhoto(personId, parsed.data.itemId, parsed.data.crop, user.id);
       return reply.send({ person: decoratePersons(user, [getFamilyPerson(personId)!])[0], keptInAppFiles });
+    } catch (err) {
+      if (err instanceof PortraitError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  // The photo a portrait is re-cut from. An uploaded portrait has none until its
+  // image is kept in App files on the first Adjust (portraits.ts).
+  app.post("/api/family-tree/persons/:id/portrait/source", { preHandler: app.authenticate }, async (request, reply) => {
+    const personId = (request.params as { id: string }).id;
+    if (!getFamilyPerson(personId)) {
+      return reply.code(404).send({ error: "Person not found" });
+    }
+    if (!canEditPerson(request.user!, personId)) {
+      return reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+    }
+    try {
+      return reply.send({ itemId: await portraitSourcePhoto(personId) });
     } catch (err) {
       if (err instanceof PortraitError) return reply.code(err.statusCode).send({ error: err.message });
       throw err;

@@ -1,6 +1,6 @@
 # Sharing photos by person — plan
 
-Status: **phases 3 and 4 built in-code 2026-09-22** (uncommitted): migration 82,
+Status: **phases 3 and 4 released in 4.21.0** (2026-09-22): migration 82,
 `familytree/portraits.ts`, `shared/ImageCropper`, `PortraitCropModal`. Phases 1
 and 2 (people access) are still a proposal. Written 2026-09-22 from a
 conversation about adding a cousin to the app without giving him the whole
@@ -14,6 +14,20 @@ rewrites child FKs), and the App files copy is tied to the person by a new
 items; the duplicate scan needs nothing, since a crop is never byte-identical
 and the near-duplicate tier is not built. A plain pick (PATCH
 `portraitItemId`) is cut to the linked face when the photo shows it.
+
+**Groundwork for phase 1, done 2026-09-23 (4.21.1):** the browse queries
+(`catalog.ts`, `catalog-memories.ts`, `memories.ts`, `people.ts`, the Home
+feed's photo cards) used to write their own `library_id IN (...)` and so could
+not see any per-item rule. They all ask through `galleryScopeSql` now, and skip
+themselves on `scopeIsEmpty(libIds)`, never `libIds.length === 0` — a relative
+with no library but a person grant has an empty list and a rule. The first rule
+on the browse scope is family-tree uploads (`withFamilyUploads`, attached by
+`resolveGalleryBrowseLibraryIds`), which the owner wanted in the Gallery. The
+people rule goes beside it. Note that it must NOT reach `queryGalleryFolders` /
+`searchGalleryFolders` (folder names; see the privacy table), which today take
+the same scope — give the people rule a flag the folder queries leave off.
+Uploaded portraits (pre-4.21) get a source photo on the first Adjust
+(`portraitSourcePhoto`, App files → `Family tree/Uploaded portraits`).
 
 Companion to [permissions.md](permissions.md) (the assignments engine
 this extends), [gallery-library.md](gallery-library.md),

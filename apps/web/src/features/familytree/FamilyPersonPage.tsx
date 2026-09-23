@@ -424,6 +424,23 @@ export function FamilyPersonPage({ id }: { id: string }) {
   // Every portrait comes from a gallery photo — a face match, a browsed photo, or
   // a file uploaded into the tree's photo library, which becomes a photo like any
   // other — and is cut from it in PortraitCropModal, one face out of a group.
+  // Adjust the portrait there is. One uploaded straight to the tree has no
+  // photo to re-cut from yet; the server keeps its image in App files first.
+  const adjustPortrait = async () => {
+    if (!profile) return;
+    setActionError("");
+    if (profile.portraitItemId) {
+      setPortraitCropItem(profile.portraitItemId);
+      return;
+    }
+    try {
+      const { itemId } = await api<{ itemId: string }>(`/api/family-tree/persons/${profile.id}/portrait/source`, { method: "POST" });
+      setPortraitCropItem(itemId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t("family:person.errors.setPortrait"));
+    }
+  };
+
   const pickPortraitPhoto = (itemId: string) => {
     setActionError("");
     setPortraitPicker(false);
@@ -571,8 +588,8 @@ export function FamilyPersonPage({ id }: { id: string }) {
                   </div>
                   {canEdit && (profile.portraitUrl || profile.portraitItemId) && (
                     <div className="book-tags book-tags-under-cover ft-person-cover-actions" aria-label={t("family:person.actions.portraitActionsAria")}>
-                      {profile.portraitItemId && (
-                        <Button variant="text" compact onClick={() => setPortraitCropItem(profile.portraitItemId)}>
+                      {profile.portraitUrl && (
+                        <Button variant="text" compact onClick={() => void adjustPortrait()}>
                           {t("family:person.actions.adjustPortrait")}
                         </Button>
                       )}

@@ -12,8 +12,8 @@ import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { recomputeClusterCentroid } from "./faces/cluster.js";
 import type { GalleryFaceRow, GalleryPersonRow, ItemMetadataRow } from "../../../db/rows.js";
+import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
 
-const inClause = (n: number) => Array(n).fill("?").join(", ");
 
 export interface GalleryPersonSummary {
   id: string;
@@ -32,8 +32,8 @@ type PersonListRow = Pick<GalleryPersonRow, "id" | "name"> & {
 // most recently-taken such asset's thumbnail (window-function pick, mirroring the
 // Folder view). Hidden people are omitted unless asked for.
 export function listGalleryPeople(libIds: string[], includeHidden = false): GalleryPersonSummary[] {
-  if (libIds.length === 0) return [];
-  const libIn = inClause(libIds.length);
+  if (scopeIsEmpty(libIds)) return [];
+  const scope = galleryScopeSql(libIds, "li");
   const rows = db.prepare(`
     -- One row per (person, item): an auto pass can leave several face rows for the
     -- same person in one photo, so DISTINCT collapses them before counting. taken_at
@@ -42,7 +42,7 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
       SELECT DISTINCT gf.person_id AS person_id, li.id AS item_id,
         gd.taken_at AS taken_at, im.cover_storage_key AS cover
       FROM gallery_faces gf
-      JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL AND li.library_id IN (${libIn})
+      JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL AND ${scope.sql}
       JOIN gallery_details gd ON gd.item_id = li.id
       LEFT JOIN item_metadata im ON im.item_id = li.id
       WHERE gf.person_id IS NOT NULL AND gf.assignment != 'rejected'
@@ -73,7 +73,7 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
           ORDER BY (gf.id = gp2.cover_face_id) DESC, gf.det_score DESC) AS rn
       FROM gallery_faces gf
       JOIN gallery_people gp2 ON gp2.id = gf.person_id
-      JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL AND li.library_id IN (${libIn})
+      JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL AND ${scope.sql}
       WHERE gf.person_id IS NOT NULL AND gf.assignment != 'rejected' AND gf.source = 'scan'
         AND gf.thumb_storage_key IS NOT NULL
         AND (gp2.cover_item_id IS NULL OR gf.item_id = gp2.cover_item_id)
@@ -85,7 +85,7 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
     LEFT JOIN bestface ON bestface.person_id = gp.id AND bestface.rn = 1
     ${includeHidden ? "" : "WHERE gp.hidden = 0"}
     ORDER BY (gp.name = '') ASC, ranked.cnt DESC, gp.name COLLATE NOCASE
-  `).all(...libIds, ...libIds) as PersonListRow[];
+  `).all(...scope.params, ...scope.params) as PersonListRow[];
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -122,25 +122,25 @@ export function getGalleryPersonPhotos(
   const person = getGalleryPersonRow(personId);
   if (!person) return null;
   if (person.hidden && !includeHidden) return null;
-  if (libIds.length === 0) return { person: { id: person.id, name: person.name, coverItemId: person.cover_item_id }, assets: [], total: 0 };
-  const libIn = inClause(libIds.length);
+  if (scopeIsEmpty(libIds)) return { person: { id: person.id, name: person.name, coverItemId: person.cover_item_id }, assets: [], total: 0 };
+  const scope = galleryScopeSql(libIds);
   const itemFilter = `
     library_items.id IN (
       SELECT gf.item_id FROM gallery_faces gf
       WHERE gf.person_id = ? AND gf.assignment != 'rejected'
     )
-    AND library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL`;
+    AND ${scope.sql} AND library_items.deleted_at IS NULL`;
   const total = (db.prepare(`
     SELECT COUNT(*) AS n FROM library_items
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     WHERE ${itemFilter}
-  `).get(personId, ...libIds) as { n: number }).n;
+  `).get(personId, ...scope.params) as { n: number }).n;
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE ${itemFilter}
     ORDER BY gallery_details.taken_at DESC, library_items.id DESC
     LIMIT ? OFFSET ?
-  `).all(userId, personId, ...libIds, limit, offset) as GalleryAssetRow[];
+  `).all(userId, personId, ...scope.params, limit, offset) as GalleryAssetRow[];
   return { person: { id: person.id, name: person.name, coverItemId: person.cover_item_id }, assets: rows.map(mapAsset), total };
 }
 

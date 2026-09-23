@@ -265,7 +265,9 @@ member list does not.
     The reachable scope stops including App files as a whole library. Every route
     that serves or hydrates an item by id (thumbnail, stream, lightbox, story,
     album and slideshow hydration, the family tree) asks this check for App files
-    items. The browsing scopes don't change: App files is never browsed.
+    items. The browsing scopes don't change: App files is never browsed. (Since
+    4.21.1 one exception: photos uploaded from the family tree, see
+    [people-sharing-plan.md](people-sharing-plan.md).)
 25. **Nothing about them shows outside Storage.** No Libraries-list row (phase 3
     already), no library filter entry, no access editor. The Storage page's parts
     grid keeps **Open** (Inbox, for admins) and **Contents** (App files), and loses

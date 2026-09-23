@@ -30,6 +30,7 @@ import { db } from "../../../db.js";
 import { resolveObjectRole, type AuthUser } from "../../../core/permissions.js";
 import { canManageCollection, visibleCollectionIds } from "../../stories/collection-access.js";
 import { systemLibraryId } from "./system-libraries.js";
+import { HOUSE_FOLDERS } from "./house-library.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 type User = Pick<AuthUser, "id" | "role">;
@@ -170,19 +171,69 @@ export function withAppFileOwners<T extends string[]>(user: User, libIds: T): T 
   return libIds;
 }
 
+// ── Family-tree uploads in the browsing scope ─────────────────────────────────
+//
+// Photos someone uploaded from the family tree land in App files → Family tree,
+// but they are the family's photos, not the app's own files: the owner asked for
+// them in the Gallery like any other photo (2026-09-23). So a BROWSING scope list
+// carries this second rule, attached by resolveGalleryBrowseLibraryIds. What the
+// app made from them stays out: a portrait crop (derived_from_item_id, under
+// Family tree/Portraits). Admins see every upload there; anyone else the ones the
+// tree uses, which every member may see (the table at the top of this file).
+const browseUploads = new WeakMap<readonly string[], { admin: boolean; libraryId: string }>();
+
+const FAMILY_TREE_OWNED_SQL = `
+  SELECT item_id FROM family_tree_photos
+  UNION SELECT item_id FROM family_tree_event_photos
+  UNION SELECT portrait_item_id FROM family_tree_persons WHERE portrait_item_id IS NOT NULL`;
+
+function familyUploadsSql(admin: boolean): string {
+  return `
+    SELECT fu.id FROM library_items fu
+    JOIN gallery_details fg ON fg.item_id = fu.id
+    WHERE fu.library_id = ? AND fu.deleted_at IS NULL AND fg.derived_from_item_id IS NULL
+      AND fu.folder_path LIKE ? AND fu.folder_path NOT LIKE ?
+      ${admin ? "" : `AND fu.id IN (${FAMILY_TREE_OWNED_SQL})`}`;
+}
+
+/** Attach the family-tree-uploads rule to a BROWSING scope list. A no-op without
+ *  App files, or when App files is already in the list. Returns the same array;
+ *  copies do not carry the rule. */
+export function withFamilyUploads<T extends string[]>(user: User, libIds: T): T {
+  const libraryId = appFilesLibraryId();
+  if (!libraryId || libIds.includes(libraryId)) return libIds;
+  browseUploads.set(libIds, { admin: user.role === "admin", libraryId });
+  return libIds;
+}
+
+/** Whether a scope list can match nothing at all: no libraries and no rule that
+ *  lets items through. A query may skip itself on this, never on `.length`. */
+export function scopeIsEmpty(libIds: readonly string[]): boolean {
+  return libIds.length === 0 && !scopeUsers.has(libIds) && !browseUploads.has(libIds);
+}
+
 /** A WHERE fragment for "this row's item is in the scope": in one of its libraries,
- *  or an App files item the scope's user may see. `alias` names the library_items
- *  table in the query. Place the params where the fragment goes. */
+ *  an App files item the scope's user may see, or — for a browsing scope — a
+ *  family-tree upload. `alias` names the library_items table in the query. Place
+ *  the params where the fragment goes. */
 export function galleryScopeSql(libIds: readonly string[], alias = "library_items"): { sql: string; params: unknown[] } {
   const entry = scopeUsers.get(libIds);
   if (entry && !entry.rule) entry.rule = ruleFor(entry.user, entry.libraryId);
   const rule = entry?.rule;
+  const uploads = browseUploads.get(libIds);
   const inScope = `${alias}.library_id IN (SELECT value FROM json_each(?))`;
-  if (!rule) return { sql: inScope, params: [JSON.stringify(libIds)] };
-  return {
-    sql: `(${inScope} OR (${alias}.library_id = ? AND ${alias}.id IN (${VISIBLE_APP_FILES_SQL})))`,
-    params: [JSON.stringify(libIds), rule.libraryId, ...rule.params]
-  };
+  if (!rule && !uploads) return { sql: inScope, params: [JSON.stringify(libIds)] };
+  const parts = [inScope];
+  const params: unknown[] = [JSON.stringify(libIds)];
+  if (rule) {
+    parts.push(`(${alias}.library_id = ? AND ${alias}.id IN (${VISIBLE_APP_FILES_SQL}))`);
+    params.push(rule.libraryId, ...rule.params);
+  }
+  if (uploads) {
+    parts.push(`(${alias}.library_id = ? AND ${alias}.id IN (${familyUploadsSql(uploads.admin)}))`);
+    params.push(uploads.libraryId, uploads.libraryId, `${HOUSE_FOLDERS.familyTree}/%`, `${HOUSE_FOLDERS.familyTree}/Portraits/%`);
+  }
+  return { sql: `(${parts.join(" OR ")})`, params };
 }
 
 /** One App files item, checked for `user`: admins yes; anyone else through its owners. */

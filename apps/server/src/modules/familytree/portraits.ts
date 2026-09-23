@@ -263,6 +263,50 @@ export async function setUploadedPortraitFile(personId: string, storageKey: stri
   await discardPortrait(previous, { storageKey }, userId);
 }
 
+/** The folder under App files → Family tree an uploaded portrait's image moves to
+ *  when someone first adjusts it. Not under Portraits: it is the family's photo,
+ *  so it shows in the Gallery like the other family uploads. */
+const UPLOADED_PORTRAITS_FOLDER = "Uploaded portraits";
+
+/** The gallery photo a portrait can be re-cut from. A portrait uploaded straight
+ *  to the tree (before every portrait came from a photo) has none: its image is
+ *  copied into App files → Family tree → Uploaded portraits, catalogued, and
+ *  becomes the portrait's source. The portrait itself is left as it is until the
+ *  new frame is saved. */
+export async function portraitSourcePhoto(personId: string): Promise<string> {
+  const row = db.prepare("SELECT name, portrait_storage_key, portrait_item_id FROM family_tree_persons WHERE id = ?")
+    .get(personId) as Pick<FamilyTreePersonRow, "name" | "portrait_storage_key" | "portrait_item_id"> | undefined;
+  if (!row) throw new PortraitError("Person not found", 404);
+  if (row.portrait_item_id && photoSource(row.portrait_item_id)) return row.portrait_item_id;
+  if (!row.portrait_storage_key) throw new PortraitError("This person has no portrait to adjust.", 404);
+  const library = getHouseLibrary();
+  if (!library) {
+    throw new PortraitError("App storage is off on this server. An admin can switch it on in Control panel → Library → Storage.", 409);
+  }
+  let image: Buffer;
+  try {
+    image = await fs.promises.readFile(thumbnailAbsolutePath(row.portrait_storage_key));
+  } catch {
+    throw new PortraitError("The portrait's image is missing.", 404);
+  }
+  const root = validateLibrarySource(library.source_path);
+  const dir = path.join(root, HOUSE_FOLDERS.familyTree, UPLOADED_PORTRAITS_FOLDER);
+  fs.mkdirSync(dir, { recursive: true });
+  const ext = path.extname(row.portrait_storage_key).toLowerCase() || ".jpg";
+  const stem = row.name.replace(/[<>:"/\\|?*]/g, "").trim() || "Portrait";
+  const fileName = uniqueGalleryFileName(dir, `${stem}${ext}`) ?? `${stem} ${Date.now()}${ext}`;
+  const finalPath = path.join(dir, fileName);
+  fs.writeFileSync(finalPath, image);
+  const itemId = await scanSingleGalleryFile(library.id, normaliseRelativePath(path.relative(root, finalPath)));
+  if (!itemId) {
+    fs.rmSync(finalPath, { force: true });
+    throw new PortraitError("The portrait's image could not be read.", 422);
+  }
+  db.prepare("UPDATE family_tree_persons SET portrait_item_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+    .run(itemId, personId);
+  return itemId;
+}
+
 /** The App files copy a person's portrait keeps, for the route to bin after the
  *  person is deleted. */
 export function portraitFileItemId(personId: string): string | null {

@@ -40,6 +40,7 @@ import {
 } from "../library/gallery/catalog-memories.js";
 import { dailyQuote, type DailyQuote } from "../library/quotes-daily.js";
 import type { GalleryFaceRow, ItemMetadataRow, LibraryItemRow, SeriesRow } from "../../db/rows.js";
+import { scopeIsEmpty } from "../library/gallery/app-files-access.js";
 
 interface RequestUser {
   id: string;
@@ -162,7 +163,7 @@ function itemsWithPeople(itemIds: string[]): Set<string> {
 
 function memoryCard(user: RequestUser, date: string): MemoryCard | null {
   const libIds = resolveGalleryBrowseLibraryIds(user);
-  if (libIds.length === 0) return null;
+  if (scopeIsEmpty(libIds)) return null;
   // Over-fetch per year so the strip has face-photo candidates to prefer.
   const memories = queryGalleryMemories(user.id, libIds, date, 12);
   // A whole-month fallback would put filler on the front page; only a real
@@ -220,7 +221,7 @@ function memoryCard(user: RequestUser, date: string): MemoryCard | null {
 // the card says "look what came in", so it must have something to say.
 function photosAddedCard(user: RequestUser): PhotosAddedCard | null {
   const libIds = resolveGalleryBrowseLibraryIds(user);
-  if (libIds.length === 0) return null;
+  if (scopeIsEmpty(libIds)) return null;
   const recent = queryGalleryRecentlyAdded(user.id, libIds, PHOTOS_WINDOW_DAYS, PHOTOS_STRIP_SIZE);
   if (recent.total === 0 || !recent.newestAt) return null;
   return {

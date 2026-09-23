@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.21.1 — Family uploads in the Gallery
+
+- **Photos uploaded from the family tree now show in the Gallery.** They were kept with the files the app makes for itself, which stay out of sight, so a photo uploaded to a person or an event could not be found again, or picked for anyone else. Now they appear in the Timeline, under Folders → *Family tree*, on the map and in every photo picker, for everyone who may see them. Recordings, voice notes, movies and cut-out portraits stay out as before.
+- **Every portrait can be adjusted, including ones uploaded before frames existed.** **Adjust portrait** used to appear only on portraits picked from the gallery. Now an uploaded portrait has it too: the first time, its picture is kept as a photo in App files, in `Family tree/Uploaded portraits`, and the frame opens on it.
+
 ## 4.21.0 — Portraits cut from any photo
 
 - **A family-tree portrait can be cut out of a group photo.** After you choose a photo, every face the gallery found on it has a box around it; click one and the frame fits around that person. Drag the frame, pull a corner or use the mouse wheel to adjust it, and a round preview shows what the tree will show. **Adjust portrait**, under the picture, reopens the frame on the same photo. Before, a portrait was the whole photo, so a picture of five people showed all five, very small.

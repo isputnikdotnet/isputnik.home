@@ -6,11 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { createFamilyPerson, getFamilyPerson, updateFamilyPerson } from "../src/modules/familytree/persons.js";
 import {
-  canUsePortraitPhoto, frameAroundFace, renderPendingPortraits, setPortraitFromPhoto, setUploadedPortraitFile
+  canUsePortraitPhoto, frameAroundFace, portraitSourcePhoto, renderPendingPortraits, setPortraitFromPhoto, setUploadedPortraitFile
 } from "../src/modules/familytree/portraits.js";
 import { UNSCANNED_PHOTOS_SQL } from "../src/modules/library/gallery/faces/queue.js";
 import { FACE_EMBEDDING_MODEL } from "../src/modules/library/gallery/faces/model-id.js";
 import { setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
+import { resolveGalleryBrowseLibraryIds } from "../src/modules/library/gallery/catalog-scope.js";
+import { queryGalleryFolders, queryGalleryTimeline } from "../src/modules/library/gallery/catalog.js";
 import { thumbnailAbsolutePath, thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { grant, makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 import "./helpers/media-types.js";
@@ -184,5 +186,66 @@ describe("portraits chosen before 4.21", () => {
     expect(await renderPendingPortraits()).toBe(1);
     expect((await portraitOf(person.id)).portrait_storage_key).toMatch(/^familytree\//);
     expect(await renderPendingPortraits()).toBe(0);
+  });
+});
+
+describe("a portrait uploaded straight to the tree", () => {
+  it("gets a photo to re-cut from on the first Adjust, kept with the family's uploads", async () => {
+    setHouseLibrary("house", "admin");
+    const person = createFamilyPerson({ name: "Anna" }, "admin");
+    const key = `familytree/${person.id.slice(0, 2)}/${person.id}-portrait-1.jpg`;
+    fs.mkdirSync(path.dirname(thumbnailAbsolutePath(key)), { recursive: true });
+    fs.copyFileSync(path.join(photos, "party.jpg"), thumbnailAbsolutePath(key));
+    await setUploadedPortraitFile(person.id, key, "admin");
+
+    const itemId = await portraitSourcePhoto(person.id);
+    expect(fs.readdirSync(path.join(house, "Family tree", "Uploaded portraits"))).toEqual(["Anna.jpg"]);
+    // The portrait itself is untouched until a frame is saved; asking again reuses the photo.
+    expect(await portraitOf(person.id)).toMatchObject({ portrait_storage_key: key, portrait_item_id: itemId });
+    expect(await portraitSourcePhoto(person.id)).toBe(itemId);
+
+    await setPortraitFromPhoto(person.id, itemId, { x: 0, y: 0, w: 0.5, h: 1 }, "admin");
+    const saved = await portraitOf(person.id);
+    expect(mostlyRed(saved.image!)).toBe(true);
+    expect(fs.existsSync(thumbnailAbsolutePath(key))).toBe(false);
+  });
+
+  it("says so when there is no portrait, or no App storage", async () => {
+    const person = createFamilyPerson({ name: "Anna" }, "admin");
+    await expect(portraitSourcePhoto(person.id)).rejects.toMatchObject({ statusCode: 404 });
+    db.prepare("UPDATE family_tree_persons SET portrait_storage_key = 'familytree/x/y.jpg' WHERE id = ?").run(person.id);
+    await expect(portraitSourcePhoto(person.id)).rejects.toMatchObject({ statusCode: 409 });
+  });
+});
+
+describe("family-tree uploads in the Gallery", () => {
+  function houseItem(id: string, folderPath: string, kind = "photo", derivedFrom: string | null = null) {
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, 'house', 'gallery', ?, 'ready')").run(id, folderPath);
+    db.prepare("INSERT INTO gallery_details (item_id, kind, relative_path, size, derived_from_item_id) VALUES (?, ?, ?, 1, ?)").run(id, kind, folderPath, derivedFrom);
+  }
+
+  const timeline = (user: { id: string; role: string }) => {
+    const libIds = resolveGalleryBrowseLibraryIds(user);
+    return queryGalleryTimeline(user.id, libIds, { q: "", kinds: [], limit: 50, offset: 0 }).assets.map((a) => a.id).sort();
+  };
+
+  it("show beside the other photos; what the app made for itself stays out", () => {
+    setHouseLibrary("house", "admin");
+    const person = createFamilyPerson({ name: "Ivan" }, "admin");
+    houseItem("used", "Family tree/2026/2026-09-19/clipping.jpg");
+    houseItem("orphan", "Family tree/2026/2026-09-19/spare.jpg");
+    houseItem("crop", "Family tree/Portraits/Ivan.jpg", "photo", "used");
+    houseItem("voice", "Voice notes/2026/note.weba", "audio");
+    db.prepare("INSERT INTO family_tree_photos (person_id, item_id, position) VALUES (?, 'used', 1)").run(person.id);
+
+    // The admin sees every family upload, next to the library they have.
+    expect(timeline({ id: "admin", role: "admin" })).toEqual(["orphan", "p1", "used"]);
+    // A member with no photo library at all sees the uploads the tree uses.
+    expect(timeline({ id: "cousin", role: "member" })).toEqual(["used"]);
+    // The folder view has them under Family tree.
+    const admin = { id: "admin", role: "admin" };
+    const folders = queryGalleryFolders("admin", resolveGalleryBrowseLibraryIds(admin), "", 50, 0).folders.map((f) => f.name);
+    expect(folders).toContain("Family tree");
+    expect(folders).not.toContain("Voice notes");
   });
 });

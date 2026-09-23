@@ -172,12 +172,17 @@ uploads blend into a folder structure rather than piling up at the top.
 
 Story recordings, voice notes, family-tree uploads, rendered slideshow movies
 and uploaded music all land in the **App files** library, part of App storage
-([Storage](storage.md)). It stays out of the Timeline, Memories, the Home page,
-People, the map, every picker and the library filter, the same way a Photo Inbox
-does: those files belong to the story, the photo or the tree that made them, and
-that is where you meet them, and who sees each one follows the same thing: a
+([Storage](storage.md)). Most of it stays out of the Timeline, Memories, the Home
+page, People, the map, every picker and the library filter, the same way a Photo
+Inbox does: those files belong to the story, the photo or the tree that made them,
+and that is where you meet them. Who sees each one follows the same thing: a
 recording is seen by whoever can see its story, a voice note by whoever can see its
-photo, a family-tree photo by every member ([Storage](storage.md)). A photo placed
+photo, a family-tree photo by every member ([Storage](storage.md)).
+
+**Photos uploaded from the family tree are the exception.** They are the family's
+photos, so they show in the Timeline, Folders (under *Family tree*), the map,
+People and the pickers like any others, for everyone who may see them. Portraits
+the app cut out of a photo stay out, so the same face doesn't appear twice. A photo placed
 in a story, an album or a slideshow keeps showing there for those people, and opens
 in the viewer as any other. To see everything it holds, open **Control panel →
 Library → Storage contents**.

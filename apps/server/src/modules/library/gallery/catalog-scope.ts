@@ -3,7 +3,7 @@
 import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { galleryLibrariesLeftOutOfScope, photoInboxLibraryIds } from "./system-libraries.js";
-import { withAppFileOwners } from "./app-files-access.js";
+import { withAppFileOwners, withFamilyUploads } from "./app-files-access.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 // A `?libraryIds=id1,id2` query param, the GET-route counterpart of the timeline
@@ -40,14 +40,20 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
   return accessible.filter((row) => requested.has(row.id)).map((row) => row.id);
 }
 
-// The BROWSING scope: the timeline, folders, memories, the year review, the
-// map, the facets, the People list and the Home feed's photo cards — the
-// surfaces that resurface photos on their own. On top of the Inbox, App files
-// (what the app keeps for itself) is left out unless it is named in the
-// library filter: both are system libraries (system-libraries.ts). Everything named by id elsewhere (a story's
-// block, an album, a slideshow, the viewer) uses the reachable scope above.
+// The BROWSING scope: the timeline, folders, memories, the map, the facets,
+// the People list and the Home feed's photo cards — the surfaces that resurface
+// photos on their own. On top of the Inbox, App files (what the app keeps for
+// itself) is left out unless it is named in the library filter: both are system
+// libraries (system-libraries.ts). The exception is what was uploaded from the
+// family tree into App files → Family tree: those are the family's photos, and
+// the list carries a rule that lets them through (withFamilyUploads). Everything
+// named by id elsewhere (a story's block, an album, a slideshow, the viewer)
+// uses the reachable scope above.
+//
+// Queries must ask through galleryScopeSql, not a bare `library_id IN (...)`,
+// or the rule is lost.
 export function resolveGalleryBrowseLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
   if (libraryIds && libraryIds.length > 0) return resolveGalleryScopeLibraryIds(user, libraryIds);
   const leftOut = galleryLibrariesLeftOutOfScope();
-  return resolveGalleryScopeLibraryIds(user).filter((id) => !leftOut.has(id));
+  return withFamilyUploads(user, resolveGalleryScopeLibraryIds(user).filter((id) => !leftOut.has(id)));
 }
