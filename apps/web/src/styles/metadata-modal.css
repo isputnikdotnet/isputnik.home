@@ -88,7 +88,8 @@
   gap: 6px;
 }
 
-.metadata-modal.book-metadata-modal .field > span:first-child {
+.metadata-modal.book-metadata-modal .field > span:first-child,
+.metadata-modal.book-metadata-modal .select-field > label:first-child:not(.sr-only) {
   color: var(--ink);
   font-size: 0.84rem;
 }
@@ -183,7 +184,9 @@
   gap: 4px;
 }
 
-.metadata-modal .field > span:first-child {
+.metadata-modal .field > span:first-child,
+.metadata-modal .select-field > label:first-child:not(.sr-only) {
+  color: inherit;
   font-size: 0.78rem;
   font-weight: 760;
 }

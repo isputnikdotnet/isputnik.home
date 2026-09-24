@@ -1571,12 +1571,11 @@
     "menuLabel": "Доступ и права",
     "loading": "Загрузка…",
     "remove": "Убрать",
-    "noDirect": "Не выдано напрямую",
     "none": "Нет доступа",
     "blocked": "Запрещено",
-    "fromEveryone": "Все: {{role}}",
-    "viaGroup": "{{role}} · через {{group}}",
-    "viaEveryone": "{{role}} · через «Все»",
+    "fromEveryone": "У всей семьи уже: {{role}}",
+    "viaGroup": "{{role}} через «{{group}}»",
+    "viaEveryone": "{{role}} для всей семьи",
     "errors": {
       "load": "Не удалось загрузить доступ",
       "save": "Не удалось сохранить изменение",
@@ -1603,29 +1602,31 @@
       "libraries": "Библиотеки",
       "photos": "Фото людей",
       "family": "Семья и истории",
-      "members_one": "Участники {{count}}",
-      "members_few": "Участники {{count}}",
-      "members_many": "Участники {{count}}",
-      "members_other": "Участники {{count}}",
+      "members_one": "Участники · {{count}}",
+      "members_few": "Участники · {{count}}",
+      "members_many": "Участники · {{count}}",
+      "members_other": "Участники · {{count}}",
       "groups_one": "Группы {{count}}",
       "groups_few": "Группы {{count}}",
       "groups_many": "Группы {{count}}",
       "groups_other": "Группы {{count}}",
-      "photosCount_one": "Фото людей {{count}}",
-      "photosCount_few": "Фото людей {{count}}",
-      "photosCount_many": "Фото людей {{count}}",
-      "photosCount_other": "Фото людей {{count}}",
-      "shared_one": "Отправлено лично {{count}}",
-      "shared_few": "Отправлено лично {{count}}",
-      "shared_many": "Отправлено лично {{count}}",
-      "shared_other": "Отправлено лично {{count}}"
+      "photosPeople_one": "Фото людей · {{count}}",
+      "photosPeople_few": "Фото людей · {{count}}",
+      "photosPeople_many": "Фото людей · {{count}}",
+      "photosPeople_other": "Фото людей · {{count}}",
+      "sharedWith": "Отправлено им",
+      "sharedWithCount_one": "Отправлено им · {{count}}",
+      "sharedWithCount_few": "Отправлено им · {{count}}",
+      "sharedWithCount_many": "Отправлено им · {{count}}",
+      "sharedWithCount_other": "Отправлено им · {{count}}"
     },
     "libraries": {
-      "library": "Библиотека",
-      "direct": "Выдано напрямую",
-      "gets": "Что получает",
-      "alsoFrom": "Также от",
-      "directFor": "Доступ к «{{library}}», выданный напрямую"
+      "directFor": "Доступ к «{{library}}», выданный напрямую",
+      "intro": "Что {{name}} может делать в каждой библиотеке. Если доступ даёт группа, это написано под названием.",
+      "introGroup": "Что могут делать все в группе «{{name}}» в каждой библиотеке.",
+      "sameAsGroups": "Как в их группах",
+      "noAccess": "Нет доступа",
+      "inboxKind": "Фото, ждущие решения"
     },
     "libraryTypes": {
       "audiobook": "Аудиокниги",
@@ -1647,15 +1648,12 @@
       "noBranches": "В древе пока нет ветвей — отметьте родственников тегом, чтобы создать ветвь.",
       "branchFor": "Правка ветви «{{branch}}»",
       "cannotEdit": "Без правки",
-      "collections": "Собрания историй",
+      "collections": "Истории",
       "noCollections": "Собраний историй пока нет.",
       "collectionFor": "Доступ к «{{collection}}»",
       "inbox": "Входящие фото",
       "inboxReviewer": "Разбирает входящие фото",
       "notReviewer": "Не разбирает",
-      "meTitle": "{{name}} в семейном древе",
-      "meLabel": "Кто {{name}} в семейном древе",
-      "meHint": "Древо называет этого человека «Вы» и открывается на нём, и свои сведения он видит всегда. Других прав это не даёт.",
       "meNone": "Нет в древе",
       "meUseFace": "Использовать лицо из древа и в галерее"
     },
@@ -1671,7 +1669,9 @@
         "audiobook": "Аудиокнига",
         "ebook": "Книга",
         "story": "История"
-      }
+      },
+      "emptyTitle": "{{name}} пока ничего не отправляли",
+      "emptyBody": "Здесь появятся альбомы, фото, книги и истории, отправленные через «Отправить», — их можно отозвать."
     },
     "groups": {
       "hint": "Всё, что выдано группе, получают её участники. Обычно доступ выдают группе и добавляют в неё людей.",
@@ -1679,7 +1679,9 @@
       "givesNothing": "Пока ничего не даёт",
       "editsBranch": "правит «{{branch}}»",
       "add": "Добавить в группу",
-      "choose": "Выберите группу…"
+      "choose": "Выберите группу…",
+      "title": "Группы",
+      "removeFrom": "Убрать из группы «{{group}}»"
     },
     "members": {
       "hint": "Каждый участник группы получает всё, что ей выдано.",
@@ -1712,11 +1714,9 @@
       "excluded_few": "{{count}} скрыто",
       "excluded_many": "{{count}} скрыто",
       "excluded_other": "{{count}} скрыто",
-      "selfTitle": "{{name}} в галерее",
-      "selfLabel": "Кто {{name}} в галерее",
+      "selfTitle": "Собственные фото",
       "selfNone": "Ни с кем не связан(а)",
       "selfShow": "Показывать собственные фото",
-      "selfHint": "Все подтверждённые фото, где есть {{name}}, — как у человека, которым поделились. Сама связь ничего не показывает.",
       "selfBadge": "это он(а)",
       "othersTitle": "Фото других людей",
       "branchesTitle": "Целые ветви семейного древа",
@@ -1726,7 +1726,10 @@
       "branchPeople_many": "{{count}} человек",
       "branchPeople_other": "{{count}} человека",
       "addBranch": "Поделиться фото ветви",
-      "chooseBranch": "Выберите ветвь…"
+      "chooseBranch": "Выберите ветвь…",
+      "selfHintLinked": "Все подтверждённые фото, где есть {{face}}, — как у человека, которым поделились с {{name}}.",
+      "selfHintUnlinked": "Сначала выберите лицо ({{name}}) в галерее — на вкладке «Аккаунт».",
+      "selfLinkOnAccount": "Перейти в «Аккаунт»"
     },
     "review": {
       "title": "Фото: {{name}} — проверка",
@@ -1751,6 +1754,22 @@
       "confirmAndReject_many": "Подтвердить {{count}}, не они: {{rejected}}",
       "confirmAndReject_other": "Подтвердить {{count}}, не они: {{rejected}}"
     },
-    "previewAs": "Посмотреть глазами: {{name}}"
+    "previewAs": "Посмотреть глазами: {{name}}",
+    "account": {
+      "profile": "Профиль"
+    },
+    "who": {
+      "title": "Кто это: {{name}}",
+      "hint": "Кем человек является в семейном древе и в галерее. Само по себе никаких прав не даёт.",
+      "tree": "В семейном древе",
+      "face": "Лицо в галерее"
+    },
+    "fromGroup": "через «{{group}}»",
+    "footer": {
+      "liveNote": "Изменения доступа сохраняются сразу",
+      "accountNote": "Группы и «кто это» сохраняются сразу, профиль — кнопкой «Сохранить профиль»",
+      "saveProfile": "Сохранить профиль",
+      "savingProfile": "Сохраняем…"
+    }
   }
 }

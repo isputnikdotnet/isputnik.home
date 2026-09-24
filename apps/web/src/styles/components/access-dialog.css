@@ -83,12 +83,61 @@
   font-size: 0.8rem;
 }
 
-.access-account-form {
+/* Account: sections under a heading each (profile, who they are, groups),
+   fields in two columns as the book and person editors have them. */
+.access-sections { display: grid; gap: 22px; }
+.access-section { display: grid; gap: 8px; }
+.access-section + .access-section { padding-top: 18px; border-top: 1px solid var(--line); }
+.access-section .access-section-title { margin: 0; }
+.access-profile-grid {
   display: grid;
-  gap: 14px;
-  max-width: 480px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  align-items: start;
 }
-.access-account-actions { display: flex; }
+.access-profile-grid > .message-box { grid-column: 1 / -1; }
+
+/* Groups as chips, with the picker to add one at the end of the row. */
+.access-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.access-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+  font-size: 0.85rem;
+}
+.access-chip-remove { width: 24px; height: 24px; min-height: 0; padding: 0; }
+
+/* A choice per row: name, and what it means in words under it; the select. */
+.access-row-choice { grid-template-columns: minmax(0, 1fr) 220px; }
+.access-intro { margin-bottom: 6px; }
+.access-toggle-first { margin-top: 4px; padding-top: 0; border-top: 0; }
+/* An action under a toggle, lined up with its text rather than its box. */
+.access-toggle-action { padding-left: 26px; }
+.access-toggle-action .text-button { padding: 0; min-height: 0; }
+.access-toggle + .access-muted { margin-top: 12px; }
+
+.access-empty { display: grid; gap: 4px; padding: 24px 0; }
+
+/* Footer: how things save, then the buttons. */
+.access-dialog-footer {
+  align-items: center;
+  margin-top: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.access-footer-note {
+  display: inline-flex;
+  flex: 1;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
 
 /* The Users table's name opens the dialog; it keeps the look of a name. */
 .user-name-link {
@@ -128,6 +177,21 @@
 
 @media (max-width: 740px) {
   .access-row,
+  .access-row-choice,
   .access-row-people { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .access-profile-grid { grid-template-columns: minmax(0, 1fr); }
+  /* On a phone: the dialog takes the screen's width and no more, the tab row
+     scrolls sideways instead of wrapping each label word by word, and Preview
+     drops under the name. */
+  .metadata-modal.access-dialog { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - 24px); }
+  .access-dialog .modal-header { flex-wrap: wrap; gap: 10px; }
+  .access-dialog .modal-header .book-metadata-title { flex: 1 1 100%; min-width: 0; }
+  .access-dialog .modal-title-copy { min-width: 0; overflow-wrap: anywhere; }
+  .access-dialog .modal-header-actions { flex: 1 1 100%; justify-content: space-between; }
+  .access-dialog .modal-tabs { overflow-x: auto; scrollbar-width: none; padding: 4px 12px 0; }
+  .access-dialog .modal-tab { flex: none; white-space: nowrap; padding: 8px 10px; }
+  .access-dialog .access-row-choice .select-field { width: 100%; }
+  .access-dialog-footer { flex-wrap: wrap; }
+  .access-footer-note { flex-basis: 100%; }
   .access-row-head { display: none; }
 }

@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.23.2 — A clearer member dialog
+
+- **The dialog for a member is simpler.** Five tabs instead of six. **Account** now holds their profile, **Who they are** — their person in the family tree and their face in the Gallery, side by side — and their groups as chips you can remove or add to. The Photo Inbox moved to **Libraries**, and **Family and stories** is just the tree and stories.
+- **It says how it saves.** The profile saves with **Save profile** at the bottom, which only lights up once something changed; every access choice still saves the moment you make it, and the footer now says so.
+- **Plain words for access.** Each library has one choice and says what it means under its name — "Member from the household", or **Same as their groups** — instead of "Given directly" and "via Everyone". Tab counts count people, not photos, and a zero is no longer shown.
+- **Fits a phone.** The tabs scroll sideways instead of breaking every label over three lines, and nothing spills off the screen. Dropdown labels in these dialogs (Role, Category) now look like the other field labels.
+
 ## 4.23.1 — You, in the family tree
 
 - **The family tree knows who you are.** An administrator can link a member to their person in the tree (Control panel → Members → **Family and stories** → **… in the family tree**). Their chart then opens on them, their card says **You**, **Go to you in the tree** brings them back, and their profile says **This is you**. They always see their own details, even when living relatives are private to them — nobody else's, and the link gives no other access. When that person has a face in the Gallery, one click links it there too.

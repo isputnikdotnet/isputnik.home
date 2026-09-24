@@ -1435,12 +1435,11 @@
     "menuLabel": "Access and permissions",
     "loading": "Loading…",
     "remove": "Remove",
-    "noDirect": "Not given directly",
     "none": "No access",
     "blocked": "Blocked",
-    "fromEveryone": "Everyone: {{role}}",
-    "viaGroup": "{{role}} · via {{group}}",
-    "viaEveryone": "{{role}} · via Everyone",
+    "fromEveryone": "The household already has {{role}}",
+    "viaGroup": "{{role}} from {{group}}",
+    "viaEveryone": "{{role}} from the household",
     "errors": {
       "load": "Unable to load access",
       "save": "Unable to save the change",
@@ -1461,21 +1460,23 @@
       "libraries": "Libraries",
       "photos": "Photos of people",
       "family": "Family and stories",
-      "members_one": "Members {{count}}",
-      "members_other": "Members {{count}}",
+      "members_one": "Members · {{count}}",
+      "members_other": "Members · {{count}}",
       "groups_one": "Groups {{count}}",
       "groups_other": "Groups {{count}}",
-      "photosCount_one": "Photos of people {{count}}",
-      "photosCount_other": "Photos of people {{count}}",
-      "shared_one": "Shared directly {{count}}",
-      "shared_other": "Shared directly {{count}}"
+      "photosPeople_one": "Photos of people · {{count}}",
+      "photosPeople_other": "Photos of people · {{count}}",
+      "sharedWith": "Shared with them",
+      "sharedWithCount_one": "Shared with them · {{count}}",
+      "sharedWithCount_other": "Shared with them · {{count}}"
     },
     "libraries": {
-      "library": "Library",
-      "direct": "Given directly",
-      "gets": "What they get",
-      "alsoFrom": "Also from",
-      "directFor": "Access to {{library}}, given directly"
+      "directFor": "Access to {{library}}, given directly",
+      "intro": "What {{name}} can do in each library. Access that comes from a group is named under the library.",
+      "introGroup": "What everyone in {{name}} can do in each library.",
+      "sameAsGroups": "Same as their groups",
+      "noAccess": "No access",
+      "inboxKind": "Photos waiting to be kept"
     },
     "libraryTypes": {
       "audiobook": "Audiobooks",
@@ -1497,15 +1498,12 @@
       "noBranches": "The tree has no branches yet — tag family members to make one.",
       "branchFor": "Editing the {{branch}} branch",
       "cannotEdit": "Can't edit",
-      "collections": "Story collections",
+      "collections": "Stories",
       "noCollections": "No story collections yet.",
       "collectionFor": "Access to {{collection}}",
       "inbox": "Photo Inbox",
       "inboxReviewer": "Photo Inbox reviewer",
       "notReviewer": "Not a reviewer",
-      "meTitle": "{{name}} in the family tree",
-      "meLabel": "Who {{name}} is in the family tree",
-      "meHint": "The tree calls them “You” and opens on them, and they always see their own details. It gives no other access.",
       "meNone": "Not in the tree",
       "meUseFace": "Use their face from the tree in the Gallery too"
     },
@@ -1521,7 +1519,9 @@
         "audiobook": "Audiobook",
         "ebook": "Book",
         "story": "Story"
-      }
+      },
+      "emptyTitle": "Nothing sent to {{name}} yet",
+      "emptyBody": "Albums, photos, books and stories someone sends them with Send to show up here, and can be taken back."
     },
     "groups": {
       "hint": "Everything a group is given, its members get. Giving access to a group is the usual way — add people to it.",
@@ -1529,7 +1529,9 @@
       "givesNothing": "Gives nothing yet",
       "editsBranch": "edits {{branch}}",
       "add": "Add to group",
-      "choose": "Choose a group…"
+      "choose": "Choose a group…",
+      "title": "Groups",
+      "removeFrom": "Take out of {{group}}"
     },
     "members": {
       "hint": "Everyone in this group gets everything it is given.",
@@ -1554,11 +1556,9 @@
       "total_other": "{{name}} sees {{count}} photos in the Gallery",
       "excluded_one": "{{count}} kept out",
       "excluded_other": "{{count}} kept out",
-      "selfTitle": "{{name}} in the Gallery",
-      "selfLabel": "Who {{name}} is in the Gallery",
+      "selfTitle": "Photos of themselves",
       "selfNone": "Not linked to anyone",
       "selfShow": "Show them photos of themselves",
-      "selfHint": "Every confirmed photo of {{name}}, like a person shared with them. Linking alone shows nothing.",
       "selfBadge": "themselves",
       "othersTitle": "Photos of other people",
       "branchesTitle": "Whole branches of the family tree",
@@ -1566,7 +1566,10 @@
       "branchPeople_one": "{{count}} person",
       "branchPeople_other": "{{count}} people",
       "addBranch": "Share photos of a branch",
-      "chooseBranch": "Choose a branch…"
+      "chooseBranch": "Choose a branch…",
+      "selfHintLinked": "Every confirmed photo of {{face}}, like a person shared with {{name}}.",
+      "selfHintUnlinked": "First choose {{name}}'s face in the Gallery, on Account.",
+      "selfLinkOnAccount": "Go to Account"
     },
     "review": {
       "title": "Photos of {{name}} to review",
@@ -1585,6 +1588,22 @@
       "confirmAndReject_one": "Confirm {{count}}, not them: {{rejected}}",
       "confirmAndReject_other": "Confirm {{count}}, not them: {{rejected}}"
     },
-    "previewAs": "Preview as {{name}}"
+    "previewAs": "Preview as {{name}}",
+    "account": {
+      "profile": "Profile"
+    },
+    "who": {
+      "title": "Who {{name}} is",
+      "hint": "Says who they are in the family tree and the Gallery. Gives no access on its own.",
+      "tree": "In the family tree",
+      "face": "Face in the Gallery"
+    },
+    "fromGroup": "from {{group}}",
+    "footer": {
+      "liveNote": "Access changes save as you make them",
+      "accountNote": "Groups and who they are save as you change them; the profile saves with Save profile",
+      "saveProfile": "Save profile",
+      "savingProfile": "Saving…"
+    }
   }
 }

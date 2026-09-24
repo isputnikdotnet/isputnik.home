@@ -181,8 +181,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     }
   };
 
-  const saveUser = async (event: FormEvent) => {
-    event.preventDefault();
+  // The Access dialog's footer Save (no form event), or Enter in a field.
+  const saveUser = async (event?: FormEvent) => {
+    event?.preventDefault();
     if (!editingUser) return;
 
     setSaving(true);
@@ -197,8 +198,10 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           role: editRole
         })
       });
-      // The dialog stays open: the other tabs are still there to work on.
+      // The dialog stays open: the other tabs are still there to work on. What
+      // was saved is the new baseline, so Save goes quiet until the next edit.
       await loadUsers();
+      setEditingUser({ ...editingUser, displayName: editDisplayName.trim(), email: editEmail.trim(), role: editRole });
       setAccountSaved(true);
     } catch (err) {
       setModalError(err instanceof Error ? err.message : t("controlAdmin:users.saveUserFailed"));
@@ -585,21 +588,28 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           initialTab={accessFor.tab}
           onClose={() => { setAccessFor(null); setEditingUser(null); }}
           onChanged={() => void loadUsers()}
-          account={editingUser && (
-        <form className="access-account-form" onSubmit={saveUser}>
-          <Field label={t("controlAdmin:users.displayName")} value={editDisplayName} onChange={setEditDisplayName} autoComplete="name" />
-          <Field label={t("common.email")} type="email" value={editEmail} onChange={setEditEmail} autoComplete="email" />
+          account={editingUser ? {
+            saving,
+            canSave: Boolean(editDisplayName.trim() && editEmail.trim())
+              && (editDisplayName.trim() !== editingUser.displayName || editEmail.trim() !== editingUser.email || editRole !== editingUser.role),
+            onSave: () => void saveUser(),
+            fields: (
+        <form className="access-profile-grid" onSubmit={saveUser}>
+          <Field label={t("controlAdmin:users.displayName")} value={editDisplayName} onChange={(value) => { setEditDisplayName(value); setAccountSaved(false); }} autoComplete="name" />
+          <Field label={t("common.email")} type="email" value={editEmail} onChange={(value) => { setEditEmail(value); setAccountSaved(false); }} autoComplete="email" />
           <SelectField
             label={t("controlAdmin:users.role")}
             icon={<Shield size={17} />}
             value={editRole}
             disabled={roleLocked}
-            onChange={(value) => setEditRole(value as UserRole)}
+            onChange={(value) => { setEditRole(value as UserRole); setAccountSaved(false); }}
             options={[
               { value: "member", label: t("controlAdmin:users.roleMember") },
               { value: "admin", label: t("controlAdmin:users.roleAdmin") }
             ]}
           />
+          {/* Enter in a field saves, as the footer button does. */}
+          <Button variant="bare" type="submit" hidden aria-hidden="true" tabIndex={-1} />
           {roleLocked && (
             <MessageBox tone="info" title={t("controlAdmin:users.roleLockedTitle")}>
               {t("controlAdmin:users.roleLockedBody")}
@@ -607,13 +617,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           )}
           {modalError && <MessageBox tone="error" title={t("controlAdmin:users.saveUserFailed")}>{modalError}</MessageBox>}
           {accountSaved && !modalError && <MessageBox tone="success" title={t("controlAdmin:access.saved")}>{t("controlAdmin:access.savedBody")}</MessageBox>}
-          <div className="access-account-actions">
-            <Button variant="primary" type="submit" disabled={saving || !editDisplayName.trim() || !editEmail.trim()}>
-              {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:users.saveChanges")}
-            </Button>
-          </div>
         </form>
-          )}
+            )
+          } : undefined}
         />
       )}
 

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Eye, KeyRound, UsersRound } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Check, Eye, KeyRound, Save, UsersRound, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../api";
 import { navigate } from "../../../router";
@@ -15,9 +15,15 @@ import type { AccessOverview, AccessSubject, AccessTab, GrantRole, GrantView, Pe
 // Everything one person — or one group — can reach, in one dialog
 // (docs/people-sharing-plan.md, phase 2, D13). Each tab shows what was given
 // DIRECTLY, which it can change, beside what they get from elsewhere (a group,
-// the household's Everyone baseline), which it names and links to instead.
+// the household's Everyone baseline), which it names in words instead.
 // Writes go through the routes each object already has, so a library's Members
 // dialog and this one always agree.
+//
+// Two ways of saving, said in the footer: the profile (name, email, role) waits
+// for Save profile, like every edit form; access — groups, libraries, people,
+// the tree — saves as each choice is made, since each one is its own grant.
+// Who someone IS (their tree person and Gallery face) sits on Account with
+// their groups: it describes them, and grants nothing.
 
 const SYSTEM_GROUP_IDS = new Set(["grp-everyone", "grp-system-admins"]);
 const LIBRARY_ROLES: GrantRole[] = ["viewer", "member", "contributor", "manager", "deny"];
@@ -32,8 +38,9 @@ export function AccessDialog({
 }: {
   subject: AccessSubject;
   initialTab?: AccessTab;
-  /** A user's Account tab: the edit form the Users page already has. */
-  account?: ReactNode;
+  /** A user's profile, on the Account tab: the Users page's fields, and the
+   *  save the footer's Save profile runs. */
+  account?: { fields: ReactNode; onSave: () => void; saving: boolean; canSave: boolean };
   onClose: () => void;
   /** Something changed that a list behind the dialog shows (membership, a role). */
   onChanged?: () => void;
@@ -41,9 +48,11 @@ export function AccessDialog({
   const { t } = useTranslation(["common", "controlAdmin", "control", "stories", "family"]);
   const isUser = subject.subjectType === "user";
   const tabs: AccessTab[] = isUser
-    ? ["account", "groups", "libraries", "photos", "family", "shared"]
+    ? ["account", "libraries", "photos", "family", "shared"]
     : ["members", "libraries", "photos", "family"];
-  const [tab, setTab] = useState<AccessTab>(initialTab && tabs.includes(initialTab) ? initialTab : tabs[0]);
+  // Groups used to be a tab of its own; its address now opens Account, where they are.
+  const wanted = initialTab === "groups" ? "account" : initialTab;
+  const [tab, setTab] = useState<AccessTab>(wanted && tabs.includes(wanted) ? wanted : tabs[0]);
   const [overview, setOverview] = useState<AccessOverview | null>(null);
   const [people, setPeople] = useState<PeopleAccess | null>(null);
   const [error, setError] = useState("");
@@ -63,6 +72,15 @@ export function AccessDialog({
   useEffect(() => {
     reload().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:access.errors.load")));
   }, [reload, t]);
+
+  // A profile save (name, email, role) changes the header too: read it again once
+  // the save has finished.
+  const profileSaving = account?.saving ?? false;
+  const wasSaving = useRef(false);
+  useEffect(() => {
+    if (wasSaving.current && !profileSaving) void reload().catch(() => undefined);
+    wasSaving.current = profileSaving;
+  }, [profileSaving, reload]);
 
   // Keep the address in step, so a reload or a pasted link opens the same tab.
   useEffect(() => {
@@ -114,7 +132,8 @@ export function AccessDialog({
     const reach = (view: GrantView) => (isUser ? view.effective != null : view.direct != null && view.direct !== "deny");
     const parts: string[] = [];
     if (overview.subject.subjectType === "user") {
-      parts.push(overview.subject.role === "admin" ? t("controlAdmin:users.roleAdmin") : t("controlAdmin:users.roleMember"));
+      // Who they are, not a tally: the tabs carry the counts.
+      return [overview.subject.role === "admin" ? t("controlAdmin:users.roleAdmin") : t("controlAdmin:users.roleMember"), overview.subject.email].join(" · ");
     } else {
       parts.push(t("controlAdmin:access.summary.members", { count: overview.subject.members.length }));
     }
@@ -131,9 +150,14 @@ export function AccessDialog({
       case "members": return t("controlAdmin:access.tabs.members", { count: overview?.subject.subjectType === "group" ? overview.subject.members.length : 0 });
       case "groups": return t("controlAdmin:access.tabs.groups", { count: overview?.groups.length ?? 0 });
       case "libraries": return t("controlAdmin:access.tabs.libraries");
-      case "photos": return people && people.photoCount > 0 ? t("controlAdmin:access.tabs.photosCount", { count: people.photoCount }) : t("controlAdmin:access.tabs.photos");
+      case "photos": {
+        const reach = (people?.people.length ?? 0) + (people?.branches.length ?? 0);
+        return reach > 0 ? t("controlAdmin:access.tabs.photosPeople", { count: reach }) : t("controlAdmin:access.tabs.photos");
+      }
       case "family": return t("controlAdmin:access.tabs.family");
-      case "shared": return t("controlAdmin:access.tabs.shared", { count: overview?.shares.length ?? 0 });
+      case "shared": return overview && overview.shares.length > 0
+        ? t("controlAdmin:access.tabs.sharedWithCount", { count: overview.shares.length })
+        : t("controlAdmin:access.tabs.sharedWith");
     }
   };
 
@@ -153,6 +177,11 @@ export function AccessDialog({
     return label(view.effective);
   };
   const libraryRole = (role: GrantRole) => t(`control:libraries.role.${role}`);
+  // The empty choice: nothing given here — which, for someone with a group or the
+  // household behind them, means "whatever those give".
+  const noDirectLabel = (view: GrantView) => (view.inherited.some((g) => g.role !== "deny")
+    ? t("controlAdmin:access.libraries.sameAsGroups")
+    : t("controlAdmin:access.libraries.noAccess"));
 
   return (
     <>
@@ -183,15 +212,40 @@ export function AccessDialog({
           {error && <MessageBox tone="error" title={t("controlAdmin:access.errors.title")}>{error}</MessageBox>}
           {!overview && !error && <p className="access-muted">{t("controlAdmin:access.loading")}</p>}
 
-          {tab === "account" && account}
-
-          {overview && tab === "groups" && (
-            <GroupsTab
-              overview={overview}
-              busy={busy}
-              onAdd={(groupId) => void write(() => api(`/api/groups/${groupId}/members`, { method: "POST", body: JSON.stringify({ userId: subject.subjectId }) }), true)}
-              onRemove={(groupId) => void write(() => api(`/api/groups/${groupId}/members/${encodeURIComponent(subject.subjectId)}`, del), true)}
-            />
+          {tab === "account" && (
+            <div className="access-sections">
+              {account && (
+                <section className="access-section">
+                  <h3 className="access-section-title">{t("controlAdmin:access.account.profile")}</h3>
+                  {account.fields}
+                </section>
+              )}
+              {overview && people && isUser && (
+                <WhoTheyAre
+                  subjectName={name}
+                  me={overview.tree.me ?? null}
+                  face={people.self ?? null}
+                  busy={busy}
+                  onTreePerson={(personId, galleryPersonId) => void write(async () => {
+                    await api(`/api/family-tree/users/${encodeURIComponent(subject.subjectId)}/person`, { method: "PUT", body: JSON.stringify({ personId }) });
+                    // Their face follows their tree person when none is set yet —
+                    // the link alone grants nothing, so it is safe to fill in.
+                    if (personId && galleryPersonId && !people.self) {
+                      await api(`/api/library/gallery/access/${base}/self`, { method: "PUT", body: JSON.stringify({ personId: galleryPersonId, showPhotos: false }) });
+                    }
+                  })}
+                  onFace={(personId) => void write(() => api(`/api/library/gallery/access/${base}/self`, { method: "PUT", body: JSON.stringify({ personId, showPhotos: personId ? people.self?.showPhotos ?? false : false }) }))}
+                />
+              )}
+              {overview && isUser && (
+                <GroupsSection
+                  overview={overview}
+                  busy={busy}
+                  onAdd={(groupId) => void write(() => api(`/api/groups/${groupId}/members`, { method: "POST", body: JSON.stringify({ userId: subject.subjectId }) }), true)}
+                  onRemove={(groupId) => void write(() => api(`/api/groups/${groupId}/members/${encodeURIComponent(subject.subjectId)}`, del), true)}
+                />
+              )}
+            </div>
           )}
 
           {overview && tab === "members" && overview.subject.subjectType === "group" && (
@@ -205,14 +259,13 @@ export function AccessDialog({
 
           {overview && tab === "libraries" && (
             <div className="access-rows">
-              <div className="access-row access-row-head">
-                <span>{t("controlAdmin:access.libraries.library")}</span>
-                <span>{t("controlAdmin:access.libraries.direct")}</span>
-                <span>{isUser ? t("controlAdmin:access.libraries.gets") : t("controlAdmin:access.libraries.alsoFrom")}</span>
-              </div>
+              <p className="access-muted access-intro">{isUser ? t("controlAdmin:access.libraries.intro", { name }) : t("controlAdmin:access.libraries.introGroup", { name })}</p>
               {overview.libraries.map((library) => (
-                <div className="access-row" key={library.id}>
-                  <span className="access-row-name">{library.name}<small>{t(`controlAdmin:access.libraryTypes.${library.type as "audiobook"}`, { defaultValue: library.type })}</small></span>
+                <div className="access-row access-row-choice" key={library.id}>
+                  <span className="access-row-name">
+                    {library.name}
+                    <small>{t(`controlAdmin:access.libraryTypes.${library.type as "audiobook"}`, { defaultValue: library.type })}{gets(library, libraryRole) && ` · ${gets(library, libraryRole)}`}</small>
+                  </span>
                   <SelectField
                     label={t("controlAdmin:access.libraries.directFor", { library: library.name })}
                     hideLabel
@@ -222,11 +275,33 @@ export function AccessDialog({
                     onChange={(role) => void write(() => (role
                       ? api(`/api/library/libraries/${library.id}/members`, body({ role }))
                       : api(`/api/library/libraries/${library.id}/members/${base}`, del)))}
-                    options={[{ value: "", label: t("controlAdmin:access.noDirect") }, ...LIBRARY_ROLES.map((role) => ({ value: role, label: libraryRole(role) }))]}
+                    options={[{ value: "", label: noDirectLabel(library) }, ...LIBRARY_ROLES.map((role) => ({ value: role, label: libraryRole(role) }))]}
                   />
-                  <span className="access-gets">{gets(library, libraryRole)}</span>
                 </div>
               ))}
+              {overview.inbox && (
+                <div className="access-row access-row-choice">
+                  <span className="access-row-name">
+                    {t("controlAdmin:access.family.inbox")}
+                    <small>{[t("controlAdmin:access.libraries.inboxKind"), ...overview.inbox.inherited.filter((g) => g.via === "group").map((g) => t("controlAdmin:access.fromGroup", { group: g.groupName ?? "" }))].join(" · ")}</small>
+                  </span>
+                  <SelectField
+                    label={t("controlAdmin:access.family.inboxReviewer")}
+                    hideLabel
+                    compact
+                    value={overview.inbox.direct === "manager" ? "keep" : overview.inbox.direct === "contributor" ? "details" : ""}
+                    disabled={busy}
+                    onChange={(level) => void write(() => (level
+                      ? api("/api/storage/app-storage/parts/inbox/reviewers", body({ level }))
+                      : api(`/api/storage/app-storage/parts/inbox/reviewers/${base}`, del)))}
+                    options={[
+                      { value: "", label: t("controlAdmin:access.family.notReviewer") },
+                      { value: "details", label: t("controlAdmin:appStorage.reviewers.levels.details") },
+                      { value: "keep", label: t("controlAdmin:appStorage.reviewers.levels.keep") }
+                    ]}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -239,6 +314,7 @@ export function AccessDialog({
               onGrantBranch={(branchId) => void write(() => api(`/api/library/gallery/branches/${encodeURIComponent(branchId)}/sharing/${base}`, { method: "PUT" }))}
               onRevokeBranch={(branchId) => void write(() => api(`/api/library/gallery/branches/${encodeURIComponent(branchId)}/sharing/${base}`, del))}
               onSelf={(personId, showPhotos) => void write(() => api(`/api/library/gallery/access/${base}/self`, { method: "PUT", body: JSON.stringify({ personId, showPhotos }) }))}
+              onOpenAccount={() => setTab("account")}
               onGrant={(personId) => void write(() => api(`/api/library/gallery/people/${personId}/sharing/${base}`, { method: "PUT" }))}
               onRevoke={(personId) => void write(() => api(`/api/library/gallery/people/${personId}/sharing/${base}`, del))}
               onReview={(person) => setReviewing(person)}
@@ -249,23 +325,13 @@ export function AccessDialog({
 
           {overview && tab === "family" && (
             <div className="access-rows">
-              {isUser && (
-                <TreePersonPicker
-                  subjectName={name}
-                  me={overview.tree.me ?? null}
-                  galleryFace={people?.self ?? null}
-                  busy={busy}
-                  onLink={(personId) => void write(() => api(`/api/family-tree/users/${encodeURIComponent(subject.subjectId)}/person`, { method: "PUT", body: JSON.stringify({ personId }) }))}
-                  onUseFace={(personId) => void write(() => api(`/api/library/gallery/access/${base}/self`, { method: "PUT", body: JSON.stringify({ personId, showPhotos: people?.self?.showPhotos ?? false }) }))}
-                />
-              )}
               <h3 className="access-section-title">{t("controlAdmin:access.family.tree")}</h3>
-              <div className="access-row">
+              <div className="access-row access-row-choice">
                 <span className="access-row-name">
                   {t("controlAdmin:access.family.seeTree")}
-                  {overview.tree.blockedBy.length > 0 && (
-                    <small>{t("controlAdmin:access.family.blockedBy", { names: overview.tree.blockedBy.map((n) => n ?? t("controlAdmin:access.family.everyone")).join(", ") })}</small>
-                  )}
+                  {overview.tree.blockedBy.length > 0
+                    ? <small>{t("controlAdmin:access.family.blockedBy", { names: overview.tree.blockedBy.map((n) => n ?? t("controlAdmin:access.family.everyone")).join(", ") })}</small>
+                    : isUser && <small>{overview.tree.canSee ? t("controlAdmin:access.family.seesIt") : t("controlAdmin:access.blocked")}</small>}
                 </span>
                 <SelectField
                   label={t("controlAdmin:access.family.seeTree")}
@@ -279,7 +345,6 @@ export function AccessDialog({
                     { value: "no", label: t("controlAdmin:access.family.cannotSee") }
                   ]}
                 />
-                <span className="access-gets">{isUser ? (overview.tree.canSee ? t("controlAdmin:access.family.seesIt") : t("controlAdmin:access.blocked")) : ""}</span>
               </div>
               {people && (
                 <label className="access-toggle">
@@ -300,8 +365,14 @@ export function AccessDialog({
               <h3 className="access-section-title">{t("controlAdmin:access.family.branches")}</h3>
               {overview.branches.length === 0 && <p className="access-muted">{t("controlAdmin:access.family.noBranches")}</p>}
               {overview.branches.map((branch) => (
-                <div className="access-row" key={branch.id}>
-                  <span className="access-row-name">{branch.name}<small>{t("family:common.counts.person", { count: branch.people })}</small></span>
+                <div className="access-row access-row-choice" key={branch.id}>
+                  <span className="access-row-name">
+                    {branch.name}
+                    <small>{[
+                      t("family:common.counts.person", { count: branch.people }),
+                      ...branch.inherited.filter((g) => g.via === "group").map((g) => t("controlAdmin:access.viaGroup", { role: g.role === "deny" ? t("family:tagAccess.roleBlocked") : t("family:tagAccess.roleEditor"), group: g.groupName ?? "" }))
+                    ].join(" · ")}</small>
+                  </span>
                   <SelectField
                     label={t("controlAdmin:access.family.branchFor", { branch: branch.name })}
                     hideLabel
@@ -317,15 +388,19 @@ export function AccessDialog({
                       { value: "deny", label: t("family:tagAccess.roleBlocked") }
                     ]}
                   />
-                  <span className="access-gets">{branch.inherited.filter((g) => g.via === "group").map((g) => t("controlAdmin:access.viaGroup", { role: g.role === "deny" ? t("family:tagAccess.roleBlocked") : t("family:tagAccess.roleEditor"), group: g.groupName ?? "" })).join(", ")}</span>
                 </div>
               ))}
 
               <h3 className="access-section-title">{t("controlAdmin:access.family.collections")}</h3>
               {overview.collections.length === 0 && <p className="access-muted">{t("controlAdmin:access.family.noCollections")}</p>}
               {overview.collections.map((collection) => (
-                <div className="access-row" key={collection.id}>
-                  <span className="access-row-name">{collection.name}</span>
+                <div className="access-row access-row-choice" key={collection.id}>
+                  <span className="access-row-name">
+                    {collection.name}
+                    {gets(collection, (role) => t(`stories:collections.roles.${role === "member" ? "viewer" : role}`)) && (
+                      <small>{gets(collection, (role) => t(`stories:collections.roles.${role === "member" ? "viewer" : role}`))}</small>
+                    )}
+                  </span>
                   <SelectField
                     label={t("controlAdmin:access.family.collectionFor", { collection: collection.name })}
                     hideLabel
@@ -335,42 +410,22 @@ export function AccessDialog({
                     onChange={(role) => void write(() => (role
                       ? api(`/api/stories/collections/${collection.id}/access`, body({ role }))
                       : api(`/api/stories/collections/${collection.id}/access/${base}`, del)))}
-                    options={[{ value: "", label: t("controlAdmin:access.noDirect") }, ...COLLECTION_ROLES.map((role) => ({ value: role, label: t(`stories:collections.roles.${role}`) }))]}
+                    options={[{ value: "", label: noDirectLabel(collection) }, ...COLLECTION_ROLES.map((role) => ({ value: role, label: t(`stories:collections.roles.${role}`) }))]}
                   />
-                  <span className="access-gets">{gets(collection, (role) => t(`stories:collections.roles.${role === "member" ? "viewer" : role}`))}</span>
                 </div>
               ))}
 
-              {overview.inbox && (
-                <>
-                  <h3 className="access-section-title">{t("controlAdmin:access.family.inbox")}</h3>
-                  <div className="access-row">
-                    <span className="access-row-name">{t("controlAdmin:access.family.inboxReviewer")}</span>
-                    <SelectField
-                      label={t("controlAdmin:access.family.inboxReviewer")}
-                      hideLabel
-                      compact
-                      value={overview.inbox.direct === "manager" ? "keep" : overview.inbox.direct === "contributor" ? "details" : ""}
-                      disabled={busy}
-                      onChange={(level) => void write(() => (level
-                        ? api("/api/storage/app-storage/parts/inbox/reviewers", body({ level }))
-                        : api(`/api/storage/app-storage/parts/inbox/reviewers/${base}`, del)))}
-                      options={[
-                        { value: "", label: t("controlAdmin:access.family.notReviewer") },
-                        { value: "details", label: t("controlAdmin:appStorage.reviewers.levels.details") },
-                        { value: "keep", label: t("controlAdmin:appStorage.reviewers.levels.keep") }
-                      ]}
-                    />
-                    <span className="access-gets">{overview.inbox.inherited.filter((g) => g.via === "group").map((g) => g.groupName).join(", ")}</span>
-                  </div>
-                </>
-              )}
             </div>
           )}
 
           {overview && tab === "shared" && (
             <div className="access-rows">
-              {overview.shares.length === 0 && <p className="access-muted">{t("controlAdmin:access.shared.none", { name })}</p>}
+              {overview.shares.length === 0 && (
+                <div className="access-empty">
+                  <strong>{t("controlAdmin:access.shared.emptyTitle", { name })}</strong>
+                  <p className="access-muted">{t("controlAdmin:access.shared.emptyBody", { name })}</p>
+                </div>
+              )}
               {overview.shares.map((share) => (
                 <div className="access-row access-row-two" key={share.id}>
                   <span className="access-row-name">
@@ -386,8 +441,18 @@ export function AccessDialog({
           )}
         </div>
 
-        <div className="modal-actions">
-          <Button variant="secondary" onClick={close} disabled={busy}>{t("common.close")}</Button>
+        <div className="modal-actions access-dialog-footer">
+          <span className="access-footer-note">
+            <Check size={15} aria-hidden="true" />
+            {tab === "account" && account ? t("controlAdmin:access.footer.accountNote") : t("controlAdmin:access.footer.liveNote")}
+          </span>
+          <Button variant="secondary" onClick={close} disabled={busy || account?.saving}>{t("common.close")}</Button>
+          {tab === "account" && account && (
+            <Button variant="primary" onClick={account.onSave} disabled={!account.canSave || account.saving || busy}>
+              <Save size={16} aria-hidden="true" />
+              <span>{account.saving ? t("controlAdmin:access.footer.savingProfile") : t("controlAdmin:access.footer.saveProfile")}</span>
+            </Button>
+          )}
         </div>
       </Modal>
 
@@ -402,7 +467,7 @@ export function AccessDialog({
   );
 }
 
-function GroupsTab({ overview, busy, onAdd, onRemove }: {
+function GroupsSection({ overview, busy, onAdd, onRemove }: {
   overview: AccessOverview;
   busy: boolean;
   onAdd: (groupId: string) => void;
@@ -423,27 +488,39 @@ function GroupsTab({ overview, busy, onAdd, onRemove }: {
     ...overview.branches.filter((b) => b.inherited.some((g) => g.groupId === groupId && g.role === "contributor")).map((b) => t("controlAdmin:access.groups.editsBranch", { branch: b.name }))
   ].join(", ");
   return (
-    <div className="access-rows">
+    <section className="access-section">
+      <h3 className="access-section-title">{t("controlAdmin:access.groups.title")}</h3>
       <p className="access-muted">{t("controlAdmin:access.groups.hint")}</p>
-      {overview.groups.length === 0 && <p className="access-muted">{t("controlAdmin:access.groups.none")}</p>}
-      {overview.groups.map((group) => (
-        <div className="access-row access-row-two" key={group.id}>
-          <span className="access-row-name">{group.name}<small>{gives(group.id) || t("controlAdmin:access.groups.givesNothing")}</small></span>
-          <Button variant="secondary" compact disabled={busy} onClick={() => onRemove(group.id)}>{t("controlAdmin:access.remove")}</Button>
-        </div>
-      ))}
-      {addable.length > 0 && (
-        <div className="access-add">
+      <div className="access-chips">
+        {overview.groups.length === 0 && <span className="access-muted">{t("controlAdmin:access.groups.none")}</span>}
+        {overview.groups.map((group) => (
+          <span className="access-chip" key={group.id} title={gives(group.id) || t("controlAdmin:access.groups.givesNothing")}>
+            {group.name}
+            <Button
+              variant="icon"
+              className="access-chip-remove"
+              disabled={busy}
+              aria-label={t("controlAdmin:access.groups.removeFrom", { group: group.name })}
+              title={t("controlAdmin:access.groups.removeFrom", { group: group.name })}
+              onClick={() => onRemove(group.id)}
+            >
+              <X size={13} aria-hidden="true" />
+            </Button>
+          </span>
+        ))}
+        {addable.length > 0 && (
           <SelectField
             label={t("controlAdmin:access.groups.add")}
+            hideLabel
+            compact
             value=""
             disabled={busy}
             onChange={(groupId) => { if (groupId) onAdd(groupId); }}
             options={[{ value: "", label: t("controlAdmin:access.groups.choose") }, ...addable.map((group) => ({ value: group.id, label: group.name }))]}
           />
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -462,7 +539,7 @@ function MembersTab({ members, busy, onAdd, onRemove }: {
   const addable = all.filter((user) => !inGroup.has(user.id));
   return (
     <div className="access-rows">
-      <p className="access-muted">{t("controlAdmin:access.members.hint")}</p>
+      <p className="access-muted access-intro">{t("controlAdmin:access.members.hint")}</p>
       {members.length === 0 && <p className="access-muted">{t("controlAdmin:access.members.none")}</p>}
       {members.map((member) => (
         <div className="access-row access-row-two" key={member.id}>
@@ -485,59 +562,74 @@ function MembersTab({ members, busy, onAdd, onRemove }: {
   );
 }
 
-// "[Name] in the family tree" (D12): which tree person this account is. Grants
-// nothing — the tree says "You", and their own record is never hidden from them.
-// When that person has a face in the Gallery, one click links it there too.
-function TreePersonPicker({ subjectName, me, galleryFace, busy, onLink, onUseFace }: {
+// "Who Sam is" (D12, Q1): their person in the family tree and their face in the
+// Gallery, side by side. Neither grants anything — the tree says "You" and keeps
+// no detail of theirs from them; showing them photos of themselves is a choice on
+// Photos of people. Picking a tree person fills in its face when none is set.
+function WhoTheyAre({ subjectName, me, face, busy, onTreePerson, onFace }: {
   subjectName: string;
   me: { personId: string; name: string; galleryPersonId: string | null } | null;
-  galleryFace: { personId: string } | null;
+  face: { personId: string; name: string } | null;
   busy: boolean;
-  onLink: (personId: string | null) => void;
-  onUseFace: (galleryPersonId: string) => void;
+  onTreePerson: (personId: string | null, galleryPersonId: string | null) => void;
+  onFace: (personId: string | null) => void;
 }) {
   const { t } = useTranslation(["controlAdmin"]);
-  const [persons, setPersons] = useState<{ id: string; name: string }[]>([]);
+  const [persons, setPersons] = useState<{ id: string; name: string; galleryPersonId?: string | null }[]>([]);
+  const [faces, setFaces] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
-    api<{ persons: { id: string; name: string }[] }>("/api/family-tree/persons")
+    api<{ persons: { id: string; name: string; galleryPersonId?: string | null }[] }>("/api/family-tree/persons")
       .then((payload) => setPersons(payload.persons))
       .catch(() => setPersons([]));
+    api<{ people: { id: string; name: string }[] }>("/api/library/gallery/people")
+      .then((payload) => setFaces(payload.people.filter((person) => person.name.trim())))
+      .catch(() => setFaces([]));
   }, []);
-  const faceToOffer = me?.galleryPersonId && galleryFace?.personId !== me.galleryPersonId ? me.galleryPersonId : null;
+  const treeFace = me?.galleryPersonId ?? null;
   return (
-    <>
-      <h3 className="access-section-title">{t("controlAdmin:access.family.meTitle", { name: subjectName })}</h3>
-      <p className="access-muted">{t("controlAdmin:access.family.meHint", { name: subjectName })}</p>
-      <div className="access-add">
+    <section className="access-section">
+      <h3 className="access-section-title">{t("controlAdmin:access.who.title", { name: subjectName })}</h3>
+      <p className="access-muted">{t("controlAdmin:access.who.hint")}</p>
+      <div className="access-profile-grid">
         <SelectField
-          label={t("controlAdmin:access.family.meLabel", { name: subjectName })}
-          hideLabel
+          label={t("controlAdmin:access.who.tree")}
           value={me?.personId ?? ""}
           disabled={busy}
-          onChange={(personId) => onLink(personId || null)}
+          onChange={(personId) => onTreePerson(personId || null, persons.find((p) => p.id === personId)?.galleryPersonId ?? null)}
           options={[
             { value: "", label: t("controlAdmin:access.family.meNone") },
             ...(me && !persons.some((p) => p.id === me.personId) ? [{ value: me.personId, label: me.name }] : []),
             ...persons.map((person) => ({ value: person.id, label: person.name }))
           ]}
         />
+        <SelectField
+          label={t("controlAdmin:access.who.face")}
+          value={face?.personId ?? ""}
+          disabled={busy}
+          onChange={(personId) => onFace(personId || null)}
+          hint={treeFace && face?.personId !== treeFace ? (
+            <Button variant="text" compact disabled={busy} onClick={() => onFace(treeFace)}>{t("controlAdmin:access.family.meUseFace")}</Button>
+          ) : undefined}
+          options={[
+            { value: "", label: t("controlAdmin:access.photos.selfNone") },
+            ...(face && !faces.some((p) => p.id === face.personId) ? [{ value: face.personId, label: face.name }] : []),
+            ...faces.map((person) => ({ value: person.id, label: person.name }))
+          ]}
+        />
       </div>
-      {faceToOffer && (
-        <Button variant="secondary" compact disabled={busy} onClick={() => onUseFace(faceToOffer)}>
-          {t("controlAdmin:access.family.meUseFace")}
-        </Button>
-      )}
-    </>
+    </section>
   );
 }
 
-function PhotosTab({ subjectName, people, isUser, busy, onSelf, onGrantBranch, onRevokeBranch, onGrant, onRevoke, onReview, onLocation, onOpenGroup }: {
+function PhotosTab({ subjectName, people, isUser, busy, onSelf, onOpenAccount, onGrantBranch, onRevokeBranch, onGrant, onRevoke, onReview, onLocation, onOpenGroup }: {
   subjectName: string;
   people: PeopleAccess;
   isUser: boolean;
   busy: boolean;
-  /** "This is them" (Q1): null unlinks. */
+  /** "Show them photos of themselves" (Q1). */
   onSelf: (personId: string | null, showPhotos: boolean) => void;
+  /** Their face is chosen on Account; this goes there. */
+  onOpenAccount: () => void;
   /** A whole branch of the family tree (Q2). */
   onGrantBranch: (branchId: string) => void;
   onRevokeBranch: (branchId: string) => void;
@@ -594,27 +686,18 @@ function PhotosTab({ subjectName, people, isUser, busy, onSelf, onGrantBranch, o
       {isUser && (
         <>
           <h3 className="access-section-title">{t("controlAdmin:access.photos.selfTitle", { name: subjectName })}</h3>
-          <div className="access-add">
-            <SelectField
-              label={t("controlAdmin:access.photos.selfLabel", { name: subjectName })}
-              hideLabel
-              value={self?.personId ?? ""}
-              disabled={busy}
-              onChange={(personId) => onSelf(personId || null, personId ? self?.showPhotos ?? false : false)}
-              options={[
-                { value: "", label: t("controlAdmin:access.photos.selfNone") },
-                ...(self && !all.some((person) => person.id === self.personId) ? [{ value: self.personId, label: self.name }] : []),
-                ...all.map((person) => ({ value: person.id, label: person.name }))
-              ]}
-            />
-          </div>
-          <label className="access-toggle">
+          <label className="access-toggle access-toggle-first">
             <input type="checkbox" checked={self?.showPhotos ?? false} disabled={busy || !self} onChange={(event) => self && onSelf(self.personId, event.target.checked)} />
             <span>
               {t("controlAdmin:access.photos.selfShow")}
-              <small>{t("controlAdmin:access.photos.selfHint", { name: subjectName })}</small>
+              <small>{self ? t("controlAdmin:access.photos.selfHintLinked", { name: subjectName, face: self.name }) : t("controlAdmin:access.photos.selfHintUnlinked", { name: subjectName })}</small>
             </span>
           </label>
+          {!self && (
+            <div className="access-toggle-action">
+              <Button variant="text" compact onClick={onOpenAccount}>{t("controlAdmin:access.photos.selfLinkOnAccount")}</Button>
+            </div>
+          )}
           {selfRow && row(selfRow)}
           <h3 className="access-section-title">{t("controlAdmin:access.photos.othersTitle")}</h3>
         </>

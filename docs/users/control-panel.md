@@ -206,12 +206,15 @@ everything they can reach, on tabs:
 
 | Tab | What it shows |
 | --- | --- |
-| **Account** | Name, email and role (what **Edit user** used to open) |
-| **Groups** | The groups they're in, each with what it gives |
-| **Libraries** | Every library: what you gave them directly, and what they get — with where it comes from ("Member · via Everyone", "via Petrov family") |
-| **Photos of people** | The people whose photos are shared with them (see below) |
-| **Family and stories** | Whether they see the family tree and living relatives' details, the branches they edit, story collections, Photo Inbox reviewing |
-| **Shared directly** | Albums, books and photos someone sent them, each with **Remove** |
+| **Account** | Their profile (name, email, role), **Who they are** — their person in the family tree and their face in the Gallery — and the groups they're in, as chips you can remove or add to |
+| **Libraries** | One choice per library, and what it means in words under the name ("Member from the household"); **Same as their groups** gives them nothing extra. The Photo Inbox is here too |
+| **Photos of people** | Whether they see photos of themselves, and the people and branches whose photos are shared with them (see below) |
+| **Family and stories** | Whether they see the family tree and living relatives' details, the branches they edit, and story collections |
+| **Shared with them** | Albums, books and photos someone sent them, each with **Remove** |
+
+The profile saves with **Save profile** at the bottom of the Account tab; everything
+else — groups, who they are, every access choice — saves the moment you change it,
+as the footer says.
 
 **Preview as …**, at the top of a member's dialog, shows you the whole app as
 they see it — their Home, their Gallery, their family tree — until you press
@@ -240,9 +243,10 @@ that person, and **Confirm**. From the other side, a person's page in the Galler
 **Who can see photos of …**, and the photo viewer's ⋯ menu has **Don't share this
 photo** for a picture that should never go out this way.
 
-**Photos of themselves.** At the top of the same tab, choose who the person *is* in
-the Gallery — their own face in People. That link on its own shows them nothing;
-tick **Show them photos of themselves** and every confirmed photo of them appears in
+**Photos of themselves.** On **Account**, under **Who they are**, choose who the
+person *is* in the Gallery — their own face in People (picking their family-tree
+person fills it in when that person has a face). That link on its own shows them
+nothing; on **Photos of people**, tick **Show them photos of themselves** and every confirmed photo of them appears in
 their Gallery, the same way as a person shared with them (and new ones reach their
 **For you**). **Who can see photos of …** on their Gallery page says whose account
 it is. Each face in People can belong to one account.

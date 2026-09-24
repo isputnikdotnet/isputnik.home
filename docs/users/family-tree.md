@@ -202,7 +202,7 @@ people (administrators only): it narrows the page to them, ready to select.
 ### "You" in the tree
 
 An administrator can say who each member *is* in the tree: Control panel → Members,
-open them → **Family and stories** → **[Name] in the family tree**. From then on the
+open them → **Account** → **Who they are** → **In the family tree**. From then on the
 chart opens on them, their card says **You**, **Go to you in the tree** (beside the
 search) brings them back, and their profile says **This is you**. They always see
 their own details, even when living relatives are private to them — but nobody
