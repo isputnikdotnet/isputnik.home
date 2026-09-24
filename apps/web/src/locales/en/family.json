@@ -471,7 +471,10 @@
     "markDeceasedTitle": "Mark the selected family members as deceased, date unknown",
     "markDeceasedFailed": "Unable to mark them as deceased",
     "markedDeceased_one": "Marked {{count}} family member as deceased.",
-    "markedDeceased_other": "Marked {{count}} family members as deceased."
+    "markedDeceased_other": "Marked {{count}} family members as deceased.",
+    "livingFilter_one": "Shown as living to others · {{count}}",
+    "livingFilter_other": "Shown as living to others · {{count}}",
+    "livingFilterTitle": "No death date, not marked deceased, and born less than 100 years ago. Anyone without \"Show details of living relatives\" sees only their name, place in the tree and portrait. Old ancestors here: select them and Mark as deceased."
   },
   "person": {
     "tabs": {

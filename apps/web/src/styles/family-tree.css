@@ -976,6 +976,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* Its label is a sentence, not a tag name: never cut it off. */
+  max-width: 100%;
 }
 
 /* Birth / Death: a tinted panel of Date | Place, split by a hairline. */
@@ -1562,6 +1564,15 @@
   flex-wrap: wrap;
   gap: 8px 10px;
   margin: 0 0 18px;
+}
+
+/* "Shown as living to others" (admins): first in the strip, with its shield. */
+.ft-tag-filter .ft-living-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* Its label is a sentence, not a tag name: never cut it off. */
+  max-width: 100%;
 }
 
 .ft-tag-chip-active {

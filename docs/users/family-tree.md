@@ -196,6 +196,8 @@ Someone counts as living unless they have a death date, are marked **Deceased
 (date unknown)** (under the death date in Edit person), or were born more than 100
 years ago. Someone with no dates at all counts as living — so for old ancestors
 nobody has dates for, **Select** them on **People** and **Mark as deceased**.
+To see who counts as living, choose **Shown as living to others** above the
+people (administrators only): it narrows the page to them, ready to select.
 
 ## Letting a relative maintain their own branch
 

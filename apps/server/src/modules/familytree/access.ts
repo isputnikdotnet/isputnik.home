@@ -103,13 +103,16 @@ const REDACTED = {
   birthPin: null, deathPin: null, bio: null
 } as const;
 
-// Bulk-attach `tags`, `canEdit` and `restricted` to person payloads (list, tree,
-// profile) in two queries — the tree endpoint decorates hundreds of persons at
-// once — and blank what a restricted person's viewer may not see.
+// Bulk-attach `tags`, `canEdit`, `living` and `restricted` to person payloads
+// (list, tree, profile) in two queries — the tree endpoint decorates hundreds of
+// persons at once — and blank what a restricted person's viewer may not see.
+// `living` is D16 on the dates (false for a payload without them): what People's
+// "Shown as living to others" filter lists. It tells a restricted viewer nothing
+// new — restricted already means living.
 export function decoratePersons<T extends { id: string }>(
   user: AuthUser,
   persons: T[]
-): (T & { tags: string[]; canEdit: boolean; restricted: boolean })[] {
+): (T & { tags: string[]; canEdit: boolean; living: boolean; restricted: boolean })[] {
   const showLiving = showLivingDetailsFor(user);
   const editable = getEditableTags(user);
   const editableIds = editable === "all" ? null : new Set(editable.map((t) => t.id));
@@ -135,11 +138,12 @@ export function decoratePersons<T extends { id: string }>(
       ? true
       : (entry?.tagIds.some((id) => editableIds.has(id)) ?? false);
     const dated = person as T & Partial<PersonDates>;
-    const restricted = !canEdit && !showLiving && "birthDate" in dated
+    const living = "birthDate" in dated
       && isLiving({ birthDate: dated.birthDate ?? null, deathDate: dated.deathDate ?? null, deceased: dated.deceased ?? false });
+    const restricted = living && !canEdit && !showLiving;
     return restricted
-      ? { ...person, ...REDACTED, tags: entry?.names ?? [], canEdit, restricted }
-      : { ...person, tags: entry?.names ?? [], canEdit, restricted };
+      ? { ...person, ...REDACTED, tags: entry?.names ?? [], canEdit, living, restricted }
+      : { ...person, tags: entry?.names ?? [], canEdit, living, restricted };
   });
 }
 

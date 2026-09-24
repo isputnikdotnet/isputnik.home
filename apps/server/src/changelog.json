@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.22.3",
+    "label": "See who counts as living",
+    "changes": [
+      "**See who the family tree treats as living.** Family → People has **Shown as living to others** for administrators: it narrows the page to everyone whose details relatives see only as a name, a place in the tree and a portrait — no death date, not marked deceased, and born less than 100 years ago. Old ancestors with no dates show up there too; select them and **Mark as deceased** to make them readable to everyone."
+    ]
+  },
+  {
     "version": "4.22.2",
     "label": "New photos of people shared with you",
     "changes": [

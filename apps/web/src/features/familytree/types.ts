@@ -22,6 +22,10 @@ export interface FamilyPerson {
   deathDate: string | null;
   /** "Deceased (date unknown)": not living, for privacy, without a death date. */
   deceased: boolean;
+  /** Living by D16 (no death date, not marked deceased, born under 100 years
+   *  ago): who relatives without "Show details of living relatives" see only by
+   *  name, place in the tree and portrait. */
+  living?: boolean;
   /** A living relative whose details this viewer may not see (name and place in
    *  the tree only). Server-decided, like canEdit. */
   restricted?: boolean;

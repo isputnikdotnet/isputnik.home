@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCheck, CheckSquare, Cross, Settings, Square, Tags, UserRoundPlus, X } from "lucide-react";
+import { CheckCheck, CheckSquare, Cross, Settings, ShieldCheck, Square, Tags, UserRoundPlus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -27,6 +27,10 @@ export function FamilyPeoplePage() {
   const [access, setAccess] = useState<FamilyTreeAccess | null>(null);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  // "Shown as living to others" (docs/people-sharing-plan.md, D15/D16): who is
+  // protected, so an admin can spot the old ancestors still counted as living
+  // and mark them deceased from the same selection.
+  const [livingOnly, setLivingOnly] = useState(false);
   const [error, setError] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
@@ -73,14 +77,17 @@ export function FamilyPeoplePage() {
     return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [persons]);
 
+  const livingCount = useMemo(() => persons.filter((person) => person.living).length, [persons]);
+
   const term = search.trim().toLowerCase();
   const shown = useMemo(
     () =>
       persons.filter((p) =>
         personMatchesSearch(p, term)
         && (!activeTag || p.tags.includes(activeTag))
+        && (!livingOnly || p.living)
       ),
-    [persons, term, activeTag]
+    [persons, term, activeTag, livingOnly]
   );
 
   const selectedPersons = useMemo(
@@ -189,8 +196,20 @@ export function FamilyPeoplePage() {
               </>
             )
           } : null}
-          strip={tagCounts.length > 0 && (
+          strip={(tagCounts.length > 0 || (isAdmin && livingCount > 0)) && (
             <div className="ft-tag-filter" role="group" aria-label={t("family:people.filterByTagAria")}>
+              {isAdmin && livingCount > 0 && (
+                <Button
+                  variant="chip"
+                  className={`book-tag-chip ft-living-chip${livingOnly ? " ft-tag-chip-active" : ""}`}
+                  aria-pressed={livingOnly}
+                  title={t("family:people.livingFilterTitle")}
+                  onClick={() => setLivingOnly(!livingOnly)}
+                >
+                  <ShieldCheck size={14} aria-hidden="true" />
+                  {t("family:people.livingFilter", { count: livingCount })}
+                </Button>
+              )}
               {tagCounts.map(([tag, count]) => (
                 <Button
                   variant="chip"

@@ -51,8 +51,9 @@ user). The For you "New photos of Ivan" row built after that (modules/social/for
 `personRows`: photos whose confirmed face's `updated_at` is later than the grant
 reaching the viewer — a group grant from when they joined — or than the row's
 `shared_person_seen.cleared_at`; See photos opens `/gallery/people/<id>`, and
-it and Not now both clear). Not built yet: the People page's "Shown as living
-to others" filter.
+it and Not now both clear). The People page's "Shown as living to others" filter
+followed (a `living` flag from `decoratePersons`, an admin-only chip in the strip).
+The plan is fully built.
 
 Companion to [permissions.md](permissions.md) (the assignments engine
 this extends), [gallery-library.md](gallery-library.md),

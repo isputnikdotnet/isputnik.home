@@ -83,6 +83,15 @@ describe("living relatives' details", () => {
     expect(profile.events).toHaveLength(1);
   });
 
+  it("says who is living, to an admin too, for People's \"Shown as living to others\"", async () => {
+    const persons = (await get("admin", "/api/family-tree/persons")).json().persons as { id: string; living: boolean; restricted: boolean }[];
+    const living = (id: string) => persons.find((p) => p.id === id);
+    expect(living(ids.child)).toMatchObject({ living: true, restricted: false });
+    expect(living(ids.undated)).toMatchObject({ living: true });
+    expect(living(ids.granny)).toMatchObject({ living: false });
+    expect(living(ids.ancestor)).toMatchObject({ living: false });
+  });
+
   it("the deceased mark makes an undated ancestor readable, one by one or in bulk", async () => {
     const admin = await signIn("admin");
     const res = await app.inject({ method: "POST", url: "/api/family-tree/persons/deceased", headers: { cookie: admin }, payload: { personIds: [ids.undated], deceased: true } });
