@@ -213,6 +213,11 @@ everything they can reach, on tabs:
 | **Family and stories** | Whether they see the family tree and living relatives' details, the branches they edit, story collections, Photo Inbox reviewing |
 | **Shared directly** | Albums, books and photos someone sent them, each with **Remove** |
 
+**Preview as …**, at the top of a member's dialog, shows you the whole app as
+they see it — their Home, their Gallery, their family tree — until you press
+**Stop preview** on the banner, or close the browser. It is read-only: nothing
+you do while previewing is saved, and nothing is logged in their name.
+
 Only what was given *directly* changes here; what comes from a group names the
 group, so changing it is a choice you make on the group, for everyone in it. The
 same settings still live where they always did — a library's Members, a

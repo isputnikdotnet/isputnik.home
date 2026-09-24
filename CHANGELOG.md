@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.22.1 — Preview as a member
+
+- **See the app exactly as a member sees it.** A member's access in Control panel → Members now has **Preview as …**: the whole app — Home, Gallery, family tree, stories — opens as they see it, so you can check what a relative was given before telling them. A banner on every page says whose view you are in, and **Stop preview** brings you back to their access.
+- **A preview changes nothing.** Anything that would save is refused while it lasts, and nothing is recorded in the member's name — only that you started a preview, under yours. Only administrators can start one, only for an active member, and it ends when the browser closes.
+
 ## 4.22.0 — Share photos by person
 
 - **Share photos by person, not by library.** A relative can now be given the people in the photos instead of a whole library: open them in Control panel → Members and, on **Photos of people**, share someone. From then on they see every photo where that person is confirmed, in their own Gallery like any other photo — the timeline, the map, memories, the family tree's photo walls — and new ones appear as they are confirmed. They can download them and leave notes or voice recordings. They don't see folder or library names, or the names and faces of anyone else in the picture, and they only see where a photo was taken if you tick **Show where photos were taken**.

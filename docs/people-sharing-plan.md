@@ -42,9 +42,13 @@ the [Access dialog](#the-access-dialog), phase 2.
 
 **Phase 1 built in-code 2026-09-23; phase 2 and Family tree access built in-code
 2026-09-24** (all uncommitted). As built — see [Phase 1 as built](#phase-1-as-built)
-and [Phase 2 as built](#phase-2-as-built). Not built yet: **Preview as …** (the
-server has no read-as-someone-else mode), the For you "New photos of Ivan" card, and
-the People page's "Shown as living to others" filter.
+and [Phase 2 as built](#phase-2-as-built). Released as 4.22.0. **Preview as …** built after it (core/preview.ts: a
+session cookie an admin's session honours for an active member; request.user
+becomes the member, request.previewBy the admin; everything but GET/HEAD, routes
+marked `config.previewSafe` (the POST catalogues, timeline, lookups), `/api/preview`
+and sign-out answers 403; `logActivity` skips; the web never caches a previewed
+user). Not built yet: the For you "New photos of Ivan" card, and the People page's
+"Shown as living to others" filter.
 
 Companion to [permissions.md](permissions.md) (the assignments engine
 this extends), [gallery-library.md](gallery-library.md),

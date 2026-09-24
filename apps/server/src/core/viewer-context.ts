@@ -33,6 +33,11 @@ export function currentViewer(): AuthUser | null {
   return user ? { id: user.id, role: user.role } : null;
 }
 
+/** Whether the current request is an admin's "Preview as …" (core/preview.ts). */
+export function isPreviewing(): boolean {
+  return store.getStore()?.request?.previewBy != null;
+}
+
 /** A value computed once per request (per key). Keys are the caller's: prefix
  *  them with the module ("gallery.people:…"). Without a request, computes each time. */
 export function viewerMemo<T>(key: string, compute: () => T): T {

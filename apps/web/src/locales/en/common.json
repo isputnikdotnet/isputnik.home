@@ -728,5 +728,11 @@
     "readOnGithub": "<link>Read it on GitHub</link> instead.",
     "loading": "Loading…",
     "viewOnGithub": "View this guide on GitHub"
+  },
+  "preview": {
+    "title": "You're seeing iSputnik as {{name}}",
+    "body": "This is a read-only preview: what they can see, nothing more. Nothing you do here is saved, or logged in their name.",
+    "stop": "Stop preview",
+    "stopping": "Stopping…"
   }
 }

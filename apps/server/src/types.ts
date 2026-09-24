@@ -8,6 +8,15 @@ declare module "fastify" {
     // app.authenticate. A 'device' session belongs to a linked display rather
     // than to someone at a keyboard, and requireAdmin refuses it.
     sessionKind?: SessionKind;
+    // Set while an admin previews the app as a member (core/preview.ts): `user`
+    // is then that member, and this is the admin looking.
+    previewBy?: { id: string; displayName: string };
+  }
+
+  interface FastifyContextConfig {
+    // A POST that only reads (a catalogue query with a filter body, a bulk
+    // lookup): allowed during an admin's read-only "Preview as …" (core/preview.ts).
+    previewSafe?: boolean;
   }
 
   interface FastifyInstance {

@@ -78,7 +78,7 @@ export function registerGalleryBrowseRoutes(app: FastifyInstance) {
     offset: z.number().int().min(0).default(0)
   });
 
-  app.post("/api/library/gallery/timeline", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/library/gallery/timeline", { preHandler: app.authenticate, config: { previewSafe: true } }, async (request, reply) => {
     const parsed = parseBody(timelineSchema, request.body ?? {});
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid timeline query", details: parsed.error });
@@ -162,7 +162,7 @@ export function registerGalleryBrowseRoutes(app: FastifyInstance) {
   // inaccessible/unknown ids are silently omitted (bulk contract). Results keep the
   // requested order.
   const lookupSchema = z.object({ itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(100) });
-  app.post("/api/library/gallery/assets/lookup", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/library/gallery/assets/lookup", { preHandler: app.authenticate, config: { previewSafe: true } }, async (request, reply) => {
     const parsed = parseBody(lookupSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid item ids", details: parsed.error });

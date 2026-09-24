@@ -5,6 +5,7 @@ import { db, selfUser, type User } from "./db.js";
 import { sha256 } from "./crypto.js";
 import { hostCookieName } from "./core/cookies.js";
 import { registerViewerContext } from "./core/viewer-context.js";
+import { previewAllows, previewTargetOf } from "./core/preview.js";
 import type { SessionRow } from "./db/rows.js";
 
 // On a secure deployment the session cookie carries the __Host- prefix (see
@@ -114,6 +115,23 @@ export async function registerAuthDecorators(app: FastifyInstance) {
     const { session_kind: sessionKind, ...user } = row;
     request.user = user as User;
     request.sessionKind = sessionKind;
+
+    // "Preview as …" (core/preview.ts): an admin at a keyboard, looking at the app
+    // as one member. Everything after this answers as that member; the admin
+    // stays in previewBy. A stale cookie naming someone who can't be previewed is
+    // ignored, never honoured.
+    const previewId = previewTargetOf(request);
+    if (previewId && user.role === "admin" && sessionKind !== "device" && previewId !== user.id) {
+      const target = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1 AND role = 'member'")
+        .get(previewId) as User | undefined;
+      if (target) {
+        request.previewBy = { id: user.id, displayName: user.display_name };
+        request.user = target;
+        if (!previewAllows(request)) {
+          return reply.code(403).send({ error: "This is a read-only preview. Stop the preview to make changes.", preview: true });
+        }
+      }
+    }
   });
 
   app.decorate("requireAdmin", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -143,7 +161,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
 // it a control panel that answers 403 to everything on it.
 export function currentUserPayload(request: FastifyRequest) {
   return request.user
-    ? { ...selfUser(request.user), sessionKind: request.sessionKind ?? "browser" }
+    ? { ...selfUser(request.user), sessionKind: request.sessionKind ?? "browser", previewBy: request.previewBy ?? null }
     : null;
 }
 

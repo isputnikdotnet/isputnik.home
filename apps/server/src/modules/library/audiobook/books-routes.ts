@@ -102,7 +102,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     }).default({ libraries: [], authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] })
   });
 
-  app.post("/api/library/audiobooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/library/audiobooks/catalog", { preHandler: app.authenticate, config: { previewSafe: true } }, async (request, reply) => {
     const parsed = parseBody(catalogSchema, request.body ?? {});
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });

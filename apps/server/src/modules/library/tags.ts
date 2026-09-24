@@ -190,7 +190,7 @@ export function registerTagRoutes(app: FastifyInstance) {
     ids: z.array(z.string().trim().min(1).max(64)).min(1).max(1000)
   });
 
-  app.post("/api/library/items/tags/current", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/library/items/tags/current", { preHandler: app.authenticate, config: { previewSafe: true } }, async (request, reply) => {
     const parsed = parseBody(currentSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid selection", details: parsed.error });

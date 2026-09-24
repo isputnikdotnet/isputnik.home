@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { KeyRound, UsersRound } from "lucide-react";
+import { Eye, KeyRound, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../api";
 import { navigate } from "../../../router";
@@ -9,6 +9,7 @@ import { Modal } from "../../../shared/Modal";
 import { SelectField } from "../../../shared/SelectField";
 import { groupAccessHref, userAccessHref } from "../links";
 import { PeopleReviewModal } from "./PeopleReviewModal";
+import { clearCachedUser } from "../../../offline/downloads";
 import type { AccessOverview, AccessSubject, AccessTab, GrantRole, GrantView, PeopleAccess } from "./types";
 
 // Everything one person — or one group — can reach, in one dialog
@@ -90,6 +91,20 @@ export function AccessDialog({
       setBusy(false);
     }
   };
+  // "Preview as …" (server: core/preview.ts): the whole app as this member,
+  // read-only, until Stop. A full load, so every screen starts as them.
+  const startPreview = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/preview", { method: "POST", body: JSON.stringify({ userId: subject.subjectId }) });
+      clearCachedUser();
+      window.location.href = "/";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:access.errors.preview"));
+      setBusy(false);
+    }
+  };
   const body = (payload: object) => ({ method: "POST", body: JSON.stringify({ subjectType: subject.subjectType, subjectId: subject.subjectId, ...payload }) });
   const del = { method: "DELETE" };
 
@@ -149,6 +164,12 @@ export function AccessDialog({
         className="access-dialog"
         busy={busy}
         onClose={close}
+        headerAction={overview?.subject.subjectType === "user" && overview.subject.role === "member" && overview.subject.isActive ? (
+          <Button variant="secondary" compact disabled={busy} onClick={() => void startPreview()}>
+            <Eye size={15} aria-hidden="true" />
+            {t("controlAdmin:access.previewAs", { name })}
+          </Button>
+        ) : undefined}
       >
         <div className="modal-tabs" role="tablist">
           {tabs.map((id) => (

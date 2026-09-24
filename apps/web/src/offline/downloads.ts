@@ -17,6 +17,13 @@ export function getOfflineUserId(): string | null {
 // Cache the signed-in user so the app can authenticate "offline" against the last
 // known identity (the server is unreachable with no network).
 export function cacheCurrentUser(user: PublicUser) {
+  // Never an admin's "Preview as …": the next load must start as the admin,
+  // not as the member they were looking through (a stale member here sent the
+  // control panel back to Home after Stop).
+  if (user.previewBy) {
+    clearCachedUser();
+    return;
+  }
   try {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     localStorage.setItem(UID_KEY, user.id);

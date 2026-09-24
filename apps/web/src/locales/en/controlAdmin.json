@@ -1444,7 +1444,8 @@
     "errors": {
       "load": "Unable to load access",
       "save": "Unable to save the change",
-      "title": "Unable to update access"
+      "title": "Unable to update access",
+      "preview": "Unable to start the preview"
     },
     "summary": {
       "members_one": "{{count}} member",
@@ -1565,6 +1566,7 @@
       "confirm_other": "Confirm {{count}}",
       "confirmAndReject_one": "Confirm {{count}}, not them: {{rejected}}",
       "confirmAndReject_other": "Confirm {{count}}, not them: {{rejected}}"
-    }
+    },
+    "previewAs": "Preview as {{name}}"
   }
 }

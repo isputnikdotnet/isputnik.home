@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.22.1",
+    "label": "Preview as a member",
+    "changes": [
+      "**See the app exactly as a member sees it.** A member's access in Control panel → Members now has **Preview as …**: the whole app — Home, Gallery, family tree, stories — opens as they see it, so you can check what a relative was given before telling them. A banner on every page says whose view you are in, and **Stop preview** brings you back to their access.",
+      "**A preview changes nothing.** Anything that would save is refused while it lasts, and nothing is recorded in the member's name — only that you started a preview, under yours. Only administrators can start one, only for an active member, and it ends when the browser closes."
+    ]
+  },
+  {
     "version": "4.22.0",
     "label": "Share photos by person",
     "changes": [

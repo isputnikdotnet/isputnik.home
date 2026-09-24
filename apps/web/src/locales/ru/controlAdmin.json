@@ -1580,7 +1580,8 @@
     "errors": {
       "load": "Не удалось загрузить доступ",
       "save": "Не удалось сохранить изменение",
-      "title": "Не удалось изменить доступ"
+      "title": "Не удалось изменить доступ",
+      "preview": "Не удалось начать просмотр"
     },
     "summary": {
       "members_one": "{{count}} участник",
@@ -1729,6 +1730,7 @@
       "confirmAndReject_few": "Подтвердить {{count}}, не они: {{rejected}}",
       "confirmAndReject_many": "Подтвердить {{count}}, не они: {{rejected}}",
       "confirmAndReject_other": "Подтвердить {{count}}, не они: {{rejected}}"
-    }
+    },
+    "previewAs": "Посмотреть глазами: {{name}}"
   }
 }

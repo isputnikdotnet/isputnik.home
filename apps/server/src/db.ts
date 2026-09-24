@@ -7,6 +7,7 @@ import { migrate } from "./db/migrate.js";
 import { recordBootedVersion, stagePreUpgradeCopy } from "./db/pre-upgrade.js";
 import { log } from "./core/logger.js";
 import { seed } from "./db/seed.js";
+import { isPreviewing } from "./core/viewer-context.js";
 import type { UserRow } from "./db/rows.js";
 
 export type Role = UserRow["role"];
@@ -152,6 +153,9 @@ export function hasUsers() {
 }
 
 export function logActivity(input: ActivityInput) {
+  // A preview (core/preview.ts) is an admin looking, not the member doing: it
+  // leaves nothing in the log under the member's name.
+  if (isPreviewing()) return;
   db.prepare(`
     INSERT INTO activity_logs (id, event, actor_user_id, target_type, target_id, detail, ip_address)
     VALUES (?, ?, ?, ?, ?, ?, ?)

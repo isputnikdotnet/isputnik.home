@@ -3,6 +3,7 @@ import { db, logActivity, publicUser, type User } from "../db.js";
 import { verifyDummyPassword, verifyPassword } from "../crypto.js";
 import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } from "../auth.js";
 import { onboardingPending } from "./setup.js";
+import { clearPreviewCookie, PREVIEW_ROUTE, setPreviewCookie } from "./preview.js";
 import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
 import { createMfaChallenge, sendMfaCodeEmail, setMfaChallengeCookie } from "./mfa-routes.js";
 import { isMailConfigured } from "./mail.js";
@@ -180,10 +181,44 @@ export async function authPlugin(app: FastifyInstance) {
     });
     revokeCurrentSession(request);
     clearSession(reply);
+    clearPreviewCookie(reply);
     return reply.send({ ok: true });
   });
 
+  // "Preview as …" (core/preview.ts): an admin sees the app as one member,
+  // read-only, until Stop or the browser closes.
+  app.post(PREVIEW_ROUTE, { preHandler: app.requireAdmin }, async (request, reply) => {
+    const userId = (request.body as { userId?: unknown } | undefined)?.userId;
+    if (typeof userId !== "string" || !userId.trim()) {
+      return reply.code(400).send({ error: "Choose someone to preview." });
+    }
+    const target = db.prepare("SELECT id, display_name, role FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1")
+      .get(userId) as Pick<User, "id" | "display_name" | "role"> | undefined;
+    if (!target) return reply.code(404).send({ error: "User not found" });
+    if (target.role !== "member") {
+      return reply.code(400).send({ error: "Only a member can be previewed — an admin sees everything anyway." });
+    }
+    logActivity({
+      event: "auth.preview.started",
+      actorUserId: request.user!.id,
+      targetType: "user",
+      targetId: target.id,
+      detail: `Started previewing the app as ${target.display_name}.`,
+      ipAddress: request.ip
+    });
+    setPreviewCookie(reply, target.id);
+    return reply.send({ previewing: { id: target.id, displayName: target.display_name } });
+  });
+
+  // Ending it works from inside the preview (previewAllows lets this through).
+  app.delete(PREVIEW_ROUTE, { preHandler: app.authenticate }, async (request, reply) => {
+    const previewed = request.previewBy ? request.user!.id : null;
+    clearPreviewCookie(reply);
+    return reply.send({ stopped: true, userId: previewed });
+  });
+
   app.get("/api/auth/me", { preHandler: app.authenticate }, async (request) => ({
+    // During a preview this is the member being previewed, with previewBy set.
     user: currentUserPayload(request),
     // Ride along on the request the app already makes at startup rather than adding a
     // second one to every page load. Admins only: nobody else can act on any of it.

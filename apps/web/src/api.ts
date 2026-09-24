@@ -26,6 +26,9 @@ export interface PublicUser {
   // than the account — it travels here because `user` is what every screen
   // already has in hand. See isAdminSession below.
   sessionKind?: SessionKind;
+  /** Set while an admin previews the app as this member (server: core/preview.ts):
+   *  this user is the member, previewBy the admin looking. Read-only while it lasts. */
+  previewBy?: { id: string; displayName: string } | null;
 }
 
 export type MfaMethod = "totp" | "email";

@@ -354,7 +354,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
     personIds: z.array(z.string().trim().min(1)).min(1).max(2000)
   });
 
-  app.post("/api/family-tree/persons/relatives", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
+  app.post("/api/family-tree/persons/relatives", { preHandler: [app.authenticate, requireTreeView], config: { previewSafe: true } }, async (request, reply) => {
     const parsed = parseBody(relativesSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid selection", details: parsed.error });

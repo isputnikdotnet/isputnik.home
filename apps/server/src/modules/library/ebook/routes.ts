@@ -347,7 +347,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     }).default({ libraries: [], authors: [], categories: [], tags: [], languages: [], status: [] })
   });
 
-  app.post("/api/library/ebooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/library/ebooks/catalog", { preHandler: app.authenticate, config: { previewSafe: true } }, async (request, reply) => {
     const parsed = parseBody(ebookCatalogSchema, request.body ?? {});
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });

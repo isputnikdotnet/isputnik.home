@@ -35,6 +35,7 @@ import { useInboxSummary } from "../features/social/useInboxSummary";
 import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
 import { Button } from "../shared/Button";
+import { PreviewBanner } from "./PreviewBanner";
 
 
 // The control panel's landing page — Overview › Dashboard.
@@ -579,6 +580,7 @@ export function DashboardShell({
 
       <section className={mainClasses}>
         <div className="dashboard-main">
+          <PreviewBanner />
           {children}
         </div>
       </section>

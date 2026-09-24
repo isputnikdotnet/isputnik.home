@@ -111,6 +111,9 @@
 }
 .access-review-tile.is-not-them { opacity: 0.45; }
 
+/* "Preview as …": on every page while an admin looks as a member. */
+.preview-banner { margin-bottom: 16px; }
+
 /* Invites: the groups a new account joins. */
 .invite-groups {
   display: grid;
