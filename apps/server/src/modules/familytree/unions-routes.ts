@@ -8,6 +8,7 @@ import {
 import { canEditAnyPerson } from "./access.js";
 import { optionalDate } from "./persons-routes.js";
 import { pinSchema } from "./place-pins.js";
+import { requireTreeView } from "./tree-access.js";
 
 const RELATION_ERRORS: Record<RelationError, { code: number; message: string }> = {
   person_not_found: { code: 404, message: "Person not found" },
@@ -46,7 +47,7 @@ export function registerUnionRoutes(app: FastifyInstance) {
   // person is theirs to edit — that is how a spouse from another (or no)
   // branch marries into the family.
 
-  app.post("/api/family-tree/unions", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/unions", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseBody(createUnionSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid union", details: parsed.error });
@@ -65,7 +66,7 @@ export function registerUnionRoutes(app: FastifyInstance) {
 
   // `person2Id` fills the empty partner slot of a single-parent union (the
   // "add the other parent" flow); the field updates apply in the same request.
-  app.patch("/api/family-tree/unions/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  app.patch("/api/family-tree/unions/:id", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseBody(updateUnionSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid changes", details: parsed.error });
@@ -106,7 +107,7 @@ export function registerUnionRoutes(app: FastifyInstance) {
 
   // ── Children (admin or branch editor) ──
 
-  app.post("/api/family-tree/unions/:id/children", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/unions/:id/children", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const unionId = (request.params as { id: string }).id;
     const parsed = parseBody(addChildSchema, request.body);
     if (parsed.error) {

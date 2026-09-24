@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCheck, CheckSquare, Settings, Square, Tags, UserRoundPlus, X } from "lucide-react";
+import { CheckCheck, CheckSquare, Cross, Settings, Square, Tags, UserRoundPlus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -37,6 +37,26 @@ export function FamilyPeoplePage() {
   const [tagOpen, setTagOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const isAdmin = user.role === "admin";
+  // "Mark as deceased" (docs/people-sharing-plan.md, D16): the undated ancestors
+  // are what would otherwise count as living and stay private.
+  const [markingDeceased, setMarkingDeceased] = useState(false);
+  const markDeceased = async () => {
+    setMarkingDeceased(true);
+    try {
+      const payload = await api<{ changed: number; persons: FamilyPerson[] }>("/api/family-tree/persons/deceased", {
+        method: "POST",
+        body: JSON.stringify({ personIds: [...selectedIds], deceased: true })
+      });
+      const byId = new Map(payload.persons.map((person) => [person.id, person]));
+      setPersons((current) => current.map((person) => byId.get(person.id) ?? person));
+      exitSelection();
+      setNotice(t("family:people.markedDeceased", { count: payload.changed }));
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : t("family:people.markDeceasedFailed"));
+    } finally {
+      setMarkingDeceased(false);
+    }
+  };
 
   useEffect(() => {
     api<{ persons: FamilyPerson[]; access: FamilyTreeAccess }>("/api/family-tree/persons")
@@ -147,6 +167,15 @@ export function FamilyPeoplePage() {
                 >
                   <Tags size={18} aria-hidden="true" />
                   <span className="toolbar-label">{t("family:people.tagSelected")}</span>
+                </Button>
+                <Button
+                  variant="toolbar"
+                  onClick={() => void markDeceased()}
+                  disabled={selectedIds.size === 0 || markingDeceased}
+                  title={t("family:people.markDeceasedTitle")}
+                >
+                  <Cross size={18} aria-hidden="true" />
+                  <span className="toolbar-label">{markingDeceased ? t("family:people.markingDeceased") : t("family:people.markDeceased")}</span>
                 </Button>
                 <span className="library-toolbar-divider" aria-hidden="true" />
                 <Button

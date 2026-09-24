@@ -44,7 +44,7 @@ const { FamilyMapPage } = await import("../src/features/familytree/FamilyMapPage
 const mockApi = vi.mocked(api);
 
 const person = (id: string, name: string): FamilyPerson => ({
-  id, name, maidenName: null, otherNames: [], gender: "unknown", birthDate: null, deathDate: null,
+  id, name, maidenName: null, otherNames: [], gender: "unknown", birthDate: null, deathDate: null, deceased: false,
   birthplace: null, deathPlace: null, birthPin: null, deathPin: null, bio: null,
   portraitUrl: null, portraitItemId: null, portraitCrop: null, galleryPersonId: null, tags: [], canEdit: false
 });

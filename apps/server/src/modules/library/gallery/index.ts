@@ -8,6 +8,7 @@ import { galleryInboxRoutesPlugin } from "./inbox-routes.js";
 import { galleryDropRoutesPlugin } from "./drop-routes.js";
 import { galleryReviewRoutesPlugin } from "./review-routes.js";
 import { galleryVoiceNoteRoutesPlugin } from "./voice-note-routes.js";
+import { galleryPeopleAccessRoutesPlugin } from "./people-access-routes.js";
 import {
   galleryDuplicateJobRoutesPlugin,
   startDuplicateScanWorker
@@ -36,6 +37,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryDropRoutesPlugin);
   await app.register(galleryReviewRoutesPlugin);
   await app.register(galleryVoiceNoteRoutesPlugin);
+  await app.register(galleryPeopleAccessRoutesPlugin);
   await app.register(galleryDuplicateJobRoutesPlugin);
   await app.register(galleryStreamPlugin);
 

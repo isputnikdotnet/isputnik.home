@@ -3,7 +3,11 @@
 import { db } from "../../../db.js";
 import type { TakenPrecision } from "./taken-precision.js";
 import { listVoiceNotes } from "./voice-notes.js";
-import { galleryScopeSql } from "./app-files-access.js";
+import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
+import { isShareExcluded, peopleOnlyViewOf } from "./people-access.js";
+import { currentViewer } from "../../../core/viewer-context.js";
+import { canUserManageLibraryMembers } from "../shared/library-access.js";
+import { galleryLibrariesLeftOutOfScope } from "./system-libraries.js";
 import { describePlace, namePhotoPlacesNow } from "./places.js";
 import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, TagRow } from "../../../db/rows.js";
 
@@ -119,6 +123,12 @@ export type GalleryAssetRow = AssetRow;
 
 export function mapAsset(row: AssetRow) {
   const rotation = row.rotation ?? 0;
+  // A photo the viewer has ONLY because a person in it was shared with them
+  // (people-access.ts): no folder path or library name — folder names are not
+  // theirs to read — and no location unless their grant shows it (D10).
+  const shared = peopleOnlyViewOf(row.id, row.library_id);
+  const hideWhere = shared != null && !shared.showLocation;
+  const fileName = row.folder_path.split("/").pop() ?? row.folder_path;
   // Thumbnails are regenerated in place (same storage key) on rotate/edit, so bust
   // the image cache with updated_at — otherwise the <img> keeps the stale bytes.
   const v = row.updated_at ? `?v=${encodeURIComponent(row.updated_at)}` : "";
@@ -130,9 +140,9 @@ export function mapAsset(row: AssetRow) {
   return {
     id: row.id,
     libraryId: row.library_id,
-    libraryName: row.library_name,
-    folderPath: row.folder_path,
-    folder: row.folder_path.includes("/") ? row.folder_path.slice(0, row.folder_path.lastIndexOf("/")) : "",
+    libraryName: shared ? null : row.library_name,
+    folderPath: shared ? fileName : row.folder_path,
+    folder: shared ? "" : row.folder_path.includes("/") ? row.folder_path.slice(0, row.folder_path.lastIndexOf("/")) : "",
     kind: row.kind,
     title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
     description: row.description,
@@ -141,7 +151,7 @@ export function mapAsset(row: AssetRow) {
     // may be known only to the year, and "about" reads as "around 1962".
     takenPrecision: (row.taken_precision ?? "time") as TakenPrecision,
     takenApprox: row.taken_approx === 1,
-    placeText: row.place_text,
+    placeText: hideWhere ? null : row.place_text,
     reviewedAt: row.reviewed_at,
     reviewedBy: row.reviewed_at ? row.reviewed_by_name : null,
     addedAt: row.discovered_at,
@@ -155,11 +165,11 @@ export function mapAsset(row: AssetRow) {
     playable: row.web_video_key ? true : row.playable == null ? null : Boolean(row.playable),
     mimeType: row.mime_type,
     size: row.size,
-    gps: row.gps_lat != null && row.gps_lng != null ? { lat: row.gps_lat, lng: row.gps_lng } : null,
+    gps: !hideWhere && row.gps_lat != null && row.gps_lng != null ? { lat: row.gps_lat, lng: row.gps_lng } : null,
     // The named place the coordinates fall in (places.ts), by id: the name itself
     // is in the viewer's language, so only a single asset's read spells it out.
     // Only an answer for the pin as it is now — a moved pin reads as not named yet.
-    place: row.place_id != null ? { id: row.place_id, distanceKm: row.place_distance_km ?? 0 } : null,
+    place: !hideWhere && row.place_id != null ? { id: row.place_id, distanceKm: row.place_distance_km ?? 0 } : null,
     camera: row.camera_make || row.camera_model ? { make: row.camera_make, model: row.camera_model } : null,
     coverUrl,
     previewUrl,
@@ -244,7 +254,7 @@ export function listAssetFaces(itemId: string, rotation: number): AssetFace[] {
 // REQUESTED order (a suggestion's ids are chronological); inaccessible or unknown ids
 // are silently omitted (the standard bulk contract).
 export function getGalleryAssets(userId: string, libIds: string[], itemIds: string[]) {
-  if (libIds.length === 0 || itemIds.length === 0) return [];
+  if (scopeIsEmpty(libIds) || itemIds.length === 0) return [];
   const scope = galleryScopeSql(libIds);
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
@@ -264,18 +274,34 @@ function detailOf(row: AssetRow, language: string, reread: () => AssetRow | unde
   if (row.gps_lat != null && row.gps_lng != null && row.place_id == null && namePhotoPlacesNow([row.id]) > 0) {
     row = reread() ?? row;
   }
-  const people = peopleForAssetStmt.all(row.id) as Pick<GalleryPersonRow, "id" | "name">[];
+  // Seen only through a person shared with them: the other people in the photo
+  // stay unnamed and unmarked, and the place unspoken unless their grant shows it.
+  const shared = peopleOnlyViewOf(row.id, row.library_id);
+  const people = (peopleForAssetStmt.all(row.id) as Pick<GalleryPersonRow, "id" | "name">[])
+    .filter((person) => !shared || shared.personIds.has(person.id));
+  const faces = listAssetFaces(row.id, row.rotation ?? 0)
+    .filter((face) => !shared || (face.personId != null && shared.personIds.has(face.personId)));
   return {
     ...mapAsset(row),
-    placeLabel: describePlace(row.place_id, language),
+    placeLabel: shared && !shared.showLocation ? null : describePlace(row.place_id, language),
     people,
-    faces: listAssetFaces(row.id, row.rotation ?? 0),
+    faces,
+    // "Don't share this photo" (people-access.ts): offered to whoever manages its
+    // library; null for everyone else and for photos never shared by person.
+    shareControl: shareControlFor(row.id, row.library_id),
     voiceNotes: listVoiceNotes(row.id)
   };
 }
 
+function shareControlFor(itemId: string, libraryId: string): { excluded: boolean } | null {
+  const viewer = currentViewer();
+  if (!viewer || galleryLibrariesLeftOutOfScope().has(libraryId)) return null;
+  if (!canUserManageLibraryMembers({ id: libraryId }, viewer.id, viewer.role)) return null;
+  return { excluded: isShareExcluded(itemId) };
+}
+
 export function getGalleryAsset(userId: string, libIds: string[], id: string, language = "en") {
-  if (libIds.length === 0) return null;
+  if (scopeIsEmpty(libIds)) return null;
   const scope = galleryScopeSql(libIds);
   const read = () => db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}

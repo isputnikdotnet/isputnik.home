@@ -20,6 +20,7 @@ import type { DocumentFileRow, LibraryItemRow, LibraryRow, UserRow } from "../..
 // Library checks on the system libraries are answered by their own rules (phase 4).
 import "../gallery/system-library-access.js";
 import { canSeeAppFile, isAppFilesLibrary } from "../gallery/app-files-access.js";
+import { canSeeThroughPeople, deleteAccessSettingsForSubject } from "../gallery/people-access.js";
 
 // The unified role set (was: viewer/subscriber/contributor/curator/admin).
 export type LibraryRole = ObjectRole;
@@ -105,9 +106,11 @@ export function libraryCapabilities(library: LibraryRoleInput, userId: string, u
   };
 }
 
-// Cleanup when a user/group is deleted — removes all their library assignments.
+// Cleanup when a user/group is deleted — removes all their assignments (libraries,
+// people shared with them, …) and the settings that ride along with them.
 export function deleteLibraryMembersForSubject(subjectType: "user" | "group", subjectId: string) {
   deleteAssignmentsForSubject(subjectType, subjectId);
+  deleteAccessSettingsForSubject(subjectType, subjectId);
 }
 
 // --- Writing access (create / edit / delete) --------------------------------------
@@ -248,16 +251,20 @@ export function canUserAccessBook(bookId: string, library: LibraryRoleInput, use
   // A file in App files is seen through what owns it (gallery/app-files-access.ts).
   if (module === "gallery" && isAppFilesLibrary(library.id) && canSeeAppFile({ id: userId, role: userRole }, bookId)) return true;
   if (userHasItemShare(module, bookId, userId)) return true;
-  return module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId);
+  if (module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId)) return true;
+  // A photo shared with them by person (gallery/people-access.ts).
+  return module === "gallery" && canSeeThroughPeople({ id: userId, role: userRole }, bookId);
 }
 
 // Book-level download: needs the Member+ download capability, OR a user share
-// (per-item, or — for gallery — a live album share).
+// (per-item, or — for gallery — a live album share), OR — for gallery — a photo
+// shared by person, which is view AND download (docs/people-sharing-plan.md, D4).
 export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
   if (canUserDownloadLibrary(library, userId, userRole)) return true;
   if (module === "gallery" && isAppFilesLibrary(library.id) && canSeeAppFile({ id: userId, role: userRole }, bookId)) return true;
   if (userHasItemShare(module, bookId, userId)) return true;
-  return module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId);
+  if (module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId)) return true;
+  return module === "gallery" && canSeeThroughPeople({ id: userId, role: userRole }, bookId);
 }
 
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {

@@ -9,6 +9,7 @@ import { parseBody, setupSchema, getUserByEmail, requestOrigin } from "../../cor
 import { getDefaultTheme } from "../../core/app-config.js";
 import { alertNewAdmin, flagAbusiveRequest } from "../../core/security-alerts.js";
 import { noteSignInNetwork } from "../../core/security.js";
+import { EVERYONE_GROUP_ID, SYSTEM_ADMINS_GROUP_ID } from "../../core/permissions.js";
 import type { InviteRow, UserRow } from "../../db/rows.js";
 
 type LiveInvite = Pick<InviteRow, "id" | "role" | "expires_at">;
@@ -41,8 +42,20 @@ export function resolveLiveInvite(
 
 const inviteSchema = z.object({
   role: z.enum(["admin", "member"]).default("member"),
-  expiresInDays: z.number().int().min(1).max(30).default(config.inviteDays)
+  expiresInDays: z.number().int().min(1).max(30).default(config.inviteDays),
+  // The groups the new account joins on sign-up (D19). The built-in groups are
+  // not joined by hand, so they are skipped.
+  groupIds: z.array(z.string().trim().min(1).max(64)).max(20).default([])
 });
+
+const SYSTEM_GROUP_IDS = new Set([EVERYONE_GROUP_ID, SYSTEM_ADMINS_GROUP_ID]);
+
+function inviteGroups(inviteId: string): { id: string; name: string }[] {
+  return db.prepare(`
+    SELECT g.id, g.name FROM invite_groups ig JOIN user_groups g ON g.id = ig.group_id
+    WHERE ig.invite_id = ? ORDER BY g.name COLLATE NOCASE
+  `).all(inviteId) as { id: string; name: string }[];
+}
 
 type InviteListRow = Pick<InviteRow, "id" | "role" | "created_at" | "expires_at" | "used_at"> & {
   created_by_name: UserRow["display_name"];
@@ -65,12 +78,19 @@ export async function invitesPlugin(app: FastifyInstance) {
       INSERT INTO invites (id, token_hash, role, created_by, expires_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(inviteId, sha256(token), parsed.data.role, request.user!.id, expiresAt);
+    const addGroup = db.prepare("INSERT OR IGNORE INTO invite_groups (invite_id, group_id) SELECT ?, id FROM user_groups WHERE id = ?");
+    for (const groupId of parsed.data.groupIds) {
+      if (!SYSTEM_GROUP_IDS.has(groupId)) addGroup.run(inviteId, groupId);
+    }
+    const groups = inviteGroups(inviteId);
     logActivity({
       event: "invite.created",
       actorUserId: request.user!.id,
       targetType: "invite",
       targetId: inviteId,
-      detail: `Created a ${parsed.data.role} invite link.`,
+      detail: groups.length > 0
+        ? `Created a ${parsed.data.role} invite link, joining ${groups.map((g) => g.name).join(", ")}.`
+        : `Created a ${parsed.data.role} invite link.`,
       ipAddress: request.ip
     });
 
@@ -79,6 +99,7 @@ export async function invitesPlugin(app: FastifyInstance) {
         id: inviteId,
         role: parsed.data.role,
         expiresAt,
+        groups,
         url: `${requestOrigin(request)}/invite/${token}`
       }
     });
@@ -114,6 +135,7 @@ export async function invitesPlugin(app: FastifyInstance) {
         usedAt: invite.used_at,
         createdByName: invite.created_by_name,
         usedByName: invite.used_by_name,
+        groups: inviteGroups(invite.id),
         status: invite.used_at ? "used" : new Date(invite.expires_at).getTime() <= now ? "expired" : "active"
       }))
     };
@@ -176,6 +198,11 @@ export async function invitesPlugin(app: FastifyInstance) {
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName, invite.role, getDefaultTheme());
       db.prepare("UPDATE invites SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), used_by = ? WHERE id = ?").run(userId, invite.id);
+      // The groups the invite names, in the same step as the account (D19).
+      db.prepare(`
+        INSERT OR IGNORE INTO group_members (group_id, user_id)
+        SELECT ig.group_id, ? FROM invite_groups ig JOIN user_groups g ON g.id = ig.group_id WHERE ig.invite_id = ?
+      `).run(userId, invite.id);
       return db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as User;
     })();
 
@@ -189,7 +216,9 @@ export async function invitesPlugin(app: FastifyInstance) {
       actorUserId: user.id,
       targetType: "invite",
       targetId: invite.id,
-      detail: "Accepted an invite and created an account.",
+      detail: inviteGroups(invite.id).length > 0
+        ? `Accepted an invite and created an account, into ${inviteGroups(invite.id).map((g) => g.name).join(", ")}.`
+        : "Accepted an invite and created an account.",
       ipAddress: request.ip
     });
     return reply.code(201).send({ user: publicUser(user) });

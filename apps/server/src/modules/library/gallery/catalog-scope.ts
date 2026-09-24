@@ -4,6 +4,7 @@ import { db } from "../../../db.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { galleryLibrariesLeftOutOfScope, photoInboxLibraryIds } from "./system-libraries.js";
 import { withAppFileOwners, withFamilyUploads } from "./app-files-access.js";
+import { withSharedPeople } from "./people-access.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 // A `?libraryIds=id1,id2` query param, the GET-route counterpart of the timeline
@@ -34,7 +35,9 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
   // (resolveGalleryBrowseLibraryIds).
   if (!libraryIds || libraryIds.length === 0) {
     const inboxes = photoInboxLibraryIds();
-    return withAppFileOwners(user, accessible.filter((row) => !inboxes.has(row.id)).map((row) => row.id));
+    // And the photos shared with them by person (people-access.ts), which sit in
+    // libraries they cannot open.
+    return withSharedPeople(user, withAppFileOwners(user, accessible.filter((row) => !inboxes.has(row.id)).map((row) => row.id)));
   }
   const requested = new Set(libraryIds);
   return accessible.filter((row) => requested.has(row.id)).map((row) => row.id);
@@ -47,6 +50,10 @@ export const FAMILY_TREE_SCOPE = "family-tree";
 /** A library filter entry meaning "every library I would browse by default", so
  *  a picker can ask for that AND the family-tree photos in one list. */
 export const ALL_LIBRARIES_SCOPE = "all";
+/** A library filter entry that is not a library: the photos shared with the
+ *  viewer by person, from libraries they cannot open. On by default (they are
+ *  the viewer's photos); naming it alone narrows to just them. */
+export const SHARED_PEOPLE_SCOPE = "shared-people";
 
 // The BROWSING scope: the timeline, folders, memories, the map, the facets,
 // the People list and the Home feed's photo cards — the surfaces that resurface
@@ -56,23 +63,32 @@ export const ALL_LIBRARIES_SCOPE = "all";
 // files → Family tree are the family's own, so the filter can ask for them with
 // FAMILY_TREE_SCOPE: the list then carries a rule that lets them through
 // (withFamilyUploads). Not by default — the owner wanted the Gallery as it was,
-// with them one choice away (2026-09-23). Everything named by id elsewhere (a
-// story's block, an album, a slideshow, the viewer) uses the reachable scope above.
+// with them one choice away (2026-09-23). Photos shared with the viewer by person
+// are the opposite: in by default, since for a relative they ARE the Gallery
+// (docs/people-sharing-plan.md, D1), and SHARED_PEOPLE_SCOPE narrows to them.
+// Naming libraries leaves them out, as it leaves out every other library.
+// Everything named by id elsewhere (a story's block, an album, a slideshow, the
+// viewer) uses the reachable scope above.
 //
 // Queries must ask through galleryScopeSql, not a bare `library_id IN (...)`,
 // or the rule is lost.
 export function resolveGalleryBrowseLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
   const asked = libraryIds ?? [];
   const familyTree = asked.includes(FAMILY_TREE_SCOPE);
+  const sharedPeople = asked.includes(SHARED_PEOPLE_SCOPE);
   const all = asked.includes(ALL_LIBRARIES_SCOPE);
-  const named = asked.filter((id) => id !== FAMILY_TREE_SCOPE && id !== ALL_LIBRARIES_SCOPE);
+  const named = asked.filter((id) => id !== FAMILY_TREE_SCOPE && id !== ALL_LIBRARIES_SCOPE && id !== SHARED_PEOPLE_SCOPE);
+  const everything = all || (named.length === 0 && !familyTree && !sharedPeople);
   const defaultScope = () => {
     const leftOut = galleryLibrariesLeftOutOfScope();
     return resolveGalleryScopeLibraryIds(user).filter((id) => !leftOut.has(id));
   };
-  const base = all || (named.length === 0 && !familyTree)
+  const base = everything
     ? defaultScope()
     : named.length > 0 ? resolveGalleryScopeLibraryIds(user, named) : [];
-  // A fresh array: the rule is attached to this list, never to one another caller holds.
-  return familyTree ? withFamilyUploads(user, [...base]) : base;
+  // A fresh array: the rules are attached to this list, never to one another caller holds.
+  const scope = [...base];
+  if (everything || sharedPeople) withSharedPeople(user, scope);
+  if (familyTree) withFamilyUploads(user, scope);
+  return scope;
 }

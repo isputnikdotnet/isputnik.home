@@ -17,6 +17,8 @@ import {
   setPortraitFromPhoto, setUploadedPortraitFile
 } from "./portraits.js";
 import { canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags } from "./access.js";
+import { requireTreeView, setShowLivingDetails, setTreeBlocked, TREE_OBJECT_ID, TREE_OBJECT_TYPE } from "./tree-access.js";
+import type { FamilyUnionSummary } from "./persons.js";
 import { normalizeText } from "../library/shared/tagging.js";
 import { getFamilyDefaultPerson } from "./settings.js";
 import { pinSchema } from "./place-pins.js";
@@ -25,6 +27,12 @@ import { suggestPlaces } from "../maps/places/search.js";
 import { placesStatus } from "../maps/places/dataset.js";
 import { placeLanguage } from "../library/gallery/places.js";
 import { searchPlaces } from "../library/gallery/geocode.js";
+
+// A marriage between restricted living relatives keeps its shape (who married
+// whom) and loses its facts (tree-access.ts, D15).
+function redactUnion<T extends Pick<FamilyUnionSummary, "marriedDate" | "marriedPlace" | "marriedPin" | "divorcedDate" | "note">>(union: T): T {
+  return { ...union, marriedDate: null, marriedPlace: null, marriedPin: null, divorcedDate: null, note: null };
+}
 
 export const optionalDate = partialDateSchema.nullable().optional();
 
@@ -43,7 +51,8 @@ const personFields = {
   deathPlace: z.string().trim().max(200).nullable().optional(),
   birthPin: pinSchema,
   deathPin: pinSchema,
-  bio: z.string().trim().max(4000).nullable().optional()
+  bio: z.string().trim().max(4000).nullable().optional(),
+  deceased: z.boolean().optional()
 };
 
 const tagsSchema = z.array(z.string().trim().min(1).max(120)).max(50);
@@ -66,12 +75,15 @@ export function registerPersonRoutes(app: FastifyInstance) {
     canAdd: canEditTree(user)
   });
 
-  app.get("/api/family-tree/tree", { preHandler: app.authenticate }, async (request) => {
+  app.get("/api/family-tree/tree", { preHandler: [app.authenticate, requireTreeView] }, async (request) => {
     const user = request.user!;
     const tree = getFamilyTree();
+    const persons = decoratePersons(user, tree.persons);
+    const restricted = new Set(persons.filter((p) => p.restricted).map((p) => p.id));
     return {
       ...tree,
-      persons: decoratePersons(user, tree.persons),
+      persons,
+      unions: tree.unions.map((u) => (restricted.has(u.person1Id) || (u.person2Id != null && restricted.has(u.person2Id)) ? redactUnion(u) : u)),
       access: accessFor(user),
       // Ships with the tree so the chart can centre on the right person in its
       // first render — a second round-trip would show the fallback, then jump.
@@ -81,7 +93,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
 
   const personsQuerySchema = z.object({ q: z.string().optional() });
 
-  app.get("/api/family-tree/persons", { preHandler: app.authenticate }, async (request, reply) => {
+  app.get("/api/family-tree/persons", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const user = request.user!;
     const parsed = parseQuery(personsQuerySchema, request.query);
     if (parsed.error) {
@@ -91,7 +103,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
     return { persons: decoratePersons(user, listFamilyPersons(q || undefined)), access: accessFor(user) };
   });
 
-  app.get("/api/family-tree/persons/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  app.get("/api/family-tree/persons/:id", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const profile = getFamilyPersonProfile((request.params as { id: string }).id);
     if (!profile) {
       return reply.code(404).send({ error: "Person not found" });
@@ -100,17 +112,21 @@ export function registerPersonRoutes(app: FastifyInstance) {
     // client sees carries tags/canEdit. Event photos are viewer-scoped to
     // accessible gallery libraries, like the person photo wall.
     const user = request.user!;
-    const eventPhotos = getFamilyEventPhotos(user, profile.id);
+    const person = decoratePersons(user, [profile])[0];
+    // A living relative the viewer may not see the details of: their events,
+    // sources and marriages' facts stay back too (tree-access.ts, D15).
+    const eventPhotos = person.restricted ? new Map() : getFamilyEventPhotos(user, profile.id);
     return reply.send({
       person: {
-        ...decoratePersons(user, [profile])[0],
+        ...person,
         parents: decoratePersons(user, profile.parents),
-        unions: profile.unions.map((union) => ({
-          ...union,
-          partner: union.partner ? decoratePersons(user, [union.partner])[0] : null,
-          children: decoratePersons(user, union.children)
-        })),
-        events: profile.events.map((event) => ({ ...event, photos: eventPhotos.get(event.id) ?? [] }))
+        unions: profile.unions.map((union) => {
+          const partner = union.partner ? decoratePersons(user, [union.partner])[0] : null;
+          const decorated = { ...union, partner, children: decoratePersons(user, union.children) };
+          return person.restricted || partner?.restricted ? redactUnion(decorated) : decorated;
+        }),
+        events: person.restricted ? [] : profile.events.map((event) => ({ ...event, photos: eventPhotos.get(event.id) ?? [] })),
+        citations: person.restricted ? [] : profile.citations
       }
     });
   });
@@ -124,7 +140,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
   // there is a places database at all, so the field can say why nothing matched.
   const placesQuerySchema = z.object({ q: z.string().max(200).optional() });
 
-  app.get("/api/family-tree/places", { preHandler: app.authenticate }, async (request, reply) => {
+  app.get("/api/family-tree/places", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseQuery(placesQuerySchema, request.query);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid query", details: parsed.error });
@@ -150,7 +166,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
   // well below the global ceiling for the same reason the gallery’s is.
   app.get(
     "/api/family-tree/places/online",
-    { preHandler: app.authenticate, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    { preHandler: [app.authenticate, requireTreeView], config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const parsed = parseQuery(placesQuerySchema, request.query);
       if (parsed.error) {
@@ -170,18 +186,75 @@ export function registerPersonRoutes(app: FastifyInstance) {
 
   // The family map: every pinned birth, death, marriage and life event, plus how
   // many places have no pin yet. Read-only, like the tree.
-  app.get("/api/family-tree/map", { preHandler: app.authenticate }, async () => getFamilyMap());
+  app.get("/api/family-tree/map", { preHandler: [app.authenticate, requireTreeView] }, async (request) => {
+    // What happened to a restricted living relative is not the viewer's to see.
+    const restricted = new Set(decoratePersons(request.user!, listFamilyPersons()).filter((p) => p.restricted).map((p) => p.id));
+    const map = getFamilyMap();
+    return restricted.size === 0 ? map : { ...map, entries: map.entries.filter((entry) => !entry.personIds.some((id) => restricted.has(id))) };
+  });
+
+  // ── Who sees the tree (admin; docs/people-sharing-plan.md, D14/D15) ──
+  //
+  // canSee: false blocks the tree for a user or group; true lifts it.
+  // showLivingDetails: whether living relatives' details show for them.
+  const viewerSettings = z.object({ canSee: z.boolean().optional(), showLivingDetails: z.boolean().optional() });
+  app.put("/api/family-tree/viewers/:subjectType/:subjectId", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { subjectType, subjectId } = request.params as { subjectType: string; subjectId: string };
+    if (subjectType !== "user" && subjectType !== "group") return reply.code(400).send({ error: "Invalid subject" });
+    const parsed = parseBody(viewerSettings, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid settings", details: parsed.error });
+    const exists = subjectType === "user"
+      ? db.prepare("SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL").get(subjectId)
+      : db.prepare("SELECT 1 FROM user_groups WHERE id = ?").get(subjectId);
+    if (!exists) return reply.code(404).send({ error: subjectType === "user" ? "User not found" : "Group not found" });
+    const subject = { subjectType, subjectId } as const;
+    if (parsed.data.canSee !== undefined) setTreeBlocked(subject, !parsed.data.canSee, request.user!.id);
+    if (parsed.data.showLivingDetails !== undefined) setShowLivingDetails(subject, parsed.data.showLivingDetails);
+    logActivity({
+      event: "familytree.access.changed",
+      actorUserId: request.user!.id,
+      targetType: subjectType,
+      targetId: subjectId,
+      detail: [
+        parsed.data.canSee === undefined ? "" : parsed.data.canSee ? "can see the family tree" : "can no longer see the family tree",
+        parsed.data.showLivingDetails === undefined ? "" : parsed.data.showLivingDetails ? "sees living relatives' details" : "no longer sees living relatives' details"
+      ].filter(Boolean).join("; "),
+      ipAddress: request.ip
+    });
+    const blocked = db.prepare("SELECT 1 FROM assignments WHERE subject_type = ? AND subject_id = ? AND object_type = ? AND object_id = ? AND role = 'deny'")
+      .get(subjectType, subjectId, TREE_OBJECT_TYPE, TREE_OBJECT_ID) != null;
+    return reply.send({ canSee: !blocked });
+  });
+
+  // "Mark as deceased" for a selection (D16): the people with no dates at all are
+  // the ones who need it, and there can be dozens.
+  const deceasedSchema = z.object({ personIds: z.array(z.string().trim().min(1)).min(1).max(2000), deceased: z.boolean() });
+  app.post("/api/family-tree/persons/deceased", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(deceasedSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid selection", details: parsed.error });
+    const mark = db.prepare("UPDATE family_tree_persons SET deceased = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
+    let changed = 0;
+    db.transaction(() => { for (const id of new Set(parsed.data.personIds)) changed += mark.run(parsed.data.deceased ? 1 : 0, id).changes; })();
+    logActivity({
+      event: "familytree.persons.deceased",
+      actorUserId: request.user!.id,
+      targetType: "family_tree_person",
+      detail: `${parsed.data.deceased ? "Marked" : "Unmarked"} ${changed} family ${changed === 1 ? "member" : "members"} as deceased.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ changed, persons: decoratePersons(request.user!, parsed.data.personIds.map((id) => getFamilyPerson(id)).filter((p): p is NonNullable<typeof p> => p != null)) });
+  });
 
   // Family-tag listing: feeds the person-edit autocomplete, the people-page
   // filter, and the admin branch-access modal (editorCount). The library tag
   // browse counts only library_item taggables, so family tags need their own.
-  app.get("/api/family-tree/tags", { preHandler: app.authenticate }, async () => ({
+  app.get("/api/family-tree/tags", { preHandler: [app.authenticate, requireTreeView] }, async () => ({
     tags: listFamilyTags()
   }));
 
   // ── Persons (admin or branch editor) ──
 
-  app.post("/api/family-tree/persons", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/persons", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const user = request.user!;
     const parsed = parseBody(createPersonSchema, request.body);
     if (parsed.error) {
@@ -220,7 +293,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
     return reply.code(201).send({ person: decoratePersons(user, [person])[0] });
   });
 
-  app.patch("/api/family-tree/persons/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  app.patch("/api/family-tree/persons/:id", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const user = request.user!;
     const personId = (request.params as { id: string }).id;
     const parsed = parseBody(updatePersonSchema, request.body);
@@ -281,7 +354,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
     personIds: z.array(z.string().trim().min(1)).min(1).max(2000)
   });
 
-  app.post("/api/family-tree/persons/relatives", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/persons/relatives", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseBody(relativesSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid selection", details: parsed.error });
@@ -366,7 +439,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
     crop: portraitCropSchema
   });
 
-  app.post("/api/family-tree/persons/:id/portrait/crop", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/persons/:id/portrait/crop", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const user = request.user!;
     const personId = (request.params as { id: string }).id;
     const parsed = parseBody(portraitCropBody, request.body);
@@ -393,7 +466,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
 
   // The photo a portrait is re-cut from. An uploaded portrait has none until its
   // image is kept in App files on the first Adjust (portraits.ts).
-  app.post("/api/family-tree/persons/:id/portrait/source", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/persons/:id/portrait/source", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
     if (!getFamilyPerson(personId)) {
       return reply.code(404).send({ error: "Person not found" });
@@ -411,7 +484,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
 
   // ── Portrait upload (admin or branch editor) ──
 
-  app.put("/api/family-tree/persons/:id/portrait", { preHandler: app.authenticate }, async (request, reply) => {
+  app.put("/api/family-tree/persons/:id/portrait", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
     if (!getFamilyPerson(personId)) {
       return reply.code(404).send({ error: "Person not found" });
@@ -441,7 +514,7 @@ export function registerPersonRoutes(app: FastifyInstance) {
     return reply.send({ person: getFamilyPerson(personId) });
   });
 
-  app.delete("/api/family-tree/persons/:id/portrait", { preHandler: app.authenticate }, async (request, reply) => {
+  app.delete("/api/family-tree/persons/:id/portrait", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
     if (!getFamilyPerson(personId)) {
       return reply.code(404).send({ error: "Person not found" });

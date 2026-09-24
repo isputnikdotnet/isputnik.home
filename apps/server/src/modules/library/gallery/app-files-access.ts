@@ -31,6 +31,7 @@ import { resolveObjectRole, type AuthUser } from "../../../core/permissions.js";
 import { canManageCollection, visibleCollectionIds } from "../../stories/collection-access.js";
 import { systemLibraryId } from "./system-libraries.js";
 import { HOUSE_FOLDERS } from "./house-library.js";
+import { peopleRuleForScope, peopleSharedSql } from "./people-access.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 type User = Pick<AuthUser, "id" | "role">;
@@ -209,20 +210,44 @@ export function withFamilyUploads<T extends string[]>(user: User, libIds: T): T 
 /** Whether a scope list can match nothing at all: no libraries and no rule that
  *  lets items through. A query may skip itself on this, never on `.length`. */
 export function scopeIsEmpty(libIds: readonly string[]): boolean {
-  return libIds.length === 0 && !scopeUsers.has(libIds) && !browseUploads.has(libIds);
+  return libIds.length === 0 && !scopeUsers.has(libIds) && !browseUploads.has(libIds) && !peopleRuleForScope(libIds);
+}
+
+/** How a query uses the people rule attached to a scope list (people-access.ts). */
+export interface GalleryScopeOptions {
+  /** false: leave photos shared by person out — the folder views, whose folder
+   *  names are not the relative's to see. */
+  people?: boolean;
+  /** true: the query is about WHERE photos were taken (map, places, the place
+   *  facet); photos shared by person join it only when the recipient may see
+   *  locations (D10). */
+  location?: boolean;
+  /** A gallery_faces alias: on a photo shared by person, only a granted person's
+   *  face counts (the People list, the people facet). */
+  faceAlias?: string;
+  /** The query is one person's photos: those shared by person join it only when
+   *  that person is one of the granted ones. */
+  onlyForPerson?: string;
 }
 
 /** A WHERE fragment for "this row's item is in the scope": in one of its libraries,
- *  an App files item the scope's user may see, or — for a browsing scope — a
- *  family-tree upload. `alias` names the library_items table in the query. Place
- *  the params where the fragment goes. */
-export function galleryScopeSql(libIds: readonly string[], alias = "library_items"): { sql: string; params: unknown[] } {
+ *  an App files item the scope's user may see, a photo shared with them by person,
+ *  or — for a browsing scope — a family-tree upload. `alias` names the
+ *  library_items table in the query. Place the params where the fragment goes. */
+export function galleryScopeSql(libIds: readonly string[], alias = "library_items", options: GalleryScopeOptions = {}): { sql: string; params: unknown[] } {
   const entry = scopeUsers.get(libIds);
   if (entry && !entry.rule) entry.rule = ruleFor(entry.user, entry.libraryId);
   const rule = entry?.rule;
   const uploads = browseUploads.get(libIds);
+  const peopleRule = peopleRuleForScope(libIds);
+  const people = peopleRule
+    && options.people !== false
+    && (!options.location || peopleRule.showLocation)
+    && (!options.onlyForPerson || peopleRule.personIds.includes(options.onlyForPerson))
+    ? peopleRule
+    : undefined;
   const inScope = `${alias}.library_id IN (SELECT value FROM json_each(?))`;
-  if (!rule && !uploads) return { sql: inScope, params: [JSON.stringify(libIds)] };
+  if (!rule && !uploads && !people) return { sql: inScope, params: [JSON.stringify(libIds)] };
   const parts = [inScope];
   const params: unknown[] = [JSON.stringify(libIds)];
   if (rule) {
@@ -232,6 +257,11 @@ export function galleryScopeSql(libIds: readonly string[], alias = "library_item
   if (uploads) {
     parts.push(`(${alias}.library_id = ? AND ${alias}.id IN (${familyUploadsSql(uploads.admin)}))`);
     params.push(uploads.libraryId, uploads.libraryId, `${HOUSE_FOLDERS.familyTree}/%`, `${HOUSE_FOLDERS.familyTree}/Portraits/%`);
+  }
+  if (people) {
+    const shared = peopleSharedSql(people, alias, { faceAlias: options.faceAlias });
+    parts.push(shared.sql);
+    params.push(...shared.params);
   }
   return { sql: `(${parts.join(" OR ")})`, params };
 }

@@ -62,6 +62,9 @@ export interface GalleryAsset {
   // Voice notes recorded on the photo (docs/photo-review-plan.md, phase 4).
   // Detail only, like people.
   voiceNotes?: VoiceNote[];
+  /** "Don't share this photo" (sharing by person), for whoever manages its library.
+   *  Detail only; null when the viewer may not change it. */
+  shareControl?: { excluded: boolean } | null;
 }
 
 /** One detected face on a photo. */

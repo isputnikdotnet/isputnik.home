@@ -14,6 +14,15 @@ export type Nullable<T> = { [K in keyof T]: T[K] | null };
 /** Columns the query itself keeps NULL out of (`WHERE col IS NOT NULL`, an inner join on it). */
 export type NonNull<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
 
+/** `access_settings` */
+export interface AccessSettingRow {
+  subject_type: "user" | "group";
+  subject_id: string;
+  show_location: 0 | 1;
+  show_living_details: 0 | 1;
+  updated_at: string;
+}
+
 /** `activity_logs` */
 export interface ActivityLogRow {
   id: string;
@@ -392,6 +401,7 @@ export interface FamilyTreePersonRow {
   portrait_item_id: string | null;
   portrait_crop_json: string | null;
   portrait_file_item_id: string | null;
+  deceased: number;
   gallery_person_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -600,6 +610,13 @@ export interface GalleryPlaceRow {
   dataset: string;
 }
 
+/** `gallery_share_exclusions` */
+export interface GalleryShareExclusionRow {
+  item_id: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 /** `gallery_slideshow_items` */
 export interface GallerySlideshowItemRow {
   slideshow_id: string;
@@ -680,6 +697,12 @@ export interface InboxDeliverySeenRow {
   folder: string;
   seen_at: string;
   dismissed_at: string | null;
+}
+
+/** `invite_groups` */
+export interface InviteGroupRow {
+  invite_id: string;
+  group_id: string;
 }
 
 /** `invites` */
@@ -1356,6 +1379,7 @@ export interface WorkRow {
 
 /** Every table's row type, by table name. */
 export interface TableRows {
+  access_settings: AccessSettingRow;
   activity_logs: ActivityLogRow;
   api_tokens: ApiTokenRow;
   app_settings: AppSettingRow;
@@ -1403,11 +1427,13 @@ export interface TableRows {
   gallery_music_tracks: GalleryMusicTrackRow;
   gallery_people: GalleryPersonRow;
   gallery_places: GalleryPlaceRow;
+  gallery_share_exclusions: GalleryShareExclusionRow;
   gallery_slideshow_items: GallerySlideshowItemRow;
   gallery_slideshows: GallerySlideshowRow;
   gallery_voice_notes: GalleryVoiceNoteRow;
   group_members: GroupMemberRow;
   inbox_delivery_seen: InboxDeliverySeenRow;
+  invite_groups: InviteGroupRow;
   invites: InviteRow;
   ip_reputation: IpReputationRow;
   item_categories: ItemCategoryRow;

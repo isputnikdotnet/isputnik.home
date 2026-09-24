@@ -20,6 +20,11 @@ export interface FamilyPerson {
   // Partial ISO dates: "YYYY" | "YYYY-MM" | "YYYY-MM-DD".
   birthDate: string | null;
   deathDate: string | null;
+  /** "Deceased (date unknown)": not living, for privacy, without a death date. */
+  deceased: boolean;
+  /** A living relative whose details this viewer may not see (name and place in
+   *  the tree only). Server-decided, like canEdit. */
+  restricted?: boolean;
   birthplace: string | null;
   deathPlace: string | null;
   // Set when the place was picked from the places search; typed text has none.

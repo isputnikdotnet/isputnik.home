@@ -357,7 +357,11 @@
     "deleteConfirmTitle": "Delete {{role}} invite link?",
     "deleteConfirmLabel": "Delete link",
     "deleteBody1": "This invite link will no longer be usable.",
-    "deleteBody2": "Existing user accounts and accepted invites are not changed."
+    "deleteBody2": "Existing user accounts and accepted invites are not changed.",
+    "joinsGroups": "Joins these groups",
+    "joinsHint": "When they sign up they are added to these groups, and get everything the groups are given.",
+    "noGroups": "No groups yet. Create one in Members → Groups to give an invite access.",
+    "joinsRow": "Joins {{names}}"
   },
   "libraries": {
     "typeAudiobooks": "Audiobooks",

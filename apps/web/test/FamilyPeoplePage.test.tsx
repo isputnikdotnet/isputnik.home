@@ -56,6 +56,7 @@ const person = (id: string, name: string, over: Partial<FamilyPerson> = {}): Fam
   gender: "unknown",
   birthDate: null,
   deathDate: null,
+  deceased: false,
   birthplace: null,
   deathPlace: null,
   birthPin: null,

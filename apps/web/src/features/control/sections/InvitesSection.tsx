@@ -38,6 +38,9 @@ export function InvitesSection() {
   const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ManagedInvite | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Groups the invite's person joins on sign-up, so they arrive with access (D19).
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [joinGroups, setJoinGroups] = useState<Set<string>>(new Set());
 
   const loadInvites = useCallback(async () => {
     const payload = await api<{ invites: ManagedInvite[] }>("/api/invites");
@@ -63,7 +66,11 @@ export function InvitesSection() {
     setInviteUrl("");
     setError("");
     setModalError("");
+    setJoinGroups(new Set());
     setCreateOpen(true);
+    api<{ groups: { id: string; name: string }[] }>("/api/groups")
+      .then((payload) => setGroups(payload.groups.filter((group) => group.id !== "grp-everyone" && group.id !== "grp-system-admins")))
+      .catch(() => setGroups([]));
   };
 
   const createInvite = async () => {
@@ -72,7 +79,7 @@ export function InvitesSection() {
     try {
       const payload = await api<{ invite: { url: string } }>("/api/invites", {
         method: "POST",
-        body: JSON.stringify({ role: "member", expiresInDays: 7 })
+        body: JSON.stringify({ role: "member", expiresInDays: 7, groupIds: [...joinGroups] })
       });
       setInviteUrl(payload.invite.url);
       await loadInvites();
@@ -163,6 +170,7 @@ export function InvitesSection() {
                     <div className="datagrid-primary">
                       <strong>{t("control:invites.inviteRow", { role: inviteRoleLabel(invite.role) })}</strong>
                       <small>{t("control:invites.createdBy", { name: invite.createdByName, date: formatManagedDate(invite.createdAt) })}</small>
+                      {invite.groups.length > 0 && <small>{t("control:invites.joinsRow", { names: invite.groups.map((group) => group.name).join(", ") })}</small>}
                     </div>
                   </td>
                   <td>
@@ -205,7 +213,27 @@ export function InvitesSection() {
           onClose={() => setCreateOpen(false)}
         >
           {!inviteUrl ? (
-            <p>{t("control:invites.createIntro")}</p>
+            <>
+              <p>{t("control:invites.createIntro")}</p>
+              <fieldset className="invite-groups">
+                <legend>{t("control:invites.joinsGroups")}</legend>
+                <small>{groups.length > 0 ? t("control:invites.joinsHint") : t("control:invites.noGroups")}</small>
+                {groups.map((group) => (
+                  <label key={group.id} className="invite-group-option">
+                    <input
+                      type="checkbox"
+                      checked={joinGroups.has(group.id)}
+                      onChange={(event) => setJoinGroups((current) => {
+                        const next = new Set(current);
+                        if (event.target.checked) next.add(group.id); else next.delete(group.id);
+                        return next;
+                      })}
+                    />
+                    <span>{group.name}</span>
+                  </label>
+                ))}
+              </fieldset>
+            </>
           ) : (
             <section className="created-invite" aria-label={t("control:invites.newInviteLinkAria")}>
               <strong>{t("control:invites.newInviteLinkLabel")}</strong>

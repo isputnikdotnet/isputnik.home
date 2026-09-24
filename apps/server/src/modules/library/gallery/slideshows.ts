@@ -11,7 +11,7 @@ import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import type { CardFont, CardSize } from "./slideshow-title-card.js";
 import { entityTagsByIds } from "../shared/tagging.js";
-import { galleryScopeSql } from "./app-files-access.js";
+import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
 import type { GalleryDetailRow, GallerySlideshowItemRow, GallerySlideshowRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 const SLIDESHOW_TAG_TYPE = "gallery_slideshow";
@@ -380,7 +380,7 @@ export function summarize(
 // One slideshow's visible items, in presentation (position) order. Paged like the
 // album detail. `dwell` is the per-slide override (null = use slide_seconds).
 export function getSlideshowItems(userId: string, libIds: string[], slideshow: SlideshowRow, limit: number, offset: number) {
-  if (libIds.length === 0) return { assets: [], total: 0 };
+  if (scopeIsEmpty(libIds)) return { assets: [], total: 0 };
   const scope = galleryScopeSql(libIds);
   const where = `
     gallery_slideshow_items.slideshow_id = ?
@@ -420,7 +420,7 @@ export interface SlideshowRenderItem
 }
 
 export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRow): SlideshowRenderItem[] {
-  if (libIds.length === 0) return [];
+  if (scopeIsEmpty(libIds)) return [];
   const scope = galleryScopeSql(libIds);
   return db.prepare(`
     SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,
@@ -445,7 +445,7 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
 // given library access and by kind, so an id that stopped being reachable (or was
 // never a video) resolves to null and the render simply goes on without it.
 export function getClipRenderItem(libIds: string[], itemId: string | null): SlideshowRenderItem | null {
-  if (!itemId || libIds.length === 0) return null;
+  if (!itemId || scopeIsEmpty(libIds)) return null;
   const scope = galleryScopeSql(libIds);
   const row = db.prepare(`
     SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,

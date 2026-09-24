@@ -13,6 +13,7 @@ import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./ca
 import { recomputeClusterCentroid } from "./faces/cluster.js";
 import type { GalleryFaceRow, GalleryPersonRow, ItemMetadataRow } from "../../../db/rows.js";
 import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
+import { deletePersonGrants, movePersonGrants } from "./people-access.js";
 
 
 export interface GalleryPersonSummary {
@@ -33,7 +34,9 @@ type PersonListRow = Pick<GalleryPersonRow, "id" | "name"> & {
 // Folder view). Hidden people are omitted unless asked for.
 export function listGalleryPeople(libIds: string[], includeHidden = false): GalleryPersonSummary[] {
   if (scopeIsEmpty(libIds)) return [];
-  const scope = galleryScopeSql(libIds, "li");
+  // On a photo shared by person, only the people shared count: a relative's People
+  // page lists the people shared with them, not everyone at the party.
+  const scope = galleryScopeSql(libIds, "li", { faceAlias: "gf" });
   const rows = db.prepare(`
     -- One row per (person, item): an auto pass can leave several face rows for the
     -- same person in one photo, so DISTINCT collapses them before counting. taken_at
@@ -123,7 +126,8 @@ export function getGalleryPersonPhotos(
   if (!person) return null;
   if (person.hidden && !includeHidden) return null;
   if (scopeIsEmpty(libIds)) return { person: { id: person.id, name: person.name, coverItemId: person.cover_item_id }, assets: [], total: 0 };
-  const scope = galleryScopeSql(libIds);
+  // Photos shared by person count here only when THIS person is one of those shared.
+  const scope = galleryScopeSql(libIds, "library_items", { onlyForPerson: personId });
   const itemFilter = `
     library_items.id IN (
       SELECT gf.item_id FROM gallery_faces gf
@@ -209,6 +213,8 @@ export function setGalleryPersonCover(personId: string, itemId: string | null): 
 export function deleteGalleryPerson(personId: string): boolean {
   return db.transaction(() => {
     db.prepare("DELETE FROM gallery_faces WHERE person_id = ? AND box_x IS NULL AND source = 'manual'").run(personId);
+    // Whoever this person was shared with no longer sees photos through them.
+    deletePersonGrants(personId);
     const res = db.prepare("DELETE FROM gallery_people WHERE id = ?").run(personId);
     return res.changes > 0;
   })();
@@ -227,6 +233,8 @@ export function mergeGalleryPeople(sourceId: string, targetId: string): boolean 
     db.prepare("UPDATE gallery_faces SET person_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE person_id = ?").run(targetId, sourceId);
     // Carry the source's exclusions over to the target before it's deleted (cascade).
     db.prepare("UPDATE OR IGNORE gallery_face_exclusions SET person_id = ? WHERE person_id = ?").run(targetId, sourceId);
+    // Shares of the source now reach the merged person (docs/people-sharing-plan.md).
+    movePersonGrants(sourceId, targetId);
     db.prepare("DELETE FROM gallery_people WHERE id = ?").run(sourceId);
     // A merge is deliberate curation — anchor the target so reclustering re-unions the
     // merged groups instead of re-splitting them on the next scan.
@@ -358,6 +366,40 @@ export function rejectGalleryFace(faceId: string): boolean {
     if (previous) recomputeClusterCentroid(previous);
   })();
   return true;
+}
+
+// "Review N" before sharing (docs/people-sharing-plan.md, D6): of a person's photos
+// matched only automatically, the right ones become confirmed — and so shared —
+// and on the wrong ones each of their faces is said not to be them, exactly as
+// rejecting it one by one would. A photo with no automatic face of theirs is left
+// alone either way. Returns how many photos each list changed.
+export function confirmPersonPhotos(personId: string, confirmIds: string[], rejectIds: string[]): { confirmed: number; rejected: number } | null {
+  if (!getGalleryPersonRow(personId)) return null;
+  const autoFaces = db.prepare(`
+    SELECT id FROM gallery_faces
+    WHERE person_id = ? AND item_id = ? AND assignment IN ('auto', 'suggested') AND source = 'scan'
+  `);
+  const confirm = db.prepare(`
+    UPDATE gallery_faces SET assignment = 'confirmed', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE person_id = ? AND item_id = ? AND assignment IN ('auto', 'suggested')
+  `);
+  let confirmed = 0;
+  let rejected = 0;
+  db.transaction(() => {
+    for (const itemId of new Set(confirmIds)) {
+      if (confirm.run(personId, itemId).changes > 0) confirmed += 1;
+    }
+    for (const itemId of new Set(rejectIds)) {
+      const faces = autoFaces.all(personId, itemId) as Pick<GalleryFaceRow, "id">[];
+      for (const face of faces) rejectGalleryFace(face.id);
+      if (faces.length > 0) rejected += 1;
+    }
+    // A confirmed face pins the cluster; a rejected one leaves it. Both move the
+    // centroid and the count the People page shows.
+    recomputeClusterCentroid(personId);
+    recomputeFaceCount(personId);
+  })();
+  return { confirmed, rejected };
 }
 
 // Tag one photo with a person (manual, whole-photo). Idempotent: re-tagging the same

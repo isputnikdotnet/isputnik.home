@@ -13,6 +13,8 @@ import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/libra
 import { visibleCollectionIds } from "../stories/collection-access.js";
 import { COVER_BLOCK_JOINS, COVER_BLOCK_ORDER, COVER_BLOCK_WHERE } from "../stories/cover-sql.js";
 import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
+import { canSeeTree, isLiving, showLivingDetailsFor } from "../familytree/tree-access.js";
+import { canEditPerson } from "../familytree/access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
 import type {
   FamilyTreePersonRow,
@@ -199,23 +201,24 @@ const hydrateGallery: Hydrator = (entityIds, user) => {
 };
 
 type FamilyPersonRow = Pick<FamilyTreePersonRow,
-  "id" | "name" | "maiden_name" | "birth_date" | "death_date" | "updated_at" | "portrait_storage_key"> & {
+  "id" | "name" | "maiden_name" | "birth_date" | "death_date" | "deceased" | "updated_at" | "portrait_storage_key"> & {
   portrait_item_cover: ItemMetadataRow["cover_storage_key"] | null;
 };
 
-// Family-tree persons. Reads are open to every signed-in user (the tag scoping
-// in familytree/access.ts governs EDITING only, and the schema says as much), so
-// there is no per-person access check to apply here — the plugin's authenticate
-// preHandler is the whole gate. The portrait is either an uploaded image or the
-// cover of a chosen gallery item, mirroring familytree/persons.ts.
-const hydrateFamilyPersons: Hydrator = (entityIds) => {
+// Family-tree persons: for anyone the tree is not blocked for (familytree/
+// tree-access.ts, D14) — for anyone else each one is unavailable. A living
+// relative the viewer may not see the details of shows no years (D15). The
+// portrait is either an uploaded image or the cover of a chosen gallery item,
+// mirroring familytree/persons.ts.
+const hydrateFamilyPersons: Hydrator = (entityIds, user) => {
   const result = new Map<string, HydratedEntity>();
-  if (entityIds.length === 0) return result;
+  if (entityIds.length === 0 || !canSeeTree(user)) return result;
+  const showLiving = showLivingDetailsFor(user);
 
   const placeholders = entityIds.map(() => "?").join(", ");
   const rows = db.prepare(`
     SELECT
-      p.id, p.name, p.maiden_name, p.birth_date, p.death_date, p.updated_at,
+      p.id, p.name, p.maiden_name, p.birth_date, p.death_date, p.deceased, p.updated_at,
       p.portrait_storage_key,
       cover.cover_storage_key AS portrait_item_cover
     FROM family_tree_persons AS p
@@ -227,10 +230,12 @@ const hydrateFamilyPersons: Hydrator = (entityIds) => {
     const version = `?v=${encodeURIComponent(row.updated_at)}`;
     const coverKey = row.portrait_storage_key ?? row.portrait_item_cover;
     // "1904 – 1971", "b. 1962", or nothing — the same shorthand the tree uses.
-    const years = [row.birth_date?.slice(0, 4), row.death_date?.slice(0, 4)].filter(Boolean);
+    const hideYears = !showLiving && isLiving({ birthDate: row.birth_date, deathDate: row.death_date, deceased: row.deceased === 1 })
+      && !canEditPerson(user, row.id);
+    const years = hideYears ? [] : [row.birth_date?.slice(0, 4), row.death_date?.slice(0, 4)].filter(Boolean);
     let subtitle: string | null = null;
     if (years.length === 2) subtitle = `${years[0]} – ${years[1]}`;
-    else if (row.birth_date) subtitle = `b. ${years[0]}`;
+    else if (years.length === 1 && row.birth_date) subtitle = `b. ${years[0]}`;
     else if (row.maiden_name) subtitle = `née ${row.maiden_name}`;
 
     result.set(row.id, {

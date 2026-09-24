@@ -5,6 +5,10 @@ import { logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { thumbnailAbsolutePath } from "../library/shared/thumbnail.js";
 import { exportGedcom, importGedcom } from "./gedcom.js";
+import { requireTreeView } from "./tree-access.js";
+import { canEditTree, decoratePersons } from "./access.js";
+import { listFamilyPersons } from "./persons.js";
+
 
 const importGedcomSchema = z.object({
   gedcom: z.string().min(1),
@@ -14,14 +18,22 @@ const importGedcomSchema = z.object({
 export function registerGedcomRoutes(app: FastifyInstance) {
   // ── GEDCOM import/export ──
 
-  // A read like the rest of the browse endpoints — any signed-in user already
-  // sees all of this data, so any of them may download it.
-  app.get("/api/family-tree/export", { preHandler: app.authenticate }, async (_request, reply) => {
+  // A whole-tree file is a copy of everyone's data, not a view of it: admins and
+  // branch editors only, and an editor's file keeps the living relatives they
+  // may not see the details of as name and relationships (tree-access.ts, D17).
+  app.get("/api/family-tree/export", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
+    const user = request.user!;
+    if (user.role !== "admin" && !canEditTree(user)) {
+      return reply.code(403).send({ error: "Only admins and branch editors can export the family tree." });
+    }
+    const privateIds = user.role === "admin"
+      ? new Set<string>()
+      : new Set(decoratePersons(user, listFamilyPersons()).filter((p) => p.restricted).map((p) => p.id));
     const filename = `family-tree-${new Date().toISOString().slice(0, 10)}.ged`;
     return reply
       .header("Content-Type", "text/x-gedcom; charset=utf-8")
       .header("Content-Disposition", `attachment; filename="${filename}"`)
-      .send(exportGedcom());
+      .send(exportGedcom(privateIds));
   });
 
   // The client sends the file's text as JSON. Fastify's default 1 MiB body

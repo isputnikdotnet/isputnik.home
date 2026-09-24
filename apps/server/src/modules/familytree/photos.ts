@@ -11,6 +11,15 @@ import { db } from "../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../library/gallery/catalog-asset.js";
 import { accessibleLibraryIds } from "../library/shared/library-access.js";
 import { appFilesLibraryId } from "../library/gallery/app-files-access.js";
+import { peopleRuleFor, peopleSharedSql } from "../library/gallery/people-access.js";
+
+// Photos shared with the viewer by person (people-access.ts) show on the walls too:
+// a relative who sees photos of Ivan sees them on Ivan's profile. A fragment that
+// matches nothing when nobody was shared with them.
+function sharedWithViewer(user: { id: string; role: string }): { sql: string; params: unknown[] } {
+  const rule = peopleRuleFor(user);
+  return rule ? peopleSharedSql(rule, "library_items") : { sql: "0", params: [] };
+}
 import type { FamilyTreeEventPhotoRow, FamilyTreePersonRow, FamilyTreePhotoRow } from "../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
@@ -116,7 +125,9 @@ export function getFamilyEventPhotos(
   // member can see (app-files-access.ts).
   const appFiles = appFilesLibraryId();
   const libIds = [...new Set([...accessibleLibraryIds(user.id, user.role, "gallery"), ...(appFiles ? [appFiles] : [])])];
-  if (libIds.length === 0) return byEvent;
+  const shared = sharedWithViewer(user);
+  if (libIds.length === 0 && shared.params.length === 0) return byEvent;
+  const libArgs = libIds.length > 0 ? libIds : [""];
 
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS}, ep.event_id AS event_id
@@ -124,10 +135,10 @@ export function getFamilyEventPhotos(
     JOIN family_tree_event_photos ep ON ep.item_id = library_items.id
     JOIN family_tree_events ev ON ev.id = ep.event_id
     WHERE ev.person_id = ?
-      AND library_items.library_id IN (${inClause(libIds.length)})
+      AND (library_items.library_id IN (${inClause(libArgs.length)}) OR ${shared.sql})
       AND library_items.deleted_at IS NULL
     ORDER BY ep.event_id, ep.position
-  `).all(user.id, personId, ...libIds) as (GalleryAssetRow & Pick<FamilyTreeEventPhotoRow, "event_id">)[];
+  `).all(user.id, personId, ...libArgs, ...shared.params) as (GalleryAssetRow & Pick<FamilyTreeEventPhotoRow, "event_id">)[];
 
   for (const row of rows) {
     const list = byEvent.get(row.event_id) ?? [];
@@ -162,7 +173,8 @@ export function getFamilyPersonPhotos(
   // family tree, which every member can see; face-cluster photos (rank 1) keep to
   // the viewer's own libraries (app-files-access.ts).
   const appFiles = appFilesLibraryId();
-  if (libIds.length === 0 && !appFiles) return { assets: [], total: 0 };
+  const shared = sharedWithViewer(user);
+  if (libIds.length === 0 && !appFiles && shared.params.length === 0) return { assets: [], total: 0 };
   const libIn = inClause(Math.max(libIds.length, 1));
   const libArgs = libIds.length > 0 ? libIds : [""];
 
@@ -179,7 +191,7 @@ export function getFamilyPersonPhotos(
     WHERE gf.person_id = ? AND gf.assignment != 'rejected'
       AND gf.item_id NOT IN (SELECT item_id FROM family_tree_photos WHERE person_id = ?)`;
   const filterSql = `
-    (library_items.library_id IN (${libIn}) OR (src.rank = 0 AND library_items.library_id = ?))
+    (library_items.library_id IN (${libIn}) OR (src.rank = 0 AND library_items.library_id = ?) OR ${shared.sql})
     AND library_items.deleted_at IS NULL`;
 
   const total = (db.prepare(`
@@ -187,7 +199,7 @@ export function getFamilyPersonPhotos(
     JOIN library_items ON library_items.id = src.item_id
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     WHERE ${filterSql}
-  `).get(personId, person.gallery_person_id, personId, ...libArgs, appFiles) as { n: number }).n;
+  `).get(personId, person.gallery_person_id, personId, ...libArgs, appFiles, ...shared.params) as { n: number }).n;
 
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS}, src.rank AS src_rank
@@ -197,7 +209,7 @@ export function getFamilyPersonPhotos(
     ORDER BY src.rank, src.pos, gallery_details.taken_at DESC, library_items.id DESC
     LIMIT ? OFFSET ?
   `).all(
-    user.id, personId, person.gallery_person_id, personId, ...libArgs, appFiles, limit, offset
+    user.id, personId, person.gallery_person_id, personId, ...libArgs, appFiles, ...shared.params, limit, offset
   ) as (GalleryAssetRow & { src_rank: number })[];
 
   return {

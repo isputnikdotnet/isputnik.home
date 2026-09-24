@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronRight, Combine, Image as ImageIcon, Pencil, SquareCheck, Trash2, Users, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Combine, Image as ImageIcon, Pencil, Share2, SquareCheck, Trash2, Users, X } from "lucide-react";
+import { PersonSharingModal } from "../PersonSharingModal";
 import { Button } from "../../../shared/Button";
 import { SelectField } from "../../../shared/SelectField";
 import { AssetTile, PersonAvatar, type LightboxSource } from "../AssetTile";
@@ -32,6 +34,8 @@ export function PeopleView({
   openLightbox: (source: LightboxSource, index: number) => void;
 }) {
   const { t } = useTranslation(["common", "gallery"]);
+  // "Who can see photos of …" (docs/people-sharing-plan.md) — admins, named people.
+  const [sharingOpen, setSharingOpen] = useState(false);
   const {
     people, selectedPerson, setSelectedPerson, personAssets, personTotal,
     renameValue, setRenameValue, mergeOpen, setMergeOpen,
@@ -84,7 +88,18 @@ export function PeopleView({
               </Button>
             </>
           )}
+          {isAdmin && selectedPerson.name && (
+            <Button
+              variant="icon"
+              title={t("gallery:people.sharing.title", { name: selectedPerson.name })}
+              aria-label={t("gallery:people.sharing.title", { name: selectedPerson.name })}
+              onClick={() => setSharingOpen(true)}
+            >
+              <Share2 size={18} aria-hidden="true" />
+            </Button>
+          )}
         </div>
+        {sharingOpen && <PersonSharingModal person={{ id: selectedPerson.id, name: selectedPerson.name }} onClose={() => setSharingOpen(false)} />}
 
         <div className="gallery-album-header">
           <span className="gallery-person-avatar">

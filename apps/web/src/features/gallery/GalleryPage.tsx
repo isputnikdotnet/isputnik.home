@@ -92,6 +92,18 @@ export function GalleryPage({
   const VIEW_TITLES = getViewTitles();
   const SORT_OPTIONS = getSortOptions();
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
+  // People shared with this viewer (docs/people-sharing-plan.md): with none of the
+  // family's libraries, these ARE their Gallery.
+  const [sharedPeople, setSharedPeople] = useState<{ id: string; name: string }[]>([]);
+  const sharedNoticeKey = `gallery.sharedPeopleSeen:${sharedPeople.map((p) => p.id).sort().join(",")}`;
+  const [sharedNoticeSeen, setSharedNoticeSeen] = useState(false);
+  useEffect(() => {
+    try { setSharedNoticeSeen(window.localStorage.getItem(sharedNoticeKey) === "1"); } catch { setSharedNoticeSeen(false); }
+  }, [sharedNoticeKey]);
+  const dismissSharedNotice = () => {
+    setSharedNoticeSeen(true);
+    try { window.localStorage.setItem(sharedNoticeKey, "1"); } catch { /* a convenience only */ }
+  };
   // The libraries facet names the Photo Inbox and App files as what they are, so
   // choosing either is a deliberate act: both system libraries are left out of
   // every scope that isn't explicit (the server's scope resolver), and this is
@@ -282,8 +294,9 @@ export function GalleryPage({
 
   const loadLibraries = useCallback(async () => {
     try {
-      const payload = await api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries");
+      const payload = await api<{ libraries: GalleryLibrary[]; sharedPeople?: { id: string; name: string }[] }>("/api/library/gallery-libraries");
       setLibraries(payload.libraries);
+      setSharedPeople(payload.sharedPeople ?? []);
       setLoaded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("gallery:page.errors.loadLibraries"));
@@ -817,7 +830,7 @@ export function GalleryPage({
             own error inside the confirm dialog. */}
         {bulkError && !bulkDeleteOpen && <MessageBox tone="error" title={t("gallery:page.errors.unableToUpdateTitle")}>{bulkError}</MessageBox>}
 
-        {loaded && libraries.length === 0 ? (
+        {loaded && libraries.length === 0 && sharedPeople.length === 0 ? (
           <div className="empty-state library-empty">
             <ImageIcon size={58} aria-hidden="true" />
             <h2>{t("gallery:page.empty.noLibrariesTitle")}</h2>
@@ -841,6 +854,15 @@ export function GalleryPage({
           </div>
         ) : (
           <>
+            {sharedPeople.length > 0 && !sharedNoticeSeen && (
+              <MessageBox
+                tone="info"
+                title={t("gallery:page.sharedPeople.title", { names: sharedPeople.map((p) => p.name).join(", ") })}
+                action={<Button variant="secondary" compact onClick={dismissSharedNotice}>{t("gallery:page.sharedPeople.dismiss")}</Button>}
+              >
+                {t("gallery:page.sharedPeople.body")}
+              </MessageBox>
+            )}
             {/* An open album still needs this for one thing: the pinned bulk-
                 action bar a live selection swaps in. Otherwise it steps aside
                 for the compact icon topbar below. */}

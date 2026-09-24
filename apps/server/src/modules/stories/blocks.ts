@@ -3,7 +3,7 @@ import { db } from "../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "../library/gallery/catalog-asset.js";
 import { getAlbum, getAlbumItems } from "../library/gallery/albums.js";
 import { getSlideshow, getSlideshowItems } from "../library/gallery/slideshows.js";
-import { galleryScopeSql } from "../library/gallery/app-files-access.js";
+import { galleryScopeSql, scopeIsEmpty } from "../library/gallery/app-files-access.js";
 import { STORY_AUDIO_ENTITY_TYPE, deleteStoryAudio } from "./audio.js";
 import { nextPosition, touchStory } from "./chapters.js";
 import {
@@ -242,7 +242,7 @@ export function reorderBlocks(storyId: string, chapterId: string, orderedIds: st
  *  Media blocks and the inline previews both render from these. */
 export function galleryAssetsByIds(userId: string, libIds: string[], itemIds: string[]) {
   const assets = new Map<string, ReturnType<typeof mapAsset>>();
-  if (libIds.length === 0 || itemIds.length === 0) return assets;
+  if (scopeIsEmpty(libIds) || itemIds.length === 0) return assets;
   const unique = [...new Set(itemIds)];
   const scope = galleryScopeSql(libIds);
   const rows = db.prepare(`

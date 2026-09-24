@@ -509,29 +509,41 @@ export function importGedcom(text: string, mode: GedcomImportMode, createdBy: st
 
 // ── Export ──
 
-export function exportGedcom(): string {
-  const persons = db.prepare(`
+// `privateIds`: living relatives the exporter may not see the details of
+// (tree-access.ts, D17) — written as name, sex and relationships only, the usual
+// privatised GEDCOM form, with their events, sources and marriages' facts left out.
+export function exportGedcom(privateIds: ReadonlySet<string> = new Set()): string {
+  const allPersons = db.prepare(`
     SELECT id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place, bio
     FROM family_tree_persons ORDER BY name COLLATE NOCASE
   `).all() as Pick<FamilyTreePersonRow, "id" | "name" | "maiden_name" | "gender" | "birth_date" | "death_date" | "birthplace" | "death_place" | "bio">[];
-  const unions = db.prepare(`
+  const persons = allPersons.map((p) => (privateIds.has(p.id)
+    ? { ...p, birth_date: null, death_date: null, birthplace: null, death_place: null, bio: null }
+    : p));
+  const allUnions = db.prepare(`
     SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note
     FROM family_tree_unions ORDER BY married_date IS NULL, married_date, id
   `).all() as Pick<FamilyTreeUnionRow, "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "divorced_date" | "note">[];
+  const unions = allUnions.map((u) => (privateIds.has(u.person1_id) || (u.person2_id != null && privateIds.has(u.person2_id))
+    ? { ...u, married_date: null, married_place: null, divorced_date: null, note: null }
+    : u));
   const childLinks = db.prepare(
     "SELECT union_id, child_id, relation FROM family_tree_children"
   ).all() as Pick<FamilyTreeChildRow, "union_id" | "child_id" | "relation">[];
-  const eventRows = db.prepare(`
+  const eventRows = (db.prepare(`
     SELECT id, person_id, type, label, date, end_date, place, note
     FROM family_tree_events ORDER BY date IS NULL, date, created_at
-  `).all() as Pick<FamilyTreeEventRow, "id" | "person_id" | "type" | "label" | "date" | "end_date" | "place" | "note">[];
+  `).all() as Pick<FamilyTreeEventRow, "id" | "person_id" | "type" | "label" | "date" | "end_date" | "place" | "note">[])
+    .filter((e) => !privateIds.has(e.person_id));
   const sources = db.prepare(
     "SELECT id, title, author, publisher, url, note FROM family_tree_sources ORDER BY title COLLATE NOCASE"
   ).all() as Pick<FamilyTreeSourceRow, "id" | "title" | "author" | "publisher" | "url" | "note">[];
-  const citations = db.prepare(`
+  const keptEvents = new Set(eventRows.map((e) => e.id));
+  const citations = (db.prepare(`
     SELECT source_id, person_id, event_id, union_id, fact, detail, url, note
     FROM family_tree_citations ORDER BY created_at
-  `).all() as Pick<FamilyTreeCitationRow, "source_id" | "person_id" | "event_id" | "union_id" | "fact" | "detail" | "url" | "note">[];
+  `).all() as Pick<FamilyTreeCitationRow, "source_id" | "person_id" | "event_id" | "union_id" | "fact" | "detail" | "url" | "note">[])
+    .filter((c) => !(c.person_id && privateIds.has(c.person_id)) && !(c.event_id && !keptEvents.has(c.event_id)));
   const sourceXref = new Map(sources.map((s, i) => [s.id, `@S${i + 1}@`]));
 
   const personXref = new Map(persons.map((p, i) => [p.id, `@I${i + 1}@`]));

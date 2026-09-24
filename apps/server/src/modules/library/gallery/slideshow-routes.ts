@@ -3,7 +3,7 @@
 // follow the bulk contract: inaccessible items are skipped and counted. Sibling of
 // album-routes.ts; the extra endpoint here is reorder (albums shipped without it).
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { galleryScopeSql } from "./app-files-access.js";
+import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
@@ -201,7 +201,7 @@ function movieTargetProblem(libraryId: string, user: { id: string; role: string 
 // same way the render resolves it against the renderer's — null when the clip is
 // gone or out of reach, and the editor then offers to choose one.
 function clipSummary(libIds: string[], itemId: string | null) {
-  if (!itemId || libIds.length === 0) return null;
+  if (!itemId || scopeIsEmpty(libIds)) return null;
   const row = db.prepare(`
     SELECT library_items.id AS id, item_metadata.title AS title,
            item_metadata.cover_storage_key AS cover_key,

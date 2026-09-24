@@ -6,6 +6,8 @@ import { parseQuery } from "../../core/shared.js";
 import { resolveCoverKey, LIBRARY_BUCKET_RE } from "./shared/thumbnail.js";
 import { getAccessibleLibrary } from "./shared/library-access.js";
 import { appFileItemForThumbnail, canSeeAppFile, isAppFilesLibrary } from "./gallery/app-files-access.js";
+import { canSeeThumbnailThroughPeople } from "./gallery/people-access.js";
+import { canSeeTree } from "../familytree/tree-access.js";
 
 // `v` is the cache-busting version token (see below); its value is opaque.
 const coverQuerySchema = z.object({ v: z.string().optional() });
@@ -43,12 +45,22 @@ export async function coversPlugin(app: FastifyInstance) {
       return reply.code(404).send({ error: "Cover not found" });
     }
     const user = request.user!;
+    // Seen only because a person in the photo was shared with this viewer: the
+    // browser keeps it minutes, not a year, so a withdrawn share clears soon
+    // (docs/people-sharing-plan.md).
+    let throughPeople = false;
+    // Portraits are the tree's own pictures: whoever the tree is blocked for
+    // does not get them either (familytree/tree-access.ts, D14).
+    if (resolved.bucket === "familytree" && !canSeeTree(user)) {
+      return reply.code(404).send({ error: "Cover not found" });
+    }
     if (LIBRARY_BUCKET_RE.test(resolved.bucket) && !getAccessibleLibrary(resolved.bucket, user.id, user.role)) {
       // App files has no library access: a thumbnail there is seen through what
       // owns its item (gallery/app-files-access.ts).
       const appFile = isAppFilesLibrary(resolved.bucket) ? appFileItemForThumbnail(storageKey) : null;
       if (!appFile || !canSeeAppFile(user, appFile)) {
-        return reply.code(404).send({ error: "Cover not found" });
+        throughPeople = canSeeThumbnailThroughPeople(user, storageKey);
+        if (!throughPeople) return reply.code(404).send({ error: "Cover not found" });
       }
     }
     const parsed = parseQuery(coverQuerySchema, request.query);
@@ -65,7 +77,9 @@ export async function coversPlugin(app: FastifyInstance) {
       // real change arrives under a new URL. This is what stops a person/timeline
       // grid of hundreds of thumbnails from re-hitting the server on every view.
       const versioned = typeof parsed.data.v === "string" && parsed.data.v !== "";
-      if (versioned) {
+      if (versioned && throughPeople) {
+        reply.header("Cache-Control", "private, max-age=300");
+      } else if (versioned) {
         reply.header("Cache-Control", "private, max-age=31536000, immutable");
       } else {
         // Un-versioned keys (face-crop avatars, in-place-overwritten covers) keep the

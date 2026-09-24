@@ -48,6 +48,8 @@ export interface FamilyPersonSummary {
   gender: string;
   birthDate: string | null;
   deathDate: string | null;
+  /** "Deceased (date unknown)" (tree-access.ts, D16). */
+  deceased: boolean;
   birthplace: string | null;
   deathPlace: string | null;
   birthPin: PlacePin | null;
@@ -62,7 +64,7 @@ export interface FamilyPersonSummary {
 
 type PersonRow = Pick<FamilyTreePersonRow,
   "id" | "name" | "maiden_name" | "gender" | "birth_date" | "death_date" | "birthplace" | "death_place"
-  | "birth_lat" | "birth_lng" | "death_lat" | "death_lng" | "bio"
+  | "birth_lat" | "birth_lng" | "death_lat" | "death_lng" | "bio" | "deceased"
   | "portrait_storage_key" | "portrait_item_id" | "portrait_crop_json" | "gallery_person_id" | "updated_at"> & {
   portrait_item_cover: ItemMetadataRow["cover_storage_key"] | null;
   portrait_item_updated: GalleryDetailRow["updated_at"] | null;
@@ -74,7 +76,7 @@ type PersonRow = Pick<FamilyTreePersonRow,
 const PERSON_SELECT = `
   SELECT p.id, p.name, p.maiden_name, p.gender, p.birth_date, p.death_date,
     p.birthplace, p.death_place, p.birth_lat, p.birth_lng, p.death_lat, p.death_lng,
-    p.bio, p.portrait_storage_key, p.portrait_item_id, p.portrait_crop_json,
+    p.bio, p.deceased, p.portrait_storage_key, p.portrait_item_id, p.portrait_crop_json,
     p.gallery_person_id, p.updated_at,
     im.cover_storage_key AS portrait_item_cover,
     gd.updated_at AS portrait_item_updated
@@ -133,6 +135,7 @@ function mapPerson(row: PersonRow, otherNames: FamilyPersonName[]): FamilyPerson
     gender: row.gender,
     birthDate: row.birth_date,
     deathDate: row.death_date,
+    deceased: row.deceased === 1,
     birthplace: row.birthplace,
     deathPlace: row.death_place,
     birthPin: pin(row.birth_lat, row.birth_lng),
@@ -271,6 +274,7 @@ export interface FamilyPersonFields {
   deathPin?: PlacePin | null;
   otherNames?: FamilyPersonName[];
   bio?: string | null;
+  deceased?: boolean;
 }
 
 /** Replaces the person's other-language names; blank rows are dropped. */
@@ -336,6 +340,7 @@ export function updateFamilyPerson(
     params.push(...update.params);
   }
   if (fields.bio !== undefined) set("bio", fields.bio?.trim() || null);
+  if (fields.deceased !== undefined) set("deceased", fields.deceased ? 1 : 0);
   if (fields.galleryPersonId !== undefined) set("gallery_person_id", fields.galleryPersonId);
   // Tags and other names live in their own tables, not columns — they apply even
   // when no column changed.

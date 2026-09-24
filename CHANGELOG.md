@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.22.0 — Share photos by person
+
+- **Share photos by person, not by library.** A relative can now be given the people in the photos instead of a whole library: open them in Control panel → Members and, on **Photos of people**, share someone. From then on they see every photo where that person is confirmed, in their own Gallery like any other photo — the timeline, the map, memories, the family tree's photo walls — and new ones appear as they are confirmed. They can download them and leave notes or voice recordings. They don't see folder or library names, or the names and faces of anyone else in the picture, and they only see where a photo was taken if you tick **Show where photos were taken**.
+- **Faces are confirmed before they are shared.** Photos the gallery matched on its own don't count until someone says so: **Review** shows them all ticked — untick the ones that aren't that person and confirm. A person's page in the Gallery now has **Who can see photos of …**, and the photo viewer's menu has **Don't share this photo**.
+- **One place for everything a person can reach.** Clicking a name in Members → Users opens their access on tabs — account, groups, every library (what was given directly, and what they get through a group or the household), photos of people, the family tree and stories, and what was sent to them directly. A group opens the same way, with its members first. Everything still also lives where it did, and both places show the same.
+- **Invites can put someone straight into groups**, so a relative arrives with access in place.
+- **Living relatives' details are private.** In the family tree, anyone who doesn't edit a living relative's branch sees their name, place in the tree and portrait, but not their dates, places, life story, events or map pins — unless you allow it with **Show details of living relatives**. Everyone who already had an account keeps seeing everything. People with no dates count as living: **Deceased (date unknown)** in Edit person, and **Mark as deceased** for a selection on People, fixes that for old ancestors.
+- **The family tree can be blocked** for a person or a group, and **exporting it as GEDCOM** is now for administrators and branch editors — an editor's file leaves out the private details of living relatives.
+
 ## 4.21.2 — Family tree photos, one choice away
 
 - **The Gallery is back to your photo libraries, with the family tree's photos one choice away.** 4.21.1 mixed the photos uploaded from the family tree into the Timeline, Folders, the map and the Home page. Now they stay out unless you ask: **Filter → Libraries → Family tree photos** shows them, on their own or with your libraries.

@@ -14,6 +14,9 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedUser } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { AccessDialog } from "../access/AccessDialog";
+import type { AccessTab } from "../access/types";
+import { initialParam } from "../links";
 
 type UserRole = "admin" | "member";
 
@@ -54,6 +57,13 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   const [creating, setCreating] = useState(false);
 
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
+  // The one Access dialog (features/control/access): everything this person can
+  // reach, the edit form as its Account tab. ?user=&tab= opens it on arrival.
+  const [accessFor, setAccessFor] = useState<{ id: string; tab?: AccessTab } | null>(() => {
+    const id = initialParam("user");
+    return id ? { id, tab: (initialParam("tab") || undefined) as AccessTab | undefined } : null;
+  });
+  const [accountSaved, setAccountSaved] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState<UserRole>("member");
@@ -88,6 +98,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     loadUsers().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:users.loadFailed")));
   }, [loadUsers, t]);
 
+  // Opened from the address before the list arrived: fill the Account tab once it has.
+  useEffect(() => {
+    if (!accessFor || editingUser?.id === accessFor.id) return;
+    const account = users.find((u) => u.id === accessFor.id);
+    if (!account) return;
+    setEditingUser(account);
+    setEditDisplayName(account.displayName);
+    setEditEmail(account.email);
+    setEditRole(account.role);
+  }, [accessFor, editingUser, users]);
+
   const visibleUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return users;
@@ -111,13 +132,15 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     setCreateOpen(true);
   };
 
-  const openEdit = (account: ManagedUser) => {
+  const openEdit = (account: ManagedUser, tab: AccessTab = "account") => {
     setError("");
     setModalError("");
+    setAccountSaved(false);
     setEditingUser(account);
     setEditDisplayName(account.displayName);
     setEditEmail(account.email);
     setEditRole(account.role);
+    setAccessFor({ id: account.id, tab });
   };
 
   const openPassword = (account: ManagedUser) => {
@@ -164,6 +187,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
     setSaving(true);
     setModalError("");
+    setAccountSaved(false);
     try {
       await api(`/api/users/${editingUser.id}`, {
         method: "PATCH",
@@ -173,8 +197,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           role: editRole
         })
       });
-      setEditingUser(null);
+      // The dialog stays open: the other tabs are still there to work on.
       await loadUsers();
+      setAccountSaved(true);
     } catch (err) {
       setModalError(err instanceof Error ? err.message : t("controlAdmin:users.saveUserFailed"));
     } finally {
@@ -376,7 +401,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                         </span>
                         <div className="datagrid-primary">
                           <span className="user-name-line">
-                            <strong>{account.displayName}</strong>
+                            <Button variant="text" className="user-name-link" onClick={() => openEdit(account, "libraries")}>
+                              <strong>{account.displayName}</strong>
+                            </Button>
                             {isCurrent && <span className="status-badge current">{t("controlAdmin:users.badgeCurrent")}</span>}
                             {account.protectedFromDelete && <span className="status-badge protected">{t("controlAdmin:users.badgeProtected")}</span>}
                             {account.locked && <span className="status-badge locked">{t("controlAdmin:users.badgeLocked")}</span>}
@@ -415,6 +442,12 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                               label: t("controlAdmin:users.editUser"),
                               icon: <Pencil size={15} />,
                               onSelect: () => openEdit(account)
+                            },
+                            {
+                              key: "access",
+                              label: t("controlAdmin:access.menuLabel"),
+                              icon: <ShieldCheck size={15} />,
+                              onSelect: () => openEdit(account, "libraries")
                             },
                             {
                               key: "password",
@@ -546,14 +579,14 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         </Modal>
       )}
 
-      {editingUser && (
-        <Modal
-          title={t("controlAdmin:users.editTitle", { name: editingUser.displayName })}
-          className="user-form-modal"
-          busy={saving}
-          onClose={() => setEditingUser(null)}
-          onSubmit={saveUser}
-        >
+      {accessFor && (
+        <AccessDialog
+          subject={{ subjectType: "user", subjectId: accessFor.id }}
+          initialTab={accessFor.tab}
+          onClose={() => { setAccessFor(null); setEditingUser(null); }}
+          onChanged={() => void loadUsers()}
+          account={editingUser && (
+        <form className="access-account-form" onSubmit={saveUser}>
           <Field label={t("controlAdmin:users.displayName")} value={editDisplayName} onChange={setEditDisplayName} autoComplete="name" />
           <Field label={t("common.email")} type="email" value={editEmail} onChange={setEditEmail} autoComplete="email" />
           <SelectField
@@ -573,15 +606,15 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
             </MessageBox>
           )}
           {modalError && <MessageBox tone="error" title={t("controlAdmin:users.saveUserFailed")}>{modalError}</MessageBox>}
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setEditingUser(null)} disabled={saving} autoFocus>
-              {t("common.cancel")}
-            </Button>
+          {accountSaved && !modalError && <MessageBox tone="success" title={t("controlAdmin:access.saved")}>{t("controlAdmin:access.savedBody")}</MessageBox>}
+          <div className="access-account-actions">
             <Button variant="primary" type="submit" disabled={saving || !editDisplayName.trim() || !editEmail.trim()}>
               {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:users.saveChanges")}
             </Button>
           </div>
-        </Modal>
+        </form>
+          )}
+        />
       )}
 
       {passwordUser && (

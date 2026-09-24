@@ -6,8 +6,9 @@ import { logActivity } from "../../../db.js";
 import { receiveUpload, UploadError } from "../../uploads/index.js";
 import { canUserAccessBook, canUserWriteAsset, getLibraryForBook } from "../shared/library-access.js";
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
+import { canSeeThroughPeople } from "./people-access.js";
 import {
-  deleteVoiceNote, listVoiceNotes, storeVoiceNote, voiceNoteFile, VoiceNoteError,
+  deleteVoiceNote, listVoiceNotes, storeVoiceNote, voiceNoteFile, voiceNoteRecordedBy, VoiceNoteError,
   VOICE_NOTE_EXTENSIONS, VOICE_NOTE_MAX_BYTES
 } from "./voice-notes.js";
 
@@ -18,12 +19,14 @@ function tempDir(): string {
 export async function galleryVoiceNoteRoutesPlugin(app: FastifyInstance) {
   // Record: one file, kept on the photo. The write right on the PHOTO — the
   // library's edit right, or an album sent with a question — is what allows
-  // it; the house library takes the file on the admin's standing nomination.
+  // it, and so does a person in it shared with them: hearing what relatives
+  // remember is the point of sharing (docs/people-sharing-plan.md, D5). The
+  // house library takes the file on the admin's standing nomination.
   app.post("/api/library/gallery/assets/:id/voice-notes", { preHandler: app.authenticate }, async (request, reply) => {
     const itemId = (request.params as { id: string }).id;
     const user = request.user!;
     const lib = getLibraryForBook(itemId);
-    if (!lib || lib.type !== "gallery" || !canUserWriteAsset(itemId, lib, user.id, user.role)) {
+    if (!lib || lib.type !== "gallery" || !(canUserWriteAsset(itemId, lib, user.id, user.role) || canSeeThroughPeople(user, itemId))) {
       return reply.code(403).send({ error: "Write access required to record a voice note on this photo." });
     }
     let received;
@@ -86,7 +89,9 @@ export async function galleryVoiceNoteRoutesPlugin(app: FastifyInstance) {
     const { id: itemId, noteId } = request.params as { id: string; noteId: string };
     const user = request.user!;
     const lib = getLibraryForBook(itemId);
-    if (!lib || lib.type !== "gallery" || !canUserWriteAsset(itemId, lib, user.id, user.role)) {
+    // Someone who has the photo through a shared person removes only what they recorded.
+    const ownOnShared = lib?.type === "gallery" && canSeeThroughPeople(user, itemId) && voiceNoteRecordedBy(itemId, noteId) === user.id;
+    if (!lib || lib.type !== "gallery" || !(canUserWriteAsset(itemId, lib, user.id, user.role) || ownOnShared)) {
       return reply.code(403).send({ error: "Write access required to remove a voice note from this photo." });
     }
     if (!deleteVoiceNote(itemId, noteId, user.id)) return reply.code(404).send({ error: "Voice note not found" });

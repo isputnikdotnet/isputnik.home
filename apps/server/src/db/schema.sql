@@ -274,6 +274,15 @@ CREATE TABLE IF NOT EXISTS invites (
   revoked_at  TEXT
 );
 
+-- The groups an invite's person joins when they sign up, so a relative arrives
+-- with access in place (docs/people-sharing-plan.md, D19). A group deleted
+-- meanwhile simply drops out.
+CREATE TABLE IF NOT EXISTS invite_groups (
+  invite_id TEXT NOT NULL REFERENCES invites(id) ON DELETE CASCADE,
+  group_id  TEXT NOT NULL REFERENCES user_groups(id) ON DELETE CASCADE,
+  PRIMARY KEY (invite_id, group_id)
+);
+
 CREATE TABLE IF NOT EXISTS user_groups (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -302,6 +311,20 @@ CREATE TABLE IF NOT EXISTS assignments (
   created_by    TEXT REFERENCES users(id),
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   PRIMARY KEY (subject_type, subject_id, object_type, object_id)
+);
+
+-- Settings that ride along with a subject's grants (docs/people-sharing-plan.md,
+-- D10 and D15): whether photos they see only through a person grant show where
+-- they were taken, and whether living family-tree relatives show their details.
+-- No row = the defaults. subject_id is polymorphic like assignments', so app code
+-- removes the row with the user or group.
+CREATE TABLE IF NOT EXISTS access_settings (
+  subject_type        TEXT NOT NULL CHECK (subject_type IN ('user', 'group')),
+  subject_id          TEXT NOT NULL,
+  show_location       INTEGER NOT NULL DEFAULT 0 CHECK (show_location IN (0, 1)),
+  show_living_details INTEGER NOT NULL DEFAULT 0 CHECK (show_living_details IN (0, 1)),
+  updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (subject_type, subject_id)
 );
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -1777,6 +1800,8 @@ CREATE INDEX IF NOT EXISTS idx_taggables_entity         ON taggables(entity_type
 CREATE INDEX IF NOT EXISTS idx_person_aliases_alias     ON person_aliases(alias);
 CREATE INDEX IF NOT EXISTS idx_gallery_faces_item        ON gallery_faces(item_id);
 CREATE INDEX IF NOT EXISTS idx_gallery_faces_person      ON gallery_faces(person_id);
+-- The person-grant rule: a granted person's confirmed faces, straight to items.
+CREATE INDEX IF NOT EXISTS idx_gallery_faces_person_share ON gallery_faces(person_id, assignment, item_id);
 
 -- Per-item record of the face-detection pass, so a (re)scan only processes items it
 -- hasn't seen. A row is upserted after an item is detected; `force` deletes rows to
@@ -1803,6 +1828,14 @@ CREATE TABLE IF NOT EXISTS gallery_face_exclusions (
   person_id  TEXT NOT NULL REFERENCES gallery_people(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   PRIMARY KEY (item_id, person_id)
+);
+
+-- "Don't share this photo": never reached through a person grant, whoever is in
+-- it (docs/people-sharing-plan.md). Library access and other shares are untouched.
+CREATE TABLE IF NOT EXISTS gallery_share_exclusions (
+  item_id    TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_audio_files_item         ON audio_files(item_id, track_number);
@@ -1878,6 +1911,9 @@ CREATE TABLE IF NOT EXISTS family_tree_persons (
   portrait_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   portrait_crop_json TEXT,
   portrait_file_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- "Deceased (date unknown)": counts as not living for privacy even without a
+  -- death date (docs/people-sharing-plan.md, D16; migration 83).
+  deceased          INTEGER NOT NULL DEFAULT 0,
   gallery_person_id TEXT REFERENCES gallery_people(id) ON DELETE SET NULL,
   created_by        TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

@@ -78,7 +78,9 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
 // `parent`. `parent` is a normalised relative path ("" = library root).
 export function queryGalleryFolders(userId: string, libIds: string[], parent: string, limit: number, offset: number) {
   if (scopeIsEmpty(libIds)) return { parent, folders: [], assets: [], total: 0 };
-  const scope = galleryScopeSql(libIds);
+  // Folder names are not for someone who sees these photos only through a person
+  // shared with them (docs/people-sharing-plan.md): folders show their libraries.
+  const scope = galleryScopeSql(libIds, "library_items", { people: false });
   // Trim leading/trailing slashes with a linear scan, not /^\/+|\/+$/g: `parent`
   // is a raw query param, and that regex is quadratic (js/polynomial-redos) on an
   // input with a long internal slash run (e.g. "a/////…////b").
@@ -177,7 +179,9 @@ export function searchGalleryFolders(libIds: string[], q: string, limit: number)
   // No term lists the scope's folders instead of nothing: the Keep dialog's
   // "use an existing folder" tab opens on the whole list and narrows as you type.
   if (scopeIsEmpty(libIds)) return { folders: [], total: 0 };
-  const scope = galleryScopeSql(libIds);
+  // Folder names are not for someone who sees these photos only through a person
+  // shared with them (docs/people-sharing-plan.md): folders show their libraries.
+  const scope = galleryScopeSql(libIds, "library_items", { people: false });
 
   const rows = db.prepare(`
     SELECT library_items.folder_path AS p, COUNT(*) AS n
@@ -256,9 +260,9 @@ export function galleryFacets(libIds: string[], language = "en") {
   const withGps = (db.prepare(`
     SELECT COUNT(*) AS n
     FROM library_items JOIN gallery_details ON gallery_details.item_id = library_items.id
-    WHERE ${scope.sql} AND library_items.deleted_at IS NULL
+    WHERE ${galleryScopeSql(libIds, "library_items", { location: true }).sql} AND library_items.deleted_at IS NULL
       AND gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL
-  `).get(...scope.params) as { n: number }).n;
+  `).get(...galleryScopeSql(libIds, "library_items", { location: true }).params) as { n: number }).n;
   // Named, visible people who appear in at least one asset in scope. Auto-clusters
   // are unnamed (name = '') and stay out of the filter list.
   const people = (db.prepare(`
@@ -267,9 +271,9 @@ export function galleryFacets(libIds: string[], language = "en") {
     WHERE gp.name != '' AND gp.hidden = 0 AND EXISTS (
       SELECT 1 FROM gallery_faces gf JOIN library_items li ON li.id = gf.item_id
       WHERE gf.person_id = gp.id AND gf.assignment != 'rejected'
-        AND li.deleted_at IS NULL AND ${galleryScopeSql(libIds, "li").sql})
+        AND li.deleted_at IS NULL AND ${galleryScopeSql(libIds, "li", { faceAlias: "gf" }).sql})
     ORDER BY v COLLATE NOCASE
-  `).all(...galleryScopeSql(libIds, "li").params) as { v: GalleryPersonRow["name"] }[]).map((r) => r.v);
+  `).all(...galleryScopeSql(libIds, "li", { faceAlias: "gf" }).params) as { v: GalleryPersonRow["name"] }[]).map((r) => r.v);
   const tags = (db.prepare(`
     SELECT DISTINCT tags.display_name AS v
     FROM tags
@@ -301,7 +305,8 @@ const PLACES_VIEW_LIMIT = 1000;
 // viewer's language; empty without a place names database.
 export function queryGalleryPlaces(userId: string, libIds: string[], language: string) {
   if (scopeIsEmpty(libIds)) return { places: [] };
-  const scope = galleryScopeSql(libIds);
+  // A photo shared by person shows where it was taken only if its recipient may see that (D10).
+  const scope = galleryScopeSql(libIds, "library_items", { location: true });
   const rows = db.prepare(`
     WITH scoped AS (
       SELECT gallery_places.place_id AS id, library_items.id AS item_id,
@@ -344,7 +349,8 @@ export function queryGalleryPlaces(userId: string, libIds: string[], language: s
 // The places photos in scope were taken in, spelled in the viewer's language —
 // empty without a place names database, since gallery_places is emptied with it.
 function placeFacet(libIds: string[], language: string) {
-  const scope = galleryScopeSql(libIds);
+  // A photo shared by person shows where it was taken only if its recipient may see that (D10).
+  const scope = galleryScopeSql(libIds, "library_items", { location: true });
   const rows = db.prepare(`
     SELECT gallery_places.place_id AS id, COUNT(*) AS n
     FROM library_items
@@ -377,7 +383,8 @@ export interface GalleryMapQuery {
 // click via getGalleryAsset, so this payload stays small even for big libraries.
 export function queryGalleryMapPoints(libIds: string[], opts: GalleryMapQuery) {
   if (scopeIsEmpty(libIds)) return { points: [] };
-  const scope = galleryScopeSql(libIds);
+  // A photo shared by person shows where it was taken only if its recipient may see that (D10).
+  const scope = galleryScopeSql(libIds, "library_items", { location: true });
   const where: string[] = [
     `${scope.sql}`,
     "library_items.deleted_at IS NULL",

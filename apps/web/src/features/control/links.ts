@@ -46,6 +46,16 @@ export function storageHref(card?: "storage-containers" | "system-data" | "app-s
   return card ? `${controlHref("storage")}#${card}` : controlHref("storage");
 }
 
+/** Members › Users with one person's Access dialog open, on a tab. */
+export function userAccessHref(userId: string, tab?: string): string {
+  return withQuery(controlHref("users"), { user: userId, tab });
+}
+
+/** Members › Groups with one group's Access dialog open, on a tab. */
+export function groupAccessHref(groupId: string, tab?: string): string {
+  return withQuery(controlHref("groups"), { group: groupId, tab });
+}
+
 /** A page's query parameter as it was on arrival, or "" — for seeding filter state. */
 export function initialParam(name: string): string {
   return new URLSearchParams(window.location.search).get(name) ?? "";

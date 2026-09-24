@@ -6,12 +6,13 @@ import { parseBody } from "../../core/shared.js";
 import { getFamilyDefaultPerson, getFamilyUploadLibrary, setFamilyTreeSettings } from "./settings.js";
 import { can, parsePolicy } from "../../core/permissions.js";
 import type { LibraryRow } from "../../db/rows.js";
+import { requireTreeView } from "./tree-access.js";
 
 export function registerSettingsRoutes(app: FastifyInstance) {
   // ── Settings ──
   // Read is open: the photo picker needs to know where uploads go (and whether
   // the viewer may upload there at all) before it offers the option.
-  app.get("/api/family-tree/settings", { preHandler: app.authenticate }, async (request) => {
+  app.get("/api/family-tree/settings", { preHandler: [app.authenticate, requireTreeView] }, async (request) => {
     const user = request.user!;
     const library = getFamilyUploadLibrary();
     let canUpload = false;

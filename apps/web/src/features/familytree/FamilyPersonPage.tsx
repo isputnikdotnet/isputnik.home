@@ -602,6 +602,7 @@ export function FamilyPersonPage({ id }: { id: string }) {
 
                 <div className="book-detail-info">
                   <h1 className="book-detail-title">{profile.name}</h1>
+                  {profile.restricted && <p className="ft-restricted-note">{t("family:person.restrictedNote")}</p>}
                   {subtitle && <p className="book-detail-author ft-person-detail-subtitle">{subtitle}</p>}
 
                   <dl className="book-detail-meta-grid">

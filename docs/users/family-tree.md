@@ -179,6 +179,24 @@ the change applies immediately for everyone. **Change** picks someone else and t
 you chose is later deleted from the tree, the setting quietly stops applying
 rather than breaking the chart.
 
+## Who sees the tree, and living relatives
+
+Everyone signed in can see the tree unless you block it for them: in Control panel
+→ Members, open a person (or a group) → **Family and stories** → **Seeing the tree**
+→ **Can't see it**.
+
+**Living relatives' details are private** to anyone who doesn't edit their branch
+and hasn't been allowed to see them. Those people see a living relative's name, their
+place in the tree and their portrait, and nothing else: no dates, places, life
+story, events, sources or map pins. Everyone who had an account before this came in
+keeps seeing everything; anyone added later starts without it, and **Show details
+of living relatives** on the same tab turns it on, for one person or a group.
+
+Someone counts as living unless they have a death date, are marked **Deceased
+(date unknown)** (under the death date in Edit person), or were born more than 100
+years ago. Someone with no dates at all counts as living — so for old ancestors
+nobody has dates for, **Select** them on **People** and **Mark as deceased**.
+
 ## Letting a relative maintain their own branch
 
 By default everyone can *see* the tree but only administrators can change it.
@@ -223,8 +241,10 @@ Gramps and others.
   sources. It offers **add** — merge into what's here — or **replace**, which
   clears the existing tree first. Anything it can't interpret becomes a warning
   rather than a failed import.
-- **Export** writes the whole tree to one file. Available to everyone, not just
-  admins, and the simplest backup of your genealogy work there is. A
+- **Export** writes the whole tree to one file — the simplest backup of your
+  genealogy work there is. Administrators and branch editors can export; an
+  editor's file keeps living relatives they may not see the details of as name and
+  relationships only. A
   biography's formatting is left out of the file (other programs would show the
   marks as symbols); its words and line breaks are kept.
 

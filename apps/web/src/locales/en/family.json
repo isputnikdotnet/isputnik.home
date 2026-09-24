@@ -162,7 +162,9 @@
     "tagsHint": "Tags group people by branch and scope edit rights (see Branch access).",
     "errors": {
       "default": "Unable to save this person"
-    }
+    },
+    "deceased": "Deceased (date unknown)",
+    "deceasedHint": "Their details show to the whole family, like anyone with a death date."
   },
   "addChild": {
     "pickerTitle": "Child of {{name}}",
@@ -463,7 +465,13 @@
     "leaveSelection": "Leave selection",
     "tagsUpdatedTitle": "Tags updated",
     "tagsUpdatedBody_one": "Family tags updated on {{count}} person.",
-    "tagsUpdatedBody_other": "Family tags updated on {{count}} people."
+    "tagsUpdatedBody_other": "Family tags updated on {{count}} people.",
+    "markDeceased": "Mark as deceased",
+    "markingDeceased": "Marking…",
+    "markDeceasedTitle": "Mark the selected family members as deceased, date unknown",
+    "markDeceasedFailed": "Unable to mark them as deceased",
+    "markedDeceased_one": "Marked {{count}} family member as deceased.",
+    "markedDeceased_other": "Marked {{count}} family members as deceased."
   },
   "person": {
     "tabs": {
@@ -601,7 +609,8 @@
     "quotes": {
       "empty": "Nothing recorded that {{name}} said yet.",
       "goToQuotes": "Go to Quotes"
-    }
+    },
+    "restrictedNote": "Details of living relatives are private."
   },
   "portraitCrop": {
     "title": "Portrait of {{name}}",

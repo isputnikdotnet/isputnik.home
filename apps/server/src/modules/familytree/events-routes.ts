@@ -5,6 +5,7 @@ import { canEditPerson } from "./access.js";
 import { EVENT_TYPES, createFamilyEvent, updateFamilyEvent, deleteFamilyEvent, getFamilyEvent } from "./events.js";
 import { optionalDate } from "./persons-routes.js";
 import { pinSchema } from "./place-pins.js";
+import { requireTreeView } from "./tree-access.js";
 
 // A custom event needs a label ("what happened"); typed events can rely on the
 // type name alone.
@@ -27,7 +28,7 @@ const updateEventSchema = z.object({ ...eventFields, type: eventFields.type.opti
 export function registerEventRoutes(app: FastifyInstance) {
   // ── Life events (admin or branch editor) ──
 
-  app.post("/api/family-tree/persons/:id/events", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/persons/:id/events", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseBody(createEventSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid event", details: parsed.error });
@@ -43,7 +44,7 @@ export function registerEventRoutes(app: FastifyInstance) {
     return reply.code(201).send({ event });
   });
 
-  app.patch("/api/family-tree/events/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  app.patch("/api/family-tree/events/:id", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseBody(updateEventSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid changes", details: parsed.error });
@@ -59,7 +60,7 @@ export function registerEventRoutes(app: FastifyInstance) {
     return reply.send({ event });
   });
 
-  app.delete("/api/family-tree/events/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  app.delete("/api/family-tree/events/:id", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const existing = getFamilyEvent((request.params as { id: string }).id);
     if (!existing) {
       return reply.code(404).send({ error: "Event not found" });

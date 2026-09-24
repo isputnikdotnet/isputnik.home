@@ -48,6 +48,7 @@ const base = (id: string, name: string, over: Partial<FamilyPerson> = {}): Famil
   gender: "unknown",
   birthDate: null,
   deathDate: null,
+  deceased: false,
   birthplace: null,
   deathPlace: null,
   birthPin: null,

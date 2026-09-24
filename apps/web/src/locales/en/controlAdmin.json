@@ -1428,5 +1428,143 @@
     "confirmBody": "The file is rewritten in place with its index at the front. The picture and sound are copied over exactly as they are — nothing is re-encoded, and the file stays the same size.",
     "confirmAllBody": "Each file is rewritten in place with its index at the front — {{size}} in all. The picture and sound are copied over exactly as they are: nothing is re-encoded, and the files stay the same size.",
     "confirmKept": "The new file is checked against the old one — same tracks, same running time, index in front — before it replaces anything. If any check fails, the original is kept as it was."
+  },
+  "access": {
+    "saved": "Saved",
+    "savedBody": "Name, email and role are up to date.",
+    "menuLabel": "Access and permissions",
+    "loading": "Loading…",
+    "remove": "Remove",
+    "noDirect": "Not given directly",
+    "none": "No access",
+    "blocked": "Blocked",
+    "fromEveryone": "Everyone: {{role}}",
+    "viaGroup": "{{role}} · via {{group}}",
+    "viaEveryone": "{{role}} · via Everyone",
+    "errors": {
+      "load": "Unable to load access",
+      "save": "Unable to save the change",
+      "title": "Unable to update access"
+    },
+    "summary": {
+      "members_one": "{{count}} member",
+      "members_other": "{{count}} members",
+      "libraries_one": "{{count}} library",
+      "libraries_other": "{{count}} libraries",
+      "people_one": "photos of {{count}} person",
+      "people_other": "photos of {{count}} people",
+      "branches": "edits {{names}}"
+    },
+    "tabs": {
+      "account": "Account",
+      "libraries": "Libraries",
+      "photos": "Photos of people",
+      "family": "Family and stories",
+      "members_one": "Members {{count}}",
+      "members_other": "Members {{count}}",
+      "groups_one": "Groups {{count}}",
+      "groups_other": "Groups {{count}}",
+      "photosCount_one": "Photos of people {{count}}",
+      "photosCount_other": "Photos of people {{count}}",
+      "shared_one": "Shared directly {{count}}",
+      "shared_other": "Shared directly {{count}}"
+    },
+    "libraries": {
+      "library": "Library",
+      "direct": "Given directly",
+      "gets": "What they get",
+      "alsoFrom": "Also from",
+      "directFor": "Access to {{library}}, given directly"
+    },
+    "libraryTypes": {
+      "audiobook": "Audiobooks",
+      "ebook": "Books",
+      "gallery": "Photos"
+    },
+    "family": {
+      "tree": "Family tree",
+      "seeTree": "Seeing the tree",
+      "canSee": "Can see it",
+      "cannotSee": "Can't see it",
+      "seesIt": "Sees it",
+      "everyone": "Everyone",
+      "blockedBy": "Blocked by {{names}}",
+      "living": "Show details of living relatives",
+      "livingHint": "Birth dates, places, life stories and events of living family members. Without it they see names, the tree and portraits; branch editors always see their own branch.",
+      "livingViaGroup": "They see them anyway, through one of their groups.",
+      "branches": "Family tree branches",
+      "noBranches": "The tree has no branches yet — tag family members to make one.",
+      "branchFor": "Editing the {{branch}} branch",
+      "cannotEdit": "Can't edit",
+      "collections": "Story collections",
+      "noCollections": "No story collections yet.",
+      "collectionFor": "Access to {{collection}}",
+      "inbox": "Photo Inbox",
+      "inboxReviewer": "Photo Inbox reviewer",
+      "notReviewer": "Not a reviewer"
+    },
+    "shared": {
+      "untitled": "Untitled",
+      "from": "from {{name}}, {{date}}",
+      "none": "Nothing has been sent to {{name}} directly.",
+      "kinds": {
+        "gallery_album": "Album",
+        "gallery_slideshow": "Slideshow",
+        "gallery_set": "Photos",
+        "gallery": "Photo",
+        "audiobook": "Audiobook",
+        "ebook": "Book",
+        "story": "Story"
+      }
+    },
+    "groups": {
+      "hint": "Everything a group is given, its members get. Giving access to a group is the usual way — add people to it.",
+      "none": "Not in any group.",
+      "givesNothing": "Gives nothing yet",
+      "editsBranch": "edits {{branch}}",
+      "add": "Add to group",
+      "choose": "Choose a group…"
+    },
+    "members": {
+      "hint": "Everyone in this group gets everything it is given.",
+      "none": "Nobody is in this group yet.",
+      "add": "Add a person",
+      "choose": "Choose a person…"
+    },
+    "photos": {
+      "hint": "{{name}} sees every photo where one of these people is confirmed, in the Gallery like any other photo — without folder names or other people's names.",
+      "none": "No one is shared yet.",
+      "viaGroup": "via {{group}}",
+      "allConfirmed": "All confirmed",
+      "add": "Share photos of",
+      "choose": "Choose a person…",
+      "location": "Show where photos were taken",
+      "locationHint": "The map, places and location details — for these photos only",
+      "count_one": "{{count}} photo",
+      "count_other": "{{count}} photos",
+      "review_one": "Review {{count}}",
+      "review_other": "Review {{count}}",
+      "total_one": "{{name}} sees {{count}} photo in the Gallery",
+      "total_other": "{{name}} sees {{count}} photos in the Gallery",
+      "excluded_one": "{{count}} kept out",
+      "excluded_other": "{{count}} kept out"
+    },
+    "review": {
+      "title": "Photos of {{name}} to review",
+      "hint": "Recognition thinks these show {{name}}, but nobody has said so. Untick the ones that are not them; the ticked ones are confirmed and shared.",
+      "empty": "Nothing to review for {{name}}.",
+      "saving": "Saving…",
+      "errors": {
+        "load": "Unable to load the photos",
+        "save": "Unable to save the review",
+        "title": "Unable to review"
+      },
+      "more_one": "{{count}} more after these.",
+      "more_other": "{{count}} more after these.",
+      "confirm_one": "Confirm {{count}}",
+      "confirm_other": "Confirm {{count}}",
+      "confirmAndReject_one": "Confirm {{count}}, not them: {{rejected}}",
+      "confirmAndReject_other": "Confirm {{count}}, not them: {{rejected}}"
+    }
   }
 }

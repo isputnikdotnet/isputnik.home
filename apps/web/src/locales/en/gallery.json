@@ -185,7 +185,9 @@
       "saveLocation": "Unable to save the location",
       "saveChanges": "Unable to save changes",
       "tagPerson": "Unable to tag this person"
-    }
+    },
+    "dontShare": "Don't share this photo",
+    "allowSharing": "Let this photo be shared again"
   },
   "locationPicker": {
     "aria": "Pick a location on the map"
@@ -476,7 +478,20 @@
     "coverUpdated": "Person cover updated.",
     "merged": "People merged.",
     "movedNotice_one": "{{count}} photo moved.",
-    "movedNotice_other": "{{count}} photos moved."
+    "movedNotice_other": "{{count}} photos moved.",
+    "sharing": {
+      "title": "Who can see photos of {{name}}",
+      "hint": "Everyone here sees each photo where {{name}} is confirmed, in their Gallery — without folder names or other people's names.",
+      "nobody": "Nobody yet.",
+      "group": "{{name}} (group)",
+      "add": "Share with",
+      "choose": "Choose a person or group…",
+      "errors": {
+        "load": "Unable to load who can see these photos",
+        "save": "Unable to change who can see these photos",
+        "title": "Unable to update sharing"
+      }
+    }
   },
   "memories": {
     "titleDay": "On this day",
@@ -731,6 +746,11 @@
       "useAsCoverAria": "Use {{title}} as the cover",
       "addedPhotosNotice_one": "Added {{count}} photo to \"{{name}}\".",
       "addedPhotosNotice_other": "Added {{count}} photos to \"{{name}}\"."
+    },
+    "sharedPeople": {
+      "title": "Photos of {{names}} are shared with you",
+      "body": "They are here in your Gallery, and new ones appear as they are tagged. You can download them, and leave a note or a voice recording on any of them.",
+      "dismiss": "Got it"
     }
   },
   "replace": {

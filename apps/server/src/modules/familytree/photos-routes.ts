@@ -8,6 +8,7 @@ import {
 } from "./photos.js";
 import { canEditPerson } from "./access.js";
 import { getFamilyEvent } from "./events.js";
+import { requireTreeView } from "./tree-access.js";
 
 const attachPhotosSchema = z.object({
   itemIds: z.array(z.string().trim().min(1)).min(1).max(500)
@@ -17,7 +18,7 @@ export function registerPhotoRoutes(app: FastifyInstance) {
   // Strings, not numbers: junk falls back to the defaults below.
   const photosQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional() });
 
-  app.get("/api/family-tree/persons/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {
+  app.get("/api/family-tree/persons/:id/photos", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseQuery(photosQuerySchema, request.query);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid query", details: parsed.error });
@@ -34,7 +35,7 @@ export function registerPhotoRoutes(app: FastifyInstance) {
 
   // ── Event photo attachments (admin or branch editor, via the event's person) ──
 
-  app.post("/api/family-tree/events/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/events/:id/photos", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const event = getFamilyEvent((request.params as { id: string }).id);
     if (!event) {
       return reply.code(404).send({ error: "Event not found" });
@@ -53,7 +54,7 @@ export function registerPhotoRoutes(app: FastifyInstance) {
     return reply.send({ attached: result.attached });
   });
 
-  app.delete("/api/family-tree/events/:id/photos/:itemId", { preHandler: app.authenticate }, async (request, reply) => {
+  app.delete("/api/family-tree/events/:id/photos/:itemId", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const { id: eventId, itemId } = request.params as { id: string; itemId: string };
     const event = getFamilyEvent(eventId);
     if (!event) {
@@ -70,7 +71,7 @@ export function registerPhotoRoutes(app: FastifyInstance) {
 
   // ── Photo attachments (admin or branch editor) ──
 
-  app.post("/api/family-tree/persons/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/persons/:id/photos", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
     const parsed = parseBody(attachPhotosSchema, request.body);
     if (parsed.error) {
@@ -95,7 +96,7 @@ export function registerPhotoRoutes(app: FastifyInstance) {
     return reply.send({ attached: result.attached });
   });
 
-  app.delete("/api/family-tree/persons/:id/photos/:itemId", { preHandler: app.authenticate }, async (request, reply) => {
+  app.delete("/api/family-tree/persons/:id/photos/:itemId", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const { id: personId, itemId } = request.params as { id: string; itemId: string };
     if (!canEditPerson(request.user!, personId)) {
       return reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });

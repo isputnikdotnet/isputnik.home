@@ -181,10 +181,15 @@ that bring new ones in.
   **Protected** badge: its role can't be changed and it can't be removed here, so
   an install can never be left with no way in. You also can't change your own role
   or remove your own account, for the same reason.
-- **Groups** — named sets of people you grant library access to as a unit. Worth it
-  the moment you're granting the same three libraries to the same four people.
+- **Groups** — named sets of people you give access to as a unit. Worth it the
+  moment you're giving the same three libraries to the same four people, and the
+  usual way to set up a relative: make a group ("Petrov family"), give it what it
+  should see, and add people to it. **Manage** opens the group's access, with its
+  members first.
 - **Invite links** — sign-up links, so you don't have to hand out passwords. Create
-  one, send it, retire it when it's been used or you've changed your mind.
+  one, send it, retire it when it's been used or you've changed your mind. Tick
+  **Joins these groups** and the person arrives already in them, with everything
+  the groups are given.
 
 ![The Groups tab, each group listing how many people and libraries it covers](images/66-groups.png)
 
@@ -194,9 +199,41 @@ Signed-in devices are on Security → Sign-ins, which lists every
 session with the ability to revoke any of them — where you go when a laptop is
 lost, or when a sign-in alert names a device you don't recognise.
 
-Library *access* is granted per library (in Library → Libraries → a library →
-members), not here — this section is about who exists, groups are about who they are
-as a set.
+### Everything one person can reach
+
+Click a person's name — or ⋮ → **Access and permissions** — to open one dialog with
+everything they can reach, on tabs:
+
+| Tab | What it shows |
+| --- | --- |
+| **Account** | Name, email and role (what **Edit user** used to open) |
+| **Groups** | The groups they're in, each with what it gives |
+| **Libraries** | Every library: what you gave them directly, and what they get — with where it comes from ("Member · via Everyone", "via Petrov family") |
+| **Photos of people** | The people whose photos are shared with them (see below) |
+| **Family and stories** | Whether they see the family tree and living relatives' details, the branches they edit, story collections, Photo Inbox reviewing |
+| **Shared directly** | Albums, books and photos someone sent them, each with **Remove** |
+
+Only what was given *directly* changes here; what comes from a group names the
+group, so changing it is a choice you make on the group, for everyone in it. The
+same settings still live where they always did — a library's Members, a
+collection's Access, the tree's branch editors — and both places show the same.
+
+### Sharing photos by person
+
+Instead of a whole library, a relative can be given **the people in the photos**:
+on **Photos of people**, **Share photos of** someone. From then on they see every
+photo where that person is *confirmed*, in their own Gallery like any other
+photo — the timeline, the map, memories, the family tree's photo walls — and new
+ones appear as they're confirmed. They can download them and leave notes or voice
+recordings on them. They don't see folder names, the library's name, or the names
+and faces of anyone else in the picture, and they only see where a photo was taken
+if you tick **Show where photos were taken**.
+
+Faces the gallery matched on its own don't count until someone confirms them:
+**Review N** shows those photos with every one ticked — untick the ones that aren't
+that person, and **Confirm**. From the other side, a person's page in the Gallery has
+**Who can see photos of …**, and the photo viewer's ⋯ menu has **Don't share this
+photo** for a picture that should never go out this way.
 
 ---
 

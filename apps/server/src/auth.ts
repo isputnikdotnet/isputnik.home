@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { db, selfUser, type User } from "./db.js";
 import { sha256 } from "./crypto.js";
 import { hostCookieName } from "./core/cookies.js";
+import { registerViewerContext } from "./core/viewer-context.js";
 import type { SessionRow } from "./db/rows.js";
 
 // On a secure deployment the session cookie carries the __Host- prefix (see
@@ -82,6 +83,8 @@ export function clearSession(reply: FastifyReply) {
 }
 
 export async function registerAuthDecorators(app: FastifyInstance) {
+  // Every handler registered after this knows who is asking (core/viewer-context.ts).
+  registerViewerContext(app);
   app.decorate("authenticate", async (request: FastifyRequest, reply: FastifyReply) => {
     const token = readSessionToken(request);
     if (!token) {

@@ -7,6 +7,7 @@
 import { db } from "../../db.js";
 import { EVERYONE_GROUP_ID, roleAllows, type AuthUser, type ObjectRole } from "../../core/permissions.js";
 import type { AssignmentRow, GroupMemberRow, TaggableRow, TagRow } from "../../db/rows.js";
+import { isLiving, showLivingDetailsFor } from "./tree-access.js";
 
 export const FAMILY_TAG_OBJECT_TYPE = "family_tree_tag";
 export const FAMILY_PERSON_ENTITY_TYPE = "family_tree_person";
@@ -92,12 +93,24 @@ export function canEditAnyPerson(user: AuthUser, personIds: (string | null | und
   return ids.some((id) => canEditPerson(user, id));
 }
 
-// Bulk-attach `tags` and `canEdit` to person payloads (list, tree, profile) in
-// two queries — the tree endpoint decorates hundreds of persons at once.
+type PersonDates = { birthDate: string | null; deathDate: string | null; deceased: boolean };
+
+// A living relative, seen by someone who neither edits their branch nor may see
+// living relatives' details (tree-access.ts, D15): name, place in the tree and
+// portrait stay, and nothing else about them.
+const REDACTED = {
+  birthDate: null, deathDate: null, birthplace: null, deathPlace: null,
+  birthPin: null, deathPin: null, bio: null
+} as const;
+
+// Bulk-attach `tags`, `canEdit` and `restricted` to person payloads (list, tree,
+// profile) in two queries — the tree endpoint decorates hundreds of persons at
+// once — and blank what a restricted person's viewer may not see.
 export function decoratePersons<T extends { id: string }>(
   user: AuthUser,
   persons: T[]
-): (T & { tags: string[]; canEdit: boolean })[] {
+): (T & { tags: string[]; canEdit: boolean; restricted: boolean })[] {
+  const showLiving = showLivingDetailsFor(user);
   const editable = getEditableTags(user);
   const editableIds = editable === "all" ? null : new Set(editable.map((t) => t.id));
 
@@ -121,7 +134,12 @@ export function decoratePersons<T extends { id: string }>(
     const canEdit = editableIds === null
       ? true
       : (entry?.tagIds.some((id) => editableIds.has(id)) ?? false);
-    return { ...person, tags: entry?.names ?? [], canEdit };
+    const dated = person as T & Partial<PersonDates>;
+    const restricted = !canEdit && !showLiving && "birthDate" in dated
+      && isLiving({ birthDate: dated.birthDate ?? null, deathDate: dated.deathDate ?? null, deceased: dated.deceased ?? false });
+    return restricted
+      ? { ...person, ...REDACTED, tags: entry?.names ?? [], canEdit, restricted }
+      : { ...person, tags: entry?.names ?? [], canEdit, restricted };
   });
 }
 

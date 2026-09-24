@@ -8,7 +8,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { entityTagsByIds } from "../shared/tagging.js";
-import { galleryScopeSql } from "./app-files-access.js";
+import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
 import type { GalleryAlbumItemRow, GalleryAlbumRow, GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
@@ -172,7 +172,7 @@ export function listAlbums(user: { id: string; role: string }, libIds: string[])
 // One album's visible items, paged. taken_at mode is chronological (an album
 // reads like a story); manual mode follows position (append order today).
 export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow, limit: number, offset: number) {
-  if (libIds.length === 0) return { assets: [], total: 0 };
+  if (scopeIsEmpty(libIds)) return { assets: [], total: 0 };
   const scope = galleryScopeSql(libIds);
   const where = `
     gallery_album_items.album_id = ?
@@ -202,7 +202,7 @@ export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow,
 // "Share album", which hands the set to the multi-photo share modal. Filtered by
 // library access like getAlbumItems; just the ids, no thumbnails/metadata.
 export function getAlbumItemIds(libIds: string[], album: AlbumRow): string[] {
-  if (libIds.length === 0) return [];
+  if (scopeIsEmpty(libIds)) return [];
   const scope = galleryScopeSql(libIds);
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
@@ -226,7 +226,7 @@ export type AlbumFileRow = Pick<LibraryItemRow, "id" | "folder_path">
   & Nullable<Pick<ItemMetadataRow, "title">>;
 
 export function getAlbumFilePaths(libIds: string[], album: AlbumRow): AlbumFileRow[] {
-  if (libIds.length === 0) return [];
+  if (scopeIsEmpty(libIds)) return [];
   const scope = galleryScopeSql(libIds);
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"

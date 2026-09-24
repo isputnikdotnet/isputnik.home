@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, ScanFace, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, EyeOff, Eye, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, ScanFace, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -176,6 +176,10 @@ export function GalleryLightbox({
     : assetSaved;
   const [likeBusy, setLikeBusy] = useState(false);
   const [rotateBusy, setRotateBusy] = useState(false);
+  // "Don't share this photo": this photo's answer as changed here, over the one it
+  // arrived with (docs/people-sharing-plan.md). Keyed by photo, so moving on resets it.
+  const [shareOverride, setShareOverride] = useState<{ id: string; excluded: boolean } | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   // Set when the browser's <video> can't decode this asset (unsupported container/
   // codec — legacy AVI/Motion-JPEG, WMV, etc.). We serve originals untranscoded, so
@@ -571,6 +575,24 @@ export function GalleryLightbox({
           label: t("gallery:replace.action"),
           onClick: () => setReplaceOpen(true)
         }]
+      : []),
+    ...(asset.shareControl
+      ? (() => {
+          const excluded = shareOverride?.id === asset.id ? shareOverride.excluded : asset.shareControl.excluded;
+          return [{
+            key: "share-exclusion",
+            icon: (excluded ? Eye : EyeOff) as LucideIcon,
+            label: excluded ? t("gallery:lightbox.allowSharing") : t("gallery:lightbox.dontShare"),
+            disabled: shareBusy,
+            onClick: () => {
+              setShareBusy(true);
+              api(`/api/library/gallery/assets/${asset.id}/share-exclusion`, { method: excluded ? "DELETE" : "PUT" })
+                .then(() => setShareOverride({ id: asset.id, excluded: !excluded }))
+                .catch(() => { /* the item keeps its label; nothing changed */ })
+                .finally(() => setShareBusy(false));
+            }
+          }];
+        })()
       : []),
     ...(canDelete
       ? [{

@@ -1,0 +1,130 @@
+/* ── Access dialog ─────────────────────────────────────────────────────── */
+
+/* Everything one person or group can reach (features/control/access): a panel
+   modal with a tab row, each tab a list of rows — what is given directly (a
+   select), and what they get from elsewhere (muted text naming the source). */
+.metadata-modal.access-dialog {
+  width: min(100%, 900px);
+  height: min(700px, calc(100vh - 48px));
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.access-dialog-content {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  overflow: auto;
+}
+
+.access-rows { display: grid; }
+
+.access-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px minmax(0, 230px);
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.access-row-head {
+  border-top: 0;
+  padding-top: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.access-row-two { grid-template-columns: minmax(0, 1fr) auto; }
+.access-row-people { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+
+.access-row-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.access-row-name small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.access-gets,
+.access-muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.access-muted { margin: 0; }
+
+.access-section-title {
+  margin: 16px 0 4px;
+  font-size: 0.95rem;
+}
+.access-section-title:first-child { margin-top: 0; }
+
+.access-add {
+  max-width: 340px;
+  margin-top: 12px;
+}
+
+.access-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+.access-toggle input { margin-top: 3px; }
+.access-toggle small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.access-account-form {
+  display: grid;
+  gap: 14px;
+  max-width: 480px;
+}
+.access-account-actions { display: flex; }
+
+/* The Users table's name opens the dialog; it keeps the look of a name. */
+.user-name-link {
+  padding: 0;
+  color: inherit;
+  text-align: left;
+}
+
+/* Review: a grid of the person's automatic matches; unticked ones fade. */
+.metadata-modal.access-review-modal {
+  width: min(100%, 980px);
+  height: min(760px, calc(100vh - 48px));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.access-review-content {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  overflow: auto;
+}
+.access-review-tile.is-not-them { opacity: 0.45; }
+
+/* Invites: the groups a new account joins. */
+.invite-groups {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+.invite-groups legend { font-weight: 600; margin-bottom: 4px; }
+.invite-groups small { color: var(--muted); }
+.invite-group-option { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+
+@media (max-width: 740px) {
+  .access-row,
+  .access-row-people { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .access-row-head { display: none; }
+}

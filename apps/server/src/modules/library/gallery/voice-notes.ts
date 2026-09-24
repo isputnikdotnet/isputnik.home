@@ -152,6 +152,12 @@ export function voiceNoteFile(itemId: string, noteId: string): { path: string; m
   return { path: path.join(root, ...row.relative_path.split("/")), mime: MIME_BY_EXT[ext] ?? "application/octet-stream" };
 }
 
+/** Who recorded a note on this photo, or null when there is no such note. */
+export function voiceNoteRecordedBy(itemId: string, noteId: string): string | null {
+  const row = db.prepare("SELECT recorded_by FROM gallery_voice_notes WHERE id = ? AND item_id = ?").get(noteId, itemId) as Pick<GalleryVoiceNoteRow, "recorded_by"> | undefined;
+  return row?.recorded_by ?? null;
+}
+
 /** Remove a note: the tie goes, and the recording goes to the Recycle Bin like
  *  any deleted asset. Returns false when the note is not on this photo. */
 export function deleteVoiceNote(itemId: string, noteId: string, userId: string): boolean {

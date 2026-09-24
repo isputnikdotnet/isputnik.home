@@ -16,6 +16,7 @@ import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryP
 import { FolderMoveError, planFolderMove, queueFolderMove } from "./folder-move.js";
 import { enqueueFaststartJobs, faststartBacklogCount, listFaststartCandidates } from "./faststart.js";
 import { folderMoveStatuses } from "../shared/storage-move.js";
+import { sharedPeopleFor } from "./people-access.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 const libraryListQuerySchema = z.object({ manage: z.string().optional() }); // presence flag
@@ -60,7 +61,15 @@ export function registerGalleryLibraryRoutes(app: FastifyInstance) {
     const rows = db.prepare(GALLERY_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as LibraryListRow[];
     const manageAll = parsed.data.manage != null && user.role === "admin";
     const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
-    return { libraries: visible.map((row) => publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
+    // The people shared with this viewer (people-access.ts): a relative with no
+    // library still has a Gallery — these are its photos.
+    const sharedPeople = user.role === "admin" ? [] : sharedPeopleFor(user)
+      .map((id) => db.prepare("SELECT id, name FROM gallery_people WHERE id = ?").get(id) as { id: string; name: string } | undefined)
+      .filter((person): person is { id: string; name: string } => person != null);
+    return {
+      libraries: visible.map((row) => publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))),
+      sharedPeople
+    };
   });
 
   app.patch("/api/library/gallery-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {

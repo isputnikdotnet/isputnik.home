@@ -23,7 +23,7 @@ const IVAN_BOX = { x: 0.6, y: 0.2, w: 0.1, h: 0.2 };
 const GUEST_BOX = { x: 0.1, y: 0.3, w: 0.1, h: 0.2 };
 
 const person: FamilyPerson = {
-  id: "fp1", name: "Ivan", maidenName: null, otherNames: [], gender: "male", birthDate: null, deathDate: null,
+  id: "fp1", name: "Ivan", maidenName: null, otherNames: [], gender: "male", birthDate: null, deathDate: null, deceased: false,
   birthplace: null, deathPlace: null, birthPin: null, deathPin: null, bio: null,
   portraitUrl: null, portraitItemId: null, portraitCrop: null, galleryPersonId: "gp-ivan", tags: [], canEdit: true
 };

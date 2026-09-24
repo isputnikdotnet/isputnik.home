@@ -9,6 +9,7 @@ import {
   listFamilySources, getFamilySource, createFamilySource, updateFamilySource, deleteFamilySource,
   createFamilyCitation, updateFamilyCitation, deleteFamilyCitation, getFamilyCitation
 } from "./sources.js";
+import { requireTreeView } from "./tree-access.js";
 
 const sourceFields = {
   title: z.string().trim().min(1).max(300),
@@ -43,7 +44,7 @@ const CITATION_ERRORS: Record<CitationError, { code: number; message: string }> 
 export function registerSourceRoutes(app: FastifyInstance) {
   // ── Sources & citations ──
 
-  app.get("/api/family-tree/sources", { preHandler: app.authenticate }, async () => ({
+  app.get("/api/family-tree/sources", { preHandler: [app.authenticate, requireTreeView] }, async () => ({
     sources: listFamilySources()
   }));
 
@@ -95,7 +96,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     return false;
   };
 
-  app.post("/api/family-tree/citations", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/family-tree/citations", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseBody(createCitationSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid citation", details: parsed.error });
@@ -111,7 +112,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     return reply.code(201).send({ citation: result.citation });
   });
 
-  app.patch("/api/family-tree/citations/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  app.patch("/api/family-tree/citations/:id", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const parsed = parseBody(updateCitationSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid changes", details: parsed.error });
@@ -127,7 +128,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     return reply.send({ citation });
   });
 
-  app.delete("/api/family-tree/citations/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  app.delete("/api/family-tree/citations/:id", { preHandler: [app.authenticate, requireTreeView] }, async (request, reply) => {
     const existing = getFamilyCitation((request.params as { id: string }).id);
     if (!existing) {
       return reply.code(404).send({ error: "Citation not found" });

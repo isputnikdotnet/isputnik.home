@@ -1,22 +1,23 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Search, Trash2, UserMinus, UserRound, Users } from "lucide-react";
+import { Plus, Search, Trash2, Users } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
-import { SelectField } from "../../../shared/SelectField";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
+import type { ManagedGroup } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { AccessDialog } from "../access/AccessDialog";
+import type { AccessTab } from "../access/types";
+import { initialParam } from "../links";
 import { formatNumber } from "../../../shared/dates";
 
 export function GroupsSection() {
   const { t } = useTranslation(["common", "control"]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
-  const [users, setUsers] = useState<ManagedUser[]>([]);
   const [error, setError] = useState("");
   const [modalError, setModalError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,19 +27,16 @@ export function GroupsSection() {
   const [pendingDelete, setPendingDelete] = useState<ManagedGroup | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const [managingGroup, setManagingGroup] = useState<ManagedGroup | null>(null);
-  const [members, setMembers] = useState<GroupMember[]>([]);
-  const [addUserId, setAddUserId] = useState("");
-  const [memberError, setMemberError] = useState("");
-  const [memberWorking, setMemberWorking] = useState(false);
+  // A group's Access dialog (features/control/access): its members first, then what
+  // it is given — the usual way to give relatives access (D18). ?group=&tab= opens it.
+  const [accessFor, setAccessFor] = useState<{ id: string; tab?: AccessTab } | null>(() => {
+    const id = initialParam("group");
+    return id ? { id, tab: (initialParam("tab") || undefined) as AccessTab | undefined } : null;
+  });
 
   const load = useCallback(async () => {
-    const [groupsPayload, usersPayload] = await Promise.all([
-      api<{ groups: ManagedGroup[] }>("/api/groups"),
-      api<{ users: ManagedUser[] }>("/api/users")
-    ]);
+    const groupsPayload = await api<{ groups: ManagedGroup[] }>("/api/groups");
     setGroups(groupsPayload.groups);
-    setUsers(usersPayload.users);
   }, []);
 
   useEffect(() => {
@@ -55,24 +53,11 @@ export function GroupsSection() {
     ].some((value) => value.toLowerCase().includes(query)));
   }, [groups, searchQuery, t]);
 
-  const nonMembers = useMemo(
-    () => users.filter((user) => !members.some((member) => member.userId === user.id)),
-    [members, users]
-  );
-
   const openCreate = () => {
     setError("");
     setModalError("");
     setNewGroupName("");
     setCreateOpen(true);
-  };
-
-  const loadMembers = async (group: ManagedGroup) => {
-    const payload = await api<{ members: GroupMember[] }>(`/api/groups/${group.id}/members`);
-    setMembers(payload.members);
-    setManagingGroup(group);
-    setAddUserId("");
-    setMemberError("");
   };
 
   const createGroup = async (event: FormEvent) => {
@@ -103,43 +88,6 @@ export function GroupsSection() {
       setModalError(err instanceof Error ? err.message : t("control:groups.unableToDelete"));
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const addMember = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!managingGroup || !addUserId) return;
-    setMemberWorking(true);
-    setMemberError("");
-    try {
-      await api(`/api/groups/${managingGroup.id}/members`, {
-        method: "POST",
-        body: JSON.stringify({ userId: addUserId })
-      });
-      const payload = await api<{ members: GroupMember[] }>(`/api/groups/${managingGroup.id}/members`);
-      setMembers(payload.members);
-      setAddUserId("");
-      await load();
-    } catch (err) {
-      setMemberError(err instanceof Error ? err.message : t("control:groups.unableToAddMember"));
-    } finally {
-      setMemberWorking(false);
-    }
-  };
-
-  const removeMember = async (member: GroupMember) => {
-    if (!managingGroup) return;
-    setMemberWorking(true);
-    setMemberError("");
-    try {
-      await api(`/api/groups/${managingGroup.id}/members/${member.userId}`, { method: "DELETE" });
-      const payload = await api<{ members: GroupMember[] }>(`/api/groups/${managingGroup.id}/members`);
-      setMembers(payload.members);
-      await load();
-    } catch (err) {
-      setMemberError(err instanceof Error ? err.message : t("control:groups.unableToRemoveMember"));
-    } finally {
-      setMemberWorking(false);
     }
   };
 
@@ -215,7 +163,7 @@ export function GroupsSection() {
                       <Button
                         variant="secondary"
                         compact
-                        onClick={() => loadMembers(group).catch((err) => setError(err instanceof Error ? err.message : t("control:groups.unableToLoadMembers")))}
+                        onClick={() => setAccessFor({ id: group.id, tab: "members" })}
                       >
                         {t("control:groups.manage")}
                       </Button>
@@ -261,78 +209,13 @@ export function GroupsSection() {
         </Modal>
       )}
 
-      {managingGroup && (
-        <Modal
-          title={managingGroup.name}
-          className="manage-group-modal"
-          busy={memberWorking}
-          onClose={() => setManagingGroup(null)}
-        >
-          {memberError && <MessageBox tone="error" title={t("control:groups.membersErrorTitle")}>{memberError}</MessageBox>}
-
-          {members.length === 0 ? (
-            <p className="management-empty">{t("control:groups.noMembersYet")}</p>
-          ) : (
-            <div className="datagrid-wrap">
-              <table className="datagrid">
-                <thead>
-                  <tr>
-                    <th>{t("control:groups.thMember")}</th>
-                    <th className="col-actions">{t("control:groups.thActions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((member) => (
-                    <tr key={member.userId}>
-                      <td>
-                        <div className="datagrid-primary">
-                          <strong>{member.displayName}</strong>
-                          <small>{member.email}</small>
-                        </div>
-                      </td>
-                      <td className="col-actions">
-                        <div className="row-actions">
-                          <Button
-                            variant="icon"
-                            danger
-                            title={t("control:groups.removeFromGroupTitle")}
-                            aria-label={t("control:groups.removeFromGroupAria", { name: member.displayName })}
-                            disabled={memberWorking}
-                            onClick={() => removeMember(member)}
-                          >
-                            <UserMinus size={15} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {nonMembers.length > 0 && (
-            <form className="add-member-form" onSubmit={addMember}>
-              <SelectField
-                label={t("control:groups.addMember")}
-                icon={<UserRound size={17} />}
-                value={addUserId}
-                onChange={setAddUserId}
-                options={[
-                  { value: "", label: t("control:groups.selectUser") },
-                  ...nonMembers.map((user) => ({ value: user.id, label: `${user.displayName} (${user.email})` }))
-                ]}
-              />
-              <Button variant="primary" type="submit" disabled={memberWorking || !addUserId}>
-                {t("control:groups.addMember")}
-              </Button>
-            </form>
-          )}
-
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setManagingGroup(null)} autoFocus>{t("control:ui.close")}</Button>
-          </div>
-        </Modal>
+      {accessFor && (
+        <AccessDialog
+          subject={{ subjectType: "group", subjectId: accessFor.id }}
+          initialTab={accessFor.tab}
+          onClose={() => setAccessFor(null)}
+          onChanged={() => void load()}
+        />
       )}
 
       {pendingDelete && (

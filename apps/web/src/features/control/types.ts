@@ -21,6 +21,8 @@ export interface ManagedInvite {
   usedAt: string | null;
   createdByName: string;
   usedByName: string | null;
+  /** The groups its person joins on sign-up (docs/people-sharing-plan.md, D19). */
+  groups: { id: string; name: string }[];
 }
 
 /** A linked display, or the best guess at what a browser session is running on. */

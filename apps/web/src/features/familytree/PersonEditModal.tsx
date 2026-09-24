@@ -56,6 +56,7 @@ export function PersonEditModal({
   );
   const [birthDate, setBirthDate] = useState(person?.birthDate ?? "");
   const [deathDate, setDeathDate] = useState(person?.deathDate ?? "");
+  const [deceased, setDeceased] = useState(person?.deceased ?? false);
   const [birthplace, setBirthplace] = useState(person?.birthplace ?? "");
   const [birthPin, setBirthPin] = useState<PlacePin | null>(person?.birthPin ?? null);
   const [deathPlace, setDeathPlace] = useState(person?.deathPlace ?? "");
@@ -120,6 +121,8 @@ export function PersonEditModal({
       ...(gender ? { gender } : {}),
       birthDate: birthDate.trim() || null,
       deathDate: deathDate.trim() || null,
+      // A death date says it already; the mark is for when nobody knows when.
+      deceased: deathDate.trim() ? false : deceased,
       birthplace: birthplace.trim() || null,
       birthPin: birthplace.trim() ? birthPin : null,
       deathPlace: deathPlace.trim() || null,
@@ -289,6 +292,13 @@ export function PersonEditModal({
               onChange={(place, pin) => { setDeathPlace(place); setDeathPin(pin); }}
             />
           </div>
+          <label className="ft-deceased-toggle">
+            <input type="checkbox" checked={deceased || Boolean(deathDate.trim())} disabled={Boolean(deathDate.trim())} onChange={(event) => setDeceased(event.target.checked)} />
+            <span>
+              {t("family:personEdit.deceased")}
+              <small>{t("family:personEdit.deceasedHint")}</small>
+            </span>
+          </label>
         </fieldset>
       </div>
 
