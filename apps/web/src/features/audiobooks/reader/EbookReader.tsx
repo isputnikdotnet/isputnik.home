@@ -565,7 +565,18 @@ export function EbookReader({
           view.renderer.setStyles(themeCSS(a.theme, a.fontScale, a.lineSpacing, a.fontFamily));
           applyLayout(view.renderer, a.layout);
         }
-        await view.init({ lastLocation: startCfi, showTextStart: true });
+        // A saved position can stop resolving — the same book re-imported with
+        // its text changed leaves a CFI pointing at something that has moved.
+        // foliate throws out of init in that case, which used to fail the whole
+        // book and report it as unreadable. Losing the place is the right cost;
+        // refusing to open a perfectly good book is not.
+        try {
+          await view.init({ lastLocation: startCfi, showTextStart: true });
+        } catch {
+          if (cancelled) return;
+          await view.init({ lastLocation: null, showTextStart: true });
+          setNotice(t("reader:ebook.positionLost"));
+        }
         if (!cancelled) setLoading(false);
 
         // Load this document's saved quotes — server quotes plus any captured

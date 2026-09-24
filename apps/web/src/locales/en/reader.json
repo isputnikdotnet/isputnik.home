@@ -76,6 +76,7 @@
     "loadFailed": "Could not load this ebook.",
     "unreachable": "Couldn't reach the server — the book was not downloaded.",
     "openFailed": "This file could not be opened.",
+    "positionLost": "Your saved place could not be found — opening from the start.",
     "tryAgain": "Try again",
     "bookmarkSavedOffline": "Bookmark saved — will sync when online.",
     "unableSaveBookmark": "Unable to save this bookmark.",
