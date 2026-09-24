@@ -1548,7 +1548,20 @@
       "total_one": "{{name}} sees {{count}} photo in the Gallery",
       "total_other": "{{name}} sees {{count}} photos in the Gallery",
       "excluded_one": "{{count}} kept out",
-      "excluded_other": "{{count}} kept out"
+      "excluded_other": "{{count}} kept out",
+      "selfTitle": "{{name}} in the Gallery",
+      "selfLabel": "Who {{name}} is in the Gallery",
+      "selfNone": "Not linked to anyone",
+      "selfShow": "Show them photos of themselves",
+      "selfHint": "Every confirmed photo of {{name}}, like a person shared with them. Linking alone shows nothing.",
+      "selfBadge": "themselves",
+      "othersTitle": "Photos of other people",
+      "branchesTitle": "Whole branches of the family tree",
+      "branchesHint": "{{name}} sees photos of everyone in the branch who is linked to a face in People — and of relatives added to it later.",
+      "branchPeople_one": "{{count}} person",
+      "branchPeople_other": "{{count}} people",
+      "addBranch": "Share photos of a branch",
+      "chooseBranch": "Choose a branch…"
     },
     "review": {
       "title": "Photos of {{name}} to review",

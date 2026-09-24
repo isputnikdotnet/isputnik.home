@@ -12,7 +12,8 @@ import { pathIsInside } from "../shared/storage-roots.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteStoryBlocksForResource } from "../../stories/cleanup.js";
 import { deleteEntityTags, getEntityTags, setEntityTags } from "../shared/tagging.js";
-import { loadAlbumShareMeta, loadAlbumShareItems, curatableGalleryLibraryIds } from "../shared/shares/album-shares.js";
+import { albumItemsVisibleTo, loadAlbumShareMeta, loadAlbumShareItems, curatableGalleryLibraryIds } from "../shared/shares/album-shares.js";
+import { canSeeThroughPeople } from "./people-access.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
 import {
   getAlbum,
@@ -184,7 +185,9 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     }
     if (!creator) { return reply.code(404).send({ error: "Album not found" }); }
 
-    const items = loadAlbumShareItems(albumId, meta.sort_mode, curatableGalleryLibraryIds(creator));
+    // Plus what the viewer may open on their own (a relative's album of photos
+    // shared with them by person, Q3): never more than they could see anyway.
+    const items = loadAlbumShareItems(albumId, meta.sort_mode, curatableGalleryLibraryIds(creator), albumItemsVisibleTo(albumId, user));
     return reply.send({
       album: { id: albumId, name: meta.name },
       items: items.map((row) => ({
@@ -342,7 +345,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "There are no photos to put in the album." });
     }
     const album = createAlbum(user, parsed.data.name, null);
-    const { added } = addAlbumItems(album.id, libIds, itemIds);
+    const { added } = addAlbumItems(album.id, libIds, itemIds, (itemId) => canSeeThroughPeople(user, itemId));
     logActivity({
       event: "gallery.album.created",
       actorUserId: user.id,
@@ -374,7 +377,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
     const libIds = new Set(resolveGalleryScopeLibraryIds(user));
-    return reply.send(addAlbumItems(album.id, libIds, parsed.data.itemIds));
+    return reply.send(addAlbumItems(album.id, libIds, parsed.data.itemIds, (itemId) => canSeeThroughPeople(user, itemId)));
   });
 
   // Batch remove (detach only — the photos stay in the gallery). A body on

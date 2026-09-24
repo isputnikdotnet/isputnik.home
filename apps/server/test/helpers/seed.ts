@@ -24,7 +24,7 @@ if (config.dbPath !== ":memory:") {
 export function resetDb(): void {
   db.pragma("foreign_keys = OFF");
   const tables = [
-    "assignments", "access_settings", "invite_groups", "gallery_share_exclusions", "group_members", "shares", "share_links", "api_tokens", "inbox_delivery_seen", "shared_person_seen", "gallery_music_tracks",
+    "assignments", "access_settings", "invite_groups", "gallery_share_exclusions", "group_members", "shares", "share_links", "api_tokens", "inbox_delivery_seen", "shared_person_seen", "user_gallery_person", "gallery_music_tracks",
     "device_link_requests", "device_link_windows", "sessions", "mfa_challenges",
     "webauthn_credentials", "webauthn_challenges",
     "login_attempts", "blocked_ips", "trusted_networks", "known_login_networks",

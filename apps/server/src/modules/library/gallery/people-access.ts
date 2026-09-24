@@ -19,9 +19,13 @@ import { db } from "../../../db.js";
 import { EVERYONE_GROUP_ID, resolveObjectRole, type AuthUser } from "../../../core/permissions.js";
 import { currentViewer, viewerMemo } from "../../../core/viewer-context.js";
 import { galleryLibrariesLeftOutOfScope } from "./system-libraries.js";
-import type { AccessSettingRow, AssignmentRow, GroupMemberRow } from "../../../db/rows.js";
+import { FAMILY_PERSON_ENTITY_TYPE } from "../../familytree/access.js";
+import type { AccessSettingRow, AssignmentRow, GroupMemberRow, UserGalleryPersonRow } from "../../../db/rows.js";
 
 export const PERSON_GRANT_OBJECT = "gallery_person";
+/** Q2: a family-tree branch (a family tag) shared as photos — every tree member
+ *  tagged with it who is linked to a gallery person, relatives added later too. */
+export const BRANCH_GRANT_OBJECT = "gallery_branch";
 
 type Subject = { subjectType: "user" | "group"; subjectId: string };
 
@@ -38,8 +42,9 @@ function groupIdsOf(userId: string): string[] {
     .filter((id) => id !== EVERYONE_GROUP_ID);
 }
 
-/** The people granted to `user` or any of their groups, minus any person denied
- *  to either. Everyone-group rows don't count: a person shared with the whole
+/** The people granted to `user` or any of their groups — one by one, or as a
+ *  branch of the family tree (Q2) — and themselves, when linked with "Show them
+ *  photos of themselves" on (Q1), minus any person denied to either. Everyone-group rows don't count: a person shared with the whole
  *  household is not a rule anyone needs. Once per request. */
 export function sharedPeopleFor(user: AuthUser): string[] {
   return viewerMemo(`gallery.people:shared:${user.id}`, () => {
@@ -52,7 +57,11 @@ export function sharedPeopleFor(user: AuthUser): string[] {
           OR (a.subject_type = 'group' AND a.subject_id IN (SELECT value FROM json_each(?))))
     `).all(PERSON_GRANT_OBJECT, user.id, JSON.stringify(groups)) as Pick<AssignmentRow, "object_id" | "role">[];
     const denied = new Set(rows.filter((row) => row.role === "deny").map((row) => row.object_id));
-    return [...new Set(rows.filter((row) => row.role !== "deny" && !denied.has(row.object_id)).map((row) => row.object_id))];
+    const granted = rows.filter((row) => row.role !== "deny").map((row) => row.object_id);
+    for (const tagId of branchGrantsReaching(user.id, groups)) granted.push(...branchPeople(tagId));
+    const self = selfLinkOf(user.id);
+    if (self?.showPhotos) granted.push(self.personId);
+    return [...new Set(granted.filter((id) => !denied.has(id)))];
   });
 }
 
@@ -73,6 +82,135 @@ export function peopleRuleFor(user: AuthUser): PeopleRule | null {
   const personIds = sharedPeopleFor(user);
   if (personIds.length === 0) return null;
   return { personIds, showLocation: showLocationFor(user) };
+}
+
+// ── Branches (Q2) ───────────────────────────────────────────────────────────
+
+// A branch's gallery people: its tree members' linked face groups, named ones only.
+const BRANCH_PEOPLE_SQL = `
+  SELECT DISTINCT p.gallery_person_id AS person_id
+  FROM family_tree_persons p
+  JOIN taggables t ON t.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}' AND t.entity_id = p.id
+  JOIN gallery_people gp ON gp.id = p.gallery_person_id AND trim(gp.name) != ''
+  WHERE t.tag_id = ?`;
+
+/** The gallery people a branch shares, as of now. */
+export function branchPeople(tagId: string): string[] {
+  return (db.prepare(BRANCH_PEOPLE_SQL).all(tagId) as { person_id: string }[]).map((row) => row.person_id);
+}
+
+/** Branch grants on the user or their groups (not deny). */
+function branchGrantsReaching(userId: string, groups: string[]): string[] {
+  return (db.prepare(`
+    SELECT DISTINCT object_id FROM assignments
+    WHERE object_type = ? AND role != 'deny'
+      AND ((subject_type = 'user' AND subject_id = ?)
+        OR (subject_type = 'group' AND subject_id IN (SELECT value FROM json_each(?))))
+  `).all(BRANCH_GRANT_OBJECT, userId, JSON.stringify(groups)) as Pick<AssignmentRow, "object_id">[]).map((row) => row.object_id);
+}
+
+/** Whether a tag is a branch of the tree (in use on a family member). */
+export function isFamilyBranch(tagId: string): boolean {
+  return db.prepare("SELECT 1 AS ok FROM taggables WHERE entity_type = ? AND tag_id = ? LIMIT 1").get(FAMILY_PERSON_ENTITY_TYPE, tagId) != null;
+}
+
+/** Share or stop sharing a branch's photos with a user or group. False when the
+ *  tag is not a branch of the tree. */
+export function setBranchGrant(subject: Subject, tagId: string, granted: boolean, byUserId: string): boolean {
+  if (granted) {
+    if (!isFamilyBranch(tagId)) return false;
+    db.prepare(`
+      INSERT INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by)
+      VALUES (?, ?, ?, ?, 'member', ?)
+      ON CONFLICT (subject_type, subject_id, object_type, object_id) DO UPDATE SET role = 'member'
+    `).run(subject.subjectType, subject.subjectId, BRANCH_GRANT_OBJECT, tagId, byUserId);
+  } else {
+    db.prepare("DELETE FROM assignments WHERE subject_type = ? AND subject_id = ? AND object_type = ? AND object_id = ?")
+      .run(subject.subjectType, subject.subjectId, BRANCH_GRANT_OBJECT, tagId);
+  }
+  return true;
+}
+
+/** The branches shared with one subject directly. */
+export function directBranchGrants(subject: Subject): string[] {
+  return (db.prepare(`
+    SELECT object_id FROM assignments
+    WHERE subject_type = ? AND subject_id = ? AND object_type = ? AND role != 'deny'
+  `).all(subject.subjectType, subject.subjectId, BRANCH_GRANT_OBJECT) as Pick<AssignmentRow, "object_id">[])
+    .map((row) => row.object_id);
+}
+
+/** Who sees a person through a branch: each branch the person's tree member is
+ *  in that is shared, and with whom. For "Who can see photos of …". */
+export function branchSubjectsOf(personId: string): { branchId: string; branchName: string; subject: Subject }[] {
+  return (db.prepare(`
+    SELECT DISTINCT tags.id AS branch_id, tags.display_name AS branch_name, a.subject_type, a.subject_id
+    FROM family_tree_persons p
+    JOIN taggables t ON t.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}' AND t.entity_id = p.id
+    JOIN tags ON tags.id = t.tag_id
+    JOIN assignments a ON a.object_type = ? AND a.object_id = tags.id AND a.role != 'deny'
+    WHERE p.gallery_person_id = ?
+    ORDER BY tags.display_name COLLATE NOCASE
+  `).all(BRANCH_GRANT_OBJECT, personId) as { branch_id: string; branch_name: string; subject_type: "user" | "group"; subject_id: string }[])
+    .map((row) => ({ branchId: row.branch_id, branchName: row.branch_name, subject: { subjectType: row.subject_type, subjectId: row.subject_id } }));
+}
+
+// ── "This is them" (Q1) ─────────────────────────────────────────────────────
+
+export interface SelfLink {
+  personId: string;
+  name: string;
+  /** "Show them photos of themselves": counted like a grant when on. */
+  showPhotos: boolean;
+  /** When showPhotos was last turned on — where "new photos" start. */
+  showSince: string | null;
+}
+
+/** The gallery person a user is linked to, or null. */
+export function selfLinkOf(userId: string): SelfLink | null {
+  const row = db.prepare(`
+    SELECT l.person_id, l.show_photos, l.show_since, gp.name
+    FROM user_gallery_person l JOIN gallery_people gp ON gp.id = l.person_id
+    WHERE l.user_id = ?
+  `).get(userId) as (Pick<UserGalleryPersonRow, "person_id" | "show_photos" | "show_since"> & { name: string }) | undefined;
+  return row ? { personId: row.person_id, name: row.name, showPhotos: row.show_photos === 1, showSince: row.show_since } : null;
+}
+
+/** The account linked to a person, or null. */
+export function selfLinkedUser(personId: string): { userId: string; showPhotos: boolean } | null {
+  const row = db.prepare("SELECT user_id, show_photos FROM user_gallery_person WHERE person_id = ?")
+    .get(personId) as Pick<UserGalleryPersonRow, "user_id" | "show_photos"> | undefined;
+  return row ? { userId: row.user_id, showPhotos: row.show_photos === 1 } : null;
+}
+
+export type SetSelfLinkResult = "ok" | "no-person" | "taken";
+
+/** Link a user to their gallery person (null unlinks). Only a named person; one
+ *  that is someone else's already is refused. Turning showPhotos on stamps
+ *  show_since, so For you counts what arrives after it, not what was there. */
+export function setSelfLink(userId: string, personId: string | null, showPhotos: boolean, byUserId: string): SetSelfLinkResult {
+  if (personId == null) {
+    db.prepare("DELETE FROM user_gallery_person WHERE user_id = ?").run(userId);
+    return "ok";
+  }
+  const person = db.prepare("SELECT name FROM gallery_people WHERE id = ?").get(personId) as { name: string } | undefined;
+  if (!person || !person.name.trim()) return "no-person";
+  const owner = selfLinkedUser(personId);
+  if (owner && owner.userId !== userId) return "taken";
+  const current = selfLinkOf(userId);
+  const samePerson = current?.personId === personId;
+  const since = showPhotos
+    ? (samePerson && current?.showPhotos && current.showSince ? current.showSince : new Date().toISOString())
+    : null;
+  db.prepare(`
+    INSERT INTO user_gallery_person (user_id, person_id, show_photos, show_since, linked_by)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (user_id) DO UPDATE SET
+      person_id = excluded.person_id, show_photos = excluded.show_photos, show_since = excluded.show_since,
+      linked_by = CASE WHEN user_gallery_person.person_id = excluded.person_id THEN user_gallery_person.linked_by ELSE excluded.linked_by END,
+      linked_at = CASE WHEN user_gallery_person.person_id = excluded.person_id THEN user_gallery_person.linked_at ELSE strftime('%Y-%m-%dT%H:%M:%fZ','now') END
+  `).run(userId, personId, showPhotos ? 1 : 0, since, byUserId);
+  return "ok";
 }
 
 // ── The rule on a scope list ────────────────────────────────────────────────
@@ -242,6 +380,8 @@ export function setShowLocation(subject: Subject, on: boolean): void {
  *  cleared by the caller, as for every grant). */
 export function deleteAccessSettingsForSubject(subjectType: "user" | "group", subjectId: string): void {
   db.prepare("DELETE FROM access_settings WHERE subject_type = ? AND subject_id = ?").run(subjectType, subjectId);
+  // A deleted account is nobody in the gallery any more (Q1).
+  if (subjectType === "user") db.prepare("DELETE FROM user_gallery_person WHERE user_id = ?").run(subjectId);
 }
 
 /** A merge folds one person into another: their grants follow, deduplicated —
@@ -257,6 +397,12 @@ export function movePersonGrants(sourceId: string, targetId: string): void {
   `);
   for (const row of rows) upsert.run(row.subject_type, row.subject_id, PERSON_GRANT_OBJECT, targetId, row.role, row.created_by);
   deletePersonGrants(sourceId);
+  // "This is them" follows too — unless the target is already someone's, when the
+  // link to the merged-away person goes (the row would point at nothing anyway).
+  if (!selfLinkedUser(targetId)) {
+    db.prepare("UPDATE user_gallery_person SET person_id = ? WHERE person_id = ?").run(targetId, sourceId);
+  }
+  db.prepare("DELETE FROM user_gallery_person WHERE person_id = ?").run(sourceId);
 }
 
 export function deletePersonGrants(personId: string): void {
@@ -335,8 +481,9 @@ export function sharedPhotoCount(personIds: string[]): number {
 // ── New arrivals (For you) ──────────────────────────────────────────────────
 
 /** For each person shared with `user`, when the grant first reached them: the
- *  direct grant's date, or a group grant's — or joining that group, when later.
- *  Photos confirmed before it are not news to them. */
+ *  direct grant's date, or a group grant's — or joining that group, when later —
+ *  or when "Show them photos of themselves" went on. Photos confirmed before it
+ *  are not news to them. */
 export function sharedPeopleSince(user: AuthUser): Map<string, string> {
   const personIds = sharedPeopleFor(user);
   const since = new Map<string, string>();
@@ -352,6 +499,29 @@ export function sharedPeopleSince(user: AuthUser): Map<string, string> {
     GROUP BY a.object_id
   `).all(user.id, PERSON_GRANT_OBJECT, JSON.stringify(personIds), user.id) as { person_id: string; since: string }[];
   for (const row of rows) since.set(row.person_id, row.since);
+  // Through a branch: from when the branch grant reached them (Q2).
+  const groups = groupIdsOf(user.id);
+  const branchRows = db.prepare(`
+    SELECT a.object_id AS tag_id,
+      MIN(CASE WHEN a.subject_type = 'user' THEN a.created_at ELSE MAX(a.created_at, gm.joined_at) END) AS since
+    FROM assignments a
+    LEFT JOIN group_members gm ON a.subject_type = 'group' AND gm.group_id = a.subject_id AND gm.user_id = ?
+    WHERE a.object_type = ? AND a.role != 'deny'
+      AND ((a.subject_type = 'user' AND a.subject_id = ?) OR (gm.user_id IS NOT NULL AND a.subject_id IN (SELECT value FROM json_each(?))))
+    GROUP BY a.object_id
+  `).all(user.id, BRANCH_GRANT_OBJECT, user.id, JSON.stringify(groups)) as { tag_id: string; since: string }[];
+  for (const branch of branchRows) {
+    for (const personId of branchPeople(branch.tag_id)) {
+      if (!personIds.includes(personId)) continue;
+      const other = since.get(personId);
+      if (!other || branch.since < other) since.set(personId, branch.since);
+    }
+  }
+  const self = selfLinkOf(user.id);
+  if (self?.showPhotos && self.showSince && personIds.includes(self.personId)) {
+    const other = since.get(self.personId);
+    since.set(self.personId, other && other < self.showSince ? other : self.showSince);
+  }
   return since;
 }
 

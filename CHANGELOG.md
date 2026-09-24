@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.23.0 — Sharing photos, finished
+
+- **Photos of themselves.** A member's access (Control panel → Members → **Photos of people**) now starts with who they *are* in the Gallery — their own face in People. The link on its own shows them nothing; tick **Show them photos of themselves** and every confirmed photo of them appears in their Gallery, like a person shared with them, with new ones on their **For you**. A person's **Who can see photos of …** says whose account they are.
+- **Share a whole branch of the family tree.** **Share photos of a branch** shares everyone tagged with that branch who is linked to a face in People — and relatives added to the branch later — in one step, for a person or a group. A person blocked for someone stays blocked, and **Who can see photos of …** shows who gets them through a branch.
+- **Relatives can make albums and slideshows of the photos shared with them.** Adding them used to be skipped without a word. Anyone they send such an album to sees only the photos they could already see themselves.
+- **Shared photos never leave by guest link.** A guest link only ever shows photos from libraries its maker looks after, so the photos shared with a relative stay among members — and the Share link tab no longer appears where it could only come out empty.
+
 ## 4.22.4 — People stay yours to manage
 
 - **Only people who look after your photo libraries can rename, delete or merge people in the Gallery.** Being able to add notes in the Photo Inbox used to be enough — so a relative helping with the Inbox saw Rename and Delete on every person, including the ones shared with them, and could use them. Now those need write access to a photo library; the Inbox and App files don't count. Naming people on the Inbox photos in front of them still works as before.

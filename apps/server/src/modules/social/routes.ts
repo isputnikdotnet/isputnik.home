@@ -29,6 +29,7 @@ import {
 import { canEditStory, getStory } from "../stories/access.js";
 import { hydrateEntities, hydrateOne, isSubjectEntityType, type HydratedEntity } from "./subjects.js";
 import { notifyRecommendationSent } from "./notify.js";
+import { albumHasLinkablePhotos } from "../library/shared/shares/album-shares.js";
 import type { RecommendationRow as DbRecommendationRow, UserRow } from "../../db/rows.js";
 
 // Entity types that are rows in library_items, and so can be liked. A
@@ -263,7 +264,11 @@ export async function socialPlugin(app: FastifyInstance) {
       // now knows each kind's list and create paths, so a story and an album are
       // managed in the tab like everything else instead of handing off to dialogs
       // of their own. A family-tree person still has no link to manage.
-      manageLinks: (LIBRARY_ITEM_TYPES.has(query.entityType) || query.entityType === "gallery_album") && canGrant
+      // An album's link shows only photos from libraries the caller looks after
+      // (album-shares.ts) — never ones shared with them by person (Q4) — so a
+      // relative's album of those offers no link at all rather than an empty one.
+      manageLinks: (LIBRARY_ITEM_TYPES.has(query.entityType) && canGrant)
+        || (query.entityType === "gallery_album" && canGrant && albumHasLinkablePhotos(query.entityId, user))
         || (query.entityType === "story" && storyLinkable(query.entityId, user)),
       // Whether the foot of the People tab lists who already has an explicit
       // share. Separate from the links above because the two do not coincide: a

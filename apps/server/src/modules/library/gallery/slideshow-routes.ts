@@ -43,6 +43,7 @@ import { presentRenderItems, slideshowTitleCardPreview, slideshowClosingCardPrev
 import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
 import { sourceIsWritable } from "../shared/library-source.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
+import { canSeeThroughPeople } from "./people-access.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { getHouseLibrary } from "./house-library.js";
 import { isAppStorageEnabled } from "../../../core/app-storage.js";
@@ -307,7 +308,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     let added = 0;
     if (parsed.data.itemIds && parsed.data.itemIds.length > 0) {
       const libIds = new Set(resolveGalleryScopeLibraryIds(user));
-      added = addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds).added;
+      added = addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds, (itemId) => canSeeThroughPeople(request.user!, itemId)).added;
     }
     logActivity({
       event: "gallery.slideshow.created",
@@ -702,7 +703,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
     const libIds = new Set(resolveGalleryScopeLibraryIds(user));
-    return reply.send(addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds));
+    return reply.send(addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds, (itemId) => canSeeThroughPeople(request.user!, itemId)));
   });
 
   // Batch remove (detach only — the photos stay in the gallery). POST like the add.

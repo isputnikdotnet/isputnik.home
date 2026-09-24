@@ -607,20 +607,29 @@ none); one real person can be split over several face groups, and merging is
 supported (grants must follow a merge — see Lifecycle); `users` links to no
 person record at all today.
 
-## Open questions
+## Open questions (all answered)
 
-- **Q1 — Themselves.** A relative linked to their own gallery person (their own
-  face): see photos of themselves automatically, or only when granted? Suggest:
-  offered as a checkbox on the grant card, off by default.
-- **Q2 — Family-tree branches as grants.** `object_type = 'family_tree_tag'`
-  would share every member of a branch, including relatives added later, through
-  their `gallery_person_id`. Worth it, but after v1 — the grant-by-person path
-  has to be right first.
-- **Q3 — Making things from shared photos.** Should a relative be able to build
-  an album or slideshow of their shared photos? Suggest later; view, download,
-  notes and voice notes first.
-- **Q4 — Guest links.** Should a people-shared photo be sendable onward by the
-  relative as a guest link? Suggest **no**: Send to other *users* only, so
-  sharing never escapes the owner's control.
+- **Q1 — Themselves.** Answered and built (2026-09-24): an account links to its
+  own gallery PERSON (not the tree member) in Access → Photos of people
+  (`user_gallery_person`, one person per account and one account per person);
+  the link grants nothing (D12) until "Show them photos of themselves" is ticked,
+  off by default. Then `sharedPeopleFor` counts it like a grant from `show_since`,
+  so redaction, For you and denies apply unchanged; merges carry the link.
+- **Q2 — Family-tree branches as grants.** Answered and built (2026-09-24) as its
+  own object type, `gallery_branch` (object_id = the family tag), so it never
+  mixes with branch EDIT rights (`family_tree_tag`). `sharedPeopleFor` expands it
+  to the branch members' named `gallery_person_id`s at read time, so relatives
+  tagged later are in, person denies still win, and For you counts from the
+  branch grant. Access → Photos of people lists branches with people/photo
+  counts; "Who can see photos of …" shows who gets a person through a branch.
+- **Q3 — Making things from shared photos.** Answered yes and built (2026-09-24):
+  `addAlbumItems` / `addSlideshowItems` take an `alsoAllowed` check, and the
+  album and slideshow routes pass `canSeeThroughPeople`. Viewing already used the
+  people-aware scope. A member sent such an album sees the album's photos they
+  may open themselves (`albumItemsVisibleTo`) besides the sender's curatable ones.
+- **Q4 — Guest links.** Answered **no** (2026-09-24), and it already held: every
+  guest link (photo, set, album) needs curator rights on the photo's library, so
+  people-shared photos never go out that way. Now pinned by tests, and the Share
+  link tab is hidden for an album with nothing linkable (`albumHasLinkablePhotos`).
 - **Q5 — Cropper: in-house vs a dependency.** Answered by building it: in-house
   `shared/ImageCropper` (4.21.0).

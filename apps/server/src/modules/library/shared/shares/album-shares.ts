@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { sha256 } from "../../../../crypto.js";
 import { addDays } from "../../../../auth.js";
-import { canUserCurateLibrary, type LibraryAccessRow } from "../library-access.js";
+import { canUserAccessBook, canUserCurateLibrary, type LibraryAccessRow } from "../library-access.js";
 import type { GallerySetFileRow, GallerySetItemRow, GallerySetMediaRow } from "./gallery-set-shares.js";
 import type { GalleryAlbumRow } from "../../../../db/rows.js";
 
@@ -37,10 +37,28 @@ function albumShareOrder(sortMode: string): string {
     : "gallery_details.taken_at ASC, library_items.id ASC";
 }
 
+/** The album's photos `viewer` may open on their own — by library, by person,
+ *  however. Added to a MEMBER's view of a shared album (never to a guest link),
+ *  so a relative's album of photos shared with them by person shows the member
+ *  it is sent to the ones that member could see anyway (Q3/Q4). */
+export function albumItemsVisibleTo(albumId: string, viewer: { id: string; role: string }): string[] {
+  const rows = db.prepare(`
+    SELECT library_items.id AS id, libraries.id AS library_id, libraries.owner_id, libraries.owner_type, libraries.policy_json, libraries.type
+    FROM gallery_album_items
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE gallery_album_items.album_id = ?
+  `).all(albumId) as ({ id: string; library_id: string } & Omit<LibraryAccessRow, "id">)[];
+  return rows
+    .filter((row) => canUserAccessBook(row.id, { ...row, id: row.library_id }, viewer.id, viewer.role, "gallery"))
+    .map((row) => row.id);
+}
+
 // The live members of an album share (same shape as a set link's items), in album
-// order, filtered to the creator's curatable libraries. Soft-deleted items drop.
-export function loadAlbumShareItems(albumId: string, sortMode: string, libIds: string[]): GallerySetItemRow[] {
-  if (libIds.length === 0) return [];
+// order, filtered to the creator's curatable libraries — and, for a member's view,
+// the photos they may open themselves (`alsoItemIds`). Soft-deleted items drop.
+export function loadAlbumShareItems(albumId: string, sortMode: string, libIds: string[], alsoItemIds: string[] = []): GallerySetItemRow[] {
+  if (libIds.length === 0 && alsoItemIds.length === 0) return [];
   return db.prepare(`
     SELECT
       library_items.id,
@@ -57,9 +75,17 @@ export function loadAlbumShareItems(albumId: string, sortMode: string, libIds: s
     JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
-    WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${inClause(libIds.length)})
+    WHERE gallery_album_items.album_id = ?
+      AND (library_items.library_id IN (SELECT value FROM json_each(?)) OR library_items.id IN (SELECT value FROM json_each(?)))
     ORDER BY ${albumShareOrder(sortMode)}
-  `).all(albumId, ...libIds) as GallerySetItemRow[];
+  `).all(albumId, JSON.stringify(libIds), JSON.stringify(alsoItemIds)) as GallerySetItemRow[];
+}
+
+/** Whether a guest link on this album would show anything: the album has photos
+ *  in libraries `user` looks after. People-shared photos never count (Q4). */
+export function albumHasLinkablePhotos(albumId: string, user: { id: string; role: string }): boolean {
+  const meta = loadAlbumShareMeta(albumId);
+  return meta != null && loadAlbumShareItems(albumId, meta.sort_mode, curatableGalleryLibraryIds(user)).length > 0;
 }
 
 export function loadAlbumShareFiles(albumId: string, sortMode: string, libIds: string[]): GallerySetFileRow[] {

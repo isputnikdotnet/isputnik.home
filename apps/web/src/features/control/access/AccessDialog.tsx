@@ -234,7 +234,11 @@ export function AccessDialog({
             <PhotosTab
               subjectName={name}
               people={people}
+              isUser={isUser}
               busy={busy}
+              onGrantBranch={(branchId) => void write(() => api(`/api/library/gallery/branches/${encodeURIComponent(branchId)}/sharing/${base}`, { method: "PUT" }))}
+              onRevokeBranch={(branchId) => void write(() => api(`/api/library/gallery/branches/${encodeURIComponent(branchId)}/sharing/${base}`, del))}
+              onSelf={(personId, showPhotos) => void write(() => api(`/api/library/gallery/access/${base}/self`, { method: "PUT", body: JSON.stringify({ personId, showPhotos }) }))}
               onGrant={(personId) => void write(() => api(`/api/library/gallery/people/${personId}/sharing/${base}`, { method: "PUT" }))}
               onRevoke={(personId) => void write(() => api(`/api/library/gallery/people/${personId}/sharing/${base}`, del))}
               onReview={(person) => setReviewing(person)}
@@ -471,10 +475,16 @@ function MembersTab({ members, busy, onAdd, onRemove }: {
   );
 }
 
-function PhotosTab({ subjectName, people, busy, onGrant, onRevoke, onReview, onLocation, onOpenGroup }: {
+function PhotosTab({ subjectName, people, isUser, busy, onSelf, onGrantBranch, onRevokeBranch, onGrant, onRevoke, onReview, onLocation, onOpenGroup }: {
   subjectName: string;
   people: PeopleAccess;
+  isUser: boolean;
   busy: boolean;
+  /** "This is them" (Q1): null unlinks. */
+  onSelf: (personId: string | null, showPhotos: boolean) => void;
+  /** A whole branch of the family tree (Q2). */
+  onGrantBranch: (branchId: string) => void;
+  onRevokeBranch: (branchId: string) => void;
   onGrant: (personId: string) => void;
   onRevoke: (personId: string) => void;
   onReview: (person: { id: string; name: string }) => void;
@@ -491,33 +501,71 @@ function PhotosTab({ subjectName, people, busy, onGrant, onRevoke, onReview, onL
   const direct = new Set(people.people.filter((p) => p.direct).map((p) => p.id));
   const addable = all.filter((person) => !direct.has(person.id));
   const excluded = people.people.reduce((sum, p) => sum + p.counts.excluded, 0);
+  const self = people.self ?? null;
+  // Their own person, when seen only as themselves, sits under the checkbox that
+  // shows it; granted as well, it stays in the list with a "themselves" note.
+  const selfRow = people.people.find((p) => p.self && !p.direct && p.viaGroups.length === 0) ?? null;
+  const others = people.people.filter((p) => p !== selfRow);
+  const directBranches = new Set(people.branches.filter((b) => b.direct).map((b) => b.id));
+  const addableBranches = people.allBranches.filter((b) => !directBranches.has(b.id));
+  // One person's row: their photos, Review, and Remove for a direct grant.
+  const row = (person: PeopleAccess["people"][number]) => (
+    <div className="access-row access-row-people" key={person.id}>
+      <span className="access-row-name">
+        {person.name}
+        {person.self && person !== selfRow && <small>{t("controlAdmin:access.photos.selfBadge")}</small>}
+        {person.viaGroups.length > 0 && (
+          <small>
+            {person.viaGroups.map((group) => (
+              <Button key={group.id} variant="text" compact onClick={() => onOpenGroup(group.id)}>
+                {t("controlAdmin:access.photos.viaGroup", { group: group.name })}
+              </Button>
+            ))}
+          </small>
+        )}
+      </span>
+      <span className="access-gets">{t("controlAdmin:access.photos.count", { count: person.counts.shared })}</span>
+      {person.counts.toReview > 0
+        ? <Button variant="secondary" compact className="access-review" disabled={busy} onClick={() => onReview(person)}>{t("controlAdmin:access.photos.review", { count: person.counts.toReview })}</Button>
+        : <span className="access-muted">{t("controlAdmin:access.photos.allConfirmed")}</span>}
+      {person.direct
+        ? <Button variant="secondary" compact disabled={busy} onClick={() => onRevoke(person.id)}>{t("controlAdmin:access.remove")}</Button>
+        : <span />}
+    </div>
+  );
   return (
     <div className="access-rows">
+      {isUser && (
+        <>
+          <h3 className="access-section-title">{t("controlAdmin:access.photos.selfTitle", { name: subjectName })}</h3>
+          <div className="access-add">
+            <SelectField
+              label={t("controlAdmin:access.photos.selfLabel", { name: subjectName })}
+              hideLabel
+              value={self?.personId ?? ""}
+              disabled={busy}
+              onChange={(personId) => onSelf(personId || null, personId ? self?.showPhotos ?? false : false)}
+              options={[
+                { value: "", label: t("controlAdmin:access.photos.selfNone") },
+                ...(self && !all.some((person) => person.id === self.personId) ? [{ value: self.personId, label: self.name }] : []),
+                ...all.map((person) => ({ value: person.id, label: person.name }))
+              ]}
+            />
+          </div>
+          <label className="access-toggle">
+            <input type="checkbox" checked={self?.showPhotos ?? false} disabled={busy || !self} onChange={(event) => self && onSelf(self.personId, event.target.checked)} />
+            <span>
+              {t("controlAdmin:access.photos.selfShow")}
+              <small>{t("controlAdmin:access.photos.selfHint", { name: subjectName })}</small>
+            </span>
+          </label>
+          {selfRow && row(selfRow)}
+          <h3 className="access-section-title">{t("controlAdmin:access.photos.othersTitle")}</h3>
+        </>
+      )}
       <p className="access-muted">{t("controlAdmin:access.photos.hint", { name: subjectName })}</p>
-      {people.people.length === 0 && <p className="access-muted">{t("controlAdmin:access.photos.none")}</p>}
-      {people.people.map((person) => (
-        <div className="access-row access-row-people" key={person.id}>
-          <span className="access-row-name">
-            {person.name}
-            {person.viaGroups.length > 0 && (
-              <small>
-                {person.viaGroups.map((group) => (
-                  <Button key={group.id} variant="text" compact onClick={() => onOpenGroup(group.id)}>
-                    {t("controlAdmin:access.photos.viaGroup", { group: group.name })}
-                  </Button>
-                ))}
-              </small>
-            )}
-          </span>
-          <span className="access-gets">{t("controlAdmin:access.photos.count", { count: person.counts.shared })}</span>
-          {person.counts.toReview > 0
-            ? <Button variant="secondary" compact className="access-review" disabled={busy} onClick={() => onReview(person)}>{t("controlAdmin:access.photos.review", { count: person.counts.toReview })}</Button>
-            : <span className="access-muted">{t("controlAdmin:access.photos.allConfirmed")}</span>}
-          {person.direct
-            ? <Button variant="secondary" compact disabled={busy} onClick={() => onRevoke(person.id)}>{t("controlAdmin:access.remove")}</Button>
-            : <span />}
-        </div>
-      ))}
+      {others.length === 0 && <p className="access-muted">{t("controlAdmin:access.photos.none")}</p>}
+      {others.map(row)}
       {addable.length > 0 && (
         <div className="access-add">
           <SelectField
@@ -528,6 +576,44 @@ function PhotosTab({ subjectName, people, busy, onGrant, onRevoke, onReview, onL
             options={[{ value: "", label: t("controlAdmin:access.photos.choose") }, ...addable.map((person) => ({ value: person.id, label: person.name }))]}
           />
         </div>
+      )}
+      {people.allBranches.length > 0 && (
+        <>
+          <h3 className="access-section-title">{t("controlAdmin:access.photos.branchesTitle")}</h3>
+          <p className="access-muted">{t("controlAdmin:access.photos.branchesHint", { name: subjectName })}</p>
+          {people.branches.map((branch) => (
+            <div className="access-row access-row-people" key={branch.id}>
+              <span className="access-row-name">
+                {branch.name}
+                {branch.viaGroups.length > 0 && (
+                  <small>
+                    {branch.viaGroups.map((group) => (
+                      <Button key={group.id} variant="text" compact onClick={() => onOpenGroup(group.id)}>
+                        {t("controlAdmin:access.photos.viaGroup", { group: group.name })}
+                      </Button>
+                    ))}
+                  </small>
+                )}
+              </span>
+              <span className="access-gets">{t("controlAdmin:access.photos.branchPeople", { count: branch.people })}</span>
+              <span className="access-gets">{t("controlAdmin:access.photos.count", { count: branch.photos })}</span>
+              {branch.direct
+                ? <Button variant="secondary" compact disabled={busy} onClick={() => onRevokeBranch(branch.id)}>{t("controlAdmin:access.remove")}</Button>
+                : <span />}
+            </div>
+          ))}
+          {addableBranches.length > 0 && (
+            <div className="access-add">
+              <SelectField
+                label={t("controlAdmin:access.photos.addBranch")}
+                value=""
+                disabled={busy}
+                onChange={(branchId) => { if (branchId) onGrantBranch(branchId); }}
+                options={[{ value: "", label: t("controlAdmin:access.photos.chooseBranch") }, ...addableBranches.map((branch) => ({ value: branch.id, label: branch.name }))]}
+              />
+            </div>
+          )}
+        </>
       )}
       <label className="access-toggle">
         <input type="checkbox" checked={people.settings.showLocation} disabled={busy} onChange={(event) => onLocation(event.target.checked)} />

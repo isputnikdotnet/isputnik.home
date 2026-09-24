@@ -11,7 +11,7 @@ import { newlySharedResources, notifyShareGranted } from "../share-notify.js";
 import { mediaKind } from "../library-types.js";
 import { getShareableBook, grantAlbumAccess, grantItemAccess, type ShareableResult } from "./grants.js";
 import { createGallerySetShare, shareableGalleryItems } from "./gallery-set-shares.js";
-import { createGalleryAlbumShare, curatableGalleryLibraryIds, loadAlbumShareItems } from "./album-shares.js";
+import { albumItemsVisibleTo, createGalleryAlbumShare, curatableGalleryLibraryIds, loadAlbumShareItems } from "./album-shares.js";
 import type {
   GalleryAlbumRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, ShareLinkRow, ShareRow, StoryRow, UserRow
 } from "../../../../db/rows.js";
@@ -843,7 +843,7 @@ export function registerShareManageRoutes(app: FastifyInstance) {
 
     const albums = albumRows.map((row) => {
       const creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(row.created_by) as Pick<UserRow, "id" | "role"> | undefined;
-      const items = creator ? loadAlbumShareItems(row.album_id, row.sort_mode, curatableGalleryLibraryIds(creator)) : [];
+      const items = creator ? loadAlbumShareItems(row.album_id, row.sort_mode, curatableGalleryLibraryIds(creator), albumItemsVisibleTo(row.album_id, user)) : [];
       const cover = items.find((item) => item.cover_storage_key)?.cover_storage_key ?? null;
       return {
         id: row.album_id,

@@ -490,7 +490,10 @@
         "load": "Unable to load who can see these photos",
         "save": "Unable to change who can see these photos",
         "title": "Unable to update sharing"
-      }
+      },
+      "selfLinked": "This is them · doesn't see these photos",
+      "selfSees": "This is them · sees these photos",
+      "viaBranch": "through the {{branch}} branch"
     }
   },
   "memories": {

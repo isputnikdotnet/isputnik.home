@@ -14,8 +14,10 @@ import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./ca
 import { confirmPersonPhotos, getGalleryPersonRow } from "./people.js";
 import {
   accessSettingsOf, directPersonGrants, isShareExcluded, personGrantSubjects, personReviewItemIds,
-  personShareCounts, setPersonGrant, setShareExcluded, setShowLocation, sharedPeopleFor, sharedPhotoCount
+  personShareCounts, selfLinkedUser, selfLinkOf, setPersonGrant, setSelfLink, setShareExcluded, setShowLocation,
+  sharedPeopleFor, sharedPhotoCount, branchPeople, branchSubjectsOf, directBranchGrants, setBranchGrant
 } from "./people-access.js";
+import { listFamilyTags } from "../../familytree/access.js";
 import type { GroupMemberRow, UserGroupRow, UserRow } from "../../../db/rows.js";
 
 type SubjectType = "user" | "group";
@@ -61,7 +63,16 @@ export async function galleryPeopleAccessRoutesPlugin(app: FastifyInstance) {
     const subjects = personGrantSubjects(personId)
       .map((subject) => ({ ...subject, name: subjectName(subject.subjectType, subject.subjectId) }))
       .filter((subject): subject is typeof subject & { name: string } => subject.name != null);
-    return reply.send({ person: { id: person.id, name: person.name }, counts: personShareCounts(personId), subjects });
+    // The account this person IS (Q1), shown apart: seeing photos of yourself is
+    // the checkbox on their Access dialog, not a grant to remove here.
+    const linked = selfLinkedUser(personId);
+    const self = linked ? { userId: linked.userId, name: subjectName("user", linked.userId), showPhotos: linked.showPhotos } : null;
+    // And whoever gets them through a branch of the tree (Q2) — changed on the
+    // branch, so listed here without a Remove.
+    const viaBranches = branchSubjectsOf(personId)
+      .map((row) => ({ branchId: row.branchId, branchName: row.branchName, ...row.subject, name: subjectName(row.subject.subjectType, row.subject.subjectId) }))
+      .filter((row): row is typeof row & { name: string } => row.name != null);
+    return reply.send({ person: { id: person.id, name: person.name }, counts: personShareCounts(personId), subjects, viaBranches, self: self?.name ? self : null });
   });
 
   const grantHandler = (granted: boolean) => async (request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) => {
@@ -87,6 +98,34 @@ export async function galleryPeopleAccessRoutesPlugin(app: FastifyInstance) {
     return reply.send({ subjects: personGrantSubjects(personId), counts: personShareCounts(personId) });
   };
   app.put("/api/library/gallery/people/:id/sharing/:subjectType/:subjectId", { preHandler: app.requireAdmin }, grantHandler(true));
+
+  // A whole branch of the family tree (Q2): its members' photos, and relatives
+  // added to it later.
+  const branchHandler = (granted: boolean) => async (request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) => {
+    const { tagId, ...rest } = request.params as { tagId: string; subjectType: string; subjectId: string };
+    const parsed = subjectParams.safeParse(rest);
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid subject" });
+    const { subjectType, subjectId } = parsed.data;
+    const name = subjectName(subjectType, subjectId);
+    if (!name) return reply.code(404).send({ error: subjectType === "user" ? "User not found" : "Group not found" });
+    if (!setBranchGrant({ subjectType, subjectId }, tagId, granted, request.user!.id)) {
+      return reply.code(404).send({ error: "That is not a branch of the family tree." });
+    }
+    const branchName = (db.prepare("SELECT display_name FROM tags WHERE id = ?").get(tagId) as { display_name: string } | undefined)?.display_name ?? tagId;
+    logActivity({
+      event: granted ? "access.branch.granted" : "access.branch.revoked",
+      actorUserId: request.user!.id,
+      targetType: subjectType,
+      targetId: subjectId,
+      detail: granted
+        ? `Shared photos of the ${branchName} branch with ${name}.`
+        : `Stopped sharing photos of the ${branchName} branch with ${name}.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ ok: true });
+  };
+  app.put("/api/library/gallery/branches/:tagId/sharing/:subjectType/:subjectId", { preHandler: app.requireAdmin }, branchHandler(true));
+  app.delete("/api/library/gallery/branches/:tagId/sharing/:subjectType/:subjectId", { preHandler: app.requireAdmin }, branchHandler(false));
   app.delete("/api/library/gallery/people/:id/sharing/:subjectType/:subjectId", { preHandler: app.requireAdmin }, grantHandler(false));
 
   // ── From the recipient's side: the people shared with a user or group ──
@@ -101,6 +140,8 @@ export async function galleryPeopleAccessRoutesPlugin(app: FastifyInstance) {
     // Direct grants, then — for a person — what each of their groups gives.
     const direct = new Set(directPersonGrants({ subjectType, subjectId }));
     const via = new Map<string, { id: string; name: string }[]>();
+    const directBranches = new Set(directBranchGrants({ subjectType, subjectId }));
+    const branchVia = new Map<string, { id: string; name: string }[]>();
     if (subjectType === "user") {
       const groups = db.prepare(`
         SELECT g.id, g.name FROM group_members m JOIN user_groups g ON g.id = m.group_id WHERE m.user_id = ?
@@ -109,14 +150,29 @@ export async function galleryPeopleAccessRoutesPlugin(app: FastifyInstance) {
         for (const personId of directPersonGrants({ subjectType: "group", subjectId: group.id })) {
           via.set(personId, [...(via.get(personId) ?? []), { id: group.id, name: group.name }]);
         }
+        for (const tagId of directBranchGrants({ subjectType: "group", subjectId: group.id })) {
+          branchVia.set(tagId, [...(branchVia.get(tagId) ?? []), { id: group.id, name: group.name }]);
+        }
       }
     }
-    const personIds = [...new Set([...direct, ...via.keys()])];
+    // Branches of the tree shared as photos (Q2), with how many people and photos
+    // each reaches today; allBranches is what the picker offers.
+    const allBranches = listFamilyTags().map((tag) => ({ id: tag.id, name: tag.name, members: tag.count }));
+    const branches = allBranches
+      .filter((branch) => directBranches.has(branch.id) || branchVia.has(branch.id))
+      .map((branch) => {
+        const reach = branchPeople(branch.id);
+        return { ...branch, direct: directBranches.has(branch.id), viaGroups: branchVia.get(branch.id) ?? [], people: reach.length, photos: sharedPhotoCount(reach) };
+      });
+    // Themselves (Q1): listed with the rest once "Show them photos of themselves" is on.
+    const self = subjectType === "user" ? selfLinkOf(subjectId) : null;
+    const personIds = [...new Set([...direct, ...via.keys(), ...(self?.showPhotos ? [self.personId] : [])])];
     const people = personIds
       .map((personId) => ({
         id: personId,
         name: personName(personId),
         direct: direct.has(personId),
+        self: self?.personId === personId,
         viaGroups: via.get(personId) ?? [],
         counts: personShareCounts(personId)
       }))
@@ -130,8 +186,44 @@ export async function galleryPeopleAccessRoutesPlugin(app: FastifyInstance) {
       subject: { subjectType, subjectId, name },
       people,
       settings: accessSettingsOf({ subjectType, subjectId }),
+      self: self ? { personId: self.personId, name: self.name, showPhotos: self.showPhotos } : null,
+      branches,
+      allBranches,
       photoCount: sharedPhotoCount(effective)
     });
+  });
+
+  // "This is them" (Q1): link an account to its gallery person, and whether they
+  // see photos of themselves. Users only; admins see everything anyway.
+  const selfBody = z.object({
+    personId: z.string().trim().min(1).max(64).nullable(),
+    showPhotos: z.boolean().default(false)
+  });
+
+  app.put("/api/library/gallery/access/user/:subjectId/self", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const userId = (request.params as { subjectId: string }).subjectId;
+    const name = subjectName("user", userId);
+    if (!name) return reply.code(404).send({ error: "User not found" });
+    const parsed = parseBody(selfBody, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid link", details: parsed.error });
+    const before = selfLinkOf(userId);
+    const result = setSelfLink(userId, parsed.data.personId, parsed.data.personId != null && parsed.data.showPhotos, request.user!.id);
+    if (result === "no-person") return reply.code(404).send({ error: "Only a named person in the gallery can be linked." });
+    if (result === "taken") return reply.code(409).send({ error: "That person is already linked to another account." });
+    const after = selfLinkOf(userId);
+    if (before?.personId !== after?.personId || before?.showPhotos !== after?.showPhotos) {
+      logActivity({
+        event: "access.self.changed",
+        actorUserId: request.user!.id,
+        targetType: "user",
+        targetId: userId,
+        detail: !after
+          ? `${name} is no longer linked to a person in the gallery.`
+          : `${name} is ${after.name} in the gallery${after.showPhotos ? ", and sees photos of themselves" : ""}.`,
+        ipAddress: request.ip
+      });
+    }
+    return reply.send({ self: after ? { personId: after.personId, name: after.name, showPhotos: after.showPhotos } : null });
   });
 
   const settingsBody = z.object({ showLocation: z.boolean() });

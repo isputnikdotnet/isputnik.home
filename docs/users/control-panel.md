@@ -240,6 +240,25 @@ that person, and **Confirm**. From the other side, a person's page in the Galler
 **Who can see photos of …**, and the photo viewer's ⋯ menu has **Don't share this
 photo** for a picture that should never go out this way.
 
+**Photos of themselves.** At the top of the same tab, choose who the person *is* in
+the Gallery — their own face in People. That link on its own shows them nothing;
+tick **Show them photos of themselves** and every confirmed photo of them appears in
+their Gallery, the same way as a person shared with them (and new ones reach their
+**For you**). **Who can see photos of …** on their Gallery page says whose account
+it is. Each face in People can belong to one account.
+
+**Whole branches.** If you tag people in the family tree by branch (a *Posse*
+branch, say), **Share photos of a branch** on the same tab shares everyone in that
+branch who is linked to a face in People, and relatives added to the branch later,
+in one step, for a person or a group. A person blocked for someone stays blocked,
+and **Who can see photos of …** lists who gets that person through a branch.
+
+**What they can do with them.** A relative can put the photos shared with them in
+their own albums and slideshows, and send them to other members with **Send to** —
+but a member only ever sees the ones they could already see themselves. Guest links
+(for people without an account) are never made for these photos: a link shows only
+photos from libraries its maker looks after.
+
 ---
 
 ## Security

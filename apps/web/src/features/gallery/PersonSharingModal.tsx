@@ -19,15 +19,21 @@ export function PersonSharingModal({ person, onClose }: { person: { id: string; 
   const { t } = useTranslation(["common", "gallery", "controlAdmin"]);
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
   const [counts, setCounts] = useState<PersonShareCounts | null>(null);
+  // The account this person IS (Q1) — set on their Access dialog, not here.
+  const [self, setSelf] = useState<{ userId: string; name: string; showPhotos: boolean } | null>(null);
+  // Who gets this person through a branch of the tree (Q2) — changed on the branch.
+  const [viaBranches, setViaBranches] = useState<(Subject & { branchId: string; branchName: string })[]>([]);
   const [candidates, setCandidates] = useState<Subject[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewing, setReviewing] = useState(false);
 
   const load = useCallback(async () => {
-    const payload = await api<{ subjects: Subject[]; counts: PersonShareCounts }>(`/api/library/gallery/people/${person.id}/sharing`);
+    const payload = await api<{ subjects: Subject[]; counts: PersonShareCounts; self: { userId: string; name: string; showPhotos: boolean } | null; viaBranches: (Subject & { branchId: string; branchName: string })[] }>(`/api/library/gallery/people/${person.id}/sharing`);
+    setViaBranches(payload.viaBranches ?? []);
     setSubjects(payload.subjects);
     setCounts(payload.counts);
+    setSelf(payload.self);
   }, [person.id]);
 
   useEffect(() => {
@@ -78,7 +84,23 @@ export function PersonSharingModal({ person, onClose }: { person: { id: string; 
           </div>
         )}
         <div className="access-rows">
-          {subjects && subjects.length === 0 && <p className="access-muted">{t("gallery:people.sharing.nobody")}</p>}
+          {self && (
+            <div className="access-row access-row-two">
+              <Button variant="text" className="user-name-link" onClick={() => open({ subjectType: "user", subjectId: self.userId, name: self.name })}>
+                {self.name}
+              </Button>
+              <span className="access-muted">{self.showPhotos ? t("gallery:people.sharing.selfSees") : t("gallery:people.sharing.selfLinked")}</span>
+            </div>
+          )}
+          {viaBranches.map((row) => (
+            <div className="access-row access-row-two" key={`${row.branchId}:${row.subjectType}:${row.subjectId}`}>
+              <Button variant="text" className="user-name-link" onClick={() => open(row)}>
+                {row.subjectType === "group" ? t("gallery:people.sharing.group", { name: row.name }) : row.name}
+              </Button>
+              <span className="access-muted">{t("gallery:people.sharing.viaBranch", { branch: row.branchName })}</span>
+            </div>
+          ))}
+          {subjects && subjects.length === 0 && !self && viaBranches.length === 0 && <p className="access-muted">{t("gallery:people.sharing.nobody")}</p>}
           {(subjects ?? []).map((subject) => (
             <div className="access-row access-row-two" key={`${subject.subjectType}:${subject.subjectId}`}>
               <Button variant="text" className="user-name-link" onClick={() => open(subject)}>

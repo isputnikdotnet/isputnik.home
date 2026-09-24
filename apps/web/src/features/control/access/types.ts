@@ -57,10 +57,18 @@ export interface PeopleAccess {
     id: string;
     name: string;
     direct: boolean;
+    /** Their own person, seen because "Show them photos of themselves" is on (Q1). */
+    self?: boolean;
     viaGroups: { id: string; name: string }[];
     counts: PersonShareCounts;
   }[];
   settings: { showLocation: boolean; showLivingDetails: boolean };
+  /** "This is them" (users only): their own gallery person, and whether they see it. */
+  self?: { personId: string; name: string; showPhotos: boolean } | null;
+  /** Branches of the family tree shared as photos (Q2): directly or through a group. */
+  branches: { id: string; name: string; members: number; direct: boolean; viaGroups: { id: string; name: string }[]; people: number; photos: number }[];
+  /** Every branch of the tree, for the picker. */
+  allBranches: { id: string; name: string; members: number }[];
   photoCount: number;
 }
 

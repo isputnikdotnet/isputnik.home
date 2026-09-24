@@ -72,7 +72,16 @@ export function deleteAlbum(albumId: string): boolean {
 // Batch add (the multi-select bar / lightbox). Only gallery items in libraries
 // the CALLER can access are added — others are skipped and counted, the same
 // contract as every other bulk action. Duplicates are skipped (idempotent).
-export function addAlbumItems(albumId: string, accessibleLibIds: Set<string>, itemIds: string[]): { added: number; skipped: number } {
+/** `alsoAllowed`: photos the caller sees another way than by library — shared
+ *  with them by person (docs/people-sharing-plan.md, Q3) — which may go into
+ *  their own albums too. Anyone the album is shown to still sees only what they
+ *  could open themselves. */
+export function addAlbumItems(
+  albumId: string,
+  accessibleLibIds: Set<string>,
+  itemIds: string[],
+  alsoAllowed?: (itemId: string) => boolean
+): { added: number; skipped: number } {
   const lookup = db.prepare(`
     SELECT library_items.library_id FROM library_items
     JOIN gallery_details ON gallery_details.item_id = library_items.id
@@ -93,7 +102,7 @@ export function addAlbumItems(albumId: string, accessibleLibIds: Set<string>, it
   db.transaction(() => {
     for (const itemId of new Set(itemIds)) {
       const row = lookup.get(itemId) as Pick<LibraryItemRow, "library_id"> | undefined;
-      if (!row || !accessibleLibIds.has(row.library_id) || existing.has(itemId)) {
+      if (!row || existing.has(itemId) || !(accessibleLibIds.has(row.library_id) || alsoAllowed?.(itemId))) {
         skipped += 1;
         continue;
       }

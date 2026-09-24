@@ -246,7 +246,9 @@ export function deleteSlideshow(slideshowId: string): boolean {
 export function addSlideshowItems(
   slideshowId: string,
   accessibleLibIds: Set<string>,
-  itemIds: string[]
+  itemIds: string[],
+  /** Photos shared with the caller by person (Q3), as for albums. */
+  alsoAllowed?: (itemId: string) => boolean
 ): { added: number; skipped: number } {
   const lookup = db.prepare(`
     SELECT library_items.library_id FROM library_items
@@ -268,7 +270,7 @@ export function addSlideshowItems(
   db.transaction(() => {
     for (const itemId of new Set(itemIds)) {
       const row = lookup.get(itemId) as Pick<LibraryItemRow, "library_id"> | undefined;
-      if (!row || !accessibleLibIds.has(row.library_id) || existing.has(itemId)) {
+      if (!row || existing.has(itemId) || !(accessibleLibIds.has(row.library_id) || alsoAllowed?.(itemId))) {
         skipped += 1;
         continue;
       }

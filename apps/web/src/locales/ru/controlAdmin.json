@@ -1706,7 +1706,22 @@
       "excluded_one": "{{count}} скрыто",
       "excluded_few": "{{count}} скрыто",
       "excluded_many": "{{count}} скрыто",
-      "excluded_other": "{{count}} скрыто"
+      "excluded_other": "{{count}} скрыто",
+      "selfTitle": "{{name}} в галерее",
+      "selfLabel": "Кто {{name}} в галерее",
+      "selfNone": "Ни с кем не связан(а)",
+      "selfShow": "Показывать собственные фото",
+      "selfHint": "Все подтверждённые фото, где есть {{name}}, — как у человека, которым поделились. Сама связь ничего не показывает.",
+      "selfBadge": "это он(а)",
+      "othersTitle": "Фото других людей",
+      "branchesTitle": "Целые ветви семейного древа",
+      "branchesHint": "{{name}} видит фото всех из ветви, кто связан с лицом в разделе «Люди», — и родственников, добавленных в неё позже.",
+      "branchPeople_one": "{{count}} человек",
+      "branchPeople_few": "{{count}} человека",
+      "branchPeople_many": "{{count}} человек",
+      "branchPeople_other": "{{count}} человека",
+      "addBranch": "Поделиться фото ветви",
+      "chooseBranch": "Выберите ветвь…"
     },
     "review": {
       "title": "Фото: {{name}} — проверка",

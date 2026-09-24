@@ -1462,6 +1462,20 @@ CREATE TABLE IF NOT EXISTS recommendations (
   UNIQUE (from_user_id, to_user_id, entity_type, entity_id)
 );
 
+-- "This is them" (docs/people-sharing-plan.md, Q1): a member's account linked to
+-- their own gallery person. The link alone grants nothing (D12); show_photos is
+-- the admin's "Show them photos of themselves" (off by default), which counts the
+-- person like a grant for that user from show_since. One person per account and
+-- one account per person.
+CREATE TABLE IF NOT EXISTS user_gallery_person (
+  user_id     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  person_id   TEXT NOT NULL UNIQUE REFERENCES gallery_people(id) ON DELETE CASCADE,
+  show_photos INTEGER NOT NULL DEFAULT 0,
+  show_since  TEXT,
+  linked_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  linked_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- "New photos of Ivan" on For you (docs/people-sharing-plan.md): per person a
 -- viewer was given, when they last looked (seen_at, the dot) and when they last
 -- opened or put aside the row (cleared_at). Photos confirmed after cleared_at —
