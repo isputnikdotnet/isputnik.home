@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.22.4",
+    "label": "People stay yours to manage",
+    "changes": [
+      "**Only people who look after your photo libraries can rename, delete or merge people in the Gallery.** Being able to add notes in the Photo Inbox used to be enough — so a relative helping with the Inbox saw Rename and Delete on every person, including the ones shared with them, and could use them. Now those need write access to a photo library; the Inbox and App files don't count. Naming people on the Inbox photos in front of them still works as before."
+    ]
+  },
+  {
     "version": "4.22.3",
     "label": "See who counts as living",
     "changes": [

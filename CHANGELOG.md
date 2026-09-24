@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.22.4 — People stay yours to manage
+
+- **Only people who look after your photo libraries can rename, delete or merge people in the Gallery.** Being able to add notes in the Photo Inbox used to be enough — so a relative helping with the Inbox saw Rename and Delete on every person, including the ones shared with them, and could use them. Now those need write access to a photo library; the Inbox and App files don't count. Naming people on the Inbox photos in front of them still works as before.
+
 ## 4.22.3 — See who counts as living
 
 - **See who the family tree treats as living.** Family → People has **Shown as living to others** for administrators: it narrows the page to everyone whose details relatives see only as a name, a place in the tree and a portrait — no death date, not marked deceased, and born less than 100 years ago. Old ancestors with no dates show up there too; select them and **Mark as deceased** to make them readable to everyone.

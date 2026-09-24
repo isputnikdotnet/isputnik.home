@@ -324,7 +324,9 @@ export function GalleryPage({
     }
   }, [scopeParams, filters.kinds]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canCuratePeople = libraries.some((library) => library.canWrite);
+  // The server's rule (people-routes.ts canWriteAnyGallery): write access to a photo
+  // library — not the Photo Inbox or App files, which a relative may write in.
+  const canCuratePeople = isAdmin || libraries.some((library) => library.canWrite && library.role == null);
 
   const {
     memories, setMemories, memorySuggestions, previewSuggestion, setPreviewSuggestion, previewAssets,

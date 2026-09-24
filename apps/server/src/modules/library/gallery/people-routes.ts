@@ -35,13 +35,17 @@ import { FACE_EMBEDDING_MODEL } from "./faces/model-id.js";
 import { MAX_FACE_SCAN_ATTEMPTS } from "./faces/queue.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
-// People are global, so person management (create/rename/hide/delete) is gated on the
-// user being able to write SOME gallery library — anyone who curates photos can curate
-// the people in them. Tagging a specific photo is additionally gated on write access
-// to that photo's library (checked per-request).
+// People are global, so person management (create/rename/hide/delete/merge) is gated
+// on the user being able to write SOME photo library — anyone who curates photos can
+// curate the people in them. The system libraries don't count: writing in the Photo
+// Inbox (a reviewer adding what they know) or App files is not curating the family's
+// photos, and a relative who reviews the Inbox must not rename or delete the people
+// shared with them. Tagging a specific photo is gated on write access to that
+// photo's library instead (checked per-request), so a reviewer still names people
+// on the Inbox photos in front of them.
 function canWriteAnyGallery(user: { id: string; role: string }): boolean {
   if (user.role === "admin") return true;
-  const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery'").all() as LibraryRow[];
+  const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery' AND role IS NULL").all() as LibraryRow[];
   return rows.some((row) => canUserWriteLibrary(row, user.id, user.role));
 }
 
