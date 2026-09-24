@@ -249,6 +249,16 @@ export function AccessDialog({
 
           {overview && tab === "family" && (
             <div className="access-rows">
+              {isUser && (
+                <TreePersonPicker
+                  subjectName={name}
+                  me={overview.tree.me ?? null}
+                  galleryFace={people?.self ?? null}
+                  busy={busy}
+                  onLink={(personId) => void write(() => api(`/api/family-tree/users/${encodeURIComponent(subject.subjectId)}/person`, { method: "PUT", body: JSON.stringify({ personId }) }))}
+                  onUseFace={(personId) => void write(() => api(`/api/library/gallery/access/${base}/self`, { method: "PUT", body: JSON.stringify({ personId, showPhotos: people?.self?.showPhotos ?? false }) }))}
+                />
+              )}
               <h3 className="access-section-title">{t("controlAdmin:access.family.tree")}</h3>
               <div className="access-row">
                 <span className="access-row-name">
@@ -472,6 +482,52 @@ function MembersTab({ members, busy, onAdd, onRemove }: {
         </div>
       )}
     </div>
+  );
+}
+
+// "[Name] in the family tree" (D12): which tree person this account is. Grants
+// nothing — the tree says "You", and their own record is never hidden from them.
+// When that person has a face in the Gallery, one click links it there too.
+function TreePersonPicker({ subjectName, me, galleryFace, busy, onLink, onUseFace }: {
+  subjectName: string;
+  me: { personId: string; name: string; galleryPersonId: string | null } | null;
+  galleryFace: { personId: string } | null;
+  busy: boolean;
+  onLink: (personId: string | null) => void;
+  onUseFace: (galleryPersonId: string) => void;
+}) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const [persons, setPersons] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    api<{ persons: { id: string; name: string }[] }>("/api/family-tree/persons")
+      .then((payload) => setPersons(payload.persons))
+      .catch(() => setPersons([]));
+  }, []);
+  const faceToOffer = me?.galleryPersonId && galleryFace?.personId !== me.galleryPersonId ? me.galleryPersonId : null;
+  return (
+    <>
+      <h3 className="access-section-title">{t("controlAdmin:access.family.meTitle", { name: subjectName })}</h3>
+      <p className="access-muted">{t("controlAdmin:access.family.meHint", { name: subjectName })}</p>
+      <div className="access-add">
+        <SelectField
+          label={t("controlAdmin:access.family.meLabel", { name: subjectName })}
+          hideLabel
+          value={me?.personId ?? ""}
+          disabled={busy}
+          onChange={(personId) => onLink(personId || null)}
+          options={[
+            { value: "", label: t("controlAdmin:access.family.meNone") },
+            ...(me && !persons.some((p) => p.id === me.personId) ? [{ value: me.personId, label: me.name }] : []),
+            ...persons.map((person) => ({ value: person.id, label: person.name }))
+          ]}
+        />
+      </div>
+      {faceToOffer && (
+        <Button variant="secondary" compact disabled={busy} onClick={() => onUseFace(faceToOffer)}>
+          {t("controlAdmin:access.family.meUseFace")}
+        </Button>
+      )}
+    </>
   );
 }
 

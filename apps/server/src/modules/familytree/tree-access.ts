@@ -81,6 +81,41 @@ export function setShowLivingDetails(subject: { subjectType: "user" | "group"; s
   `).run(subject.subjectType, subject.subjectId, on ? 1 : 0);
 }
 
+// ── Who they are in the tree (D12) ──────────────────────────────────────────
+
+/** The tree person a user is linked to, or null. Once per request. */
+export function myTreePersonId(userId: string): string | null {
+  return viewerMemo(`familytree:me:${userId}`, () => {
+    const row = db.prepare("SELECT person_id FROM user_family_person WHERE user_id = ?").get(userId) as { person_id: string } | undefined;
+    return row?.person_id ?? null;
+  });
+}
+
+/** The account linked to a tree person, or null. */
+export function treePersonAccount(personId: string): string | null {
+  const row = db.prepare("SELECT user_id FROM user_family_person WHERE person_id = ?").get(personId) as { user_id: string } | undefined;
+  return row?.user_id ?? null;
+}
+
+/** Link a user to their tree person (null unlinks). A person already linked to
+ *  another account is refused. */
+export function setMyTreePerson(userId: string, personId: string | null, byUserId: string): "ok" | "no-person" | "taken" {
+  if (personId == null) {
+    db.prepare("DELETE FROM user_family_person WHERE user_id = ?").run(userId);
+    return "ok";
+  }
+  if (!db.prepare("SELECT 1 AS ok FROM family_tree_persons WHERE id = ?").get(personId)) return "no-person";
+  const owner = treePersonAccount(personId);
+  if (owner && owner !== userId) return "taken";
+  db.prepare(`
+    INSERT INTO user_family_person (user_id, person_id, linked_by) VALUES (?, ?, ?)
+    ON CONFLICT (user_id) DO UPDATE SET person_id = excluded.person_id, linked_by = excluded.linked_by,
+      linked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE user_family_person.person_id != excluded.person_id
+  `).run(userId, personId, byUserId);
+  return "ok";
+}
+
 /** The first day someone may have been born and still count as living: today,
  *  100 years ago. Partial dates compare as text ("1925" < "1925-09-24"), so a
  *  bare year of that year reads as older, which is the safe side for an ancestor. */

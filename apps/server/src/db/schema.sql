@@ -2077,6 +2077,18 @@ CREATE INDEX IF NOT EXISTS idx_ft_events_person         ON family_tree_events(pe
 CREATE INDEX IF NOT EXISTS idx_ft_photos_item           ON family_tree_photos(item_id);
 CREATE INDEX IF NOT EXISTS idx_ft_persons_gallery_person ON family_tree_persons(gallery_person_id);
 
+-- Who an account IS in the family tree (docs/people-sharing-plan.md, D12): the
+-- chart says "You", and the person's own details are never hidden from them as a
+-- living relative. It grants nothing else. One tree person per account and one
+-- account per tree person; the gallery face is linked separately
+-- (user_gallery_person).
+CREATE TABLE IF NOT EXISTS user_family_person (
+  user_id   TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  person_id TEXT NOT NULL UNIQUE REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+  linked_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  linked_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  Stories (modules/stories)
 -- ════════════════════════════════════════════════════════════════════════════

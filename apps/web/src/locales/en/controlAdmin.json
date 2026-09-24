@@ -1502,7 +1502,12 @@
       "collectionFor": "Access to {{collection}}",
       "inbox": "Photo Inbox",
       "inboxReviewer": "Photo Inbox reviewer",
-      "notReviewer": "Not a reviewer"
+      "notReviewer": "Not a reviewer",
+      "meTitle": "{{name}} in the family tree",
+      "meLabel": "Who {{name}} is in the family tree",
+      "meHint": "The tree calls them “You” and opens on them, and they always see their own details. It gives no other access.",
+      "meNone": "Not in the tree",
+      "meUseFace": "Use their face from the tree in the Gallery too"
     },
     "shared": {
       "untitled": "Untitled",

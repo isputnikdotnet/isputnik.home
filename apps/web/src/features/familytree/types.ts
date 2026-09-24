@@ -26,6 +26,8 @@ export interface FamilyPerson {
    *  ago): who relatives without "Show details of living relatives" see only by
    *  name, place in the tree and portrait. */
   living?: boolean;
+  /** This is the signed-in person's own record (D12). */
+  isMe?: boolean;
   /** A living relative whose details this viewer may not see (name and place in
    *  the tree only). Server-decided, like canEdit. */
   restricted?: boolean;
@@ -51,6 +53,8 @@ export interface FamilyPerson {
 export interface FamilyTreeAccess {
   isAdmin: boolean;
   canAdd: boolean;
+  /** Who the signed-in person is in the tree (D12), when an admin linked them. */
+  meId?: string | null;
 }
 
 export interface FamilyTag {

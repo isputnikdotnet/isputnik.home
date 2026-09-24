@@ -457,7 +457,7 @@ export function FamilyTreeChart({
             return (
               <g
                 key={person.id}
-                className={`ft-chart-node is-${tone}${isFocus ? " is-focus" : ""}${cardMenuId === person.id ? " is-menu-open" : ""}`}
+                className={`ft-chart-node is-${tone}${isFocus ? " is-focus" : ""}${person.isMe ? " is-me" : ""}${cardMenuId === person.id ? " is-menu-open" : ""}`}
                 onClick={() => { if (!movedRef.current) onFocus(person.id); }}
               >
                 {/* Compact cards truncate long names — expose the full one on hover. */}
@@ -518,6 +518,12 @@ export function FamilyTreeChart({
                   <text className="ft-chart-years" x={x} y={top + 141} textAnchor="middle">
                     {years}
                   </text>
+                )}
+                {person.isMe && (
+                  <g className="ft-chart-me" aria-hidden="true">
+                    <rect x={left + 11} y={top + 11} width={34} height={17} rx={8.5} />
+                    <text x={left + 28} y={top + 23.5} textAnchor="middle">{t("family:me.you")}</text>
+                  </g>
                 )}
                 {/* One badge per card: everything else lives in its menu. */}
                 <ActionBadge

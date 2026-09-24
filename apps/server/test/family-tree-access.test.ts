@@ -293,7 +293,7 @@ describe("family-tree route guards", () => {
     const tree = await app.inject({ method: "GET", url: "/api/family-tree/tree", ...asUser("outsider") });
     expect(tree.statusCode).toBe(200);
     const payload = tree.json();
-    expect(payload.access).toEqual({ isAdmin: false, canAdd: true });
+    expect(payload.access).toEqual({ isAdmin: false, canAdd: true, meId: null });
     const byName = Object.fromEntries(payload.persons.map((p: { name: string; canEdit: boolean }) => [p.name, p.canEdit]));
     expect(byName).toEqual({ "Ivan Smirnov": false, "Pavel Petrov": true, "Nobody Nowhere": false });
 

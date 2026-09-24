@@ -7,7 +7,7 @@
 import { db } from "../../db.js";
 import { EVERYONE_GROUP_ID, roleAllows, type AuthUser, type ObjectRole } from "../../core/permissions.js";
 import type { AssignmentRow, GroupMemberRow, TaggableRow, TagRow } from "../../db/rows.js";
-import { isLiving, showLivingDetailsFor } from "./tree-access.js";
+import { isLiving, myTreePersonId, showLivingDetailsFor } from "./tree-access.js";
 
 export const FAMILY_TAG_OBJECT_TYPE = "family_tree_tag";
 export const FAMILY_PERSON_ENTITY_TYPE = "family_tree_person";
@@ -112,8 +112,10 @@ const REDACTED = {
 export function decoratePersons<T extends { id: string }>(
   user: AuthUser,
   persons: T[]
-): (T & { tags: string[]; canEdit: boolean; living: boolean; restricted: boolean })[] {
+): (T & { tags: string[]; canEdit: boolean; living: boolean; isMe: boolean; restricted: boolean })[] {
   const showLiving = showLivingDetailsFor(user);
+  // Their own record is never kept from them (D12).
+  const me = myTreePersonId(user.id);
   const editable = getEditableTags(user);
   const editableIds = editable === "all" ? null : new Set(editable.map((t) => t.id));
 
@@ -140,10 +142,11 @@ export function decoratePersons<T extends { id: string }>(
     const dated = person as T & Partial<PersonDates>;
     const living = "birthDate" in dated
       && isLiving({ birthDate: dated.birthDate ?? null, deathDate: dated.deathDate ?? null, deceased: dated.deceased ?? false });
-    const restricted = living && !canEdit && !showLiving;
+    const isMe = person.id === me;
+    const restricted = living && !canEdit && !showLiving && !isMe;
     return restricted
-      ? { ...person, ...REDACTED, tags: entry?.names ?? [], canEdit, living, restricted }
-      : { ...person, tags: entry?.names ?? [], canEdit, living, restricted };
+      ? { ...person, ...REDACTED, tags: entry?.names ?? [], canEdit, living, isMe, restricted }
+      : { ...person, tags: entry?.names ?? [], canEdit, living, isMe, restricted };
   });
 }
 

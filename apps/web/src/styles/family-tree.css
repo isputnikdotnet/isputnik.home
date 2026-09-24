@@ -2289,3 +2289,9 @@
     max-height: 60vh;
   }
 }
+
+/* "You" (D12): the signed-in person's own card and profile. */
+.ft-chart-node.is-me .ft-chart-card { stroke: var(--mint); stroke-width: 2; }
+.ft-chart-me rect { fill: var(--mint); }
+.ft-chart-me text { fill: var(--ink); font-size: 10px; font-weight: 700; }
+.ft-me-note { margin: 4px 0 0; color: var(--mint-ink, var(--ink)); font-weight: 600; }

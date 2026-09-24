@@ -17,7 +17,7 @@ import { EVERYONE_GROUP_ID, resolveObjectRole, type AuthUser } from "../../core/
 import { listFamilyTags, FAMILY_TAG_OBJECT_TYPE } from "../familytree/access.js";
 import { INBOX_REVIEWERS_OBJECT_ID, INBOX_REVIEWERS_OBJECT_TYPE } from "../library/gallery/inbox-reviewers.js";
 import { photoInboxLibraryIds } from "../library/gallery/system-libraries.js";
-import { canSeeTree, showLivingDetailsFor, TREE_OBJECT_ID, TREE_OBJECT_TYPE } from "../familytree/tree-access.js";
+import { canSeeTree, myTreePersonId, showLivingDetailsFor, TREE_OBJECT_ID, TREE_OBJECT_TYPE } from "../familytree/tree-access.js";
 import type { AssignmentRow, UserGroupRow, UserRow } from "../../db/rows.js";
 
 type SubjectType = "user" | "group";
@@ -146,7 +146,14 @@ export async function accessRoutesPlugin(app: FastifyInstance) {
       blocked: treeGrant.direct === "deny",
       blockedBy: treeGrant.inherited.filter((g) => g.role === "deny").map((g) => (g.via === "everyone" ? null : g.groupName ?? null)),
       canSee: user ? canSeeTree(user) : treeGrant.direct !== "deny",
-      seesLivingDetails: user ? showLivingDetailsFor(user) : null
+      seesLivingDetails: user ? showLivingDetailsFor(user) : null,
+      // Who they are in the tree (D12), and that person's gallery face, if any.
+      me: (() => {
+        const personId = user ? myTreePersonId(user.id) : null;
+        if (!personId) return null;
+        const row = db.prepare("SELECT name, gallery_person_id FROM family_tree_persons WHERE id = ?").get(personId) as { name: string; gallery_person_id: string | null } | undefined;
+        return row ? { personId, name: row.name, galleryPersonId: row.gallery_person_id } : null;
+      })()
     };
 
     return reply.send({ subject: header, groups, libraries, branches, collections, inbox, shares, tree });

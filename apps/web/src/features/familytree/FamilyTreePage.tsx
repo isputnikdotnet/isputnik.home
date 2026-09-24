@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileUp, Search, Settings, UserRoundPlus } from "lucide-react";
+import { FileUp, Search, Settings, UserRound, UserRoundPlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -67,6 +67,8 @@ export function FamilyTreePage({
     if (!tree) return null;
     const inTree = (id: string | null) => Boolean(id && tree.persons.some((p) => p.id === id));
     if (inTree(focusId)) return focusId;
+    // Someone linked to their tree person starts at themselves (D12).
+    if (inTree(tree.access.meId ?? null)) return tree.access.meId!;
     if (inTree(tree.defaultPersonId)) return tree.defaultPersonId;
     return defaultFocusId(tree);
   }, [tree, focusId]);
@@ -129,6 +131,17 @@ export function FamilyTreePage({
                   </div>
                 )}
               </div>
+              {tree?.access.meId && tree.persons.some((p) => p.id === tree.access.meId) && (
+                <Button
+                  variant="icon"
+                  className="audiobook-page-action-icon"
+                  aria-label={t("family:me.goTo")}
+                  title={t("family:me.goTo")}
+                  onClick={() => navigate(`/family/tree/${tree.access.meId}`)}
+                >
+                  <UserRound size={18} aria-hidden="true" />
+                </Button>
+              )}
               {isAdmin && tree && tree.persons.length === 0 && (
                 <Button
                   variant="icon"

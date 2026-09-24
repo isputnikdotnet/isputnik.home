@@ -199,6 +199,17 @@ nobody has dates for, **Select** them on **People** and **Mark as deceased**.
 To see who counts as living, choose **Shown as living to others** above the
 people (administrators only): it narrows the page to them, ready to select.
 
+### "You" in the tree
+
+An administrator can say who each member *is* in the tree: Control panel → Members,
+open them → **Family and stories** → **[Name] in the family tree**. From then on the
+chart opens on them, their card says **You**, **Go to you in the tree** (beside the
+search) brings them back, and their profile says **This is you**. They always see
+their own details, even when living relatives are private to them — but nobody
+else's, and the link gives no other access. If that person has a face in the
+Gallery, **Use their face from the tree in the Gallery too** links it there as well
+(see [Photos of themselves](control-panel.md#sharing-photos-by-person)).
+
 ## Letting a relative maintain their own branch
 
 By default everyone can *see* the tree but only administrators can change it.

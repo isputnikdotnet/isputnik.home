@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.23.1 — You, in the family tree
+
+- **The family tree knows who you are.** An administrator can link a member to their person in the tree (Control panel → Members → **Family and stories** → **… in the family tree**). Their chart then opens on them, their card says **You**, **Go to you in the tree** brings them back, and their profile says **This is you**. They always see their own details, even when living relatives are private to them — nobody else's, and the link gives no other access. When that person has a face in the Gallery, one click links it there too.
+
 ## 4.23.0 — Sharing photos, finished
 
 - **Photos of themselves.** A member's access (Control panel → Members → **Photos of people**) now starts with who they *are* in the Gallery — their own face in People. The link on its own shows them nothing; tick **Show them photos of themselves** and every confirmed photo of them appears in their Gallery, like a person shared with them, with new ones on their **For you**. A person's **Who can see photos of …** says whose account they are.

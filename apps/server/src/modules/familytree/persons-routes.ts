@@ -17,7 +17,7 @@ import {
   setPortraitFromPhoto, setUploadedPortraitFile
 } from "./portraits.js";
 import { canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags } from "./access.js";
-import { requireTreeView, setShowLivingDetails, setTreeBlocked, TREE_OBJECT_ID, TREE_OBJECT_TYPE } from "./tree-access.js";
+import { myTreePersonId, requireTreeView, setMyTreePerson, setShowLivingDetails, setTreeBlocked, TREE_OBJECT_ID, TREE_OBJECT_TYPE } from "./tree-access.js";
 import type { FamilyUnionSummary } from "./persons.js";
 import { normalizeText } from "../library/shared/tagging.js";
 import { getFamilyDefaultPerson } from "./settings.js";
@@ -72,7 +72,34 @@ export function registerPersonRoutes(app: FastifyInstance) {
   // editors see edit affordances on their tagged persons plus "Add person".
   const accessFor = (user: { id: string; role: string }) => ({
     isAdmin: user.role === "admin",
-    canAdd: canEditTree(user)
+    canAdd: canEditTree(user),
+    // Who they are in the tree (D12): the chart opens on them and says "You".
+    meId: myTreePersonId(user.id)
+  });
+
+  // Link an account to its tree person (admin; the Access dialog). Grants nothing.
+  const mePersonBody = z.object({ personId: z.string().trim().min(1).max(64).nullable() });
+  app.put("/api/family-tree/users/:userId/person", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const userId = (request.params as { userId: string }).userId;
+    const account = db.prepare("SELECT display_name FROM users WHERE id = ? AND deleted_at IS NULL").get(userId) as { display_name: string } | undefined;
+    if (!account) return reply.code(404).send({ error: "User not found" });
+    const parsed = parseBody(mePersonBody, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid person", details: parsed.error });
+    const result = setMyTreePerson(userId, parsed.data.personId, request.user!.id);
+    if (result === "no-person") return reply.code(404).send({ error: "Person not found" });
+    if (result === "taken") return reply.code(409).send({ error: "That person is already linked to another account." });
+    const person = parsed.data.personId
+      ? db.prepare("SELECT name, gallery_person_id FROM family_tree_persons WHERE id = ?").get(parsed.data.personId) as { name: string; gallery_person_id: string | null }
+      : null;
+    logActivity({
+      event: "familytree.account.linked",
+      actorUserId: request.user!.id,
+      targetType: "user",
+      targetId: userId,
+      detail: person ? `${account.display_name} is ${person.name} in the family tree.` : `${account.display_name} is no longer linked to the family tree.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ me: person ? { personId: parsed.data.personId, name: person.name, galleryPersonId: person.gallery_person_id } : null });
   });
 
   app.get("/api/family-tree/tree", { preHandler: [app.authenticate, requireTreeView] }, async (request) => {

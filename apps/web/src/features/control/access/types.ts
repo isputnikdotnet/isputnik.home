@@ -33,7 +33,14 @@ export interface AccessOverview {
   collections: (GrantView & { id: string; name: string })[];
   inbox: GrantView | null;
   /** The family tree: open unless blocked (D14); living details follow a setting (D15). */
-  tree: { blocked: boolean; blockedBy: (string | null)[]; canSee: boolean; seesLivingDetails: boolean | null };
+  tree: {
+    blocked: boolean;
+    blockedBy: (string | null)[];
+    canSee: boolean;
+    seesLivingDetails: boolean | null;
+    /** Who they are in the tree (D12), and that person's gallery face. */
+    me?: { personId: string; name: string; galleryPersonId: string | null } | null;
+  };
   shares: {
     id: string;
     module: string;

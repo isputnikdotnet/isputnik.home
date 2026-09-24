@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.23.1",
+    "label": "You, in the family tree",
+    "changes": [
+      "**The family tree knows who you are.** An administrator can link a member to their person in the tree (Control panel → Members → **Family and stories** → **… in the family tree**). Their chart then opens on them, their card says **You**, **Go to you in the tree** brings them back, and their profile says **This is you**. They always see their own details, even when living relatives are private to them — nobody else's, and the link gives no other access. When that person has a face in the Gallery, one click links it there too."
+    ]
+  },
+  {
     "version": "4.23.0",
     "label": "Sharing photos, finished",
     "changes": [

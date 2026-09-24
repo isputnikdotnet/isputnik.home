@@ -708,5 +708,10 @@
     },
     "stateAll": "Everyone has it",
     "stateNone": "No one has it"
+  },
+  "me": {
+    "you": "You",
+    "thisIsYou": "This is you",
+    "goTo": "Go to you in the tree"
   }
 }

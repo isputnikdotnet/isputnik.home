@@ -1308,6 +1308,14 @@ export interface TrustedNetworkRow {
   created_by: string | null;
 }
 
+/** `user_family_person` */
+export interface UserFamilyPersonRow {
+  user_id: string;
+  person_id: string;
+  linked_by: string | null;
+  linked_at: string;
+}
+
 /** `user_gallery_person` */
 export interface UserGalleryPersonRow {
   user_id: string;
@@ -1500,6 +1508,7 @@ export interface TableRows {
   track_progress: TrackProgressRow;
   trashed_items: TrashedItemRow;
   trusted_networks: TrustedNetworkRow;
+  user_family_person: UserFamilyPersonRow;
   user_gallery_person: UserGalleryPersonRow;
   user_groups: UserGroupRow;
   user_seen_versions: UserSeenVersionRow;

@@ -270,7 +270,7 @@ export function FamilyPeoplePage() {
                 >
                   <PersonAvatar person={person} size={64} />
                   <strong>{person.name}</strong>
-                  <small>{meta}</small>
+                  <small>{person.isMe ? t("family:me.you") : meta}</small>
                 </a>
               );
             })}

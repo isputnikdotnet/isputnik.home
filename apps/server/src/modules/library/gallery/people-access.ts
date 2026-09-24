@@ -380,8 +380,11 @@ export function setShowLocation(subject: Subject, on: boolean): void {
  *  cleared by the caller, as for every grant). */
 export function deleteAccessSettingsForSubject(subjectType: "user" | "group", subjectId: string): void {
   db.prepare("DELETE FROM access_settings WHERE subject_type = ? AND subject_id = ?").run(subjectType, subjectId);
-  // A deleted account is nobody in the gallery any more (Q1).
-  if (subjectType === "user") db.prepare("DELETE FROM user_gallery_person WHERE user_id = ?").run(subjectId);
+  // A deleted account is nobody in the gallery, or the tree, any more (Q1, D12).
+  if (subjectType === "user") {
+    db.prepare("DELETE FROM user_gallery_person WHERE user_id = ?").run(subjectId);
+    db.prepare("DELETE FROM user_family_person WHERE user_id = ?").run(subjectId);
+  }
 }
 
 /** A merge folds one person into another: their grants follow, deduplicated —
