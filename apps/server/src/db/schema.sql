@@ -1462,6 +1462,19 @@ CREATE TABLE IF NOT EXISTS recommendations (
   UNIQUE (from_user_id, to_user_id, entity_type, entity_id)
 );
 
+-- "New photos of Ivan" on For you (docs/people-sharing-plan.md): per person a
+-- viewer was given, when they last looked (seen_at, the dot) and when they last
+-- opened or put aside the row (cleared_at). Photos confirmed after cleared_at —
+-- or after the grant reached them, when later — are the new ones. Nothing else
+-- is stored: the row is derived from face confirmation times.
+CREATE TABLE IF NOT EXISTS shared_person_seen (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  person_id  TEXT NOT NULL REFERENCES gallery_people(id) ON DELETE CASCADE,
+  seen_at    TEXT,
+  cleared_at TEXT,
+  PRIMARY KEY (user_id, person_id)
+);
+
 -- When a person last looked at a Photo Inbox delivery on their For you page
 -- (docs/for-you-plan.md). A delivery is a folder, not a row, so it cannot carry
 -- seen_at itself; the stamp is compared with the delivery's newest arrival, so

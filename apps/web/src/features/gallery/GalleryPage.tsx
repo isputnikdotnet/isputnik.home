@@ -71,6 +71,7 @@ export function GalleryPage({
   initialAssetId,
   initialAlbumId,
   initialSlideshowId,
+  initialPersonId,
   initialFolder,
   initialLibraryId
 }: {
@@ -83,6 +84,8 @@ export function GalleryPage({
   initialAlbumId?: string;
   /** Deep link (/gallery/slideshows/<id>): open that slideshow rather than the list. */
   initialSlideshowId?: string;
+  /** Deep link (/gallery/people/<id>): open that person's photos rather than the grid. */
+  initialPersonId?: string;
   /** Deep link (/gallery/folders/…): open the Folders view straight into this folder. */
   initialFolder?: string;
   initialLibraryId?: string | null;
@@ -365,6 +368,10 @@ export function GalleryPage({
     if (initialSlideshowId) void openSlideshow(initialSlideshowId);
   }, [initialSlideshowId, openSlideshow]);
 
+  useEffect(() => {
+    if (initialPersonId) void openPerson({ id: initialPersonId, name: "" });
+  }, [initialPersonId, openPerson]);
+
   // Keep the address in step with what is open, without adding a history entry
   // per click — replaceState, the same treatment the A–Z strip's ?letter gets.
   // Opening an album and pressing Back should leave the gallery, not walk back
@@ -374,6 +381,12 @@ export function GalleryPage({
     const want = selectedAlbum ? `/gallery/albums/${selectedAlbum.id}` : "/gallery/albums";
     if (window.location.pathname !== want) window.history.replaceState(window.history.state, "", want);
   }, [view, selectedAlbum]);
+
+  useEffect(() => {
+    if (view !== "people") return;
+    const want = selectedPerson ? `/gallery/people/${encodeURIComponent(selectedPerson.id)}` : "/gallery/people";
+    if (window.location.pathname !== want) window.history.replaceState(window.history.state, "", want);
+  }, [view, selectedPerson]);
 
   useEffect(() => {
     if (view !== "slideshows") return;

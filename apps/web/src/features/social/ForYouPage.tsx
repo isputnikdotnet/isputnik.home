@@ -5,10 +5,11 @@ import { BookOpen, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Imag
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "../library/UserAreaNav";
-import { navigate } from "../../router";
+import { galleryPersonHref, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { InboxRow, type InboxCard } from "./InboxRow";
 import { DeliveryRow, type DeliveryCard } from "./DeliveryRow";
+import { SharedPersonRow, type SharedPersonCard } from "./SharedPersonRow";
 import { refreshInboxSummary } from "./useInboxSummary";
 import { Button } from "../../shared/Button";
 import { formatDate } from "../../shared/dates";
@@ -40,8 +41,8 @@ interface SharedAlbumItem {
   fileUrl: string;
 }
 
-/** A row on For you: something sent, or a delivery into an Inbox. */
-export type ForYouRow = (InboxCard & { kind: "sent" }) | DeliveryCard;
+/** A row on For you: something sent, a delivery into an Inbox, or new photos of a shared person. */
+export type ForYouRow = (InboxCard & { kind: "sent" }) | DeliveryCard | SharedPersonCard;
 
 // Where opening a shared item takes you: a single photo deep-links into the gallery
 // lightbox; books go to their reader/detail page. Albums open in-page (below).
@@ -217,6 +218,22 @@ export function ForYouPage() {
     }
   };
 
+  // "See photos" and "Not now" on a person's row both say "I know about these";
+  // See photos then opens them. A failed clear must not stop the opening.
+  const clearPerson = async (card: SharedPersonCard, open: boolean) => {
+    setBusyId(card.id);
+    setError("");
+    try {
+      await api("/api/for-you/people/clear", { method: "POST", body: JSON.stringify({ personId: card.personId }) });
+      if (!open) await loadWaiting();
+    } catch (err) {
+      if (!open) setError(err instanceof Error ? err.message : t("user:forYou.dismissFailed"));
+    } finally {
+      setBusyId("");
+      if (open) navigate(galleryPersonHref(card.personId));
+    }
+  };
+
   const openShared = (book: SharedBook) => {
     if (book.type === "gallery_album") setOpenAlbum(book);
     else navigate(sharedItemHref(book));
@@ -251,7 +268,9 @@ export function ForYouPage() {
             <ul className="inbox-list">
               {rows.map((row) => row.kind === "delivery"
                 ? <DeliveryRow key={row.id} card={row} busy={busyId === row.id} onDismiss={dismissDelivery} />
-                : <InboxRow key={row.id} card={row} busy={busyId === row.id} onAct={act} />)}
+                : row.kind === "person"
+                  ? <SharedPersonRow key={row.id} card={row} busy={busyId === row.id} onClear={clearPerson} />
+                  : <InboxRow key={row.id} card={row} busy={busyId === row.id} onAct={act} />)}
             </ul>
           </>
         )}

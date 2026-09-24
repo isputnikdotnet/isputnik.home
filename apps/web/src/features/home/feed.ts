@@ -6,13 +6,15 @@ import i18n from "../../i18n";
 import { formatDate, formatRelativeDays } from "../../shared/dates";
 import type { InboxCard } from "../social/InboxRow";
 import type { DeliveryCard } from "../social/DeliveryRow";
+import type { SharedPersonCard } from "../social/SharedPersonRow";
 import type { ActivityItem } from "../social/ActivityCard";
 import type { GalleryAsset, GalleryMemoryGroup } from "../gallery/types";
 
-/** A row on For you (docs/for-you-plan.md): something sent, or a delivery into
- *  an Inbox this person looks after. Home shows the first few of them. */
+/** A row on For you (docs/for-you-plan.md): something sent, a delivery into
+ *  an Inbox this person looks after, or new photos of someone shared with them.
+ *  Home shows the first few of them. */
 export type SentRow = InboxCard & { kind: "sent" };
-export type ForYouRow = SentRow | DeliveryCard;
+export type ForYouRow = SentRow | DeliveryCard | SharedPersonCard;
 
 export interface MemoryCard {
   type: "memory";

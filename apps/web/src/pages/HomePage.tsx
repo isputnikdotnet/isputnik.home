@@ -6,7 +6,7 @@ import { ActivityFeedCard } from "../features/social/ActivityCard";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { FOR_YOU_PATH, followRoute, navigate } from "../router";
+import { FOR_YOU_PATH, followRoute, galleryPersonHref, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { WhatsNewNote } from "../features/home/WhatsNewNote";
 import { Modal } from "../shared/Modal";
@@ -15,6 +15,7 @@ import { Button } from "../shared/Button";
 import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem } from "../features/library/feed";
 import { batchDayLabel, fetchDailyQuote, fetchHomeFeed, fetchRecentlyAddedPhotos, localDate, storeQuoteCategory, storeQuotePrefs, storedQuotePrefs, tightMemoryGroups, toActivityItem, type ActivityCard, type AddedBatchCard, type ForYouRow, type HomeCard, type MemoryCard, type PhotosAddedCard, type QuoteCard, type QuotePrefs, type SeriesNextCard } from "../features/home/feed";
 import { DeliveryRow, type DeliveryCard } from "../features/social/DeliveryRow";
+import { SharedPersonRow, type SharedPersonCard } from "../features/social/SharedPersonRow";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
@@ -768,6 +769,25 @@ export function HomePage() {
     }
   }, [showToast, t, refreshWaiting]);
 
+  // "See photos" / "Not now" on new photos of a shared person: either way what
+  // arrived is no longer new; See photos then opens them, even if clearing failed.
+  const clearPerson = useCallback(async (card: SharedPersonCard, open: boolean) => {
+    setBusySent(card.id);
+    try {
+      await api("/api/for-you/people/clear", { method: "POST", body: JSON.stringify({ personId: card.personId }) });
+      if (!open) {
+        setWaiting((prev) => prev.filter((row) => row.id !== card.id));
+        setWaitingTotal((prev) => Math.max(0, prev - 1));
+        await refreshWaiting();
+      }
+    } catch {
+      if (!open) showToast(t("home.dismissFailed"));
+    } finally {
+      setBusySent(null);
+      if (open) navigate(galleryPersonHref(card.personId));
+    }
+  }, [showToast, t, refreshWaiting]);
+
   // When offline on a phone, the home becomes a browser for downloaded books
   // (the server feed is unreachable).
   const offlineMode = isMobile && !online;
@@ -907,7 +927,9 @@ export function HomePage() {
                 <ul className="inbox-list home-feed-sent">
                   {waiting.map((row) => row.kind === "delivery"
                     ? <DeliveryRow key={row.id} card={row} busy={busySent === row.id} onDismiss={dismissDelivery} />
-                    : <InboxRow key={row.id} card={row} busy={busySent === row.id} onAct={actOnSent} />)}
+                    : row.kind === "person"
+                      ? <SharedPersonRow key={row.id} card={row} busy={busySent === row.id} onClear={clearPerson} />
+                      : <InboxRow key={row.id} card={row} busy={busySent === row.id} onAct={actOnSent} />)}
                   {waitingTotal > waiting.length && (
                     <li className="home-feed-seeall">
                       <a href={FOR_YOU_PATH} onClick={(event) => followRoute(event, FOR_YOU_PATH)}>

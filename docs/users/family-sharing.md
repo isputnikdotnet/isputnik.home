@@ -123,6 +123,10 @@ the one button it wants:
   if you can keep and discard there, or **Add what you know** if you were
   asked to say when and where. Its **Not now** hides the row until more photos
   arrive in that delivery; the Inbox page still shows it.
+- **New photos of someone shared with you** — "3 new photos of Ivan", when
+  photos of a person you were given are confirmed — with **See photos**, which
+  opens them in your Gallery, and **Not now**. Either way the row goes until
+  the next photo of them is added; the photos stay in your Gallery.
 
 A row leaves the list when you act on it. Nothing is deleted and nobody is
 told. Below the list, **Things you can open** is everything people have given

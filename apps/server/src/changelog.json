@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.22.2",
+    "label": "New photos of people shared with you",
+    "changes": [
+      "**For you now tells you when there are new photos of someone shared with you.** When photos of a person you were given are confirmed — \"3 new photos of Ivan\" — a row appears on For you and at the top of your Home page. **See photos** opens them in your Gallery; **Not now** puts the row aside. Either way it comes back only when the next photo of them is added, and the photos stay in your Gallery. Photos matched only automatically, or kept out with **Don't share this photo**, don't count.",
+      "**A person in the Gallery now has an address of their own** (`/gallery/people/…`), so their photos can be linked to and reopened directly."
+    ]
+  },
+  {
     "version": "4.22.1",
     "label": "Preview as a member",
     "changes": [

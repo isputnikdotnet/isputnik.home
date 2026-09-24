@@ -6,11 +6,13 @@
 // fades. A row leaves when its action is taken. "Seen" is what the dot counts,
 // and opening the page clears it — recommendations already carry `seen_at`;
 // deliveries are folders, so they get a per-person stamp of their own
-// (`inbox_delivery_seen`).
+// (`inbox_delivery_seen`). New photos of a person shared with them are derived
+// from face confirmation times, with a per-person stamp (`shared_person_seen`).
 import { db } from "../../db.js";
 import { listPhotoInboxItems, listPhotoInboxes } from "../library/gallery/inbox.js";
 import { loadInboxCards, type InboxCardView } from "./routes.js";
-import type { InboxDeliverySeenRow, ShareLinkRow } from "../../db/rows.js";
+import { newSharedPhotosOf, sharedPeopleSince } from "../library/gallery/people-access.js";
+import type { InboxDeliverySeenRow, ShareLinkRow, SharedPersonSeenRow } from "../../db/rows.js";
 
 export type SentRow = InboxCardView & { kind: "sent" };
 
@@ -35,7 +37,21 @@ export interface DeliveryRow {
   canReview: boolean;
 }
 
-export type ForYouRow = SentRow | DeliveryRow;
+/** New photos of a person shared with this viewer (docs/people-sharing-plan.md). */
+export interface PersonRow {
+  kind: "person";
+  /** Stable across loads. */
+  id: string;
+  personId: string;
+  name: string;
+  /** Photos confirmed since the row was last opened or put aside. */
+  count: number;
+  newestAt: string;
+  seen: boolean;
+  coverUrl: string | null;
+}
+
+export type ForYouRow = SentRow | DeliveryRow | PersonRow;
 
 type DeliverySeenRow = Pick<InboxDeliverySeenRow, "library_id" | "folder" | "seen_at" | "dismissed_at">;
 
@@ -93,6 +109,35 @@ function deliveryRows(user: { id: string; role: string }): DeliveryRow[] {
   return rows;
 }
 
+function personRows(user: { id: string; role: string }): PersonRow[] {
+  const since = sharedPeopleSince(user);
+  if (since.size === 0) return [];
+  const marks = new Map<string, Pick<SharedPersonSeenRow, "seen_at" | "cleared_at">>();
+  for (const row of db.prepare("SELECT person_id, seen_at, cleared_at FROM shared_person_seen WHERE user_id = ?").all(user.id) as SharedPersonSeenRow[]) {
+    marks.set(row.person_id, row);
+  }
+  const rows: PersonRow[] = [];
+  for (const [personId, grantedAt] of since) {
+    const mark = marks.get(personId);
+    const from = mark?.cleared_at && mark.cleared_at > grantedAt ? mark.cleared_at : grantedAt;
+    const fresh = newSharedPhotosOf(personId, from);
+    if (!fresh) continue;
+    const person = db.prepare("SELECT name FROM gallery_people WHERE id = ?").get(personId) as { name: string } | undefined;
+    if (!person?.name.trim()) continue;
+    rows.push({
+      kind: "person",
+      id: `person:${personId}`,
+      personId,
+      name: person.name,
+      count: fresh.count,
+      newestAt: fresh.newestAt,
+      seen: mark?.seen_at != null && mark.seen_at >= fresh.newestAt,
+      coverUrl: fresh.coverStorageKey ? `/api/library/covers/${fresh.coverStorageKey}` : null
+    });
+  }
+  return rows;
+}
+
 function rowTime(row: ForYouRow): string {
   return row.kind === "sent" ? row.createdAt : row.newestAt;
 }
@@ -100,7 +145,7 @@ function rowTime(row: ForYouRow): string {
 /** The list, newest first, unseen or not. */
 export function loadForYouRows(user: { id: string; role: string }): ForYouRow[] {
   const sent: ForYouRow[] = loadInboxCards(user, { onlyNew: true }).map((card) => ({ kind: "sent" as const, ...card }));
-  const rows = [...sent, ...deliveryRows(user)];
+  const rows = [...sent, ...deliveryRows(user), ...personRows(user)];
   rows.sort((a, b) => rowTime(b).localeCompare(rowTime(a)));
   return rows;
 }
@@ -110,7 +155,7 @@ export function countUnseenForYou(user: { id: string; role: string }): number {
   const recs = (db.prepare(
     "SELECT COUNT(*) AS unseen FROM recommendations WHERE to_user_id = ? AND seen_at IS NULL"
   ).get(user.id) as { unseen: number }).unseen;
-  return recs + deliveryRows(user).filter((row) => !row.seen).length;
+  return recs + deliveryRows(user).filter((row) => !row.seen).length + personRows(user).filter((row) => !row.seen).length;
 }
 
 /** "Not now" on a delivery: off the list until more photos arrive in it. The
@@ -129,6 +174,19 @@ export function dismissDelivery(user: { id: string; role: string }, libraryId: s
   return true;
 }
 
+/** "See photos" or "Not now" on a person's row: what arrived so far is no longer
+ *  new. The next confirmed photo brings the row back. False when no such row is
+ *  waiting for this person. */
+export function clearPersonRow(user: { id: string; role: string }, personId: string): boolean {
+  if (!personRows(user).some((row) => row.personId === personId)) return false;
+  db.prepare(`
+    INSERT INTO shared_person_seen (user_id, person_id, seen_at, cleared_at)
+    VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT (user_id, person_id) DO UPDATE SET seen_at = excluded.seen_at, cleared_at = excluded.cleared_at
+  `).run(user.id, personId);
+  return true;
+}
+
 /** Opening the page stamps everything on it as seen — not per row: the dot
  *  means "there is something new here", and once you have looked, there isn't. */
 export function markForYouSeen(user: { id: string; role: string }): void {
@@ -142,5 +200,11 @@ export function markForYouSeen(user: { id: string; role: string }): void {
       ON CONFLICT (user_id, library_id, folder) DO UPDATE SET seen_at = excluded.seen_at
     `);
     for (const row of deliveryRows(user)) stamp.run(user.id, row.libraryId, row.folder);
+    const seenPerson = db.prepare(`
+      INSERT INTO shared_person_seen (user_id, person_id, seen_at)
+      VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      ON CONFLICT (user_id, person_id) DO UPDATE SET seen_at = excluded.seen_at
+    `);
+    for (const row of personRows(user)) seenPerson.run(user.id, row.personId);
   })();
 }

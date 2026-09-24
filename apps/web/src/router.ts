@@ -228,6 +228,11 @@ export function galleryHref(view: GalleryView): string {
 /** The For you page (docs/for-you-plan.md). */
 export const FOR_YOU_PATH = "/for-you";
 
+/** One person's photos in the Gallery's People view. */
+export function galleryPersonHref(personId: string): string {
+  return `/gallery/people/${encodeURIComponent(personId)}`;
+}
+
 export function galleryInboxHref(libraryId: string | null): string {
   return libraryId ? `/gallery/inbox/${encodeURIComponent(libraryId)}` : "/gallery/inbox";
 }
@@ -323,6 +328,7 @@ export type Route =
   | { name: "galleryReviewAlbum"; albumId: string; recommendationId: string | null }
   | { name: "galleryAlbum"; id: string }
   | { name: "gallerySlideshow"; id: string }
+  | { name: "galleryPerson"; id: string }
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
   | { name: "familyFamilies" }
@@ -431,6 +437,11 @@ export function getRoute(): Route {
   const gallerySlideshowMatch = path.match(/^\/gallery\/slideshows\/([^/]+)$/);
   if (gallerySlideshowMatch) {
     return { name: "gallerySlideshow", id: gallerySlideshowMatch[1] };
+  }
+
+  const galleryPersonMatch = path.match(/^\/gallery\/people\/([^/]+)$/);
+  if (galleryPersonMatch) {
+    return { name: "galleryPerson", id: galleryPersonMatch[1] };
   }
 
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);

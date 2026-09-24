@@ -300,7 +300,12 @@
     "review": "Review",
     "oneAtATime": "One at a time",
     "notNowTitle": "Hide this until more photos arrive in it. The Inbox page still shows it.",
-    "dismissFailed": "Unable to set this aside"
+    "dismissFailed": "Unable to set this aside",
+    "personNew_one": "{{count}} new photo of {{name}}",
+    "personNew_other": "{{count}} new photos of {{name}}",
+    "personShared": "Shared with you",
+    "seePhotos": "See photos",
+    "personNotNowTitle": "Hide this until more photos of them are added. They stay in your Gallery."
   },
   "social": {
     "addEmoji": "Add an emoji",

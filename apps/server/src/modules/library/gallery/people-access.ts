@@ -331,3 +331,61 @@ export function sharedPhotoCount(personIds: string[]): number {
   return (db.prepare(`SELECT COUNT(DISTINCT item_id) AS n FROM (${PEOPLE_SHARED_ITEMS_SQL})`)
     .get(JSON.stringify(personIds), neverSharedLibraries()) as { n: number }).n;
 }
+
+// ── New arrivals (For you) ──────────────────────────────────────────────────
+
+/** For each person shared with `user`, when the grant first reached them: the
+ *  direct grant's date, or a group grant's — or joining that group, when later.
+ *  Photos confirmed before it are not news to them. */
+export function sharedPeopleSince(user: AuthUser): Map<string, string> {
+  const personIds = sharedPeopleFor(user);
+  const since = new Map<string, string>();
+  if (personIds.length === 0) return since;
+  const rows = db.prepare(`
+    SELECT a.object_id AS person_id,
+      MIN(CASE WHEN a.subject_type = 'user' THEN a.created_at ELSE MAX(a.created_at, gm.joined_at) END) AS since
+    FROM assignments a
+    LEFT JOIN group_members gm ON a.subject_type = 'group' AND gm.group_id = a.subject_id AND gm.user_id = ?
+    WHERE a.object_type = ? AND a.role != 'deny'
+      AND a.object_id IN (SELECT value FROM json_each(?))
+      AND ((a.subject_type = 'user' AND a.subject_id = ?) OR gm.user_id IS NOT NULL)
+    GROUP BY a.object_id
+  `).all(user.id, PERSON_GRANT_OBJECT, JSON.stringify(personIds), user.id) as { person_id: string; since: string }[];
+  for (const row of rows) since.set(row.person_id, row.since);
+  return since;
+}
+
+export interface NewSharedPhotos {
+  count: number;
+  /** When the newest of them was confirmed. */
+  newestAt: string;
+  /** That photo's thumbnail. */
+  coverStorageKey: string | null;
+}
+
+/** Photos a grant of `personId` shares whose face was confirmed after `since`
+ *  (a face's updated_at is when it was last assigned or confirmed). Null when
+ *  there are none. */
+export function newSharedPhotosOf(personId: string, since: string): NewSharedPhotos | null {
+  const where = `
+    WHERE f.person_id = ? AND f.assignment = 'confirmed' AND f.updated_at > ?
+      AND li.library_id NOT IN (SELECT value FROM json_each(?))
+      AND f.item_id NOT IN (SELECT item_id FROM gallery_share_exclusions)`;
+  const params = [personId, since, neverSharedLibraries()];
+  const row = db.prepare(`
+    SELECT COUNT(DISTINCT f.item_id) AS n, MAX(f.updated_at) AS newest
+    FROM gallery_faces f
+    JOIN library_items li ON li.id = f.item_id AND li.deleted_at IS NULL
+    ${where}
+  `).get(...params) as { n: number; newest: string | null };
+  if (row.n === 0 || !row.newest) return null;
+  const cover = db.prepare(`
+    SELECT m.cover_storage_key AS cover
+    FROM gallery_faces f
+    JOIN library_items li ON li.id = f.item_id AND li.deleted_at IS NULL
+    LEFT JOIN item_metadata m ON m.item_id = f.item_id
+    ${where}
+    ORDER BY f.updated_at DESC LIMIT 1
+  `).get(...params) as { cover: string | null } | undefined;
+  return { count: row.n, newestAt: row.newest, coverStorageKey: cover?.cover ?? null };
+}

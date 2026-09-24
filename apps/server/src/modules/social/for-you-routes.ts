@@ -2,7 +2,9 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseBody } from "../../core/shared.js";
-import { countUnseenForYou, dismissDelivery, loadForYouRows, markForYouSeen } from "./for-you.js";
+import { clearPersonRow, countUnseenForYou, dismissDelivery, loadForYouRows, markForYouSeen } from "./for-you.js";
+
+const personSchema = z.object({ personId: z.string().trim().min(1).max(64) });
 
 const dismissSchema = z.object({
   libraryId: z.string().trim().min(1).max(64),
@@ -16,6 +18,16 @@ export async function forYouPlugin(app: FastifyInstance) {
     if (parsed.error) return reply.code(400).send({ error: "Invalid delivery", details: parsed.error });
     if (!dismissDelivery(request.user!, parsed.data.libraryId, parsed.data.folder)) {
       return reply.code(404).send({ error: "That delivery is not waiting on you." });
+    }
+    return reply.send({ ok: true });
+  });
+
+  // "See photos" / "Not now" on a person's row: what arrived so far is not new any more.
+  app.post("/api/for-you/people/clear", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(personSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid person", details: parsed.error });
+    if (!clearPersonRow(request.user!, parsed.data.personId)) {
+      return reply.code(404).send({ error: "There are no new photos of that person for you." });
     }
     return reply.send({ ok: true });
   });

@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.22.2 — New photos of people shared with you
+
+- **For you now tells you when there are new photos of someone shared with you.** When photos of a person you were given are confirmed — "3 new photos of Ivan" — a row appears on For you and at the top of your Home page. **See photos** opens them in your Gallery; **Not now** puts the row aside. Either way it comes back only when the next photo of them is added, and the photos stay in your Gallery. Photos matched only automatically, or kept out with **Don't share this photo**, don't count.
+- **A person in the Gallery now has an address of their own** (`/gallery/people/…`), so their photos can be linked to and reopened directly.
+
 ## 4.22.1 — Preview as a member
 
 - **See the app exactly as a member sees it.** A member's access in Control panel → Members now has **Preview as …**: the whole app — Home, Gallery, family tree, stories — opens as they see it, so you can check what a relative was given before telling them. A banner on every page says whose view you are in, and **Stop preview** brings you back to their access.

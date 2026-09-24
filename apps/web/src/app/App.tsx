@@ -491,6 +491,10 @@ export function App() {
       return <GalleryPage view="slideshows" initialSlideshowId={route.id} />;
     }
 
+    if (route.name === "galleryPerson") {
+      return <GalleryPage view="people" initialPersonId={route.id} />;
+    }
+
     if (route.name === "galleryInbox") {
       return <PhotoInboxPage libraryId={route.libraryId} />;
     }

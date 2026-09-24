@@ -1103,6 +1103,14 @@ export interface ShareLinkRow {
   expand_albums: number;
 }
 
+/** `shared_person_seen` */
+export interface SharedPersonSeenRow {
+  user_id: string;
+  person_id: string;
+  seen_at: string | null;
+  cleared_at: string | null;
+}
+
 /** `shares` */
 export interface ShareRow {
   id: string;
@@ -1465,6 +1473,7 @@ export interface TableRows {
   share_link_drops: ShareLinkDropRow;
   share_link_items: ShareLinkItemRow;
   share_links: ShareLinkRow;
+  shared_person_seen: SharedPersonSeenRow;
   shares: ShareRow;
   storage_roots: StorageRootRow;
   stories: StoryRow;

@@ -334,7 +334,14 @@
     "review": "Разобрать",
     "oneAtATime": "По одной",
     "notNowTitle": "Скрыть, пока сюда не придут новые фото. На странице входящих это останется.",
-    "dismissFailed": "Не удалось отложить"
+    "dismissFailed": "Не удалось отложить",
+    "personNew_one": "{{name}}: {{count}} новое фото",
+    "personNew_few": "{{name}}: {{count}} новых фото",
+    "personNew_many": "{{name}}: {{count}} новых фото",
+    "personNew_other": "{{name}}: {{count}} новых фото",
+    "personShared": "Доступно вам",
+    "seePhotos": "Смотреть фото",
+    "personNotNowTitle": "Скрыть, пока не добавят новые фото этого человека. В галерее они останутся."
   },
   "social": {
     "addEmoji": "Добавить эмодзи",
