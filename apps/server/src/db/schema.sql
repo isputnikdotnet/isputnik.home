@@ -2077,6 +2077,23 @@ CREATE INDEX IF NOT EXISTS idx_ft_events_person         ON family_tree_events(pe
 CREATE INDEX IF NOT EXISTS idx_ft_photos_item           ON family_tree_photos(item_id);
 CREATE INDEX IF NOT EXISTS idx_ft_persons_gallery_person ON family_tree_persons(gallery_person_id);
 
+-- Where a tree record came from when a family-tree PACKAGE (a zip from another
+-- server, docs/family-tree-exchange-plan.md) created or matched it: the exporting
+-- server and the record's id there. A later package from the same server finds
+-- each record again exactly, with no guessing — even after a rename. entity_type
+-- is 'person' | 'union' | 'event' | 'source' | 'photo' (a gallery item). No FK,
+-- since the local id points into different tables; rows whose record is gone are
+-- ignored and swept when the tree is replaced.
+CREATE TABLE IF NOT EXISTS family_tree_origins (
+  entity_type   TEXT NOT NULL,
+  local_id      TEXT NOT NULL,
+  source_server TEXT NOT NULL,
+  source_id     TEXT NOT NULL,
+  imported_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (entity_type, local_id),
+  UNIQUE (entity_type, source_server, source_id)
+);
+
 -- Who an account IS in the family tree (docs/people-sharing-plan.md, D12): the
 -- chart says "You", and the person's own details are never hidden from them as a
 -- living relative. It grants nothing else. One tree person per account and one

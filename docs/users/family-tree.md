@@ -170,7 +170,7 @@ The gear on the tree page — admins only — holds four things:
 |---|---|
 | **Photo library** | Where uploaded family photos go — the "App files" library, chosen in the control panel; this tab only says which |
 | **Starting person** | Who the chart opens on, for everyone |
-| **Import / export** | GEDCOM in and out |
+| **Import / export** | GEDCOM in and out, and the family-tree package for another isputnik.home server |
 | **Security** | Who may edit which branch — see below |
 
 **Starting person** — select **Choose a person**, search for them, and that's it;
@@ -263,3 +263,46 @@ Gramps and others.
 
 Photos are *not* part of a GEDCOM file, since they live in your gallery. After
 an import you'd re-attach them.
+
+## Moving the tree to another isputnik.home server
+
+For that there is the **family-tree package**: a zip that carries everything the
+GEDCOM file leaves out — portraits and how they were cut, the photos attached to
+people and life events, place pins, names in other languages, branch tags, and
+the person the chart opens on. Admins only, on both sides.
+
+- **Export** (the chart's Export button → *Family-tree package*, or Settings →
+  Import / export → *Export package*) downloads `family-tree-<date>.zip`. It
+  holds the photos themselves, so it can be large.
+- **Import** takes the same file through the Import button. Nothing is written
+  at once: you first see a **preview** of what the package holds beside what is
+  already here, and choose how to bring it in.
+
+**Merge into the current tree** is the default and the safe one. Nothing here is
+deleted or changed on its own. People found on both sides are *matched* — by
+having been imported from the same server before, else by the same name and birth
+date, else by a name that is unique on both sides when one side has no date. Two
+people of one name with different dates are never matched. For a matched person
+the package fills in what is blank here; a field that is set here stays, and the
+preview lists it as a *difference* for you to check by hand. Everyone else is
+added, with their families, events, sources and photos. A photo the gallery
+already has (the same file) is reused rather than copied again; a new one goes to
+App files → Family tree → Imported.
+
+The preview lets you decide **person by person**:
+
+| Choice | What happens |
+|---|---|
+| **Merge — fill in the blanks** | The default for a match: blanks fill, everything set here stays |
+| **Use the package's values** | The package wins on every field it has, portrait included |
+| **Keep as it is here** | They are the same person, but nothing about them changes — only relationships connect |
+| **Add as a new person** | Undo a match: they become a new person |
+| **Skip this person** | Left out, with their own families and events |
+| **Match with someone here…** | For a person the matcher didn't find: pick who they are here |
+
+**Replace the current tree** deletes everyone here first, then creates the package
+in full. It asks before it does. Gallery photos are never touched either way.
+
+Not carried over, since they are per server: links to face clusters in the Gallery,
+and who may edit which branch. Importing the same package again later adds nothing
+twice — each record remembers where it came from.

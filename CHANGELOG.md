@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.26.0 — The family tree moves house
+
+- **Export the whole tree as a package.** The chart's **Export** button now offers two files: the GEDCOM for Ancestry, MyHeritage and Gramps as before, and a **family-tree package** (.zip) for another isputnik.home server. The package carries what GEDCOM drops — portraits and how they were cut, the photos on people and life events, place pins, names in other languages, branch tags and the person the chart opens on. It holds the photos themselves, so it can be large.
+- **Import it with a preview first.** The **Import** button takes a package as well as a GEDCOM. Nothing is written at once: you see what the package holds beside what is already here, and choose. **Merge** (the default) deletes nothing and changes nothing on its own — people found on both sides are matched by name and date, blank fields fill in, everyone else is added, and every field that differs is listed for you. **Replace** clears the tree first, and asks.
+- **Decide person by person.** Every matched person has a choice: merge, use the package's values, keep as it is here, add as a new person, or skip. Someone the matcher didn't find can be matched by hand. The tally updates as you decide.
+- **Nothing twice.** Each record remembers which server it came from, so importing the same package again — or a newer one from that server — adds nothing it already brought. A photo the gallery already has is reused rather than copied; new ones go to App files → Family tree → Imported.
+
 ## 4.25.0 — A page for every group
 
 - **Each group has a page too.** Click a group's name in Control panel → Members → Groups — or **Manage** — and its page opens: who is in it, with **Remove** on each row and a picker to add someone, and **Delete group** apart from the rest (never for the built-in groups). What a group is *given* is set where the thing lives — a library's **Members**, a person's **Share photos of**, a collection's **Access** — and each member's page says what they get from it under **Where their access comes from**. The group dialog is gone; old links to it land on the page.

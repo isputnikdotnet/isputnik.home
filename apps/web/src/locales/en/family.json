@@ -330,15 +330,16 @@
     "clearStartingPersonAria": "Clear the starting person",
     "choosePersonButton": "Choose a person",
     "chooseStartingPersonTitle": "Choose the starting person",
-    "gedcomHint": "GEDCOM is the standard genealogy file, readable by Ancestry, MyHeritage, Gramps and others. Exporting writes the whole tree — people, families, events and sources — to one file.",
+    "gedcomHint": "Two file kinds go in and out. GEDCOM is the standard genealogy file, readable by Ancestry, MyHeritage, Gramps and others — people, families, events and sources. A family-tree package (.zip) moves the whole tree to another isputnik.home server, portraits, photos, place pins, other-language names and branch tags included.",
     "exportButton": "Export GEDCOM",
-    "importButton": "Import GEDCOM",
+    "importButton": "Import a file",
     "importWarningTitle": "Importing can replace the tree",
-    "importWarningBody": "The import offers two modes: add to the {{peopleCount}} already here, or replace them entirely. Export first if you want a copy of what you have.",
+    "importWarningBody": "Importing a package shows a preview first and lets you decide person by person. Importing a GEDCOM either adds to the {{peopleCount}} already here or replaces them. Export first if you want a copy of what you have.",
     "errors": {
       "loadSettings": "Unable to load settings",
       "saveStartPerson": "Unable to save the starting person"
-    }
+    },
+    "exportPackageButton": "Export package"
   },
   "gedcom": {
     "importTitle": "Import GEDCOM",
@@ -657,9 +658,9 @@
     "allPeopleButton": "All People",
     "everyFamilyMemberTitle": "Every family member",
     "pickFamilyNameTitle": "Pick a family name to focus on",
-    "importTitle": "Import a GEDCOM file",
+    "importTitle": "Import a GEDCOM file or a family-tree package",
     "importButton": "Import",
-    "exportTitle": "Export the whole tree as GEDCOM (.ged)",
+    "exportTitle": "Export the whole tree — as GEDCOM or as a package",
     "exportButton": "Export",
     "settingsButton": "Settings",
     "legendAria": "Chart legend",
@@ -713,5 +714,111 @@
     "you": "You",
     "thisIsYou": "This is you",
     "goTo": "Go to you in the tree"
+  },
+  "exportChoice": {
+    "title": "Export the family tree",
+    "gedcomTitle": "GEDCOM file (.ged)",
+    "gedcomBody": "For Ancestry, MyHeritage, Gramps and other genealogy programs. People, families, events and sources; no photos.",
+    "gedcomButton": "Download GEDCOM",
+    "packageTitle": "Family-tree package (.zip)",
+    "packageBody": "For another isputnik.home server. Everything, portraits and photos included — the file can be large.",
+    "packageButton": "Download package"
+  },
+  "package": {
+    "fileHint": "A GEDCOM file (.ged) from another genealogy program, or a family-tree package (.zip) exported from another isputnik.home server. A package also carries portraits, photos, place pins, other-language names and branch tags, and shows a preview before anything is written.",
+    "fileFieldLabel": "File",
+    "previewHint": "Nothing is written yet: the next step shows what the package holds beside what is here, and you decide for each person.",
+    "continue": "Continue",
+    "uploading": "Reading the package…",
+    "previewTitle": "Import a family-tree package",
+    "exportedOn": "Exported {{date}} from a server on version {{version}}",
+    "modeLegend": "How to bring it in",
+    "modeMigrate": "Merge into the current tree",
+    "modeMigrateHint": "Nothing here is deleted. People found on both sides are matched, blank fields fill in, and everyone else is added — unless you decide otherwise below.",
+    "modeReplace": "Replace the current tree",
+    "modeReplaceHint_one": "All {{count}} current person, their relationships, portraits and photo attachments are deleted first. Gallery photos are not affected.",
+    "modeReplaceHint_other": "All {{count}} current people, their relationships, portraits and photo attachments are deleted first. Gallery photos are not affected.",
+    "modeReplaceEmptyHint": "The tree here is empty, so this is the same as merging.",
+    "counts": {
+      "added_one": "{{count}} person added",
+      "added_other": "{{count}} people added",
+      "matched_one": "{{count}} matched",
+      "matched_other": "{{count}} matched",
+      "skipped_one": "{{count}} skipped",
+      "skipped_other": "{{count}} skipped",
+      "families_one": "{{count}} new family",
+      "families_other": "{{count}} new families",
+      "photos_one": "{{count}} photo",
+      "photos_other": "{{count}} photos",
+      "portraits_one": "{{count}} portrait",
+      "portraits_other": "{{count}} portraits",
+      "differences_one": "{{count}} difference",
+      "differences_other": "{{count}} differences"
+    },
+    "filter": "Find a person",
+    "onlyMatches": "Only people found here too",
+    "noneMatchFilter": "Nobody matches that.",
+    "table": {
+      "inPackage": "In the package",
+      "here": "On this server",
+      "decision": "What to do",
+      "decisionFor": "What to do with {{name}}",
+      "newPerson": "New person",
+      "skipped": "Skipped",
+      "portrait": "portrait"
+    },
+    "reason": {
+      "origin": "same record, imported before",
+      "nameAndBirth": "same name and birth date",
+      "name": "same name",
+      "manual": "chosen by you"
+    },
+    "decision": {
+      "merge": "Merge — fill in the blanks",
+      "usePackage": "Use the package's values",
+      "keepMine": "Keep as it is here",
+      "add": "Add as a new person",
+      "skip": "Skip this person",
+      "matchWith": "Match with someone here…",
+      "pickTitle": "Who is {{name}} on this server?"
+    },
+    "fields": {
+      "name": "Name",
+      "maidenName": "Maiden name",
+      "gender": "Gender",
+      "birthDate": "Birth date",
+      "deathDate": "Death date",
+      "deceased": "Deceased",
+      "birthplace": "Birthplace",
+      "deathPlace": "Place of death",
+      "birthPin": "Birthplace pin",
+      "deathPin": "Place-of-death pin",
+      "bio": "Biography",
+      "portrait": "Portrait",
+      "parents": "Parents"
+    },
+    "fills": "Fills in: {{fields}}",
+    "difference": "{{field}}: here “{{here}}”, in the package “{{package}}”",
+    "differenceKind": {
+      "portrait": "Both have a portrait",
+      "parents": "Has other parents here"
+    },
+    "differenceKept": "kept as here",
+    "differenceTaken": "the package's is taken",
+    "notCarriedTitle": "Not carried over",
+    "notCarried": {
+      "galleryLinks": "Links to face clusters in the Gallery — they are per server.",
+      "branchEditors": "Who may edit which branch — accounts are per server.",
+      "photosNoStorage": "Photos — App storage is off on this server, so they cannot be imported. Switch it on under Control panel → Library → Storage and import again."
+    },
+    "result": {
+      "title_one": "Added {{count}} person",
+      "title_other": "Added {{count}} people",
+      "body": "{{matched}} with people already here; {{families}}, {{events}}, {{portraits}} and {{photos}} came along.",
+      "removed_one": "{{count}} previous person was replaced.",
+      "removed_other": "{{count}} previous people were replaced.",
+      "differences_one": "{{count}} difference was left as it is here — see the list above the import for what to check by hand.",
+      "differences_other": "{{count}} differences were left as they are here — see the list above the import for what to check by hand."
+    }
   }
 }

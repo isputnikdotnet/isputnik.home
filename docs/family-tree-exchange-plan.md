@@ -1,9 +1,29 @@
 # Moving a family tree between servers — plan
 
-Status: **proposal, nothing built.** Written 2026-09-23. The owner wanted the tree
-on this server copied to another install (hub, on 4.20.3) that already has a smaller
-tree of its own (32 people, 13 families, 11 portraits), and that tree must not
-lose anything.
+Status: **built in code 2026-09-25, uncommitted** — export, Migrate import with
+preview, origins, and (beyond phase 3 of this plan) a decision per person and
+Replace for packages, both asked for by the owner on 2026-09-25. Code map:
+`docs/family-tree.md` → Packages; user guide: `docs/users/family-tree.md` →
+"Moving the tree to another isputnik.home server". Written 2026-09-23. The owner
+wanted the tree on this server copied to another install (hub, on 4.20.3) that
+already has a smaller tree of its own (32 people, 13 families, 11 portraits), and
+that tree must not lose anything.
+
+What was built differs from the text below in three places, all decided with the
+owner:
+
+- **A decision per person**, in the preview, not only "Don't match": *merge* (fill
+  blanks, the default for a match), *use the package's values* (the package wins,
+  portrait included), *keep as it is here* (match, change nothing, only connect
+  relationships), *add as a new person*, *skip*, and *match with someone here…*
+  (a manual match through the person picker). Every change is re-planned on the
+  server, so the tally and the matches stay true.
+- **Replace is offered for packages** too, as a second mode beside Merge, behind
+  the same danger confirmation as the GEDCOM one. Open question 2 below is answered.
+- **Portraits carry a sha256**, so a re-import of the same package does not list
+  every portrait as a difference; the same-file check on photos uses
+  `gallery_details.content_hash` (present only after a duplicate scan) or, for a
+  photo this import brought in before, its origin row.
 
 ## Why the existing tools don't do it
 

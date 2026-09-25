@@ -2295,3 +2295,115 @@
 .ft-chart-me rect { fill: var(--mint); }
 .ft-chart-me text { fill: var(--ink); font-size: 10px; font-weight: 700; }
 .ft-me-note { margin: 4px 0 0; color: var(--mint-ink, var(--ink)); font-weight: 600; }
+
+/* Package import preview (FamilyImportModal): the mode choice with a line of
+   explanation under each, a one-line tally, and the table of package people
+   beside the people here with a decision on each row. */
+.metadata-modal.ft-import-preview-modal {
+  width: min(100%, 1040px);
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - 48px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.ft-import-preview-modal .modal-actions { align-items: center; padding: 0 16px 16px; margin-top: 0; }
+
+.ft-import-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ft-import-mode-choice { align-items: flex-start; white-space: normal; }
+.ft-import-mode-choice > span { display: flex; flex-direction: column; gap: 2px; }
+.ft-import-mode-choice small { color: var(--muted); }
+
+.ft-import-summary {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ft-import-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.ft-import-filter {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+.ft-import-table-wrap {
+  max-height: min(48vh, 520px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.ft-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.ft-import-table th,
+.ft-import-table td {
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.ft-import-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-weight: 600;
+  z-index: 1;
+}
+
+.ft-import-table tr.is-skipped td { opacity: 0.55; }
+
+.ft-import-person { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.ft-import-person small { color: var(--muted); }
+.ft-import-new { color: var(--muted); font-style: italic; }
+
+.ft-import-decision {
+  width: 100%;
+  min-width: 180px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+.ft-import-details {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ft-import-details li.is-taken { color: inherit; }
+
+/* Export chooser (FamilyExportModal): one block per file kind. */
+.ft-export-choices { display: flex; flex-direction: column; gap: 16px; }
+.ft-export-choice { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ft-export-choice h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
+.ft-export-choice p { margin: 0; color: var(--muted); }
+
+@media (max-width: 740px) {
+  .ft-import-table thead { display: none; }
+  .ft-import-table tr { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .ft-import-table td { padding: 0 10px; border: 0; }
+}

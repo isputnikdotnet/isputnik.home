@@ -13,7 +13,8 @@ import { AddRelativeModal } from "./AddRelativeModal";
 import { defaultFocusId } from "./chart-layout";
 import { FamilyTreeChart } from "./FamilyTreeChart";
 import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
-import { GedcomImportModal } from "./GedcomImportModal";
+import { FamilyExportModal } from "./FamilyExportModal";
+import { FamilyImportModal } from "./FamilyImportModal";
 import { FamilyPersonMark, PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, personMatchesSearch, type FamilyPerson, type FamilyTree } from "./types";
@@ -41,6 +42,7 @@ export function FamilyTreePage({
   const [addRelativeTo, setAddRelativeTo] = useState<FamilyPerson | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const loadTree = () => {
@@ -218,7 +220,7 @@ export function FamilyTreePage({
             onHome={() => { if (focusId) navigate("/family"); }}
             onAddPerson={tree.access.canAdd ? () => setAddOpen(true) : undefined}
             onImport={isAdmin ? () => setImportOpen(true) : undefined}
-            onExport={() => window.location.assign("/api/family-tree/export")}
+            onExport={() => setExportOpen(true)}
             onSettings={isAdmin ? () => setSettingsOpen(true) : undefined}
           />
         )}
@@ -254,12 +256,16 @@ export function FamilyTreePage({
       )}
 
       {importOpen && (
-        <GedcomImportModal
+        <FamilyImportModal
           personCount={tree?.persons.length ?? 0}
           onClose={() => setImportOpen(false)}
           // An import rewrites the tree wholesale; reload and re-centre.
           onImported={() => { setImportOpen(false); loadTree(); }}
         />
+      )}
+
+      {exportOpen && (
+        <FamilyExportModal canExportPackage={isAdmin} onClose={() => setExportOpen(false)} />
       )}
 
       {settingsOpen && (

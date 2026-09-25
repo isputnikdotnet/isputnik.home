@@ -16,6 +16,7 @@ import { registerUnionRoutes } from "./unions-routes.js";
 import { registerEventRoutes } from "./events-routes.js";
 import { registerSourceRoutes } from "./sources-routes.js";
 import { registerEditorRoutes } from "./editors-routes.js";
+import { registerPackageRoutes } from "./package/routes.js";
 
 export async function familyTreeRoutesPlugin(app: FastifyInstance) {
   // Raw image bodies for the portrait upload (parsers are plugin-scoped).
@@ -29,6 +30,7 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
   registerSettingsRoutes(app);
   registerPhotoRoutes(app);
   registerGedcomRoutes(app);
+  registerPackageRoutes(app);
   registerUnionRoutes(app);
   registerEventRoutes(app);
   registerSourceRoutes(app);

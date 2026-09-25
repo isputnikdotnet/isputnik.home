@@ -279,14 +279,44 @@ unmapped tags become **warnings**, not failures.
   exists (`GRAD`, `RETI`, `BAPM`, `NATU`); travel and award have no standard tag,
   so they go out as `EVEN` + `TYPE` and come back typed.
 
+## Packages (server to server)
+
+`package/` moves a whole tree between two copies of this app with what GEDCOM
+drops — portraits and their crop, person/event photos as originals, place pins,
+other-language names, branch tags, the start person (plan and rules:
+`docs/family-tree-exchange-plan.md`). Admin only, both ways.
+
+- `format.ts` — `tree.json` + `manifest.json` schemas (zod), `formatVersion`
+  gate, `normaliseName`.
+- `export.ts` — `buildPackage()` gathers rows and the media files (sha256 of each
+  photo, so the other side can reuse a file it already has); `writePackage()`
+  streams the zip with archiver. `getServerId()` mints this install's random id
+  (`app_settings.server_id`), the origin every exported record is stamped with.
+- `import-plan.ts` — pure. Matches people (origin → name+birth → unique name),
+  honours per-person decisions (`add | skip | merge | usePackage | keepMine`, with
+  a manual `matchId`), and returns both the ops to write and the preview the admin
+  sees. Migrate never deletes and never changes a set field unless told to;
+  Replace plans against an empty tree. The dry run IS this function.
+- `import-apply.ts` — rows in one transaction, then media one file at a time:
+  photos into App files → Family tree → Imported → `<date>` via
+  `scanSingleGalleryFile`, portraits into the `familytree` thumbnail bucket.
+- `pending.ts` — the uploaded zip waits under `<data>/tmp/family-tree-imports`
+  behind a token for an hour (or until restart) between preview and apply.
+- `family_tree_origins` records, per created/matched record, the exporting server
+  and the id there — so the same package (or a newer one from that server) finds
+  every record again exactly, and imports nothing twice.
+
 ## Settings
 
 Admin-only, reached from **Settings** in the chart's rail or on the People page.
 Four tabs: **Photo library** (upload destination), **Starting person** (who the
-chart opens on), **Import / export** (GEDCOM), and **Security** (branch access).
-The rail also links import and export directly — import opens `GedcomImportModal`
-without the panel around it, and export is its own item because every signed-in
-user may export while the panel is admin-only.
+chart opens on), **Import / export** (GEDCOM and packages), and **Security**
+(branch access). The rail also links import and export directly — import opens
+`FamilyImportModal` (a `.ged` goes up as JSON; a `.zip` package goes through the
+upload → preview → apply flow with a decision per person) without the panel around
+it, and export opens `FamilyExportModal`, a chooser between the GEDCOM file and
+the package; it is its own item because every signed-in user may export GEDCOM
+while the panel, and the package, are admin-only.
 
 Both stored settings live in one `app_settings` blob under `family_tree_settings`
 (`settings.ts`). `setFamilyTreeSettings` takes a **partial** and merges over what
@@ -329,6 +359,7 @@ apps/server/src/modules/familytree/
   access.ts     tag-scoped edit rights
   settings.ts   upload destination + starting person (app_settings)
   gedcom.ts     import/export
+  package/      server-to-server package: format, export, import-plan, import-apply, pending, routes
   routes.ts     the HTTP surface and its guards
 
 apps/web/src/features/familytree/   chart, people list, families list, profile, modals

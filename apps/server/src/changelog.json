@@ -1,5 +1,15 @@
 [
   {
+    "version": "4.26.0",
+    "label": "The family tree moves house",
+    "changes": [
+      "**Export the whole tree as a package.** The chart's **Export** button now offers two files: the GEDCOM for Ancestry, MyHeritage and Gramps as before, and a **family-tree package** (.zip) for another isputnik.home server. The package carries what GEDCOM drops — portraits and how they were cut, the photos on people and life events, place pins, names in other languages, branch tags and the person the chart opens on. It holds the photos themselves, so it can be large.",
+      "**Import it with a preview first.** The **Import** button takes a package as well as a GEDCOM. Nothing is written at once: you see what the package holds beside what is already here, and choose. **Merge** (the default) deletes nothing and changes nothing on its own — people found on both sides are matched by name and date, blank fields fill in, everyone else is added, and every field that differs is listed for you. **Replace** clears the tree first, and asks.",
+      "**Decide person by person.** Every matched person has a choice: merge, use the package's values, keep as it is here, add as a new person, or skip. Someone the matcher didn't find can be matched by hand. The tally updates as you decide.",
+      "**Nothing twice.** Each record remembers which server it came from, so importing the same package again — or a newer one from that server — adds nothing it already brought. A photo the gallery already has is reused rather than copied; new ones go to App files → Family tree → Imported."
+    ]
+  },
+  {
     "version": "4.25.0",
     "label": "A page for every group",
     "changes": [

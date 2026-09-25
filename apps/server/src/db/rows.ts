@@ -374,6 +374,15 @@ export interface FamilyTreeEventRow {
   updated_at: string;
 }
 
+/** `family_tree_origins` */
+export interface FamilyTreeOriginRow {
+  entity_type: string;
+  local_id: string;
+  source_server: string;
+  source_id: string;
+  imported_at: string;
+}
+
 /** `family_tree_person_names` */
 export interface FamilyTreePersonNameRow {
   person_id: string;
@@ -1435,6 +1444,7 @@ export interface TableRows {
   family_tree_citations: FamilyTreeCitationRow;
   family_tree_event_photos: FamilyTreeEventPhotoRow;
   family_tree_events: FamilyTreeEventRow;
+  family_tree_origins: FamilyTreeOriginRow;
   family_tree_person_names: FamilyTreePersonNameRow;
   family_tree_persons: FamilyTreePersonRow;
   family_tree_photos: FamilyTreePhotoRow;

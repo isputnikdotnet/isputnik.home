@@ -5,9 +5,16 @@
 import type { FastifyInstance } from "fastify";
 import { familyTreeRoutesPlugin } from "./routes.js";
 import { keepUploadedPortraitsAsPhotos, renderPendingPortraits } from "./portraits.js";
+import { sweepPendingImports } from "./package/pending.js";
 
 export async function familyTreePlugin(app: FastifyInstance) {
   await app.register(familyTreeRoutesPlugin);
+
+  // A package upload waiting for its confirmation does not survive a restart
+  // (package/pending.ts); its files go with it.
+  app.addHook("onReady", async () => {
+    try { sweepPendingImports(); } catch (err) { app.log.warn({ err }, "Could not clear pending family-tree imports."); }
+  });
 
   // Gallery portraits chosen before 4.21 get an image of their own, so they show
   // for members who cannot open the photo's library; portraits uploaded straight

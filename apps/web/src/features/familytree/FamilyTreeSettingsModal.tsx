@@ -8,7 +8,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { FamilyTagAccessPanel } from "./FamilyTagAccessModal";
-import { GedcomImportModal } from "./GedcomImportModal";
+import { FamilyImportModal } from "./FamilyImportModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
 import type { FamilyPerson } from "./types";
@@ -190,6 +190,10 @@ export function FamilyTreeSettingsModal({
                   <Download size={16} aria-hidden="true" />
                   {t("family:treeSettings.exportButton")}
                 </Button>
+                <Button variant="secondary" onClick={() => window.location.assign("/api/family-tree/export/package")}>
+                  <Download size={16} aria-hidden="true" />
+                  {t("family:treeSettings.exportPackageButton")}
+                </Button>
                 <Button variant="secondary" onClick={() => setImportOpen(true)}>
                   <FileUp size={16} aria-hidden="true" />
                   {t("family:treeSettings.importButton")}
@@ -221,7 +225,7 @@ export function FamilyTreeSettingsModal({
       )}
 
       {importOpen && (
-        <GedcomImportModal
+        <FamilyImportModal
           personCount={personCount}
           onClose={() => setImportOpen(false)}
           onImported={() => { setImportOpen(false); onChanged(); }}
