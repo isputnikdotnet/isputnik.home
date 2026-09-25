@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.27.1",
+    "label": "The map frames its pins before the tiles arrive",
+    "changes": [
+      "**No more pins in the wrong sea.** Every map — the family map, the gallery's, a story's — waited for its first tiles before framing the view, and on a slow tile server that was seconds spent looking at the whole world with the pins drawn at the map's centre. The view is framed as soon as the map has its size, so the pins sit where they belong from the first frame and the tiles fill in around them."
+    ]
+  },
+  {
     "version": "4.27.0",
     "label": "The family tree, looked at as a user",
     "changes": [

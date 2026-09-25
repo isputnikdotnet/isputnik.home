@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.27.1 — The map frames its pins before the tiles arrive
+
+- **No more pins in the wrong sea.** Every map — the family map, the gallery's, a story's — waited for its first tiles before framing the view, and on a slow tile server that was seconds spent looking at the whole world with the pins drawn at the map's centre. The view is framed as soon as the map has its size, so the pins sit where they belong from the first frame and the tiles fill in around them.
+
 ## 4.27.0 — The family tree, looked at as a user
 
 - **The chart opens readable.** On a desktop it opened on the whole tree at once — a hundred cards at 16%, nobody legible, the starting person lost among them. It now opens at no less than 75%, centred on the starting person, the way it already did on a phone; **Fit** still shows everything. Long given names drop to the first one on a card ("Andrei Posse", not "Andrei Vladim… Posse"), the full name shows on hover, and a tall window gets a tall chart.
