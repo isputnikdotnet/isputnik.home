@@ -1,5 +1,19 @@
 [
   {
+    "version": "4.27.0",
+    "label": "The family tree, looked at as a user",
+    "changes": [
+      "**The chart opens readable.** On a desktop it opened on the whole tree at once — a hundred cards at 16%, nobody legible, the starting person lost among them. It now opens at no less than 75%, centred on the starting person, the way it already did on a phone; **Fit** still shows everything. Long given names drop to the first one on a card (\"Andrei Posse\", not \"Andrei Vladim… Posse\"), the full name shows on hover, and a tall window gets a tall chart.",
+      "**Step-families are drawn.** A parent's other partners now sit beside that parent on the chart, with the children they had together on this person's row; the profile's Relationships tab lists them as **step-parents** and **half-brothers and half-sisters**, each saying which parent they share. Before, a child of a remarried parent met them nowhere.",
+      "**Who counts as living, better judged.** A person whose child was born 85 or more years ago is no longer treated as living — so old ancestors nobody has dates for show their details without being marked deceased one by one. A bare birth year is read as any day of that year, so someone born \"1926\" stays private until the whole year is past. The profile header follows the same rule: no more \"Living · Age 130\" for someone marked deceased, and a dated death reads \"Died aged 87\".",
+      "**A profile's facts fit.** Born and Died each take a row with date and place together, in one column that wraps — the birthplace \"Petrovskoe estate, Borovichi uyezd, Novgorod Governorate\" was cut to six letters before, and \"Married to …\" with it. A missing fact says \"Not recorded\" quietly instead of \"Unknown\" in bold. **Died** is always the last row of the timeline.",
+      "**One single-parent family per person.** Adding a parent to a second child, or a child under \"just Anna\", made a new family each time, so the children never became siblings. The family that exists is reused, and deleting a partner folds the survivor's family into their existing one.",
+      "**Partners in the right words.** A dissolved marriage says **Former wife**; a marriage ended by death still says **Wife**, dated from the wedding to the death — \"Widowed · 1910 – 1919\" instead of \"Widowed · since 1910\".",
+      "**Privacy at the edges.** A branch editor's GEDCOM export keeps a private person's marriage as a couple only: no dates, no divorce, no citations. A redacted marriage's sources stay off the other spouse's Sources tab. Editors can only change families with someone of theirs in them, and only attach photos they can open themselves.",
+      "**Smaller things.** Single-word names gather under one **No family name** card on Families instead of each being a family. The map says how many places have no pin at the top of the page, where it matters. A biography pasted with hard line breaks reads as sentences again. Source chips name the kind of event, with the event's title under the source. Notes under a profile name the person. The import dialog is titled for what it takes — a GEDCOM or a package — and Settings opens on **Starting person**. On a phone the portrait is smaller, so the name stays on the first screen."
+    ]
+  },
+  {
     "version": "4.26.0",
     "label": "The family tree moves house",
     "changes": [
