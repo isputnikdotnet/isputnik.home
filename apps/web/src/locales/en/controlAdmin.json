@@ -1429,10 +1429,84 @@
     "confirmAllBody": "Each file is rewritten in place with its index at the front — {{size}} in all. The picture and sound are copied over exactly as they are: nothing is re-encoded, and the files stay the same size.",
     "confirmKept": "The new file is checked against the old one — same tracks, same running time, index in front — before it replaces anything. If any check fails, the original is kept as it was."
   },
+  "member": {
+    "backToUsers": "Users",
+    "tabsAria": "{{name}}'s tabs",
+    "statusActive": "Active",
+    "statusDeactivated": "Deactivated",
+    "status": "Account status",
+    "memberSince": "Account created {{date}}",
+    "profileNote": "Name, email and role save with Save changes at the top. Everything else on this page saves as you change it.",
+    "notFoundTitle": "No such account",
+    "notFoundBody": "This account was deleted, or the link is wrong. Go back to Users to find the person.",
+    "summaryTitle": "Access summary",
+    "summary": {
+      "libraries_one": "Library",
+      "libraries_other": "Libraries",
+      "people_one": "Person shared",
+      "people_other": "People shared",
+      "shared_one": "Shared item",
+      "shared_other": "Shared items"
+    },
+    "libraries": {
+      "intro": "What {{name}} can do in each library: the access they have and where it comes from, then what is given to them by name.",
+      "colLibrary": "Library",
+      "colAccess": "Access",
+      "colDirect": "Given by name",
+      "givenDirectly": "given by name",
+      "fromHousehold": "from the household",
+      "note": "Same as their groups gives nothing extra — they keep whatever their groups and the household give. Denied blocks the library even if a group allows it.",
+      "inboxHint": "Whether {{name}} may go through photos waiting in the Inbox, and how far: add details only, or keep and discard."
+    },
+    "photos": {
+      "noBranches": "No branch is shared with them yet.",
+      "colPerson": "Person",
+      "colPhotos": "Photos",
+      "colReview": "To review",
+      "colBranch": "Branch",
+      "colPeople": "People",
+      "colActions": "Actions",
+      "galleryTitle": "In their Gallery"
+    },
+    "family": {
+      "treeHint": "The tree is open to everyone in the house unless blocked here or on one of their groups.",
+      "branchesHint": "Which branches of the tree they may edit — add relatives, change dates and stories. Everyone with the tree can read every branch.",
+      "colEditing": "Editing",
+      "storiesHint": "Which story collections they can open, and what they may do there.",
+      "colCollection": "Collection"
+    },
+    "shared": {
+      "hint": "What someone sent {{name}} with Send to. Remove takes it back.",
+      "colItem": "Item",
+      "colFrom": "From"
+    },
+    "activityTitle": "Recent activity",
+    "activityAll": "View all",
+    "activityNone": "Nothing in the log yet.",
+    "permissionsTitle": "Where their access comes from",
+    "permissionsHint": "Each source, and what it gives. The tabs above are where it is changed.",
+    "permissions": {
+      "everyone": "Everyone in the house",
+      "source": "Source",
+      "description": "What it gives",
+      "people_one": "People ({{count}})",
+      "people_other": "People ({{count}})",
+      "peopleBody_one": "Photos of the people shared with them — {{count}} photo in the Gallery",
+      "peopleBody_other": "Photos of the people shared with them — {{count}} photos in the Gallery",
+      "shares": "Sent to them",
+      "sharesBody_one": "{{count}} item",
+      "sharesBody_other": "{{count}} items",
+      "direct": "Given by name",
+      "directLibraries": "Libraries: {{names}}",
+      "directNone": "No library given to them by name"
+    },
+    "dangerTitle": "Danger zone",
+    "dangerBody": "Deleting the account signs them out everywhere and cannot be undone from here.",
+    "deleteAccount": "Delete account"
+  },
   "access": {
     "saved": "Saved",
     "savedBody": "Name, email and role are up to date.",
-    "menuLabel": "Access and permissions",
     "loading": "Loading…",
     "remove": "Remove",
     "none": "No access",
@@ -1593,8 +1667,8 @@
       "profile": "Profile"
     },
     "who": {
-      "title": "Who {{name}} is",
-      "hint": "Says who they are in the family tree and the Gallery. Gives no access on its own.",
+      "title": "Link to the Gallery and family tree",
+      "hint": "Which face in the Gallery and which person in the family tree this account is. The link gives no access by itself.",
       "tree": "In the family tree",
       "face": "Face in the Gallery"
     },

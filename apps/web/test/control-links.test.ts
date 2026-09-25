@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getRoute } from "../src/router";
-import { blockIpHref, initialParam, libraryRowHref, logsHref, recycleBinHref, storageHref, tasksHref } from "../src/features/control/links";
+import { getRoute, memberHref } from "../src/router";
+import { blockIpHref, initialParam, libraryRowHref, logsHref, recycleBinHref, storageHref, tasksHref, userAccessHref } from "../src/features/control/links";
 
 // The links between control pages carry their narrowing in the address. Each must
 // still resolve to the page it names (the router reads the path only), and leave
@@ -24,6 +24,28 @@ describe("control page links", () => {
     expect(href).toBe(expected);
     at(href);
     expect(getRoute()).toEqual({ name: "control", section });
+  });
+
+  // A member's page is a sub-page of Users, so it must not be shadowed by the
+  // Members tabs that share its prefix — and the dialog's old tab names still
+  // land on the page's tabs.
+  it.each([
+    [userAccessHref("acct_123"), "/control/members/acct_123", "account"],
+    [userAccessHref("acct_123", "groups"), "/control/members/acct_123", "account"],
+    [userAccessHref("acct_123", "photos"), "/control/members/acct_123/photos", "photos"],
+    [memberHref("acct_123", "stories"), "/control/members/acct_123/stories", "stories"],
+    [memberHref("acct_123", "shared"), "/control/members/acct_123/shared", "shared"]
+  ])("%s", (href, expected, tab) => {
+    expect(href).toBe(expected);
+    at(href);
+    expect(getRoute()).toEqual({ name: "controlMember", userId: "acct_123", tab });
+  });
+
+  it("keeps the Members tabs ahead of the member page", () => {
+    at("/control/members/groups");
+    expect(getRoute()).toEqual({ name: "control", section: "groups" });
+    at("/control/members/invites");
+    expect(getRoute()).toEqual({ name: "control", section: "invites" });
   });
 
   it("reads a parameter as it was on arrival, or an empty string", () => {

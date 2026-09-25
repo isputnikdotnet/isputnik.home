@@ -1,0 +1,318 @@
+/* ── Member page ────────────────────────────────────────────────────────── */
+
+/* One account under Members › Users (features/control/members/MemberPage):
+   a header with who they are and what can be done to the account, a row of
+   tabs that are real addresses, and — on Account — two columns of cards. The
+   other tabs reuse the Access dialog's rows (access-dialog.css) in one card. */
+.member-page {
+  display: grid;
+  gap: 18px;
+}
+
+.member-page-head {
+  display: grid;
+  gap: 12px;
+}
+
+.member-page-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 0;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.member-page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.member-page-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.member-page-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.member-page-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.member-page-copy h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.member-page-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.member-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.member-page-tabs {
+  margin-bottom: 0;
+}
+
+/* Account: one column of cards, each a bordered block with its own heading,
+   read top to bottom — the profile, then what they are in, then the reading. */
+.member-page-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.member-page-column {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.member-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+}
+.member-card > h2,
+.member-card-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.05rem;
+}
+.member-card > .access-muted {
+  margin-top: -6px;
+}
+.member-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.member-card-link {
+  padding: 0;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.member-card-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.member-card-tab .access-rows { min-width: 0; }
+.member-card-live-note {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* Account status: read-only, but lined up with the fields beside it. */
+.member-status-field { cursor: default; }
+.member-status-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+}
+.member-status-value small { color: var(--muted); font-size: 0.8rem; }
+.status-badge.active {
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 14%, transparent);
+}
+
+/* Access summary: four tiles, each the way to the tab that sets it. */
+.member-summary-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.member-summary-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+.member-summary-tile:hover,
+.member-summary-tile:focus-visible {
+  border-color: var(--mint);
+  outline: 0;
+}
+.member-summary-tile > svg { flex: 0 0 auto; color: var(--muted); }
+.member-summary-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.member-summary-copy strong { font-size: 1.05rem; line-height: 1.1; }
+.member-summary-copy small { color: var(--muted); font-size: 0.78rem; overflow-wrap: anywhere; }
+
+/* Recent activity: when, then what. */
+.member-activity {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.member-activity li {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.member-activity li:first-child { border-top: 0; padding-top: 0; }
+.member-activity-when { color: var(--muted); white-space: nowrap; font-size: 0.82rem; }
+.member-activity-what { min-width: 0; overflow-wrap: anywhere; }
+
+/* The page's tables: a heading row in small caps, then one row per thing.
+   Effective permissions (source, then what it gives) and Libraries (library,
+   the access they have, the direct choice) share it. */
+.member-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.member-table th,
+.member-table td {
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--line);
+}
+.member-table th {
+  border-top: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.member-table td:last-child { overflow-wrap: anywhere; }
+.member-permissions td:first-child { white-space: nowrap; }
+/* A name over a smaller line under it — a library and its type, a role and its source. */
+.member-table-primary {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  justify-items: start;
+}
+.member-table-primary small { color: var(--muted); font-size: 0.8rem; }
+.member-libraries td { vertical-align: middle; }
+.member-libraries .member-table-choice { width: 230px; }
+.member-libraries .member-table-choice .select-field { width: 100%; }
+/* The Inbox reviewer choice: one row, the choice at the end. */
+.member-inbox-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.member-inbox-row .select-field { min-width: 230px; }
+/* Counts and buttons hug their content (1% is the table trick for "no wider
+   than needed"); the name column takes the rest. */
+.member-table-num { width: 1%; white-space: nowrap; }
+.member-table-actions { width: 1%; text-align: right; white-space: nowrap; }
+.member-people th:nth-child(3),
+.member-people td:nth-child(3) { width: 1%; white-space: nowrap; }
+.member-people td { vertical-align: middle; }
+.member-people .member-table-primary small { display: flex; flex-wrap: wrap; gap: 6px; }
+.member-people .member-table-primary .text-button { padding: 0; min-height: 0; font-size: inherit; }
+/* The picker that adds a person or a branch, under its table. */
+.member-add-row { max-width: 340px; }
+
+/* A switch with its explanation: the box, then the words beside it. */
+.member-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.member-toggle input { margin-top: 3px; }
+.member-toggle small { display: block; color: var(--muted); font-size: 0.8rem; }
+.member-toggle-icon { margin-right: 6px; vertical-align: -2px; color: var(--muted); }
+/* An action under a switch, lined up with its words rather than its box. */
+.member-toggle-action { padding-left: 26px; }
+.member-toggle-action .text-button { padding: 0; min-height: 0; }
+.member-gallery-total { margin: 0; font-weight: 600; }
+.member-permissions-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.member-permissions-source svg { color: var(--muted); }
+
+/* Danger zone: the one thing here that cannot be undone. */
+.member-card-danger {
+  border-color: color-mix(in srgb, var(--rose) 45%, var(--line));
+}
+.member-card-danger > h2 { color: var(--rose); }
+.member-danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 740px) {
+  .member-page-avatar { width: 56px; height: 56px; font-size: 1.2rem; }
+  .member-page-actions { width: 100%; justify-content: flex-start; }
+  .member-page-tabs { overflow-x: auto; scrollbar-width: none; }
+  .member-page-tabs a { white-space: nowrap; }
+  .member-card { padding: 14px 16px; }
+  .member-activity li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .member-permissions td:first-child { white-space: normal; }
+  .member-libraries thead { display: none; }
+  .member-libraries tr { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .member-libraries td { padding: 0; border-top: 0; }
+  .member-libraries .member-table-choice { width: auto; }
+  .member-people thead { display: none; }
+  .member-people tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .member-people td { padding: 0; border-top: 0; }
+  .member-people td:first-child { grid-column: 1 / -1; }
+  .member-people .member-table-actions { text-align: left; }
+}

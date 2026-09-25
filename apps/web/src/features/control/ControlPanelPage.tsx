@@ -4,7 +4,7 @@ import { ChevronDown, Home, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { controlHref, followRoute } from "../../router";
-import type { ControlSection } from "../../router";
+import type { ControlSection, MemberPageTab } from "../../router";
 import {
   CONTROL_GROUPS,
   groupForSection,
@@ -43,6 +43,7 @@ const SignInLocationsSection = lazy(() => import("./sections/SignInsSection").th
 const BackupSection = lazy(() => import("./sections/BackupSection").then((m) => ({ default: m.BackupSection })));
 const CategoriesSection = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoriesSection })));
 const CategoryEditorPage = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoryEditorPage })));
+const MemberPage = lazy(() => import("./members/MemberPage").then((m) => ({ default: m.MemberPage })));
 const TagsSection = lazy(() => import("./sections/TagsSection").then((m) => ({ default: m.TagsSection })));
 const GroupsSection = lazy(() => import("./sections/GroupsSection").then((m) => ({ default: m.GroupsSection })));
 const ScheduledJobsSection = lazy(() => import("./sections/ScheduledJobsSection").then((m) => ({ default: m.ScheduledJobsSection })));
@@ -58,12 +59,21 @@ const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").the
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
 const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
 
+/** One account's page (members/MemberPage), a sub-page of Users the way the
+ *  category editor is one of Categories. */
+export interface MemberPageTarget {
+  userId: string;
+  tab: MemberPageTab;
+}
+
 export function ControlPanelPage({
   section,
-  categoryId
+  categoryId,
+  member
 }: {
   section: ControlSection;
   categoryId?: string | null;
+  member?: MemberPageTarget;
 }) {
   const { user } = useSession();
   const { t } = useTranslation(["common", "control"]);
@@ -75,20 +85,22 @@ export function ControlPanelPage({
   // The category editor is a sub-page of Categories, not a tab of its own, so it
   // keeps the nav highlight but drops the tab row.
   const editingCategory = section === "categories" && categoryId !== undefined;
+  // So is a member's page of Users: its tabs are its own, drawn by the page.
+  const subPage = editingCategory || member !== undefined;
 
   // An old address — an alias, or the Dashboard with a retired ?view= — shows the
   // page it meant; the address bar is then tidied to that page's own. replaceState,
   // so Back never returns to the dead address, and the rest of the query and the
   // hash ride along, because a Sign-ins link carrying ?ip=… is a dive, not a page.
   useEffect(() => {
-    if (categoryId !== undefined) return;
+    if (categoryId !== undefined || member !== undefined) return;
     const canonical = controlHref(section);
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === canonical && !params.has("view")) return;
     params.delete("view");
     const query = params.toString();
     window.history.replaceState(window.history.state, "", `${canonical}${query ? `?${query}` : ""}${window.location.hash}`);
-  }, [section, categoryId]);
+  }, [section, categoryId, member]);
 
   const tabs = groupForSection(section).tabs;
   // On a phone the menu lists every page, and its button names the one you are on,
@@ -103,7 +115,7 @@ export function ControlPanelPage({
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
           {/* A group of one page draws no row. */}
-          {!editingCategory && !isMobile && tabs.length > 1 && (
+          {!subPage && !isMobile && tabs.length > 1 && (
             <ControlTabs
               tabs={tabs}
               section={section}
@@ -112,9 +124,9 @@ export function ControlPanelPage({
           )}
           {/* Inside the page, so the nav and tab row stay up while a section's
               chunk is on its way — or, offline, fails to arrive. */}
-          <LoadErrorBoundary resetKey={`${section}:${categoryId ?? ""}`}>
+          <LoadErrorBoundary resetKey={`${section}:${categoryId ?? ""}:${member?.userId ?? ""}`}>
             <Suspense fallback={<p className="muted">{t("control:ui.loading")}</p>}>
-              <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
+              <ControlSectionBody section={section} categoryId={categoryId} member={member} currentUser={user} />
             </Suspense>
           </LoadErrorBoundary>
         </section>
@@ -128,10 +140,12 @@ export function ControlPanelPage({
 function ControlSectionBody({
   section,
   categoryId,
+  member,
   currentUser
 }: {
   section: ControlSection;
   categoryId?: string | null;
+  member?: MemberPageTarget;
   currentUser: PublicUser;
 }) {
   switch (section) {
@@ -146,7 +160,9 @@ function ControlSectionBody({
     case "categories":      return categoryId !== undefined ? <CategoryEditorPage categoryId={categoryId} /> : <CategoriesSection />;
     case "tags":            return <TagsSection />;
 
-    case "users":           return <UsersSection currentUser={currentUser} />;
+    case "users":           return member
+      ? <MemberPage userId={member.userId} tab={member.tab} currentUser={currentUser} />
+      : <UsersSection currentUser={currentUser} />;
     case "groups":          return <GroupsSection />;
     case "invites":         return <InvitesSection />;
 

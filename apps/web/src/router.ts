@@ -66,6 +66,25 @@ export function controlHref(section: ControlSection): string {
   return CONTROL_PATHS[section];
 }
 
+// One member's page under Members › Users: everything about one account, on
+// tabs that are each a real address (the same rule as the panel's own tabs).
+// It replaced the Access dialog in 4.24 — a dialog over the list ran out of
+// room once it carried the profile, groups, four kinds of access and a preview.
+export type MemberPageTab = "account" | "libraries" | "photos" | "family" | "stories" | "shared";
+
+const MEMBER_TAB_SEGMENTS: Record<Exclude<MemberPageTab, "account">, string> = {
+  libraries: "libraries",
+  photos: "photos",
+  family: "family",
+  stories: "stories",
+  shared: "shared"
+};
+
+export function memberHref(userId: string, tab: MemberPageTab = "account"): string {
+  const base = `${CONTROL_PATHS.users}/${encodeURIComponent(userId)}`;
+  return tab === "account" ? base : `${base}/${MEMBER_TAB_SEGMENTS[tab]}`;
+}
+
 /** The story editor's panes as addresses — its nav links to real URLs the same
  *  way the control panel's does, so Back, new-tab and a pasted link all work. */
 export function storyEditorHref(storyId: string, chapterId?: string): string {
@@ -358,6 +377,8 @@ export type Route =
   | { name: "tagDetail"; tagName: string }
   | { name: "control"; section: ControlSection }
   | { name: "controlCategoryEditor"; categoryId: string | null }
+  /** One account's page under Members › Users (memberHref). */
+  | { name: "controlMember"; userId: string; tab: MemberPageTab }
   | { name: "about" }
   | { name: "help" }
   | { name: "helpGuides" }
@@ -729,6 +750,17 @@ export function getRoute(): Route {
     const categoryEditMatch = path.match(/^\/control\/(?:libraries\/)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
+    }
+
+    // A member's page, after the table for the same reason: /control/members/groups
+    // is a tab, not a member whose id is "groups".
+    const memberMatch = path.match(/^\/control\/members\/([^/]+)(?:\/(libraries|photos|family|stories|shared))?$/);
+    if (memberMatch) {
+      return {
+        name: "controlMember",
+        userId: decodeURIComponent(memberMatch[1]),
+        tab: (memberMatch[2] as MemberPageTab | undefined) ?? "account"
+      };
     }
   }
 

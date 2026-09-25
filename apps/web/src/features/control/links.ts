@@ -1,4 +1,4 @@
-import { controlHref } from "../../router";
+import { controlHref, memberHref, type MemberPageTab } from "../../router";
 
 // Addresses that land on a control page already narrowed to what you were looking
 // at — a scan's library on Tasks, a cleanup's removals in the Recycle Bin, an
@@ -46,9 +46,11 @@ export function storageHref(card?: "storage-containers" | "system-data" | "app-s
   return card ? `${controlHref("storage")}#${card}` : controlHref("storage");
 }
 
-/** Members › Users with one person's Access dialog open, on a tab. */
+/** One person's page under Members › Users, on a tab. "groups" and "account"
+ *  (the Access dialog's old tab names) both open the Account tab, where groups are. */
 export function userAccessHref(userId: string, tab?: string): string {
-  return withQuery(controlHref("users"), { user: userId, tab });
+  const page: MemberPageTab = tab === "libraries" || tab === "photos" || tab === "family" || tab === "stories" || tab === "shared" ? tab : "account";
+  return memberHref(userId, page);
 }
 
 /** Members › Groups with one group's Access dialog open, on a tab. */

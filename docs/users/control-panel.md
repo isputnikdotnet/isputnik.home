@@ -201,22 +201,25 @@ lost, or when a sign-in alert names a device you don't recognise.
 
 ### Everything one person can reach
 
-Click a person's name — or ⋮ → **Access and permissions** — to open one dialog with
-everything they can reach, on tabs:
+Click a person's name — or ⋮ → **Edit user** — to open
+their page: who they are at the top, with **Preview as …**, a ⋮ menu of the
+occasional things (password, two-factor, passkeys, remote linking, lockout) and
+**Save changes**; then tabs, each with its own address:
 
 | Tab | What it shows |
 | --- | --- |
-| **Account** | Their profile (name, email, role), **Who they are** — their person in the family tree and their face in the Gallery — and the groups they're in, as chips you can remove or add to |
-| **Libraries** | One choice per library, and what it means in words under the name ("Member from the household"); **Same as their groups** gives them nothing extra. The Photo Inbox is here too |
-| **Photos of people** | Whether they see photos of themselves, and the people and branches whose photos are shared with them (see below) |
-| **Family and stories** | Whether they see the family tree and living relatives' details, the branches they edit, and story collections |
-| **Shared with them** | Albums, books and photos someone sent them, each with **Remove** |
+| **Account** | Their profile (name, email, role, whether the account is active), the groups they're in as chips you can remove or add to, **Who they are** — their person in the family tree and their face in the Gallery — and an **Access summary**. Beside them: their recent activity from the log, **Where their access comes from** (each group and what it gives, the people whose photos they see, what was sent to them, what was given to them by name) and, apart from the rest, **Delete account** |
+| **Libraries** | A table of every library: the access they have and where it comes from ("from the household", a group, or given by name), then the choice made for them by name; **Same as their groups** gives them nothing extra. The Photo Inbox reviewer level is its own card |
+| **Photos of people** | Whether they see photos of themselves, then the people and tree branches whose photos are shared with them, each with **Review** and **Remove**, and what it adds up to in their Gallery (see below) |
+| **Family tree** | Whether they see the tree and living relatives' details, and the branches they may edit |
+| **Stories** | The story collections they can open, in the same shape as Libraries |
+| **Shared with them** | Albums, books and photos someone sent them, with who sent it and when, each with **Remove** |
 
-The profile saves with **Save profile** at the bottom of the Account tab; everything
+The profile saves with **Save changes** at the top of the page; everything
 else — groups, who they are, every access choice — saves the moment you change it,
-as the footer says.
+as the page says.
 
-**Preview as …**, at the top of a member's dialog, shows you the whole app as
+**Preview as …**, at the top of a member's page, shows you the whole app as
 they see it — their Home, their Gallery, their family tree — until you press
 **Stop preview** on the banner, or close the browser. It is read-only: nothing
 you do while previewing is saved, and nothing is logged in their name.

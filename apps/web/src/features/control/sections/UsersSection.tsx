@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import { Fingerprint, KeyRound, LockOpen, MonitorSmartphone, MonitorX, Pencil, Plus, Search, Shield, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Pencil, Plus, Search, Shield, User, Users } from "lucide-react";
 import i18n from "../../../i18n";
 import { api, type PublicUser } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
-import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { SelectField } from "../../../shared/SelectField";
 import { Button } from "../../../shared/Button";
@@ -14,9 +13,9 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedUser } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { AccessDialog } from "../access/AccessDialog";
-import type { AccessTab } from "../access/types";
-import { initialParam } from "../links";
+import { memberHref, navigate, type MemberPageTab } from "../../../router";
+import { initialParam, userAccessHref } from "../links";
+import { useUserActions } from "../members/useUserActions";
 
 type UserRole = "admin" | "member";
 
@@ -34,13 +33,6 @@ function minutesLeft(iso: string): number {
   return Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 60_000));
 }
 
-// Mirrors MIN/MAX/DEFAULT_WINDOW_MINUTES in the server's core/device-link.ts. This
-// is the shape of the control, not the enforcement — the server clamps whatever
-// arrives, because a number typed into a form is client input like any other.
-const MIN_WINDOW_MINUTES = 1;
-const MAX_WINDOW_MINUTES = 60;
-const DEFAULT_WINDOW_MINUTES = 60;
-
 export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -49,45 +41,19 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   const [modalError, setModalError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // The Access dialog used to open over this list from ?user=&tab=; those links
+  // (bookmarks, the preview banner's Stop) land on the member's page instead.
+  useEffect(() => {
+    const id = initialParam("user");
+    if (id) navigate(userAccessHref(id, initialParam("tab") || undefined));
+  }, []);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("member");
   const [creating, setCreating] = useState(false);
-
-  const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
-  // The one Access dialog (features/control/access): everything this person can
-  // reach, the edit form as its Account tab. ?user=&tab= opens it on arrival.
-  const [accessFor, setAccessFor] = useState<{ id: string; tab?: AccessTab } | null>(() => {
-    const id = initialParam("user");
-    return id ? { id, tab: (initialParam("tab") || undefined) as AccessTab | undefined } : null;
-  });
-  const [accountSaved, setAccountSaved] = useState(false);
-  const [editDisplayName, setEditDisplayName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editRole, setEditRole] = useState<UserRole>("member");
-  const [saving, setSaving] = useState(false);
-
-  const [passwordUser, setPasswordUser] = useState<ManagedUser | null>(null);
-  const [password, setPassword] = useState("");
-  const [changingPassword, setChangingPassword] = useState(false);
-
-  const [pendingDelete, setPendingDelete] = useState<ManagedUser | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const [pendingMfaReset, setPendingMfaReset] = useState<ManagedUser | null>(null);
-  const [resettingMfa, setResettingMfa] = useState(false);
-
-  const [pendingPasskeyReset, setPendingPasskeyReset] = useState<ManagedUser | null>(null);
-  const [resettingPasskeys, setResettingPasskeys] = useState(false);
-
-  const [unlockingId, setUnlockingId] = useState<string | null>(null);
-
-  const [pendingWindow, setPendingWindow] = useState<ManagedUser | null>(null);
-  const [windowMinutes, setWindowMinutes] = useState(String(DEFAULT_WINDOW_MINUTES));
-  const [openingWindow, setOpeningWindow] = useState(false);
-  const [closingWindowId, setClosingWindowId] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     const payload = await api<{ users: ManagedUser[] }>("/api/users");
@@ -98,16 +64,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     loadUsers().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:users.loadFailed")));
   }, [loadUsers, t]);
 
-  // Opened from the address before the list arrived: fill the Account tab once it has.
-  useEffect(() => {
-    if (!accessFor || editingUser?.id === accessFor.id) return;
-    const account = users.find((u) => u.id === accessFor.id);
-    if (!account) return;
-    setEditingUser(account);
-    setEditDisplayName(account.displayName);
-    setEditEmail(account.email);
-    setEditRole(account.role);
-  }, [accessFor, editingUser, users]);
+  // Password, two-factor, passkeys, remote linking, lockout, delete: the same
+  // menu and dialogs a member's page has (members/useUserActions).
+  const actions = useUserActions({ currentUserId: currentUser.id, onChanged: loadUsers, onError: setError });
 
   const visibleUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -132,23 +91,8 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     setCreateOpen(true);
   };
 
-  const openEdit = (account: ManagedUser, tab: AccessTab = "account") => {
-    setError("");
-    setModalError("");
-    setAccountSaved(false);
-    setEditingUser(account);
-    setEditDisplayName(account.displayName);
-    setEditEmail(account.email);
-    setEditRole(account.role);
-    setAccessFor({ id: account.id, tab });
-  };
-
-  const openPassword = (account: ManagedUser) => {
-    setError("");
-    setModalError("");
-    setPasswordUser(account);
-    setPassword("");
-  };
+  // Everything about one person is its own page (members/MemberPage).
+  const openMember = (account: ManagedUser, tab: MemberPageTab = "account") => navigate(memberHref(account.id, tab));
 
   const createUser = async (event: FormEvent) => {
     event.preventDefault();
@@ -180,154 +124,6 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       setCreating(false);
     }
   };
-
-  // The Access dialog's footer Save (no form event), or Enter in a field.
-  const saveUser = async (event?: FormEvent) => {
-    event?.preventDefault();
-    if (!editingUser) return;
-
-    setSaving(true);
-    setModalError("");
-    setAccountSaved(false);
-    try {
-      await api(`/api/users/${editingUser.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          displayName: editDisplayName,
-          email: editEmail,
-          role: editRole
-        })
-      });
-      // The dialog stays open: the other tabs are still there to work on. What
-      // was saved is the new baseline, so Save goes quiet until the next edit.
-      await loadUsers();
-      setEditingUser({ ...editingUser, displayName: editDisplayName.trim(), email: editEmail.trim(), role: editRole });
-      setAccountSaved(true);
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.saveUserFailed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const changePassword = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!passwordUser) return;
-
-    setChangingPassword(true);
-    setModalError("");
-    try {
-      await api(`/api/users/${passwordUser.id}/password`, {
-        method: "PATCH",
-        body: JSON.stringify({ password })
-      });
-      setPasswordUser(null);
-      await loadUsers();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.pwFailed"));
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
-  const deleteUser = async () => {
-    if (!pendingDelete) return;
-
-    setDeleting(true);
-    setModalError("");
-    try {
-      await api(`/api/users/${pendingDelete.id}`, { method: "DELETE" });
-      setPendingDelete(null);
-      await loadUsers();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.deleteFailed"));
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  // Linking a device is refused from outside the house and the app doesn't offer
-  // it there. This turns it on for one person, for an hour, for one device — after
-  // which it closes itself. There is no way to leave one open.
-  const openWindow = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!pendingWindow) return;
-
-    setOpeningWindow(true);
-    setModalError("");
-    try {
-      await api(`/api/users/${pendingWindow.id}/device-link-window`, {
-        method: "POST",
-        body: JSON.stringify({ minutes: Number(windowMinutes) })
-      });
-      setPendingWindow(null);
-      await loadUsers();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.allowFailed"));
-    } finally {
-      setOpeningWindow(false);
-    }
-  };
-
-  const closeWindow = async (account: ManagedUser) => {
-    setClosingWindowId(account.id);
-    setError("");
-    try {
-      await api(`/api/users/${account.id}/device-link-window`, { method: "DELETE" });
-      await loadUsers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("controlAdmin:users.cancelWindowFailed"));
-    } finally {
-      setClosingWindowId(null);
-    }
-  };
-
-  const resetMfa = async () => {
-    if (!pendingMfaReset) return;
-
-    setResettingMfa(true);
-    setModalError("");
-    try {
-      await api(`/api/users/${pendingMfaReset.id}/mfa/reset`, { method: "POST" });
-      setPendingMfaReset(null);
-      await loadUsers();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.resetMfaFailed"));
-    } finally {
-      setResettingMfa(false);
-    }
-  };
-
-  const resetPasskeys = async () => {
-    if (!pendingPasskeyReset) return;
-
-    setResettingPasskeys(true);
-    setModalError("");
-    try {
-      await api(`/api/users/${pendingPasskeyReset.id}/passkeys/reset`, { method: "POST" });
-      setPendingPasskeyReset(null);
-      await loadUsers();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : t("controlAdmin:users.removePasskeysFailed"));
-    } finally {
-      setResettingPasskeys(false);
-    }
-  };
-
-  const unlockUser = async (account: ManagedUser) => {
-    setUnlockingId(account.id);
-    setError("");
-    try {
-      await api(`/api/users/${account.id}/unlock`, { method: "POST" });
-      await loadUsers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("controlAdmin:users.unlockFailed"));
-    } finally {
-      setUnlockingId(null);
-    }
-  };
-
-  const roleLocked = editingUser ? editingUser.protectedFromDelete || editingUser.id === currentUser.id : false;
 
   return (
     <>
@@ -394,7 +190,6 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
             <tbody>
               {visibleUsers.map((account) => {
                 const isCurrent = account.id === currentUser.id;
-                const deleteDisabled = account.protectedFromDelete || isCurrent;
                 return (
                   <tr key={account.id}>
                     <td>
@@ -404,7 +199,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                         </span>
                         <div className="datagrid-primary">
                           <span className="user-name-line">
-                            <Button variant="text" className="user-name-link" onClick={() => openEdit(account, "libraries")}>
+                            <Button variant="text" className="user-name-link" onClick={() => openMember(account)}>
                               <strong>{account.displayName}</strong>
                             </Button>
                             {isCurrent && <span className="status-badge current">{t("controlAdmin:users.badgeCurrent")}</span>}
@@ -444,88 +239,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                               key: "edit",
                               label: t("controlAdmin:users.editUser"),
                               icon: <Pencil size={15} />,
-                              onSelect: () => openEdit(account)
+                              onSelect: () => openMember(account)
                             },
-                            {
-                              key: "access",
-                              label: t("controlAdmin:access.menuLabel"),
-                              icon: <ShieldCheck size={15} />,
-                              onSelect: () => openEdit(account, "libraries")
-                            },
-                            {
-                              key: "password",
-                              label: t("controlAdmin:users.changePassword"),
-                              icon: <KeyRound size={15} />,
-                              onSelect: () => openPassword(account)
-                            },
-                            {
-                              key: "mfa",
-                              label: account.mfaEnabled
-                                ? (account.mfaMethod === "email" ? t("controlAdmin:users.resetMfaEmail") : t("controlAdmin:users.resetMfaApp"))
-                                : t("controlAdmin:users.resetMfa"),
-                              icon: <ShieldOff size={15} />,
-                              disabledReason: account.mfaEnabled ? undefined : t("controlAdmin:users.noMfa"),
-                              onSelect: () => {
-                                setModalError("");
-                                setPendingMfaReset(account);
-                              }
-                            },
-                            {
-                              key: "passkeys",
-                              label: account.passkeyCount > 0
-                                ? t("controlAdmin:users.removePasskeysCount", { count: account.passkeyCount })
-                                : t("controlAdmin:users.removePasskeys"),
-                              icon: <Fingerprint size={15} />,
-                              disabledReason: account.passkeyCount > 0 ? undefined : t("controlAdmin:users.noPasskeys"),
-                              onSelect: () => {
-                                setModalError("");
-                                setPendingPasskeyReset(account);
-                              }
-                            },
-                            account.deviceLinkWindowExpiresAt
-                              ? {
-                                  key: "device-window",
-                                  label: t("controlAdmin:users.cancelRemoteLinking"),
-                                  icon: <MonitorX size={15} />,
-                                  danger: true,
-                                  disabledReason: closingWindowId === account.id ? t("controlAdmin:users.cancelling") : undefined,
-                                  onSelect: () => closeWindow(account)
-                                }
-                              : {
-                                  key: "device-window",
-                                  label: t("controlAdmin:users.allowDeviceOutside"),
-                                  icon: <MonitorSmartphone size={15} />,
-                                  disabledReason: account.isActive ? undefined : t("controlAdmin:users.deactivated"),
-                                  onSelect: () => {
-                                    setModalError("");
-                                    setWindowMinutes(String(DEFAULT_WINDOW_MINUTES));
-                                    setPendingWindow(account);
-                                  }
-                                },
-                            {
-                              key: "unlock",
-                              label: t("controlAdmin:users.clearLockout"),
-                              icon: <LockOpen size={15} />,
-                              // Never disabled on the "Locked" badge: that badge is
-                              // computed when the list is fetched, from failures inside
-                              // a window that keeps sliding, so it is stale the moment
-                              // after it loads and goes false on its own well before an
-                              // admin looking at this page believes it has. Clearing an
-                              // account that isn't locked costs nothing.
-                              disabledReason: unlockingId === account.id ? t("controlAdmin:users.clearing") : undefined,
-                              onSelect: () => unlockUser(account)
-                            },
-                            {
-                              key: "delete",
-                              label: t("controlAdmin:users.deleteUser"),
-                              icon: <Trash2 size={15} />,
-                              danger: true,
-                              disabledReason: deleteDisabled ? t("controlAdmin:users.cannotDelete") : undefined,
-                              onSelect: () => {
-                                setModalError("");
-                                setPendingDelete(account);
-                              }
-                            }
+                            ...actions.menuItems(account)
                           ]}
                         />
                       </div>
@@ -582,171 +298,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         </Modal>
       )}
 
-      {accessFor && (
-        <AccessDialog
-          subject={{ subjectType: "user", subjectId: accessFor.id }}
-          initialTab={accessFor.tab}
-          onClose={() => { setAccessFor(null); setEditingUser(null); }}
-          onChanged={() => void loadUsers()}
-          account={editingUser ? {
-            saving,
-            canSave: Boolean(editDisplayName.trim() && editEmail.trim())
-              && (editDisplayName.trim() !== editingUser.displayName || editEmail.trim() !== editingUser.email || editRole !== editingUser.role),
-            onSave: () => void saveUser(),
-            fields: (
-        <form className="access-profile-grid" onSubmit={saveUser}>
-          <Field label={t("controlAdmin:users.displayName")} value={editDisplayName} onChange={(value) => { setEditDisplayName(value); setAccountSaved(false); }} autoComplete="name" />
-          <Field label={t("common.email")} type="email" value={editEmail} onChange={(value) => { setEditEmail(value); setAccountSaved(false); }} autoComplete="email" />
-          <SelectField
-            label={t("controlAdmin:users.role")}
-            icon={<Shield size={17} />}
-            value={editRole}
-            disabled={roleLocked}
-            onChange={(value) => { setEditRole(value as UserRole); setAccountSaved(false); }}
-            options={[
-              { value: "member", label: t("controlAdmin:users.roleMember") },
-              { value: "admin", label: t("controlAdmin:users.roleAdmin") }
-            ]}
-          />
-          {/* Enter in a field saves, as the footer button does. */}
-          <Button variant="bare" type="submit" hidden aria-hidden="true" tabIndex={-1} />
-          {roleLocked && (
-            <MessageBox tone="info" title={t("controlAdmin:users.roleLockedTitle")}>
-              {t("controlAdmin:users.roleLockedBody")}
-            </MessageBox>
-          )}
-          {modalError && <MessageBox tone="error" title={t("controlAdmin:users.saveUserFailed")}>{modalError}</MessageBox>}
-          {accountSaved && !modalError && <MessageBox tone="success" title={t("controlAdmin:access.saved")}>{t("controlAdmin:access.savedBody")}</MessageBox>}
-        </form>
-            )
-          } : undefined}
-        />
-      )}
-
-      {passwordUser && (
-        <Modal
-          title={t("controlAdmin:users.pwTitle", { name: passwordUser.displayName })}
-          className="user-form-modal"
-          busy={changingPassword}
-          onClose={() => setPasswordUser(null)}
-          onSubmit={changePassword}
-        >
-          <Field
-            label={t("controlAdmin:users.newPassword")}
-            type="password"
-            minLength={8}
-            value={password}
-            onChange={setPassword}
-            autoComplete="new-password"
-          />
-          {modalError && <MessageBox tone="error" title={t("controlAdmin:users.pwFailed")}>{modalError}</MessageBox>}
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setPasswordUser(null)} disabled={changingPassword} autoFocus>
-              {t("common.cancel")}
-            </Button>
-            <Button variant="primary" type="submit" disabled={changingPassword || password.length < 8}>
-              <ShieldCheck size={15} />
-              {changingPassword ? t("controlAdmin:users.changing") : t("controlAdmin:users.changePassword")}
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {pendingDelete && (
-        <ConfirmDialog
-          title={t("controlAdmin:users.deleteTitle", { name: pendingDelete.displayName })}
-          confirmLabel={t("controlAdmin:users.deleteUser")}
-          busyLabel={t("controlAdmin:users.deleting")}
-          confirmIcon={<Trash2 size={15} />}
-          danger
-          rich
-          busy={deleting}
-          error={modalError}
-          onConfirm={deleteUser}
-          onCancel={() => setPendingDelete(null)}
-        >
-          <p>{t("controlAdmin:users.deleteBody1")}</p>
-          <p><strong>{t("controlAdmin:users.deleteBody2")}</strong></p>
-        </ConfirmDialog>
-      )}
-
-      {/* A Modal rather than a ConfirmDialog now that it collects something: the
-          confirmation primitive answers yes/no, and this asks "how long". */}
-      {pendingWindow && (
-        <Modal
-          variant="card"
-          title={t("controlAdmin:users.windowTitle", { name: pendingWindow.displayName })}
-          busy={openingWindow}
-          onClose={() => setPendingWindow(null)}
-          onSubmit={openWindow}
-        >
-          <p className="section-description">
-            {t("controlAdmin:users.windowIntro")}
-          </p>
-          <Field
-            label={t("controlAdmin:users.minutes")}
-            type="number"
-            value={windowMinutes}
-            onChange={setWindowMinutes}
-            min={MIN_WINDOW_MINUTES}
-            max={MAX_WINDOW_MINUTES}
-          />
-          <p className="section-description">
-            {t("controlAdmin:users.windowRange", { min: MIN_WINDOW_MINUTES, max: MAX_WINDOW_MINUTES })}
-          </p>
-          <p className="section-description">
-            <Trans i18nKey="users.windowNote" ns="controlAdmin" components={{ bold: <strong /> }} />
-          </p>
-          {modalError && <MessageBox tone="error" title={t("controlAdmin:users.allowFailed")}>{modalError}</MessageBox>}
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setPendingWindow(null)} disabled={openingWindow}>{t("common.cancel")}</Button>
-            <Button variant="primary" type="submit" disabled={openingWindow}>
-              <MonitorSmartphone size={15} />
-              {openingWindow ? t("controlAdmin:users.allowing") : t("controlAdmin:users.allowFor", { count: windowMinutes })}
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {pendingMfaReset && (
-        <ConfirmDialog
-          title={t("controlAdmin:users.mfaTitle", { name: pendingMfaReset.displayName })}
-          confirmLabel={t("controlAdmin:users.mfaConfirm")}
-          busyLabel={t("controlAdmin:users.resetting")}
-          confirmIcon={<ShieldOff size={15} />}
-          danger
-          rich
-          busy={resettingMfa}
-          error={modalError}
-          onConfirm={resetMfa}
-          onCancel={() => setPendingMfaReset(null)}
-        >
-          <p>
-            {pendingMfaReset.mfaMethod === "email" ? t("controlAdmin:users.mfaBodyEmail") : t("controlAdmin:users.mfaBodyApp")}
-          </p>
-          <p><strong>{t("controlAdmin:users.mfaBodyBold")}</strong></p>
-        </ConfirmDialog>
-      )}
-
-      {pendingPasskeyReset && (
-        <ConfirmDialog
-          title={t("controlAdmin:users.pkTitle", { name: pendingPasskeyReset.displayName })}
-          confirmLabel={t("controlAdmin:users.pkConfirm")}
-          busyLabel={t("controlAdmin:users.removing")}
-          confirmIcon={<Fingerprint size={15} />}
-          danger
-          rich
-          busy={resettingPasskeys}
-          error={modalError}
-          onConfirm={resetPasskeys}
-          onCancel={() => setPendingPasskeyReset(null)}
-        >
-          <p>
-            {t("controlAdmin:users.pkBody", { count: pendingPasskeyReset.passkeyCount })}
-          </p>
-          <p><strong>{t("controlAdmin:users.pkBodyBold")}</strong></p>
-        </ConfirmDialog>
-      )}
+      {actions.dialogs}
     </>
   );
 }

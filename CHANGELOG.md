@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.24.0 — A page for every member
+
+- **Each member has a page now.** Click a name in Control panel → Members → Users — or ⋮ → **Edit user** — and everything about that person opens on its own page instead of a dialog: who they are at the top, with **Preview as …**, the occasional actions (password, two-factor, passkeys, remote linking, lockout) in one ⋮ menu, and **Save changes**. Every tab is its own address, so Back, a new tab and a pasted link all work; old links to the dialog land on the right tab.
+- **Account reads top to bottom.** An **Access summary** first — libraries, people shared, the family tree, shared items, each a link to its tab — then the profile, their groups as chips, **Link to the Gallery and family tree** (their face and their person; the link gives no access by itself), their recent activity from the log, **Where their access comes from** (the household, each group and what it gives, people, what was sent to them, what was given by name), and, apart from the rest, **Delete account**.
+- **Libraries, people and stories are tables.** One row per library, person, branch or collection: the access they have with its source in words ("from the household", a group, or "given by name"), then the choice made for them by name. The Photo Inbox reviewer level and the Gallery total with the location switch are cards of their own.
+- **Family tree and Stories are separate tabs**, and the tab row and cards no longer carry counts. The **Access and permissions** entry left the ⋮ menu — the page is the one way in. Groups keep their dialog.
+
 ## 4.23.2 — A clearer member dialog
 
 - **The dialog for a member is simpler.** Five tabs instead of six. **Account** now holds their profile, **Who they are** — their person in the family tree and their face in the Gallery, side by side — and their groups as chips you can remove or add to. The Photo Inbox moved to **Libraries**, and **Family and stories** is just the tree and stories.
