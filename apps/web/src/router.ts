@@ -85,6 +85,13 @@ export function memberHref(userId: string, tab: MemberPageTab = "account"): stri
   return tab === "account" ? base : `${base}/${MEMBER_TAB_SEGMENTS[tab]}`;
 }
 
+// One group's page under Members › Groups: who is in it. It replaced the
+// group's Access dialog in 4.25; what a group is given is set where each thing
+// lives, so the page has no tabs.
+export function groupHref(groupId: string): string {
+  return `${CONTROL_PATHS.groups}/${encodeURIComponent(groupId)}`;
+}
+
 /** The story editor's panes as addresses — its nav links to real URLs the same
  *  way the control panel's does, so Back, new-tab and a pasted link all work. */
 export function storyEditorHref(storyId: string, chapterId?: string): string {
@@ -379,6 +386,8 @@ export type Route =
   | { name: "controlCategoryEditor"; categoryId: string | null }
   /** One account's page under Members › Users (memberHref). */
   | { name: "controlMember"; userId: string; tab: MemberPageTab }
+  /** One group's page under Members › Groups (groupHref). */
+  | { name: "controlGroup"; groupId: string }
   | { name: "about" }
   | { name: "help" }
   | { name: "helpGuides" }
@@ -750,6 +759,13 @@ export function getRoute(): Route {
     const categoryEditMatch = path.match(/^\/control\/(?:libraries\/)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
+    }
+
+    // A group's page, ahead of the member's, which would otherwise read
+    // /control/members/groups/<id> as a member called "groups".
+    const groupMatch = path.match(/^\/control\/members\/groups\/([^/]+)$/);
+    if (groupMatch) {
+      return { name: "controlGroup", groupId: decodeURIComponent(groupMatch[1]) };
     }
 
     // A member's page, after the table for the same reason: /control/members/groups

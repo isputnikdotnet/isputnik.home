@@ -53,6 +53,11 @@
   letter-spacing: 0.02em;
 }
 
+.member-page-avatar-group {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
 .member-page-copy {
   display: grid;
   gap: 4px;

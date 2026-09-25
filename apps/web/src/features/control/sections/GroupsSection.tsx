@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Search, Trash2, Users } from "lucide-react";
+import { Plus, Search, Trash2, Users, UsersRound } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -10,9 +10,8 @@ import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import type { ManagedGroup } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { AccessDialog } from "../access/AccessDialog";
-import type { AccessTab } from "../access/types";
-import { initialParam } from "../links";
+import { groupHref, navigate } from "../../../router";
+import { groupAccessHref, initialParam } from "../links";
 import { formatNumber } from "../../../shared/dates";
 
 export function GroupsSection() {
@@ -27,12 +26,12 @@ export function GroupsSection() {
   const [pendingDelete, setPendingDelete] = useState<ManagedGroup | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // A group's Access dialog (features/control/access): its members first, then what
-  // it is given — the usual way to give relatives access (D18). ?group=&tab= opens it.
-  const [accessFor, setAccessFor] = useState<{ id: string; tab?: AccessTab } | null>(() => {
+  // The Access dialog used to open over this list from ?group=&tab=; those links
+  // land on the group's page instead (members/GroupPage).
+  useEffect(() => {
     const id = initialParam("group");
-    return id ? { id, tab: (initialParam("tab") || undefined) as AccessTab | undefined } : null;
-  });
+    if (id) navigate(groupAccessHref(id, initialParam("tab") || undefined));
+  }, []);
 
   const load = useCallback(async () => {
     const groupsPayload = await api<{ groups: ManagedGroup[] }>("/api/groups");
@@ -151,9 +150,16 @@ export function GroupsSection() {
               {visibleGroups.map((group) => (
                 <tr key={group.id}>
                   <td>
-                    <div className="datagrid-primary">
-                      <strong>{group.name}</strong>
-                      <small>{t("control:groups.memberCount", { count: group.memberCount })}</small>
+                    <div className="user-account-cell">
+                      <span className="user-avatar-icon" aria-hidden="true">
+                        <UsersRound size={20} />
+                      </span>
+                      <div className="datagrid-primary">
+                        <Button variant="text" className="user-name-link" onClick={() => navigate(groupHref(group.id))}>
+                          <strong>{group.name}</strong>
+                        </Button>
+                        <small>{t("control:groups.memberCount", { count: group.memberCount })}</small>
+                      </div>
                     </div>
                   </td>
                   <td className="col-num datagrid-muted">{formatNumber(group.memberCount)}</td>
@@ -163,7 +169,7 @@ export function GroupsSection() {
                       <Button
                         variant="secondary"
                         compact
-                        onClick={() => setAccessFor({ id: group.id, tab: "members" })}
+                        onClick={() => navigate(groupHref(group.id))}
                       >
                         {t("control:groups.manage")}
                       </Button>
@@ -207,15 +213,6 @@ export function GroupsSection() {
             </Button>
           </div>
         </Modal>
-      )}
-
-      {accessFor && (
-        <AccessDialog
-          subject={{ subjectType: "group", subjectId: accessFor.id }}
-          initialTab={accessFor.tab}
-          onClose={() => setAccessFor(null)}
-          onChanged={() => void load()}
-        />
       )}
 
       {pendingDelete && (

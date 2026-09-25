@@ -3,7 +3,7 @@ import { BookOpenText, GitBranch, TreeDeciduous } from "lucide-react";
 import { api } from "../../../api";
 import { SelectField } from "../../../shared/SelectField";
 import { useGrantWords, type AccessSubjectState } from "../access/AccessTabs";
-import type { GrantRole, GrantView } from "../access/types";
+import type { GrantRole } from "../access/types";
 
 // The Family tree and Stories tabs of a member's page: the tree itself (open
 // unless blocked, D14; living relatives' details by a switch, D15) and the
@@ -15,24 +15,11 @@ const COLLECTION_ROLES = ["viewer", "contributor", "manager", "deny"] as const;
 export function MemberFamilyTab({ state, part }: { state: AccessSubjectState; part: "tree" | "stories" }) {
   const { t } = useTranslation(["controlAdmin", "family", "stories"]);
   const { overview, people, busy, write, base, body, del } = state;
-  const { noDirectLabel } = useGrantWords(true);
+  const { noDirectLabel, access: grantAccess } = useGrantWords();
   if (!overview) return null;
 
   const collectionRole = (role: GrantRole) => t(`stories:collections.roles.${role === "member" ? "viewer" : role}`);
-  // A collection's access as a badge and its source, as the Libraries table has it.
-  const access = (view: GrantView): { role: string; source: string; none: boolean } => {
-    if (view.effective == null) {
-      const blocked = view.direct === "deny" || view.inherited.some((g) => g.role === "deny");
-      return { role: blocked ? t("controlAdmin:access.blocked") : t("controlAdmin:access.none"), source: "", none: true };
-    }
-    const role = collectionRole(view.effective);
-    if (view.direct === view.effective) return { role, source: t("controlAdmin:member.libraries.givenDirectly"), none: false };
-    const from = view.inherited.find((g) => g.role === view.effective);
-    if (from?.via === "group") return { role, source: t("controlAdmin:access.fromGroup", { group: from.groupName ?? "" }), none: false };
-    if (from?.via === "everyone") return { role, source: t("controlAdmin:member.libraries.fromHousehold"), none: false };
-    return { role, source: "", none: false };
-  };
-
+  const access = (view: Parameters<typeof grantAccess>[0]) => grantAccess(view, collectionRole);
   if (part === "stories") {
     return (
       <section className="member-card" aria-labelledby="member-stories-title">
@@ -62,7 +49,7 @@ export function MemberFamilyTab({ state, part }: { state: AccessSubjectState; pa
                         <span className="member-table-primary">
                           {has.none
                             ? <span className="access-muted">{has.role}</span>
-                            : <span className="status-badge active">{has.role}</span>}
+                            : <span className={`status-badge ${has.blocked ? "locked" : "active"}`}>{has.role}</span>}
                           {has.source && <small>{has.source}</small>}
                         </span>
                       </td>

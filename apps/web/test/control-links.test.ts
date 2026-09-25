@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getRoute, memberHref } from "../src/router";
-import { blockIpHref, initialParam, libraryRowHref, logsHref, recycleBinHref, storageHref, tasksHref, userAccessHref } from "../src/features/control/links";
+import { getRoute, groupHref, memberHref } from "../src/router";
+import { blockIpHref, groupAccessHref, initialParam, libraryRowHref, logsHref, recycleBinHref, storageHref, tasksHref, userAccessHref } from "../src/features/control/links";
 
 // The links between control pages carry their narrowing in the address. Each must
 // still resolve to the page it names (the router reads the path only), and leave
@@ -39,6 +39,18 @@ describe("control page links", () => {
     expect(href).toBe(expected);
     at(href);
     expect(getRoute()).toEqual({ name: "controlMember", userId: "acct_123", tab });
+  });
+
+  // A group's page sits under the Groups tab's address and must not read as a
+  // member called "groups"; the dialog's old tab names are accepted and ignored.
+  it.each([
+    [groupAccessHref("grp_1"), "/control/members/groups/grp_1"],
+    [groupAccessHref("grp_1", "photos"), "/control/members/groups/grp_1"],
+    [groupHref("grp_1"), "/control/members/groups/grp_1"]
+  ])("%s", (href, expected) => {
+    expect(href).toBe(expected);
+    at(href);
+    expect(getRoute()).toEqual({ name: "controlGroup", groupId: "grp_1" });
   });
 
   it("keeps the Members tabs ahead of the member page", () => {

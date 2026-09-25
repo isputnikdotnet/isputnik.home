@@ -3,7 +3,7 @@ import { Inbox, LibraryBig } from "lucide-react";
 import { api } from "../../../api";
 import { SelectField } from "../../../shared/SelectField";
 import { inboxLevel, useGrantWords, type AccessSubjectState } from "../access/AccessTabs";
-import type { GrantRole, GrantView } from "../access/types";
+import type { GrantRole } from "../access/types";
 
 // The Libraries tab of a member's page: one table, a row per library — what they
 // end up with and where it comes from, then the choice made for them by name.
@@ -15,22 +15,9 @@ const LIBRARY_ROLES: GrantRole[] = ["viewer", "member", "contributor", "manager"
 export function MemberLibrariesTab({ state, name }: { state: AccessSubjectState; name: string }) {
   const { t } = useTranslation(["controlAdmin"]);
   const { overview, busy, write, base, body, del } = state;
-  const { libraryRole, noDirectLabel } = useGrantWords(true);
+  const { libraryRole, noDirectLabel, access: grantAccess } = useGrantWords();
   if (!overview) return null;
-
-  // The role they have, and its source, as two lines rather than one sentence.
-  const access = (view: GrantView): { role: string; source: string; none: boolean } => {
-    if (view.effective == null) {
-      const blocked = view.direct === "deny" || view.inherited.some((g) => g.role === "deny");
-      return { role: blocked ? t("controlAdmin:access.blocked") : t("controlAdmin:access.none"), source: "", none: true };
-    }
-    const role = libraryRole(view.effective);
-    if (view.direct === view.effective) return { role, source: t("controlAdmin:member.libraries.givenDirectly"), none: false };
-    const from = view.inherited.find((g) => g.role === view.effective);
-    if (from?.via === "group") return { role, source: t("controlAdmin:access.fromGroup", { group: from.groupName ?? "" }), none: false };
-    if (from?.via === "everyone") return { role, source: t("controlAdmin:member.libraries.fromHousehold"), none: false };
-    return { role, source: "", none: false };
-  };
+  const access = (view: Parameters<typeof grantAccess>[0]) => grantAccess(view, libraryRole);
 
   return (
     <>
@@ -63,7 +50,7 @@ export function MemberLibrariesTab({ state, name }: { state: AccessSubjectState;
                     <span className="member-table-primary">
                       {has.none
                         ? <span className="access-muted">{has.role}</span>
-                        : <span className="status-badge active">{has.role}</span>}
+                        : <span className={`status-badge ${has.blocked ? "locked" : "active"}`}>{has.role}</span>}
                       {has.source && <small>{has.source}</small>}
                     </span>
                   </td>

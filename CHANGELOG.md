@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.25.0 — A page for every group
+
+- **Each group has a page too.** Click a group's name in Control panel → Members → Groups — or **Manage** — and its page opens: who is in it, with **Remove** on each row and a picker to add someone, and **Delete group** apart from the rest (never for the built-in groups). What a group is *given* is set where the thing lives — a library's **Members**, a person's **Share photos of**, a collection's **Access** — and each member's page says what they get from it under **Where their access comes from**. The group dialog is gone; old links to it land on the page.
+- **Groups look like people in the list.** Each row carries a group icon before its name, the way the Users table does.
+- **Recent activity shows something.** A member's page listed nothing for anyone who had never signed in, and in fact for everyone — it was reading the wrong field. It now shows the last five things they did *or that were done to them*: an account update, a share sent to them, a change to their access.
+
 ## 4.24.0 — A page for every member
 
 - **Each member has a page now.** Click a name in Control panel → Members → Users — or ⋮ → **Edit user** — and everything about that person opens on its own page instead of a dialog: who they are at the top, with **Preview as …**, the occasional actions (password, two-factor, passkeys, remote linking, lockout) in one ⋮ menu, and **Save changes**. Every tab is its own address, so Back, a new tab and a pasted link all work; old links to the dialog land on the right tab.

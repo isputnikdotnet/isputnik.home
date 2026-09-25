@@ -1,4 +1,4 @@
-import { controlHref, memberHref, type MemberPageTab } from "../../router";
+import { controlHref, groupHref, memberHref, type MemberPageTab } from "../../router";
 
 // Addresses that land on a control page already narrowed to what you were looking
 // at — a scan's library on Tasks, a cleanup's removals in the Recycle Bin, an
@@ -53,9 +53,10 @@ export function userAccessHref(userId: string, tab?: string): string {
   return memberHref(userId, page);
 }
 
-/** Members › Groups with one group's Access dialog open, on a tab. */
-export function groupAccessHref(groupId: string, tab?: string): string {
-  return withQuery(controlHref("groups"), { group: groupId, tab });
+/** One group's page under Members › Groups. The page is its members only, so
+ *  the dialog's old tab name is accepted and ignored. */
+export function groupAccessHref(groupId: string, _tab?: string): string {
+  return groupHref(groupId);
 }
 
 /** A page's query parameter as it was on arrival, or "" — for seeding filter state. */

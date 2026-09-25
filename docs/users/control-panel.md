@@ -184,8 +184,11 @@ that bring new ones in.
 - **Groups** — named sets of people you give access to as a unit. Worth it the
   moment you're giving the same three libraries to the same four people, and the
   usual way to set up a relative: make a group ("Petrov family"), give it what it
-  should see, and add people to it. **Manage** opens the group's access, with its
-  members first.
+  should see, and add people to it. Click a group's name, or **Manage**, to open
+  its page and manage its members. What a group is given is set where the thing
+  lives — a library's **Members**, a person's **Share photos of**, a collection's
+  **Access** — and each member's page says what they get from it under **Where
+  their access comes from**.
 - **Invite links** — sign-up links, so you don't have to hand out passwords. Create
   one, send it, retire it when it's been used or you've changed your mind. Tick
   **Joins these groups** and the person arrives already in them, with everything

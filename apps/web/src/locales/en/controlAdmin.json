@@ -1429,6 +1429,14 @@
     "confirmAllBody": "Each file is rewritten in place with its index at the front — {{size}} in all. The picture and sound are copied over exactly as they are: nothing is re-encoded, and the files stay the same size.",
     "confirmKept": "The new file is checked against the old one — same tracks, same running time, index in front — before it replaces anything. If any check fails, the original is kept as it was."
   },
+  "group": {
+    "backToGroups": "Groups",
+    "tabMembers": "Members",
+    "badgeGroup": "Group",
+    "badgeSystem": "Built-in group",
+    "dangerBody": "Deleting the group removes it and its membership records. Accounts, libraries and files stay.",
+    "systemCannotDelete": "Built-in groups cannot be deleted."
+  },
   "member": {
     "backToUsers": "Users",
     "tabsAria": "{{name}}'s tabs",

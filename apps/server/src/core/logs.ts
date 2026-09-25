@@ -28,6 +28,10 @@ const logQuerySchema = z.object({
   event: multiParam,
   user: multiParam,
   ip: multiParam,
+  // Everything by OR about an account (id): what they did, and what was done to
+  // them — an account update, a share sent to them. A member's page shows the
+  // last few of these; `user` alone is empty for someone who has never signed in.
+  about: multiParam,
   // Optional time window (ISO instants). The Dashboard's Logins view sends the
   // range its picker resolved, so its table always describes the same window as
   // the chart above it; the Logs page leaves these off and gets everything.
@@ -107,6 +111,17 @@ function buildLogQuery(data: z.infer<typeof logQuerySchema>) {
         parts.push("activity_logs.actor_user_id IS NULL");
       }
       conditions.push(`(${parts.join(" OR ")})`);
+    }
+
+    const about = toArray(data.about);
+    if (about.length) {
+      const placeholders = about.map((id, i) => {
+        filterParams[`about${i}`] = id;
+        return `@about${i}`;
+      });
+      const list = placeholders.join(", ");
+      conditions.push(`(activity_logs.actor_user_id IN (${list})
+          OR (activity_logs.target_type = 'user' AND activity_logs.target_id IN (${list})))`);
     }
 
     if (ips.length) {

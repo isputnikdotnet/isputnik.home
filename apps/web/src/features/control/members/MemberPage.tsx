@@ -378,14 +378,15 @@ function AccessSummary({ state, userId }: { state: ReturnType<typeof useAccessSu
   );
 }
 
-// The last few things they did, from the activity log, and the way to the rest.
+// The last five things they did or that were done to them (the log's `about`
+// filter), and the way to everything they did.
 function RecentActivity({ userId }: { userId: string }) {
   const { t } = useTranslation(["controlAdmin"]);
   const [events, setEvents] = useState<LogEvent[] | null>(null);
   useEffect(() => {
     // The log pages by ten at the least; the card shows the first five.
-    api<{ events: LogEvent[] }>(`/api/logs?user=${encodeURIComponent(userId)}&pageSize=10`)
-      .then((payload) => setEvents(payload.events.slice(0, 5)))
+    api<{ logs: LogEvent[] }>(`/api/logs?about=${encodeURIComponent(userId)}&pageSize=10`)
+      .then((payload) => setEvents(payload.logs.slice(0, 5)))
       .catch(() => setEvents([]));
   }, [userId]);
   const allHref = logsHref({ user: userId });
