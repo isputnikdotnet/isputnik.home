@@ -54,12 +54,15 @@ export function NotesSection({
   compact = false,
   /** What the empty box says. The default is generic; a photo's panel says
       "about this photo" so the box reads as conversation, not a second description. */
-  placeholder
+  placeholder,
+  /** What an empty list says. The default speaks of "it"; a person's page names them. */
+  emptyText
 }: {
   entityType: string;
   entityId: string;
   compact?: boolean;
   placeholder?: string;
+  emptyText?: string;
 }) {
   const { t } = useTranslation(["common", "user"]);
   const [notes, setNotes] = useState<Note[] | null>(null);
@@ -171,7 +174,7 @@ export function NotesSection({
       )}
 
       {notes && notes.length === 0 && (
-        <p className="notes-empty">{t("user:notes.empty")}</p>
+        <p className="notes-empty">{emptyText ?? t("user:notes.empty")}</p>
       )}
 
       <form className="note-form" onSubmit={submit}>

@@ -48,10 +48,9 @@ Once someone exists, open their profile and use **Add relative** to attach a
 couples, which is what lets the app handle remarriages, single parents, and
 step- or adopted children without special cases.
 
-You can also build the tree without leaving the chart: each card you're allowed
-to edit carries a **+** button that adds a **parent** or a **child** to that
-person directly. Partners and siblings stay on the profile, where the rest of
-their family is in view.
+You can also build the tree without leaving the chart: the **⋯** button on any
+card you're allowed to edit offers **Add a relative** for that person directly,
+with the rest of their family in view.
 
 ## The chart
 
@@ -62,9 +61,11 @@ children below, partners alongside, and siblings and cousins on their own
 generation's row. Click any card to re-centre on that person — the browser's
 Back button retraces your steps. Drag to pan, scroll or pinch to zoom.
 
-Down the right edge of each card are small round buttons: **open their profile**,
-and — if you're allowed to edit that person — **edit** them and **+** to add a
-parent or child.
+The **⋯** button in a card's corner opens a small menu: **open their profile**,
+and — if you're allowed to edit that person — **edit** them and **add a
+relative**. Long given names are shortened to the first one on the card
+("Andrei Posse" for Andrei Vladimirovich Posse); the full name shows when you
+hover, and on the profile.
 
 **Where it starts.** Opening the family tree centres on the **starting person**,
 which an admin chooses once in Settings → Starting person. It's the same for

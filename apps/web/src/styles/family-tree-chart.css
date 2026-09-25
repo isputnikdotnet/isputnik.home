@@ -256,7 +256,9 @@
 .ft-chart-wrap {
   position: relative;
   flex: none;
-  height: clamp(520px, calc(100vh - 156px), 860px);
+  /* The viewport's height, less the header: a tall window gets a tall chart
+     rather than a band with empty page under it. */
+  height: max(520px, calc(100vh - 156px));
   border: 1px solid var(--line);
   border-radius: 12px;
   background-color: color-mix(in srgb, var(--surface) 94%, var(--canvas));

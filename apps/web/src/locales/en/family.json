@@ -357,7 +357,7 @@
     "exportPackageButton": "Export package"
   },
   "gedcom": {
-    "importTitle": "Import GEDCOM",
+    "importTitle": "Import a family tree",
     "importCompleteTitle": "Import complete",
     "introText": "Import a family tree from a GEDCOM (.ged) file — the format Ancestry, MyHeritage, FamilySearch, and Gramps export.",
     "fileFieldLabel": "GEDCOM file",
@@ -418,7 +418,8 @@
     "errorTitle": "Unable to load families",
     "emptyNoFamilies": "No family members yet — once people are added, their family names appear here.",
     "emptyNoMatches": "No family name matches your search.",
-    "opensOn": "Opens on {{name}}",
+    "noFamilyName": "No family name",
+      "opensOn": "Opens on {{name}}",
     "errors": {
       "loadPersons": "Unable to load family members"
     },
@@ -455,7 +456,9 @@
     "emptyTitle": "Nothing on the map yet",
     "emptyBody": "A place shows here once it has been picked from the place search — when editing a person's birth or death, a relationship, or a life event. Places typed in by hand stay words only.",
     "noMatches": "Nothing matches these filters.",
-    "unpinned_one": "{{count}} place is written without a pin, so it isn't on the map. Pick it from the place search when editing to add it.",
+    "unpinnedTitle_one": "{{count}} place is not on the map",
+      "unpinnedTitle_other": "{{count}} places are not on the map",
+      "unpinned_one": "{{count}} place is written without a pin, so it isn't on the map. Pick it from the place search when editing to add it.",
     "unpinned_other": "{{count}} places are written without a pin, so they aren't on the map. Pick them from the place search when editing to add them.",
     "errors": {
       "loadTitle": "Unable to load the map",
@@ -598,6 +601,8 @@
       "until": "until {{date}}"
     },
     "ageLabel": "Age {{age}}",
+    "notesEmpty": "Nothing noted about {{name}} yet.",
+    "notesPlaceholder": "Add a note about {{name}}…",
     "diedAged_one": "Died aged {{count}}",
     "diedAged_other": "Died aged {{count}}",
     "living": "Living",

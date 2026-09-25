@@ -260,6 +260,16 @@
   width: 100%;
 }
 
+/* On a phone the portrait was a 320px circle that pushed the name below the
+   fold; half that keeps the name and facts on the first screen. */
+@media (max-width: 740px) {
+  .book-detail-cover.ft-person-detail-cover,
+  .ft-person-cover-actions {
+    width: min(100%, 160px);
+    margin-inline: auto;
+  }
+}
+
 .ft-person-detail-subtitle {
   color: var(--muted);
 }
@@ -2277,12 +2287,6 @@
 
 .ft-map-entry-people a:hover span {
   text-decoration: underline;
-}
-
-.ft-map-unpinned {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
 }
 
 /* Pins: a dot in the colour of what happened there, or gold when several kinds

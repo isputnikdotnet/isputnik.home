@@ -152,7 +152,8 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
   if (profile.deathDate || profile.deathPlace) {
     entries.push({
       key: "death",
-      sortKey: profile.deathDate ?? "9999",
+      // Always the last row: undated entries ("9998") belong to the life, not after it.
+      sortKey: "9999",
       dateText: formatPartialDate(profile.deathDate),
       title: i18n.t("family:person.meta.died"),
       meta: profile.deathPlace ? [profile.deathPlace] : [],
@@ -170,7 +171,9 @@ function citationContext(citation: FamilyCitation, profile: FamilyPersonProfile)
   if (citation.eventId) {
     const event = profile.events.find((e) => e.id === citation.eventId);
     if (!event) return i18n.t("family:citation.context.eventFallback");
-    const what = event.label || eventTypeLabel(event.type);
+    // The chip names the KIND of event ("Work (1938)"); the event's own title can
+    // be a sentence, and goes under the source instead (citationAbout).
+    const what = eventTypeLabel(event.type);
     return event.date ? i18n.t("family:citation.eventWithYear", { what, year: event.date.slice(0, 4) }) : what;
   }
   if (citation.unionId) {
@@ -185,6 +188,20 @@ function citationContext(citation: FamilyCitation, profile: FamilyPersonProfile)
   if (citation.fact === "birth") return i18n.t("family:citation.targetBirth");
   if (citation.fact === "death") return i18n.t("family:citation.targetDeath");
   return i18n.t("family:citation.context.general");
+}
+
+/** The titled event a citation backs, named in full under the source. */
+function citationAbout(citation: FamilyCitation, profile: FamilyPersonProfile): string | null {
+  if (!citation.eventId) return null;
+  return profile.events.find((e) => e.id === citation.eventId)?.label ?? null;
+}
+
+// A biography pasted from a document often arrives hard-wrapped: a line break
+// in the middle of a sentence every seventy characters or so. Those are joined
+// back into the sentence; a break before a capital, a digit, a list marker or a
+// blank line is kept, since that is what someone breaks a line for on purpose.
+function joinSoftWraps(text: string): string {
+  return text.replace(/([^\n])\n(?=[a-zа-яё(«"'])/g, "$1 ");
 }
 
 function ageFromDates(birthDate: string | null, endDate: string | null): number | null {
@@ -964,6 +981,7 @@ export function FamilyPersonPage({ id }: { id: string }) {
                                       </a>
                                     ) : citation.sourceTitle}
                                   </strong>
+                                  {citationAbout(citation, profile) && <small className="ft-citation-about">{citationAbout(citation, profile)}</small>}
                                   {citation.detail && <small>{citation.detail}</small>}
                                   {citation.note && <small className="ft-citation-note">{citation.note}</small>}
                                 </span>
@@ -1010,7 +1028,7 @@ export function FamilyPersonPage({ id }: { id: string }) {
                       {profile.bio ? (
                         // `breaks`: a bio was plain text before it was markdown, and
                         // its single line breaks were meant.
-                        <StoryMarkdown source={profile.bio} breaks className="ft-profile-bio" />
+                        <StoryMarkdown source={joinSoftWraps(profile.bio)} breaks className="ft-profile-bio" />
                       ) : (
                         <div className="ft-empty-panel">
                           <FileText size={22} aria-hidden="true" />
@@ -1025,7 +1043,14 @@ export function FamilyPersonPage({ id }: { id: string }) {
               {/* Stories whose person blocks feature them — the tree's bridge
                   back into the family's storytelling. */}
               {profile && <RelatedStories entityType="family_tree_person" entityId={profile.id} personName={profile.name} />}
-              {profile && <NotesSection entityType="family_tree_person" entityId={profile.id} />}
+              {profile && (
+                <NotesSection
+                  entityType="family_tree_person"
+                  entityId={profile.id}
+                  emptyText={t("family:person.notesEmpty", { name: profile.name })}
+                  placeholder={t("family:person.notesPlaceholder", { name: profile.name })}
+                />
+              )}
             </div>
           );
         })()}

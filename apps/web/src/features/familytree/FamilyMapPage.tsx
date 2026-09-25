@@ -243,6 +243,13 @@ export function FamilyMapPage({ personId }: { personId: string | null }) {
 
         {entries && entries.length > 0 && (
           <>
+            {/* Up here, not under the place list: for a tree entered by hand this
+                is the page's main fact — most of its places are not on the map yet. */}
+            {unpinned > 0 && (
+              <MessageBox tone="info" title={t("family:map.unpinnedTitle", { count: unpinned })}>
+                {t("family:map.unpinned", { count: unpinned })}
+              </MessageBox>
+            )}
             <div className="ft-map-filters">
               {focus && (
                 <Button
@@ -358,10 +365,6 @@ export function FamilyMapPage({ personId }: { personId: string | null }) {
                 )}
               </aside>
             </div>
-
-            {unpinned > 0 && (
-              <p className="ft-map-unpinned">{t("family:map.unpinned", { count: unpinned })}</p>
-            )}
           </>
         )}
       </section>

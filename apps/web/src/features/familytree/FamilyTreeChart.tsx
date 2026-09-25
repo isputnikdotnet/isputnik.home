@@ -146,10 +146,16 @@ function shortText(text: string, max: number) {
 }
 
 // "Anna Maria Posse" → ["Anna Maria", "Posse"]; single-word names get one line.
+// Given names that would not fit the card's line drop to the first one alone:
+// "Andrei Vladimirovich Posse" reads "Andrei / Posse", not "Andrei Vladim… /
+// Posse", which cut off the part that told the brothers apart.
+const NAME_LINE_MAX = 14;
 function splitName(name: string): [string, string | null] {
   const parts = name.trim().split(/\s+/);
   if (parts.length <= 1) return [parts[0] ?? "", null];
-  return [parts.slice(0, -1).join(" "), parts[parts.length - 1]];
+  const given = parts.slice(0, -1);
+  const givenText = given.join(" ");
+  return [givenText.length > NAME_LINE_MAX && given.length > 1 ? given[0] : givenText, parts[parts.length - 1]];
 }
 
 // Filled placeholder silhouettes for cards without a portrait — a bust for

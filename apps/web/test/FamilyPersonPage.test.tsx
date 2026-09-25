@@ -507,8 +507,10 @@ describe("FamilyPersonPage — Photos, Sources, Biography, Quotes", () => {
     expect(link).toHaveAttribute("href", "https://example.org/rec/1");
     expect(link).toHaveAttribute("target", "_blank");
     expect(within(rows[0] as HTMLElement).getByText("Page 12")).toBeInTheDocument();
-    // A citation on an event names the event and its year.
-    expect(within(rows[1] as HTMLElement).getByText("Teacher (1972)")).toBeInTheDocument();
+    // A citation on an event: the chip says the kind of event and its year, the
+    // event's own title (which can run to a sentence) goes under the source.
+    expect(within(rows[1] as HTMLElement).getByText("Work (1972)")).toBeInTheDocument();
+    expect(within(rows[1] as HTMLElement).getByText("Teacher")).toBeInTheDocument();
     expect(within(rows[1] as HTMLElement).queryByRole("link")).not.toBeInTheDocument();
   });
 
@@ -521,6 +523,15 @@ describe("FamilyPersonPage — Photos, Sources, Biography, Quotes", () => {
     const bio = bold.closest(".ft-profile-bio") as HTMLElement;
     expect(bio.querySelector("br")).not.toBeNull();
     expect(within(bio).getByRole("listitem")).toHaveTextContent("choir");
+  });
+
+  it("joins a line wrapped in the middle of a sentence, and keeps a deliberate break", async () => {
+    mount({ person: profile({ bio: "Born in 1916, a\nyear after her brother.\nRetired in Minsk." }) });
+    await screen.findByRole("heading", { level: 1, name: "Maria Ivanova" });
+    await openTab("Biography");
+    const bio = (await screen.findByText(/Born in 1916/)).closest(".ft-profile-bio") as HTMLElement;
+    expect(bio).toHaveTextContent("Born in 1916, a year after her brother.");
+    expect(bio.querySelectorAll("br")).toHaveLength(1);
   });
 
   it("shows the biography's empty state", async () => {

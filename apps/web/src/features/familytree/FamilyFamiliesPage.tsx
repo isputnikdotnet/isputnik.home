@@ -22,12 +22,15 @@ interface FamilyGroup {
   span: string;
 }
 
-// The surname is the last word of the display name; single-word names are
-// their own family. Maiden names are not folded in — a person belongs to the
-// family they are listed under, which is what the chart labels them with.
+// The surname is the last word of the display name. Single-word names ("Erna",
+// "Anastasia") have none and gather under one card rather than each becoming a
+// "family" named after a given name. Maiden names are not folded in — a person
+// belongs to the family they are listed under, which is what the chart labels
+// them with.
+export const NO_FAMILY_NAME = "";
 function surnameOf(person: FamilyPerson): string {
   const parts = person.name.trim().split(/\s+/);
-  return parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? "";
+  return parts.length > 1 ? parts[parts.length - 1] : NO_FAMILY_NAME;
 }
 
 function birthYear(person: FamilyPerson): number {
@@ -59,7 +62,6 @@ export function FamilyFamiliesPage() {
     const bySurname = new Map<string, FamilyPerson[]>();
     for (const person of persons) {
       const surname = surnameOf(person);
-      if (!surname) continue;
       const bucket = bySurname.get(surname);
       if (bucket) bucket.push(person);
       else bySurname.set(surname, [person]);
@@ -77,11 +79,16 @@ export function FamilyFamiliesPage() {
           span: earliest == null ? "" : earliest === latest ? `${earliest}` : `${earliest}–${latest}`
         };
       })
-      .sort((a, b) => b.members.length - a.members.length || a.surname.localeCompare(b.surname));
+      // Biggest first; the people with no family name close the page.
+      .sort((a, b) =>
+        Number(a.surname === NO_FAMILY_NAME) - Number(b.surname === NO_FAMILY_NAME)
+        || b.members.length - a.members.length
+        || a.surname.localeCompare(b.surname));
   }, [persons]);
 
+  const familyLabel = (family: FamilyGroup) => family.surname || t("family:families.noFamilyName");
   const term = search.trim().toLowerCase();
-  const shown = term ? families.filter((family) => family.surname.toLowerCase().includes(term)) : families;
+  const shown = term ? families.filter((family) => familyLabel(family).toLowerCase().includes(term)) : families;
 
   return (
     <DashboardShell active="family" sideNav={<SectionNav {...familyNavProps("families")} />}>
@@ -117,7 +124,7 @@ export function FamilyFamiliesPage() {
                       <PersonAvatar key={person.id} person={person} size={38} />
                     ))}
                   </span>
-                  <strong>{family.surname}</strong>
+                  <strong>{familyLabel(family)}</strong>
                   <small>
                     {t("family:common.counts.person", { count: family.members.length })}
                     {family.span && ` · ${family.span}`}
@@ -134,8 +141,8 @@ export function FamilyFamiliesPage() {
                   <Button
                     variant="icon"
                     className="ft-family-name-tag"
-                    aria-label={t("family:families.tagFamily", { name: family.surname })}
-                    title={t("family:families.tagFamily", { name: family.surname })}
+                    aria-label={t("family:families.tagFamily", { name: familyLabel(family) })}
+                    title={t("family:families.tagFamily", { name: familyLabel(family) })}
                     onClick={() => setTagTarget(family)}
                   >
                     <Tags size={16} aria-hidden="true" />

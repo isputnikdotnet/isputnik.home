@@ -34,7 +34,8 @@ export function FamilyTreeSettingsModal({
   onChanged: () => void;
 }) {
   const { t } = useTranslation(["common", "family"]);
-  const [tab, setTab] = useState<SettingsTab>("photos");
+  // Opens on the one setting that is set here; the photo library tab only reports.
+  const [tab, setTab] = useState<SettingsTab>("start");
   // Where uploads go: the house's "App files" library, chosen in the
   // control panel (docs/photo-review-plan.md, phase 0). Read-only here.
   const [uploadLibrary, setUploadLibrary] = useState<{ id: string; name: string } | null>(null);
