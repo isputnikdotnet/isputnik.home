@@ -71,7 +71,12 @@ export function createMapLibreRenderer(): MapRenderer {
   let handlers: MapHandlers = {};
   let destroyed = false;
   let styleReady = false;
-  let loaded = false;
+  // The map has been measured against its container: from here a view can be
+  // framed. It does not wait for `load` (style AND first tiles), which a slow
+  // tile server stretches to seconds — seconds the reader spent looking at the
+  // whole world with the pins drawn where the map was born, at its centre,
+  // instead of where they belong.
+  let sized = false;
   let dark = false;
   let shapes: MapShapes = {};
   let pendingView: MapViewCommand | null = null;
@@ -497,20 +502,25 @@ export function createMapLibreRenderer(): MapRenderer {
     created.on("render", () => {
       if (options?.cluster) queueRefresh();
     });
-    created.once("load", () => {
-      loaded = true;
-      if (pendingView) {
-        const view = pendingView;
-        pendingView = null;
-        doView(view);
-      }
-    });
-
     drawHtml();
     themeObserver = new MutationObserver(() => void followTheme());
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     // The container is sized by CSS; settle any layout race so the map fills it.
-    later(() => created.resize(), 0);
+    // Framing needs nothing but that size — not the style, not a tile — so the
+    // view asked for meanwhile is applied here, and the move it makes puts every
+    // HTML marker where it belongs.
+    later(() => {
+      created.resize();
+      sized = true;
+      flushView();
+    }, 0);
+  }
+
+  function flushView(): void {
+    if (!map || !sized || !pendingView) return;
+    const view = pendingView;
+    pendingView = null;
+    doView(view);
   }
 
   return {
@@ -541,7 +551,7 @@ export function createMapLibreRenderer(): MapRenderer {
     },
 
     applyView(view) {
-      if (!map || !loaded) {
+      if (!map || !sized) {
         // Only the latest intention matters by the time the map can act on it.
         pendingView = view;
         return;
