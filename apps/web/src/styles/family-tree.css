@@ -264,6 +264,35 @@
   color: var(--muted);
 }
 
+/* The facts under the name: one column, and values that wrap instead of the
+   book grid's one-line ellipsis — a birthplace runs to a village, a district and
+   a governorate, and "Married to <full name>" is long in any language. */
+.book-detail-meta-grid.ft-profile-meta {
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.ft-profile-meta .book-detail-meta-item {
+  align-items: start;
+}
+
+.ft-profile-meta .book-detail-meta-item svg {
+  margin-top: 1px;
+}
+
+.ft-profile-meta .book-detail-meta-item dd {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ft-meta-missing {
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .ft-person-detail-tab-panel {
   min-height: 240px;
 }
@@ -479,6 +508,26 @@
   grid-column: 1 / -1;
   grid-row: 5;
   height: 28px;
+}
+
+/* A parent's other partners, under the parents and off the direct line: their
+   own row of cards, no stem — nothing descends from them to this person. */
+.ft-rtree-stepparents {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.ft-rtree-stepparent-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+.ft-rtree-stepparent-cards .ft-relation-card-wrap {
+  width: 250px;
 }
 
 /* The person's own generation: siblings │ this person │ partners. */

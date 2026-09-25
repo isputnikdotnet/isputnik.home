@@ -9,6 +9,18 @@ import { canEditAnyPerson } from "./access.js";
 import { optionalDate } from "./persons-routes.js";
 import { pinSchema } from "./place-pins.js";
 import { requireTreeView } from "./tree-access.js";
+import { db } from "../../db.js";
+import type { AuthUser } from "../../core/permissions.js";
+
+// A family a branch editor may change: one with a partner or a child in their
+// branch. "Add relatives to them" attaches people to the editor's own families;
+// it never reaches into a family that has nobody of theirs in it.
+function canEditUnion(user: AuthUser, union: { id: string; person1Id: string; person2Id: string | null }): boolean {
+  if (user.role === "admin") return true;
+  const childIds = (db.prepare("SELECT child_id FROM family_tree_children WHERE union_id = ?").all(union.id) as { child_id: string }[])
+    .map((row) => row.child_id);
+  return canEditAnyPerson(user, [union.person1Id, union.person2Id, ...childIds]);
+}
 
 const RELATION_ERRORS: Record<RelationError, { code: number; message: string }> = {
   person_not_found: { code: 404, message: "Person not found" },
@@ -77,7 +89,11 @@ export function registerUnionRoutes(app: FastifyInstance) {
     if (!existing) {
       return reply.code(404).send({ error: "Union not found" });
     }
-    if (!canEditAnyPerson(request.user!, [existing.person1Id, existing.person2Id, person2Id])) {
+    // The family being changed must already be the editor's — a partner or a
+    // child of it in their branch — not merely the person they are putting into
+    // it: otherwise any single parent in the tree could be handed a branch
+    // person as the other parent, and their children with them.
+    if (!canEditUnion(request.user!, existing)) {
       return reply.code(403).send({ error: "You can only edit relationships of family members in a branch you have edit rights on." });
     }
     // Filling the slot can fold this union into the couple's existing one, so
@@ -117,7 +133,10 @@ export function registerUnionRoutes(app: FastifyInstance) {
     if (!union) {
       return reply.code(404).send({ error: "Union not found" });
     }
-    if (!canEditAnyPerson(request.user!, [union.person1Id, union.person2Id, parsed.data.childId])) {
+    // Same rule as filling a partner slot: the family gaining a child must be the
+    // editor's own (a parent or a sibling-to-be in their branch), so a branch
+    // person cannot be hung under strangers' parents.
+    if (!canEditUnion(request.user!, union)) {
       return reply.code(403).send({ error: "You can only add relationships for family members in a branch you have edit rights on." });
     }
     const result = addChild(unionId, parsed.data.childId, parsed.data.relation ?? "biological");

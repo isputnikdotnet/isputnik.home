@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
-import { createFamilyPerson, getFamilyPersonProfile } from "../src/modules/familytree/persons.js";
+import { createFamilyPerson, deleteFamilyPerson, getFamilyPersonProfile } from "../src/modules/familytree/persons.js";
 import { addChild, createUnion, setUnionPartner } from "../src/modules/familytree/relations.js";
 import { createFamilyCitation, createFamilySource } from "../src/modules/familytree/sources.js";
 import { up as mergeDuplicateUnions } from "../src/db/migrations/080-merge-duplicate-family-unions.js";
@@ -52,6 +52,42 @@ describe("a couple is recorded once", () => {
     expect(createUnion(dora.id, peter.id, { status: "married" })).toEqual({ error: "already_partners" });
     // A single-parent family is not a couple and stays allowed.
     expect(createUnion(peter.id, null, {})).toHaveProperty("union");
+  });
+
+  it("records one single-parent family per person, so Add parent on two children makes them siblings", () => {
+    const anna = person("Anna");
+    const boris = person("Boris");
+    const vera = person("Vera");
+    // Boris's profile → Add parent → Anna, then Vera's profile → Add parent → Anna:
+    // the web asks for a "just Anna" family each time.
+    const first = union(anna.id, null);
+    expect(addChild(first.id, boris.id, "biological")).toEqual({ ok: true });
+    const second = union(anna.id, null);
+    expect(second.id).toBe(first.id);
+    expect(addChild(second.id, vera.id, "biological")).toEqual({ ok: true });
+
+    const profile = getFamilyPersonProfile(anna.id)!;
+    expect(profile.unions).toHaveLength(1);
+    expect(profile.unions[0].children.map((child) => child.name).sort()).toEqual(["Boris", "Vera"]);
+    // Facts given for the family still land on it.
+    expect(createUnion(anna.id, null, { note: "raised them alone" })).toMatchObject({ union: { id: first.id, note: "raised them alone" } });
+  });
+
+  it("deleting a partner folds the survivor's family into their existing single-parent one", () => {
+    const anna = person("Anna");
+    const peter = person("Peter");
+    const boris = person("Boris");
+    const vera = person("Vera");
+    const alone = union(anna.id, null);
+    expect(addChild(alone.id, boris.id, "biological")).toEqual({ ok: true });
+    const couple = union(anna.id, peter.id, { status: "married" });
+    expect(addChild(couple.id, vera.id, "biological")).toEqual({ ok: true });
+
+    expect(deleteFamilyPerson(peter.id).deleted).toBe(true);
+    const profile = getFamilyPersonProfile(anna.id)!;
+    expect(profile.unions).toHaveLength(1);
+    expect(profile.unions[0].id).toBe(alone.id);
+    expect(profile.unions[0].children.map((child) => child.name).sort()).toEqual(["Boris", "Vera"]);
   });
 });
 

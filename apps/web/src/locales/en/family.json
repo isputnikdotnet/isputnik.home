@@ -86,6 +86,16 @@
       "female": "Sister",
       "neutral": "Sibling"
     },
+    "halfSibling": {
+      "male": "Half-brother",
+      "female": "Half-sister",
+      "neutral": "Half-sibling"
+    },
+    "stepParent": {
+      "male": "Stepfather",
+      "female": "Stepmother",
+      "neutral": "Step-parent"
+    },
     "grandparent": {
       "male": "Grandfather",
       "female": "Grandmother",
@@ -95,6 +105,11 @@
       "male": "Son",
       "female": "Daughter",
       "neutral": "Child"
+    },
+    "formerPartner": {
+      "male": "Former husband",
+      "female": "Former wife",
+      "neutral": "Former partner"
     },
     "partner": {
       "male": "Husband",
@@ -508,7 +523,8 @@
       "gender": "Gender",
       "relationship": "Relationship",
       "familyTags": "Family tags",
-      "unknown": "Unknown",
+      "notRecorded": "Not recorded",
+      "dateUnknown": "Date unknown",
       "showTaggedTitle": "Show everyone tagged {{tag}}"
     },
     "addRelativeMenu": {
@@ -524,6 +540,8 @@
       "partners": "Partners",
       "family": "Family",
       "thisPerson": "This person",
+      "stepParents": "Step-parents",
+      "partnerOf": "partner of {{name}}",
       "withPartner": "with {{name}}",
       "withNoPartner": "no other parent recorded",
       "children": "Children",
@@ -575,10 +593,13 @@
     },
     "unionDates": {
       "since": "since {{date}}",
+      "married": "married {{date}}",
       "range": "{{start}} – {{end}}",
       "until": "until {{date}}"
     },
     "ageLabel": "Age {{age}}",
+    "diedAged_one": "Died aged {{count}}",
+    "diedAged_other": "Died aged {{count}}",
     "living": "Living",
     "deceased": "Deceased",
     "dialogs": {

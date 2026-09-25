@@ -83,7 +83,11 @@ Six tabs:
   person, siblings on one side, partners on the other (a solid line and rings
   for the current partner, a dashed line and a broken heart for a former one),
   and children below. When children come from more than one partner, each card
-  says which. Click any card to open that person.
+  says which. A parent's other partners are listed under the parents as
+  **step-parents**, and the children they had together join the siblings as
+  **half-brothers and half-sisters**, each saying which parent they share. The
+  chart draws them the same way: the step-parent beside that parent, the
+  half-siblings on this person's row. Click any card to open that person.
 - **Timeline** — their life in order: birth, marriages, the births of children,
   death, plus any events you add (education, work, homes, military service,
   travel, awards, graduations, retirements, baptisms, naturalisations…). Each
@@ -193,9 +197,14 @@ keeps seeing everything; anyone added later starts without it, and **Show detail
 of living relatives** on the same tab turns it on, for one person or a group.
 
 Someone counts as living unless they have a death date, are marked **Deceased
-(date unknown)** (under the death date in Edit person), or were born more than 100
-years ago. Someone with no dates at all counts as living — so for old ancestors
-nobody has dates for, **Select** them on **People** and **Mark as deceased**.
+(date unknown)** (under the death date in Edit person), were born more than 100
+years ago, or have a child born more than 85 years ago — a parent is at least
+about fifteen years older than their child, so that child's date settles it.
+Someone with no dates on them or their children counts as living — so for old
+ancestors nobody has dates for, **Select** them on **People** and **Mark as
+deceased**. A bare year is read as any day of that year: someone born "1926" may
+still be 99, so they count as living until the whole year is more than 100 years
+past.
 To see who counts as living, choose **Shown as living to others** above the
 people (administrators only): it narrows the page to them, ready to select.
 

@@ -143,17 +143,25 @@ export function registerPersonRoutes(app: FastifyInstance) {
     // A living relative the viewer may not see the details of: their events,
     // sources and marriages' facts stay back too (tree-access.ts, D15).
     const eventPhotos = person.restricted ? new Map() : getFamilyEventPhotos(user, profile.id);
+    const redactedUnionIds = new Set<string>();
+    const unions = profile.unions.map((union) => {
+      const partner = union.partner ? decoratePersons(user, [union.partner])[0] : null;
+      const decorated = { ...union, partner, children: decoratePersons(user, union.children) };
+      if (!person.restricted && !partner?.restricted) return decorated;
+      redactedUnionIds.add(union.id);
+      return redactUnion(decorated);
+    });
     return reply.send({
       person: {
         ...person,
         parents: decoratePersons(user, profile.parents),
-        unions: profile.unions.map((union) => {
-          const partner = union.partner ? decoratePersons(user, [union.partner])[0] : null;
-          const decorated = { ...union, partner, children: decoratePersons(user, union.children) };
-          return person.restricted || partner?.restricted ? redactUnion(decorated) : decorated;
-        }),
+        unions,
         events: person.restricted ? [] : profile.events.map((event) => ({ ...event, photos: eventPhotos.get(event.id) ?? [] })),
-        citations: person.restricted ? [] : profile.citations
+        // A marriage's citations go with the marriage: redacted on the card,
+        // redacted on the Sources tab of the other spouse too.
+        citations: person.restricted
+          ? []
+          : profile.citations.filter((citation) => !citation.unionId || !redactedUnionIds.has(citation.unionId))
       }
     });
   });

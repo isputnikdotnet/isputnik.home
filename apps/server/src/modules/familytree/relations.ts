@@ -44,6 +44,16 @@ function unionOfPair(personA: string, personB: string, excludeUnionId: string | 
   return row?.id ?? null;
 }
 
+/** The person's single-parent union, oldest first, when they have one. */
+export function loneUnionOf(personId: string, excludeUnionId: string | null = null): string | null {
+  const row = db.prepare(`
+    SELECT id FROM family_tree_unions
+    WHERE person1_id = ? AND person2_id IS NULL AND (? IS NULL OR id <> ?)
+    ORDER BY created_at, id LIMIT 1
+  `).get(personId, excludeUnionId, excludeUnionId) as { id: string } | undefined;
+  return row?.id ?? null;
+}
+
 /** Fold one union into another of the same couple: its children and citations
  *  move over, facts the keeper lacks are filled from it, and it is deleted. The
  *  keeper's own facts always win. Run inside a transaction. */
@@ -93,6 +103,18 @@ export function createUnion(
   // Adding the same partner twice made two couples of one, each with half the
   // children; edit the existing relationship instead.
   if (person2Id && unionOfPair(person1Id, person2Id)) return { error: "already_partners" };
+  // One "just Anna" family per person. Add parent → Anna on a second child, or
+  // Add child under "just Anna", each made another single-parent union, so the
+  // children never met as siblings and every one was "with no partner" on her
+  // page; the family they share is the one that already exists. Fields given
+  // for it still land on it.
+  if (!person2Id) {
+    const lone = loneUnionOf(person1Id);
+    if (lone) {
+      const hasFields = Object.values(fields).some((value) => value !== undefined);
+      return { union: (hasFields ? updateUnion(lone, fields) : getUnion(lone))! };
+    }
+  }
   const id = nanoid(16);
   const marriedPin = pinForPlace(fields.marriedPlace, fields.marriedPin);
   db.prepare(`

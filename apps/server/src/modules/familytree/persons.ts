@@ -15,6 +15,9 @@ import { FAMILY_PERSON_ENTITY_TYPE } from "./access.js";
 import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
 import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";
 import { pin, pinForPlace, placeUpdate, type PlacePin } from "./place-pins.js";
+// relations.ts imports this module too; both only use the other's exports inside
+// functions, so the cycle is harmless at load time.
+import { foldUnionInto, loneUnionOf } from "./relations.js";
 import type { FamilyTreeChildRow, FamilyTreePersonNameRow, FamilyTreePersonRow, FamilyTreeUnionRow, GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, TagRow } from "../../db/rows.js";
 
 // Partial ISO dates: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. Lexicographic order is
@@ -379,6 +382,13 @@ export function deleteFamilyPerson(personId: string): { deleted: boolean; portra
     for (const union of unions) {
       const survivor = union.person1_id === personId ? union.person2_id : union.person1_id;
       if (survivor) {
+        // A survivor who already has a "just them" family gets one, not two: the
+        // children of this union join it (relations.ts keeps one lone union per person).
+        const lone = loneUnionOf(survivor, union.id);
+        if (lone) {
+          foldUnionInto(union.id, lone);
+          continue;
+        }
         db.prepare(`
           UPDATE family_tree_unions
           SET person1_id = ?, person2_id = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')

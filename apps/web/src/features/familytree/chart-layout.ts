@@ -12,7 +12,10 @@
 //   • collateral relatives — the focus person's siblings, aunts/uncles with
 //     their spouses, and cousins — on their own generation row beside the
 //     direct line (each collateral subtree expands one generation of children
-//     and no further, to bound the width).
+//     and no further, to bound the width);
+//   • step-families — a parent's other partners beside that parent, with the
+//     half-siblings they had together on the row below, outside the full
+//     siblings.
 //
 // Internally the math packs along one scalar axis ("extent" = screen X) per
 // generation; positions are computed first, then a per-row sweep resolves any
@@ -292,6 +295,51 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
       const extent = subtreeExtent(siblingId, new Set(), COLLATERAL_DEPTH);
       const left = dir < 0 ? minX - BLOCK_GAP - extent : maxX + BLOCK_GAP;
       placeSubtree(siblingId, left, gen, new Set(), COLLATERAL_DEPTH);
+    }
+  }
+
+  // ── Step-families ──
+  // A parent's OTHER partnerships: the step-parent beside that parent on the
+  // parents' row, and the half-siblings beneath them on this person's row, laid
+  // out like the full siblings (a depth-limited subtree each) but further out,
+  // past the parent's own siblings, on the side away from the other parent.
+  // Once ancestors are on the direct line the same pass gives the parents their
+  // half-siblings. Before this a remarried parent showed one family only, and a
+  // child of theirs met their half-siblings nowhere on the chart.
+  for (const { id, gen } of directLine) {
+    const parentUnionId = ix.parentUnionOf.get(id);
+    const parentUnion = parentUnionId ? ix.unionById.get(parentUnionId) : undefined;
+    if (!parentUnion) continue;
+    for (const parentId of [parentUnion.person1Id, parentUnion.person2Id]) {
+      const parentNode = parentId ? placed.get(parentId) : undefined;
+      if (!parentId || !parentNode) continue;
+      const otherParentId = parentUnion.person1Id === parentId ? parentUnion.person2Id : parentUnion.person1Id;
+      const otherParent = otherParentId ? placed.get(otherParentId) : undefined;
+      const dir = otherParent && parentNode.x > otherParent.x ? 1 : -1;
+      const others = (ix.unionsByPartner.get(parentId) ?? []).filter((u) => u.id !== parentUnionId);
+      for (const union of dir < 0 ? [...others].reverse() : others) {
+        const stepId = union.person1Id === parentId ? union.person2Id : union.person1Id;
+        const step = stepId && !placed.has(stepId) ? ix.personById.get(stepId) : undefined;
+        const kids = (ix.childrenByUnion.get(union.id) ?? []).filter((kid) => !placed.has(kid));
+        if (!step && kids.length === 0) continue;
+        const kidExtents = kids.map((kid) => subtreeExtent(kid, new Set(), COLLATERAL_DEPTH));
+        const kidsE = kidExtents.reduce((sum, e) => sum + e, 0) + Math.max(0, kids.length - 1) * SIBLING_GAP;
+        const extent = Math.max(step ? NODE_W : 0, kidsE);
+        let minX = Infinity;
+        let maxX = -Infinity;
+        for (const n of placed.values()) {
+          if (n.gen < gen - 1 || n.gen > gen + COLLATERAL_DEPTH) continue;
+          minX = Math.min(minX, n.x - NODE_W / 2);
+          maxX = Math.max(maxX, n.x + NODE_W / 2);
+        }
+        const left = dir < 0 ? minX - BLOCK_GAP - extent : maxX + BLOCK_GAP;
+        if (step) place(step, left + extent / 2, gen - 1);
+        let ce = left + (extent - kidsE) / 2;
+        kids.forEach((kid, i) => {
+          placeSubtree(kid, ce, gen, new Set(), COLLATERAL_DEPTH);
+          ce += kidExtents[i] + SIBLING_GAP;
+        });
+      }
     }
   }
 

@@ -195,8 +195,8 @@ describe("FamilyPersonPage — header", () => {
   it("lists birth, birthplace, gender, current relationship and family tags", async () => {
     mount();
     await screen.findByRole("heading", { level: 1, name: "Maria Ivanova" });
-    expect(metaValue("Born")).toHaveTextContent("Jun 15, 1950");
-    expect(metaValue("Birthplace")).toHaveTextContent("Minsk");
+    // Date and place share the row, in full — a long place wraps rather than clips.
+    expect(metaValue("Born")).toHaveTextContent("Jun 15, 1950, Minsk");
     expect(metaValue("Gender")).toHaveTextContent("Female");
     // The divorce is over; the current marriage is the one named.
     expect(metaValue("Relationship")).toHaveTextContent("Married to Sergei Ivanov");
@@ -206,7 +206,15 @@ describe("FamilyPersonPage — header", () => {
   it("says Deceased and stops the age at the death date", async () => {
     mount({ person: profile({ birthDate: "1900-03-10", deathDate: "1950-03-09" }) });
     // One day short of the 50th birthday.
-    expect(await screen.findByText("née Petrova · 1900–1950 · Deceased · Age 49")).toBeInTheDocument();
+    expect(await screen.findByText("née Petrova · 1900–1950 · Deceased · Died aged 49")).toBeInTheDocument();
+    expect(metaValue("Died")).toHaveTextContent("Mar 9, 1950");
+  });
+
+  it("follows the server on who is living: the deceased mark means no age, and a Died row with no date", async () => {
+    mount({ person: profile({ deceased: true, living: false }) });
+    expect(await screen.findByText("née Petrova · 1950– · Deceased")).toBeInTheDocument();
+    expect(metaValue("Died")).toHaveTextContent("Date unknown");
+    expect(screen.queryByText(/Age \d+/)).toBeNull();
   });
 
   it("names a past partner when there is no current one", async () => {
@@ -215,6 +223,16 @@ describe("FamilyPersonPage — header", () => {
     });
     await screen.findByRole("heading", { level: 1, name: "Maria Ivanova" });
     expect(metaValue("Relationship")).toHaveTextContent("Widowed from Sergei Ivanov");
+  });
+
+  it("dates a marriage ended by death from the wedding to the death, and still calls him a husband", async () => {
+    mount({
+      person: profile({
+        unions: [unionDetail({ id: "u-w", status: "widowed", marriedDate: "1972-08-01", partner: { ...HUSBAND, deathDate: "1990-02-03" } })]
+      })
+    });
+    await screen.findByRole("heading", { level: 1, name: "Maria Ivanova" });
+    expect(relationCard("Sergei Ivanov")).toHaveTextContent(/Husband.*Widowed · Aug 1, 1972 – Feb 3, 1990/);
   });
 
   it("links to the person in the chart", async () => {
@@ -301,9 +319,9 @@ describe("FamilyPersonPage — Relationships", () => {
     }
     expect(relationCard("Maria Ivanova")).toHaveTextContent("This person");
 
-    // The current partner is marked as such; a divorced one is only a Partner.
+    // The current partner is marked as such; a divorced one was a husband once.
     expect(relationCard("Sergei Ivanov")).toHaveTextContent(/Husband.*Current · Married · since Aug 1, 1972/);
-    expect(relationCard("Pavel Sidorov")).toHaveTextContent(/Partner.*Divorced · 1968 – 1970/);
+    expect(relationCard("Pavel Sidorov")).toHaveTextContent(/Former husband.*Divorced · 1968 – 1970/);
 
     expect(relationCard("Alexei Ivanov")).toHaveTextContent("Son");
     // Biological goes unsaid; anything else is spelled out.

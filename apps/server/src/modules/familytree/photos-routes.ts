@@ -8,7 +8,15 @@ import {
 } from "./photos.js";
 import { canEditPerson } from "./access.js";
 import { getFamilyEvent } from "./events.js";
+import { canUsePortraitPhoto } from "./portraits.js";
 import { requireTreeView } from "./tree-access.js";
+
+// Attaching is showing: a photo a branch editor cannot open themselves must not
+// reach a profile through them. The same rule the portrait picker applies.
+function cannotUseAll(user: { id: string; role: string }, itemIds: string[]): boolean {
+  return user.role !== "admin" && itemIds.some((itemId) => !canUsePortraitPhoto(user, itemId));
+}
+const PHOTO_ACCESS_ERROR = "You can only attach photos from libraries you can open.";
 
 const attachPhotosSchema = z.object({
   itemIds: z.array(z.string().trim().min(1)).min(1).max(500)
@@ -47,6 +55,9 @@ export function registerPhotoRoutes(app: FastifyInstance) {
     if (!canEditPerson(request.user!, event.personId)) {
       return reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
     }
+    if (cannotUseAll(request.user!, parsed.data.itemIds)) {
+      return reply.code(403).send({ error: PHOTO_ACCESS_ERROR });
+    }
     const result = attachFamilyEventPhotos(event.id, parsed.data.itemIds, request.user!.id);
     if ("error" in result) {
       return reply.code(404).send({ error: result.error === "event_not_found" ? "Event not found" : "Gallery item not found" });
@@ -79,6 +90,9 @@ export function registerPhotoRoutes(app: FastifyInstance) {
     }
     if (!canEditPerson(request.user!, personId)) {
       return reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+    }
+    if (cannotUseAll(request.user!, parsed.data.itemIds)) {
+      return reply.code(403).send({ error: PHOTO_ACCESS_ERROR });
     }
     const result = attachFamilyPhotos(personId, parsed.data.itemIds, request.user!.id);
     if ("error" in result) {

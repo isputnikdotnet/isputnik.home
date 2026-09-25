@@ -28,8 +28,8 @@ export type AttachError = "person_not_found" | "item_not_found";
 
 // Attach gallery items to a person, appending after the current last position.
 // Idempotent per (person, item); re-attaching keeps the original position.
-// Items must be existing, non-deleted gallery assets — only admins attach, so
-// no per-library write check is needed beyond existence.
+// Items must be existing, non-deleted gallery assets; whether the attacher may
+// see them is the route's check (photos-routes.ts), since branch editors attach too.
 export function attachFamilyPhotos(
   personId: string,
   itemIds: string[],

@@ -44,8 +44,21 @@ interface GrandparentGroup {
   people: RelationPerson[];
 }
 
+/** A step-parent or half-sibling, and the parent they come through. */
+interface StepRelation {
+  person: RelationPerson;
+  via: RelationPerson;
+}
+
 export function extendedFamily(profile: FamilyPersonProfile, tree: FamilyTree | null) {
-  if (!tree) return { siblings: [] as RelationPerson[], grandparentGroups: [] as GrandparentGroup[] };
+  if (!tree) {
+    return {
+      siblings: [] as RelationPerson[],
+      grandparentGroups: [] as GrandparentGroup[],
+      stepParents: [] as StepRelation[],
+      halfSiblings: [] as StepRelation[]
+    };
+  }
   const personById = new Map(tree.persons.map((person) => [person.id, person]));
   const unionById = new Map(tree.unions.map((union) => [union.id, union]));
   const parentUnionId = tree.children.find((link) => link.childId === profile.id)?.unionId;
@@ -74,12 +87,42 @@ export function extendedFamily(profile: FamilyPersonProfile, tree: FamilyTree | 
     );
     return people.length > 0 ? [{ parent, people }] : [];
   });
-  return { siblings: uniquePeople(siblings), grandparentGroups };
+  // A parent's other partnerships: the partner is a step-parent, their children
+  // together are half-siblings — through that parent, which each card says.
+  const stepParents: StepRelation[] = [];
+  const halfSiblings: StepRelation[] = [];
+  const siblingIds = new Set([profile.id, ...siblings.map((sibling) => sibling.id)]);
+  for (const parent of profile.parents) {
+    for (const union of tree.unions) {
+      if (union.id === parentUnionId) continue;
+      if (union.person1Id !== parent.id && union.person2Id !== parent.id) continue;
+      const partnerId = union.person1Id === parent.id ? union.person2Id : union.person1Id;
+      const partner = partnerId ? personById.get(partnerId) : undefined;
+      if (partner && partner.id !== profile.id) stepParents.push({ person: partner, via: parent });
+      for (const link of tree.children) {
+        if (link.unionId !== union.id || siblingIds.has(link.childId)) continue;
+        const child = personById.get(link.childId);
+        if (child) halfSiblings.push({ person: child, via: parent });
+      }
+    }
+  }
+  const onceEach = (list: StepRelation[]) => {
+    const seen = new Set<string>();
+    return list.filter(({ person }) => !seen.has(person.id) && seen.add(person.id));
+  };
+  // Oldest first, like siblings everywhere else; unknown dates last.
+  const byBirth = (a: StepRelation, b: StepRelation) => (a.person.birthDate ?? "9999").localeCompare(b.person.birthDate ?? "9999");
+  return {
+    siblings: uniquePeople(siblings),
+    grandparentGroups,
+    stepParents: onceEach(stepParents),
+    halfSiblings: onceEach(halfSiblings).sort(byBirth)
+  };
 }
 
 // What this person is TO the person whose page this is. Gendered where the record
 // says so, neutral where it doesn't: an unknown gender gets "Parent", never a guess.
-type RelationKind = "parent" | "sibling" | "grandparent" | "child" | "partner";
+type RelationKind = "parent" | "sibling" | "halfSibling" | "stepParent" | "grandparent" | "child" | "partner" | "formerPartner";
 
 function relationWord(kind: RelationKind, person: Pick<FamilyPerson, "gender">): string {
   const genderKey = person.gender === "male" || person.gender === "female" ? person.gender : "neutral";
@@ -87,13 +130,32 @@ function relationWord(kind: RelationKind, person: Pick<FamilyPerson, "gender">):
 }
 
 // "since 2010", "2010 – 2015", "until 2015" — the union's span for card detail.
-function unionDates(union: FamilyUnionDetail): string {
+// A marriage that ended with a death ends on that death: "Widowed · since 1910"
+// read as widowed since 1910, when 1910 was the wedding and 1919 the loss.
+function unionDates(union: FamilyUnionDetail, self: Pick<FamilyPerson, "deathDate">): string {
   const married = union.marriedDate ? formatPartialDate(union.marriedDate) : "";
   const divorced = union.divorcedDate ? formatPartialDate(union.divorcedDate) : "";
   if (married && divorced) return i18n.t("family:person.unionDates.range", { start: married, end: divorced });
+  if (union.status === "widowed") {
+    // Whichever of the two died first is when the marriage ended.
+    const deaths = [self.deathDate, union.partner?.deathDate].filter((date): date is string => Boolean(date)).sort();
+    const ended = deaths[0] ? formatPartialDate(deaths[0]) : "";
+    if (married && ended) return i18n.t("family:person.unionDates.range", { start: married, end: ended });
+    if (married) return i18n.t("family:person.unionDates.married", { date: married });
+    if (ended) return i18n.t("family:person.unionDates.until", { date: ended });
+    return "";
+  }
   if (married) return i18n.t("family:person.unionDates.since", { date: married });
   if (divorced) return i18n.t("family:person.unionDates.until", { date: divorced });
   return "";
+}
+
+// "Wife" for a marriage, "Former wife" once it was dissolved, "Partner" for the
+// rest. A marriage ended by death was a marriage still: she was his wife.
+function partnerWord(union: FamilyUnionDetail, person: Pick<FamilyPerson, "gender">): string {
+  if (union.status === "married" || union.status === "widowed") return relationWord("partner", person);
+  if (union.status === "divorced" || union.divorcedDate) return relationWord("formerPartner", person);
+  return i18n.t("family:relationWord.partner.neutral");
 }
 
 /** Two linked rings: a couple that is together now. Lucide has no such glyph. */
@@ -197,10 +259,10 @@ export function RelationshipTree({
   // With children from more than one partnership, each child says which.
   const childUnions = new Set(children.map(({ union }) => union.id));
   const parents = profile.parents;
-  const hasSiblings = family.siblings.length > 0;
+  const hasSiblings = family.siblings.length > 0 || family.halfSiblings.length > 0;
   const hasPartners = partners.length > 0;
 
-  if (family.grandparentGroups.length === 0 && parents.length === 0 && !hasSiblings && !hasPartners && children.length === 0) {
+  if (family.grandparentGroups.length === 0 && parents.length === 0 && family.stepParents.length === 0 && !hasSiblings && !hasPartners && children.length === 0) {
     return (
       <p className="ft-relation-empty">
         {t("family:person.relationships.emptyBase")}{canEdit ? t("family:person.relationships.emptyHint") : ""}
@@ -252,6 +314,22 @@ export function RelationshipTree({
         </div>
       )}
 
+      {family.stepParents.length > 0 && (
+        <div className="ft-rtree-stepparents">
+          <SectionLabel>{t("family:person.relationships.stepParents")}</SectionLabel>
+          <div className="ft-rtree-stepparent-cards">
+            {family.stepParents.map(({ person, via }) => (
+              <RelationCard
+                key={person.id}
+                person={person}
+                badge={relationWord("stepParent", person)}
+                note={t("family:person.relationships.partnerOf", { name: via.name })}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className={`ft-rtree-family ft-tree-self-row${hasSiblings ? " has-siblings" : ""}${hasPartners ? " has-partners" : ""}`}>
         <div className="ft-rtree-side is-siblings">
           {hasSiblings && (
@@ -265,6 +343,16 @@ export function RelationshipTree({
                 {family.siblings.map((sibling) => (
                   <div className="ft-rtree-sibling-row" key={sibling.id}>
                     <RelationCard person={sibling} badge={relationWord("sibling", sibling)} />
+                  </div>
+                ))}
+                {/* Half-siblings after the full ones, each saying which parent they share. */}
+                {family.halfSiblings.map(({ person, via }) => (
+                  <div className="ft-rtree-sibling-row" key={person.id}>
+                    <RelationCard
+                      person={person}
+                      badge={relationWord("halfSibling", person)}
+                      note={t("family:person.relationships.viaParent", { name: via.name })}
+                    />
                   </div>
                 ))}
               </div>
@@ -290,11 +378,11 @@ export function RelationshipTree({
                     <div key={union.id} className={`ft-rtree-partner${isCurrent ? " is-current" : ""}${former ? " is-former" : ""}`}>
                       <RelationCard
                         person={person}
-                        badge={union.status === "married" ? relationWord("partner", person) : t("family:relationWord.partner.neutral")}
+                        badge={partnerWord(union, person)}
                         note={[
                           isCurrent ? t("family:person.relationships.current") : "",
                           unionStatusLabel(union.status),
-                          unionDates(union)
+                          unionDates(union, profile)
                         ].filter(Boolean).join(" · ")}
                         noteTone={isCurrent ? "current" : former ? "former" : undefined}
                         icon={isCurrent ? <RingsIcon /> : former ? <HeartCrack size={20} aria-hidden="true" /> : undefined}

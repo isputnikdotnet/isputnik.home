@@ -610,6 +610,64 @@ describe("computeChartLayout — collateral relatives", () => {
   });
 });
 
+describe("computeChartLayout — step-families", () => {
+  // Dad remarried and had a son; mum had a daughter with an earlier husband.
+  const stepTree = () =>
+    tree(
+      [
+        person("me", { birthDate: "1975" }), "dad", "mum",
+        "stepmum", person("half-brother", { birthDate: "1990" }),
+        "mum-ex", person("half-sister", { birthDate: "1968" }), "half-sister-son"
+      ],
+      [
+        union("u-par", "dad", "mum", "divorced"),
+        union("u-dad2", "dad", "stepmum"),
+        union("u-mum1", "mum-ex", "mum", "divorced"),
+        union("u-hs", "half-sister", null)
+      ],
+      [
+        ["u-par", "me"], ["u-dad2", "half-brother"], ["u-mum1", "half-sister"], ["u-hs", "half-sister-son"]
+      ]
+    );
+
+  it("draws step-parents beside their partner and half-siblings on the focus row, each on their parent's side", () => {
+    const layout = computeChartLayout(stepTree(), "me");
+    expectSound(layout);
+    expect(placedIds(layout)).toEqual(["dad", "half-brother", "half-sister", "half-sister-son", "me", "mum", "mum-ex", "stepmum"]);
+    const dad = node(layout, "dad");
+    const mum = node(layout, "mum");
+    expect(dad.x).toBeLessThan(mum.x);
+    // Dad's side is the left: his second wife sits left of him, on his row.
+    const stepmum = node(layout, "stepmum");
+    expect(stepmum.gen).toBe(-1);
+    expect(stepmum.x).toBeLessThan(dad.x);
+    // Mum's first husband on her side, the right.
+    const ex = node(layout, "mum-ex");
+    expect(ex.gen).toBe(-1);
+    expect(ex.x).toBeGreaterThan(mum.x);
+    // Half-siblings on the focus row, under their own parents; the half-sister's
+    // child one row down, like any collateral branch.
+    expect(rowOf(layout, 0)).toEqual(["half-brother", "me", "half-sister"]);
+    expect(node(layout, "half-sister-son").gen).toBe(1);
+    // Both second unions get a badge, so their lines to the half-siblings are drawn.
+    expect(layout.dots.map((dot) => dot.unionId).sort()).toEqual(["u-dad2", "u-hs", "u-mum1", "u-par"]);
+  });
+
+  it("gives a parent their own half-siblings once the grandparents are on the line", () => {
+    const layout = computeChartLayout(
+      tree(
+        ["me", "dad", "mum", "gpa", "gma", "gpa-2nd-wife", "dad-half-sister"],
+        [union("u-par", "dad", "mum"), union("u-g", "gpa", "gma"), union("u-g2", "gpa", "gpa-2nd-wife")],
+        [["u-par", "me"], ["u-g", "dad"], ["u-g2", "dad-half-sister"]]
+      ),
+      "me"
+    );
+    expectSound(layout);
+    expect(node(layout, "gpa-2nd-wife").gen).toBe(-2);
+    expect(node(layout, "dad-half-sister").gen).toBe(-1);
+  });
+});
+
 describe("computeChartLayout — awkward data", () => {
   it("places someone reachable by two routes only once (cousins who married)", () => {
     // Dad and mum are first cousins: gma-d and gpa-m are siblings.

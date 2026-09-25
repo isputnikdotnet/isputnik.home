@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { computeChartLayout, NODE_H, NODE_W } from "../src/features/familytree/chart-layout";
-import { FamilyTreeChart } from "../src/features/familytree/FamilyTreeChart";
+import { FamilyTreeChart, OPENING_MIN_SCALE } from "../src/features/familytree/FamilyTreeChart";
 import type { FamilyPerson, FamilyTree, FamilyUnion } from "../src/features/familytree/types";
 
 // familyChartLayout.test.ts owns the geometry; this owns the MEASURING. The chart
@@ -123,10 +123,15 @@ const cardMenu = () => document.querySelector<HTMLElement>(".ft-chart-card-menu"
 
 // The fit the chart performs on mount, worked out from the same two numbers the
 // component has: the layout's extent and the measured frame.
-function fittedPercent(width: number, height: number): number {
+// The opening fit never goes below OPENING_MIN_SCALE: a tree wider than that
+// opens around the focus person instead of shrinking to fit.
+function openingScale(width: number, height: number): number {
   const { minX, minY, maxX, maxY } = computeChartLayout(tree, FOCUS).bounds;
-  const scale = Math.min(width / (maxX - minX), height / (maxY - minY), 1);
-  return Math.round(scale * 100);
+  const fit = Math.min(width / (maxX - minX), height / (maxY - minY), 1);
+  return Math.min(Math.max(fit, OPENING_MIN_SCALE), 1);
+}
+function fittedPercent(width: number, height: number): number {
+  return Math.round(openingScale(width, height) * 100);
 }
 
 describe("FamilyTreeChart measuring", () => {
@@ -193,11 +198,16 @@ describe("FamilyTreeChart measuring", () => {
     // The viewBox after the mount fit, then the "xMidYMid meet" mapping the SVG
     // applies to it — the same two steps the card menu has to mirror.
     const fit = Math.min(1000 / (maxX - minX), 700 / (maxY - minY), 1);
+    const opening = openingScale(1000, 700);
+    // Held at the floor, the view centres on the focus person, not the whole tree.
+    const focus = layout.nodes.find((n) => n.isFocus)!;
+    const centerX = opening > fit ? focus.x : minX + (maxX - minX) / 2;
+    const centerY = opening > fit ? focus.y : minY + (maxY - minY) / 2;
     const box = {
-      x: minX + (maxX - minX) / 2 - (1000 / fit) / 2,
-      y: minY + (maxY - minY) / 2 - (700 / fit) / 2,
-      w: 1000 / fit,
-      h: 700 / fit
+      x: centerX - (1000 / opening) / 2,
+      y: centerY - (700 / opening) / 2,
+      w: 1000 / opening,
+      h: 700 / opening
     };
     const scale = Math.min(1000 / box.w, 700 / box.h);
     const badgeX = node.x + NODE_W / 2 - 15;

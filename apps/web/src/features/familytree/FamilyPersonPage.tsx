@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Armchair, ArrowLeft, Award, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, Church,
-  ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
+  Cross, ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
   MapPinned, Network, Pencil, Plane, Play, Send, Shield, Tags, Trash2, UserRound, UserRoundPlus, UsersRound, X
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -489,13 +489,20 @@ export function FamilyPersonPage({ id }: { id: string }) {
 
         {profile && (() => {
           const entries = timelineEntries(profile);
-          const age = ageFromDates(profile.birthDate, profile.deathDate);
+          // Living is the server's call (tree-access.ts, D16): the deceased mark, the
+          // hundred-year rule and the children's dates all count, not the death date
+          // alone. An age as of today is only for the living; the deceased get the age
+          // they reached, when their death is dated.
+          const living = profile.living ?? !profile.deathDate;
+          const age = living
+            ? ageFromDates(profile.birthDate, null)
+            : profile.deathDate ? ageFromDates(profile.birthDate, profile.deathDate) : null;
           const subtitle = [
             ...(profile.otherNames ?? []).map((other) => other.name),
             profile.maidenName ? t("family:common.nee", { name: profile.maidenName }) : "",
             lifeYears(profile),
-            profile.deathDate ? t("family:person.deceased") : t("family:person.living"),
-            age != null ? t("family:person.ageLabel", { age }) : ""
+            living ? t("family:person.living") : t("family:person.deceased"),
+            age == null ? "" : living ? t("family:person.ageLabel", { age }) : t("family:person.diedAged", { count: age })
           ].filter(Boolean).join(" · ");
           const current = currentUnion(profile);
 
@@ -606,17 +613,32 @@ export function FamilyPersonPage({ id }: { id: string }) {
                   {profile.restricted && <p className="ft-restricted-note">{t("family:person.restrictedNote")}</p>}
                   {subtitle && <p className="book-detail-author ft-person-detail-subtitle">{subtitle}</p>}
 
-                  <dl className="book-detail-meta-grid">
+                  {/* One column, values that wrap: a birthplace is often a village,
+                      a district and a governorate, and the book page's two-column
+                      grid cut "Petrovskoe estate, Borovichi uyezd, Novgorod…" to
+                      six letters. Date and place share a row, and a death gets the
+                      same row as a birth. */}
+                  <dl className="book-detail-meta-grid ft-profile-meta">
                     <div className="book-detail-meta-item">
                       <CalendarDays size={18} aria-hidden="true" />
                       <dt>{t("family:person.meta.born")}</dt>
-                      <dd>{profile.birthDate ? formatPartialDate(profile.birthDate) : t("family:person.meta.unknown")}</dd>
+                      <dd>
+                        {profile.birthDate || profile.birthplace
+                          ? [profile.birthDate ? formatPartialDate(profile.birthDate) : "", profile.birthplace ?? ""].filter(Boolean).join(", ")
+                          : <span className="ft-meta-missing">{t("family:person.meta.notRecorded")}</span>}
+                      </dd>
                     </div>
-                    <div className="book-detail-meta-item">
-                      <MapPin size={18} aria-hidden="true" />
-                      <dt>{t("family:person.meta.birthplace")}</dt>
-                      <dd>{profile.birthplace || t("family:person.meta.unknown")}</dd>
-                    </div>
+                    {(!living || profile.deathDate || profile.deathPlace) && (
+                      <div className="book-detail-meta-item">
+                        <Cross size={18} aria-hidden="true" />
+                        <dt>{t("family:person.meta.died")}</dt>
+                        <dd>
+                          {profile.deathDate || profile.deathPlace
+                            ? [profile.deathDate ? formatPartialDate(profile.deathDate) : "", profile.deathPlace ?? ""].filter(Boolean).join(", ")
+                            : <span className="ft-meta-missing">{t("family:person.meta.dateUnknown")}</span>}
+                        </dd>
+                      </div>
+                    )}
                     <div className="book-detail-meta-item">
                       <UserRound size={18} aria-hidden="true" />
                       <dt>{t("family:person.meta.gender")}</dt>

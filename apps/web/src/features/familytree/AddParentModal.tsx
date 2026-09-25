@@ -10,8 +10,10 @@ import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
 import { CHILD_RELATION_OPTIONS, childRelationLabel, type FamilyChildLink, type FamilyPerson, type FamilyPersonProfile } from "./types";
 
-// Add a parent for `person`. With no parents recorded this creates a new
-// single-parent union and hangs the person under it; with one parent recorded
+// Add a parent for `person`. With no parents recorded this asks for the
+// parent's single-parent union (the server keeps one per person, so a second
+// child added this way becomes a sibling of the first) and hangs the person
+// under it; with one parent recorded
 // it fills the empty partner slot of the existing parent union — which also
 // makes the new parent a parent of the person's siblings, as families work.
 export function AddParentModal({

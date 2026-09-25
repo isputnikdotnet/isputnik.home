@@ -13,7 +13,7 @@ import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/libra
 import { visibleCollectionIds } from "../stories/collection-access.js";
 import { COVER_BLOCK_JOINS, COVER_BLOCK_ORDER, COVER_BLOCK_WHERE } from "../stories/cover-sql.js";
 import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
-import { canSeeTree, isLiving, showLivingDetailsFor } from "../familytree/tree-access.js";
+import { canSeeTree, earliestChildBirthOf, isLiving, showLivingDetailsFor } from "../familytree/tree-access.js";
 import { canEditPerson } from "../familytree/access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
 import type {
@@ -230,7 +230,8 @@ const hydrateFamilyPersons: Hydrator = (entityIds, user) => {
     const version = `?v=${encodeURIComponent(row.updated_at)}`;
     const coverKey = row.portrait_storage_key ?? row.portrait_item_cover;
     // "1904 – 1971", "b. 1962", or nothing — the same shorthand the tree uses.
-    const hideYears = !showLiving && isLiving({ birthDate: row.birth_date, deathDate: row.death_date, deceased: row.deceased === 1 })
+    const hideYears = !showLiving
+      && isLiving({ birthDate: row.birth_date, deathDate: row.death_date, deceased: row.deceased === 1 }, new Date(), earliestChildBirthOf(row.id))
       && !canEditPerson(user, row.id);
     const years = hideYears ? [] : [row.birth_date?.slice(0, 4), row.death_date?.slice(0, 4)].filter(Boolean);
     let subtitle: string | null = null;

@@ -524,9 +524,21 @@ export function exportGedcom(privateIds: ReadonlySet<string> = new Set()): strin
     SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note
     FROM family_tree_unions ORDER BY married_date IS NULL, married_date, id
   `).all() as Pick<FamilyTreeUnionRow, "id" | "person1_id" | "person2_id" | "status" | "married_date" | "married_place" | "divorced_date" | "note">[];
-  const unions = allUnions.map((u) => (privateIds.has(u.person1_id) || (u.person2_id != null && privateIds.has(u.person2_id))
-    ? { ...u, married_date: null, married_place: null, divorced_date: null, note: null }
+  // A private person's marriages keep the couple and their children — those are
+  // the relationships — and lose every fact: dates, place, note, the citations
+  // behind them, and a divorce or widowhood, which are facts too (a DIV record
+  // with no date still says the marriage ended). Married or partners stays: that
+  // is the relationship itself.
+  const isPrivateUnion = (u: { person1_id: string; person2_id: string | null }) =>
+    privateIds.has(u.person1_id) || (u.person2_id != null && privateIds.has(u.person2_id));
+  const unions = allUnions.map((u) => (isPrivateUnion(u)
+    ? {
+      ...u,
+      status: u.status === "married" || u.status === "partners" ? u.status : "unknown",
+      married_date: null, married_place: null, divorced_date: null, note: null
+    }
     : u));
+  const privateUnionIds = new Set(allUnions.filter(isPrivateUnion).map((u) => u.id));
   const childLinks = db.prepare(
     "SELECT union_id, child_id, relation FROM family_tree_children"
   ).all() as Pick<FamilyTreeChildRow, "union_id" | "child_id" | "relation">[];
@@ -543,7 +555,9 @@ export function exportGedcom(privateIds: ReadonlySet<string> = new Set()): strin
     SELECT source_id, person_id, event_id, union_id, fact, detail, url, note
     FROM family_tree_citations ORDER BY created_at
   `).all() as Pick<FamilyTreeCitationRow, "source_id" | "person_id" | "event_id" | "union_id" | "fact" | "detail" | "url" | "note">[])
-    .filter((c) => !(c.person_id && privateIds.has(c.person_id)) && !(c.event_id && !keptEvents.has(c.event_id)));
+    .filter((c) => !(c.person_id && privateIds.has(c.person_id))
+      && !(c.event_id && !keptEvents.has(c.event_id))
+      && !(c.union_id && privateUnionIds.has(c.union_id)));
   const sourceXref = new Map(sources.map((s, i) => [s.id, `@S${i + 1}@`]));
 
   const personXref = new Map(persons.map((p, i) => [p.id, `@I${i + 1}@`]));

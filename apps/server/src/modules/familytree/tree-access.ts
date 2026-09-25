@@ -10,8 +10,9 @@
 // branch, a LIVING person shows their name, place in the tree and portrait only,
 // unless the viewer — or one of their groups — has "Show details of living
 // relatives" (access_settings.show_living_details). Living = no death date, not
-// marked deceased, and not born more than 100 years ago; no dates at all counts
-// as living, which is what the "Deceased (date unknown)" mark is for.
+// marked deceased, not born more than 100 years ago, and no child born more than
+// 85 years ago; someone with no dates on them or their children counts as
+// living, which is what the "Deceased (date unknown)" mark is for.
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../../db.js";
 import { EVERYONE_GROUP_ID, type AuthUser } from "../../core/permissions.js";
@@ -117,15 +118,71 @@ export function setMyTreePerson(userId: string, personId: string | null, byUserI
 }
 
 /** The first day someone may have been born and still count as living: today,
- *  100 years ago. Partial dates compare as text ("1925" < "1925-09-24"), so a
- *  bare year of that year reads as older, which is the safe side for an ancestor. */
+ *  100 years ago. */
 export function livingCutoff(now = new Date()): string {
-  const cutoff = new Date(Date.UTC(now.getUTCFullYear() - 100, now.getUTCMonth(), now.getUTCDate()));
+  return daysAgo(100, now);
+}
+
+/** A child born this long ago (or longer) says their parent is not living: the
+ *  parent is at least about fifteen years older, which puts them past the
+ *  hundred-year rule. Most ancestors have no dates of their own, but their
+ *  children usually do, so this spares the "Deceased (date unknown)" mark for
+ *  the majority of a tree and keeps their details readable. */
+export const CHILD_BIRTH_CUTOFF_YEARS = 85;
+
+function daysAgo(years: number, now: Date): string {
+  const cutoff = new Date(Date.UTC(now.getUTCFullYear() - years, now.getUTCMonth(), now.getUTCDate()));
   return cutoff.toISOString().slice(0, 10);
 }
 
-/** D16 on one person's dates. */
-export function isLiving(person: { deathDate: string | null; deceased: boolean; birthDate: string | null }, now = new Date()): boolean {
+/** The LAST day a partial date may stand for: "1926" is any day of 1926, so it
+ *  reads as 1926-12-31. Someone born "1926" may be 99 today, which is the
+ *  side privacy has to take — the bare year must not count as older than it is. */
+function latestDayOf(partial: string): string {
+  if (partial.length === 4) return `${partial}-12-31`;
+  if (partial.length === 7) return `${partial}-31`;
+  return partial;
+}
+
+/** D16 on one person's dates, plus their children's (`earliestChildBirth`: the
+ *  earliest birth date among their children, when known). */
+export function isLiving(
+  person: { deathDate: string | null; deceased: boolean; birthDate: string | null },
+  now = new Date(),
+  earliestChildBirth: string | null = null
+): boolean {
   if (person.deathDate || person.deceased) return false;
-  return person.birthDate == null || person.birthDate >= livingCutoff(now);
+  if (person.birthDate != null && latestDayOf(person.birthDate) < livingCutoff(now)) return false;
+  if (earliestChildBirth != null && latestDayOf(earliestChildBirth) < daysAgo(CHILD_BIRTH_CUTOFF_YEARS, now)) return false;
+  return true;
+}
+
+/** Earliest known birth date of each person's children, for `isLiving`, in one
+ *  query — the tree endpoint decides for hundreds of persons at once. */
+export function earliestChildBirthByParent(): Map<string, string> {
+  const rows = db.prepare(`
+    SELECT parent_id, MIN(c.birth_date) AS earliest
+    FROM (
+      SELECT u.person1_id AS parent_id, ch.child_id FROM family_tree_children ch JOIN family_tree_unions u ON u.id = ch.union_id
+      UNION ALL
+      SELECT u.person2_id AS parent_id, ch.child_id FROM family_tree_children ch JOIN family_tree_unions u ON u.id = ch.union_id
+      WHERE u.person2_id IS NOT NULL
+    ) AS links
+    JOIN family_tree_persons c ON c.id = links.child_id
+    WHERE c.birth_date IS NOT NULL
+    GROUP BY parent_id
+  `).all() as { parent_id: string; earliest: string }[];
+  return new Map(rows.map((row) => [row.parent_id, row.earliest]));
+}
+
+/** The same for one person. */
+export function earliestChildBirthOf(personId: string): string | null {
+  const row = db.prepare(`
+    SELECT MIN(c.birth_date) AS earliest
+    FROM family_tree_unions u
+    JOIN family_tree_children ch ON ch.union_id = u.id
+    JOIN family_tree_persons c ON c.id = ch.child_id
+    WHERE (u.person1_id = ? OR u.person2_id = ?) AND c.birth_date IS NOT NULL
+  `).get(personId, personId) as { earliest: string | null };
+  return row.earliest;
 }

@@ -32,11 +32,14 @@ import {
 import { lifeYears, unionStatusLabel, type FamilyPerson, type FamilyTree, type FamilyUnion } from "./types";
 
 const MIN_SCALE = 0.3;
-// A phone never opens further out than this. Fitting a whole tree into 375px
-// put the names at 31% — four pixels tall, with card menus too small to hit —
-// so the chart opens readable AROUND THE PERSON IN FOCUS and is panned from
-// there; Fit (the ⤢ button) still shows the whole tree on demand.
+// The chart never OPENS further out than these. Fitting a whole tree into the
+// screen put the names at 31% on a phone and at 16% on a desktop for a
+// hundred-person tree — a few pixels tall, with card menus too small to hit, and
+// the starting person indistinguishable from the rest — so the chart opens
+// readable AROUND THE PERSON IN FOCUS and is panned from there; Fit (the ⤢
+// button) still shows the whole tree on demand.
 const PHONE_MIN_SCALE = 0.62;
+export const OPENING_MIN_SCALE = 0.75;
 const MAX_SCALE = 3;
 // Hover text on the union badge — the icon says current or ended, this says why.
 function unionBadgeLabel(status: FamilyUnion["status"], t: TFunction<readonly ["family"], undefined>): string {
@@ -229,9 +232,9 @@ export function FamilyTreeChart({
   // carries the two refs), and the properties are the same values either way.
   const { open: menuOpen, pos: menuPos, toggle: toggleMenu, close: closeMenu, triggerRef: menuTriggerRef, menuRef } = useAnchoredMenu();
 
-  // "opening" is the automatic fit when a layout is built: on a phone that one
-  // refuses to go below PHONE_MIN_SCALE and centres on the focus person. The ⤢
-  // button passes nothing, so it always shows the whole tree, however small.
+  // "opening" is the automatic fit when a layout is built: that one refuses to
+  // go below the opening floor and centres on the focus person. The ⤢ button
+  // passes nothing, so it always shows the whole tree, however small.
   const fit = (opening = false) => {
     const svg = svgRef.current;
     if (!svg || layout.nodes.length === 0) return;
@@ -241,13 +244,14 @@ export function FamilyTreeChart({
     const contentH = maxY - minY;
     // Fit the content, but never zoom a small tree past 1:1.
     const fitScale = Math.min(rect.width / contentW, rect.height / contentH, 1);
-    const phone = opening && window.matchMedia("(max-width: 740px)").matches;
-    const scale = phone ? Math.min(Math.max(fitScale, PHONE_MIN_SCALE), 1) : fitScale;
+    const phone = window.matchMedia("(max-width: 740px)").matches;
+    const floor = opening ? (phone ? PHONE_MIN_SCALE : OPENING_MIN_SCALE) : 0;
+    const scale = Math.min(Math.max(fitScale, floor), 1);
     const w = rect.width / scale;
     const h = rect.height / scale;
-    // Centred on the whole tree, unless the phone's floor means it no longer
-    // fits — then the focus person is what the screen is spent on.
-    const focus = phone && scale > fitScale ? layout.nodes.find((node) => node.isFocus) : null;
+    // Centred on the whole tree, unless the floor means it no longer fits —
+    // then the focus person is what the screen is spent on.
+    const focus = scale > fitScale ? layout.nodes.find((node) => node.isFocus) : null;
     const centerX = focus ? focus.x : minX + contentW / 2;
     const centerY = focus ? focus.y : minY + contentH / 2;
     setView({ x: centerX - w / 2, y: centerY - h / 2, w, h });

@@ -7,7 +7,7 @@
 import { db } from "../../db.js";
 import { EVERYONE_GROUP_ID, roleAllows, type AuthUser, type ObjectRole } from "../../core/permissions.js";
 import type { AssignmentRow, GroupMemberRow, TaggableRow, TagRow } from "../../db/rows.js";
-import { isLiving, myTreePersonId, showLivingDetailsFor } from "./tree-access.js";
+import { earliestChildBirthByParent, isLiving, myTreePersonId, showLivingDetailsFor } from "./tree-access.js";
 
 export const FAMILY_TAG_OBJECT_TYPE = "family_tree_tag";
 export const FAMILY_PERSON_ENTITY_TYPE = "family_tree_person";
@@ -106,7 +106,7 @@ const REDACTED = {
 // Bulk-attach `tags`, `canEdit`, `living` and `restricted` to person payloads
 // (list, tree, profile) in two queries — the tree endpoint decorates hundreds of
 // persons at once — and blank what a restricted person's viewer may not see.
-// `living` is D16 on the dates (false for a payload without them): what People's
+// `living` is D16 on the dates and the children's (false for a payload without them): what People's
 // "Shown as living to others" filter lists. It tells a restricted viewer nothing
 // new — restricted already means living.
 export function decoratePersons<T extends { id: string }>(
@@ -118,6 +118,7 @@ export function decoratePersons<T extends { id: string }>(
   const me = myTreePersonId(user.id);
   const editable = getEditableTags(user);
   const editableIds = editable === "all" ? null : new Set(editable.map((t) => t.id));
+  const childBirths = earliestChildBirthByParent();
 
   const tagRows = db.prepare(`
     SELECT taggables.entity_id AS person_id, tags.id AS tag_id, tags.display_name AS name
@@ -141,7 +142,11 @@ export function decoratePersons<T extends { id: string }>(
       : (entry?.tagIds.some((id) => editableIds.has(id)) ?? false);
     const dated = person as T & Partial<PersonDates>;
     const living = "birthDate" in dated
-      && isLiving({ birthDate: dated.birthDate ?? null, deathDate: dated.deathDate ?? null, deceased: dated.deceased ?? false });
+      && isLiving(
+        { birthDate: dated.birthDate ?? null, deathDate: dated.deathDate ?? null, deceased: dated.deceased ?? false },
+        new Date(),
+        childBirths.get(person.id) ?? null
+      );
     const isMe = person.id === me;
     const restricted = living && !canEdit && !showLiving && !isMe;
     return restricted

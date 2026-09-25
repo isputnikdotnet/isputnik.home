@@ -9,11 +9,13 @@ import { db } from "../src/db.js";
 import { createFamilyPerson, applyFamilyPersonTags } from "../src/modules/familytree/persons.js";
 import { createFamilyEvent } from "../src/modules/familytree/events.js";
 import { createUnion } from "../src/modules/familytree/relations.js";
+import { createFamilyCitation, createFamilySource } from "../src/modules/familytree/sources.js";
 import { isLiving, livingCutoff } from "../src/modules/familytree/tree-access.js";
 import { familyTreeRoutesPlugin } from "../src/modules/familytree/routes.js";
 import { up as migrate83 } from "../src/db/migrations/083-family-tree-living.js";
+import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { bootApp } from "./helpers/boot.js";
-import { addToGroup, grant, makeGroup, makeUser, resetDb } from "./helpers/seed.js";
+import { addToGroup, grant, makeGroup, makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
 let app: FastifyInstance;
 let signIn: (userId: string) => Promise<string>;
@@ -52,10 +54,34 @@ describe("who is living", () => {
     const now = new Date("2026-09-24T00:00:00Z");
     expect(livingCutoff(now)).toBe("1926-09-24");
     expect(isLiving({ birthDate: "1926-10-01", deathDate: null, deceased: false }, now)).toBe(true);
-    expect(isLiving({ birthDate: "1926", deathDate: null, deceased: false }, now)).toBe(false);
+    // A bare year is any day of that year: born "1926" may still be 99.
+    expect(isLiving({ birthDate: "1926", deathDate: null, deceased: false }, now)).toBe(true);
+    expect(isLiving({ birthDate: "1926-09", deathDate: null, deceased: false }, now)).toBe(true);
+    expect(isLiving({ birthDate: "1925", deathDate: null, deceased: false }, now)).toBe(false);
+    expect(isLiving({ birthDate: "1926-09-23", deathDate: null, deceased: false }, now)).toBe(false);
     expect(isLiving({ birthDate: null, deathDate: null, deceased: false }, now)).toBe(true);
     expect(isLiving({ birthDate: null, deathDate: null, deceased: true }, now)).toBe(false);
     expect(isLiving({ birthDate: "2000", deathDate: "2010", deceased: false }, now)).toBe(false);
+  });
+
+  it("a child born 85 or more years ago says the parent is not living, whatever the parent's own dates", () => {
+    const now = new Date("2026-09-24T00:00:00Z");
+    const undated = { birthDate: null, deathDate: null, deceased: false };
+    expect(isLiving(undated, now, "1941-09-23")).toBe(false);
+    expect(isLiving(undated, now, "1941")).toBe(true); // any day of 1941 — may be under 85
+    expect(isLiving(undated, now, "1940")).toBe(false);
+    expect(isLiving(undated, now, "1980")).toBe(true);
+    expect(isLiving({ birthDate: "1930", deathDate: null, deceased: false }, now, "1940")).toBe(false);
+  });
+
+  it("the tree reads the children's dates: an undated ancestor with an old child shows their details", async () => {
+    // The undated person becomes the parent of the ancestor (born 1850).
+    const union = createUnion(ids.undated, null, {});
+    if ("error" in union) throw new Error(union.error);
+    db.prepare("INSERT INTO family_tree_children (union_id, child_id) VALUES (?, ?)").run(union.union.id, ids.ancestor);
+    db.prepare("UPDATE family_tree_persons SET bio = 'A shoemaker.' WHERE id = ?").run(ids.undated);
+    const tree = (await get("cousin", "/api/family-tree/tree")).json();
+    expect(personIn(tree, ids.undated)).toMatchObject({ living: false, restricted: false, bio: "A shoemaker." });
   });
 });
 
@@ -139,6 +165,83 @@ describe("the whole-tree export", () => {
     expect(editor).toContain("Undated");
     db.prepare("UPDATE family_tree_persons SET bio = 'Secret notes' WHERE id = ?").run(ids.undated);
     expect((await get("editor", "/api/family-tree/export")).body).not.toContain("Secret notes");
+  });
+
+  it("keeps a private person's marriage as a relationship only: no dates, no divorce, no citations", async () => {
+    // The ancestor (long dead, so not private) married the undated one (private to the editor).
+    const union = createUnion(ids.ancestor, ids.undated, { status: "divorced", marriedDate: "1870-05-01", divorcedDate: "1880" });
+    if ("error" in union) throw new Error(union.error);
+    const source = createFamilySource({ title: "Parish register" });
+    const cited = createFamilyCitation({ sourceId: source.id, unionId: union.union.id, fact: "marriage", detail: "page 12, 1 May 1870" });
+    if ("error" in cited) throw new Error(cited.error);
+
+    const full = (await get("admin", "/api/family-tree/export")).body;
+    expect(full).toContain("page 12, 1 May 1870");
+    expect(full).toContain("1 DIV");
+    const editor = (await get("editor", "/api/family-tree/export")).body;
+    // The couple is still a couple in the file...
+    expect(editor).toMatch(/1 (HUSB|WIFE) @I\d+@\r?\n1 (HUSB|WIFE) @I\d+@/);
+    // ...and nothing else about the marriage is.
+    expect(editor).not.toContain("page 12, 1 May 1870");
+    expect(editor).not.toContain("1 DIV");
+    expect(editor).not.toContain("1870");
+  });
+});
+
+describe("a redacted marriage", () => {
+  it("keeps its citations off the other spouse's Sources tab too", async () => {
+    const union = createUnion(ids.ancestor, ids.undated, { status: "married", marriedDate: "1870" });
+    if ("error" in union) throw new Error(union.error);
+    const source = createFamilySource({ title: "Parish register" });
+    const cited = createFamilyCitation({ sourceId: source.id, unionId: union.union.id, fact: "marriage", detail: "page 12" });
+    if ("error" in cited) throw new Error(cited.error);
+    const forCousin = (await get("cousin", `/api/family-tree/persons/${ids.ancestor}`)).json().person;
+    expect(forCousin.unions[0].partner.restricted).toBe(true);
+    expect(forCousin.citations).toEqual([]);
+    const forAdmin = (await get("admin", `/api/family-tree/persons/${ids.ancestor}`)).json().person;
+    expect(forAdmin.citations.map((c: { detail: string }) => c.detail)).toEqual(["page 12"]);
+  });
+});
+
+describe("a branch editor's reach", () => {
+  const patch = async (user: string, url: string, payload: unknown) =>
+    app.inject({ method: "PATCH", url, headers: { cookie: await signIn(user) }, payload });
+  const post = async (user: string, url: string, payload: unknown) =>
+    app.inject({ method: "POST", url, headers: { cookie: await signIn(user) }, payload });
+
+  it("stops at families with nobody of theirs in them", async () => {
+    // A single parent outside the branch: the editor may not make the branch child its other parent...
+    const strangers = createUnion(ids.ancestor, null, {});
+    if ("error" in strangers) throw new Error(strangers.error);
+    expect((await patch("editor", `/api/family-tree/unions/${strangers.union.id}`, { person2Id: ids.child })).statusCode).toBe(403);
+    // ...nor hang the branch child under them.
+    expect((await post("editor", `/api/family-tree/unions/${strangers.union.id}/children`, { childId: ids.child })).statusCode).toBe(403);
+    expect((await patch("admin", `/api/family-tree/unions/${strangers.union.id}`, { person2Id: ids.child })).statusCode).toBe(200);
+  });
+
+  it("still adds a sibling under the parents of a branch child, and the other parent", async () => {
+    const parents = createUnion(ids.granny, null, {});
+    if ("error" in parents) throw new Error(parents.error);
+    db.prepare("DELETE FROM family_tree_unions WHERE person1_id = ? AND person2_id = ?").run(ids.granny, ids.child);
+    db.prepare("INSERT INTO family_tree_children (union_id, child_id) VALUES (?, ?)").run(parents.union.id, ids.child);
+    // Granny is not in the branch; the child is, and that is enough for their family.
+    expect((await post("editor", `/api/family-tree/unions/${parents.union.id}/children`, { childId: ids.undated })).statusCode).toBe(201);
+    expect((await patch("editor", `/api/family-tree/unions/${parents.union.id}`, { person2Id: ids.ancestor })).statusCode).toBe(200);
+  });
+
+  it("attaches only photos they can open themselves", async () => {
+    makeLibrary("PRIV", { createdBy: "admin", type: "gallery" });
+    grant("user", "admin", "PRIV", "manager");
+    const item = await ingestGalleryAsset("PRIV", {
+      absolutePath: "/src/PRIV/a.jpg", relativePath: "a.jpg", fileName: "a.jpg", extension: ".jpg",
+      kind: "photo", size: 1000, modifiedAtMs: Date.parse("2024-01-01T00:00:00Z")
+    }, false);
+    createFamilyEvent(ids.child, { type: "residence", date: "2021", place: "Oslo" });
+    const event = db.prepare("SELECT id FROM family_tree_events WHERE person_id = ? AND date = '2021'").get(ids.child) as { id: string };
+    // The editor edits the child, but cannot see PRIV.
+    expect((await post("editor", `/api/family-tree/persons/${ids.child}/photos`, { itemIds: [item] })).statusCode).toBe(403);
+    expect((await post("editor", `/api/family-tree/events/${event.id}/photos`, { itemIds: [item] })).statusCode).toBe(403);
+    expect((await post("admin", `/api/family-tree/persons/${ids.child}/photos`, { itemIds: [item] })).statusCode).toBe(200);
   });
 });
 
