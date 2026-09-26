@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.28.0",
+    "label": "Storage contents, one folder at a time",
+    "changes": [
+      "**The App files list is no longer one endless table.** Control panel → Library → Storage contents now shows a row of folders — story recordings, voice notes, slideshow music, slideshow movies, family tree, other files — each with its count, size and how many orphans it holds. Open one and its files come a page at a time, with the same page-size menu and pager as the other tables in the panel; orphans still come first. The open folder is in the address, so a link lands on it.",
+      "**Lighter on the server too.** The page used to fetch every file of every folder in one go, working out each file's owner as it went; it now asks for one folder and one page, so a library with thousands of recordings answers as fast as one with ten."
+    ]
+  },
+  {
     "version": "4.27.2",
     "label": "Every guide, freshly illustrated",
     "changes": [

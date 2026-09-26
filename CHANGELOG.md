@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.28.0 — Storage contents, one folder at a time
+
+- **The App files list is no longer one endless table.** Control panel → Library → Storage contents now shows a row of folders — story recordings, voice notes, slideshow music, slideshow movies, family tree, other files — each with its count, size and how many orphans it holds. Open one and its files come a page at a time, with the same page-size menu and pager as the other tables in the panel; orphans still come first. The open folder is in the address, so a link lands on it.
+- **Lighter on the server too.** The page used to fetch every file of every folder in one go, working out each file's owner as it went; it now asks for one folder and one page, so a library with thousands of recordings answers as fast as one with ten.
+
 ## 4.27.2 — Every guide, freshly illustrated
 
 - **All the pictures in the user guides were taken again.** The Help page and the guides it carries show the app as it is in 4.27: the six-group control panel, the Family Tree section with its person pages, the Photo Inbox with its copy check and drop links, sharing by person, and the maintenance pages. Every screenshot comes from a demo library of public-domain books and photographs, so what a guide shows is what a fresh install looks like, with nobody's private pictures in it.
