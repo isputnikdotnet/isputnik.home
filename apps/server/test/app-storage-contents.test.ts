@@ -4,7 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { appStorageContents, countFolder, deleteOrphanAppFile } from "../src/modules/library/app-storage-contents.js";
+import { appFilePage, appStorageContents, countFolder, deleteOrphanAppFile } from "../src/modules/library/app-storage-contents.js";
 import { cachedFolderStats, forgetFolderStats } from "../src/modules/library/app-storage.js";
 import { HOUSE_FOLDERS, setHouseLibrary } from "../src/modules/library/gallery/house-library.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
@@ -99,19 +99,41 @@ describe("App storage contents", () => {
     expect(Object.keys(rooms).sort()).toEqual(["house", "inbox", "maps", "renders"]);
     expect(contents.appFiles.library).toMatchObject({ id: "HOUSE", path: house });
 
+    // The summary counts each folder; the files themselves come a folder and a page at a time.
     const folders = Object.fromEntries(contents.appFiles.folders.map((folder) => [folder.key, folder]));
     expect(Object.keys(folders)).toEqual(["recordings", "voiceNotes", "music", "other"]);
-    expect(folders.recordings).toMatchObject({ files: 2, bytes: 30, orphans: 1 });
+    expect(folders.recordings).toEqual({ key: "recordings", folder: HOUSE_FOLDERS.recordings, files: 2, bytes: 30, orphans: 1 });
+    expect(folders.other).toMatchObject({ files: 1, orphans: 0 });
+
     // Orphans first inside a folder.
-    expect(folders.recordings.entries.map((e) => [e.itemId, e.orphan, e.owner?.title ?? null])).toEqual([
+    const recordings = appFilePage("recordings", 1, 50)!;
+    expect(recordings).toMatchObject({ files: 2, bytes: 30, orphans: 1, page: 1, pageSize: 50 });
+    expect(recordings.entries.map((e) => [e.itemId, e.orphan, e.owner?.title ?? null])).toEqual([
       ["rec2", true, null],
       ["rec1", false, "Canada"]
     ]);
-    expect(folders.recordings.entries[1].owner).toEqual({ type: "story", id: "S1", title: "Canada" });
-    expect(folders.music.entries[0].owner).toEqual({ type: "track", id: "T1", title: "Song" });
-    expect(folders.voiceNotes.entries[0].owner).toEqual({ type: "photo", id: "p1", title: "Kids", folder: "2020", libraryId: "FAM" });
-    expect(folders.other).toMatchObject({ files: 1, orphans: 0 });
-    expect(folders.other.entries[0]).toMatchObject({ itemId: "up1", owner: null, orphan: false });
+    expect(recordings.entries[1].owner).toEqual({ type: "story", id: "S1", title: "Canada" });
+    expect(appFilePage("music", 1, 50)!.entries[0].owner).toEqual({ type: "track", id: "T1", title: "Song" });
+    expect(appFilePage("voiceNotes", 1, 50)!.entries[0].owner).toEqual({ type: "photo", id: "p1", title: "Kids", folder: "2020", libraryId: "FAM" });
+    expect(appFilePage("other", 1, 50)!.entries[0]).toMatchObject({ itemId: "up1", owner: null, orphan: false });
+    // A folder with nothing in it is a page with nothing on it, not an error.
+    expect(appFilePage("movies", 1, 50)).toMatchObject({ files: 0, page: 1, entries: [] });
+  });
+
+  it("pages a folder, clamping the page to what there is and the size to the sizes offered", async () => {
+    for (let i = 0; i < 45; i += 1) item(`m${String(i).padStart(3, "0")}`, `${HOUSE_FOLDERS.music}/song-${i}.mp3`, 1);
+    const first = appFilePage("music", 1, 20)!;
+    expect(first).toMatchObject({ files: 45, page: 1, pageSize: 20 });
+    expect(first.entries).toHaveLength(20);
+    const last = appFilePage("music", 3, 20)!;
+    expect(last.entries).toHaveLength(5);
+    // Past the end lands on the last page; an odd size falls back to 50.
+    expect(appFilePage("music", 9, 20)!.page).toBe(3);
+    expect(appFilePage("music", 1, 33)!).toMatchObject({ pageSize: 50, page: 1 });
+    expect(appFilePage("music", 1, 33)!.entries).toHaveLength(45);
+    // No page repeats or skips a file.
+    const seen = [1, 2, 3].flatMap((page) => appFilePage("music", page, 20)!.entries.map((e) => e.itemId));
+    expect(new Set(seen).size).toBe(45);
   });
 
   it("deletes an orphan to the Recycle Bin and refuses anything owned or outside the app's folders", async () => {

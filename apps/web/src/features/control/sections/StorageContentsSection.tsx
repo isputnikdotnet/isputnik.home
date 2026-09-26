@@ -5,10 +5,12 @@ import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
+import { Pager } from "../../../shared/Pager";
+import { PageSizeMenu, usePageSize } from "../../../shared/PageSizeMenu";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { followRoute } from "../../../router";
-import { storageHref } from "../links";
+import { initialParam, storageHref } from "../links";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { formatNumber } from "../../../shared/dates";
 
@@ -60,8 +62,17 @@ interface AppFileFolder {
   files: number;
   bytes: number;
   orphans: number;
+}
+
+/** One page of one folder (GET …/contents/files). */
+interface AppFilePage extends AppFileFolder {
+  page: number;
+  pageSize: number;
   entries: AppFileEntry[];
 }
+
+const FOLDER_KEYS: FolderKey[] = ["recordings", "voiceNotes", "music", "movies", "familyTree", "other"];
+const isFolderKey = (value: string): value is FolderKey => (FOLDER_KEYS as string[]).includes(value);
 
 interface Contents {
   path: string | null;
@@ -90,6 +101,17 @@ export function StorageContentsSection() {
   const [target, setTarget] = useState<AppFileEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  // Which folder is open (`?folder=`, so a link lands on it), and its page. The
+  // files come one folder and one page at a time — the old page carried every
+  // file of every folder in one payload, and read as one endless table.
+  const [folder, setFolder] = useState<FolderKey | "">(() => {
+    const wanted = initialParam("folder");
+    return isFolderKey(wanted) ? wanted : "";
+  });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize("control.storageContents.pageSize");
+  const [filesPage, setFilesPage] = useState<AppFilePage | null>(null);
+  const [filesError, setFilesError] = useState("");
 
   const roomName: Record<AppRoom, string> = {
     inbox: t("controlAdmin:storage.roomInbox"),
@@ -127,6 +149,47 @@ export function StorageContentsSection() {
     load().catch(() => { /* shown in the box */ });
   }, [load]);
 
+  // The folder to open: the one asked for, else the first that has files. A
+  // folder that emptied (its last orphan deleted) falls back the same way.
+  const folders = contents?.appFiles.folders ?? [];
+  const openFolder: FolderKey | "" = folders.some((f) => f.key === folder) ? folder : (folders[0]?.key ?? "");
+
+  // The address says which folder is open, so a reload or a pasted link shows the same one.
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (openFolder) query.set("folder", openFolder);
+    else query.delete("folder");
+    const next = `${window.location.pathname}${query.size ? `?${query}` : ""}`;
+    if (next !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(window.history.state, "", next);
+    }
+  }, [openFolder]);
+
+  const loadFiles = useCallback(async (key: FolderKey, wantedPage: number, size: number) => {
+    setFilesError("");
+    try {
+      const query = new URLSearchParams({ folder: key, page: String(wantedPage), pageSize: String(size) });
+      const result = await api<AppFilePage>(`/api/storage/app-storage/contents/files?${query}`);
+      setFilesPage(result);
+      // The server clamps a page past the end; follow it.
+      if (result.page !== wantedPage) setPage(result.page);
+    } catch (err) {
+      setFilesError(err instanceof Error ? err.message : t("controlAdmin:storageContents.loadFailed"));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (!openFolder) { setFilesPage(null); return; }
+    void loadFiles(openFolder, page, Number(pageSize));
+  }, [openFolder, page, pageSize, loadFiles]);
+
+  const chooseFolder = (key: FolderKey) => {
+    if (key === openFolder) return;
+    setFolder(key);
+    setPage(1);
+    setFilesPage(null);
+  };
+
   const deleteOrphan = async () => {
     if (!target) return;
     setDeleting(true);
@@ -138,6 +201,7 @@ export function StorageContentsSection() {
       });
       setContents(payload.contents);
       setTarget(null);
+      if (openFolder) await loadFiles(openFolder, page, Number(pageSize));
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : t("controlAdmin:storageContents.deleteFailed"));
     } finally {
@@ -167,7 +231,10 @@ export function StorageContentsSection() {
           <a className="secondary-button compact-button" href={storageHref("app-storage")} onClick={(event) => followRoute(event, storageHref("app-storage"))}>
             {t("controlAdmin:storageContents.storageSettings")}
           </a>
-          <RefreshButton onRefresh={load} />
+          <RefreshButton onRefresh={async () => {
+            await load();
+            if (openFolder) await loadFiles(openFolder, page, Number(pageSize));
+          }} />
         </div>
       </ControlSectionHead>
 
@@ -244,77 +311,116 @@ export function StorageContentsSection() {
                 <span className="datagrid-muted"> · </span>
                 <code className="app-storage-path">{contents.appFiles.library.path}</code>
               </div>
-              {contents.appFiles.folders.length === 0 && (
+              {folders.length === 0 && (
                 <p className="datagrid-muted">{t("controlAdmin:storageContents.appFilesEmpty")}</p>
               )}
-              {contents.appFiles.folders.map((folder) => (
-                <div key={folder.key} className="storage-contents-folder">
-                  <div className="storage-section-head">
-                    <div>
-                      <h3>{folderName[folder.key]}</h3>
-                      <p className="datagrid-muted">
-                        {t("controlAdmin:storageContents.folderSummary", { count: folder.files, size: formatBytes(folder.bytes) })}
-                        {folder.orphans > 0 && <> · <span className="needs-attention">{t("controlAdmin:storageContents.orphansCount", { count: folder.orphans })}</span></>}
-                      </p>
-                      {folder.key === "other" && (
-                        <p className="datagrid-muted">
-                          {t("controlAdmin:storageContents.folderOtherHint")}{" "}
-                          <a href={`/gallery/folders?library=${encodeURIComponent(contents.appFiles.library!.id)}`}>{t("controlAdmin:storageContents.openInGallery")}</a>
-                        </p>
+              {folders.length > 0 && (
+                <>
+                  {/* One folder at a time. The choice is a filter kept in the address
+                      (?folder=), not a tab row of its own: the control panel's tabs are
+                      routes (nav.ts), and a second row of views inside a page was
+                      retired in 4.15. */}
+                  <div className="storage-contents-folders" role="group" aria-label={t("controlAdmin:storageContents.foldersAria")}>
+                    {folders.map((f) => (
+                      <Button
+                        key={f.key}
+                        variant="chip"
+                        className={`storage-contents-folder-chip${f.key === openFolder ? " is-active" : ""}`}
+                        aria-pressed={f.key === openFolder}
+                        onClick={() => chooseFolder(f.key)}
+                      >
+                        <strong>{folderName[f.key]}</strong>
+                        <span className="datagrid-muted">{t("controlAdmin:storageContents.folderSummary", { count: f.files, size: formatBytes(f.bytes) })}</span>
+                        {f.orphans > 0 && <span className="needs-attention">{t("controlAdmin:storageContents.orphansCount", { count: f.orphans })}</span>}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {openFolder && (
+                    <div className="storage-contents-folder">
+                      <div className="storage-section-head">
+                        <div>
+                          <h3>{folderName[openFolder]}</h3>
+                          {openFolder === "other" && (
+                            <p className="datagrid-muted">
+                              {t("controlAdmin:storageContents.folderOtherHint")}{" "}
+                              <a href={`/gallery/folders?library=${encodeURIComponent(contents.appFiles.library!.id)}`}>{t("controlAdmin:storageContents.openInGallery")}</a>
+                            </p>
+                          )}
+                        </div>
+                        <PageSizeMenu value={pageSize} onChange={(next) => { setPageSize(next); setPage(1); }} />
+                      </div>
+
+                      {filesError && <MessageBox tone="error" title={t("controlAdmin:storageContents.loadFailed")}>{filesError}</MessageBox>}
+
+                      {filesPage && filesPage.key === openFolder && (
+                        <>
+                          <div className="datagrid-wrap">
+                            <table className="datagrid">
+                              <thead>
+                                <tr>
+                                  <th>{t("controlAdmin:storageContents.thFile")}</th>
+                                  <th>{t("controlAdmin:storageContents.thOwner")}</th>
+                                  <th>{t("controlAdmin:storageContents.thAdded")}</th>
+                                  <th className="col-num">{t("controlAdmin:storageContents.thSize")}</th>
+                                  <th className="col-actions"></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filesPage.entries.map((entry) => {
+                                  const href = entry.owner ? ownerHref(entry.owner) : null;
+                                  return (
+                                    <tr key={entry.itemId}>
+                                      <td className="storage-path-cell">
+                                        <code className="app-storage-path">{entry.relativePath}</code>
+                                      </td>
+                                      <td>
+                                        {entry.owner ? (
+                                          <>
+                                            <span className="datagrid-muted">{ownerLabel[entry.owner.type]}: </span>
+                                            {href ? <a href={href}>{entry.owner.title}</a> : entry.owner.title}
+                                          </>
+                                        ) : entry.orphan ? (
+                                          <span className="needs-attention">{t("controlAdmin:storageContents.orphan")}</span>
+                                        ) : (
+                                          <span className="datagrid-muted">{t("controlAdmin:storageContents.notAppMade")}</span>
+                                        )}
+                                      </td>
+                                      <td>{formatManagedDate(entry.addedAt)}</td>
+                                      <td className="col-num">{formatBytes(entry.size)}</td>
+                                      <td className="col-actions">
+                                        {entry.orphan && (
+                                          <Button variant="text" danger compact disabled={deleting} onClick={() => { setDeleteError(""); setTarget(entry); }}>
+                                            {t("controlAdmin:storageContents.deleteOrphan")}
+                                          </Button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="storage-contents-paging">
+                            <span className="datagrid-muted">
+                              {t("controlAdmin:storageContents.filesRange", {
+                                from: formatNumber((filesPage.page - 1) * filesPage.pageSize + 1),
+                                to: formatNumber(Math.min(filesPage.page * filesPage.pageSize, filesPage.files)),
+                                count: filesPage.files
+                              })}
+                            </span>
+                            <Pager
+                              page={filesPage.page}
+                              totalPages={Math.max(1, Math.ceil(filesPage.files / filesPage.pageSize))}
+                              onChange={setPage}
+                            />
+                          </div>
+                        </>
                       )}
                     </div>
-                  </div>
-                  <div className="datagrid-wrap">
-                    <table className="datagrid">
-                      <thead>
-                        <tr>
-                          <th>{t("controlAdmin:storageContents.thFile")}</th>
-                          <th>{t("controlAdmin:storageContents.thOwner")}</th>
-                          <th>{t("controlAdmin:storageContents.thAdded")}</th>
-                          <th className="col-num">{t("controlAdmin:storageContents.thSize")}</th>
-                          <th className="col-actions"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {folder.entries.map((entry) => {
-                          const href = entry.owner ? ownerHref(entry.owner) : null;
-                          return (
-                            <tr key={entry.itemId}>
-                              <td className="storage-path-cell">
-                                <code className="app-storage-path">{entry.relativePath}</code>
-                              </td>
-                              <td>
-                                {entry.owner ? (
-                                  <>
-                                    <span className="datagrid-muted">{ownerLabel[entry.owner.type]}: </span>
-                                    {href ? <a href={href}>{entry.owner.title}</a> : entry.owner.title}
-                                  </>
-                                ) : entry.orphan ? (
-                                  <span className="needs-attention">{t("controlAdmin:storageContents.orphan")}</span>
-                                ) : (
-                                  <span className="datagrid-muted">{t("controlAdmin:storageContents.notAppMade")}</span>
-                                )}
-                              </td>
-                              <td>{formatManagedDate(entry.addedAt)}</td>
-                              <td className="col-num">{formatBytes(entry.size)}</td>
-                              <td className="col-actions">
-                                {entry.orphan && (
-                                  <Button variant="text" danger compact disabled={deleting} onClick={() => { setDeleteError(""); setTarget(entry); }}>
-                                    {t("controlAdmin:storageContents.deleteOrphan")}
-                                  </Button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {folder.files > folder.entries.length && (
-                    <p className="datagrid-muted">{t("controlAdmin:storageContents.moreEntries", { shown: folder.entries.length, count: folder.files })}</p>
                   )}
-                </div>
-              ))}
+                </>
+              )}
             </>
           )}
         </section>

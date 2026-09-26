@@ -55,6 +55,7 @@ export interface AppFileEntry {
 
 export type AppFileFolderKey = "recordings" | "voiceNotes" | "music" | "movies" | "familyTree" | "other";
 
+/** One of the app's folders, counted — the page lists its files a page at a time. */
 export interface AppFileFolder {
   key: AppFileFolderKey;
   /** The folder's name inside the library; "" for "other". */
@@ -62,6 +63,12 @@ export interface AppFileFolder {
   files: number;
   bytes: number;
   orphans: number;
+}
+
+/** A page of one folder's files: orphans first, then newest first. */
+export interface AppFilePage extends AppFileFolder {
+  page: number;
+  pageSize: number;
   entries: AppFileEntry[];
 }
 
@@ -86,7 +93,8 @@ export interface AppStorageContents {
   appFiles: { library: { id: string; name: string; path: string } | null; folders: AppFileFolder[] };
 }
 
-const ENTRY_LIMIT_PER_FOLDER = 500;
+export const APP_FILE_PAGE_SIZES = [20, 50, 100] as const;
+export const APP_FILE_FOLDER_KEYS: AppFileFolderKey[] = ["recordings", "voiceNotes", "music", "movies", "familyTree", "other"];
 
 type ItemRow = Pick<LibraryItemRow, "id" | "folder_path" | "discovered_at"> & Nullable<Pick<GalleryDetailRow, "kind" | "size">>;
 
@@ -203,39 +211,71 @@ const FOLDER_KEYS: { key: Exclude<AppFileFolderKey, "other">; folder: string }[]
   { key: "familyTree", folder: HOUSE_FOLDERS.familyTree }
 ];
 
-function appFileFolders(libraryId: string): AppFileFolder[] {
+function folderKeyOf(folderPath: string): { key: AppFileFolderKey; folder: string } {
+  const known = FOLDER_KEYS.find((f) => folderPath === f.folder || folderPath.startsWith(`${f.folder}/`));
+  return known ?? { key: "other", folder: "" };
+}
+
+/** Every file of one of the app's folders with its owner, orphans first, then
+ *  newest first. The owner lookups are several queries a file, so this is done
+ *  for ONE folder at a time — the page asks for the folder it shows. */
+function folderEntries(libraryId: string, key: AppFileFolderKey): AppFileEntry[] {
   const rows = db.prepare(`
     SELECT i.id, i.folder_path, g.kind, g.size, i.discovered_at
     FROM library_items i LEFT JOIN gallery_details g ON g.item_id = i.id
     WHERE i.library_id = ? AND i.deleted_at IS NULL
     ORDER BY i.discovered_at DESC
   `).all(libraryId) as ItemRow[];
-  const folders = new Map<AppFileFolderKey, AppFileFolder>();
-  const folderFor = (key: AppFileFolderKey, folder: string): AppFileFolder => {
-    let f = folders.get(key);
-    if (!f) { f = { key, folder, files: 0, bytes: 0, orphans: 0, entries: [] }; folders.set(key, f); }
-    return f;
-  };
+  const entries: AppFileEntry[] = [];
   for (const row of rows) {
-    const known = FOLDER_KEYS.find((f) => row.folder_path === f.folder || row.folder_path.startsWith(`${f.folder}/`));
-    const key: AppFileFolderKey = known?.key ?? "other";
-    const bucket = folderFor(key, known?.folder ?? "");
+    if (folderKeyOf(row.folder_path).key !== key) continue;
     const owner = ownerOf(key, row.id);
-    const orphan = key !== "other" && owner === null;
-    bucket.files += 1;
-    bucket.bytes += row.size ?? 0;
-    if (orphan) bucket.orphans += 1;
-    if (bucket.entries.length < ENTRY_LIMIT_PER_FOLDER) {
-      bucket.entries.push({ itemId: row.id, relativePath: row.folder_path, kind: row.kind ?? "file", size: row.size ?? 0, addedAt: row.discovered_at, owner, orphan });
-    }
+    entries.push({
+      itemId: row.id, relativePath: row.folder_path, kind: row.kind ?? "file", size: row.size ?? 0,
+      addedAt: row.discovered_at, owner, orphan: key !== "other" && owner === null
+    });
   }
-  // The app's folders first, in their fixed order, then the rest; orphans first
-  // inside each so the dead weight is at the top.
+  return entries.sort((a, b) => Number(b.orphan) - Number(a.orphan) || b.addedAt.localeCompare(a.addedAt));
+}
+
+/** The app's folders counted, in their fixed order, then "other"; a folder
+ *  with nothing in it is left out. */
+function appFileFolders(libraryId: string): AppFileFolder[] {
   const order: AppFileFolderKey[] = [...FOLDER_KEYS.map((f) => f.key), "other"];
   return order
-    .map((key) => folders.get(key))
-    .filter((f): f is AppFileFolder => Boolean(f))
-    .map((f) => ({ ...f, entries: [...f.entries].sort((a, b) => Number(b.orphan) - Number(a.orphan) || b.addedAt.localeCompare(a.addedAt)) }));
+    .map((key): AppFileFolder => {
+      const entries = folderEntries(libraryId, key);
+      return {
+        key,
+        folder: key === "other" ? "" : FOLDER_KEYS.find((f) => f.key === key)!.folder,
+        files: entries.length,
+        bytes: entries.reduce((sum, entry) => sum + entry.size, 0),
+        orphans: entries.filter((entry) => entry.orphan).length
+      };
+    })
+    .filter((folder) => folder.files > 0);
+}
+
+/** One page of one folder — what the Contents page shows for the folder chosen.
+ *  `page` is 1-based and clamped to what there is, so a page emptied by a
+ *  deletion answers with the last one rather than nothing. */
+export function appFilePage(key: AppFileFolderKey, page: number, pageSize: number): AppFilePage | null {
+  const house = getHouseLibrary();
+  if (!house) return null;
+  const all = folderEntries(house.id, key);
+  const size = APP_FILE_PAGE_SIZES.includes(pageSize as (typeof APP_FILE_PAGE_SIZES)[number]) ? pageSize : APP_FILE_PAGE_SIZES[1];
+  const pages = Math.max(1, Math.ceil(all.length / size));
+  const current = Math.min(Math.max(1, Math.floor(page) || 1), pages);
+  return {
+    key,
+    folder: key === "other" ? "" : FOLDER_KEYS.find((f) => f.key === key)!.folder,
+    files: all.length,
+    bytes: all.reduce((sum, entry) => sum + entry.size, 0),
+    orphans: all.filter((entry) => entry.orphan).length,
+    page: current,
+    pageSize: size,
+    entries: all.slice((current - 1) * size, current * size)
+  };
 }
 
 /** Counted when asked (the Contents page is opened on purpose), walking the

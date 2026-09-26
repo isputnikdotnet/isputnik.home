@@ -985,6 +985,8 @@
     "appFilesIntro": "Every file the app keeps for itself, by folder, with the story, photo, track, slideshow or person it belongs to. A file nothing owns any more is an orphan, and the only thing this page deletes.",
     "appFilesNone": "No App files library is set, so the app has nowhere to keep recordings, voice notes, music, movies or family-tree photos.",
     "appFilesEmpty": "The library is empty.",
+    "foldersAria": "Folders",
+    "filesRange": "{{from}}–{{to}} of {{count}}",
     "folderRecordings": "Story recordings",
     "folderVoiceNotes": "Voice notes",
     "folderMusic": "Slideshow music",
@@ -1009,7 +1011,6 @@
     "deleteFailed": "Unable to delete the file",
     "confirmDeleteTitle": "Delete the orphaned file \"{{name}}\"?",
     "confirmDeleteBody": "It goes to the Recycle Bin like any deleted file and is removed for good when the bin's clock runs out. Nothing in the app points at it any more.",
-    "moreEntries": "Showing the newest {{shown}} of {{count}}.",
     "storageSettings": "Storage settings"
   },
   "systemData": {

@@ -2,7 +2,7 @@
 // storage block: the one switch, where it lives, and its four parts.
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
-import { parseBody } from "../../core/shared.js";
+import { parseBody, parseQuery } from "../../core/shared.js";
 import { APP_ROOMS, type AppRoom } from "../../core/app-storage.js";
 import {
   appStorageView,
@@ -18,7 +18,10 @@ import {
 import { statusOf } from "./app-storage.js";
 import { cancelTrashMove, resetTrashMoveFailures, startTrashMove, trashMoveStatus } from "./shared/trash-move.js";
 import { cancelFolderMove, folderMoveStatus } from "./shared/folder-move.js";
-import { appStorageContents, AppStorageContentsError, deleteOrphanAppFile } from "./app-storage-contents.js";
+import {
+  APP_FILE_FOLDER_KEYS, appFilePage, appStorageContents, AppStorageContentsError, deleteOrphanAppFile,
+  type AppFileFolderKey
+} from "./app-storage-contents.js";
 import { logActivity } from "../../db.js";
 import {
   InboxReviewersError,
@@ -173,6 +176,20 @@ export async function appStorageRoutesPlugin(app: FastifyInstance) {
   // The Contents page (app-storage-contents.ts): what each part holds, and the
   // App files library file by file with what owns each file; orphans can go.
   app.get("/api/storage/app-storage/contents", { preHandler: app.requireAdmin }, async () => await appStorageContents());
+  // One folder's files, a page at a time: the page chooses a folder and pages
+  // through it rather than receiving every file of every folder at once.
+  const filesQuery = z.object({
+    folder: z.enum(APP_FILE_FOLDER_KEYS as [AppFileFolderKey, ...AppFileFolderKey[]]),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().default(50)
+  });
+  app.get("/api/storage/app-storage/contents/files", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseQuery(filesQuery, request.query);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    const page = appFilePage(parsed.data.folder, parsed.data.page, parsed.data.pageSize);
+    if (!page) return reply.code(404).send({ error: "There is no App files library." });
+    return reply.send(page);
+  });
   app.post("/api/storage/app-storage/contents/delete", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
     const parsed = parseBody(z.object({ itemId: z.string().trim().min(1).max(64) }), request.body ?? {});
     if (parsed.error) return reply.code(400).send({ error: "Invalid request", details: parsed.error });
