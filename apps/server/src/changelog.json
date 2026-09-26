@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.27.2",
+    "label": "Every guide, freshly illustrated",
+    "changes": [
+      "**All the pictures in the user guides were taken again.** The Help page and the guides it carries show the app as it is in 4.27: the six-group control panel, the Family Tree section with its person pages, the Photo Inbox with its copy check and drop links, sharing by person, and the maintenance pages. Every screenshot comes from a demo library of public-domain books and photographs, so what a guide shows is what a fresh install looks like, with nobody's private pictures in it."
+    ]
+  },
+  {
     "version": "4.27.1",
     "label": "The map frames its pins before the tiles arrive",
     "changes": [

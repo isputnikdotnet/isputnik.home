@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.27.2 — Every guide, freshly illustrated
+
+- **All the pictures in the user guides were taken again.** The Help page and the guides it carries show the app as it is in 4.27: the six-group control panel, the Family Tree section with its person pages, the Photo Inbox with its copy check and drop links, sharing by person, and the maintenance pages. Every screenshot comes from a demo library of public-domain books and photographs, so what a guide shows is what a fresh install looks like, with nobody's private pictures in it.
+
 ## 4.27.1 — The map frames its pins before the tiles arrive
 
 - **No more pins in the wrong sea.** Every map — the family map, the gallery's, a story's — waited for its first tiles before framing the view, and on a slow tile server that was seconds spent looking at the whole world with the pins drawn at the map's centre. The view is framed as soon as the map has its size, so the pins sit where they belong from the first frame and the tiles fill in around them.
