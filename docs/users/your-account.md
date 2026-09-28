@@ -10,7 +10,8 @@ which is your account settings, and the list of things you've saved.
 
 ## Profile — your account settings
 
-**Profile** opens a page with six tabs. Each has its own address, so you can
+**Profile** opens a page with four tabs: Account, Security, Shared links and
+Appearance. Each has its own address, so you can
 bookmark the one you use and the back button returns you to it rather than
 leaving the page.
 
@@ -22,6 +23,9 @@ leaving the page.
 |---|---|
 | **Display name** | What other people in your household see beside anything you share |
 | **Sign-in email** | The address you log in with |
+| **Language** | The language the app speaks to you in. Applied the moment you pick it, and saved to your account |
+| **Send to e-reader** | The address your Kindle or Kobo receives books at ([see below](#send-to-e-reader)) |
+| **Install the app** | Add iSputnik to your phone's home screen. Installed, it gets a bottom nav and an offline **Downloads** screen, so books you download stay readable and listenable with no connection |
 
 Changing the email needs your current password, and both addresses are told about
 it afterwards — the old one included, because if the change wasn't you, the old
@@ -35,6 +39,11 @@ inbox is the only place that news can still reach you.
 - **Two-factor authentication** — a one-time code after your password, from an
   authenticator app or by email. This is the single biggest thing you can do for
   your account; it has [its own guide](two-factor-authentication.md).
+- **Devices** — everywhere your account is signed in, linked screens first. Rename
+  one, or remove it and it is signed out on its next request
+  ([Link a device](link-a-device.md)).
+- **Reader access** — tokens that let a reading app open your ebooks
+  ([see below](#reader-access)).
 
 Turning two-factor on or off, changing your password, and changing your email all
 send you a note. If one arrives that you didn't cause, change your password.
@@ -75,14 +84,7 @@ theme follows you to your phone.
 | **Plain Light** | Neutral light greys, if you'd rather the app got out of the way |
 | **Minimalist** | Platinum grey and black ink, like a certain beige computer |
 
-### Devices
-
-- **Send to e-reader** — see below.
-- **Install the app** — add iSputnik to your phone's home screen. Installed, it
-  gets a bottom nav and an offline **Downloads** screen, so books you download stay
-  readable and listenable with no connection.
-
-### Reader access
+## Reader access
 
 Read your ebooks in a reading app — KOReader, Moon+ Reader, Thorium — instead of
 the browser. The app browses the library over OPDS, a catalog format most reading
@@ -97,8 +99,9 @@ apps understand, and downloads what you open.
 
 Each token is yours, reads only what you can already see, and can't change
 anything. Removing one cuts that device off at its next catalog refresh and leaves
-your other devices alone. Every member can make their own; before 4.15 this was in
-the control panel, where only administrators could reach it.
+your other devices alone. Every member can make their own, at the bottom of Profile →
+Security; before 4.15 this was in the control panel, where only administrators
+could reach it.
 
 ## Send to e-reader
 
@@ -108,7 +111,7 @@ e-reader** button that mails the EPUB or PDF straight to it.
 
 Three things have to line up, and it fails quietly if any is missing:
 
-1. **Your device address** — Profile → Devices.
+1. **Your device address** — Profile → Account.
 2. **The server can send email** — an administrator sets this up
    ([guide](email.md)). Without it the button tells you so.
 3. **The server's address is on your device's approved-senders list** — Amazon and

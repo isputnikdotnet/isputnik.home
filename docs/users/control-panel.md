@@ -754,7 +754,7 @@ after a video is optimised once.
 - **About** — version, credits, and what changed in each release.
 
 **Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
-Thorium) browse your ebooks — is under **Profile → Reader access** now. Each person
+Thorium) browse your ebooks — is under **Profile → Security** now. Each person
 makes tokens for their own devices: one per device, read-only, removable at any time.
 
 ### Maps

@@ -8,7 +8,7 @@ import type { SessionRow as DbSessionRow, UserRow } from "../db/rows.js";
 
 // Live sessions, from two directions: an admin's view of everyone's (the original
 // use — spotting a sign-in that shouldn't be there), and each user's view of their
-// own, which is what Profile → Devices reads. The self-service half exists because
+// own, which is what Profile → Security reads. The self-service half exists because
 // a linked display is a session that outlives every browser session by a year, and
 // the person who approved it is the one who should be able to end it.
 

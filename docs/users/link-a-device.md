@@ -86,10 +86,10 @@ with two deliberate exceptions:
 
 ## Seeing and removing your devices
 
-**Profile → Devices** lists every linked screen, when it was last used, and what
+**Profile → Security** lists every linked screen, when it was last used, and what
 network it was on.
 
-![The Devices tab, with linked devices above the ordinary sign-ins](images/73-profile-devices.png)
+![Linked devices on the Security tab, with linked screens above the ordinary sign-ins](images/73-profile-devices.png)
 
 - **Rename** gives it a name you'll recognise — "Living Room TV" beats
   "Chrome on Linux".

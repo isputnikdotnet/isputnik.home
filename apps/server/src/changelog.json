@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.28.1",
+    "label": "Profile in four tabs, Save where you edit",
+    "changes": [
+      "**Profile has four tabs instead of six.** **Account** now holds everything about you and how the app reaches you: your name and email, the language the app speaks, the address your Kindle or Kobo receives books at, and installing the app on your phone. **Security** holds everything that can get into your account: password, passkeys, two-factor, the devices signed in as you, and the reader-app tokens. Devices and Reader access were tabs of their own, and Language hid under Appearance. Old links and bookmarks still land on the right card.",
+      "**A member's Save changes sits with the fields it saves.** On a member's page in the control panel the button was in the header on every tab, but only the name, email and role on the Account tab use it; everything else saves as you choose it. On the other tabs it sat greyed out and looked broken. It is now at the foot of the Profile card, and Enter in a field still saves.",
+      "The guides' Profile screenshots were taken again to match."
+    ]
+  },
+  {
     "version": "4.28.0",
     "label": "Storage contents, one folder at a time",
     "changes": [

@@ -280,29 +280,52 @@ export function galleryReviewAlbumHref(albumId: string, recommendationId: string
 
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
-export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices" | "readerAccess";
+export type ProfileTab = "account" | "security" | "shares" | "appearance";
 
 export const PROFILE_PATHS: Record<ProfileTab, string> = {
   account: "/profile",
   security: "/profile/security",
   shares: "/profile/shares",
-  appearance: "/profile/appearance",
-  devices: "/profile/devices",
-  // Reader tokens belong to the person who makes them. They sat in the control
-  // panel until 4.15, where only administrators could reach their own.
-  readerAccess: "/profile/reader-access"
+  appearance: "/profile/appearance"
 };
 
 export function profileHref(tab: ProfileTab): string {
   return PROFILE_PATHS[tab];
 }
 
+// Cards inside a Profile tab, by the id each section carries — for links that
+// land on one of them (profileAnchorHref).
+export const PROFILE_ANCHORS = {
+  language: { tab: "account", id: "language" },
+  ereader: { tab: "account", id: "send-to-ereader" },
+  readerAccess: { tab: "security", id: "reader-access" },
+  devices: { tab: "security", id: "linked-devices" }
+} as const satisfies Record<string, { tab: ProfileTab; id: string }>;
+export type ProfileAnchor = keyof typeof PROFILE_ANCHORS;
+
+export function profileAnchorHref(anchor: ProfileAnchor): string {
+  const { tab, id } = PROFILE_ANCHORS[anchor];
+  return `${PROFILE_PATHS[tab]}#${id}`;
+}
+
+// Addresses Profile no longer has as tabs, and the card each now is. Reader
+// tokens had a tab of their own from 4.15 (before that, Control panel ›
+// Settings, where only administrators could reach them) until they joined
+// the signed-in devices on Security; the Devices tab split between Security
+// (devices) and Account (Send to e-reader, installing the app) at the same time. ProfilePage rewrites these to profileAnchorHref so the page lands
+// on the card.
+export const PROFILE_RETIRED_PATHS: Record<string, ProfileAnchor> = {
+  "/profile/reader-access": "readerAccess",
+  "/control/settings/reader-access": "readerAccess",
+  "/profile/devices": "devices"
+};
+
 const PROFILE_TAB_BY_PATH = new Map<string, ProfileTab>([
   // Theme had its own page before it moved under Profile.
   ["/theme", "appearance" as ProfileTab],
-  // Reader access was Control panel › Settings before it moved here. It resolves
-  // ahead of the control panel, so a member following an old link isn't turned away.
-  ["/control/settings/reader-access", "readerAccess" as ProfileTab],
+  // Retired addresses resolve ahead of the control panel, so a member following
+  // an old link isn't turned away.
+  ...Object.entries(PROFILE_RETIRED_PATHS).map(([path, anchor]) => [path, PROFILE_ANCHORS[anchor].tab as ProfileTab] as const),
   ...Object.entries(PROFILE_PATHS).map(([tab, path]) => [path, tab as ProfileTab] as const)
 ]);
 

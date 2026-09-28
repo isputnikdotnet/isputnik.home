@@ -21,13 +21,13 @@ import { MemberFamilyTab } from "./MemberFamilyTab";
 import { MemberSharedTab } from "./MemberSharedTab";
 
 // One member, one page: Members › Users › <name>. The header carries who they
-// are and the things done to the account (Preview as, the ⋮ menu, Save); the
+// are and the things done to the account (Preview as, the ⋮ menu); the
 // tabs are real addresses (memberHref). Account is the profile and the summary
 // of everything the other tabs give; those tabs are the same rows a group's
 // Access dialog shows (access/AccessTabs).
 //
-// Two ways of saving: the profile (name, email, role) waits for Save changes,
-// like every edit form; access — groups, who they are, libraries, people, the
+// Two ways of saving: the profile (name, email, role) waits for Save changes
+// in its own card, like every edit form; access — groups, who they are, libraries, people, the
 // tree — saves as each choice is made, since each one is its own grant.
 
 type UserRole = "admin" | "member";
@@ -175,10 +175,6 @@ export function MemberPage({ userId, tab, currentUser }: { userId: string; tab: 
                 label={t("controlAdmin:users.manageAria", { name })}
                 items={actions.menuItems(account, { withDelete: false })}
               />
-              <Button variant="primary" onClick={() => void saveProfile()} disabled={!canSave || saving || busy}>
-                <Save size={16} aria-hidden="true" />
-                <span>{saving ? t("control:ui.saving") : t("control:ui.saveChanges")}</span>
-              </Button>
             </div>
           )}
         </div>
@@ -231,13 +227,18 @@ export function MemberPage({ userId, tab, currentUser }: { userId: string; tab: 
                     <small>{t("controlAdmin:member.memberSince", { date: formatManagedDate(account.createdAt) })}</small>
                   </div>
                 </div>
-                {/* Enter in a field saves, as the header button does. */}
-                <Button variant="bare" type="submit" hidden aria-hidden="true" tabIndex={-1} />
                 {roleLocked && (
                   <MessageBox tone="info" title={t("controlAdmin:users.roleLockedTitle")}>{t("controlAdmin:users.roleLockedBody")}</MessageBox>
                 )}
                 {saveError && <MessageBox tone="error" title={t("controlAdmin:users.saveUserFailed")}>{saveError}</MessageBox>}
                 {saved && !saveError && <MessageBox tone="success" title={t("controlAdmin:access.saved")}>{t("controlAdmin:access.savedBody")}</MessageBox>}
+                {/* Save sits with the fields it saves; Enter in a field does the same. */}
+                <div className="member-profile-actions">
+                  <Button variant="primary" type="submit" disabled={!canSave || saving || busy}>
+                    <Save size={16} aria-hidden="true" />
+                    <span>{saving ? t("control:ui.saving") : t("control:ui.saveChanges")}</span>
+                  </Button>
+                </div>
               </form>
               <p className="member-card-note">{t("controlAdmin:member.profileNote")}</p>
             </section>

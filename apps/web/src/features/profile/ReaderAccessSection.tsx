@@ -4,7 +4,7 @@ import { formatDate } from "../../shared/dates";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, Plus, Trash2 } from "lucide-react";
 import { api } from "../../api";
-import { followRoute, profileHref } from "../../router";
+import { followRoute, PROFILE_ANCHORS, profileAnchorHref } from "../../router";
 import { Button } from "../../shared/Button";
 import { Field } from "../../shared/Field";
 import { Modal } from "../../shared/Modal";
@@ -43,7 +43,7 @@ function CopyRow({ label, value, copied, onCopy }: { label: string; value: strin
   );
 }
 
-// Profile › Reader access: OPDS tokens that let a reading app open your ebooks.
+// Profile › Security › Reader access: OPDS tokens that let a reading app open your ebooks.
 // Every token is the signed-in person's own (/api/account/tokens is scoped to the
 // caller), which is why this left the admin-only control panel in 4.15.
 export function ReaderAccessSection() {
@@ -135,19 +135,19 @@ export function ReaderAccessSection() {
   };
 
   return (
-    <section className="opds-access" aria-labelledby="reader-access-heading">
+    <section className="opds-access" id={PROFILE_ANCHORS.readerAccess.id} aria-labelledby="reader-access-heading">
       <h2 id="reader-access-heading">{t("controlAdmin:opds.title")}</h2>
       <p className="opds-intro">
         {t("controlAdmin:opds.headDescription")} {t("controlAdmin:opds.intro")}
       </p>
-      {/* The two ways a book reaches a device sit on neighbouring tabs; each points at the other. */}
+      {/* The two ways a book reaches a device sit on Security and Account; each points at the other. */}
       <p className="opds-intro">
         <Trans
           i18nKey="opds.nextLinks"
           ns="controlAdmin"
           components={{
             guide: <a href="/help/your-account#reader-access" onClick={(event) => followRoute(event, "/help/your-account#reader-access")} />,
-            devices: <a href={profileHref("devices")} onClick={(event) => followRoute(event, profileHref("devices"))} />
+            devices: <a href={profileAnchorHref("ereader")} onClick={(event) => followRoute(event, profileAnchorHref("ereader"))} />
           }}
         />
       </p>

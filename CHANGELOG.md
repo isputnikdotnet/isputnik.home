@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.28.1 — Profile in four tabs, Save where you edit
+
+- **Profile has four tabs instead of six.** **Account** now holds everything about you and how the app reaches you: your name and email, the language the app speaks, the address your Kindle or Kobo receives books at, and installing the app on your phone. **Security** holds everything that can get into your account: password, passkeys, two-factor, the devices signed in as you, and the reader-app tokens. Devices and Reader access were tabs of their own, and Language hid under Appearance. Old links and bookmarks still land on the right card.
+- **A member's Save changes sits with the fields it saves.** On a member's page in the control panel the button was in the header on every tab, but only the name, email and role on the Account tab use it; everything else saves as you choose it. On the other tabs it sat greyed out and looked broken. It is now at the foot of the Profile card, and Enter in a field still saves.
+- The guides' Profile screenshots were taken again to match.
+
 ## 4.28.0 — Storage contents, one folder at a time
 
 - **The App files list is no longer one endless table.** Control panel → Library → Storage contents now shows a row of folders — story recordings, voice notes, slideshow music, slideshow movies, family tree, other files — each with its count, size and how many orphans it holds. Open one and its files come a page at a time, with the same page-size menu and pager as the other tables in the panel; orphans still come first. The open folder is in the address, so a link lands on it.

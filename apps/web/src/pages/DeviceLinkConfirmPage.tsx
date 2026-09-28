@@ -7,7 +7,7 @@ import { Button } from "../shared/Button";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
 import { Shell } from "../app/Shell";
-import { navigate } from "../router";
+import { navigate, profileAnchorHref } from "../router";
 
 // The screen the phone lands on, from the QR or from typing the code. Its whole
 // job is to let someone answer one question honestly: is the thing asking to be
@@ -113,7 +113,7 @@ export function DeviceLinkConfirmPage({ userCode }: { userCode: string }) {
           {/* Not an automatic redirect: the next thing anyone wants after
               approving something is confirmation that it did what they think. */}
           <div className="device-confirm-actions">
-            <Button variant="secondary" onClick={() => navigate("/profile/devices")}>{t("deviceLinkConfirm.yourDevices")}</Button>
+            <Button variant="secondary" onClick={() => navigate(profileAnchorHref("devices"))}>{t("deviceLinkConfirm.yourDevices")}</Button>
             <Button variant="text" onClick={() => navigate("/")}>{t("common.done")}</Button>
           </div>
         </div>

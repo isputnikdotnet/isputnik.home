@@ -71,7 +71,7 @@ describe("naming the visitor behind a share link", () => {
   });
 
   it("says nobody for a revoked session", () => {
-    // Revoking a device from Profile → Devices must stop attributing to it too.
+    // Revoking a device from Profile → Security must stop attributing to it too.
     makeSession({ token: "gone", userId: "viewer", revoked: true });
     expect(optionalUser(requestWith("gone"))).toBeNull();
   });
@@ -90,7 +90,7 @@ describe("naming the visitor behind a share link", () => {
 
   it("does not touch the session's last-seen clock", () => {
     // Following a link anyone could have is not the account being used. Refreshing
-    // last_seen_at here would keep a device showing as live in Profile → Devices,
+    // last_seen_at here would keep a device showing as live in Profile → Security,
     // and on the dashboard's "still signed in" list, on the strength of a share
     // link — which is exactly the signal an owner checks when something looks off.
     const before = "2020-01-01T00:00:00.000Z";

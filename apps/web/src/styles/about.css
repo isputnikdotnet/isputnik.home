@@ -1940,6 +1940,7 @@
 .linked-devices-section {
   display: grid;
   gap: 12px;
+  margin-top: 28px;
   padding: clamp(18px, 4vw, 26px);
   border: 1px solid var(--line);
   border-radius: 8px;

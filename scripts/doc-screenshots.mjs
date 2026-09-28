@@ -490,7 +490,8 @@ const SHOTS = [
   { name: "70-profile", url: "profile" },
   { name: "71-profile-security", url: "profile/security" },
   { name: "72-profile-appearance", url: "profile/appearance" },
-  { name: "73-profile-devices", url: "profile/devices" },
+  // Devices is a card on Security now; the hash scrolls the page to it.
+  { name: "73-profile-devices", url: "profile/security#linked-devices" },
   {
     // The two-factor card sits below the fold on Security. Scroll to it rather
     // than photographing the enrolment step — that screen shows a live TOTP
@@ -815,6 +816,10 @@ async function main() {
 
     await send(ws, "Page.enable");
     await send(ws, "Network.enable");
+    // The browser profile persists between runs, and against a production build
+    // (the demo site) the PWA's service worker answers from its precache — so the
+    // first shot after a rebuild showed the PREVIOUS build. Always go to the server.
+    await send(ws, "Network.setBypassServiceWorker", { bypass: true });
     await send(ws, "Emulation.setDeviceMetricsOverride", {
       width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false
     });

@@ -81,7 +81,7 @@ Yes — add it to your phone's home screen. Installed, it gets a bottom menu and
 **Downloads** screen, so books you download stay readable and listenable with no
 connection.
 
-[Your account › Devices](your-account.md#devices)
+[Your account › Account](your-account.md#account)
 
 ## Is it safe to open my library to the internet?
 <!-- admin -->

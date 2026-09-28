@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { CONTROL_PATHS, controlHref, getReferrer, getRoute, profileHref } from "../src/router";
+import { CONTROL_PATHS, controlHref, getReferrer, getRoute, PROFILE_RETIRED_PATHS, profileAnchorHref, profileHref } from "../src/router";
 
 // The router is a pure path -> route table with a long tail of aliases kept for
 // old bookmarks. Nothing type-checks a wrong answer here: a mis-parsed path just
@@ -125,7 +125,16 @@ describe("getRoute", () => {
 
   it("sends the old control-panel Reader access address to Profile, where members can reach it", () => {
     at("/control/settings/reader-access");
-    expect(getRoute()).toEqual({ name: "profile", tab: "readerAccess" });
+    expect(getRoute()).toEqual({ name: "profile", tab: "security" });
+  });
+
+  it("sends retired Profile tabs to the tab that now holds their card", () => {
+    at("/profile/reader-access");
+    expect(getRoute()).toEqual({ name: "profile", tab: "security" });
+    at("/profile/devices");
+    expect(getRoute()).toEqual({ name: "profile", tab: "security" });
+    expect(profileAnchorHref(PROFILE_RETIRED_PATHS["/profile/reader-access"])).toBe("/profile/security#reader-access");
+    expect(profileAnchorHref(PROFILE_RETIRED_PATHS["/profile/devices"])).toBe("/profile/security#linked-devices");
   });
 });
 
@@ -172,7 +181,7 @@ describe("href builders", () => {
   });
 
   it("round-trips profile tabs the same way", () => {
-    for (const tab of ["account", "security", "shares", "appearance", "devices", "readerAccess"] as const) {
+    for (const tab of ["account", "security", "shares", "appearance"] as const) {
       at(profileHref(tab));
       const route = getRoute();
       expect(route.name, tab).toBe("profile");

@@ -7,7 +7,7 @@ import { Field } from "../../shared/Field";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
-import { navigate } from "../../router";
+import { navigate, PROFILE_ANCHORS } from "../../router";
 import i18n from "../../i18n";
 import { formatDate } from "../../shared/dates";
 
@@ -158,7 +158,7 @@ export function LinkedDevicesSection() {
   );
 
   return (
-    <section className="linked-devices-section" aria-labelledby="linked-devices-heading">
+    <section className="linked-devices-section" id={PROFILE_ANCHORS.devices.id} aria-labelledby="linked-devices-heading">
       <h2 id="linked-devices-heading">{t("misc:devices.heading")}</h2>
       <p className="section-description">
         {t("misc:devices.description")}

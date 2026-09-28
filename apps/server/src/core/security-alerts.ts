@@ -327,7 +327,7 @@ export function alertDeviceLinked(user: User, request: FastifyRequest, label: st
     `"${label}" can now use your iSputnik account without signing in again.`,
     context(request.ip, { label: "Device", value: label }),
     "You approved this from a device you were already signed in on.",
-    "Remove it any time from Profile → Devices, which is also where you can rename it.",
+    "Remove it any time from Profile → Security, which is also where you can rename it.",
     "If you didn't approve this, revoke it there now and change your password."
   ]);
 }
@@ -341,7 +341,7 @@ export function alertRemoteDeviceLinked(user: User, request: FastifyRequest, lab
     `${user.display_name} used the registration window you opened, and "${label}" is now signed in to their account.`,
     context(request.ip, { label: "Account", value: user.email }, { label: "Device", value: label }),
     "The window is now closed — another device would need a new one.",
-    "They can remove the device themselves from Profile → Devices, and you can end its session from Control panel → Members → Sessions."
+    "They can remove the device themselves from Profile → Security, and you can end its session from Control panel → Members → Sessions."
   ]);
 }
 

@@ -249,7 +249,7 @@ Shipped:
   room). The alternative, showing a button that fails, teaches people to click
   through refusals.
 - **Self-service sessions** — `/api/account/sessions` lets each user see, rename
-  and revoke their own sign-ins (Profile → Devices). `/api/sessions` remains the
+  and revoke their own sign-ins (Profile → Security). `/api/sessions` remains the
   admin's view of everyone's.
 
 Planned:

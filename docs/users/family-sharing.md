@@ -83,7 +83,7 @@ reload it, or open it in a new tab, and the back button behaves.
 
 On a book, **Send to** also offers **My e-reader**, which mails the file to your
 Kindle or Kobo. It only appears once your device address is saved in
-[Profile → Devices](your-account.md#send-to-e-reader) and the server has an
+[Profile → Account](your-account.md#send-to-e-reader) and the server has an
 outgoing mail server ([guide](email.md)); until then the row reads *Set up my
 e-reader* and takes you there.
 

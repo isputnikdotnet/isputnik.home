@@ -265,7 +265,7 @@
     "confirmRemoveTitle": "Remove \"{{label}}\"?",
     "removing": "Removing…",
     "confirmRemoveBody": "That device will lose access to your ebooks at its next catalog refresh. Your other devices are not affected.",
-    "nextLinks": "How to add the catalog to a reading app is in <guide>the guide</guide>. To have books emailed to a Kindle or Kobo instead, set your device address under <devices>Devices</devices>."
+    "nextLinks": "How to add the catalog to a reading app is in <guide>the guide</guide>. To have books emailed to a Kindle or Kobo instead, set your device address under <devices>Send to e-reader</devices> on the Account tab."
   },
   "recycleBin": {
     "loadFailed": "Unable to load the Recycle Bin",
@@ -1445,7 +1445,7 @@
     "statusDeactivated": "Deactivated",
     "status": "Account status",
     "memberSince": "Account created {{date}}",
-    "profileNote": "Name, email and role save with Save changes at the top. Everything else on this page saves as you change it.",
+    "profileNote": "Name, email and role save with Save changes above. Everything else on this page saves as you change it.",
     "notFoundTitle": "No such account",
     "notFoundBody": "This account was deleted, or the link is wrong. Go back to Users to find the person.",
     "summaryTitle": "Access summary",

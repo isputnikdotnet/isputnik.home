@@ -6,7 +6,7 @@ import { sessionsPlugin } from "../src/core/sessions.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
-// Everyone's own sessions, which is what Profile → Devices reads. The rule running
+// Everyone's own sessions, which is what Profile → Security reads. The rule running
 // through all of it: the id in the path can only ever reach a row the caller
 // already owns, and someone else's id is a 404 rather than a 403 — the caller has
 // no business learning that it exists.

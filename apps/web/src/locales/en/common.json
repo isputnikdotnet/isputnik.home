@@ -343,7 +343,6 @@
       "security": "Security",
       "shares": "Shared links",
       "appearance": "Appearance",
-      "devices": "Devices",
       "readerAccess": "Reader access"
     },
     "account": {
@@ -373,7 +372,7 @@
       "savedBody": "Your e-reader email has been updated.",
       "save": "Save",
       "saving": "Saving…",
-      "readerAccessLink": "Reading in an app like KOReader, Moon+ Reader or Thorium instead? <lnk>Reader access</lnk> connects it to your ebooks."
+      "readerAccessLink": "Reading in an app like KOReader, Moon+ Reader or Thorium instead? <lnk>Reader access</lnk>, under Security, connects it to your ebooks."
     },
     "install": {
       "title": "Install the mobile app",
@@ -421,7 +420,7 @@
     "refusedTitle": "Device refused",
     "signingInNow": "It's signing in now",
     "nothingChanged": "Nothing was changed",
-    "approvedBody": "{{device}} can now use your account. It appears in Profile → Devices, where you can rename it or remove it at any time.",
+    "approvedBody": "{{device}} can now use your account. It appears in Profile → Security, where you can rename it or remove it at any time.",
     "deniedBody": "That device was not given access to your account.",
     "yourDevices": "Your devices",
     "codeInvalidTitle": "That code doesn't work",

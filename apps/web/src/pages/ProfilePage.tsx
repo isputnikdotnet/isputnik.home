@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { BookOpen, Link2, Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
+import { Link2, Palette, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { LANGUAGES, setAppLanguage, type Language } from "../i18n";
 import { ChoiceGroup } from "../shared/ChoiceGroup";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute, profileHref, type ProfileTab } from "../router";
+import { followRoute, PROFILE_ANCHORS, PROFILE_RETIRED_PATHS, profileAnchorHref, profileHref, type ProfileTab } from "../router";
+import { useAnchorScroll } from "../features/control/useAnchorScroll";
 import { UserAreaNav } from "../features/library/UserAreaNav";
 import { Field } from "../shared/Field";
 import { Button } from "../shared/Button";
@@ -28,9 +29,7 @@ const PROFILE_TABS: { key: ProfileTab; icon: LucideIcon }[] = [
   { key: "account", icon: UserRound },
   { key: "security", icon: ShieldCheck },
   { key: "shares", icon: Link2 },
-  { key: "appearance", icon: Palette },
-  { key: "devices", icon: Smartphone },
-  { key: "readerAccess", icon: BookOpen }
+  { key: "appearance", icon: Palette }
 ];
 
 export function ProfilePage({
@@ -44,11 +43,20 @@ export function ProfilePage({
   const { t } = useTranslation();
 
   // The tab row scrolls sideways on a phone, so the tab you are on has to be
-  // in the part of it you can see: landing on Devices otherwise showed a row
-  // reading Account / Security / Shared links with nothing marked.
+  // in the part of it you can see: landing on the last tab otherwise showed a
+  // row of the first ones with nothing marked.
   useEffect(() => {
     document.querySelector(".profile-tabs .profile-tab.active")?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [activeTab]);
+
+  // An old address (the Reader access or Devices tab) becomes the card it now is,
+  // before useAnchorScroll (whose effect runs after this one) reads the hash and
+  // brings that card into view.
+  useEffect(() => {
+    const retired = PROFILE_RETIRED_PATHS[window.location.pathname];
+    if (retired) window.history.replaceState(window.history.state, "", profileAnchorHref(retired));
+  }, [activeTab]);
+  useAnchorScroll(activeTab);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
@@ -210,47 +218,8 @@ export function ProfilePage({
             </form>
 
             <ChangeEmailSection email={user.email} mfaEnabled={Boolean(user.mfaEnabled)} onChanged={onUpdated} />
-          </div>
 
-          <div
-            className="profile-tab-panel"
-            role="tabpanel"
-            id="profile-panel-security"
-            aria-labelledby="profile-tab-security"
-            hidden={activeTab !== "security"}
-          >
-            <ChangePasswordSection />
-
-            <PasskeysSection />
-
-            <MfaSection />
-          </div>
-
-          <div
-            className="profile-tab-panel"
-            role="tabpanel"
-            id="profile-panel-shares"
-            aria-labelledby="profile-tab-shares"
-            hidden={activeTab !== "shares"}
-          >
-            <SharedLinksSection />
-          </div>
-
-          <div
-            className="profile-tab-panel"
-            role="tabpanel"
-            id="profile-panel-appearance"
-            aria-labelledby="profile-tab-appearance"
-            hidden={activeTab !== "appearance"}
-          >
-            <section className="appearance-section" aria-labelledby="appearance-heading">
-              <h2 id="appearance-heading">{t("profile.appearance.heading")}</h2>
-              <p className="appearance-intro">{t("profile.appearance.intro")}</p>
-              <ThemePicker value={user.theme} onChange={chooseTheme} disabled={themeSaving} />
-              {themeError && <MessageBox tone="error" title={t("errors.unableToSave")}>{themeError}</MessageBox>}
-            </section>
-
-            <section className="appearance-section language-section" aria-labelledby="language-heading">
+            <section className="appearance-section language-section" id={PROFILE_ANCHORS.language.id} aria-labelledby="language-heading">
               <h2 id="language-heading">{t("profile.language.heading")}</h2>
               <p className="appearance-intro">{t("profile.language.intro")}</p>
               <ChoiceGroup
@@ -267,18 +236,8 @@ export function ProfilePage({
               />
               {languageError && <MessageBox tone="error" title={t("errors.unableToSave")}>{languageError}</MessageBox>}
             </section>
-          </div>
 
-          <div
-            className="profile-tab-panel"
-            role="tabpanel"
-            id="profile-panel-devices"
-            aria-labelledby="profile-tab-devices"
-            hidden={activeTab !== "devices"}
-          >
-            <LinkedDevicesSection />
-
-            <section className="ereader-section" aria-labelledby="ereader-heading">
+            <section className="ereader-section" id={PROFILE_ANCHORS.ereader.id} aria-labelledby="ereader-heading">
               <h2 id="ereader-heading">{t("profile.ereader.heading")}</h2>
               <p className="ereader-intro">
                 <Trans i18nKey="profile.ereader.intro" components={{ code: <code /> }} />
@@ -286,7 +245,7 @@ export function ProfilePage({
               <p className="ereader-intro">
                 <Trans
                   i18nKey="profile.ereader.readerAccessLink"
-                  components={{ lnk: <a href={profileHref("readerAccess")} onClick={(event) => followRoute(event, profileHref("readerAccess"))} /> }}
+                  components={{ lnk: <a href={profileAnchorHref("readerAccess")} onClick={(event) => followRoute(event, profileAnchorHref("readerAccess"))} /> }}
                 />
               </p>
               <form className="ereader-form" onSubmit={saveEreader}>
@@ -317,12 +276,45 @@ export function ProfilePage({
           <div
             className="profile-tab-panel"
             role="tabpanel"
-            id="profile-panel-readerAccess"
-            aria-labelledby="profile-tab-readerAccess"
-            hidden={activeTab !== "readerAccess"}
+            id="profile-panel-security"
+            aria-labelledby="profile-tab-security"
+            hidden={activeTab !== "security"}
           >
+            <ChangePasswordSection />
+
+            <PasskeysSection />
+
+            <MfaSection />
+
+            <LinkedDevicesSection />
+
             {/* Mounted only when open: it fetches the person's tokens on arrival. */}
-            {activeTab === "readerAccess" && <ReaderAccessSection />}
+            {activeTab === "security" && <ReaderAccessSection />}
+          </div>
+
+          <div
+            className="profile-tab-panel"
+            role="tabpanel"
+            id="profile-panel-shares"
+            aria-labelledby="profile-tab-shares"
+            hidden={activeTab !== "shares"}
+          >
+            <SharedLinksSection />
+          </div>
+
+          <div
+            className="profile-tab-panel"
+            role="tabpanel"
+            id="profile-panel-appearance"
+            aria-labelledby="profile-tab-appearance"
+            hidden={activeTab !== "appearance"}
+          >
+            <section className="appearance-section" aria-labelledby="appearance-heading">
+              <h2 id="appearance-heading">{t("profile.appearance.heading")}</h2>
+              <p className="appearance-intro">{t("profile.appearance.intro")}</p>
+              <ThemePicker value={user.theme} onChange={chooseTheme} disabled={themeSaving} />
+              {themeError && <MessageBox tone="error" title={t("errors.unableToSave")}>{themeError}</MessageBox>}
+            </section>
           </div>
         </div>
       </section>
