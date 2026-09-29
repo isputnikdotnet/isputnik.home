@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.28.3",
+    "label": "Security and dependency updates",
+    "changes": [
+      "**A security fix in how the server recognizes private network addresses.** A library the server uses to tell local addresses from public ones missed two IPv6 ranges (on-link addresses beyond `fe80::/64`, and the NAT64 local-use range), so an address in them could be mistaken for a public one — the kind of slip that lets a request reach a machine on your own network it should not. It is updated to the fixed version; nothing to change on your side.",
+      "Twenty-two libraries the app is built on moved to their latest minor and patch releases, among them the web server, the map, the icon set and the audiobook metadata reader. No visible change is expected."
+    ]
+  },
+  {
     "version": "4.28.2",
     "label": "Branch editors reach the whole family name",
     "changes": [

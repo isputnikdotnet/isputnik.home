@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.28.3 — Security and dependency updates
+
+- **A security fix in how the server recognizes private network addresses.** A library the server uses to tell local addresses from public ones missed two IPv6 ranges (on-link addresses beyond `fe80::/64`, and the NAT64 local-use range), so an address in them could be mistaken for a public one — the kind of slip that lets a request reach a machine on your own network it should not. It is updated to the fixed version; nothing to change on your side.
+- Twenty-two libraries the app is built on moved to their latest minor and patch releases, among them the web server, the map, the icon set and the audiobook metadata reader. No visible change is expected.
+
 ## 4.28.2 — Branch editors reach the whole family name
 
 - **Edit rights on a family tag now cover everyone with that family name.** A branch editor granted the "Posse" tag could only edit the handful of people someone had tagged by hand, while the Families page showed 39 Posses, so most of the family stayed admin-only with nothing on screen to say why. A tag named after a family name now reaches every person whose name ends in it, tagged or not; people outside the name (in-laws, maiden names, one-word names) still need the tag.
