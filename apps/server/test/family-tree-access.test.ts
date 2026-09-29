@@ -82,6 +82,20 @@ describe("family-tree access helpers", () => {
     ]);
   });
 
+  it("extends a tag grant to everyone listed under the family name it spells", () => {
+    const { smirnov, petrov } = seedBranches();
+    const cousin = createFamilyPerson({ name: "Olga Petrovna SMIRNOV" }, "admin");
+    const single = createFamilyPerson({ name: "Smirnov" }, "admin");
+    const inLaw = createFamilyPerson({ name: "Anna Petrova", maidenName: "Smirnova" }, "admin");
+    expect(canEditPerson(editor, cousin.id)).toBe(true);
+    expect(canEditPerson(editor, single.id)).toBe(false);
+    expect(canEditPerson(editor, inLaw.id)).toBe(false);
+    expect(canEditPerson(editor, petrov.id)).toBe(false);
+    expect(decoratePersons(editor, [smirnov, cousin, single, inLaw]).map((p) => p.canEdit))
+      .toEqual([true, true, false, false]);
+    expect(listFamilyTags().find((t) => t.name === "Smirnov")).toMatchObject({ count: 1, reach: 2 });
+  });
+
   it("cleans up tag links when a person is deleted", () => {
     const { smirnov } = seedBranches();
     deleteFamilyPerson(smirnov.id);

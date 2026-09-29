@@ -62,6 +62,8 @@ export interface FamilyTag {
   name: string;
   count: number;
   editorCount: number;
+  /** Persons an edit grant on the tag covers: tagged, or listed under the family name it spells. */
+  reach: number;
 }
 
 export interface FamilyUnion {

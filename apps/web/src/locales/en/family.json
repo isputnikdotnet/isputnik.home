@@ -310,7 +310,7 @@
     "roleEditorTagline": "Edit tagged people + add relatives",
     "roleBlocked": "Blocked",
     "roleBlockedTagline": "No edit access, overrides grants",
-    "intro": "Family tags group people into branches. Granting the Editor role on a tag lets a user or group edit every person carrying that tag and add relatives to them. Assign tags to people via Edit person (admins only).",
+    "intro": "Family tags group people into branches. Granting the Editor role on a tag lets a user or group edit every person carrying that tag and add relatives to them. A tag named after a family name (\"Posse\") also covers everyone listed under that name, tagged or not. Assign tags to people via Edit person (admins only).",
     "unableToUpdate": "Unable to update branch access",
     "loading": "Loading…",
     "noTagsTitle": "No family tags yet",

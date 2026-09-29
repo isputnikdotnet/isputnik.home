@@ -1,13 +1,29 @@
 // Tag-scoped edit rights for the family tree. Tags on persons double as
 // permission scopes: an assignment (object_type 'family_tree_tag', object_id =
 // tags.id) grants a user or group edit rights over every person carrying that
-// tag. Admins edit everything; untagged persons stay admin-only. Because tags
-// are the boundary, assigning tags to persons is itself an admin-only action
-// (enforced at the route layer).
+// tag. A tag named after a family name also covers everyone listed under that
+// name ("Posse" reaches every "… Posse"), so a surname branch needs no tagging
+// person by person. Admins edit everything; persons reached by neither stay
+// admin-only. Because tags are the boundary, assigning tags to persons is itself
+// an admin-only action (enforced at the route layer). Renaming is not an
+// escalation: only someone who already edits a person can rename them.
 import { db } from "../../db.js";
 import { EVERYONE_GROUP_ID, roleAllows, type AuthUser, type ObjectRole } from "../../core/permissions.js";
-import type { AssignmentRow, GroupMemberRow, TaggableRow, TagRow } from "../../db/rows.js";
+import type { AssignmentRow, FamilyTreePersonRow, GroupMemberRow, TaggableRow, TagRow } from "../../db/rows.js";
+import { normalizeText } from "../library/shared/tagging.js";
 import { earliestChildBirthByParent, isLiving, myTreePersonId, showLivingDetailsFor } from "./tree-access.js";
+
+// A person's family name, normalized like a tag: the last word of the display
+// name — the rule the web Families page groups by (FamilyFamiliesPage
+// surnameOf). Single-word names have none. Maiden names are not folded in.
+export function familyNameKey(name: string): string | null {
+  const parts = name.trim().split(/\s+/);
+  return parts.length > 1 ? normalizeText(parts[parts.length - 1]) : null;
+}
+
+function familyNameKeysOf(tags: FamilyTag[]): Set<string> {
+  return new Set(tags.map((t) => normalizeText(t.name)));
+}
 
 export const FAMILY_TAG_OBJECT_TYPE = "family_tree_tag";
 export const FAMILY_PERSON_ENTITY_TYPE = "family_tree_person";
@@ -19,7 +35,9 @@ export interface FamilyTag extends Pick<TagRow, "id" | "key"> {
 // role is ObjectRole | "deny" — exactly the column's CHECK list.
 type TagAssignmentRow = Pick<AssignmentRow, "object_id" | "subject_type" | "subject_id" | "role">;
 
-type FamilyTagUsage = Pick<TagRow, "id"> & { name: TagRow["display_name"]; count: number; editorCount: number };
+// count = persons tagged; reach = persons an edit grant on it covers (tagged, or
+// listed under the family name it spells).
+type FamilyTagUsage = Pick<TagRow, "id"> & { name: TagRow["display_name"]; count: number; editorCount: number; reach: number };
 
 // All family-tree tags the user may edit through, resolved with the same
 // semantics as resolveObjectRole (deny blocks outright, strongest explicit
@@ -78,6 +96,10 @@ export function canEditPerson(user: AuthUser, personId: string): boolean {
   const editable = getEditableTags(user);
   if (editable === "all") return true;
   if (editable.length === 0) return false;
+  const person = db.prepare("SELECT name FROM family_tree_persons WHERE id = ?").get(personId) as
+    Pick<FamilyTreePersonRow, "name"> | undefined;
+  const familyName = person ? familyNameKey(person.name) : null;
+  if (familyName && familyNameKeysOf(editable).has(familyName)) return true;
   const placeholders = editable.map(() => "?").join(", ");
   return db.prepare(`
     SELECT 1 FROM taggables
@@ -118,6 +140,12 @@ export function decoratePersons<T extends { id: string }>(
   const me = myTreePersonId(user.id);
   const editable = getEditableTags(user);
   const editableIds = editable === "all" ? null : new Set(editable.map((t) => t.id));
+  const editableNames = editable === "all" ? null : familyNameKeysOf(editable);
+  // Names from the DB, not the payload: not every payload shape carries one.
+  const namesById = editableNames && editableNames.size > 0
+    ? new Map((db.prepare("SELECT id, name FROM family_tree_persons").all() as Pick<FamilyTreePersonRow, "id" | "name">[])
+      .map((row) => [row.id, row.name]))
+    : null;
   const childBirths = earliestChildBirthByParent();
 
   const tagRows = db.prepare(`
@@ -137,9 +165,12 @@ export function decoratePersons<T extends { id: string }>(
 
   return persons.map((person) => {
     const entry = tagsByPerson.get(person.id);
+    const name = namesById?.get(person.id);
+    const familyName = name ? familyNameKey(name) : null;
     const canEdit = editableIds === null
       ? true
-      : (entry?.tagIds.some((id) => editableIds.has(id)) ?? false);
+      : (entry?.tagIds.some((id) => editableIds.has(id)) ?? false)
+        || (familyName != null && editableNames!.has(familyName));
     const dated = person as T & Partial<PersonDates>;
     const living = "birthDate" in dated
       && isLiving(
@@ -159,7 +190,7 @@ export function decoratePersons<T extends { id: string }>(
 // autocomplete and the people-page filter. The library tag browse only counts
 // library_item taggables, so family tags need their own listing.
 export function listFamilyTags(): FamilyTagUsage[] {
-  return db.prepare(`
+  const tags = db.prepare(`
     SELECT tags.id, tags.display_name AS name, COUNT(*) AS count,
       (SELECT COUNT(*) FROM assignments a
         WHERE a.object_type = '${FAMILY_TAG_OBJECT_TYPE}' AND a.object_id = tags.id) AS editorCount
@@ -168,5 +199,18 @@ export function listFamilyTags(): FamilyTagUsage[] {
     WHERE taggables.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}'
     GROUP BY tags.id
     ORDER BY name COLLATE NOCASE
-  `).all() as FamilyTagUsage[];
+  `).all() as Omit<FamilyTagUsage, "reach">[];
+  if (tags.length === 0) return [];
+
+  const familyNameById = new Map((db.prepare("SELECT id, name FROM family_tree_persons").all() as Pick<FamilyTreePersonRow, "id" | "name">[])
+    .map((row) => [row.id, familyNameKey(row.name)]));
+  const tagged = db.prepare(`
+    SELECT tag_id, entity_id FROM taggables WHERE entity_type = '${FAMILY_PERSON_ENTITY_TYPE}'
+  `).all() as Pick<TaggableRow, "tag_id" | "entity_id">[];
+  return tags.map((tag) => {
+    const key = normalizeText(tag.name);
+    const reached = new Set(tagged.filter((row) => row.tag_id === tag.id).map((row) => row.entity_id));
+    for (const [id, familyName] of familyNameById) if (familyName === key) reached.add(id);
+    return { ...tag, reach: reached.size };
+  });
 }

@@ -26,7 +26,8 @@ interface FamilyGroup {
 // "Anastasia") have none and gather under one card rather than each becoming a
 // "family" named after a given name. Maiden names are not folded in — a person
 // belongs to the family they are listed under, which is what the chart labels
-// them with.
+// them with. Edit rights follow the same rule (server familytree/access.ts
+// familyNameKey): a grant on a tag named "Posse" covers this whole card.
 export const NO_FAMILY_NAME = "";
 function surnameOf(person: FamilyPerson): string {
   const parts = person.name.trim().split(/\s+/);

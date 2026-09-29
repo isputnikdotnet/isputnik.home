@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.28.2",
+    "label": "Branch editors reach the whole family name",
+    "changes": [
+      "**Edit rights on a family tag now cover everyone with that family name.** A branch editor granted the \"Posse\" tag could only edit the handful of people someone had tagged by hand, while the Families page showed 39 Posses, so most of the family stayed admin-only with nothing on screen to say why. A tag named after a family name now reaches every person whose name ends in it, tagged or not; people outside the name (in-laws, maiden names, one-word names) still need the tag.",
+      "Branch access in Family tree settings now counts everyone a grant covers, not just the people carrying the tag."
+    ]
+  },
+  {
     "version": "4.28.1",
     "label": "Profile in four tabs, Save where you edit",
     "changes": [

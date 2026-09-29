@@ -134,7 +134,7 @@ export function FamilyTagAccessPanel() {
             onChange={setTagId}
             options={tags.map((tag) => ({
               value: tag.id,
-              label: `${tag.name} — ${t("family:common.counts.person", { count: tag.count })}`
+              label: `${tag.name} — ${t("family:common.counts.person", { count: tag.reach })}`
             }))}
           />
 

@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.28.2 — Branch editors reach the whole family name
+
+- **Edit rights on a family tag now cover everyone with that family name.** A branch editor granted the "Posse" tag could only edit the handful of people someone had tagged by hand, while the Families page showed 39 Posses, so most of the family stayed admin-only with nothing on screen to say why. A tag named after a family name now reaches every person whose name ends in it, tagged or not; people outside the name (in-laws, maiden names, one-word names) still need the tag.
+- Branch access in Family tree settings now counts everyone a grant covers, not just the people carrying the tag.
+
 ## 4.28.1 — Profile in four tabs, Save where you edit
 
 - **Profile has four tabs instead of six.** **Account** now holds everything about you and how the app reaches you: your name and email, the language the app speaks, the address your Kindle or Kobo receives books at, and installing the app on your phone. **Security** holds everything that can get into your account: password, passkeys, two-factor, the devices signed in as you, and the reader-app tokens. Devices and Reader access were tabs of their own, and Language hid under Appearance. Old links and bookmarks still land on the right card.
