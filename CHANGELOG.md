@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.28.4 — Shared branches reach the whole family name
+
+- **Sharing a branch's photos now covers everyone with that family name, the same as editing it.** Since 4.28.2 an edit grant on a tag like "Posse" reaches every Posse in the tree, but sharing that branch's photos still reached only the people tagged by hand, so the two grants on one branch covered different people. Both now follow the same rule: everyone tagged, plus everyone whose name ends in the family name. As more of the family are linked to faces in People, their photos join the share on their own.
+- A person's Access dialog lists who sees them through a branch by the same rule, and a tag named after a family name in the tree can be shared as a branch even before anyone carries it.
+
 ## 4.28.3 — Security and dependency updates
 
 - **A security fix in how the server recognizes private network addresses.** A library the server uses to tell local addresses from public ones missed two IPv6 ranges (on-link addresses beyond `fe80::/64`, and the NAT64 local-use range), so an address in them could be mistaken for a public one — the kind of slip that lets a request reach a machine on your own network it should not. It is updated to the fixed version; nothing to change on your side.

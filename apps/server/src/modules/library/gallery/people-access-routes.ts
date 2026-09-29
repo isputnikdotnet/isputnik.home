@@ -157,7 +157,7 @@ export async function galleryPeopleAccessRoutesPlugin(app: FastifyInstance) {
     }
     // Branches of the tree shared as photos (Q2), with how many people and photos
     // each reaches today; allBranches is what the picker offers.
-    const allBranches = listFamilyTags().map((tag) => ({ id: tag.id, name: tag.name, members: tag.count }));
+    const allBranches = listFamilyTags().map((tag) => ({ id: tag.id, name: tag.name, members: tag.reach }));
     const branches = allBranches
       .filter((branch) => directBranches.has(branch.id) || branchVia.has(branch.id))
       .map((branch) => {

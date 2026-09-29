@@ -19,12 +19,13 @@ import { db } from "../../../db.js";
 import { EVERYONE_GROUP_ID, resolveObjectRole, type AuthUser } from "../../../core/permissions.js";
 import { currentViewer, viewerMemo } from "../../../core/viewer-context.js";
 import { galleryLibrariesLeftOutOfScope } from "./system-libraries.js";
-import { FAMILY_PERSON_ENTITY_TYPE } from "../../familytree/access.js";
+import { familyBranchMemberIds } from "../../familytree/access.js";
 import type { AccessSettingRow, AssignmentRow, GroupMemberRow, UserGalleryPersonRow } from "../../../db/rows.js";
 
 export const PERSON_GRANT_OBJECT = "gallery_person";
 /** Q2: a family-tree branch (a family tag) shared as photos — every tree member
- *  tagged with it who is linked to a gallery person, relatives added later too. */
+ *  tagged with it or listed under the family name it spells, who is linked to a
+ *  gallery person; relatives added later too. */
 export const BRANCH_GRANT_OBJECT = "gallery_branch";
 
 type Subject = { subjectType: "user" | "group"; subjectId: string };
@@ -86,17 +87,19 @@ export function peopleRuleFor(user: AuthUser): PeopleRule | null {
 
 // ── Branches (Q2) ───────────────────────────────────────────────────────────
 
-// A branch's gallery people: its tree members' linked face groups, named ones only.
+// A branch's gallery people: its tree members' linked face groups, named ones
+// only. Members are those tagged with it and everyone listed under the family
+// name it spells (familyBranchMemberIds) — the same reach as an edit grant.
 const BRANCH_PEOPLE_SQL = `
   SELECT DISTINCT p.gallery_person_id AS person_id
   FROM family_tree_persons p
-  JOIN taggables t ON t.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}' AND t.entity_id = p.id
   JOIN gallery_people gp ON gp.id = p.gallery_person_id AND trim(gp.name) != ''
-  WHERE t.tag_id = ?`;
+  WHERE p.id IN (SELECT value FROM json_each(?))`;
 
 /** The gallery people a branch shares, as of now. */
 export function branchPeople(tagId: string): string[] {
-  return (db.prepare(BRANCH_PEOPLE_SQL).all(tagId) as { person_id: string }[]).map((row) => row.person_id);
+  return (db.prepare(BRANCH_PEOPLE_SQL).all(JSON.stringify(familyBranchMemberIds(tagId))) as { person_id: string }[])
+    .map((row) => row.person_id);
 }
 
 /** Branch grants on the user or their groups (not deny). */
@@ -109,9 +112,9 @@ function branchGrantsReaching(userId: string, groups: string[]): string[] {
   `).all(BRANCH_GRANT_OBJECT, userId, JSON.stringify(groups)) as Pick<AssignmentRow, "object_id">[]).map((row) => row.object_id);
 }
 
-/** Whether a tag is a branch of the tree (in use on a family member). */
+/** Whether a tag is a branch of the tree (on a family member, or a family name in it). */
 export function isFamilyBranch(tagId: string): boolean {
-  return db.prepare("SELECT 1 AS ok FROM taggables WHERE entity_type = ? AND tag_id = ? LIMIT 1").get(FAMILY_PERSON_ENTITY_TYPE, tagId) != null;
+  return familyBranchMemberIds(tagId).length > 0;
 }
 
 /** Share or stop sharing a branch's photos with a user or group. False when the
@@ -143,15 +146,26 @@ export function directBranchGrants(subject: Subject): string[] {
 /** Who sees a person through a branch: each branch the person's tree member is
  *  in that is shared, and with whom. For "Who can see photos of …". */
 export function branchSubjectsOf(personId: string): { branchId: string; branchName: string; subject: Subject }[] {
-  return (db.prepare(`
-    SELECT DISTINCT tags.id AS branch_id, tags.display_name AS branch_name, a.subject_type, a.subject_id
-    FROM family_tree_persons p
-    JOIN taggables t ON t.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}' AND t.entity_id = p.id
-    JOIN tags ON tags.id = t.tag_id
-    JOIN assignments a ON a.object_type = ? AND a.object_id = tags.id AND a.role != 'deny'
-    WHERE p.gallery_person_id = ?
+  const treeIds = (db.prepare("SELECT id FROM family_tree_persons WHERE gallery_person_id = ?").all(personId) as { id: string }[])
+    .map((row) => row.id);
+  if (treeIds.length === 0) return [];
+  const rows = db.prepare(`
+    SELECT tags.id AS branch_id, tags.display_name AS branch_name, a.subject_type, a.subject_id
+    FROM assignments a
+    JOIN tags ON tags.id = a.object_id
+    WHERE a.object_type = ? AND a.role != 'deny'
     ORDER BY tags.display_name COLLATE NOCASE
-  `).all(BRANCH_GRANT_OBJECT, personId) as { branch_id: string; branch_name: string; subject_type: "user" | "group"; subject_id: string }[])
+  `).all(BRANCH_GRANT_OBJECT) as { branch_id: string; branch_name: string; subject_type: "user" | "group"; subject_id: string }[];
+  const inBranch = new Map<string, boolean>();
+  const reaches = (tagId: string) => {
+    if (!inBranch.has(tagId)) {
+      const members = new Set(familyBranchMemberIds(tagId));
+      inBranch.set(tagId, treeIds.some((id) => members.has(id)));
+    }
+    return inBranch.get(tagId)!;
+  };
+  return rows
+    .filter((row) => reaches(row.branch_id))
     .map((row) => ({ branchId: row.branch_id, branchName: row.branch_name, subject: { subjectType: row.subject_type, subjectId: row.subject_id } }));
 }
 

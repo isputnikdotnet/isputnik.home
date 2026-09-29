@@ -3,7 +3,8 @@
 // tags.id) grants a user or group edit rights over every person carrying that
 // tag. A tag named after a family name also covers everyone listed under that
 // name ("Posse" reaches every "… Posse"), so a surname branch needs no tagging
-// person by person. Admins edit everything; persons reached by neither stay
+// person by person; photo sharing by branch (gallery/people-access.ts) reaches
+// the same people through familyBranchMemberIds. Admins edit everything; persons reached by neither stay
 // admin-only. Because tags are the boundary, assigning tags to persons is itself
 // an admin-only action (enforced at the route layer). Renaming is not an
 // escalation: only someone who already edits a person can rename them.
@@ -201,16 +202,31 @@ export function listFamilyTags(): FamilyTagUsage[] {
     ORDER BY name COLLATE NOCASE
   `).all() as Omit<FamilyTagUsage, "reach">[];
   if (tags.length === 0) return [];
+  const membersOf = branchMembership();
+  return tags.map((tag) => ({ ...tag, reach: membersOf(tag).length }));
+}
 
+// Who belongs to a branch: the tree persons carrying the tag, and everyone listed
+// under the family name it spells. The one definition both branch grants read —
+// edit rights here and photo sharing (gallery/people-access.ts). Returns a
+// resolver so a caller sizing many branches loads the tree once.
+function branchMembership(): (tag: Pick<FamilyTag, "id" | "name">) => string[] {
   const familyNameById = new Map((db.prepare("SELECT id, name FROM family_tree_persons").all() as Pick<FamilyTreePersonRow, "id" | "name">[])
     .map((row) => [row.id, familyNameKey(row.name)]));
   const tagged = db.prepare(`
     SELECT tag_id, entity_id FROM taggables WHERE entity_type = '${FAMILY_PERSON_ENTITY_TYPE}'
   `).all() as Pick<TaggableRow, "tag_id" | "entity_id">[];
-  return tags.map((tag) => {
+  return (tag) => {
     const key = normalizeText(tag.name);
-    const reached = new Set(tagged.filter((row) => row.tag_id === tag.id).map((row) => row.entity_id));
-    for (const [id, familyName] of familyNameById) if (familyName === key) reached.add(id);
-    return { ...tag, reach: reached.size };
-  });
+    const members = new Set(tagged.filter((row) => row.tag_id === tag.id).map((row) => row.entity_id));
+    for (const [id, familyName] of familyNameById) if (familyName === key) members.add(id);
+    return [...members];
+  };
+}
+
+/** The tree persons in the branch a tag names (see branchMembership). */
+export function familyBranchMemberIds(tagId: string): string[] {
+  const tag = db.prepare("SELECT id, display_name AS name FROM tags WHERE id = ?").get(tagId) as
+    Pick<FamilyTag, "id" | "name"> | undefined;
+  return tag ? branchMembership()(tag) : [];
 }

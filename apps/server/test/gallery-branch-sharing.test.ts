@@ -1,5 +1,6 @@
 // Sharing a branch of the family tree as photos (docs/people-sharing-plan.md, Q2):
-// every tree member tagged with the branch who is linked to a gallery person —
+// every tree member tagged with the branch, or listed under the family name it
+// spells, who is linked to a gallery person —
 // including relatives added to the branch later — through one grant, for a user
 // or a group, with a person-level deny still winning.
 import type { FastifyInstance } from "fastify";
@@ -70,6 +71,17 @@ describe("sharing a branch of the family tree", () => {
 
     await admin("DELETE", `/api/library/gallery/branches/${branchId}/sharing/user/cousin`);
     expect(await timelineOf("cousin")).toEqual([]);
+  });
+
+  it("reaches everyone listed under the family name, tagged or not", async () => {
+    await admin("PUT", `/api/library/gallery/branches/${branchId}/sharing/user/cousin`);
+    member("Boris Posse", "boris", null);
+    expect(await timelineOf("cousin")).toEqual(["p-boris", "p-ivan", "p-olga"]);
+    const sharing = (await admin("GET", "/api/library/gallery/people/boris/sharing")).json();
+    expect(sharing.viaBranches).toMatchObject([{ branchName: "Posse", subjectId: "cousin" }]);
+    // A different family name — or only a maiden name — stays out.
+    db.prepare("UPDATE family_tree_persons SET name = 'Boris Petrov', maiden_name = 'Posse' WHERE gallery_person_id = 'boris'").run();
+    expect(await timelineOf("cousin")).toEqual(["p-ivan", "p-olga"]);
   });
 
   it("works through a group, and a person denied to them stays out", async () => {
