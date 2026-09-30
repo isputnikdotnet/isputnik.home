@@ -93,7 +93,10 @@ export function GalleryPlaceSearch({
     if (coords) {
       setHits(null);
       setError("");
-      onPick(coords, `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`, 15);
+      // Typed coordinates are a point, not a name: the hosts show the point
+      // themselves, and a name would be suggested for a saved place and kept
+      // with a recent one.
+      onPick(coords, "", 15);
       return;
     }
 

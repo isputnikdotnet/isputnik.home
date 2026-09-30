@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.29.2 — Coordinates are a point, not a name
+
+- **Coordinates typed into the location search no longer read as the place's name.** "53.9, 27.56" put the pin down as it should, but the same numbers were taken as what the spot is called: the line under the map showed them twice, **Save this place** offered the latitude as the name, and a recent place kept them as its label. A typed point now has no name — the line shows it once, the name field starts empty, and a recent place reads as the town it is in.
+- The same box in a story's map block: a stop added by coordinates now starts with an empty caption rather than the numbers.
+
 ## 4.29.1 — Saved places, pictured in the guide
 
 - The Gallery guide now shows **saved places** in a picture: the Set location dialog with the household's places as chips under the search box, a recent place with its dashed edge, and **Save this place** for a pin that is not on the list yet. Nothing in the app itself changed.

@@ -118,7 +118,7 @@ export function StoryMapModal({
                 setFocus({ ...next, zoom: nextZoom, nonce: Date.now() });
                 // The place's own name is almost always the caption wanted; an
                 // author who disagrees just types over it in the list below.
-                addStop({ lat: next.lat, lng: next.lng, label: name });
+                addStop({ lat: next.lat, lng: next.lng, label: name || null });
               }}
             />
           </div>

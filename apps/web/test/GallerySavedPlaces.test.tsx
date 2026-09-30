@@ -96,6 +96,14 @@ describe("saved places in the location editor", () => {
     expect(screen.getByRole("searchbox")).toHaveValue("");
   });
 
+  it("passes typed coordinates as a point with no name", async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    render(<GalleryPlaceSearch onPick={onPick} saved={{ pin: null, pinLabel: "" }} />);
+    await user.type(screen.getByRole("searchbox"), "53.9, 27.56{Enter}");
+    expect(onPick).toHaveBeenCalledWith({ lat: 53.9, lng: 27.56 }, "", 15);
+  });
+
   it("saves the pin under a name, suggested from what the search called it", async () => {
     const user = userEvent.setup();
     render(<GalleryPlaceSearch onPick={() => {}} saved={{ pin: { lat: 53.7, lng: 27.9 }, pinLabel: "Lake house, Smolevichi District, Belarus" }} />);
