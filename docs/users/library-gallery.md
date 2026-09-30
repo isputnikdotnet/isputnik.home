@@ -135,6 +135,22 @@ not on the town. Those short codes only mean something next to a place name, so
 keep whatever followed the code when you paste. A long code that starts with the
 region — `77C38MW8+4JV` — stands on its own and needs no lookup at all.
 
+**Saved places** spare you the address the second time. Under the search box
+sits a row of chips: the places your household has saved — home, the dacha,
+Grandma's — with the ones used most first, then the last few spots you pinned
+yourself, drawn with a dashed edge. One click puts the pin there. To add a
+place, put the pin where it belongs (search, or click the map) and choose
+**Save this place**, then give it a name. Typing part of a saved name into the
+search box finds it too, ahead of the towns.
+
+The list is one list for everyone who can edit photos, so a place you save is
+there for the rest of the family. If an admin has set the Home location in the
+control panel, it is already on the list as **Home**. **Manage places** renames
+or deletes a place; deleting one only removes the shortcut, and photos already
+pinned there stay where they are on the map. The same chips appear when you
+move a single photo's pin in the viewer's Map tab, and under *Where?* in Review
+mode.
+
 The search asks OpenStreetMap's public lookup service, so it needs the server to
 have internet access — the same place the map's tiles come from. Plus Codes are
 worked out on the server itself, though a short one still needs that lookup for

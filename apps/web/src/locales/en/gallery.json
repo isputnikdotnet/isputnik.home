@@ -209,6 +209,35 @@
       "lookup": "The place lookup failed."
     }
   },
+  "savedPlaces": {
+    "home": "Home",
+    "chipsAria": "Saved and recent places",
+    "recentTitle": "Used recently: {{place}}",
+    "save": "Save this place",
+    "manage": "Manage places",
+    "saveDialog": {
+      "title": "Save this place",
+      "intro": "A saved place is one click the next time. Everyone who can edit photos picks from the same list.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Home, the dacha, Grandma’s…",
+      "confirm": "Save place",
+      "failed": "Unable to save the place"
+    },
+    "manageDialog": {
+      "title": "Saved places",
+      "intro": "One list for everyone who can edit photos. The places used most come first.",
+      "empty": "No saved places yet. Put the pin on a spot and choose Save this place.",
+      "nameAria": "Name of the place",
+      "rename": "Rename “{{name}}”",
+      "delete": "Delete “{{name}}”",
+      "renameFailed": "Unable to rename the place",
+      "deleteFailed": "Unable to delete the place",
+      "deleteTitle": "Delete “{{name}}”?",
+      "deleteBody": "It will no longer be offered when anyone sets a location. Photos already pinned there keep their place on the map.",
+      "deleteConfirm": "Delete place",
+      "deleting": "Deleting…"
+    }
+  },
   "slideshowEditor": {
     "bgBlack": "Black",
     "bgPhoto": "Photo",

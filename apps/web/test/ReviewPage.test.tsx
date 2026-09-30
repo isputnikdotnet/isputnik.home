@@ -54,6 +54,7 @@ let patches: { path: string; body: Record<string, unknown> }[];
 let posts: string[];
 let suggests: string[];
 let geocodes: string[];
+let savedPlaces: { id: string; name: string; lat: number; lng: number; home: boolean; useCount: number }[];
 
 beforeEach(() => {
   items = [photo(), photo({ id: "p2", title: "002.jpg", folderPath: "box3/002.jpg" })];
@@ -61,7 +62,9 @@ beforeEach(() => {
   posts = [];
   suggests = [];
   geocodes = [];
+  savedPlaces = [];
   vi.mocked(api).mockImplementation(async (path: string, init?: RequestInit) => {
+    if (path === "/api/library/gallery/saved-places") return { canSave: true, places: savedPlaces, recent: [] } as never;
     if (path === "/api/library/gallery/inbox") return { inboxes: [inbox] } as never;
     if (path.startsWith("/api/library/gallery/inbox/inbox/items")) return { items, total: items.length } as never;
     if (path.startsWith("/api/library/gallery/people")) return { people: [{ id: "mama", name: "Mama", faceCount: 12, coverUrl: null }] } as never;
@@ -350,6 +353,31 @@ describe("ReviewPage", () => {
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0].body.placeText).toBe("Ratomka, Belarus");
     expect(patches[0].body.gps).toBeUndefined();
+  });
+
+  // The household's saved places (home, the dacha) are chips ahead of the ones
+  // she wrote herself: the words and the pin in one tap.
+  it("pins a photo from a saved place, and offers that place once", async () => {
+    savedPlaces = [
+      { id: "h", name: "", lat: 53.90123, lng: 27.55912, home: true, useCount: 3 },
+      { id: "d", name: "Dacha", lat: 53.95, lng: 27.31, home: false, useCount: 1 }
+    ];
+    // The next photo was already answered with the same words.
+    items = [items[0], { ...items[1], placeText: "Dacha" }];
+    const user = userEvent.setup();
+    render(<ReviewPage source={{ kind: "inbox", libraryId: "inbox", folder: "box3" }} />);
+    await screen.findByText("1 of 2");
+
+    const saved = await screen.findByRole("group", { name: "Saved places" });
+    expect(within(saved).getAllByRole("button").map((chip) => chip.textContent)).toEqual(["Home", "Dacha"]);
+    expect(screen.queryByRole("group", { name: "Places you already wrote in this box" })).toBeNull();
+
+    await user.click(within(saved).getByRole("button", { name: "Dacha" }));
+    expect(screen.getByLabelText("Where?")).toHaveValue("Dacha");
+    expect(screen.getByText("On the map: Dacha")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save & Next" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].body).toMatchObject({ placeText: "Dacha", gps: { lat: 53.95, lng: 27.31 }, gpsLabel: "Dacha" });
   });
 
   it("never re-pins a photo that already has a location", async () => {

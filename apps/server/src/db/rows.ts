@@ -619,6 +619,29 @@ export interface GalleryPlaceRow {
   dataset: string;
 }
 
+/** `gallery_recent_places` */
+export interface GalleryRecentPlaceRow {
+  user_id: string;
+  lat: number;
+  lng: number;
+  label: string | null;
+  used_at: string;
+}
+
+/** `gallery_saved_places` */
+export interface GallerySavedPlaceRow {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  source: "manual" | "home";
+  use_count: number;
+  last_used_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** `gallery_share_exclusions` */
 export interface GalleryShareExclusionRow {
   item_id: string;
@@ -1463,6 +1486,8 @@ export interface TableRows {
   gallery_music_tracks: GalleryMusicTrackRow;
   gallery_people: GalleryPersonRow;
   gallery_places: GalleryPlaceRow;
+  gallery_recent_places: GalleryRecentPlaceRow;
+  gallery_saved_places: GallerySavedPlaceRow;
   gallery_share_exclusions: GalleryShareExclusionRow;
   gallery_slideshow_items: GallerySlideshowItemRow;
   gallery_slideshows: GallerySlideshowRow;

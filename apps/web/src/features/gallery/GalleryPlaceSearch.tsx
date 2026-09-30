@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MapPin, Search } from "lucide-react";
+import { Bookmark, MapPin, Search } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
+import { GallerySavedPlaces } from "./GallerySavedPlaces";
+import { matchSavedPlaces, savedPlaceName, useSavedPlaces, type Point } from "./savedPlaces";
 
-interface PlaceHit { label: string; lat: number; lng: number }
+interface PlaceHit { label: string; lat: number; lng: number; zoom?: number; saved?: boolean }
 
 const SUGGEST_DELAY_MS = 250;
 
@@ -28,16 +30,24 @@ function parseCoordinates(value: string): { lat: number; lng: number } | null {
 // place names), which is offline — the same list Review mode's PlacePicker uses.
 // Search asks the online geocoder, one request per press: OpenStreetMap's policy
 // forbids search-as-you-type against it.
+//
+// With `saved`, the household's saved places join in (GallerySavedPlaces): a row
+// of one-click chips under the box, and the ones whose name matches what is typed
+// at the top of the list. The gallery's editors pass it; the story map does not.
 export function GalleryPlaceSearch({
   onPick,
   disabled = false,
-  autoFocus = false
+  autoFocus = false,
+  saved
 }: {
   onPick: (point: { lat: number; lng: number }, label: string, zoom?: number) => void;
   disabled?: boolean;
   /** On in the dialog, where the box is the first thing you meet; off in the
    *  lightbox panel, which must not steal focus from the photo's key handling. */
   autoFocus?: boolean;
+  /** Offer saved and recent places. `pin` is where the editor's pin is now, and
+   *  `pinLabel` what the search called it — what "Save this place" would keep. */
+  saved?: { pin: Point | null; pinLabel: string };
 }) {
   const { t } = useTranslation(["common", "gallery"]);
   const [search, setSearch] = useState("");
@@ -48,6 +58,7 @@ export function GalleryPlaceSearch({
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
   const request = useRef(0);
+  const savedPlaces = useSavedPlaces(Boolean(saved));
 
   const query = search.trim();
 
@@ -71,7 +82,8 @@ export function GalleryPlaceSearch({
     request.current += 1;
     setSuggestions([]);
     setHits(null);
-    onPick(hit, hit.label);
+    if (hit.saved) setSearch("");
+    onPick({ lat: hit.lat, lng: hit.lng }, hit.label, hit.zoom);
   };
 
   const runSearch = async () => {
@@ -100,7 +112,14 @@ export function GalleryPlaceSearch({
     }
   };
 
-  const shown = hits ?? suggestions;
+  // Saved places that match come first: "da" is the dacha before it is a town.
+  const homeName = t("gallery:savedPlaces.home");
+  const savedHits: PlaceHit[] = saved && !parseCoordinates(query)
+    ? matchSavedPlaces(savedPlaces.places, query, homeName).map((place) => ({
+        label: savedPlaceName(place, homeName), lat: place.lat, lng: place.lng, zoom: 16, saved: true
+      }))
+    : [];
+  const shown = [...savedHits, ...(hits ?? suggestions)];
 
   return (
     <>
@@ -119,6 +138,8 @@ export function GalleryPlaceSearch({
                 request.current += 1;
                 setSuggestions([]);
                 setHits(null);
+                // Saved matches follow the text, so putting them away clears it.
+                if (savedHits.length > 0) setSearch("");
                 return;
               }
               if (event.key !== "Enter") return;
@@ -140,6 +161,16 @@ export function GalleryPlaceSearch({
         </Button>
       </div>
 
+      {saved && (
+        <GallerySavedPlaces
+          saved={savedPlaces}
+          pin={saved.pin}
+          pinLabel={saved.pinLabel}
+          disabled={disabled}
+          onPick={onPick}
+        />
+      )}
+
       {error && <span className="gallery-place-search-error">{error}</span>}
 
       {shown.length > 0 ? (
@@ -147,7 +178,7 @@ export function GalleryPlaceSearch({
           {shown.map((hit) => (
             <li key={`${hit.lat},${hit.lng},${hit.label}`}>
               <Button variant="bare" onClick={() => pick(hit)} disabled={disabled}>
-                <MapPin size={15} aria-hidden="true" />
+                {hit.saved ? <Bookmark size={15} aria-hidden="true" /> : <MapPin size={15} aria-hidden="true" />}
                 <span>{hit.label}</span>
               </Button>
             </li>

@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.29.0 — Saved places: home is one click
+
+- **Places you pin photos to again and again are now one click.** Setting a location meant typing the address or finding the house on the map every time, because the offline list of towns knows towns, not addresses. Under the search box there is now a row of saved places — home, the dacha, Grandma's — with the ones used most first. Click one and the pin is there.
+- **Save this place** appears once the pin stands somewhere that is not saved yet: give it a name and it joins the list. Typing part of a saved name into the search box finds it too, ahead of the towns. Every photo pinned from a saved place gets the very same point, so they gather as one spot on the map.
+- The list is **one list for the household**, offered to everyone who can edit photos in a gallery library. If a Home location is set in the control panel, it is already on the list as **Home**; it is a copy, so renaming or deleting it here leaves the sign-in map alone.
+- After the saved places come the last few spots you pinned yourself, drawn with a dashed edge. Those are your own, not shared.
+- **Manage places** renames or deletes a saved place. Deleting one removes the shortcut and nothing else: photos already pinned there stay where they are.
+- The same chips are in the photo viewer's Map tab, and under *Where?* in Review mode, where a saved place fills in the words and the pin in one tap.
+
 ## 4.28.4 — Shared branches reach the whole family name
 
 - **Sharing a branch's photos now covers everyone with that family name, the same as editing it.** Since 4.28.2 an edit grant on a tag like "Posse" reaches every Posse in the tree, but sharing that branch's photos still reached only the people tagged by hand, so the two grants on one branch covered different people. Both now follow the same rule: everyone tagged, plus everyone whose name ends in the family name. As more of the family are linked to faces in People, their photos join the share on their own.

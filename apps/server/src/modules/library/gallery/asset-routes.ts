@@ -21,6 +21,7 @@ import { TAKEN_PRECISIONS } from "./taken-precision.js";
 import { replaceGalleryAssetFile } from "./replace.js";
 import { deleteAllReplacedOriginals, deleteReplacedOriginal, listReplacedOriginals } from "./replaced.js";
 import { searchPlaces } from "./geocode.js";
+import { canUseSavedPlaces, recordPlaceUse } from "./saved-places.js";
 import { placesStatus } from "../../maps/places/dataset.js";
 import { suggestPlaces } from "../../maps/places/search.js";
 import { rotateGalleryAsset } from "./rotate.js";
@@ -131,6 +132,9 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
     placeText: z.string().trim().max(300).nullable().optional(),
     tags: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
     gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().optional(),
+    // What the search called the point in `gps` — kept only with this person's
+    // recent places (saved-places.ts), never on the photo.
+    gpsLabel: z.string().trim().max(300).optional(),
     reviewed: z.boolean().optional()
   });
 
@@ -163,6 +167,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
     if (!ok) {
       return reply.code(404).send({ error: "Asset not found" });
     }
+    if (parsed.data.gps && canUseSavedPlaces(user)) recordPlaceUse(user.id, parsed.data.gps, parsed.data.gpsLabel);
 
     logActivity({
       event: parsed.data.reviewed ? "library.gallery.reviewed" : "library.gallery.edited",
@@ -253,6 +258,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
       takenApprox: z.boolean().optional(),
       shiftMinutes: z.number().int().min(-5_256_000).max(5_256_000).refine((v) => v !== 0).optional(),
       gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
+      gpsLabel: z.string().trim().max(300).optional(),
       placeText: z.string().trim().max(300).nullable().optional()
     })
     .refine((body) => body.takenAt === undefined || body.shiftMinutes === undefined, {
@@ -288,6 +294,8 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
       gps: parsed.data.gps,
       placeText: parsed.data.placeText
     });
+
+    if (updated > 0 && parsed.data.gps && canUseSavedPlaces(user)) recordPlaceUse(user.id, parsed.data.gps, parsed.data.gpsLabel);
 
     if (updated > 0) {
       const fields = [

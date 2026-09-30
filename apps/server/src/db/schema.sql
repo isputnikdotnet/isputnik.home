@@ -527,6 +527,40 @@ CREATE TABLE IF NOT EXISTS gallery_places (
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_places_place ON gallery_places(place_id) WHERE place_id IS NOT NULL;
 
+-- Places the household pins photos to again and again — home, the dacha — so
+-- setting a location is one click instead of an address typed each time
+-- (gallery/saved-places.ts). ONE list for the whole house, offered to whoever may
+-- edit photos in a gallery library. `source` 'home' is the row copied once from
+-- the Home location setting (dashboard/home-location.ts); its name stays '' until
+-- someone renames it, and the page says "Home" in the reader's language.
+-- `use_count` orders the chips: the places used most come first. No FK on
+-- created_by, like activity_logs: a deleted account leaves its places behind.
+CREATE TABLE IF NOT EXISTS gallery_saved_places (
+  id           TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  lat          REAL NOT NULL,
+  lng          REAL NOT NULL,
+  source       TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'home')),
+  use_count    INTEGER NOT NULL DEFAULT 0,
+  last_used_at TEXT,
+  created_by   TEXT,
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- The last few points each person pinned photos to by hand, offered after the
+-- saved places. Their own, unlike the list above. `label` is what the search
+-- called the point, NULL for one picked on the map. Coordinates are rounded to
+-- five decimals (about a metre) so the same spot is one row.
+CREATE TABLE IF NOT EXISTS gallery_recent_places (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lat     REAL NOT NULL,
+  lng     REAL NOT NULL,
+  label   TEXT,
+  used_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, lat, lng)
+);
+
 -- People in photos. A `gallery_people` row is a named person (e.g. "Mum") that spans
 -- every gallery library (people are global, like book contributors). It doubles as
 -- the auto-grouping "cluster": `centroid` (a mean face embedding) is filled by the

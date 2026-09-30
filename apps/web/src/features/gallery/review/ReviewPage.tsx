@@ -14,7 +14,7 @@
 // chrome-free page like the story reading view: it leaves the shell behind.
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ArrowRight, FileText, Image as ImageIcon, Mic, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, Home, Image as ImageIcon, MapPin, Mic, Pencil } from "lucide-react";
 import { api } from "../../../api";
 import { goBack } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -26,6 +26,7 @@ import { NEW_PERSON_PREFIX, PeopleChips } from "./PeopleChips";
 import { WhenPicker, type WhenValue } from "./WhenPicker";
 import { ReviewNoteModal } from "./ReviewNoteModal";
 import { PlacePicker, type PlacePin } from "./PlacePicker";
+import { savedPlaceName, useSavedPlaces } from "../savedPlaces";
 import { VoiceNotes } from "../VoiceNotes";
 import { RecordVoiceNoteModal } from "../RecordVoiceNoteModal";
 // Review mode's stylesheet: it loads with this page, not on every route (docs/css-map.md).
@@ -134,6 +135,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   /** Record an answer against the photo it was given for. */
   const editDraft = (next: Draft) => { if (asset) setEdited({ assetId: asset.id, draft: next }); };
   const canEdit = context?.canEdit === true;
+  const { places: savedPlaces } = useSavedPlaces(canEdit);
   const total = assets?.length ?? 0;
   const reviewedCount = useMemo(() => (assets ?? []).filter((a) => a.reviewedAt).length, [assets]);
 
@@ -241,7 +243,11 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
         reviewed: true
       };
       // A found place pins the photo — never one that already has a location.
-      if (draft.pin && !asset.gps) body.gps = { lat: draft.pin.lat, lng: draft.pin.lng };
+      if (draft.pin && !asset.gps) {
+        body.gps = { lat: draft.pin.lat, lng: draft.pin.lng };
+        // For her recent places (the lightbox's location editor), not the photo.
+        body.gpsLabel = draft.pin.label;
+      }
       // The reading goes with every save, not only the one that changed it:
       // leaving Review re-saves the photo, and a second save that sent the date
       // without saying how it is read used to harden "about 1983" into an exact
@@ -339,6 +345,17 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   const pinOf = (source: GalleryAsset | null | undefined): PlacePin | null =>
     source?.gps && source.placeText ? { ...source.gps, label: source.placeText } : null;
 
+  // The household's saved places (home, the dacha) come first, each with its
+  // pin. Empty for someone answering through an album sent to them.
+  const homeName = t("galleryReview:where.home");
+  const savedChips = useMemo(
+    () => savedPlaces.map((place) => {
+      const name = savedPlaceName(place, homeName);
+      return { id: place.id, home: place.home, place: name, pin: { lat: place.lat, lng: place.lng, label: name } as PlacePin };
+    }),
+    [savedPlaces, homeName]
+  );
+
   // Places she already wrote in this box, nearest first, as one-tap chips — each
   // with the pin its photo got, so the same town pins the next photo too.
   const recentPlaces = useMemo(() => {
@@ -346,12 +363,15 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
     const seen: { place: string; pin: PlacePin | null }[] = [];
     const take = (candidate: GalleryAsset) => {
       const place = candidate.placeText?.trim();
-      if (place && !seen.some((entry) => entry.place === place)) seen.push({ place, pin: pinOf(candidate) });
+      if (!place || seen.some((entry) => entry.place === place)) return;
+      // A saved place is offered once, by its own chip.
+      if (savedChips.some((entry) => entry.place === place)) return;
+      seen.push({ place, pin: pinOf(candidate) });
     };
     for (let i = index - 1; i >= 0 && seen.length < RECENT_PLACES; i -= 1) take(assets[i]);
     for (let i = index + 1; i < assets.length && seen.length < RECENT_PLACES; i += 1) take(assets[i]);
     return seen;
-  }, [assets, index]);
+  }, [assets, index, savedChips]);
 
   const progress = (
     <div className="review-progress" aria-label={t("galleryReview:progressAria")}>
@@ -455,6 +475,23 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                   onChange={(place, pin) => editDraft({ ...draft, place, pin })}
                   disabled={!canEdit || busy}
                 />
+                {canEdit && savedChips.length > 0 && (
+                  <div className="review-chips" role="group" aria-label={t("galleryReview:where.savedAria")}>
+                    {savedChips.map(({ id, home, place, pin }) => (
+                      <Button
+                        variant="chip"
+                        key={id}
+                        className="review-chip"
+                        aria-pressed={draft.place.trim() === place}
+                        onClick={() => editDraft({ ...draft, place, pin })}
+                        disabled={busy}
+                      >
+                        {home ? <Home size={18} aria-hidden="true" /> : <MapPin size={18} aria-hidden="true" />}
+                        {place}
+                      </Button>
+                    ))}
+                  </div>
+                )}
                 {canEdit && recentPlaces.length > 0 && (
                   <div className="review-chips" role="group" aria-label={t("galleryReview:where.recentAria")}>
                     {recentPlaces.map(({ place, pin }) => (

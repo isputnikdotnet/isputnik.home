@@ -46,7 +46,8 @@ export function GalleryLocationModal({
       const result = await sendInBatches<{ updated: number; forbidden: number }>(itemIds, (ids) =>
         api("/api/library/gallery/assets/bulk-place-time", {
           method: "POST",
-          body: JSON.stringify({ ids, gps })
+          // The label is for this person's recent places, not for the photos.
+          body: JSON.stringify({ ids, gps, ...(pickedLabel ? { gpsLabel: pickedLabel } : {}) })
         }));
       onApplied(result.updated, result.forbidden);
       onClose();
@@ -77,7 +78,7 @@ export function GalleryLocationModal({
       {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
 
       <div className="gallery-bulk-edit-field">
-        <GalleryPlaceSearch onPick={place} disabled={busy} autoFocus />
+        <GalleryPlaceSearch onPick={place} disabled={busy} autoFocus saved={{ pin: gps, pinLabel: pickedLabel }} />
 
         <Suspense fallback={<div className="gallery-mini-map gallery-mini-map--loading" />}>
           <GalleryLocationPicker

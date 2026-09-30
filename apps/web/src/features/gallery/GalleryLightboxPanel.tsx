@@ -208,6 +208,8 @@ export function GalleryLightboxPanel({
     title: string; description: string | null; takenAt: string | null; tags: string[];
     takenPrecision?: TakenPrecision; takenApprox?: boolean; placeText?: string | null;
     gps?: { lat: number; lng: number } | null;
+    /** What the search called `gps`, for this person's recent places. */
+    gpsLabel?: string;
   };
   const patch = async (change: Partial<PatchBody>, fallbackError: string): Promise<boolean> => {
     if (editBusy) return false;
@@ -240,7 +242,7 @@ export function GalleryLightboxPanel({
   };
 
   const saveLocation = (next: { lat: number; lng: number } | null) =>
-    patch({ gps: next }, t("gallery:lightbox.errors.saveLocation"));
+    patch({ gps: next, ...(next && editGpsLabel ? { gpsLabel: editGpsLabel } : {}) }, t("gallery:lightbox.errors.saveLocation"));
 
   const saveEdit = async () => {
     if (!editingField) return;
@@ -628,6 +630,7 @@ export function GalleryLightboxPanel({
             <div className="gallery-info-form">
               <GalleryPlaceSearch
                 disabled={editBusy}
+                saved={{ pin: editGps, pinLabel: editGpsLabel }}
                 onPick={(point, label, zoom) => {
                   setEditGps(point);
                   setEditGpsLabel(label);

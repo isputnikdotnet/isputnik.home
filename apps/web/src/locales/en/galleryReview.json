@@ -27,6 +27,8 @@
     "hint": "Add a place to help remember.",
     "placeholder": "Add a place…",
     "recentAria": "Places you already wrote in this box",
+    "savedAria": "Saved places",
+    "home": "Home",
     "matchesAria": "Places that match",
     "online": "Search online for “{{text}}”",
     "onlineBusy": "Searching online…",
