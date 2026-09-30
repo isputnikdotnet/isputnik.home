@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.29.3 — Security updates for two libraries
+
+- **Two libraries under the server moved to their fixed releases.** A pattern-matching helper used when the server lists its own files at start-up and when a backup or a package is written could be sent into a stack overflow by a deeply nested pattern — in this app the patterns are the server's own, never a visitor's, so nothing was reachable, but the fix is a version bump and it is taken. The web address parser behind Fastify's validation, which normalized some percent-encoded host names inconsistently, is updated as well. Nothing to change on your side.
+
 ## 4.29.2 — Coordinates are a point, not a name
 
 - **Coordinates typed into the location search no longer read as the place's name.** "53.9, 27.56" put the pin down as it should, but the same numbers were taken as what the spot is called: the line under the map showed them twice, **Save this place** offered the latitude as the name, and a recent place kept them as its label. A typed point now has no name — the line shows it once, the name field starts empty, and a recent place reads as the town it is in.

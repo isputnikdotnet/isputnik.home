@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.29.3",
+    "label": "Security updates for two libraries",
+    "changes": [
+      "**Two libraries under the server moved to their fixed releases.** A pattern-matching helper used when the server lists its own files at start-up and when a backup or a package is written could be sent into a stack overflow by a deeply nested pattern — in this app the patterns are the server's own, never a visitor's, so nothing was reachable, but the fix is a version bump and it is taken. The web address parser behind Fastify's validation, which normalized some percent-encoded host names inconsistently, is updated as well. Nothing to change on your side."
+    ]
+  },
+  {
     "version": "4.29.2",
     "label": "Coordinates are a point, not a name",
     "changes": [
