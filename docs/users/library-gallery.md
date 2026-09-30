@@ -143,6 +143,8 @@ place, put the pin where it belongs (search, or click the map) and choose
 **Save this place**, then give it a name. Typing part of a saved name into the
 search box finds it too, ahead of the towns.
 
+![Set location with saved places under the search box: Home, Lake cabin and Grandma's, a recent place with a dashed edge, and Save this place for the pin](images/118-gallery-saved-places.png)
+
 The list is one list for everyone who can edit photos, so a place you save is
 there for the rest of the family. If an admin has set the Home location in the
 control panel, it is already on the list as **Home**. **Manage places** renames

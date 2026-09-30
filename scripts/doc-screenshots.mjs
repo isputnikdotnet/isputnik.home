@@ -663,6 +663,30 @@ const SHOTS = [
       toggle.click(); await sleep(800);
       document.querySelector(".help-faq").scrollIntoView({ block: "center" }); await sleep(300);
       "answer open";`
+  },
+  {
+    // Set location over a selection: saved places as chips under the search box,
+    // a recent one after them, and Save this place for a pin that is not saved
+    // yet. The pin is put down by the recent chip, so nothing is looked up.
+    // Never click the Home chip here: the map would show where home is.
+    name: "118-gallery-saved-places",
+    url: "gallery",
+    wait: 2500,
+    state: "saved places on the list (D:/Demo/scripts/saved-places.mjs)",
+    setup: `
+      const start = button(document, "Select");
+      if (!start) return "no Select button — page not ready, or too narrow for the toolbar";
+      start.click(); await sleep(500);
+      document.querySelector('button[aria-label^="Select all from "]')?.click(); await sleep(400);
+      const set = [...document.querySelectorAll("button")]
+        .find((b) => (b.getAttribute("title") ?? b.getAttribute("aria-label") ?? b.textContent).trim().startsWith("Set location"));
+      if (!set) return "nothing selected — no Set location button";
+      set.click(); await sleep(1500);
+      const recent = topModal().querySelector(".gallery-place-chip--recent");
+      if (!recent) return "no recent place — run D:/Demo/scripts/saved-places.mjs first";
+      recent.click(); await sleep(4500);
+      if (!button(topModal(), "Save this place")) return "the pin did not land — no Save this place";
+      "pin placed";`
   }
 ];
 

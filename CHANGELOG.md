@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.29.1 — Saved places, pictured in the guide
+
+- The Gallery guide now shows **saved places** in a picture: the Set location dialog with the household's places as chips under the search box, a recent place with its dashed edge, and **Save this place** for a pin that is not on the list yet. Nothing in the app itself changed.
+
 ## 4.29.0 — Saved places: home is one click
 
 - **Places you pin photos to again and again are now one click.** Setting a location meant typing the address or finding the house on the map every time, because the offline list of towns knows towns, not addresses. Under the search box there is now a row of saved places — home, the dacha, Grandma's — with the ones used most first. Click one and the pin is there.

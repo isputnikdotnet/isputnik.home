@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.29.1",
+    "label": "Saved places, pictured in the guide",
+    "changes": [
+      "The Gallery guide now shows **saved places** in a picture: the Set location dialog with the household's places as chips under the search box, a recent place with its dashed edge, and **Save this place** for a pin that is not on the list yet. Nothing in the app itself changed."
+    ]
+  },
+  {
     "version": "4.29.0",
     "label": "Saved places: home is one click",
     "changes": [
