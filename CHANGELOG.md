@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.29.4 — Security update for the upload parser
+
+- **The library that reads uploaded files moved to its fixed release.** Two flaws in it let a specially built upload request tie up the server: one with an oversized part separator, one with a part header named after a built-in JavaScript property. Neither could read or change anything, only slow the server down for everyone else. The fix is a version bump inside the range the app already declared, so nothing else changed. Nothing to change on your side.
+
 ## 4.29.3 — Security updates for two libraries
 
 - **Two libraries under the server moved to their fixed releases.** A pattern-matching helper used when the server lists its own files at start-up and when a backup or a package is written could be sent into a stack overflow by a deeply nested pattern — in this app the patterns are the server's own, never a visitor's, so nothing was reachable, but the fix is a version bump and it is taken. The web address parser behind Fastify's validation, which normalized some percent-encoded host names inconsistently, is updated as well. Nothing to change on your side.

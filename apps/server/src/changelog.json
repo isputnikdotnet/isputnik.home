@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.29.4",
+    "label": "Security update for the upload parser",
+    "changes": [
+      "**The library that reads uploaded files moved to its fixed release.** Two flaws in it let a specially built upload request tie up the server: one with an oversized part separator, one with a part header named after a built-in JavaScript property. Neither could read or change anything, only slow the server down for everyone else. The fix is a version bump inside the range the app already declared, so nothing else changed. Nothing to change on your side."
+    ]
+  },
+  {
     "version": "4.29.3",
     "label": "Security updates for two libraries",
     "changes": [
