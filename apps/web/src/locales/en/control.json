@@ -59,7 +59,10 @@
     "tabsAria": "{{group}} sections",
     "searchTrigger": "Search…",
     "menuOpen": "Control panel menu — on {{page}}",
-    "searchAria": "Search the control panel"
+    "searchAria": "Search the control panel",
+    "menu": "Menu",
+    "search": "Search",
+    "barAria": "Control panel shortcuts"
   },
   "search": {
     "title": "Search the control panel",

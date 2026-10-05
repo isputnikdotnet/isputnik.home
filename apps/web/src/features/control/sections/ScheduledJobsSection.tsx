@@ -124,7 +124,7 @@ export function ScheduledJobsSection() {
 
   return (
     <>
-      <ControlSectionHead section="scheduledJobs">
+      <ControlSectionHead section="scheduledJobs" icon={<CalendarClock size={30} />}>
         <RefreshButton
           onRefresh={async () => {
             setError("");

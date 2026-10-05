@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Home, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Home, ListChecks, Menu, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { controlHref, followRoute } from "../../router";
@@ -87,6 +87,12 @@ export function ControlPanelPage({
   const { t } = useTranslation(["common", "control"]);
   const [searchOpen, setSearchOpen] = useState(false);
   const openSearch = useCallback(() => setSearchOpen(true), []);
+  // The phone's page menu: opened from the strip on top and from the bar below.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const openMenu = useCallback(() => setMenuOpen(true), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // A page change — from the menu, search or a link on the page — closes the menu.
+  useEffect(() => setMenuOpen(false), [section]);
   useControlSearchShortcut(openSearch);
   useAnchorScroll(section);
 
@@ -118,7 +124,16 @@ export function ControlPanelPage({
   return (
     <DashboardShell
       active="control"
-      sideNav={<ControlPanelNav section={section} onSearch={openSearch} />}
+      sideNav={
+        isMobile
+          ? <ControlPanelPhoneStrip section={section} menuOpen={menuOpen} onMenu={openMenu} />
+          : <ControlPanelNav section={section} onSearch={openSearch} />
+      }
+      bottomNav={
+        isMobile
+          ? <ControlPanelPhoneBar section={section} menuOpen={menuOpen} onMenu={openMenu} onSearch={openSearch} />
+          : undefined
+      }
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
@@ -140,6 +155,7 @@ export function ControlPanelPage({
         </section>
       </div>
 
+      {isMobile && menuOpen && <ControlPanelPhoneMenu section={section} onClose={closeMenu} />}
       {searchOpen && <ControlSearch onClose={() => setSearchOpen(false)} />}
     </DashboardShell>
   );
@@ -204,9 +220,6 @@ function ControlSectionBody({
 function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
   const { t } = useTranslation(["common", "control"]);
   const activeGroup = groupForSection(section);
-  const isMobile = useIsMobile();
-
-  if (isMobile) return <ControlPanelPhoneNav section={section} onSearch={onSearch} />;
 
   return (
     <nav className="home-control-nav" aria-label={t("control:nav.aria")}>
@@ -249,112 +262,149 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
   );
 }
 
-// The panel on a phone: Home, one button that says where you are and opens every
-// group and page, and search — always the same three, never a strip that scrolls
-// sideways past most of its own links. The menu is the desktop nav and tab rows in
-// one list, from the same nav.ts, so the two can never disagree.
-function ControlPanelPhoneNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
+// The panel on a phone is three pieces, all drawn from nav.ts so they can never
+// disagree with the desktop nav and tab rows:
+//   * a one-line strip on top that says where you are (and opens the menu);
+//   * a bar along the bottom, where the thumb is and where every other part of
+//     the app keeps its tabs — Home · Menu · Tasks · Search;
+//   * the menu: every group and page in one list, rising from the bottom.
+function ControlPanelPhoneStrip({
+  section,
+  menuOpen,
+  onMenu
+}: {
+  section: ControlSection;
+  menuOpen: boolean;
+  onMenu: () => void;
+}) {
   const { t } = useTranslation(["common", "control"]);
-  const [menuOpen, setMenuOpen] = useState(false);
   const activeGroup = groupForSection(section);
   const ActiveIcon = activeGroup.icon;
 
-  // A page change — from the menu, search or a link on the page — closes the menu.
-  useEffect(() => setMenuOpen(false), [section]);
-
-  // Thirty-odd pages is taller than a phone: open on the one you are on.
-  useEffect(() => {
-    if (!menuOpen) return;
-    document.querySelector(".control-phone-menu [aria-current='page']")?.scrollIntoView({ block: "center" });
-  }, [menuOpen]);
-
   return (
     <nav className="home-control-nav control-phone-nav" aria-label={t("control:nav.aria")}>
-      <a
-        className="home-nav-link control-nav-exit control-phone-icon"
-        href="/"
-        aria-label={t("control:nav.exit")}
-        title={t("control:nav.exit")}
-        onClick={(event) => followRoute(event, "/")}
-      >
-        <Home size={20} aria-hidden="true" />
-      </a>
-
       <Button
         variant="bare"
         className="control-phone-menu-trigger"
         aria-haspopup="dialog"
         aria-expanded={menuOpen}
         aria-label={t("control:nav.menuOpen", { page: `${groupLabel(activeGroup.key)} › ${tabLabel(section)}` })}
-        onClick={() => setMenuOpen(true)}
+        onClick={onMenu}
       >
-        <ActiveIcon size={18} aria-hidden="true" />
-        <span className="control-phone-menu-label">
-          <small>{groupLabel(activeGroup.key)}</small>
-          <strong>{tabLabel(section)}</strong>
-        </span>
-        <ChevronDown size={18} aria-hidden="true" />
+        <ActiveIcon size={17} aria-hidden="true" />
+        <small>{groupLabel(activeGroup.key)}</small>
+        <ChevronRight className="control-phone-menu-sep" size={14} aria-hidden="true" />
+        <strong>{tabLabel(section)}</strong>
+        <ChevronDown className="control-phone-menu-chevron" size={16} aria-hidden="true" />
       </Button>
-
-      <Button
-        variant="icon"
-        className="control-phone-icon"
-        aria-label={t("control:nav.searchAria")}
-        title={t("control:nav.searchAria")}
-        onClick={onSearch}
-      >
-        <Search size={20} aria-hidden="true" />
-      </Button>
-
-      {menuOpen && (
-        <Modal
-          variant="panel"
-          className="control-phone-menu"
-          title={t("control:nav.aria")}
-          onClose={() => setMenuOpen(false)}
-        >
-          <div className="control-phone-menu-groups">
-            {CONTROL_GROUPS.map((group) => {
-              const Icon = group.icon;
-              const headingId = `control-phone-menu-${group.key}`;
-              return (
-                <section key={group.key} className="control-phone-menu-group" aria-labelledby={headingId}>
-                  <h2 id={headingId}>
-                    <Icon size={17} aria-hidden="true" />
-                    {groupLabel(group.key)}
-                  </h2>
-                  <ul>
-                    {group.tabs.map((tab) => {
-                      const href = controlHref(tab.section);
-                      const current = tab.section === section;
-                      return (
-                        <li key={tab.section}>
-                          <a
-                            href={href}
-                            className={current ? "is-active" : undefined}
-                            aria-current={current ? "page" : undefined}
-                            onClick={(event) => {
-                              if (current) {
-                                event.preventDefault();
-                                setMenuOpen(false);
-                                return;
-                              }
-                              followRoute(event, href);
-                            }}
-                          >
-                            {tabLabel(tab.section)}
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              );
-            })}
-          </div>
-        </Modal>
-      )}
     </nav>
+  );
+}
+
+// Tasks is the one page with a slot of its own: it is where a scan, a backup or a
+// cleanup is followed, and following one is what the panel is opened for on a phone.
+const PHONE_BAR_SHORTCUT: ControlSection = "tasks";
+
+function ControlPanelPhoneBar({
+  section,
+  menuOpen,
+  onMenu,
+  onSearch
+}: {
+  section: ControlSection;
+  menuOpen: boolean;
+  onMenu: () => void;
+  onSearch: () => void;
+}) {
+  const { t } = useTranslation(["common", "control"]);
+  const shortcutHref = controlHref(PHONE_BAR_SHORTCUT);
+  const onShortcut = section === PHONE_BAR_SHORTCUT;
+
+  return (
+    <nav className="home-mobile-nav control-phone-bar" aria-label={t("control:nav.barAria")}>
+      <a className="home-mobile-nav-item" href="/" onClick={(event) => followRoute(event, "/")}>
+        <Home size={20} aria-hidden="true" />
+        <span>{t("control:nav.exit")}</span>
+      </a>
+      {/* Lit on every page but the shortcut's: any other page is one you reach
+          through the menu, so this is the tab you are standing in. */}
+      <Button
+        variant="bare"
+        className={`home-mobile-nav-item${!onShortcut ? " is-active" : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={menuOpen}
+        onClick={onMenu}
+      >
+        <Menu size={20} aria-hidden="true" />
+        <span>{t("control:nav.menu")}</span>
+      </Button>
+      <a
+        className={`home-mobile-nav-item${onShortcut ? " is-active" : ""}`}
+        href={shortcutHref}
+        aria-current={onShortcut ? "page" : undefined}
+        onClick={(event) => followRoute(event, shortcutHref)}
+      >
+        <ListChecks size={20} aria-hidden="true" />
+        <span>{tabLabel(PHONE_BAR_SHORTCUT)}</span>
+      </a>
+      <Button variant="bare" className="home-mobile-nav-item" aria-haspopup="dialog" onClick={onSearch}>
+        <Search size={20} aria-hidden="true" />
+        <span>{t("control:nav.search")}</span>
+      </Button>
+    </nav>
+  );
+}
+
+function ControlPanelPhoneMenu({ section, onClose }: { section: ControlSection; onClose: () => void }) {
+  const { t } = useTranslation(["common", "control"]);
+
+  // Thirty-odd pages is taller than a phone: open on the one you are on.
+  useEffect(() => {
+    document.querySelector(".control-phone-menu [aria-current='page']")?.scrollIntoView({ block: "center" });
+  }, []);
+
+  return (
+    <Modal variant="panel" className="control-phone-menu" title={t("control:nav.aria")} onClose={onClose}>
+      <div className="control-phone-menu-groups">
+        {CONTROL_GROUPS.map((group) => {
+          const Icon = group.icon;
+          const headingId = `control-phone-menu-${group.key}`;
+          return (
+            <section key={group.key} className="control-phone-menu-group" aria-labelledby={headingId}>
+              <h2 id={headingId}>
+                <Icon size={17} aria-hidden="true" />
+                {groupLabel(group.key)}
+              </h2>
+              <ul>
+                {group.tabs.map((tab) => {
+                  const href = controlHref(tab.section);
+                  const current = tab.section === section;
+                  return (
+                    <li key={tab.section}>
+                      <a
+                        href={href}
+                        className={current ? "is-active" : undefined}
+                        aria-current={current ? "page" : undefined}
+                        onClick={(event) => {
+                          if (current) {
+                            event.preventDefault();
+                            onClose();
+                            return;
+                          }
+                          followRoute(event, href);
+                        }}
+                      >
+                        {tabLabel(tab.section)}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </Modal>
   );
 }
 

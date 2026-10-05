@@ -16,6 +16,16 @@
   font-size: 0.875rem;
 }
 
+/* On a phone a table wider than the screen scrolls sideways in its wrap; it must
+   not get there by crushing a column. base.css lets every span and strong break
+   anywhere, which tells the table a name column may be one letter wide — and a
+   name then read down the page, a letter a line. Words stay whole here. */
+@media (max-width: 740px) {
+  .datagrid :is(span, strong, p) {
+    overflow-wrap: break-word;
+  }
+}
+
 .datagrid thead tr {
   background: var(--surface);
   border-bottom: 1px solid var(--line);

@@ -339,13 +339,18 @@
 
 /* ── Health & status ────────────────────────────────────────────── */
 
+/* One column that may shrink: an implicit grid column floors at its content's
+   min-content, so one wide child (a range picker, a table) set the width of the
+   whole page and pushed every card past the edge of a phone. */
 .status-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 30px;
 }
 
 .status-block {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   /* A grid item floors at min-content unless told otherwise, which lets wide
      content (the backup command, tables) push the block past its track. */
@@ -358,6 +363,8 @@
 
 .status-subsection {
   display: grid;
+  /* May shrink — see .status-stack. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -1140,6 +1147,8 @@ tr.control-anchor-flash > td {
 
 .backup-page {
   display: grid;
+  /* May shrink — see .status-stack. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -2301,76 +2310,227 @@ tr.control-anchor-flash > td {
 }
 
 /* ── The control panel on a phone ───────────────────────────────── */
-/* ControlPanelPhoneNav: Home · where you are (opens the menu) · search, in one row
-   that never scrolls sideways; the menu lists every group and page. Rendered only
-   at the mobile breakpoint (useIsMobile), and styled only there. */
+/* Three pieces (ControlPanelPage): a one-line strip on top that says where you
+   are, a bar along the bottom — Home · Menu · Tasks · Search, wearing the app's
+   own tab-bar look (.home-mobile-nav, home.css) — and the menu of every group and
+   page, a sheet rising from the bottom. Rendered only at the mobile breakpoint
+   (useIsMobile), and styled only there. */
 @media (max-width: 740px) {
-  .home-control-nav.control-phone-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    overflow: visible;
+  /* The strip is all the header there is: the brand and the account row are one
+     tap away behind Home, and 215px of header was a quarter of the screen. It
+     stays up while the page scrolls, so the page's name is never out of sight. */
+  .home-control-shell .home-sidebar {
+    position: sticky;
+    z-index: calc(var(--z-nav) - 3);
+    top: 0;
+    gap: 0;
+    padding: 0;
   }
 
-  .control-phone-nav .control-phone-icon {
-    flex: 0 0 auto;
-    justify-content: center;
-    width: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: transparent;
+  .home-control-shell .home-sidebar-brand,
+  .home-control-shell .home-sidebar-bottom {
+    display: none;
+  }
+
+  /* Room for the bar under the last card. */
+  .home-control-shell .home-main {
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+  }
+
+  .home-control-nav.control-phone-nav {
+    display: flex;
+    margin: 0;
+    overflow: visible;
   }
 
   .control-phone-menu-trigger {
     display: flex;
     flex: 1 1 auto;
     align-items: center;
-    gap: var(--space-2);
+    gap: 6px;
     min-width: 0;
     min-height: 44px;
-    padding: 0 var(--space-3);
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    padding: 0 14px;
+    padding-top: env(safe-area-inset-top);
+    border: 0;
     background: transparent;
     color: inherit;
     font: inherit;
+    font-size: var(--text-sm);
     text-align: left;
     cursor: pointer;
   }
 
   .control-phone-menu-trigger:focus-visible {
     outline: 2px solid var(--mint);
-    outline-offset: 1px;
+    outline-offset: -2px;
   }
 
-  .control-phone-menu-label {
-    display: grid;
-    flex: 1 1 auto;
-    min-width: 0;
-    line-height: 1.15;
+  .control-phone-menu-trigger > svg {
+    flex: 0 0 auto;
   }
 
-  .control-phone-menu-label small {
+  .control-phone-menu-trigger small {
+    flex: 0 1 auto;
     color: var(--muted);
-    font-size: var(--text-xs);
+    font-size: inherit;
   }
 
-  .control-phone-menu-label strong,
-  .control-phone-menu-label small {
+  .control-phone-menu-trigger strong {
+    flex: 0 1 auto;
+  }
+
+  .control-phone-menu-trigger strong,
+  .control-phone-menu-trigger small {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  .control-phone-menu-sep,
+  .control-phone-menu-chevron {
+    color: var(--muted);
+  }
+
+  .control-phone-menu-chevron {
+    margin-left: auto;
+  }
+
+  /* The menu is shared/Modal, seated on the bottom edge like the app's other
+     sheets instead of floating in the middle of the screen. */
+  .modal-backdrop:has(> .control-phone-menu) {
+    place-items: end stretch;
+    padding: 0;
+    overflow: hidden;
+  }
+
   .metadata-modal.control-phone-menu {
     grid-template-rows: auto minmax(0, 1fr);
-    width: calc(100vw - 24px);
+    width: 100%;
     height: auto;
     min-height: 0;
-    max-height: calc(100dvh - 32px);
+    max-height: min(78dvh, calc(100dvh - 56px));
+    border-width: 1px 0 0;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: mobile-sheet-in 0.2s ease;
+  }
+
+  /* ── Pages at phone width ── */
+  /* A name that ellipsises has no minimum width of its own, so a table gave its
+     name column whatever the other columns left — "Ge…", or nothing at all, with
+     the next cell drawn over it. Names get room first; the table scrolls
+     sideways in its wrap for the rest, and a row's one-line note wraps. */
+  .datagrid .datagrid-primary,
+  .datagrid .category-name-cell {
+    min-width: 8.5rem;
+  }
+
+  .datagrid .datagrid-primary small {
+    white-space: normal;
+  }
+
+  /* A path keeps a readable run of characters to a line; it broke after every
+     three ("Voi / ce / not / es/") when the table had no width to spare. */
+  .datagrid .storage-path-cell {
+    min-width: 11rem;
+    white-space: normal;
+  }
+
+  /* The page header: the description runs the full width under the icon and
+     title. Beside the icon it had 230px, so a long one (Videos, Missing photos)
+     became a dozen short lines with the icon adrift halfway down them. */
+  .control-work .admin-title-wrap {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 2px;
+  }
+
+  .control-work .admin-heading-copy {
+    display: contents;
+  }
+
+  .control-work .admin-page-icon {
+    grid-row: 1 / span 2;
+    width: 48px;
+    height: 48px;
+  }
+
+  .control-work .admin-heading-copy .section-description {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+  }
+
+  /* Recycle Bin: two tiles to a row (150px each was 4px too wide to fit twice). */
+  .trash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* A section's heading over its note, not squeezed beside it into three lines. */
+  .status-table-title {
+    flex-wrap: wrap;
+    gap: 2px 12px;
+  }
+
+  /* The range picker fills the row and shares it out, so "Custom" is not cut off. */
+  .range-picker {
+    display: flex;
+    max-width: 100%;
+  }
+
+  .range-picker button {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+    padding: 9px 8px;
+  }
+
+  /* Libraries: each library is a small card — name and access on one line, its
+     actions on the next. As table columns the row had room for two of its five
+     buttons; Edit, Rescan and Delete were clipped off the edge, out of reach. */
+  .library-table thead {
+    display: none;
+  }
+
+  .library-table,
+  .library-table tbody {
+    display: block;
+  }
+
+  .library-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .library-table tbody td {
+    border-bottom: 0;
+  }
+
+  .library-table tbody tr + tr {
+    border-top: 1px solid var(--line);
+  }
+
+  .library-table tbody td.col-actions {
+    grid-column: 1 / -1;
+    padding-top: 0;
+  }
+
+  .library-table .row-actions {
+    justify-content: flex-start;
+  }
+
+  .library-table .library-name-line strong {
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  /* Logs: rows-per-page, Refresh, export and delete wrap instead of running off. */
+  .log-toolbar-controls {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
   }
 
   .control-phone-menu-groups {

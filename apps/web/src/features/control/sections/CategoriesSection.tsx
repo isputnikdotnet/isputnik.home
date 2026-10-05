@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Search, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Search, Shapes, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, navigate } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -120,7 +120,7 @@ export function CategoriesSection() {
 
   return (
     <>
-      <ControlSectionHead section="categories" description={t("control:categories.description")}>
+      <ControlSectionHead section="categories" icon={<Shapes size={30} />} description={t("control:categories.description")}>
         <div className="category-head-actions">
           <Button variant="primary" onClick={() => navigate(`${controlHref("categories")}/new`)}>
             <Plus size={16} /> {t("control:categories.addCategory")}

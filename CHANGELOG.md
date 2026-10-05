@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.30.0 — The control panel in your pocket
+
+- **The control panel has a bar along the bottom on a phone**, like the rest of the app: **Home**, **Menu**, **Tasks** and **Search**. Until now it was the one place without one. Its header took a quarter of the screen and scrolled away with the page, so getting to another page meant scrolling back to the top first. The header is now a single line that stays put and says where you are; tap it, or **Menu**, for the list of every page, which rises from the bottom of the screen.
+- **Libraries: every action is reachable on a phone.** Each library had five buttons and room for two; Edit, Rescan and Delete were cut off past the edge of the screen with no way to scroll to them. A library is now a small card there, its name and access on one line and all five actions on the next.
+- **Pages no longer run off the right edge of a phone.** On Backup, Activity, Sign-ins, Sign-in locations and Tasks one wide element set the width of the whole page, so cards and buttons were cut mid-word.
+- **Tables keep their names readable on a phone.** A name column could be squeezed to one letter per line (Scheduled jobs, Security, Storage, Library statistics) or cut to "Ge..." (Categories). Names now keep whole words and the table scrolls sideways inside its own frame for the rest.
+- Smaller things at phone width: a page's description runs the full width under its title instead of in a narrow column beside the icon, the time-range picker no longer loses **Custom** off the edge, the Logs toolbar wraps, and the Recycle Bin shows two items to a row.
+- Categories, Tags, Scheduled jobs and About now open with an icon beside the title, like every other control page.
+
 ## 4.29.4 — Security update for the upload parser
 
 - **The library that reads uploaded files moved to its fixed release.** Two flaws in it let a specially built upload request tie up the server: one with an oversized part separator, one with a part header named after a built-in JavaScript property. Neither could read or change anything, only slow the server down for everyone else. The fix is a version bump inside the range the app already declared, so nothing else changed. Nothing to change on your side.

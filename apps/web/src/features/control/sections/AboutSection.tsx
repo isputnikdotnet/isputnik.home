@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Compass } from "lucide-react";
+import { Compass, Info } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
@@ -21,7 +21,7 @@ export function AboutSection() {
 
   return (
     <>
-      <ControlSectionHead section="about" description={t("control:about.description")} />
+      <ControlSectionHead section="about" icon={<Info size={30} />} description={t("control:about.description")} />
 
       {error && <MessageBox tone="error" title={t("control:about.errorTitle")}>{error}</MessageBox>}
 

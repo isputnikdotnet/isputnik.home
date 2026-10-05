@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Pencil, Trash2, X, Eraser, Search, Plus } from "lucide-react";
+import { Check, Pencil, Trash2, X, Eraser, Search, Plus, Tags as TagsIcon } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -131,7 +131,7 @@ export function TagsSection() {
 
   return (
     <>
-      <ControlSectionHead section="tags" description={t("controlAdmin:tags.headDescription")}>
+      <ControlSectionHead section="tags" icon={<TagsIcon size={30} />} description={t("controlAdmin:tags.headDescription")}>
         <div className="row-actions">
           <Button variant="primary" onClick={() => { setError(""); setNotice(""); setCreateOpen(true); }}>
             <Plus size={18} aria-hidden="true" />

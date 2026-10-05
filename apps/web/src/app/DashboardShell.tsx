@@ -308,10 +308,14 @@ function MobileNav({
 export function DashboardShell({
   active,
   sideNav,
+  bottomNav,
   children
 }: {
   active: DashboardActive;
   sideNav?: ReactNode;
+  /** A section's own bar for phones, in the place the four-tab bar holds elsewhere
+   *  (the control panel's; it renders nothing above the phone breakpoint). */
+  bottomNav?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -324,8 +328,8 @@ export function DashboardShell({
   // User-area pages (Profile, Likes, Downloads, …) and section-nav media
   // pages drop their top section nav on phones and rely on the bottom tab bar
   // instead — its Media/Profile sheets expose every destination either way.
-  // The control panel is the one exception: dense enough that it keeps its own
-  // horizontal top nav on phones instead.
+  // The control panel is the one exception: it hands in a bar of its own
+  // (`bottomNav`) — its pages are reached through its menu, not these four tabs.
   const mobileTabBar = isUserArea || (hasSectionNav && !isControlPanel);
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -586,6 +590,7 @@ export function DashboardShell({
       </section>
 
       {(!hasSectionNav || mobileTabBar) && <MobileNav active={active} currentPath={currentPath} />}
+      {bottomNav}
     </main>
   );
 }
