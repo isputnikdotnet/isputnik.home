@@ -1,5 +1,16 @@
 [
   {
+    "version": "4.30.1",
+    "label": "Profile, tidied for the phone",
+    "changes": [
+      "**Your account opens with less in the way on a phone.** The header is just its title now; the icon tile and the line above it took a good part of the screen before the tabs began. **Save changes** is the width of the buttons under it instead of stretching across the card.",
+      "**The pages in the Profile menu start at the same height.** Likes, Bookmarks, Quotes, Collections and For you each began lower than Downloads, under a small heading of their own. On a phone they now open with the title alone.",
+      "**For you no longer contradicts itself.** \"1 item\" sat in the header beside \"Nothing is waiting on you.\" The count describes the things shared with you, so it moved to that heading: **Things you can open · 1 item**. On a phone the covers there, and in Likes and Collections, are two to a row rather than three small ones.",
+      "**Quotes:** a longer date and attribution keep to one line on a phone; the four actions drop to a row of their own when the line needs the room.",
+      "**Linked devices** reads at the same size as the cards around it, and **Install the mobile app** on the Account tab wears the same frame as its neighbours."
+    ]
+  },
+  {
     "version": "4.30.0",
     "label": "The control panel in your pocket",
     "changes": [

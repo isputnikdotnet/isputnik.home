@@ -255,9 +255,6 @@ export function ForYouPage() {
             <h1>{t("common:nav.forYou")}</h1>
             {waiting !== null && <p className="muted">{t("user:forYou.intro", { count: rows.length })}</p>}
           </div>
-          {shelf.length > 0 && (
-            <span>{t("user:count.items", { count: shelf.length })}</span>
-          )}
         </div>
 
         {error && <MessageBox tone="error" title={t("user:common.errorTitle")}>{error}</MessageBox>}
@@ -285,7 +282,13 @@ export function ForYouPage() {
           </div>
         ) : (
           <>
-            {shelf.length > 0 && <h2 className="inbox-subhead">{t("user:forYou.thingsYouCanOpen")}</h2>}
+            {/* The count belongs to this shelf. Up in the page header it sat beside
+                "Nothing is waiting on you." and read as its contradiction. */}
+            {shelf.length > 0 && (
+              <h2 className="inbox-subhead">
+                {`${t("user:forYou.thingsYouCanOpen")} · ${t("user:count.items", { count: shelf.length })}`}
+              </h2>
+            )}
             <div className="audiobook-grid">
               {shelf.map((book) => (
                 <article className="saved-audiobook-card" key={`${book.type}-${book.id}`}>

@@ -1546,6 +1546,24 @@
     font-size: 1.5rem;
   }
 
+  /* The title alone: the lit Profile tab and the row of tabs under it already
+     say where this is, and the icon tile and eyebrow cost 125px above them. */
+  .profile-area .user-page-icon,
+  .profile-area .user-heading-copy .eyebrow {
+    display: none;
+  }
+
+  /* Flush to the top, the height every other page in the Profile sheet starts at. */
+  .home-user-shell .work-area.profile-area {
+    padding-top: 0;
+  }
+
+  /* Save changes at its own width, like Change email and Save below it — the
+     form is a grid, which stretched this one button across the card. */
+  .profile-form > .primary-button {
+    justify-self: start;
+  }
+
   .security-network-callout.message-box {
     grid-template-columns: 1fr;
     gap: 14px;
@@ -1949,6 +1967,12 @@
 .linked-devices-section h2 {
   margin: 0;
   font-size: 1.1rem;
+}
+
+/* The size the other account cards use for their copy (.appearance-intro,
+   .ereader-intro); at the inherited 1rem this card alone read a size larger. */
+.linked-devices-section .section-description {
+  font-size: 0.9rem;
 }
 
 .device-list {

@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.30.1 — Profile, tidied for the phone
+
+- **Your account opens with less in the way on a phone.** The header is just its title now; the icon tile and the line above it took a good part of the screen before the tabs began. **Save changes** is the width of the buttons under it instead of stretching across the card.
+- **The pages in the Profile menu start at the same height.** Likes, Bookmarks, Quotes, Collections and For you each began lower than Downloads, under a small heading of their own. On a phone they now open with the title alone.
+- **For you no longer contradicts itself.** "1 item" sat in the header beside "Nothing is waiting on you." The count describes the things shared with you, so it moved to that heading: **Things you can open · 1 item**. On a phone the covers there, and in Likes and Collections, are two to a row rather than three small ones.
+- **Quotes:** a longer date and attribution keep to one line on a phone; the four actions drop to a row of their own when the line needs the room.
+- **Linked devices** reads at the same size as the cards around it, and **Install the mobile app** on the Account tab wears the same frame as its neighbours.
+
 ## 4.30.0 — The control panel in your pocket
 
 - **The control panel has a bar along the bottom on a phone**, like the rest of the app: **Home**, **Menu**, **Tasks** and **Search**. Until now it was the one place without one. Its header took a quarter of the screen and scrolled away with the page, so getting to another page meant scrolling back to the top first. The header is now a single line that stays put and says where you are; tap it, or **Menu**, for the list of every page, which rises from the bottom of the screen.

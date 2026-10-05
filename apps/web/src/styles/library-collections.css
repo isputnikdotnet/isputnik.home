@@ -1939,3 +1939,31 @@
   justify-content: center;
   margin-top: 18px;
 }
+
+/* ── The Profile sheet's pages on a phone ───────────────────────── */
+@media (max-width: 740px) {
+  /* Likes, Bookmarks, Quotes, Collections and For you open the way Downloads
+     and the catalog pages do: flush to the top, title only. Their eyebrows
+     ("Digital library", "Family") and the extra top padding made each of them
+     start at a different height from the page beside it in the sheet. */
+  .home-user-shell .work-area.audiobook-area {
+    padding-top: 0;
+  }
+
+  .home-user-shell .audiobook-head .eyebrow {
+    display: none;
+  }
+
+  /* Covers two to a row, as on the catalog pages: three made a lone shared
+     album a 108px tile on an empty screen. */
+  .home-user-shell .audiobook-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* A quote's date and attribution keep to one line; when they are too long to
+     share it with the four actions, the actions drop to a row of their own. */
+  .quote-card-foot {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}
