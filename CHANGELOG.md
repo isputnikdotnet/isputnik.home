@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.30.2 — Gallery, tidied for the phone
+
+- **The photo viewer is solid black on a phone.** Its backdrop let a little of the page through, so the page's title sat under the "12 / 15" counter and the toolbar ghosted around the photo.
+- **Photo Inbox names its three tools on a phone**: **One at a time**, **Drop link** and **Upload**. As bare icons spread across the bar, the middle one was a guess.
+- **Memories and Map lose an empty row.** They have no search box, which left the views button alone on a line of its own; it now sits beside the title.
+- **Slideshows:** "Suggested slideshows" and **Surprise me** each fit on one line, and the gap before "Your slideshows" is a line rather than a third of the screen. Folders and Albums close up the same empty band above their tiles.
+
 ## 4.30.1 — Profile, tidied for the phone
 
 - **Your account opens with less in the way on a phone.** The header is just its title now; the icon tile and the line above it took a good part of the screen before the tabs began. **Save changes** is the width of the buttons under it instead of stretching across the card.

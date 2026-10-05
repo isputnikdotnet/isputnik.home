@@ -3794,3 +3794,65 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
     display: none;
   }
 }
+
+/* ── Phone-width tidying (4.30.2) ───────────────────────────────── */
+@media (max-width: 740px) {
+  /* The viewer is the whole screen on a phone, so nothing shows through it. At
+     92% the page behind stayed readable: its title sat under the "12 / 15"
+     counter and its toolbar ghosted round the photo. */
+  .gallery-lightbox {
+    background: #000;
+  }
+
+  /* Memories and Map have no search box, which left the views button alone on
+     a row of its own. With nothing beside it, it sits on the title line. */
+  .gallery-page .audiobook-page-header:has(> .audiobook-page-actions > :only-child) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  /* The page is a grid with a 22px row gap, and these one-line rows add their
+     own margins on top: 30 to 60px of nothing between a label and the tiles it
+     labels. Pulled back to about a line. */
+  .audiobook-main-page.gallery-page > .gallery-section-label,
+  .audiobook-main-page.gallery-page > .gallery-person-toolbar,
+  .audiobook-main-page.gallery-page > .gallery-memories-title {
+    margin-bottom: -12px;
+  }
+
+  .audiobook-main-page.gallery-page > .gallery-memories-title {
+    margin-top: -8px;
+  }
+
+  .audiobook-main-page.gallery-page > .gallery-memory-suggestions {
+    margin-bottom: 0;
+  }
+
+  /* Slideshows: the heading and Surprise me each on one line. */
+  .gallery-memory-suggestions-head h2 {
+    font-size: 1rem;
+  }
+
+  .gallery-memory-suggestions-head .secondary-button {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  /* Photo Inbox has three tools and the width to name them; as bare icons
+     spread across the bar, the middle one (Drop link) was a guess. */
+  .gallery-inbox-page .library-toolbar-tools .library-toolbar-button {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    gap: 5px;
+    padding: 0 6px;
+    font-size: 0.84rem;
+  }
+
+  .gallery-inbox-page .library-toolbar-tools .toolbar-label {
+    display: inline;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
