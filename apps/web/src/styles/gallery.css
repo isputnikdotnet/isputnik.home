@@ -253,6 +253,22 @@
   background: rgba(180, 83, 9, 0.82);
 }
 
+/* A print scanned on both sides: a small mark in the top-right corner, opposite
+   the heart. The grid shows fronts only; the lightbox has the Flip. */
+.gallery-tile .gallery-back-dot {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
 .gallery-tile .gallery-like-dot {
   position: absolute;
   left: 6px;
@@ -887,6 +903,38 @@
 .gallery-lightbox-nav:hover { background: rgba(255, 255, 255, 0.24); }
 .gallery-lightbox-nav.prev { left: 14px; }
 .gallery-lightbox-nav.next { right: 14px; }
+
+/* Flip, for a print scanned on both sides (docs/back-sides-proposal.md): a pill at
+   the foot of the stage, where a thumb reaches on a phone; lit while the back is
+   showing. The details pane shifts it left the way it shifts the Next arrow. */
+.gallery-lightbox-flip {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.gallery-lightbox-flip:hover { background: rgba(255, 255, 255, 0.26); }
+.gallery-lightbox-flip.is-on { background: rgba(255, 255, 255, 0.9); color: #111; }
+@media (min-width: 741px) {
+  .gallery-lightbox.has-info .gallery-lightbox-flip { left: calc((100% - var(--lb-info-w)) / 2); }
+}
+@media (max-width: 740px) {
+  .gallery-lightbox-flip { bottom: 84px; }
+  .gallery-lightbox.is-bare .gallery-lightbox-flip { bottom: 18px; }
+}
 
 /* When the details pane is open it overlays the right of the stage. Shrink the
    media area and shift the Next arrow to just left of the pane so neither the

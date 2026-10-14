@@ -10,6 +10,105 @@ export interface ScanSourceConfig {
   enabled: boolean;
 }
 
+// ── Back sides (gallery) ──────────────────────────────────────────────────────
+// How a gallery library pairs the BACK of a scanned print with its front by file
+// name (docs/back-sides-proposal.md). Three ordered sources, tried in the order
+// stored, each on or off: the Epson FastFoto preset (`{name}_b`, with the `_a`
+// enhanced-twin rule), the "named back" preset (`{name}_back` and friends) and
+// the library's own patterns. `{name}` stands for the front's file stem; the
+// rest of a pattern is literal, matched ignoring case. Off everywhere by default:
+// turning it on is a decision per library, since it moves existing photos out of
+// the grid and into their fronts.
+export const BACK_SIDE_SOURCE_IDS = ["epson", "named", "custom"] as const;
+export type BackSideSourceId = typeof BACK_SIDE_SOURCE_IDS[number];
+
+export interface BackSideSourceConfig {
+  id: BackSideSourceId;
+  enabled: boolean;
+}
+
+export interface BackSidesSettings {
+  sources: BackSideSourceConfig[];
+  patterns: string[];
+}
+
+export const BACK_SIDE_PRESETS: Record<Exclude<BackSideSourceId, "custom">, readonly string[]> = {
+  epson: ["{name}_b"],
+  named: ["{name}_back", "{name}-back", "{name}.back"]
+};
+
+export const BACK_PATTERN_MAX_LENGTH = 64;
+
+/** A custom back pattern: `{name}` exactly once, 2–64 characters, something
+ *  besides the placeholder, and nothing a file name can't carry. */
+export function isValidBackPattern(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const pattern = value.trim();
+  if (pattern.length < 2 || pattern.length > BACK_PATTERN_MAX_LENGTH) return false;
+  if (pattern.split("{name}").length !== 2) return false;
+  if (pattern === "{name}") return false;
+  if (/[\\/:*?"<>|{}]/.test(pattern.replace("{name}", ""))) return false;
+  if (Array.from(pattern).some((ch) => ch.charCodeAt(0) < 32)) return false;
+  return true;
+}
+
+export function defaultBackSides(): BackSidesSettings {
+  return { sources: BACK_SIDE_SOURCE_IDS.map((id) => ({ id, enabled: false })), patterns: [] };
+}
+
+export function isBackSideSourceId(value: unknown): value is BackSideSourceId {
+  return typeof value === "string" && (BACK_SIDE_SOURCE_IDS as readonly string[]).includes(value);
+}
+
+// Accepts a stored or submitted back_sides value: unknown sources are dropped,
+// missing ones appended (off) so a new source shows up on existing libraries,
+// invalid patterns dropped, duplicates collapsed.
+export function normalizeBackSides(raw: unknown): BackSidesSettings {
+  const result = defaultBackSides();
+  if (!raw || typeof raw !== "object") return result;
+  const { sources, patterns } = raw as { sources?: unknown; patterns?: unknown };
+  const ordered: BackSideSourceConfig[] = [];
+  if (Array.isArray(sources)) {
+    for (const entry of sources) {
+      if (!entry || typeof entry !== "object") continue;
+      const { id, enabled } = entry as { id?: unknown; enabled?: unknown };
+      if (!isBackSideSourceId(id) || ordered.some((existing) => existing.id === id)) continue;
+      ordered.push({ id, enabled: enabled === true });
+    }
+  }
+  for (const id of BACK_SIDE_SOURCE_IDS) {
+    if (!ordered.some((existing) => existing.id === id)) ordered.push({ id, enabled: false });
+  }
+  const cleaned: string[] = [];
+  if (Array.isArray(patterns)) {
+    for (const entry of patterns) {
+      if (!isValidBackPattern(entry)) continue;
+      const pattern = entry.trim();
+      if (cleaned.some((existing) => existing.toLowerCase() === pattern.toLowerCase())) continue;
+      cleaned.push(pattern);
+      if (cleaned.length >= 20) break;
+    }
+  }
+  return { sources: ordered, patterns: cleaned };
+}
+
+/** The patterns in force, in order: each enabled source's patterns, custom ones
+ *  being the library's own list. Empty when the rule is off. */
+export function enabledBackPatterns(settings: BackSidesSettings): string[] {
+  const out: string[] = [];
+  for (const source of settings.sources) {
+    if (!source.enabled) continue;
+    const list = source.id === "custom" ? settings.patterns : BACK_SIDE_PRESETS[source.id];
+    for (const pattern of list) if (!out.includes(pattern)) out.push(pattern);
+  }
+  return out;
+}
+
+/** Whether the Epson preset is on — it brings the `_a` enhanced-twin rule. */
+export function epsonTwinRule(settings: BackSidesSettings): boolean {
+  return settings.sources.some((source) => source.id === "epson" && source.enabled);
+}
+
 // Legacy charsets the tag-encoding repair supports (see repairEncoding in the
 // audiobook scanner). Stored per-library as settings.tag_encoding; a rescan can
 // override it for one run.
@@ -31,6 +130,9 @@ export interface BaseLibrarySettings {
   companion_extensions: string[];
   // Ordered by priority: index 0 = highest. First source providing a field wins.
   scan_sources: ScanSourceConfig[];
+  // Gallery only: how backs of scanned prints are paired with their fronts.
+  // Present on every type after normalisation (all off) so readers never branch.
+  back_sides: BackSidesSettings;
 }
 
 // How playback progress is modelled. linear = one resume cursor for the whole book
@@ -143,6 +245,7 @@ export function normalizeLibrarySettings(type: LibraryType, settingsJson: string
       ? defaultCompanionExtensions(type)
       : normalizeExtensions(raw.companion_extensions),
     scan_sources: normalizeScanSources(type, raw.scan_sources),
+    back_sides: normalizeBackSides(raw.back_sides),
     tag_encoding: isTagEncoding(raw.tag_encoding) ? raw.tag_encoding : undefined,
     progress_mode: raw.progress_mode === "episodic" ? "episodic" : "linear"
   };

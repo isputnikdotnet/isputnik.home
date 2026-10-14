@@ -30,7 +30,8 @@ import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
-import type { AudiobookLibrary, PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
+import { DEFAULT_BACK_SIDES, type AudiobookLibrary, type PublicRole, type LibraryMode, type ScanSource, type MetadataSourceInfo, type LibraryTypeDefaults, type BackSidesSettings } from "../../audiobooks/types";
+import { BackSidesEditor } from "../libraries/BackSidesEditor";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot } from "../types";
 import { Field } from "../../../shared/Field";
 import { LibraryAccessRows } from "../libraries/access-selects";
@@ -162,6 +163,7 @@ export function LibrariesSection() {
   const [editExtensions, setEditExtensions] = useState<string[]>([]);
   const [editCompanions, setEditCompanions] = useState<string[]>([]);
   const [editSources, setEditSources] = useState<ScanSource[]>([]);
+  const [editBackSides, setEditBackSides] = useState<BackSidesSettings>(DEFAULT_BACK_SIDES);
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
@@ -241,6 +243,7 @@ export function LibrariesSection() {
     setEditExtensions(library.settings?.scanExtensions ?? typeDefaults[library.type]?.extensions ?? []);
     setEditCompanions(library.settings?.companionExtensions ?? typeDefaults[library.type]?.companions ?? []);
     setEditSources(library.settings?.scanSources ?? typeDefaults[library.type]?.sources ?? []);
+    setEditBackSides(library.settings?.backSides ?? DEFAULT_BACK_SIDES);
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setEditProgressMode(library.settings?.progressMode ?? "linear");
@@ -282,7 +285,8 @@ export function LibrariesSection() {
           companionExtensions: editCompanions,
           scanSources: editSources,
           maxUploadMB: maxUploadValue(editMaxUploadMB),
-          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {})
+          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {}),
+          ...(editingLibrary.type === "gallery" ? { backSides: editBackSides } : {})
         })
       });
       setEditingLibrary(null);
@@ -870,6 +874,9 @@ export function LibrariesSection() {
                   onChange={setEditSources}
                   sourceInfo={sourceInfoFor(editingLibrary.type)}
                 />
+                {editingLibrary.type === "gallery" && (
+                  <BackSidesEditor value={editBackSides} onChange={setEditBackSides} libraryId={editingLibrary.id} />
+                )}
                 {editingLibrary.type === "audiobook" && (
                   <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
                 )}

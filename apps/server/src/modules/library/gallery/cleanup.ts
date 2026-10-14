@@ -57,6 +57,15 @@ const MISSING_SELECT = `
   JOIN libraries lib ON lib.id = li.library_id AND lib.type = 'gallery'
   LEFT JOIN item_metadata im ON im.item_id = li.id
   WHERE li.deleted_at IS NOT NULL
+    -- A photo that became the BACK of another (docs/back-sides-proposal.md) is
+    -- soft-deleted like a missing one but is not missing: its file is right there,
+    -- as its front's back. It stays out of this list and out of the purge, so
+    -- Split can bring the row back with everything it carried.
+    AND NOT EXISTS (
+      SELECT 1 FROM gallery_details gb
+      JOIN library_items lf ON lf.id = gb.item_id
+      WHERE lf.library_id = li.library_id AND lf.deleted_at IS NULL AND gb.back_relative_path = li.folder_path
+    )
 `;
 
 function purgesAt(detectedAt: string, days: number): string | null {

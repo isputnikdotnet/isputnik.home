@@ -17,7 +17,8 @@ import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 import { kindForExtension, readAssetMetadata } from "./media.js";
 import { dateFolderForCapture } from "./date-folder.js";
-import { friendlyStorageError, uniqueGalleryFileName } from "./files.js";
+import { friendlyStorageError, placeBackSideBeside, uniqueGalleryFileName, pairUploadedBackSides } from "./files.js";
+import { backRuleOf } from "./back-sides.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 // Each uploaded file becomes its own asset (one photo/video = one item), so this
@@ -111,8 +112,14 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
     // later one fails.
     const createdIds: string[] = [];
     let totalBytes = 0;
+    // Backs of scanned prints in the batch follow their fronts (same folder, the
+    // front's final name) instead of being filed by their own date, which a back
+    // never carries (docs/back-sides-proposal.md).
+    const rule = backRuleOf(settings.back_sides);
+    const pairs = pairUploadedBackSides(received, rule);
     try {
       for (const file of received) {
+        if (pairs.backs.has(file)) continue;
         const dated = await uploadDateFolder(file.tmpPath, file.extension);
         const targetDir = path.join(root, ...(uploadFolder ? `${uploadFolder}/${dated}` : dated).split("/"));
         fs.mkdirSync(targetDir, { recursive: true });
@@ -120,6 +127,11 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
         if (!finalName) { fs.rmSync(file.tmpPath, { force: true }); continue; }
         const finalPath = path.join(targetDir, finalName);
         fs.renameSync(file.tmpPath, finalPath);
+        const back = pairs.backOf.get(file);
+        if (back) {
+          placeBackSideBeside(finalPath, back, rule);
+          totalBytes += back.sizeBytes;
+        }
         const relativePath = normaliseRelativePath(path.relative(root, finalPath));
         const assetId = await scanSingleGalleryFile(library.id, relativePath);
         if (assetId) { createdIds.push(assetId); totalBytes += file.sizeBytes; }

@@ -508,6 +508,12 @@ export interface GalleryDetailRow {
   web_video_attempts: number;
   faststart: number | null;
   derived_from_item_id: string | null;
+  back_relative_path: string | null;
+  back_rotation: number;
+  back_size: number | null;
+  back_modified_at: string | null;
+  back_preview_storage_key: string | null;
+  back_text: string | null;
   updated_at: string;
 }
 
@@ -1327,6 +1333,7 @@ export interface TrashedItemRow {
   source: string;
   expires_at: string | null;
   trash_root: string | null;
+  back_path: string | null;
   trashed_by: string | null;
   trashed_at: string;
 }

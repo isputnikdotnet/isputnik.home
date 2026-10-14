@@ -112,7 +112,7 @@ function rehomeThumbnail(key: string | null, fromLibraryId: string, toLibraryId:
 
 type MoveRow = Pick<LibraryItemRow, "id" | "library_id" | "folder_path" | "deleted_at">
   & Pick<LibraryRow, "source_path">
-  & Pick<GalleryDetailRow, "preview_storage_key" | "web_video_key">
+  & Pick<GalleryDetailRow, "preview_storage_key" | "web_video_key" | "back_relative_path" | "back_preview_storage_key">
   & Nullable<Pick<ItemMetadataRow, "title" | "cover_storage_key">>
   & { library_name: LibraryRow["name"] };
 
@@ -121,7 +121,7 @@ export function moveGalleryAsset(itemId: string, dest: MoveDestination): MoveRes
     SELECT li.id, li.library_id, li.folder_path, li.deleted_at,
            lib.source_path, lib.name AS library_name,
            im.title, im.cover_storage_key,
-           gd.preview_storage_key, gd.web_video_key
+           gd.preview_storage_key, gd.web_video_key, gd.back_relative_path, gd.back_preview_storage_key
     FROM library_items li
     JOIN libraries lib ON lib.id = li.library_id
     JOIN gallery_details gd ON gd.item_id = li.id
@@ -177,7 +177,22 @@ export function moveGalleryAsset(itemId: string, dest: MoveDestination): MoveRes
   moveFile(sourceAbs, finalAbs);
   const newRel = normaliseRelativePath(path.relative(targetRoot, finalAbs));
 
+  // The back side travels with its front, keeping its own name unless that is
+  // taken there (docs/back-sides-proposal.md). A back whose file is already gone
+  // is forgotten rather than carried as a dangling path.
+  let backRel: string | null = null;
+  if (row.back_relative_path) {
+    const backAbs = path.resolve(sourceRoot, ...row.back_relative_path.split("/"));
+    if (pathIsInside(backAbs, sourceRoot) && fs.existsSync(backAbs)) {
+      const backName = freeName(targetDir, target.id, folder, path.basename(backAbs));
+      const backFinal = path.join(targetDir, backName);
+      moveFile(backAbs, backFinal);
+      backRel = normaliseRelativePath(path.relative(targetRoot, backFinal));
+    }
+  }
+
   const crossLibrary = row.library_id !== target.id;
+  const backPreviewKey = backRel && crossLibrary ? rehomeThumbnail(row.back_preview_storage_key, row.library_id, target.id) : backRel ? row.back_preview_storage_key : null;
   const previewKey = crossLibrary ? rehomeThumbnail(row.preview_storage_key, row.library_id, target.id) : row.preview_storage_key;
   const coverKey = crossLibrary ? rehomeThumbnail(row.cover_storage_key, row.library_id, target.id) : row.cover_storage_key;
   const webVideoKey = crossLibrary ? rehomeThumbnail(row.web_video_key, row.library_id, target.id) : row.web_video_key;
@@ -203,9 +218,11 @@ export function moveGalleryAsset(itemId: string, dest: MoveDestination): MoveRes
     `).run(target.id, newRel, target.id, itemId);
     db.prepare(`
       UPDATE gallery_details
-      SET relative_path = ?, preview_storage_key = ?, web_video_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+      SET relative_path = ?, preview_storage_key = ?, web_video_key = ?,
+          back_relative_path = ?, back_preview_storage_key = ?,
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE item_id = ?
-    `).run(newRel, previewKey, webVideoKey, itemId);
+    `).run(newRel, previewKey, webVideoKey, backRel, backPreviewKey, itemId);
     if (row.cover_storage_key !== coverKey) {
       db.prepare("UPDATE item_metadata SET cover_storage_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
         .run(coverKey, itemId);

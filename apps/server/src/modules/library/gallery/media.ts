@@ -270,6 +270,47 @@ export interface ThumbnailKeys {
   previewKey: string; // lightbox preview (~1600px) → gallery_details.preview_storage_key
 }
 
+/** The thumbnail-store key of a photo's back-side preview (docs/back-sides-proposal.md). */
+export function backPreviewKey(libraryId: string, itemId: string): string {
+  return thumbnailStorageKey(libraryId, itemId, `${itemId}-back-large.webp`);
+}
+
+// The preview of a print's BACK (gallery_details.back_preview_storage_key): one
+// lightbox-sized image, no grid thumbnail — the grid only ever shows fronts.
+// `rotation` is the back's own turn (back_rotation), baked in like the front's.
+// Rendered through renderInTurn like every other sharp pipeline, and never at the
+// same time as the front's render (the scanner awaits one, then the other).
+export async function generateBackPreview(
+  libraryId: string,
+  itemId: string,
+  absolutePath: string,
+  rotation = 0
+): Promise<string | null> {
+  if (!fs.existsSync(absolutePath)) return null;
+  const key = backPreviewKey(libraryId, itemId);
+  const out = thumbnailAbsolutePath(key);
+  const render = async (input: Buffer | string) => {
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    await renderInTurn([
+      () => {
+        const img = sharp(input, { failOn: "none" }).rotate();
+        return (rotation ? img.rotate(rotation) : img)
+          .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toFile(out);
+      }
+    ]);
+    return key;
+  };
+  try {
+    return await render(absolutePath);
+  } catch {
+    const converted = await decodePhotoToJpeg(absolutePath);
+    if (!converted) return null;
+    try { return await render(converted); } catch { return null; }
+  }
+}
+
 // Generate a grid thumbnail + a larger preview for one asset. For photos the source
 // is the file; for videos it's an ffmpeg poster frame; for audio it's embedded cover
 // art when the file carries any (ID3/MP4 attached picture — the no-seek ffmpeg frame

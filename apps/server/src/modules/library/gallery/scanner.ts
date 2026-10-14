@@ -29,9 +29,11 @@ import {
   readAssetMetadata,
   browserPlayability,
   generateGalleryThumbnails,
+  generateBackPreview,
   computeDhash,
   type AssetKind
 } from "./media.js";
+import { backRuleOf, frontStemsFor, pairBackSides, type BackRule } from "./back-sides.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { readFaststart } from "./faststart.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
@@ -111,13 +113,71 @@ function sortName(value: string): string {
   return value.trim().toLowerCase();
 }
 
+// One file on disk, described the way the walk describes it, or null when it is
+// not there (or empty — the walk's own rule).
+function fileEntryAt(rootPath: string, relativePath: string): GalleryFileEntry | null {
+  const extension = path.extname(relativePath).toLowerCase();
+  const kind = kindForExtension(extension);
+  if (!kind) return null;
+  const absolutePath = path.join(rootPath, ...relativePath.split("/"));
+  let stat: fs.Stats;
+  try { stat = fs.statSync(absolutePath); } catch { return null; }
+  if (!stat.isFile() || stat.size === 0) return null;
+  return {
+    absolutePath,
+    relativePath,
+    fileName: path.basename(relativePath),
+    extension,
+    kind,
+    size: stat.size,
+    modifiedAtMs: stat.mtimeMs
+  };
+}
+
+type PriorBack = Pick<GalleryDetailRow, "back_relative_path" | "back_size" | "back_modified_at" | "back_preview_storage_key" | "back_rotation">;
+
+// Bring the front's back-side columns in line with the back file beside it (or
+// with there being none). A back that has not changed (same path, size, mtime,
+// preview present) costs nothing; a new or changed one gets its preview rendered
+// — AFTER the front's own thumbnails, never alongside them (two sharp pipelines at
+// once is what kills the process; see CLAUDE.md). A different file under the same
+// front starts upright: the old turn was for the old picture.
+async function syncBackSide(libraryId: string, itemId: string, back: GalleryFileEntry | null, prior: PriorBack | undefined): Promise<void> {
+  if (!back) {
+    if (prior?.back_relative_path) {
+      stmt("UPDATE gallery_details SET back_relative_path = NULL, back_size = NULL, back_modified_at = NULL, back_preview_storage_key = NULL, back_rotation = 0, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
+        .run(itemId);
+      if (prior.back_preview_storage_key) {
+        try { fs.rmSync(thumbnailAbsolutePath(prior.back_preview_storage_key), { force: true }); } catch { /* ignore */ }
+      }
+    }
+    return;
+  }
+  const modifiedIso = new Date(back.modifiedAtMs).toISOString();
+  const samePath = prior?.back_relative_path === back.relativePath;
+  if (samePath && prior!.back_size === back.size && prior!.back_modified_at === modifiedIso && prior!.back_preview_storage_key) return;
+  const rotation = samePath ? prior!.back_rotation ?? 0 : 0;
+  const key = await generateBackPreview(libraryId, itemId, back.absolutePath, rotation);
+  stmt(`
+    UPDATE gallery_details
+    SET back_relative_path = ?, back_size = ?, back_modified_at = ?, back_rotation = ?,
+        back_preview_storage_key = COALESCE(?, back_preview_storage_key),
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE item_id = ?
+  `).run(back.relativePath, back.size, modifiedIso, rotation, key, itemId);
+}
+
 // Catalog one asset (insert/update its item + gallery_details + minimal metadata).
 // Skips all work when the file is unchanged (same size + mtime) and already ready,
 // so a rescan only touches new/modified assets. Returns the item id.
+// `back` is the back side paired with this file (docs/back-sides-proposal.md), or
+// null when it has none — the caller decides, from the library's rule or the
+// record; this only keeps the row in step with it.
 export async function ingestGalleryAsset(
   libraryId: string,
   file: GalleryFileEntry,
-  metaEnabled: boolean
+  metaEnabled: boolean,
+  back: GalleryFileEntry | null = null
 ): Promise<string> {
   const existing = stmt("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
     .get(libraryId, file.relativePath) as Pick<LibraryItemRow, "id"> | undefined;
@@ -135,9 +195,11 @@ export async function ingestGalleryAsset(
   // thumbnails when a changed file is re-ingested (the column itself is preserved
   // by the gallery_details UPSERT, which never writes it).
   let existingRotation = 0;
+  let priorBack: PriorBack | undefined;
   if (existing) {
-    const prior = stmt("SELECT size, modified_at, preview_storage_key, rotation, playable, faststart, phash, taken_at, taken_at_source FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as Pick<GalleryDetailRow, "size" | "modified_at" | "preview_storage_key" | "rotation" | "playable" | "faststart" | "phash" | "taken_at" | "taken_at_source"> | undefined;
+    const prior = stmt("SELECT size, modified_at, preview_storage_key, rotation, playable, faststart, phash, taken_at, taken_at_source, back_relative_path, back_size, back_modified_at, back_preview_storage_key, back_rotation FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as (Pick<GalleryDetailRow, "size" | "modified_at" | "preview_storage_key" | "rotation" | "playable" | "faststart" | "phash" | "taken_at" | "taken_at_source"> & PriorBack) | undefined;
+    priorBack = prior;
     existingRotation = prior?.rotation ?? 0;
     // Re-probe an unchanged video whose playable flag was never computed (rows from
     // before this feature) so a single rescan backfills the grid hint.
@@ -180,6 +242,7 @@ export async function ingestGalleryAsset(
       }
       // Revive a previously-missing row without re-reading the file.
       stmt("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
+      await syncBackSide(libraryId, itemId, back, priorBack);
       return itemId;
     }
   }
@@ -269,7 +332,102 @@ export async function ingestGalleryAsset(
     );
   })();
 
+  await syncBackSide(libraryId, itemId, back, priorBack);
   return itemId;
+}
+
+/** Record `backRelativePath` as this photo's back (rendering its preview), or
+ *  none: what the explicit actions and a bin restore do, rule or no rule. The
+ *  back file must already be beside the front. Returns false when the item or
+ *  the file is not there. */
+export async function setBackSide(libraryId: string, itemId: string, backRelativePath: string | null): Promise<boolean> {
+  const row = stmt(`
+    SELECT gd.back_relative_path, gd.back_size, gd.back_modified_at, gd.back_preview_storage_key, gd.back_rotation,
+           lib.source_path
+    FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id
+    JOIN libraries lib ON lib.id = li.library_id
+    WHERE gd.item_id = ? AND li.library_id = ?
+  `).get(itemId, libraryId) as (PriorBack & Pick<LibraryRow, "source_path">) | undefined;
+  if (!row) return false;
+  let back: GalleryFileEntry | null = null;
+  if (backRelativePath) {
+    const rootPath = validateLibrarySource(row.source_path);
+    back = fileEntryAt(rootPath, normaliseRelativePath(backRelativePath));
+    if (!back || back.kind !== "photo") return false;
+  }
+  await syncBackSide(libraryId, itemId, back, row);
+  return true;
+}
+
+// The backs this library has on record for its live photos: front path → back
+// path. A recorded pair holds while both files exist, whatever the rule says now
+// (a rule turned off never turns a back into a second photo), and a file on
+// record as a back is never catalogued as an item.
+function recordedBackPairs(libraryId: string): Map<string, string> {
+  const rows = stmt(`
+    SELECT li.folder_path AS front, gd.back_relative_path AS back
+    FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id
+    WHERE li.library_id = ? AND li.deleted_at IS NULL AND gd.back_relative_path IS NOT NULL
+  `).all(libraryId) as { front: string; back: string }[];
+  return new Map(rows.map((row) => [row.front, row.back]));
+}
+
+// Which files are backs of which, for one walk: the record first, then the
+// library's rule over whatever is left.
+function resolveBackSides(libraryId: string, files: GalleryFileEntry[], rule: BackRule): { backOf: Map<string, GalleryFileEntry>; backs: Set<string> } {
+  const byPath = new Map(files.map((file) => [file.relativePath, file]));
+  const backOf = new Map<string, GalleryFileEntry>();
+  const backs = new Set<string>();
+  for (const [front, back] of recordedBackPairs(libraryId)) {
+    const entry = byPath.get(back);
+    if (!entry || !byPath.has(front)) continue;
+    backOf.set(front, entry);
+    backs.add(back);
+  }
+  const pairing = pairBackSides(files, rule);
+  for (const [front, back] of pairing.backOf) {
+    if (backOf.has(front) || backs.has(back) || backs.has(front) || backOf.has(back)) continue;
+    const entry = byPath.get(back);
+    if (!entry) continue;
+    backOf.set(front, entry);
+    backs.add(back);
+  }
+  return { backOf, backs };
+}
+
+export interface BackSidesCheck {
+  /** Photos the walk found. */
+  files: number;
+  /** Backs a rescan would pair under the rule given. */
+  pairs: number;
+  /** Of those, how many are catalogued as photos today and would leave the grid. */
+  itemsToRetire: number;
+  /** Files that fit a pattern but have no front: they stay ordinary photos. */
+  unmatched: number;
+}
+
+/** Dry run of a back-sides rule over a library's files, from names alone: what the
+ *  Scanning tab's "Check this library" shows before anything is saved. */
+export function checkBackSides(libraryId: string, rule: BackRule): BackSidesCheck {
+  const library = stmt("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'gallery'")
+    .get(libraryId) as Pick<LibraryRow, "id" | "source_path" | "settings_json"> | undefined;
+  if (!library) throw new Error("Gallery library not found.");
+  const settings = normalizeLibrarySettings("gallery", library.settings_json);
+  const rootPath = validateLibrarySource(library.source_path);
+  const files = walkGalleryFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)))
+    .filter((file) => file.kind === "photo");
+  const recorded = new Set(recordedBackPairs(libraryId).values());
+  const pairing = pairBackSides(files, rule);
+  let itemsToRetire = 0;
+  const isItem = stmt("SELECT 1 FROM library_items WHERE library_id = ? AND folder_path = ? AND deleted_at IS NULL");
+  for (const back of pairing.backs) {
+    if (recorded.has(back)) continue;
+    if (isItem.get(libraryId, back)) itemsToRetire += 1;
+  }
+  const newPairs = Array.from(pairing.backs).filter((back) => !recorded.has(back)).length;
+  return { files: files.length, pairs: newPairs, itemsToRetire, unmatched: pairing.unmatched.length };
 }
 
 // Soft-delete gallery items no longer present on disk. Returns the folder_path of each
@@ -295,7 +453,9 @@ export function reconcileGalleryItems(libraryId: string, presentPaths: Set<strin
   return nowMissing;
 }
 
-async function scanGalleryLibrary(
+// Exported for tests, which scan a library in place rather than through the job
+// queue (whose worker outlives a test and races the next one's database reset).
+export async function scanGalleryLibrary(
   libraryId: string,
   options: GalleryScanOptions = {},
   onProgress?: (processed: number, total: number) => void
@@ -323,12 +483,21 @@ async function scanGalleryLibrary(
 
   const files = walkGalleryFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)), startDir);
 
-  for (let i = 0; i < files.length; i += 1) {
-    onProgress?.(i, files.length);
-    await ingestGalleryAsset(libraryId, files[i], metaEnabled);
+  // Backs of scanned prints are not items: they are taken out of the list and
+  // handed to their fronts (docs/back-sides-proposal.md).
+  const { backOf, backs } = resolveBackSides(libraryId, files, backRuleOf(settings.back_sides));
+  const items = files.filter((file) => !backs.has(file.relativePath));
+
+  for (let i = 0; i < items.length; i += 1) {
+    onProgress?.(i, items.length);
+    await ingestGalleryAsset(libraryId, items[i], metaEnabled, backOf.get(items[i].relativePath) ?? null);
   }
-  onProgress?.(files.length, files.length);
-  const nowMissing = reconcileGalleryItems(libraryId, new Set(files.map((file) => file.relativePath)), folderScope);
+  onProgress?.(items.length, items.length);
+  // A photo that has just become a back leaves the catalogue the way a missing
+  // file does (its row stays, soft-deleted, with everything it carried — Split
+  // brings it back), but it is not missing: nothing to log about it.
+  const nowMissing = reconcileGalleryItems(libraryId, new Set(items.map((file) => file.relativePath)), folderScope)
+    .filter((relativePath) => !backs.has(relativePath));
 
   // Record which photos went missing this scan so admins have a trail (the details also
   // stay visible in the "Missing photos" list until they're purged).
@@ -354,7 +523,7 @@ async function scanGalleryLibrary(
     stmt("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
       .run(libraryId);
   }
-  return { assets: files.length, folder: folderScope };
+  return { assets: items.length, folder: folderScope };
 }
 
 // Ingest one newly-added asset (upload / restore) without re-walking the library.
@@ -367,24 +536,89 @@ export async function scanSingleGalleryFile(libraryId: string, relativePath: str
   const metaEnabled = sourceEnabled(settings.scan_sources, "file_metadata");
   const rootPath = validateLibrarySource(library.source_path);
   const normalized = normaliseRelativePath(relativePath);
-  const extension = path.extname(normalized).toLowerCase();
-  const kind = kindForExtension(extension);
-  if (!kind) return null;
-  const absolutePath = path.join(rootPath, ...normalized.split("/"));
-  let stat: fs.Stats;
-  try { stat = fs.statSync(absolutePath); } catch { return null; }
-  if (stat.size === 0) return null; // same empty-file rule as the walk
+  const entry = fileEntryAt(rootPath, normalized);
+  if (!entry) return null; // not a gallery file, not there, or empty — the walk's rules
+
+  const rule = backRuleOf(settings.back_sides);
+  const extensions = new Set(settings.scan_extensions.map((ext) => `.${ext}`));
+
+  // A back, not a photo of its own (docs/back-sides-proposal.md): on record as
+  // some live front's back, or fitting the rule beside a front. Either way the
+  // FRONT is (re-)catalogued with it and its id is the answer.
+  if (entry.kind === "photo") {
+    const recordedFront = stmt(`
+      SELECT li.folder_path FROM gallery_details gd
+      JOIN library_items li ON li.id = gd.item_id
+      WHERE li.library_id = ? AND li.deleted_at IS NULL AND gd.back_relative_path = ?
+    `).get(libraryId, normalized) as Pick<LibraryItemRow, "folder_path"> | undefined;
+    const frontPath = recordedFront?.folder_path ?? frontFileBeside(rootPath, normalized, rule, extensions);
+    if (frontPath) {
+      const front = fileEntryAt(rootPath, frontPath);
+      if (front) {
+        requestPhotoPlaceSweep();
+        return ingestGalleryAsset(libraryId, front, metaEnabled, entry);
+      }
+    }
+  }
 
   requestPhotoPlaceSweep();
-  return ingestGalleryAsset(libraryId, {
-    absolutePath,
-    relativePath: normalized,
-    fileName: path.basename(normalized),
-    extension,
-    kind,
-    size: stat.size,
-    modifiedAtMs: stat.mtimeMs
-  }, metaEnabled);
+  return ingestGalleryAsset(libraryId, entry, metaEnabled, backFileBeside(libraryId, rootPath, entry, rule, extensions));
+}
+
+// The photo files in one folder, by name only — no stat, so a folder of
+// thousands costs one readdir when a single file lands in it.
+function photoNamesIn(rootPath: string, dir: string, extensions: Set<string>): string[] {
+  const abs = dir === "." ? rootPath : path.join(rootPath, ...dir.split("/"));
+  let names: fs.Dirent[];
+  try { names = fs.readdirSync(abs, { withFileTypes: true }); } catch { return []; }
+  return names
+    .filter((d) => d.isFile() && !d.name.startsWith(".") && extensions.has(path.extname(d.name).toLowerCase()) && kindForExtension(path.extname(d.name).toLowerCase()) === "photo")
+    .map((d) => d.name);
+}
+
+// The front a lone back file belongs to under the rule, beside it on disk, or null.
+// A front already on record as someone's back is no front.
+function frontFileBeside(rootPath: string, backPath: string, rule: BackRule, extensions: Set<string>): string | null {
+  const stems = frontStemsFor(backPath, rule);
+  if (stems.length === 0) return null;
+  const dir = path.posix.dirname(backPath);
+  const names = photoNamesIn(rootPath, dir, extensions);
+  for (const stem of stems) {
+    const match = names.find((name) => name.slice(0, name.length - path.extname(name).length).toLowerCase() === stem.toLowerCase());
+    if (!match) continue;
+    const candidate = dir === "." ? match : `${dir}/${match}`;
+    if (candidate === backPath) continue;
+    return candidate;
+  }
+  return null;
+}
+
+// The back a front has: the one on record if its file is still there, else the
+// one the rule finds beside it on disk, else none.
+function backFileBeside(libraryId: string, rootPath: string, front: GalleryFileEntry, rule: BackRule, extensions: Set<string>): GalleryFileEntry | null {
+  if (front.kind !== "photo") return null;
+  const recorded = stmt(`
+    SELECT gd.back_relative_path FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id
+    WHERE li.library_id = ? AND li.folder_path = ? AND gd.back_relative_path IS NOT NULL
+  `).get(libraryId, front.relativePath) as Pick<GalleryDetailRow, "back_relative_path"> | undefined;
+  if (recorded?.back_relative_path) {
+    const kept = fileEntryAt(rootPath, recorded.back_relative_path);
+    if (kept) return kept;
+  }
+  if (rule.patterns.length === 0) return null;
+  const dir = path.posix.dirname(front.relativePath);
+  const candidates = photoNamesIn(rootPath, dir, extensions)
+    .map((name) => ({ relativePath: dir === "." ? name : `${dir}/${name}`, kind: "photo" as const }));
+  const backPath = pairBackSides(candidates, rule).backOf.get(front.relativePath);
+  if (!backPath) return null;
+  // Someone else's back on record stays theirs.
+  const taken = stmt(`
+    SELECT 1 FROM gallery_details gd JOIN library_items li ON li.id = gd.item_id
+    WHERE li.library_id = ? AND li.deleted_at IS NULL AND gd.back_relative_path = ? AND li.folder_path <> ?
+  `).get(libraryId, backPath, front.relativePath);
+  if (taken) return null;
+  return fileEntryAt(rootPath, backPath);
 }
 
 // ── Job queue (mirrors the ebook scan worker) ──

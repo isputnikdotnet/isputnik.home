@@ -31,6 +31,7 @@ import { getConfiguredThumbnailPath } from "./thumbnail.js";
 const REFERENCED_KEY_QUERIES = [
   "SELECT cover_storage_key AS k FROM item_metadata",
   "SELECT preview_storage_key AS k FROM gallery_details",
+  "SELECT back_preview_storage_key AS k FROM gallery_details",
   "SELECT thumb_storage_key AS k FROM gallery_faces",
   "SELECT image_storage_key AS k FROM people",
   "SELECT cover_storage_key AS k FROM series",

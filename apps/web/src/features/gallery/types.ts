@@ -52,6 +52,12 @@ export interface GalleryAsset {
   playbackUrl: string;
   tags: string[];
   saved: boolean;
+  // The BACK of a scanned print (docs/back-sides-proposal.md): shown with Flip in
+  // the lightbox, never in a grid. previewUrl is the rendered preview (the file
+  // itself until one exists); rotation is the back's own turn, already baked in.
+  back: { previewUrl: string; fileUrl: string; rotation: number } | null;
+  // "Written on the back", as someone typed it. Null when nobody has.
+  backText: string | null;
   // Centre of the faces in this photo, in percent, for aiming a cropped tile
   // (see faceFocusStyle). null when nothing was detected — crop from the centre.
   faceFocus: { x: number; y: number } | null;

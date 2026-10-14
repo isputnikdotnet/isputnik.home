@@ -64,7 +64,8 @@
     "unplayableTitle": "Can’t play in browser — download to view",
     "unlikeAria": "Unlike {{title}}",
     "likeAria": "Like {{title}}",
-    "removeAria": "Remove {{title}}"
+    "removeAria": "Remove {{title}}",
+    "hasBackTitle": "Scanned on both sides — open it to flip"
   },
   "filter": {
     "kindPhotos": "Photos",
@@ -166,6 +167,8 @@
     "addToCollection": "Add to collection",
     "rotateLeft": "Rotate left",
     "rotateRight": "Rotate right",
+    "flipToBack": "Show the back",
+    "flipToFront": "Show the front",
     "moreActionsAria": "More actions",
     "pauseSlideshow": "Pause slideshow",
     "playSlideshow": "Play slideshow",
@@ -792,6 +795,31 @@
     "keptTitle": "The current file is kept",
     "keptBody": "It moves into a \"replaced\" folder beside the Recycle Bin rather than being overwritten, so a wrong file can be put back by hand.",
     "hint": "It has to be the same kind — a photo for a photo, a video for a video. The date this item shows stays as it is, even if the new file has a different one."
+  },
+  "backSide": {
+    "add": "Add the back…",
+    "replace": "Replace the back…",
+    "remove": "Remove the back",
+    "split": "Split off the back",
+    "imageAlt": "The back of {{title}}",
+    "addTitle": "Add the back of this photo",
+    "replaceTitle": "Replace the back of this photo",
+    "body": "A print scanned on both sides stays one photo. The back is kept with it and shown with Flip — it never becomes a photo of its own.",
+    "keptTitle": "The current back is kept",
+    "keptBody": "It moves into a \"replaced\" folder beside the Recycle Bin rather than being overwritten, so a wrong file can be put back by hand.",
+    "hint": "A photo file of the back. It is saved beside the front under the front's name; if it is the wrong way up, rotate it after flipping.",
+    "removeConfirmTitle": "Remove the back of \"{{title}}\"?",
+    "removeConfirmBody": "The photo stays as it is. The back's file moves into the \"replaced\" folder beside the Recycle Bin, so it can be put back by hand.",
+    "removeConfirmLabel": "Remove back",
+    "removing": "Removing…",
+    "splitConfirmTitle": "Split the back off \"{{title}}\"?",
+    "splitConfirmBody": "The back becomes a photo of its own again, renamed so a rescan leaves it that way. If it was a photo before it was paired, everything it carried then comes back with it.",
+    "splitConfirmLabel": "Split off",
+    "splitting": "Splitting…",
+    "errors": {
+      "remove": "Unable to remove the back.",
+      "split": "Unable to split the back off."
+    }
   },
   "inbox": {
     "title": "Photo Inbox",

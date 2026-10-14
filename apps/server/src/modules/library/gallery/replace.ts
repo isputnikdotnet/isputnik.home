@@ -91,27 +91,9 @@ export async function replaceGalleryAssetFile(
     return { ok: false, status: 400, error: "That filename can't be stored in this library." };
   }
 
-  // Where the old file goes. Under the bin's own root when one is configured,
-  // else the library's hidden .trash — the walk skips dot-entries either way.
-  const trashRoot = getTrashRootSetting();
-  const keptRoot = path.resolve(trashRoot ?? path.join(root, ".trash"), "replaced");
-  const keptDir = path.resolve(keptRoot, row.library_id, itemId);
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const keptAbs = path.resolve(keptDir, `${stamp}-${path.basename(row.relative_path)}`);
-  if (!pathIsInside(keptDir, keptRoot) || !pathIsInside(keptAbs, keptDir)) {
-    return { ok: false, status: 400, error: "The current file can't be set aside safely." };
-  }
-
-  try {
-    fs.mkdirSync(keptDir, { recursive: true });
-    fs.renameSync(currentAbs, keptAbs);
-  } catch (err) {
-    return {
-      ok: false,
-      status: 500,
-      error: err instanceof Error ? err.message : "Could not set the current file aside."
-    };
-  }
+  const setAside = setAsideReplaced(root, row.library_id, itemId, currentAbs);
+  if (!setAside.ok) return setAside;
+  const keptAbs = setAside.keptAbs;
 
   try {
     fs.mkdirSync(path.dirname(nextAbs), { recursive: true });
@@ -154,4 +136,36 @@ export async function replaceGalleryAssetFile(
 /** Whether this kind can have its file replaced at all. */
 export function replaceableKind(kind: string): kind is AssetKind {
   return kind === "photo" || kind === "video";
+}
+
+export type SetAsideResult =
+  | { ok: true; keptAbs: string }
+  | { ok: false; status: 400 | 500; error: string };
+
+/** Move a file the app is about to overwrite or let go of into the `replaced/`
+ *  folder beside the Recycle Bin (replaced.ts lists it there): under the bin's
+ *  own root when one is configured, else the library's hidden .trash — the walk
+ *  skips dot-entries either way. The one rule every path that would destroy the
+ *  only copy of something follows; a photo's back side goes the same way when
+ *  it is replaced or removed. */
+export function setAsideReplaced(root: string, libraryId: string, itemId: string, currentAbs: string): SetAsideResult {
+  const trashRoot = getTrashRootSetting();
+  const keptRoot = path.resolve(trashRoot ?? path.join(root, ".trash"), "replaced");
+  const keptDir = path.resolve(keptRoot, libraryId, itemId);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const keptAbs = path.resolve(keptDir, `${stamp}-${path.basename(currentAbs)}`);
+  if (!pathIsInside(keptDir, keptRoot) || !pathIsInside(keptAbs, keptDir)) {
+    return { ok: false, status: 400, error: "The current file can't be set aside safely." };
+  }
+  try {
+    fs.mkdirSync(keptDir, { recursive: true });
+    fs.renameSync(currentAbs, keptAbs);
+  } catch (err) {
+    return {
+      ok: false,
+      status: 500,
+      error: err instanceof Error ? err.message : "Could not set the current file aside."
+    };
+  }
+  return { ok: true, keptAbs };
 }

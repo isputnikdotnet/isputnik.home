@@ -55,6 +55,14 @@ export interface MediaType {
   /** Thumbnail-store keys an item owns that the database cascade does not clean
    *  up (face crops). Snapshotted before the teardown deletes the rows… */
   cropKeysForItem?: (itemId: string) => string[];
+  /** Files that belong to an item without being its own entry (a photo's back
+   *  side) and go into the bin WITH it, as library-relative paths. Asked before
+   *  the move; a type may hand such a file to another item instead and return
+   *  nothing. */
+  companionsForTrash?: (itemId: string) => string[];
+  /** After a restore put the files back: record that `companionPath` belongs to
+   *  the item at `itemPath` again, before the scan that re-catalogues it runs. */
+  seedRestoredCompanion?: (libraryId: string, itemPath: string, companionPath: string) => void;
   /** …and removed once the teardown has committed. */
   removeCropFiles?: (keys: string[]) => void;
   /** Dry-run a scan rule's layouts over its folders. A type without it has no

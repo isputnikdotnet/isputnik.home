@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, EyeOff, Eye, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, ScanFace, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, EyeOff, Eye, FlipHorizontal2, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, ScanFace, Scissors, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -11,6 +11,7 @@ import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { SendToSheet } from "../social/SendToSheet";
 import { GalleryReplaceModal } from "./GalleryReplaceModal";
+import { GalleryBackSideModal } from "./GalleryBackSideModal";
 import { GalleryLightboxPanel } from "./GalleryLightboxPanel";
 import { GalleryFaceOverlay } from "./GalleryFaceOverlay";
 import { useIsMobile } from "../../shared/useIsMobile";
@@ -181,6 +182,15 @@ export function GalleryLightbox({
   const [shareOverride, setShareOverride] = useState<{ id: string; excluded: boolean } | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
+  // The BACK of a scanned print (docs/back-sides-proposal.md): shown in place of
+  // the front while `showBack`, and back to the front on every new photo. The
+  // dialogs: add/replace the back's file, remove it, split it off as a photo.
+  const [showBack, setShowBack] = useState(false);
+  const [backOpen, setBackOpen] = useState(false);
+  const [backRemoveOpen, setBackRemoveOpen] = useState(false);
+  const [backSplitOpen, setBackSplitOpen] = useState(false);
+  const [backBusy, setBackBusy] = useState(false);
+  const [backError, setBackError] = useState("");
   // Set when the browser's <video> can't decode this asset (unsupported container/
   // codec — legacy AVI/Motion-JPEG, WMV, etc.). We serve originals untranscoded, so
   // a plain <video> silently stalls; this drives an explanatory fallback instead.
@@ -272,6 +282,12 @@ export function GalleryLightbox({
   useEffect(() => { setHighlightPersonId(null); }, [viewedAssetId, showInfo]);
   const sameAsset = faceState != null && faceState.id === asset?.id;
   const faces = sameAsset ? faceState.faces : asset?.faces ?? [];
+  // Every photo opens on its front; a back that has gone (removed, split off)
+  // leaves the view on the front too.
+  const hasBack = Boolean(asset?.back);
+  useEffect(() => { setShowBack(false); }, [viewedAssetId]);
+  useEffect(() => { if (!hasBack) setShowBack(false); }, [hasBack]);
+  const backShown = hasBack && showBack && !playing;
   // Who the photo says is in it, for the face editor to offer (GalleryFaceOverlay).
   const facePeople = sameAsset ? faceState.people : asset?.people ?? [];
 
@@ -281,7 +297,7 @@ export function GalleryLightbox({
 
   // Any open sub-dialog freezes the slideshow (a slide must not advance under a
   // confirm/share/collection modal). Also gates the keyboard handler below.
-  const dialogOpen = collectionOpen || albumOpen || deleteOpen || replaceOpen || moreMenuOpen;
+  const dialogOpen = collectionOpen || albumOpen || deleteOpen || replaceOpen || moreMenuOpen || backOpen || backRemoveOpen || backSplitOpen;
 
   // Close the overflow menu on an outside click (Escape is handled in the
   // shared keydown handler below, alongside the lightbox's own Escape-to-close).
@@ -423,21 +439,28 @@ export function GalleryLightbox({
         event.preventDefault();
         void toggleLike();
       }
+      // B flips a two-sided print over (F is taken by Like).
+      else if ((event.key === "b" || event.key === "B") && !event.metaKey && !event.ctrlKey && !event.altKey && hasBack) {
+        event.preventDefault();
+        setShowBack((v) => !v);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen, moreMenuOpen, toggleLike]);
+  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen, moreMenuOpen, toggleLike, hasBack]);
 
   if (!asset) return null;
 
   // Rotate the asset 90° and refetch so the regenerated (cache-busted) thumbnail
   // loads. For a video the poster/tiles come back rotated and the playing <video>
   // picks the new angle up live via videoStyle — no remount, playback continues.
+  // Rotate turns whichever side is showing: the back has a turn of its own,
+  // since it is usually scanned the other way up.
   const rotate = async (direction: "cw" | "ccw") => {
     if (rotateBusy) return;
     setRotateBusy(true);
     try {
-      await api(`/api/library/gallery/assets/${asset.id}/rotate`, {
+      await api(`/api/library/gallery/assets/${asset.id}/${backShown ? "back/rotate" : "rotate"}`, {
         method: "POST",
         body: JSON.stringify({ direction })
       });
@@ -446,6 +469,34 @@ export function GalleryLightbox({
       /* leave the image as-is; the user can retry */
     } finally {
       setRotateBusy(false);
+    }
+  };
+
+  const removeBack = async () => {
+    setBackBusy(true);
+    setBackError("");
+    try {
+      await api(`/api/library/gallery/assets/${asset.id}/back`, { method: "DELETE" });
+      setBackRemoveOpen(false);
+      onChanged({ kind: "asset", id: asset.id });
+    } catch (err) {
+      setBackError(err instanceof Error ? err.message : t("gallery:backSide.errors.remove"));
+    } finally {
+      setBackBusy(false);
+    }
+  };
+
+  const splitBack = async () => {
+    setBackBusy(true);
+    setBackError("");
+    try {
+      await api(`/api/library/gallery/assets/${asset.id}/back/split`, { method: "POST" });
+      setBackSplitOpen(false);
+      onChanged({ kind: "asset", id: asset.id });
+    } catch (err) {
+      setBackError(err instanceof Error ? err.message : t("gallery:backSide.errors.split"));
+    } finally {
+      setBackBusy(false);
     }
   };
 
@@ -575,6 +626,24 @@ export function GalleryLightbox({
           label: t("gallery:replace.action"),
           onClick: () => setReplaceOpen(true)
         }]
+      : []),
+    // The back of a print: add one, or replace / remove / split off the one it
+    // has. Photos only — a video has no back.
+    ...(canEdit && asset.kind === "photo"
+      ? [
+          {
+            key: "back-file",
+            icon: FlipHorizontal2 as LucideIcon,
+            label: hasBack ? t("gallery:backSide.replace") : t("gallery:backSide.add"),
+            onClick: () => setBackOpen(true)
+          },
+          ...(hasBack
+            ? [
+                { key: "back-split", icon: Scissors as LucideIcon, label: t("gallery:backSide.split"), onClick: () => { setBackError(""); setBackSplitOpen(true); } },
+                { key: "back-remove", icon: X as LucideIcon, label: t("gallery:backSide.remove"), onClick: () => { setBackError(""); setBackRemoveOpen(true); } }
+              ]
+            : [])
+        ]
       : []),
     ...(asset.shareControl
       ? (() => {
@@ -899,18 +968,19 @@ export function GalleryLightbox({
         ) : (
           <>
             <img
-              key={asset.id}
+              key={backShown ? `${asset.id}:back` : asset.id}
               ref={setImageEl}
               className="gallery-lightbox-media"
-              data-transition={activeTransition}
+              data-transition={backShown ? "crossfade" : activeTransition}
               data-playing={playing ? "true" : undefined}
               style={{ ["--lb-dwell" as string]: `${intervalSec}s`, ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
-              src={asset.previewUrl ?? asset.fileUrl}
-              alt={asset.title}
+              src={backShown && asset.back ? asset.back.previewUrl : asset.previewUrl ?? asset.fileUrl}
+              alt={backShown ? t("gallery:backSide.imageAlt", { title: asset.title }) : asset.title}
             />
             {/* Not during a slideshow: boxes would drift under Ken Burns and
-                chatter across every slide. */}
-            {!playing && (
+                chatter across every slide. Not on the back either: the faces are
+                on the other side. */}
+            {!playing && !backShown && (
               <GalleryFaceOverlay
                 image={imageEl}
                 faces={faces}
@@ -926,6 +996,21 @@ export function GalleryLightbox({
               />
             )}
           </>
+        )}
+        {/* Flip, for a print scanned on both sides. On the stage rather than in
+            the bar so a thumb finds it on a phone too; B does the same. */}
+        {hasBack && !playing && asset.kind === "photo" && (
+          <Button
+            variant="bare"
+            className={`gallery-lightbox-flip${showBack ? " is-on" : ""}`}
+            onClick={() => setShowBack((v) => !v)}
+            aria-pressed={showBack}
+            aria-label={showBack ? t("gallery:lightbox.flipToFront") : t("gallery:lightbox.flipToBack")}
+            title={`${showBack ? t("gallery:lightbox.flipToFront") : t("gallery:lightbox.flipToBack")} (B)`}
+          >
+            <FlipHorizontal2 size={18} aria-hidden="true" />
+            <span>{showBack ? t("gallery:lightbox.flipToFront") : t("gallery:lightbox.flipToBack")}</span>
+          </Button>
         )}
         {hasNext && (
           <Button variant="bare" className="gallery-lightbox-nav next" onClick={() => onIndexChange(index + 1)} aria-label={t("gallery:lightbox.nextAria")}>
@@ -1010,6 +1095,46 @@ export function GalleryLightbox({
             onChanged({ kind: "asset", id: asset.id });
           }}
         />
+      )}
+
+      {backOpen && (
+        <GalleryBackSideModal
+          asset={asset}
+          onClose={() => setBackOpen(false)}
+          onDone={() => {
+            setBackOpen(false);
+            setShowBack(true);
+            onChanged({ kind: "asset", id: asset.id });
+          }}
+        />
+      )}
+
+      {backRemoveOpen && (
+        <ConfirmDialog
+          title={t("gallery:backSide.removeConfirmTitle", { title: asset.title })}
+          confirmLabel={t("gallery:backSide.removeConfirmLabel")}
+          busyLabel={t("gallery:backSide.removing")}
+          busy={backBusy}
+          error={backError}
+          onConfirm={() => void removeBack()}
+          onCancel={() => { if (!backBusy) setBackRemoveOpen(false); }}
+        >
+          {t("gallery:backSide.removeConfirmBody")}
+        </ConfirmDialog>
+      )}
+
+      {backSplitOpen && (
+        <ConfirmDialog
+          title={t("gallery:backSide.splitConfirmTitle", { title: asset.title })}
+          confirmLabel={t("gallery:backSide.splitConfirmLabel")}
+          busyLabel={t("gallery:backSide.splitting")}
+          busy={backBusy}
+          error={backError}
+          onConfirm={() => void splitBack()}
+          onCancel={() => { if (!backBusy) setBackSplitOpen(false); }}
+        >
+          {t("gallery:backSide.splitConfirmBody")}
+        </ConfirmDialog>
       )}
 
       {deleteOpen && (

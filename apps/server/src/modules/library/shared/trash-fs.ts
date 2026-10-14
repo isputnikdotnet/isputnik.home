@@ -49,7 +49,17 @@ function catalogedRelativePaths(bookId: string): string[] {
 // bin and somewhere else entirely for an install-wide one.
 // folder_path !== "." → move the single entry (audiobook folder or ebook file) wholesale.
 // folder_path === "." → move each catalogued file individually (root-grouped books).
-export function moveEntryIntoTrash(root: string, trashAbs: string, row: TrashBookRow): void {
+export function moveEntryIntoTrash(root: string, trashAbs: string, row: TrashBookRow, companions: string[] = []): void {
+  // Files that belong to the item without being its entry (a photo's back side):
+  // moved beside it, at their own source-relative paths, so a restore is the same
+  // clean inverse.
+  for (const relativePath of companions) {
+    const from = path.resolve(root, relativePath);
+    if (!pathIsInside(from, root) || from === root || !fs.existsSync(from)) continue;
+    const to = path.join(trashAbs, relativePath);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    moveEntry(from, to);
+  }
   if (row.folder_path === ".") {
     for (const relativePath of catalogedRelativePaths(row.id)) {
       const from = path.resolve(root, relativePath);
@@ -123,6 +133,27 @@ export function moveEntryOutOfTrash(
   }
   fs.mkdirSync(path.dirname(to), { recursive: true });
   if (fs.existsSync(from)) moveEntry(from, to);
+  return target;
+}
+
+// A companion file (moveEntryIntoTrash's `companions`) back to its own path,
+// deduped if that is taken; returns where it landed, or null when it was not in
+// the bin after all.
+export function moveCompanionOutOfTrash(
+  root: string,
+  item: { trash_path: string; trash_root?: string | null },
+  relativePath: string
+): string | null {
+  const trashAbs = path.resolve(item.trash_root || root, item.trash_path);
+  const from = path.join(trashAbs, relativePath);
+  if (!fs.existsSync(from)) return null;
+  const target = dedupeRelativePath(root, relativePath, false);
+  const to = path.resolve(root, target);
+  if (!pathIsInside(to, root) || to === root) {
+    throw new TrashError("Refusing to restore a file outside the library folder.", 500);
+  }
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  moveEntry(from, to);
   return target;
 }
 

@@ -39,6 +39,7 @@ import {
   type TrashSource
 } from "./trash-settings.js";
 import {
+  moveCompanionOutOfTrash,
   moveEntryIntoTrash,
   moveEntryOutOfTrash,
   pruneEmptyTrashDir,
@@ -110,7 +111,9 @@ function deleteBookCovers(libraryId: string, bookId: string, coverStorageKey: st
     thumbnailStorageKey(libraryId, bookId, `${bookId}-cover.webp`),
     thumbnailStorageKey(libraryId, bookId, `${bookId}-cover-large.webp`),
     // Gallery video web-playable copy (transcode.ts); a no-op for non-video items.
-    thumbnailStorageKey(libraryId, bookId, `${bookId}-web.mp4`)
+    thumbnailStorageKey(libraryId, bookId, `${bookId}-web.mp4`),
+    // A photo's back-side preview (gallery/media.ts backPreviewKey); same no-op.
+    thumbnailStorageKey(libraryId, bookId, `${bookId}-back-large.webp`)
   ]);
   if (coverStorageKey) keys.add(coverStorageKey);
   if (keep) keys.delete(keep);
@@ -231,8 +234,12 @@ export function trashBook(
   // the teardown commits. They regenerate on a restore, like covers do.
   const mediaType = getMediaType(row.library_type);
   const faceCropKeys = mediaType?.cropKeysForItem?.(row.id) ?? [];
+  // Files that go with the item without being its entry (a photo's back side),
+  // or none when the type found them another home first.
+  const companions = mediaType?.companionsForTrash?.(row.id) ?? [];
+  const backPath = companions[0] ?? null;
 
-  moveEntryIntoTrash(root, trashAbs, row);
+  moveEntryIntoTrash(root, trashAbs, row, companions);
 
   // Kept out of the cover sweep below and recorded on the bin row, so the Recycle
   // Bin can show the item rather than just its name.
@@ -245,12 +252,12 @@ export function trashBook(
       db.prepare(`
         INSERT INTO trashed_items
           (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path,
-           file_count, size_bytes, cover_key, source, expires_at, trash_root, trashed_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           file_count, size_bytes, cover_key, source, expires_at, trash_root, trashed_by, back_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         nanoid(16), row.library_id, row.library_type, row.library_name, row.source_path,
-        row.title, row.folder_path, trashPath, row.file_count, row.size_bytes, coverKey,
-        source, expiryFor(source), trashRoot, userId
+        row.title, row.folder_path, trashPath, row.file_count + companions.length, row.size_bytes, coverKey,
+        source, expiryFor(source), trashRoot, userId, backPath
       );
     })();
   } catch (err) {
@@ -299,6 +306,12 @@ export async function restoreTrashedItem(id: string, deferScan = false): Promise
   }
 
   const restoredPath = moveEntryOutOfTrash(root, item, true);
+  // A companion that went in with it (a photo's back side) comes back beside it
+  // and is paired again before any scan can take it for a photo of its own.
+  if (item.back_path) {
+    const restoredBack = moveCompanionOutOfTrash(root, item, item.back_path);
+    if (restoredBack) getMediaType(item.library_type)?.seedRestoredCompanion?.(item.library_id, restoredPath, restoredBack);
+  }
   pruneEmptyTrashDir(root, item);
 
   const rescanItem = getMediaType(item.library_type)?.rescanItem;

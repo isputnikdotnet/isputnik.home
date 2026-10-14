@@ -18,6 +18,7 @@ import { startSlideshowRenderWorker } from "./slideshow-render-queue.js";
 import { startTranscodeWorker } from "./transcode.js";
 import { startFaststartWorker } from "./faststart.js";
 import { galleryStreamPlugin } from "./stream.js";
+import { galleryBackSideRoutesPlugin } from "./back-routes.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
 import { registerGalleryStats } from "./stats.js";
@@ -40,6 +41,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryPeopleAccessRoutesPlugin);
   await app.register(galleryDuplicateJobRoutesPlugin);
   await app.register(galleryStreamPlugin);
+  await app.register(galleryBackSideRoutesPlugin);
 
   // Slideshows use only user-uploaded music now; purge any built-in beds a prior
   // version seeded (idempotent, best-effort — safe when the store isn't configured).

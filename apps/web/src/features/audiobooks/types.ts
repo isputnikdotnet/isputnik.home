@@ -39,6 +39,23 @@ export type TagEncoding = "windows-1251" | "windows-1250" | "windows-1252" | "ko
 // episodic = per-track played/position state (radio shows, podcasts).
 export type ProgressMode = "linear" | "episodic";
 
+// How a gallery library pairs the BACK of a scanned print with its front by file
+// name (docs/back-sides-proposal.md): ordered sources, each on or off, plus the
+// library's own `{name}` patterns.
+export type BackSideSourceId = "epson" | "named" | "custom";
+export interface BackSideSource {
+  id: BackSideSourceId;
+  enabled: boolean;
+}
+export interface BackSidesSettings {
+  sources: BackSideSource[];
+  patterns: string[];
+}
+export const DEFAULT_BACK_SIDES: BackSidesSettings = {
+  sources: [{ id: "epson", enabled: false }, { id: "named", enabled: false }, { id: "custom", enabled: false }],
+  patterns: []
+};
+
 // Scan/upload settings exposed to admins on the manage view.
 export interface AdminLibrarySettings {
   defaultLanguage: string | null;
@@ -47,6 +64,7 @@ export interface AdminLibrarySettings {
   // as primary content.
   companionExtensions: string[];
   scanSources: ScanSource[];
+  backSides?: BackSidesSettings;
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;
   progressMode: ProgressMode;

@@ -31,7 +31,8 @@ import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
-import { uniqueGalleryFileName } from "./files.js";
+import { pairUploadedBackSides, placeBackSideBeside, uniqueGalleryFileName } from "./files.js";
+import { backRuleOf } from "./back-sides.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 import { normaliseTargetFolder } from "./move.js";
 import type { LibraryRow as DbLibraryRow, ShareLinkRow, UserRow } from "../../../db/rows.js";
@@ -296,16 +297,24 @@ export async function receiveDrop(token: string, request: FastifyRequest): Promi
   const deliveryFolder = `${normaliseTargetFolder(link.label ?? "") || DEFAULT_DELIVERY_FOLDER}/${today()}`;
   const targetDir = path.join(root, ...deliveryFolder.split("/"));
   const landed: { itemId: string; fileName: string; sizeBytes: number }[] = [];
+  // A guest's batch pairs backs with fronts under the Inbox's own rule, as an
+  // ordinary upload does (docs/back-sides-proposal.md).
+  const rule = backRuleOf(normalizeLibrarySettings("gallery", library.settings_json).back_sides);
+  const pairs = pairUploadedBackSides(received, rule);
   try {
     fs.mkdirSync(targetDir, { recursive: true });
     for (const file of received) {
+      if (pairs.backs.has(file)) continue;
       const finalName = uniqueGalleryFileName(targetDir, file.filename);
       if (!finalName) { fs.rmSync(file.tmpPath, { force: true }); continue; }
       const finalPath = path.join(targetDir, finalName);
       fs.renameSync(file.tmpPath, finalPath);
+      const back = pairs.backOf.get(file);
+      let sizeBytes = file.sizeBytes;
+      if (back && placeBackSideBeside(finalPath, back, rule)) sizeBytes += back.sizeBytes;
       const relativePath = normaliseRelativePath(path.relative(root, finalPath));
       const itemId = await scanSingleGalleryFile(library.id, relativePath);
-      if (itemId) landed.push({ itemId, fileName: finalName, sizeBytes: file.sizeBytes });
+      if (itemId) landed.push({ itemId, fileName: finalName, sizeBytes });
     }
   } catch (err) {
     return { ok: false, status: 500, error: err instanceof Error ? err.message : "Could not store the files." };

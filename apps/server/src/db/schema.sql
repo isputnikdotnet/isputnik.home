@@ -501,6 +501,19 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- group photo): the source item. The face scan skips these, or the crop would
   -- grow a second copy of the same face (migration 82).
   derived_from_item_id TEXT,
+  -- The BACK of a scanned print (docs/back-sides-proposal.md, migration 84): a second
+  -- image file beside the front, recorded here rather than catalogued as a photo of
+  -- its own, so every grid, album, slideshow and scan sees one photo. Paired by the
+  -- library's back-sides rule (settings_json.back_sides) or by hand; a file recorded
+  -- here is never catalogued separately, rule or no rule. back_rotation is the back's
+  -- own turn (user-owned, the scan never writes it); size/modified_at are change
+  -- detection for its preview; back_text is "Written on the back", manual only.
+  back_relative_path  TEXT,
+  back_rotation       INTEGER NOT NULL DEFAULT 0,
+  back_size           INTEGER,
+  back_modified_at    TEXT,
+  back_preview_storage_key TEXT,
+  back_text           TEXT,
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
@@ -1745,6 +1758,10 @@ CREATE TABLE IF NOT EXISTS trashed_items (
   -- page. Per row rather than read from the setting, so a row can always be found again
   -- by the app that wrote it, whatever the setting later says.
   trash_root   TEXT,
+  -- A gallery photo's back side (gallery_details.back_relative_path) goes into the
+  -- bin with its front and comes back paired on restore, whatever the library's
+  -- back-sides rule says by then. Its library-relative path, like origin_path.
+  back_path    TEXT,
   trashed_by   TEXT REFERENCES users(id),
   trashed_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

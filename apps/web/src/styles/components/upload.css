@@ -302,6 +302,23 @@
   gap: 8px;
 }
 
+/* Back sides of scanned prints (BackSidesEditor): the custom-patterns row holds
+   its chips and add row inside the source copy; the dry run sits under the table. */
+.back-sides-editor > span:first-child { color: var(--muted); }
+.back-sides-editor .scan-source-copy code,
+.back-sides-editor .scan-sources-hint code {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--hover);
+}
+.back-sides-patterns { display: grid; gap: 6px; margin-top: 6px; }
+.back-sides-patterns .extension-add-row input { max-width: 300px; }
+.back-sides-check { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.88rem; }
+.back-sides-check-list { margin: 4px 0 0; padding-left: 18px; }
+.back-sides-check-list li { margin: 2px 0; }
+
 .extension-add-row input {
   flex: 1;
   min-width: 0;

@@ -21,10 +21,11 @@ import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
-import type { PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
+import { DEFAULT_BACK_SIDES, type PublicRole, type LibraryMode, type ScanSource, type MetadataSourceInfo, type LibraryTypeDefaults, type BackSidesSettings } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
 import { ExtensionsEditor } from "./ExtensionsEditor";
 import { ScanSourcesEditor } from "./ScanSourcesEditor";
+import { BackSidesEditor } from "./BackSidesEditor";
 import { PRESETS, humanize } from "../layout/layout-model";
 import { useRoleLabels } from "../layout/useRoleLabels";
 import { SourceFolderPicker } from "./SourceFolderPicker";
@@ -145,6 +146,7 @@ export function LibraryWizard({
   const [extensions, setExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
   const [companions, setCompanions] = useState<string[]>(typeDefaults[initialType]?.companions ?? []);
   const [scanSources, setScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
+  const [backSides, setBackSides] = useState<BackSidesSettings>(DEFAULT_BACK_SIDES);
   const [maxUploadMB, setMaxUploadMB] = useState("");
   const [tagEncoding, setTagEncoding] = useState("");
   // The default layout (docs/scan-layout-plan.md): a preset pattern saved as the
@@ -158,6 +160,7 @@ export function LibraryWizard({
   const [draftExtensions, setDraftExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
   const [draftCompanions, setDraftCompanions] = useState<string[]>(typeDefaults[initialType]?.companions ?? []);
   const [draftScanSources, setDraftScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
+  const [draftBackSides, setDraftBackSides] = useState<BackSidesSettings>(DEFAULT_BACK_SIDES);
   const [draftMaxUploadMB, setDraftMaxUploadMB] = useState("");
   const [draftTagEncoding, setDraftTagEncoding] = useState("");
   const [creating, setCreating] = useState(false);
@@ -203,6 +206,7 @@ export function LibraryWizard({
     setDraftExtensions([...extensions]);
     setDraftCompanions([...companions]);
     setDraftScanSources(scanSources.map((source) => ({ ...source })));
+    setDraftBackSides({ sources: backSides.sources.map((source) => ({ ...source })), patterns: [...backSides.patterns] });
     setDraftMaxUploadMB(maxUploadMB);
     setDraftTagEncoding(tagEncoding);
     setAdvancedError("");
@@ -221,6 +225,7 @@ export function LibraryWizard({
     setExtensions([...draftExtensions]);
     setCompanions([...draftCompanions]);
     setScanSources(draftScanSources.map((source) => ({ ...source })));
+    setBackSides({ sources: draftBackSides.sources.map((source) => ({ ...source })), patterns: [...draftBackSides.patterns] });
     setMaxUploadMB(draftMaxUploadMB);
     setTagEncoding(draftTagEncoding);
     setAdvancedError("");
@@ -303,6 +308,7 @@ export function LibraryWizard({
           scanSources,
           maxUploadMB: Number.isFinite(maxUpload) && maxUpload > 0 ? maxUpload : null,
           tagEncoding: libraryType === "audiobook" && tagEncoding ? tagEncoding : null,
+          ...(libraryType === "gallery" ? { backSides } : {}),
           ...(libraryType !== "gallery" && layoutChoice ? { defaultLayouts: [layoutChoice] } : {})
         })
       });
@@ -572,6 +578,9 @@ export function LibraryWizard({
                       sourceInfo={typeSourceInfo}
                       hideGrouping
                     />
+                    {libraryType === "gallery" && (
+                      <BackSidesEditor value={draftBackSides} onChange={setDraftBackSides} />
+                    )}
                     {libraryType === "audiobook" && (
                       <TagEncodingField
                         value={draftTagEncoding}

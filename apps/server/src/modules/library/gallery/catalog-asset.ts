@@ -18,7 +18,7 @@ export type AssetRow = Pick<LibraryItemRow, "id" | "library_id" | "folder_path" 
     | "kind" | "taken_at" | "taken_precision" | "taken_approx" | "place_text" | "reviewed_at"
     | "width" | "height" | "orientation" | "rotation" | "duration_seconds" | "mime_type" | "size"
     | "gps_lat" | "gps_lng" | "camera_make" | "camera_model" | "preview_storage_key" | "playable"
-    | "web_video_key" | "updated_at">
+    | "web_video_key" | "back_relative_path" | "back_rotation" | "back_preview_storage_key" | "back_text" | "updated_at">
   & Nullable<Pick<ItemMetadataRow, "title" | "description" | "cover_storage_key">>
   & {
     library_name: LibraryRow["name"] | null;
@@ -89,6 +89,10 @@ export const ASSET_COLUMNS = `
   gallery_details.preview_storage_key,
   gallery_details.playable,
   gallery_details.web_video_key,
+  gallery_details.back_relative_path,
+  gallery_details.back_rotation,
+  gallery_details.back_preview_storage_key,
+  gallery_details.back_text,
   gallery_details.updated_at,
   gallery_places.place_id,
   gallery_places.distance_km AS place_distance_km,
@@ -179,6 +183,19 @@ export function mapAsset(row: AssetRow) {
     playbackUrl: `/api/library/gallery/assets/${row.id}/file${row.web_video_key ? "?web=1" : ""}`,
     tags: (tagsFor.all(row.id) as { name: TagRow["display_name"] }[]).map((t) => t.name),
     saved: Boolean(row.saved),
+    // The BACK of a scanned print (docs/back-sides-proposal.md): one flip away in
+    // the lightbox, never in a grid. Its preview is rendered on ingest; until then
+    // (a back just handed over by a twin) the file itself stands in.
+    back: row.back_relative_path
+      ? {
+          previewUrl: row.back_preview_storage_key
+            ? `/api/library/covers/${row.back_preview_storage_key}${v}`
+            : `/api/library/gallery/assets/${row.id}/back/file`,
+          fileUrl: `/api/library/gallery/assets/${row.id}/back/file`,
+          rotation: row.back_rotation ?? 0
+        }
+      : null,
+    backText: row.back_text ?? null,
     // null when this photo has no detected face — the tile then crops from the
     // centre as before. Percentages, ready for CSS object-position.
     faceFocus: focusOf(row, rotation)

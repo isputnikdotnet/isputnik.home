@@ -11,6 +11,7 @@ import { enabledFaceLibraryIds } from "./faces/settings.js";
 import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "./cleanup.js";
 import { enqueueTranscodeBatch, unplayableBacklogCount } from "./transcode.js";
 import { repointMovedFolder } from "./folder-move.js";
+import { backSidesForTrash, seedRestoredBackSide } from "./back-side-files.js";
 
 // How many videos the weekly "convert unplayable videos" job queues per run — bounded so
 // a big backlog drains over successive weeks instead of hogging the box in one night.
@@ -25,6 +26,10 @@ export function registerGalleryMediaType(): void {
     // files, so the bin snapshots their keys and removes the files afterwards.
     cropKeysForItem: faceCropKeysForItem,
     removeCropFiles: removeFaceCropFiles,
+    // A photo's back side goes into the bin with it — or to its Epson twin when
+    // one stays behind (docs/back-sides-proposal.md, decision 6).
+    companionsForTrash: backSidesForTrash,
+    seedRestoredCompanion: seedRestoredBackSide,
     repointMovedFolder,
     scheduledJobs: [
       {

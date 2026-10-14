@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Download, Heart, Image as ImageIcon, Mic, Play, UserRound, X } from "lucide-react";
+import { CheckCircle2, Download, FlipHorizontal2, Heart, Image as ImageIcon, Mic, Play, UserRound, X } from "lucide-react";
 import type { GalleryAsset } from "./types";
 import { faceFocusStyle } from "./types";
 import { Button } from "../../shared/Button";
@@ -82,6 +82,13 @@ export function AssetTile({
       )}
       {asset.kind === "audio" && (
         <span className="gallery-video-badge"><Mic size={11} aria-hidden="true" />{t("gallery:common.audio")}</span>
+      )}
+      {/* A print scanned on both sides: the corner mark says there is a back to
+          flip to. The grid itself only ever shows fronts. */}
+      {asset.back && (
+        <span className="gallery-back-dot" title={t("gallery:assetTile.hasBackTitle")}>
+          <FlipHorizontal2 size={12} aria-hidden="true" />
+        </span>
       )}
       {/* Only a selected tile gets the check overlay — unselected tiles stay
           clean rather than all sprouting empty circles in selection mode. */}

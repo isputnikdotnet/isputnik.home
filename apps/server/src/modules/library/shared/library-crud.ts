@@ -14,7 +14,11 @@ import {
   normalizeExtensions,
   normalizeLibrarySettings,
   normalizeScanSources,
+  normalizeBackSides,
+  BACK_SIDE_SOURCE_IDS,
+  BACK_PATTERN_MAX_LENGTH,
   TAG_ENCODINGS,
+  type BackSidesSettings,
   type ProgressMode,
   type ScanSourceConfig,
   type TagEncoding
@@ -27,6 +31,14 @@ const scanSourcesSchema = z.array(z.object({
   id: z.enum(METADATA_SOURCE_IDS),
   enabled: z.boolean()
 })).max(20);
+
+// Back sides of scanned prints (gallery): ordered sources + the library's own
+// patterns. Normalised again on save (normalizeBackSides), which drops anything
+// this shape let through but a file name can't carry.
+const backSidesSchema = z.object({
+  sources: z.array(z.object({ id: z.enum(BACK_SIDE_SOURCE_IDS), enabled: z.boolean() })).max(10),
+  patterns: z.array(z.string().trim().min(2).max(BACK_PATTERN_MAX_LENGTH)).max(20)
+});
 
 const extensionSchema = z.string().trim().regex(/^\.?[a-zA-Z0-9]{1,10}$/);
 
@@ -46,6 +58,7 @@ export const coreLibraryCreateSchema = z.object({
   // Upload-only companion files (covers, sidecars, documents). Empty = none.
   companionExtensions: z.array(extensionSchema).max(40).optional(),
   scanSources: scanSourcesSchema.optional(),
+  backSides: backSidesSchema.optional(),
   maxUploadMB: z.number().int().min(1).max(10240).nullable().optional(),
   // Default legacy charset for tag mojibake repair (audiobook); null clears it.
   tagEncoding: z.enum(TAG_ENCODINGS).nullable().optional(),
@@ -171,6 +184,7 @@ export function createLibraryRecord(opts: {
       ? normalizeExtensions(data.companionExtensions)
       : defaultCompanionExtensions(type),
     scan_sources: normalizeScanSources(type, data.scanSources),
+    back_sides: normalizeBackSides(data.backSides),
     ...(data.tagEncoding ? { tag_encoding: data.tagEncoding } : {}),
     ...(data.progressMode ? { progress_mode: data.progressMode } : {})
   };
@@ -251,6 +265,9 @@ export function updateLibraryRecord(opts: {
   if (data.scanSources) {
     settings.scan_sources = normalizeScanSources(type, data.scanSources);
   }
+  if (data.backSides) {
+    settings.back_sides = normalizeBackSides(data.backSides);
+  }
   if (data.tagEncoding !== undefined) {
     if (data.tagEncoding === null) {
       delete settings.tag_encoding;
@@ -300,6 +317,7 @@ export interface AdminLibrarySettings {
   scanExtensions: string[];
   companionExtensions: string[];
   scanSources: ScanSourceConfig[];
+  backSides: BackSidesSettings;
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;
   progressMode: ProgressMode;
@@ -318,6 +336,7 @@ export function serializeLibrarySettingsForAdmin(
     scanExtensions: settings.scan_extensions,
     companionExtensions: settings.companion_extensions,
     scanSources: settings.scan_sources,
+    backSides: settings.back_sides,
     maxUploadMB: policy.maxUploadMB ?? null,
     tagEncoding: (settings as { tag_encoding?: TagEncoding }).tag_encoding ?? null,
     progressMode: (settings as { progress_mode?: ProgressMode }).progress_mode ?? "linear"
