@@ -87,6 +87,30 @@ there.
 Rotation works for videos too — a clip filmed sideways turns upright in the
 viewer and in its thumbnails, and keeps playing while you turn it.
 
+**Scanned on both sides.** A print with writing on the back stays one photo:
+the back is kept with the front and shown with **Flip** (the pill at the foot
+of the viewer, or `B` on the keyboard), the right way up — the back has its own
+Rotate, since prints usually go through the scanner the other way up. A small
+mark in the corner of a tile says there is a back to flip to. The grid, albums,
+slideshows and face recognition only ever see fronts.
+
+How the two files pair up is a rule on the library's **Scanning** tab in the
+Control panel: the **Epson FastFoto** preset pairs `X_b.jpg` with `X.jpg` (and
+follows the `_a` enhanced copy when the raw scan is cleaned up), **Named back**
+pairs `X_back.jpg`, and you can add patterns of your own, with `{name}` standing
+for the front's file name. **Check this library** counts what a rescan would
+pair before you save. The rule is off until you turn it on, and a pair already
+made stays paired if you turn it off again. Uploads and drop links pair by the
+same rule, so a batch of scans lands as photos with their backs.
+
+Without a rule, or for a single print, the viewer's menu has **Add the back**,
+which saves the file beside the front. **Split off the back** turns a back into
+a photo of its own again — and if it was a photo before it was paired, its tags,
+people and notes come back with it. **Remove the back** sets the file aside with
+the replaced originals. **Written on the back**, on the Details tab and in
+Review mode, is for copying out the inscription as it is written, so it can be
+searched.
+
 **Replace file** puts a different file behind a photo you already have — the
 high-resolution scan over the low-resolution one you catalogued years ago, or a
 straightened version. The photo itself stays exactly what it was: the stories

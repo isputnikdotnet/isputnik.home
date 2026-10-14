@@ -43,13 +43,14 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
   const where: string[] = [`${scope.sql}`, "library_items.deleted_at IS NULL"];
   const args: unknown[] = [...scope.params];
   if (opts.q) {
-    // Match what a person would type: the title, the caption, any folder/file-name
-    // segment, or a tagged person's name (audiobook search spans people the same way).
-    where.push(`(item_metadata.title LIKE ? OR item_metadata.description LIKE ? OR library_items.folder_path LIKE ? OR EXISTS (
+    // Match what a person would type: the title, the caption, what is written on
+    // the back of a print, any folder/file-name segment, or a tagged person's name
+    // (audiobook search spans people the same way).
+    where.push(`(item_metadata.title LIKE ? OR item_metadata.description LIKE ? OR gallery_details.back_text LIKE ? OR library_items.folder_path LIKE ? OR EXISTS (
       SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
       WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name LIKE ?))`);
     const like = `%${opts.q}%`;
-    args.push(like, like, like, like);
+    args.push(like, like, like, like, like);
   }
   if (opts.kinds.length > 0) { where.push(`gallery_details.kind IN (${inClause(opts.kinds.length)})`); args.push(...opts.kinds); }
   const extra = galleryFilterClauses(opts.filters ?? EMPTY_GALLERY_FILTERS, userId);

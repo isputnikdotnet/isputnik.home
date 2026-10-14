@@ -1050,6 +1050,13 @@ export function GalleryLightbox({
           onRotate={canEdit && asset.kind !== "audio" ? (direction) => void rotate(direction) : undefined}
           rotateBusy={rotateBusy}
           onReplace={canEdit && asset.kind !== "audio" ? () => setReplaceOpen(true) : undefined}
+          onBackSide={canEdit && asset.kind === "photo"
+            ? {
+                add: () => setBackOpen(true),
+                split: hasBack ? () => { setBackError(""); setBackSplitOpen(true); } : undefined,
+                remove: hasBack ? () => { setBackError(""); setBackRemoveOpen(true); } : undefined
+              }
+            : undefined}
           faces={asset.kind === "photo" ? faces : []}
           showFaces={showFaces}
           onToggleFaces={toggleFaces}

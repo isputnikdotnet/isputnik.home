@@ -14,7 +14,7 @@
 // chrome-free page like the story reading view: it leaves the shell behind.
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ArrowRight, FileText, Home, Image as ImageIcon, MapPin, Mic, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, FlipHorizontal2, Home, Image as ImageIcon, MapPin, Mic, Pencil } from "lucide-react";
 import { api } from "../../../api";
 import { goBack } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -41,6 +41,8 @@ interface Draft {
   /** A place found from her words, to pin a photo that has no location. */
   pin: PlacePin | null;
   notes: string;
+  /** "Written on the back" of a two-sided print (docs/back-sides-proposal.md). */
+  backText: string;
   people: GalleryPersonTag[];
 }
 
@@ -79,6 +81,7 @@ function draftOf(asset: GalleryAsset): Draft {
     place: asset.placeText ?? "",
     pin: null,
     notes: asset.description ?? "",
+    backText: asset.backText ?? "",
     people: asset.people ?? []
   };
 }
@@ -119,6 +122,8 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   // an effect showed the previous photo's date, place and people under the new one
   // for a render — and a save fired in that window would have written them to it.
   const [edited, setEdited] = useState<{ assetId: string; draft: Draft } | null>(null);
+  // Which side of a two-sided print is on screen; every photo opens on its front.
+  const [showBack, setShowBack] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -129,6 +134,9 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
   const detailFor = useRef<string | null>(null);
 
   const asset = assets?.[index] ?? null;
+  const assetId = asset?.id;
+  useEffect(() => { setShowBack(false); }, [assetId]);
+  const backShown = Boolean(asset?.back) && showBack;
   const draft: Draft | null = asset
     ? (edited && edited.assetId === asset.id ? edited.draft : draftOf(asset))
     : null;
@@ -240,6 +248,7 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
         takenAt: asset.takenAt,
         tags: asset.tags,
         placeText: draft.place.trim() || null,
+        backText: draft.backText.trim() || null,
         reviewed: true
       };
       // A found place pins the photo — never one that already has a location.
@@ -423,10 +432,26 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
               onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setLarge((current) => !current); } }}
             >
               <span className="review-photo-frame">
-                {asset.previewUrl || asset.coverUrl
-                  ? <img src={asset.previewUrl ?? asset.coverUrl ?? undefined} alt={t("galleryReview:photoAlt")} />
-                  : <span className="review-photo-fallback"><ImageIcon size={48} aria-hidden="true" /></span>}
+                {backShown && asset.back
+                  ? <img src={asset.back.previewUrl} alt={t("galleryReview:backSide.photoAlt")} />
+                  : asset.previewUrl || asset.coverUrl
+                    ? <img src={asset.previewUrl ?? asset.coverUrl ?? undefined} alt={t("galleryReview:photoAlt")} />
+                    : <span className="review-photo-fallback"><ImageIcon size={48} aria-hidden="true" /></span>}
               </span>
+              {/* Flip, for a print scanned on both sides: the back is what she
+                  reads to answer When and Where. Stops the click so it doesn't
+                  also toggle the large view. */}
+              {asset.back && (
+                <Button
+                  variant="chip"
+                  className={`review-chip review-photo-flip${showBack ? " is-on" : ""}`}
+                  aria-pressed={showBack}
+                  onClick={(event) => { event.stopPropagation(); setShowBack((current) => !current); }}
+                >
+                  <FlipHorizontal2 size={18} aria-hidden="true" />
+                  {showBack ? t("galleryReview:backSide.showFront") : t("galleryReview:backSide.showBack")}
+                </Button>
+              )}
             </div>
 
             <div className="review-form">
@@ -519,6 +544,22 @@ export function ReviewPage({ source }: { source: ReviewSource }) {
                   disabled={!canEdit || busy}
                 />
               </QuestionCard>
+
+              {/* Only for a print with a scanned back, or where the words are
+                  already written down: an ordinary photo has nothing on its back. */}
+              {(asset.back || draft.backText.trim()) && (
+                <QuestionCard title={t("galleryReview:backSide.heading")} hint={t("galleryReview:backSide.hint")}>
+                  <textarea
+                    className="review-back-text"
+                    value={draft.backText}
+                    rows={3}
+                    placeholder={t("galleryReview:backSide.placeholder")}
+                    onChange={(event) => editDraft({ ...draft, backText: event.target.value })}
+                    disabled={!canEdit || busy}
+                    aria-label={t("galleryReview:backSide.heading")}
+                  />
+                </QuestionCard>
+              )}
 
               <QuestionCard title={t("galleryReview:notes.heading")} hint={t("galleryReview:notes.hint")}>
                 {canEdit && (

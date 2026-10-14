@@ -22,6 +22,9 @@ export interface GalleryAssetEdit {
   takenApprox?: boolean;
   // undefined = leave the place as written untouched; null = clear it.
   placeText?: string | null;
+  // "Written on the back" (docs/back-sides-proposal.md): the inscription as
+  // someone typed it. undefined = untouched; null = clear it.
+  backText?: string | null;
   tags: string[];
   // undefined = leave the existing location untouched; null = remove it;
   // a point = set it. Any change marks the location user-owned (gps_source).
@@ -112,6 +115,11 @@ export function updateGalleryAsset(itemId: string, data: GalleryAssetEdit): bool
 
     if (data.placeText !== undefined) {
       db.prepare(SET_PLACE_TEXT_SQL).run(data.placeText?.trim() || null, itemId);
+    }
+
+    if (data.backText !== undefined) {
+      db.prepare("UPDATE gallery_details SET back_text = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
+        .run(data.backText?.trim() || null, itemId);
     }
 
     if (data.gps !== undefined) {

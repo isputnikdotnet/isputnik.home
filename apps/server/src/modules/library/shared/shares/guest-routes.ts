@@ -81,14 +81,14 @@ function loadShareDocument(resourceId: string): ShareDocumentRow | undefined {
 
 // A shared gallery item is a single asset (one photo or video), described directly
 // in gallery_details. Both the inline viewer and the download resolve to this file.
-type ShareGalleryRow = Pick<GalleryDetailRow, "kind" | "relative_path" | "mime_type" | "width" | "height" | "duration_seconds">;
+type ShareGalleryRow = Pick<GalleryDetailRow, "kind" | "relative_path" | "mime_type" | "width" | "height" | "duration_seconds" | "back_relative_path" | "back_rotation">;
 
 // The link's own label and expiry, and who made it (LEFT JOINed, so possibly NULL).
 type ShareMetaRow = Pick<ShareLinkRow, "label" | "expires_at"> & { shared_by: UserRow["display_name"] | null };
 
 function loadShareGalleryAsset(resourceId: string): ShareGalleryRow | undefined {
   return db.prepare(`
-    SELECT kind, relative_path, mime_type, width, height, duration_seconds
+    SELECT kind, relative_path, mime_type, width, height, duration_seconds, back_relative_path, back_rotation
     FROM gallery_details
     WHERE item_id = ?
   `).get(resourceId) as ShareGalleryRow | undefined;
@@ -279,7 +279,11 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
           coverUrl,
           width: gal.width,
           height: gal.height,
-          durationSeconds: gal.duration_seconds
+          durationSeconds: gal.duration_seconds,
+          // A print scanned on both sides: the guest page offers a flip, and
+          // `/file?side=back` serves the back (docs/back-sides-proposal.md).
+          hasBack: Boolean(gal.back_relative_path),
+          backRotation: gal.back_rotation ?? 0
         }
       });
     }
@@ -582,16 +586,24 @@ export function registerShareGuestRoutes(app: FastifyInstance) {
         reply.code(404).send({ error: "File not found" });
         return;
       }
-      const galPath = path.join(item.source_path, ...gal.relative_path.split("/"));
+      // ?side=back: the back of a two-sided print, stripped like the front. A
+      // photo with no back answers 404 for it rather than the front twice over.
+      const wantBack = (request.query as { side?: string } | undefined)?.side === "back";
+      const relative = wantBack ? gal.back_relative_path : gal.relative_path;
+      if (!relative) {
+        reply.code(404).send({ error: "File not found" });
+        return;
+      }
+      const galPath = path.join(item.source_path, ...relative.split("/"));
       if (!pathIsInside(galPath, item.source_path) || !fs.existsSync(galPath)) {
         reply.code(404).send({ error: "File not found" });
         return;
       }
       return sendGalleryFile(request, reply, {
         absolutePath: galPath,
-        mimeType: gal.mime_type,
-        fileName: gal.relative_path.split("/").pop() ?? "file",
-        kind: gal.kind,
+        mimeType: wantBack ? null : gal.mime_type,
+        fileName: relative.split("/").pop() ?? "file",
+        kind: wantBack ? "photo" : gal.kind,
         download: false
       });
     }

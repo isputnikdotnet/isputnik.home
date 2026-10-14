@@ -1,7 +1,8 @@
 # Back sides — proposal
 
-Status: agreed 2026-10-14; **phase 1 built the same day** (as-built notes under
-"Phase 1 as built" below); phases 2 and 3 open. Written from a discussion about prints that
+Status: agreed 2026-10-14; **phases 1 and 2 built the same day** (as-built notes
+under "Phase 1 as built" and "Phase 2 as built" below); phase 3 (Swap sides,
+camera capture) open. Written from a discussion about prints that
 carry writing on the back, a look at how other tools handle them, and the owner's own
 Epson FastFoto output (`C:\Users\sergeym\Pictures\FastFoto`, 30 prints). Companion to
 [gallery-library.md](gallery-library.md), [scanner.md](scanner.md),
@@ -399,6 +400,29 @@ folder; posts `X_b.jpg` alone and asserts an ordinary photo.
 - Tests: `test/gallery-back-sides.test.ts` (matcher, settings) and
   `test/gallery-back-sides-scan.test.ts` (Epson folder end to end, dry run,
   retire + Split, twin hand-over, bin round trip, move, by-hand actions, lone back).
+
+## Phase 2 as built (2026-10-14)
+
+- **"Written on the back"**: `backText` on the asset edit route (`edit.ts`),
+  searched with the title and caption (`catalog.ts`); a section on the lightbox
+  Details tab with its own small editor; a "What is written on the back?" card in
+  Review mode, shown for a print that has a back or already has words. No OCR,
+  no dictation wiring (the note dialog's dictation is for the memory, not the
+  inscription).
+- **Review mode Flip**: a chip at the foot of the photo; the back at its own
+  rotation. No rotate in Review mode (it never had one).
+- **Share page**: a single-photo share says `hasBack`; `GET /api/share/:token/file?side=back`
+  serves the back, metadata-stripped like the front; the guest page has a Flip
+  under the picture. Set and album shares show fronts only.
+- **Lightbox File tab**: a "Back side" row with Add / Replace, Split off, Remove.
+- **Family tree package**: a photo's back travels as `media/photos/<id>_back.<ext>`
+  (`backFile`, `backRotation`, `backText` on the photo record, all optional);
+  import pairs it beside the front under the house library's naming and restores
+  the turn and the words.
+- Guide: "Scanned on both sides" in `docs/users/library-gallery.md` (no screenshot
+  yet); `docs/scanner.md` §8 and a "Back sides" note.
+- **Not built**: Swap sides; camera capture on the phone; a "Paired as back side"
+  listing in the Recycle Bin (decision 10's deviation stands).
 
 ## Open questions
 

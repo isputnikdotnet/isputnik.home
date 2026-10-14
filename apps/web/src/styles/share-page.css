@@ -86,8 +86,13 @@
    portrait shot or a video still fits on screen without scrolling. */
 .share-gallery-media {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 10px;
 }
+
+/* Flip, for a shared print scanned on both sides: under the picture, full row. */
+.share-gallery-flip { flex-basis: 100%; justify-content: center; }
 
 .share-gallery-media img,
 .share-gallery-media video {

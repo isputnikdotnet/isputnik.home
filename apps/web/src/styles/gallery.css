@@ -1365,6 +1365,21 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
 
 /* "What do you remember?": the words, a line under them when there are none, and
    Add note · Add recording side by side (Review mode's two buttons, panel-sized). */
+/* Written on the back (docs/back-sides-proposal.md): plain text, as typed. */
+.lb-back-text { margin: 0; white-space: pre-line; line-height: 1.5; font-size: 0.92rem; }
+.lb-back-text-editor { display: grid; gap: 8px; }
+.lb-back-text-editor textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
 .lb-memory-hint {
   margin: 0;
   font-size: 0.85rem;

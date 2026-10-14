@@ -185,6 +185,22 @@ Upload, restore, and metadata-reset reuse the same ingest without a full walk:
   calls `ingestEbookGroup` — so an uploaded PDF joins an existing EPUB instead of
   creating a duplicate.
 - `rescanSingleBook` re-ingests one audiobook by id.
+- `scanSingleGalleryFile` catalogues one gallery file. A file that is the BACK of
+  a scanned print — on record as some front's back, or fitting the library's
+  back-sides rule beside a front — is attached to that front instead of becoming
+  an item, and the front's id is returned (docs/back-sides-proposal.md).
+
+### Back sides (gallery)
+
+A gallery library's `settings_json.back_sides` rule (Scanning tab) pairs the back
+of a print with its front by file name (`gallery/back-sides.ts`): `{name}_b` for
+Epson FastFoto, `{name}_back` and friends, or custom `{name}` patterns. In the
+library walk, backs are taken out of the item list before ingest and recorded on
+the front's `gallery_details` row (`back_relative_path`, with its own rotation and
+preview); a pair on record holds while both files exist, whatever the rule says
+later, and a recorded back is never catalogued as an item. A photo that becomes a
+back is soft-deleted like a missing file but kept out of the Missing photos list;
+"Split off the back" revives it.
 
 ## 9. Per-type summary
 

@@ -227,7 +227,10 @@
     "next": "Далее",
     "openItem": "Открыть «{{title}}»",
     "video": "Видео",
-    "photo": "Фото"
+    "photo": "Фото",
+    "showBack": "Показать оборот",
+    "showFront": "Показать лицевую сторону",
+    "backOf": "Оборот «{{title}}»"
   },
   "collections": {
     "errorTitle": "Ошибка коллекций",

@@ -121,6 +121,29 @@
   border-radius: 8px;
 }
 
+/* Flip, for a print scanned on both sides: a chip at the foot of the photo. */
+.review-photo { position: relative; }
+.review-photo-flip {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+.review-photo-flip.is-on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+/* "What is written on the back?" — plain text, as written. */
+.review-back-text {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
 .review-photo-fallback {
   display: grid;
   place-items: center;

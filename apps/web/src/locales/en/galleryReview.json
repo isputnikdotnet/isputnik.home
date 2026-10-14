@@ -51,6 +51,14 @@
     "addNamed": "Add “{{name}}”",
     "nobodyYet": "Type a name to add the first person."
   },
+  "backSide": {
+    "heading": "What is written on the back?",
+    "hint": "Copy it as it is written — a date, a place, a name.",
+    "placeholder": "May 1949, nine months old…",
+    "showBack": "Show the back",
+    "showFront": "Show the front",
+    "photoAlt": "The back of the photo being looked at"
+  },
   "notes": {
     "heading": "What do you remember?",
     "hint": "Add any details, big or small.",

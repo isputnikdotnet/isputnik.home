@@ -18,7 +18,9 @@ import { validateLibrarySource } from "../../library/shared/library-source.js";
 import { normaliseRelativePath } from "../../library/shared/storage-roots.js";
 import { getHouseLibrary, HOUSE_FOLDERS } from "../../library/gallery/house-library.js";
 import { uniqueGalleryFileName } from "../../library/gallery/files.js";
-import { scanSingleGalleryFile } from "../../library/gallery/scanner.js";
+import { scanSingleGalleryFile, setBackSide } from "../../library/gallery/scanner.js";
+import { backFileNameFor, NO_RULE } from "../../library/gallery/back-sides.js";
+import { setBackRotation } from "../../library/gallery/back-side-files.js";
 import { extractFromZip } from "../../backups/zip-read.js";
 import type { ImportPlan, ImportSummary } from "./import-plan.js";
 import type { FamilyTreePersonRow } from "../../../db/rows.js";
@@ -244,7 +246,11 @@ export async function applyImportPlan(
 
   // ── Media ──
   const wanted = new Map<string, string>();
-  for (const op of plan.photos) if (!op.localId && MEDIA_ENTRY.test(op.pkg.file)) wanted.set(op.pkg.file, path.join(stagingDir, ...op.pkg.file.split("/")));
+  for (const op of plan.photos) {
+    if (op.localId) continue;
+    if (MEDIA_ENTRY.test(op.pkg.file)) wanted.set(op.pkg.file, path.join(stagingDir, ...op.pkg.file.split("/")));
+    if (op.pkg.backFile && MEDIA_ENTRY.test(op.pkg.backFile)) wanted.set(op.pkg.backFile, path.join(stagingDir, ...op.pkg.backFile.split("/")));
+  }
   for (const op of plan.portraits) if (MEDIA_ENTRY.test(op.file)) wanted.set(op.file, path.join(stagingDir, ...op.file.split("/")));
   if (wanted.size > 0) {
     try {
@@ -288,6 +294,21 @@ export async function applyImportPlan(
           fs.rmSync(finalPath, { force: true });
           warnings.push(`Photo "${op.pkg.fileName}" could not be read and was left out.`);
           continue;
+        }
+        // The back of a two-sided print lands beside the front under the
+        // house library's own naming and is paired with it, rule or no rule.
+        const stagedBack = op.pkg.backFile ? wanted.get(op.pkg.backFile) : undefined;
+        if (stagedBack && fs.existsSync(stagedBack)) {
+          const backName = uniqueGalleryFileName(importDir.dir, backFileNameFor(finalName, NO_RULE, path.extname(stagedBack)));
+          if (backName) {
+            const backPath = path.join(importDir.dir, backName);
+            moveFile(stagedBack, backPath);
+            const paired = await setBackSide(house!.id, itemId, normaliseRelativePath(path.relative(importDir.root, backPath)));
+            if (paired && op.pkg.backRotation) await setBackRotation(itemId, op.pkg.backRotation);
+          }
+        }
+        if (op.pkg.backText) {
+          db.prepare("UPDATE gallery_details SET back_text = ? WHERE item_id = ?").run(op.pkg.backText, itemId);
         }
         remember("photo", itemId, op.pkg.id);
         summary.photosImported += 1;

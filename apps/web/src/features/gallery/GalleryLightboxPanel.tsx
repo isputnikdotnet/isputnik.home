@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Calendar, FileText, FolderOpen, MapPin, Mic, Pencil, Plus, Replace, RotateCcw, RotateCw, Tag, Users, X } from "lucide-react";
+import { Calendar, FileText, FlipHorizontal2, FolderOpen, MapPin, Mic, Pencil, Plus, Replace, RotateCcw, RotateCw, Scissors, Tag, Users, X } from "lucide-react";
 import { api } from "../../api";
 import { formatBytes } from "../../shared/utils";
 import { CLIP_LENGTH, formatClock } from "../../shared/formatClock";
@@ -60,6 +60,7 @@ export function GalleryLightboxPanel({
   onRotate,
   rotateBusy,
   onReplace,
+  onBackSide,
   faces = [],
   showFaces = false,
   onToggleFaces,
@@ -79,6 +80,10 @@ export function GalleryLightboxPanel({
   onRotate?: (direction: "cw" | "ccw") => void;
   rotateBusy?: boolean;
   onReplace?: () => void;
+  // The back of a scanned print (docs/back-sides-proposal.md): add or replace
+  // its file, split it off as a photo, or remove it. The lightbox owns the
+  // dialogs, as it does for Replace.
+  onBackSide?: { add: () => void; split?: () => void; remove?: () => void };
   // The faces the lightbox draws over the photo. A chip lends its person's face
   // from THIS photo, and hovering it lights that face up on the stage.
   faces?: GalleryFace[];
@@ -104,6 +109,8 @@ export function GalleryLightboxPanel({
   const [editApprox, setEditApprox] = useState(false);
   // The point picked on the location editor's map (separate from the text fields).
   const [editGps, setEditGps] = useState<{ lat: number; lng: number } | null>(null);
+  // "Written on the back": its own small editor, plain text as typed.
+  const [backTextDraft, setBackTextDraft] = useState<string | null>(null);
   // A place-search result: its name (shown beside the coordinates until the pin is
   // moved by hand) and the nonce-keyed instruction that recentres the map on it.
   const [editGpsLabel, setEditGpsLabel] = useState("");
@@ -207,6 +214,8 @@ export function GalleryLightboxPanel({
   type PatchBody = {
     title: string; description: string | null; takenAt: string | null; tags: string[];
     takenPrecision?: TakenPrecision; takenApprox?: boolean; placeText?: string | null;
+    /** "Written on the back" (docs/back-sides-proposal.md). */
+    backText?: string | null;
     gps?: { lat: number; lng: number } | null;
     /** What the search called `gps`, for this person's recent places. */
     gpsLabel?: string;
@@ -602,6 +611,58 @@ export function GalleryLightboxPanel({
             </section>
           )}
 
+          {/* Written on the back (docs/back-sides-proposal.md): the inscription as
+              typed, beside the scan of it. Shown for a two-sided print, or
+              wherever someone has already written it down. */}
+          {(asset.back || asset.backText || (canEdit && asset.kind === "photo")) && (
+            <section className="lb-sec">
+              <div className="lb-sec-h">
+                <FlipHorizontal2 size={18} aria-hidden="true" />
+                <h3>{t("gallery:lightbox.backTextHeading")}</h3>
+              </div>
+              {backTextDraft !== null ? (
+                <div className="lb-back-text-editor">
+                  <textarea
+                    value={backTextDraft}
+                    rows={3}
+                    placeholder={t("gallery:lightbox.backTextPlaceholder")}
+                    onChange={(event) => setBackTextDraft(event.target.value)}
+                    disabled={editBusy}
+                    aria-label={t("gallery:lightbox.backTextHeading")}
+                  />
+                  <div className="lb-actions">
+                    <Button
+                      variant="primary"
+                      compact
+                      disabled={editBusy}
+                      onClick={() => {
+                        void patch({ backText: backTextDraft.trim() || null }, t("gallery:lightbox.errors.saveChanges"))
+                          .then((ok) => { if (ok) setBackTextDraft(null); });
+                      }}
+                    >
+                      {editBusy ? t("gallery:backSide.saving") : t("gallery:backSide.save")}
+                    </Button>
+                    <Button variant="secondary" compact onClick={() => setBackTextDraft(null)} disabled={editBusy}>
+                      {t("common:common.cancel")}
+                    </Button>
+                  </div>
+                </div>
+              ) : asset.backText ? (
+                <p className="lb-back-text">{asset.backText}</p>
+              ) : (
+                <p className="lb-memory-hint muted">{canEdit ? t("gallery:lightbox.backTextHint") : t("gallery:lightbox.backTextNone")}</p>
+              )}
+              {canEdit && backTextDraft === null && (
+                <div className="lb-memory-actions">
+                  <Button variant="secondary" compact onClick={() => setBackTextDraft(asset.backText ?? "")} disabled={editBusy}>
+                    {asset.backText ? <Pencil size={14} aria-hidden="true" /> : <FileText size={14} aria-hidden="true" />}
+                    {asset.backText ? t("gallery:lightbox.backTextEdit") : t("gallery:lightbox.backTextAdd")}
+                  </Button>
+                </div>
+              )}
+            </section>
+          )}
+
           {memoryDialog === "note" && (
             <ReviewNoteModal
               initial={asset.description ?? ""}
@@ -748,6 +809,33 @@ export function GalleryLightboxPanel({
               <><dt>{t("gallery:lightbox.labelLibrary")}</dt><dd>{asset.libraryName}</dd></>
             )}
           </dl>
+
+          {/* The back of a scanned print: what the photo has, and the actions on it. */}
+          {asset.kind === "photo" && (asset.back || onBackSide) && (
+            <section className="lb-sec">
+              <div className="lb-sec-h"><h3>{t("gallery:backSide.fileHeading")}</h3></div>
+              <p className="lb-memory-hint muted">
+                {asset.back ? t("gallery:backSide.fileHas") : t("gallery:backSide.fileNone")}
+              </p>
+              {onBackSide && (
+                <div className="lb-actions">
+                  <Button variant="secondary" compact onClick={onBackSide.add}>
+                    <FlipHorizontal2 size={14} aria-hidden="true" /> {asset.back ? t("gallery:backSide.replace") : t("gallery:backSide.add")}
+                  </Button>
+                  {onBackSide.split && (
+                    <Button variant="secondary" compact onClick={onBackSide.split}>
+                      <Scissors size={14} aria-hidden="true" /> {t("gallery:backSide.split")}
+                    </Button>
+                  )}
+                  {onBackSide.remove && (
+                    <Button variant="secondary" compact onClick={onBackSide.remove}>
+                      <X size={14} aria-hidden="true" /> {t("gallery:backSide.remove")}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* No rotate on a recording — there is nothing to turn (the server refuses too). */}
           {canEdit && asset.kind !== "audio" && (onRotate || onReplace) && (

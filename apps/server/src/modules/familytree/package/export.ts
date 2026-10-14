@@ -45,7 +45,7 @@ interface MediaFile {
   absolutePath: string;
 }
 
-type PhotoRow = Pick<GalleryDetailRow, "item_id" | "kind" | "relative_path" | "taken_at" | "content_hash"> & Pick<LibraryRow, "source_path">;
+type PhotoRow = Pick<GalleryDetailRow, "item_id" | "kind" | "relative_path" | "taken_at" | "content_hash" | "back_relative_path" | "back_rotation" | "back_text"> & Pick<LibraryRow, "source_path">;
 
 /** Everything the package holds: the JSON and the files to stream after it.
  *  Files that are missing on disk are left out and named in `warnings`. */
@@ -82,7 +82,8 @@ export async function buildPackage(): Promise<PackageBuild> {
     for (let i = 0; i < ids.length; i += 500) {
       const slice = ids.slice(i, i + 500);
       rows.push(...db.prepare(`
-        SELECT gd.item_id, gd.kind, gd.relative_path, gd.taken_at, gd.content_hash, libraries.source_path
+        SELECT gd.item_id, gd.kind, gd.relative_path, gd.taken_at, gd.content_hash,
+               gd.back_relative_path, gd.back_rotation, gd.back_text, libraries.source_path
         FROM library_items li
         JOIN gallery_details gd ON gd.item_id = li.id
         JOIN libraries ON libraries.id = li.library_id
@@ -100,13 +101,25 @@ export async function buildPackage(): Promise<PackageBuild> {
       }
       const ext = path.extname(row.relative_path).toLowerCase() || ".jpg";
       const entry = `${PHOTOS_DIR}/${row.item_id}${ext}`;
+      // The back of a two-sided print travels as a second entry beside the
+      // front; a back whose file is gone is simply left out.
+      let backFile: string | undefined;
+      if (row.back_relative_path) {
+        const backAbs = path.join(root, ...row.back_relative_path.split("/"));
+        if (fs.existsSync(backAbs)) {
+          backFile = `${PHOTOS_DIR}/${row.item_id}_back${path.extname(row.back_relative_path).toLowerCase() || ".jpg"}`;
+          media.push({ entry: backFile, absolutePath: backAbs });
+        }
+      }
       photos.set(row.item_id, {
         id: row.item_id,
         file: entry,
         fileName: path.basename(row.relative_path),
         kind: row.kind,
         sha256: row.content_hash ?? await sha256Of(absolutePath),
-        takenAt: row.taken_at
+        takenAt: row.taken_at,
+        ...(backFile ? { backFile, backRotation: row.back_rotation ?? 0 } : {}),
+        ...(row.back_text ? { backText: row.back_text } : {})
       });
       media.push({ entry, absolutePath });
     }

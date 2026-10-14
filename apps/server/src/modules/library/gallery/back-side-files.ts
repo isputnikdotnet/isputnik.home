@@ -141,6 +141,14 @@ export function removeBackSide(itemId: string): BackSideResult | Promise<BackSid
 export async function rotateBackSide(itemId: string, direction: "cw" | "ccw"): Promise<BackSideResult & { rotation?: number }> {
   const row = loadFront(itemId);
   if (!row) return { ok: false, status: 404, error: "Photo not found." };
+  return setBackRotation(itemId, ((row.back_rotation ?? 0) + (direction === "cw" ? 90 : 270)) % 360);
+}
+
+/** Set the back's turn outright (0/90/180/270) and re-render its preview —
+ *  what a family tree package import restores. */
+export async function setBackRotation(itemId: string, rotation: number): Promise<BackSideResult & { rotation?: number }> {
+  const row = loadFront(itemId);
+  if (!row) return { ok: false, status: 404, error: "Photo not found." };
   if (!row.back_relative_path) return { ok: false, status: 404, error: "This photo has no back side." };
   let root: string;
   try { root = validateLibrarySource(row.source_path); } catch (err) {
@@ -148,12 +156,12 @@ export async function rotateBackSide(itemId: string, direction: "cw" | "ccw"): P
   }
   const abs = absUnder(root, row.back_relative_path);
   if (!pathIsInside(abs, root) || !fs.existsSync(abs)) return { ok: false, status: 404, error: "The back's file is missing on disk." };
-  const rotation = ((row.back_rotation ?? 0) + (direction === "cw" ? 90 : 270)) % 360;
-  const key = await generateBackPreview(row.library_id, itemId, abs, rotation);
+  const turn = ((Math.round(rotation / 90) * 90) % 360 + 360) % 360;
+  const key = await generateBackPreview(row.library_id, itemId, abs, turn);
   if (!key) return { ok: false, status: 422, error: "The back could not be rotated." };
   stmt("UPDATE gallery_details SET back_rotation = ?, back_preview_storage_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
-    .run(rotation, key, itemId);
-  return { ok: true, rotation };
+    .run(turn, key, itemId);
+  return { ok: true, rotation: turn };
 }
 
 /** The back becomes a photo of its own again: renamed to `<front> (back).<ext>`

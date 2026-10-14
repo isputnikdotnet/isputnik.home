@@ -116,7 +116,13 @@ export const packagePhotoSchema = z.object({
   fileName: z.string().min(1),
   kind: z.enum(["photo", "video"]).optional(),
   sha256: z.string().nullable().optional(),
-  takenAt: text
+  takenAt: text,
+  // The BACK of a scanned print (docs/back-sides-proposal.md), as a second
+  // entry under media/photos/, paired with the front again on import. Optional:
+  // packages from before 4.31 have none, and most photos have no back.
+  backFile: z.string().min(1).optional(),
+  backRotation: z.number().int().optional(),
+  backText: text.optional()
 });
 
 export const packageTreeSchema = z.object({

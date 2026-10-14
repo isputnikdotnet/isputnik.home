@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, Headphones, Image as ImageIcon, List, Moon, Play, Volume2, VolumeX, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, FlipHorizontal2, Headphones, Image as ImageIcon, List, Moon, Play, Volume2, VolumeX, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import { PlayerControls } from "../features/audiobooks/PlayerControls";
 import { RATES, rateLabel, SLEEP_MINUTES, usePlayback } from "../features/audiobooks/usePlayback";
@@ -65,6 +65,8 @@ interface GallerySharePayload {
     width: number | null;
     height: number | null;
     durationSeconds: number | null;
+    // A print scanned on both sides: /file?side=back serves the back.
+    hasBack?: boolean;
   };
 }
 
@@ -258,6 +260,9 @@ function GalleryShareView({ token, payload }: { token: string; payload: GalleryS
   const { asset, share } = payload;
   const fileUrl = `/api/share/${token}/file`;
   const downloadUrl = `/api/share/${token}/download`;
+  // The back of a two-sided print, one flip away (docs/back-sides-proposal.md).
+  const [showBack, setShowBack] = useState(false);
+  const canFlip = asset.kind === "photo" && asset.hasBack === true;
 
   return (
     <div className="share-page">
@@ -266,7 +271,23 @@ function GalleryShareView({ token, payload }: { token: string; payload: GalleryS
           {asset.kind === "video" ? (
             <video src={fileUrl} controls playsInline poster={asset.coverUrl ?? undefined} />
           ) : (
-            <img src={fileUrl} alt={asset.title} />
+            <img
+              key={showBack ? "back" : "front"}
+              src={canFlip && showBack ? `${fileUrl}?side=back` : fileUrl}
+              alt={showBack ? t("user:viewer.backOf", { title: asset.title }) : asset.title}
+            />
+          )}
+          {canFlip && (
+            <Button
+              variant="secondary"
+              compact
+              className="share-gallery-flip"
+              aria-pressed={showBack}
+              onClick={() => setShowBack((current) => !current)}
+            >
+              <FlipHorizontal2 size={15} aria-hidden="true" />
+              {showBack ? t("user:viewer.showFront") : t("user:viewer.showBack")}
+            </Button>
           )}
         </div>
 

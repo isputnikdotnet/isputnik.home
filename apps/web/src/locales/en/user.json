@@ -199,7 +199,10 @@
     "next": "Next",
     "openItem": "Open {{title}}",
     "video": "Video",
-    "photo": "Photo"
+    "photo": "Photo",
+    "showBack": "Show the back",
+    "showFront": "Show the front",
+    "backOf": "The back of {{title}}"
   },
   "collections": {
     "errorTitle": "Collections error",

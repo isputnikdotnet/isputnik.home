@@ -130,6 +130,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
     takenPrecision: z.enum(TAKEN_PRECISIONS).optional(),
     takenApprox: z.boolean().optional(),
     placeText: z.string().trim().max(300).nullable().optional(),
+    backText: z.string().trim().max(5000).nullable().optional(),
     tags: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
     gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().optional(),
     // What the search called the point in `gps` — kept only with this person's
@@ -160,6 +161,7 @@ export function registerGalleryAssetRoutes(app: FastifyInstance) {
       takenPrecision: parsed.data.takenPrecision,
       takenApprox: parsed.data.takenApprox,
       placeText: parsed.data.placeText,
+      backText: parsed.data.backText,
       tags: parsed.data.tags ?? [],
       gps: parsed.data.gps,
       reviewedBy: parsed.data.reviewed ? user.id : undefined
