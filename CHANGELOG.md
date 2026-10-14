@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.31.0 — Prints scanned on both sides
+
+- **A print with writing on the back stays one photo.** Scan both sides and the back is kept with the front: the grid, albums, slideshows and face recognition see the front only, a small mark in the corner of the tile says there is more, and **Flip** in the viewer (the pill at the foot of the photo, or `B`) shows the back the right way up. The back has its own Rotate, since prints usually go through the scanner the other way round. Before, the back came out as a second photo of its own, with nothing tying it to the one it belongs to.
+- **How the two files pair up is a rule on the library's Scanning tab.** The **Epson FastFoto** preset pairs `X_b.jpg` with `X.jpg` (and follows the enhanced `X_a` copy when the raw scan is cleaned up as a duplicate), **Named back** pairs `X_back.jpg`, and you can add patterns of your own with `{name}` for the front's file name. **Check this library** counts what a rescan would pair before you save. The rule is off until you turn it on, and a pair already made stays paired if you turn it off again. Uploads and drop links pair by the same rule.
+- **Add the back, Split off the back, Remove the back** in the viewer's menu and on its File tab, for a single print or a library with no rule. A back that was a photo before it was paired comes back with its tags, people and notes when it is split off. A removed or replaced back is set aside with the replaced originals, never overwritten.
+- **Written on the back** is a field on the Details tab and a card in Review mode, for copying out the inscription as it is written; search finds it. Review mode and a photo's guest link have Flip too. The family tree package carries a photo's back along with it.
+- The back travels with its front through the Recycle Bin, a move to another library and the Photo Inbox's Keep; deleting one of an Epson pair hands the back to the copy that stays.
+
 ## 4.30.2 — Gallery, tidied for the phone
 
 - **The photo viewer is solid black on a phone.** Its backdrop let a little of the page through, so the page's title sat under the "12 / 15" counter and the toolbar ghosted around the photo.
