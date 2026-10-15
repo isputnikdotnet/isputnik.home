@@ -90,6 +90,8 @@
     "play": "Слушать",
     "markPlayed": "Отметить прослушанной",
     "markUnplayed": "Снять отметку",
+    "markChapterFinished": "Отметить главу прослушанной",
+    "markChapterUnfinished": "Снять отметку с главы",
     "closeReader": "Закрыть читалку",
     "removeDownloadTitle": "Удалить загрузку?",
     "removeDownload": "Удалить загрузку",

@@ -88,6 +88,8 @@
     "play": "Play",
     "markPlayed": "Mark played",
     "markUnplayed": "Mark unplayed",
+    "markChapterFinished": "Mark chapter finished",
+    "markChapterUnfinished": "Mark chapter unfinished",
     "closeReader": "Close reader",
     "removeDownloadTitle": "Remove download?",
     "removeDownload": "Remove download",

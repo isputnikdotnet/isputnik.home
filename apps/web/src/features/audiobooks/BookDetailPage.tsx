@@ -510,7 +510,7 @@ function BookDetailView({
     format: primaryReadableDoc.format
   } : null;
   const ebookOffline = useEbookDownload(ebookMeta);
-  const [progressAction, setProgressAction] = useState<"complete" | "reset" | "">("");
+  const [progressAction, setProgressAction] = useState<"complete" | "reset" | "cursor" | "">("");
   const [progressActionError, setProgressActionError] = useState("");
 
   useEffect(() => {
@@ -775,17 +775,73 @@ function BookDetailView({
   });
   const hasChapters = bookChapters.length > 0;
 
-  // Read-only progress for a chapter, derived from the playback cursor. Embedded
-  // chapters live in a single file, so the cursor's file matches in practice.
+  // Progress for a chapter, derived from the playback cursor: chapters in files
+  // before the cursor's file are done, those after it untouched, and within the
+  // cursor's file the position decides.
   const chapterRing = (chapter: { fileId: string; startSeconds: number; durationSeconds: number }) => {
-    if (progress?.fileId !== chapter.fileId || chapter.durationSeconds <= 0) {
-      return { progress: 0, complete: false };
+    if (bookFinished) return { progress: 1, complete: true };
+    if (progress?.fileId !== chapter.fileId) {
+      const cursorIndex = book.files.findIndex((file) => file.id === progress?.fileId);
+      const chapterIndex = book.files.findIndex((file) => file.id === chapter.fileId);
+      const done = cursorIndex >= 0 && chapterIndex >= 0 && chapterIndex < cursorIndex;
+      return { progress: done ? 1 : 0, complete: done };
     }
+    if (chapter.durationSeconds <= 0) return { progress: 0, complete: false };
     const pos = progress.positionSeconds ?? 0;
     const end = chapter.startSeconds + chapter.durationSeconds;
     if (pos >= end - 0.5) return { progress: 1, complete: true };
     if (pos > chapter.startSeconds) return { progress: Math.min((pos - chapter.startSeconds) / chapter.durationSeconds, 1), complete: false };
     return { progress: 0, complete: false };
+  };
+
+  // Per-chapter "Mark finished" for linear books. The book keeps ONE cursor, so
+  // finishing a chapter moves it to where the next one starts (the next file at 0
+  // once a file runs out; the file's own end on the last file, which trips the
+  // server's auto-finish), and un-finishing moves it back to the chapter's start.
+  // A finished book is reset first — a cursor write never clears completed_at on
+  // its own. The server decides percent/completed_at, so the cursor is re-read
+  // rather than guessed.
+  const moveCursor = async (fileId: string, positionSeconds: number, unfinish: boolean) => {
+    if (progressAction) return;
+    setProgressAction("cursor");
+    setProgressActionError("");
+    try {
+      if (unfinish && progress?.completedAt) {
+        await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
+      }
+      await api(`/api/library/books/${book.id}/progress`, {
+        method: "PATCH",
+        body: JSON.stringify({ fileId, positionSeconds: Math.max(0, Math.floor(positionSeconds)) })
+      });
+      const payload = await api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`);
+      setProgress(payload.progress);
+    } catch (err) {
+      setProgressActionError(err instanceof Error ? err.message : t("book:detail.unableMarkFinished"));
+    } finally {
+      setProgressAction("");
+    }
+  };
+  // Where the cursor goes once `file` is finished: the next available file, or the
+  // end of this one when it is the last.
+  const afterFile = (file: AudiobookFile): { fileId: string; positionSeconds: number } => {
+    const next = availableFiles[availableFiles.findIndex((f) => f.id === file.id) + 1];
+    return next ? { fileId: next.id, positionSeconds: 0 } : { fileId: file.id, positionSeconds: file.durationSeconds ?? 0 };
+  };
+  const toggleFileFinished = (file: AudiobookFile, finished: boolean) => {
+    if (finished) return moveCursor(file.id, 0, true);
+    const target = afterFile(file);
+    return moveCursor(target.fileId, target.positionSeconds, false);
+  };
+  const toggleChapterFinished = (chapter: { fileId: string; startSeconds: number; durationSeconds: number }, finished: boolean) => {
+    if (finished) return moveCursor(chapter.fileId, chapter.startSeconds, true);
+    const file = book.files.find((f) => f.id === chapter.fileId);
+    const end = chapter.startSeconds + chapter.durationSeconds;
+    const lastInFile = file != null && (file.chapters ?? []).every((c) => c.startSeconds <= chapter.startSeconds);
+    if (file && lastInFile) {
+      const target = afterFile(file);
+      return moveCursor(target.fileId, target.positionSeconds, false);
+    }
+    return moveCursor(chapter.fileId, end, false);
   };
 
   const detailTabs: { id: "description" | "chapters" | "files"; label: string }[] = [
@@ -1307,7 +1363,16 @@ function BookDetailView({
                           <strong>{chapter.title}</strong>
                         </div>
                         <small>{chapter.durationSeconds > 0 ? formatDuration(chapter.durationSeconds) : ""}</small>
-                        <ProgressRing progress={ring.progress} complete={ring.complete} />
+                        {episodic ? (
+                          <ProgressRing progress={ring.progress} complete={ring.complete} />
+                        ) : (
+                          <ProgressRing
+                            progress={ring.progress}
+                            complete={ring.complete}
+                            onClick={() => void toggleChapterFinished(chapter, ring.complete)}
+                            label={ring.complete ? t("book:detail.markChapterUnfinished") : t("book:detail.markChapterFinished")}
+                          />
+                        )}
                       </article>
                     );
                   })}
@@ -1421,7 +1486,12 @@ function BookDetailView({
                               label={played ? t("book:detail.markUnplayed") : t("book:detail.markPlayed")}
                             />
                           ) : (
-                            <ProgressRing progress={linearProgress} complete={state === "completed"} />
+                            <ProgressRing
+                              progress={linearProgress}
+                              complete={state === "completed"}
+                              onClick={file.status === "available" ? () => void toggleFileFinished(file, state === "completed") : undefined}
+                              label={state === "completed" ? t("book:detail.markChapterUnfinished") : t("book:detail.markChapterFinished")}
+                            />
                           )}
                         </article>
                       );
