@@ -19,6 +19,7 @@ import { Modal } from "../../../../shared/Modal";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 import { InboxReviewersModal } from "./InboxReviewersModal";
+import { InboxScanningModal } from "./InboxScanningModal";
 // The panel shares system data's stylesheet: the same block shape (docs/css-map.md).
 import "../../../../styles/system-data.css";
 
@@ -82,6 +83,7 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
   const [saveError, setSaveError] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
   const [reviewersOpen, setReviewersOpen] = useState(false);
+  const [scanningFor, setScanningFor] = useState<string | null>(null);
 
   const typedFolder = view && !view.enabled ? (where === "system" ? view.systemFolder ?? "" : customPath) : "";
   const typedSpace = useDiskSpace(typedFolder);
@@ -376,9 +378,14 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
                           )}
                           {entry.part === "house" && entry.library && link(controlHref("storageContents"), t("controlAdmin:appStorage.contents"))}
                           {/* Neither system library has access rules (phase 4): the Inbox has
-                              reviewers, and App files' files follow what owns them. */}
+                              reviewers, and App files' files follow what owns them. The Inbox is
+                              not on the Libraries page either, so its Scanning tab (scan sources
+                              and the back-sides rule) opens from here. */}
                           {entry.part === "inbox" && entry.library && (
-                            <Button variant="text" compact onClick={() => setReviewersOpen(true)}>{t("controlAdmin:appStorage.reviewers.button")}</Button>
+                            <>
+                              <Button variant="text" compact onClick={() => setReviewersOpen(true)}>{t("controlAdmin:appStorage.reviewers.button")}</Button>
+                              <Button variant="text" compact onClick={() => setScanningFor(entry.library?.id ?? null)}>{t("controlAdmin:appStorage.scanning.button")}</Button>
+                            </>
                           )}
                         </span>
                       )}
@@ -440,6 +447,10 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
 
       {reviewersOpen && (
         <InboxReviewersModal onClose={() => setReviewersOpen(false)} onChanged={() => void load().catch(() => undefined)} />
+      )}
+
+      {scanningFor && (
+        <InboxScanningModal libraryId={scanningFor} onClose={() => setScanningFor(null)} />
       )}
 
       {pending && copy && (

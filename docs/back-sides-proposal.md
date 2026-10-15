@@ -430,6 +430,16 @@ folder; posts `X_b.jpg` alone and asserts an ordinary photo.
   folder, where the next Inbox scan catalogued it as a photo. A back that cannot
   follow (file missing, folder unwritable) is reported on the job action rather
   than failing the swap.
+- **The Inbox's rule** (2026-10-15): the Photo Inbox is a system library hidden
+  from the Libraries page, so the Scanning tab — and with it this rule — could not
+  be reached for the one library most scans land in. A **Scanning** button beside
+  Reviewers on the Inbox's row of the Storage page
+  (`features/control/sections/storage/InboxScanningModal.tsx`) opens that tab's
+  content in a panel modal: the same `ScanSourcesEditor` and `BackSidesEditor`
+  (Check this library included), saved through the same
+  `PATCH /api/library/gallery-libraries/:id` as the Libraries page, with the
+  library's other core settings sent back unchanged. Control-panel search finds it
+  as "Photo Inbox scanning".
 - **Not built**: Swap sides; camera capture on the phone; a "Paired as back side"
   listing in the Recycle Bin (decision 10's deviation stands).
 

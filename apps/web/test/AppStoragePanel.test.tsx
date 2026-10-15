@@ -53,19 +53,40 @@ const reviewers = {
   candidates: { users: [{ id: "mia", name: "Mia" }, { id: "olga", name: "Olga" }], groups: [] }
 };
 
+// The Inbox as the manage listing returns it: a system library with the admin
+// settings the Scanning dialog must send back unchanged.
+const scanSources = [{ id: "file_metadata", enabled: true }, { id: "folder_structure", enabled: false }];
+const inboxLibrary = {
+  id: "IN", name: "Photo Inbox", type: "gallery", role: "inbox", visibility: "private", publicRole: "member", mode: "managed",
+  ownerId: null, ownerType: null,
+  settings: { defaultLanguage: "en", scanExtensions: [".jpg", ".png"], companionExtensions: [".xmp"], scanSources, maxUploadMB: 512, tagEncoding: null, progressMode: "linear" }
+};
+const librarySettings = {
+  settings: {},
+  metadataSources: [
+    { id: "file_metadata", label: "File metadata", description: "Dates and places inside the files.", appliesTo: ["gallery"], defaultEnabled: true },
+    { id: "folder_structure", label: "Folder names", description: "", appliesTo: ["gallery"], defaultEnabled: false },
+    { id: "metadata_files", label: "Sidecar files", description: "", appliesTo: ["audiobook"], defaultEnabled: true }
+  ],
+  typeDefaults: { gallery: { extensions: [".jpg"], companions: [], sources: scanSources } }
+};
+
 function mount(view: object, Component: typeof AppStoragePanel | typeof StorageSection = AppStoragePanel) {
   posts = [];
   let current = view;
   mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
     if (typeof path !== "string") return undefined;
-    if (init?.method === "POST" || init?.method === "PUT") {
+    if (init?.method === "POST" || init?.method === "PUT" || init?.method === "PATCH") {
       posts.push({ path, body: init.body ? JSON.parse(String(init.body)) : null });
       if (path.includes("/reviewers")) return reviewers;
+      if (init.method === "PATCH") return { library: inboxLibrary };
       current = { ...on, offRefusal: null };
       return current;
     }
     if (path === "/api/storage/app-storage") return current;
     if (path === "/api/storage/app-storage/parts/inbox/reviewers") return reviewers;
+    if (path === "/api/library/settings") return librarySettings;
+    if (path === "/api/library/gallery-libraries?manage=1") return { libraries: [inboxLibrary] };
     if (path.startsWith("/api/storage/disk-space")) return { space: { free: 3000, total: 4000 } };
     if (path === "/api/storage/roots") return { roots: [] };
     if (path === "/api/storage/system-data") {
@@ -146,6 +167,35 @@ describe("while on", () => {
     expect(within(dialog).getByRole("combobox", { name: "Role for Mia" })).toHaveValue("details");
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Role for Mia" }), "keep");
     await waitFor(() => expect(posts).toEqual([{ path: "/api/storage/app-storage/parts/inbox/reviewers", body: { subjectType: "user", subjectId: "mia", level: "keep" } }]));
+  });
+
+  it("opens the Inbox's Scanning settings and saves them with its other settings untouched", async () => {
+    const user = userEvent.setup();
+    mount(on);
+    const inbox = (await screen.findByText("7 photos waiting · admins review")).closest("tr") as HTMLElement;
+    await user.click(within(inbox).getByRole("button", { name: "Scanning" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Photo Inbox scanning")).toBeInTheDocument();
+    // The Scanning tab's two editors: gallery scan sources only, and the back-sides rule
+    // with the dry run (so the library id reached it).
+    expect(await within(dialog).findByText("File metadata")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Sidecar files")).toBeNull();
+    expect(within(dialog).getByText("Back sides")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Check this library" })).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("checkbox", { name: "Enable Epson FastFoto" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Enable Folder names" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(posts).toEqual([{
+      path: "/api/library/gallery-libraries/IN",
+      body: {
+        name: "Photo Inbox", visibility: "private", publicRole: "member", mode: "managed", ownerId: null, ownerType: null,
+        scanExtensions: [".jpg", ".png"], companionExtensions: [".xmp"], maxUploadMB: 512,
+        scanSources: [{ id: "file_metadata", enabled: true }, { id: "folder_structure", enabled: true }],
+        backSides: { sources: [{ id: "epson", enabled: true }, { id: "named", enabled: false }, { id: "custom", enabled: false }], patterns: [] }
+      }
+    }]));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("moves it to another folder after a confirmation naming it", async () => {

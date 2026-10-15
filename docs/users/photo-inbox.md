@@ -61,7 +61,11 @@ Inbox is emptied ([Sharing with family](family-sharing.md#for-you)).
 
 **From a folder.** Point your scanner software, or a copy from a card, at a
 subfolder of the Inbox's folder — one per box, named for it — and re-scan the
-library. Files dropped straight into the root show up as *Loose files*.
+library. Files dropped straight into the root show up as *Loose files*. When
+the scanner saves the back of each print as a second file, turn on the pairing
+rule first, under **Scanning** on the Inbox's row of the Storage page, so a
+batch lands as photos with their backs rather than twice as many photos
+([Gallery library](library-gallery.md)).
 
 **Upload.** The **Upload** button on the Inbox page takes files the same way
 any gallery upload does; they are filed by the day they arrived.

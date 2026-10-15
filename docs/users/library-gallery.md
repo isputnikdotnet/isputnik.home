@@ -103,6 +103,11 @@ pair before you save. The rule is off until you turn it on, and a pair already
 made stays paired if you turn it off again. Uploads and drop links pair by the
 same rule, so a batch of scans lands as photos with their backs.
 
+The Photo Inbox is a system library and is not on the Libraries page: its rule
+is on the Storage page instead, under App storage, behind **Scanning** on the
+Inbox's row beside Reviewers. It opens the same Scanning settings, Check this
+library included ([Photo Inbox](photo-inbox.md)).
+
 Without a rule, or for a single print, the viewer's menu has **Add the back**,
 which saves the file beside the front. **Split off the back** turns a back into
 a photo of its own again — and if it was a photo before it was paired, its tags,

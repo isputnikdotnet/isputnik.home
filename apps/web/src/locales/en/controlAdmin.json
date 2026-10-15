@@ -1196,6 +1196,14 @@
       "saveErrorTitle": "Unable to change reviewers",
       "saveError": "The reviewers could not be loaded or saved."
     },
+    "scanning": {
+      "button": "Scanning",
+      "title": "Photo Inbox scanning",
+      "intro": "How a scan of the Inbox's folder reads what it finds, and how a print scanned on both sides is paired with its back. These are the Scanning settings a gallery library has on the Libraries page; the Inbox is not listed there.",
+      "missing": "The Photo Inbox library was not found.",
+      "loadFailed": "Unable to load scanning settings",
+      "saveFailed": "Unable to save scanning settings"
+    },
     "unowned_one": "{{count}} file here belongs to nothing the app made, so only admins see it. Move its folder to another library from Contents.",
     "unowned_other": "{{count}} files here belong to nothing the app made, so only admins see them. Move their folders to another library from Contents."
   },

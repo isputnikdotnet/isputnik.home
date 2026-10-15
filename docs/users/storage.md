@@ -128,7 +128,10 @@ or the pickers on its own; a recording or a voice note is reached from the story
 the photo it belongs to, and a photo a story, album or slideshow already holds keeps
 showing there. Who reviews the Inbox is set from **Reviewers** on its row: admins
 always do, and anyone you name can add details or keep and discard
-([Photo Inbox](photo-inbox.md)).
+([Photo Inbox](photo-inbox.md)). **Scanning** on the same row holds what the
+Libraries page would show on a gallery library's Scanning tab: what a scan reads,
+and the rule that pairs a print scanned on both sides with its back
+([Gallery library](library-gallery.md)).
 
 **Who sees a file in App files** follows what it belongs to; there is nothing to
 set. Admins see everything. Anyone else sees:

@@ -122,7 +122,7 @@ type SettingKey =
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
-  | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting"
+  | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
   | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase";
 
 // Settings that live inside a page. `section` is where they are; search takes
@@ -216,6 +216,12 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     section: "storage",
     anchor: "app-storage",
     keywords: "photo inbox set up create new inbox scans holding review drop link storage container folder входящие фото создать настроить сканы разбор ссылка контейнер папка"
+  },
+  {
+    titleKey: "inboxScanning",
+    section: "storage",
+    anchor: "app-storage",
+    keywords: "photo inbox scanning scan sources back sides two-sided prints scanned both sides flip epson fastfoto _b _back pattern pairing rule входящие фото сканирование источники обороты обратная сторона двусторонние отпечатки эпсон правило"
   },
   {
     titleKey: "recordingsLibrary",
