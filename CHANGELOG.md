@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.31.1 — The Inbox's Replace keeps the back
+
+- **When an incoming scan replaces the library's older copy from the Photo Inbox check, its back side comes along.** The back moves beside the kept photo under that library's own naming, with its turn and whatever was written on it; a back the kept photo already had is set aside with the replaced originals. Before, Replace handed over the front only and left the back behind in the Inbox, where the next scan listed it as a photo of its own.
+
 ## 4.31.0 — Prints scanned on both sides
 
 - **A print with writing on the back stays one photo.** Scan both sides and the back is kept with the front: the grid, albums, slideshows and face recognition see the front only, a small mark in the corner of the tile says there is more, and **Flip** in the viewer (the pill at the foot of the photo, or `B`) shows the back the right way up. The back has its own Rotate, since prints usually go through the scanner the other way round. Before, the back came out as a second photo of its own, with nothing tying it to the one it belongs to.

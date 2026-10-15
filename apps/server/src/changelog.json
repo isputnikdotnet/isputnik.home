@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.31.1",
+    "label": "The Inbox's Replace keeps the back",
+    "changes": [
+      "**When an incoming scan replaces the library's older copy from the Photo Inbox check, its back side comes along.** The back moves beside the kept photo under that library's own naming, with its turn and whatever was written on it; a back the kept photo already had is set aside with the replaced originals. Before, Replace handed over the front only and left the back behind in the Inbox, where the next scan listed it as a photo of its own."
+    ]
+  },
+  {
     "version": "4.31.0",
     "label": "Prints scanned on both sides",
     "changes": [
