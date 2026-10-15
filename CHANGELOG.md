@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.31.2 — Scanning settings for the Photo Inbox
+
+- **The Photo Inbox has scan settings now.** On Control → Library → Storage, the Inbox's row under App storage gained **Scanning** beside Reviewers: what the Inbox scans and, since 4.31.0, how it pairs the backs of two-sided prints with their fronts, with the same **Check this library** dry run as any other library. The Inbox is the app's own library and never appeared in the Libraries list, so until now there was no way to reach these settings for it.
+
 ## 4.31.1 — The Inbox's Replace keeps the back
 
 - **When an incoming scan replaces the library's older copy from the Photo Inbox check, its back side comes along.** The back moves beside the kept photo under that library's own naming, with its turn and whatever was written on it; a back the kept photo already had is set aside with the replaced originals. Before, Replace handed over the front only and left the back behind in the Inbox, where the next scan listed it as a photo of its own.

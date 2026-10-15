@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.31.2",
+    "label": "Scanning settings for the Photo Inbox",
+    "changes": [
+      "**The Photo Inbox has scan settings now.** On Control → Library → Storage, the Inbox's row under App storage gained **Scanning** beside Reviewers: what the Inbox scans and, since 4.31.0, how it pairs the backs of two-sided prints with their fronts, with the same **Check this library** dry run as any other library. The Inbox is the app's own library and never appeared in the Libraries list, so until now there was no way to reach these settings for it."
+    ]
+  },
+  {
     "version": "4.31.1",
     "label": "The Inbox's Replace keeps the back",
     "changes": [
