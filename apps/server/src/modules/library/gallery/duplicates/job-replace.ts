@@ -6,18 +6,30 @@
 // the library's item through replaceGalleryAssetFile, which keeps the item and
 // parks the old file beside the Recycle Bin, then retires the Inbox's row — its
 // file is now the library's.
+//
+// A scan that came in with its BACK (docs/back-sides-proposal.md) brings the back
+// along: the file moves beside the keeper's new front under the keeper library's
+// own naming, the keeper's previous back is set aside like its front was, and the
+// back's turn and "written on the back" come across. Left behind, the back file
+// would be an orphan in the Inbox folder that the next Inbox scan catalogues as a
+// photo of its own.
 import fs from "node:fs";
 import path from "node:path";
 import { db, logActivity } from "../../../../db.js";
 import { validateLibrarySource } from "../../shared/library-source.js";
-import { pathIsInside } from "../../shared/storage-roots.js";
+import { normalizeLibrarySettings } from "../../shared/library-settings.js";
+import { normaliseRelativePath, pathIsInside } from "../../shared/storage-roots.js";
 import { purgeCataloguedItem } from "../../shared/trash.js";
-import { replaceGalleryAssetFile } from "../replace.js";
+import { backFileNameFor, backRuleOf } from "../back-sides.js";
+import { setBackRotation } from "../back-side-files.js";
+import { uniqueGalleryFileName } from "../files.js";
+import { replaceGalleryAssetFile, setAsideReplaced } from "../replace.js";
+import { setBackSide } from "../scanner.js";
 import { absorbDuplicateMetadata } from "./absorb.js";
 import { getJob, recordAction, type JobOutcome } from "./jobs.js";
 import { checkResult, type ResultCheck } from "./job-resolve.js";
 import { listJobResults, type ResultFilter, type SnapshotResult } from "./job-results.js";
-import type { DuplicateJobResultMemberRow, LibraryItemRow, LibraryRow } from "../../../../db/rows.js";
+import type { DuplicateJobResultMemberRow, GalleryDetailRow, LibraryItemRow, LibraryRow } from "../../../../db/rows.js";
 
 export type ReplaceRefusal =
   | "stale" | "not_inbox_job" | "no_such_member" | "member_not_incoming" | "no_keeper" | "replace_failed";
@@ -31,6 +43,10 @@ export interface ReplaceOutcome {
   replacedItemId: string;
   /** Where the library's previous file was set aside. */
   keptAt: string;
+  /** The keeper's back side after the swap: the incoming scan's back, moved
+   *  beside the new front, or null when the scan had none (or it could not be
+   *  carried — then the Inbox folder still has it, and the action's detail says). */
+  backRelativePath: string | null;
 }
 
 export type ReplaceResult =
@@ -45,6 +61,85 @@ const memberRow = (resultId: string, memberId: string): MemberRow | undefined =>
     SELECT id, item_id, library_id, path, size_snapshot, role, status, keeper_member_id
     FROM duplicate_job_result_members WHERE id = ? AND result_id = ?
   `).get(memberId, resultId) as MemberRow | undefined;
+
+type IncomingRow = Pick<LibraryItemRow, "folder_path"> & Pick<LibraryRow, "source_path">
+  & Pick<GalleryDetailRow, "back_relative_path" | "back_rotation" | "back_text">;
+
+type KeeperBackRow = Pick<LibraryItemRow, "library_id">
+  & Pick<LibraryRow, "source_path" | "settings_json">
+  & Pick<GalleryDetailRow, "back_relative_path">;
+
+type CarryOutcome = { carried: true; relativePath: string } | { carried: false; reason: string };
+
+/** Move the incoming scan's back beside the keeper's new front and record it there,
+ *  the way "Add the back" does by hand (back-side-files.ts): the keeper's old back
+ *  set aside first, the file named under the keeper library's rule, the row told.
+ *  Never throws — the front is already the library's by now, so a back that cannot
+ *  follow is reported, not fatal. */
+async function carryBackSide(
+  inboxRoot: string,
+  incoming: IncomingRow,
+  keeperItemId: string,
+  keeperRelativePath: string
+): Promise<CarryOutcome> {
+  const incomingBackAbs = path.resolve(inboxRoot, ...incoming.back_relative_path!.split("/"));
+  if (!pathIsInside(incomingBackAbs, inboxRoot) || !fs.existsSync(incomingBackAbs)) {
+    return { carried: false, reason: "its back file is missing from the Inbox folder" };
+  }
+  const keeper = db.prepare(`
+    SELECT li.library_id, lib.source_path, lib.settings_json, gd.back_relative_path
+    FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id
+    JOIN libraries lib ON lib.id = li.library_id
+    WHERE gd.item_id = ?
+  `).get(keeperItemId) as KeeperBackRow | undefined;
+  if (!keeper) return { carried: false, reason: "the library's photo could not be read back" };
+  let keeperRoot: string;
+  try { keeperRoot = validateLibrarySource(keeper.source_path); } catch (err) {
+    return { carried: false, reason: err instanceof Error ? err.message : "the library folder is unavailable" };
+  }
+
+  // The keeper's own back, if it had one, goes the way its front just went.
+  if (keeper.back_relative_path) {
+    const oldAbs = path.resolve(keeperRoot, ...keeper.back_relative_path.split("/"));
+    if (pathIsInside(oldAbs, keeperRoot) && fs.existsSync(oldAbs)) {
+      const aside = setAsideReplaced(keeperRoot, keeper.library_id, keeperItemId, oldAbs);
+      if (!aside.ok) return { carried: false, reason: aside.error };
+    }
+  }
+
+  const frontAbs = path.resolve(keeperRoot, ...keeperRelativePath.split("/"));
+  const dir = path.dirname(frontAbs);
+  const rule = backRuleOf(normalizeLibrarySettings("gallery", keeper.settings_json).back_sides);
+  const wanted = backFileNameFor(path.basename(keeperRelativePath), rule, path.extname(incomingBackAbs));
+  const finalName = uniqueGalleryFileName(dir, wanted);
+  if (!finalName) return { carried: false, reason: "no file name could be made for the back" };
+  const finalAbs = path.join(dir, finalName);
+  if (!pathIsInside(finalAbs, keeperRoot)) return { carried: false, reason: "the back's name can't be stored in the library" };
+  try {
+    fs.renameSync(incomingBackAbs, finalAbs);
+  } catch (err) {
+    return { carried: false, reason: err instanceof Error ? err.message : "the back file could not be moved" };
+  }
+
+  const relativePath = normaliseRelativePath(path.relative(keeperRoot, finalAbs));
+  const recorded = await setBackSide(keeper.library_id, keeperItemId, relativePath);
+  if (!recorded) return { carried: false, reason: "the back file could not be read as a photo" };
+
+  // The turn is the back's own, and the words were written on this very print:
+  // both belong with the file, whichever row describes it. A back that cannot be
+  // rendered keeps its turn on record all the same.
+  const rotation = ((Math.round((incoming.back_rotation ?? 0) / 90) * 90) % 360 + 360) % 360;
+  if (rotation !== 0) {
+    const turned = await setBackRotation(keeperItemId, rotation);
+    if (!turned.ok) db.prepare("UPDATE gallery_details SET back_rotation = ? WHERE item_id = ?").run(rotation, keeperItemId);
+  }
+  if (incoming.back_text) {
+    db.prepare("UPDATE gallery_details SET back_text = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE item_id = ?")
+      .run(incoming.back_text, keeperItemId);
+  }
+  return { carried: true, relativePath };
+}
 
 /** Put the Inbox's copy in the library's place. All-or-nothing on the re-check,
  *  like a delete: if the set moved since the scan, nothing is touched. */
@@ -75,10 +170,12 @@ export async function replaceWithInboxCopy(
   if (!keeper?.item_id) return { ok: false, refused: "no_keeper" };
 
   const incoming = db.prepare(`
-    SELECT li.folder_path, lib.source_path
-    FROM library_items li JOIN libraries lib ON lib.id = li.library_id
+    SELECT li.folder_path, lib.source_path, gd.back_relative_path, gd.back_rotation, gd.back_text
+    FROM library_items li
+    JOIN libraries lib ON lib.id = li.library_id
+    LEFT JOIN gallery_details gd ON gd.item_id = li.id
     WHERE li.id = ? AND li.deleted_at IS NULL
-  `).get(member.item_id) as (Pick<LibraryItemRow, "folder_path"> & Pick<LibraryRow, "source_path">) | undefined;
+  `).get(member.item_id) as IncomingRow | undefined;
   if (!incoming) return { ok: false, refused: "member_not_incoming" };
   let root: string;
   try { root = validateLibrarySource(incoming.source_path); } catch (err) {
@@ -100,6 +197,12 @@ export async function replaceWithInboxCopy(
   });
   if (!replaced.ok) return { ok: false, refused: "replace_failed", detail: replaced.error };
 
+  // The scan's back follows its front — before the Inbox row goes, since the row
+  // is the only thing that says which file the back is.
+  const back: CarryOutcome | null = incoming.back_relative_path
+    ? await carryBackSide(root, incoming, keeper.item_id, replaced.relativePath)
+    : null;
+
   // The incoming file is the library's now; its Inbox row describes nothing.
   purgeCataloguedItem(member.item_id);
 
@@ -120,22 +223,29 @@ export async function replaceWithInboxCopy(
     WHERE id = ?
   `).run(remaining, remaining, member.size_snapshot ?? 0, resultId);
 
+  const backNote = !back ? ""
+    : back.carried ? " Its back side came with it."
+    : ` Its back side stayed in the Inbox: ${back.reason}.`;
   recordAction({
     jobId, userId, action: "result.replaced", targetType: "result", targetId: resultId,
-    details: `${member.path} replaced the library's copy.`
+    status: back && !back.carried ? "partial" : "ok",
+    details: `${member.path} replaced the library's copy.${backNote}`
   });
   logActivity({
     event: "library.gallery.inbox_replaced",
     actorUserId: userId,
     targetType: "book",
     targetId: keeper.item_id,
-    detail: `Photo Inbox check: the incoming copy "${path.basename(member.path)}" replaced the library's file; the old file was set aside.`,
+    detail: `Photo Inbox check: the incoming copy "${path.basename(member.path)}" replaced the library's file; the old file was set aside.${backNote}`,
     ipAddress: null
   });
 
   return {
     ok: true,
-    job: { resultId, memberId: member.id, keeperItemId: keeper.item_id, replacedItemId: member.item_id, keptAt: replaced.keptAt }
+    job: {
+      resultId, memberId: member.id, keeperItemId: keeper.item_id, replacedItemId: member.item_id, keptAt: replaced.keptAt,
+      backRelativePath: back?.carried ? back.relativePath : null
+    }
   };
 }
 

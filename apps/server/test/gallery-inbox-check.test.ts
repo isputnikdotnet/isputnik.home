@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
@@ -55,6 +56,24 @@ function makePhoto(
   );
   return id;
 }
+
+/** A small real JPEG beside a photo, so the scanner reads it as a back and
+ *  renders its preview; returns its bytes for a later "same file" check. */
+async function backFile(libraryId: string, relativePath: string, seed: number): Promise<Buffer> {
+  const abs = path.join(root(libraryId), relativePath);
+  const width = 40 + seed * 4;
+  const height = 24 + seed * 2;
+  const data = Buffer.alloc(width * height * 3);
+  for (let i = 0; i < data.length; i += 3) {
+    data[i] = (i * seed) % 256; data[i + 1] = (i * 5 + seed * 17) % 256; data[i + 2] = (i * 3 + seed * 7) % 256;
+  }
+  await sharp(data, { raw: { width, height, channels: 3 } }).jpeg().toFile(abs);
+  return fs.readFileSync(abs);
+}
+
+type BackRow = { back_relative_path: string | null; back_rotation: number; back_text: string | null; back_preview_storage_key: string | null };
+const backOf = (itemId: string) =>
+  db.prepare("SELECT back_relative_path, back_rotation, back_text, back_preview_storage_key FROM gallery_details WHERE item_id = ?").get(itemId) as BackRow | undefined;
 
 function inboxJob(): string {
   const created = createJob({
@@ -182,6 +201,45 @@ describe("replace", () => {
     expect(after.status).toBe("resolved");
     // The library's old file was set aside, not destroyed.
     expect(fs.existsSync(outcome.ok ? outcome.job.keptAt : "")).toBe(true);
+  });
+
+  // A print scanned on both sides (docs/back-sides-proposal.md): the back is on
+  // the front's row, never an item. Replace must take it along, or the next Inbox
+  // scan finds an orphan `_b` file and catalogues it as a photo.
+  it("carries the incoming scan's back side to the keeper, under the library's naming, and sets the keeper's old back aside", async () => {
+    // The library pairs Epson-style (`X_b`); the Inbox named its back differently.
+    db.prepare("UPDATE libraries SET settings_json = ? WHERE id = 'GAL'")
+      .run(JSON.stringify({ back_sides: { sources: [{ id: "epson", enabled: true }], patterns: [] } }));
+    makePhoto("INBOX", "n1", "box/5.jpg", { phash: "0000000000000001", bytes: "BIGSCAN", width: 4000, height: 3000 });
+    const newBack = await backFile("INBOX", "box/5_back.jpg", 3);
+    db.prepare("UPDATE gallery_details SET back_relative_path = 'box/5_back.jpg', back_rotation = 90, back_text = 'Granny, 1952' WHERE item_id = 'n1'").run();
+    makePhoto("GAL", "k1", "kept/5.jpg", { phash: "0000000000000000", bytes: "small", width: 1000, height: 750 });
+    fs.writeFileSync(path.join(root("GAL"), "kept", "5_b.jpg"), "OLDBACK");
+    db.prepare("UPDATE gallery_details SET back_relative_path = 'kept/5_b.jpg', back_text = 'old words' WHERE item_id = 'k1'").run();
+
+    const id = inboxJob();
+    runJobScan(id, "u1");
+    const result = listJobResults(id, 50, 0, {})[0];
+    const incoming = result.members.find((member) => member.itemId === "n1")!;
+    const outcome = await replaceWithInboxCopy(id, "u1", result.id, incoming.id);
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.job.backRelativePath).toBe("kept/5_b.jpg");
+
+    // The keeper now has the scan's back, named the library's way, with its turn and words.
+    const keeper = backOf("k1")!;
+    expect(keeper).toMatchObject({ back_relative_path: "kept/5_b.jpg", back_rotation: 90, back_text: "Granny, 1952" });
+    expect(keeper.back_preview_storage_key).toMatch(/-back-large\.webp$/);
+    expect(fs.readFileSync(path.join(root("GAL"), "kept", "5_b.jpg")).equals(newBack)).toBe(true);
+    // The old back was set aside beside the old front, not destroyed.
+    const aside = fs.readdirSync(path.join(root("GAL"), ".trash", "replaced", "GAL", "k1"));
+    expect(aside.some((name) => name.endsWith("-5_b.jpg"))).toBe(true);
+    expect(aside.some((name) => name.endsWith("-5.jpg"))).toBe(true);
+    // Nothing is left in the Inbox for the next scan to find.
+    expect(fs.readdirSync(path.join(root("INBOX"), "box"))).toEqual([]);
+    expect(backOf("n1")).toBeUndefined();
+    const action = db.prepare("SELECT status, details FROM duplicate_job_actions WHERE action = 'result.replaced'").get() as { status: string; details: string };
+    expect(action.status).toBe("ok");
+    expect(action.details).toContain("back side came with it");
   });
 
   it("refuses to replace with the library's own copy, and sweeps only larger incoming ones", async () => {

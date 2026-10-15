@@ -421,6 +421,15 @@ folder; posts `X_b.jpg` alone and asserts an ordinary photo.
   the turn and the words.
 - Guide: "Scanned on both sides" in `docs/users/library-gallery.md` (no screenshot
   yet); `docs/scanner.md` §8 and a "Back sides" note.
+- **Photo Inbox Replace carries the back** (`duplicates/job-replace.ts`, also the
+  "replace all larger" sweep, which goes through the same path): when the incoming
+  scan has a back, the file moves beside the keeper's new front under the keeper
+  library's own naming (`backFileNameFor` + `uniqueGalleryFileName`), the keeper's
+  previous back is set aside in `replaced/` like its front, and the back's turn and
+  "written on the back" come across. Before this the back stayed in the Inbox
+  folder, where the next Inbox scan catalogued it as a photo. A back that cannot
+  follow (file missing, folder unwritable) is reported on the job action rather
+  than failing the swap.
 - **Not built**: Swap sides; camera capture on the phone; a "Paired as back side"
   listing in the Recycle Bin (decision 10's deviation stands).
 
