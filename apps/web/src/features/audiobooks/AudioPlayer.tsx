@@ -166,7 +166,11 @@ export function AudioPlayer({
   // Books with embedded markers (m4b) have real chapters; multi-file books are just
   // tracks (one file each). Label by what's actually navigated so a 55-track book
   // doesn't call track 5 "Chapter 5".
-  const navUnitLabel = chapters.length > availableFiles.length ? t("reader:player.chapter") : t("reader:player.track");
+  const navByTrack = chapters.length <= availableFiles.length;
+  const navUnitLabel = navByTrack ? t("reader:player.track") : t("reader:player.chapter");
+  // Episodic libraries keep per-track played flags, which the book page toggles;
+  // the player's rings only trace the cursor there, so they stay display-only.
+  const episodic = book.progressMode === "episodic";
 
   const chapterProgressFor = (chapter: FlatChapter, index: number) => {
     const span = Math.max(0, chapter.endOffset - chapter.startOffset);
@@ -284,6 +288,40 @@ export function AudioPlayer({
     setChaptersOpen(false);
   }, [goToChapter, setChaptersOpen]);
 
+  // Per-chapter "Mark finished", the book page's toggle brought into the list.
+  // The player IS the book's one cursor, so finishing a chapter moves playback to
+  // where the next one starts (the end of the last file for the last chapter,
+  // which the server reads as finishing the book), and un-finishing moves it back
+  // to the chapter's start. A finished book is reset first — a cursor write never
+  // clears completed_at on its own. The target is saved outright rather than left
+  // to the seeked event, and the list stays open: marking several is the point.
+  const toggleChapterFinished = useCallback(async (index: number, finished: boolean) => {
+    const chapter = chapters[index];
+    if (!chapter) return;
+    const moveTo = (fileIndex: number, position: number) => {
+      const file = availableFiles[fileIndex];
+      if (!file) return;
+      seekTo(fileIndex, position);
+      saveProgress(file, position);
+    };
+    if (finished) {
+      try {
+        const { progress } = await api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`);
+        if (progress?.completedAt) await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
+      } catch {
+        // Offline: the position still moves; the flag is reconciled on the next sync.
+      }
+      moveTo(chapter.fileIndex, chapter.startOffset);
+      return;
+    }
+    const next = chapters[index + 1];
+    if (next) {
+      moveTo(next.fileIndex, next.startOffset);
+      return;
+    }
+    moveTo(chapter.fileIndex, availableFiles[chapter.fileIndex]?.durationSeconds ?? chapter.endOffset);
+  }, [chapters, availableFiles, book.id, saveProgress, seekTo]);
+
   const jumpToBookmark = useCallback((bookmark: BookmarkEntry) => {
     const index = availableFiles.findIndex((f) => f.id === bookmark.fileId);
     if (index < 0) return;
@@ -295,11 +333,20 @@ export function AudioPlayer({
   // The position on leaving: the page going away (beforeunload) or the player
   // unmounting. Same store as every other save — local row plus the server
   // through api(), which carries the CSRF header a bare fetch would lack — with
-  // keepalive so the request outlives the page.
+  // keepalive so the request outlives the page. The file is read through a ref
+  // so the effect runs once: keyed on the file, its cleanup fired on every file
+  // change and wrote the file just left AFTER a jump had recorded the new one,
+  // which stuck while paused (preload="none" applies the pending seek only once
+  // the media loads). That pending seek is the position to save, for the same
+  // reason.
+  const currentFileRef = useRef(currentFile);
+  useEffect(() => { currentFileRef.current = currentFile; }, [currentFile]);
   useEffect(() => {
     const saveCurrentProgress = () => {
-      if (!currentFile || !audioRef.current) return;
-      void persistProgress(book.id, currentFile.id, audioRef.current.currentTime, { keepalive: true });
+      const file = currentFileRef.current;
+      if (!file || !audioRef.current) return;
+      const position = pendingSeekRef.current ?? audioRef.current.currentTime;
+      void persistProgress(book.id, file.id, position, { keepalive: true });
     };
     const handleBeforeUnload = () => { saveCurrentProgress(); };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -307,7 +354,7 @@ export function AudioPlayer({
       saveCurrentProgress();
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [book.id, currentFile, audioRef]);
+  }, [book.id, audioRef]);
 
   // Set src whenever the current file changes. With preload="none" audio.load() only
   // resets the element — no network request happens until play() is called.
@@ -636,34 +683,55 @@ export function AudioPlayer({
 
   if (availableFiles.length === 0) return null;
 
+  // A row is two buttons: the ring finishes (or un-finishes) the chapter, the
+  // rest of the row jumps to it. Both reach the <audio> element through its ref
+  // (a click is as far from render as an interaction gets); the refs rule reports
+  // a row once, at its first handler, so the one directive sits on the ring.
   const chapterList = chapters.map((chapter, index) => {
     const progress = chapterProgressFor(chapter, index);
+    const complete = progress.percent >= 0.98;
     const span = Math.max(0, chapter.endOffset - chapter.startOffset);
+    const finishLabel = complete
+      ? t(navByTrack ? "reader:player.markTrackUnfinished" : "reader:player.markChapterUnfinished")
+      : t(navByTrack ? "reader:player.markTrackFinished" : "reader:player.markChapterFinished");
     return (
-      <Button
-        variant="bare"
+      <div
         key={`${chapter.fileId}-${index}`}
-        className={`player-chapter-item${index === currentChapterIndex ? " active" : ""}${progress.percent >= 0.98 ? " complete" : ""}`}
-        aria-current={index === currentChapterIndex ? "true" : undefined}
-        // jumpToChapter reaches the <audio> element through its ref; a click on a
-        // chapter row is as far from render as an interaction gets.
-        // eslint-disable-next-line react-hooks/refs
-        onClick={() => jumpToChapter(index)}
+        className={`player-chapter-item${index === currentChapterIndex ? " active" : ""}${complete ? " complete" : ""}`}
       >
         <span className="player-chapter-item-num">
-          <ProgressRing progress={progress.percent} complete={progress.percent >= 0.98} center={index + 1} size={28} />
+          {episodic ? (
+            <ProgressRing progress={progress.percent} complete={complete} center={index + 1} size={28} />
+          ) : (
+            <ProgressRing
+              progress={progress.percent}
+              complete={complete}
+              center={index + 1}
+              size={28}
+              // eslint-disable-next-line react-hooks/refs
+              onClick={() => void toggleChapterFinished(index, complete)}
+              label={finishLabel}
+            />
+          )}
         </span>
-        <span className="player-chapter-item-main">
-          <span className="player-chapter-item-title">{chapter.title}</span>
-        </span>
-        {span > 0 && (
-          <span className="player-chapter-item-dur">
-            {progress.seconds > 0 && progress.percent < 0.98
-              ? `${formatTime(progress.seconds)} / ${formatTime(span)}`
-              : formatTime(span)}
+        <Button
+          variant="bare"
+          className="player-chapter-item-jump"
+          aria-current={index === currentChapterIndex ? "true" : undefined}
+          onClick={() => jumpToChapter(index)}
+        >
+          <span className="player-chapter-item-main">
+            <span className="player-chapter-item-title">{chapter.title}</span>
           </span>
-        )}
-      </Button>
+          {span > 0 && (
+            <span className="player-chapter-item-dur">
+              {progress.seconds > 0 && !complete
+                ? `${formatTime(progress.seconds)} / ${formatTime(span)}`
+                : formatTime(span)}
+            </span>
+          )}
+        </Button>
+      </div>
     );
   });
 

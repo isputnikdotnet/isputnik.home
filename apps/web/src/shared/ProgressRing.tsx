@@ -1,9 +1,9 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 
-// Circular progress indicator shared by the episode list (where it doubles as the
-// played/reset toggle via onClick), the player chapter list (display-only, with
-// the chapter number in the centre), and the Tasks page. Fill = progress; full
+// Circular progress indicator shared by the episode list and the book page's and
+// player's chapter lists (where it doubles as the played/finished toggle via
+// onClick, with the chapter number in the centre), and the Tasks page. Fill = progress; full
 // ring + check = complete; indeterminate = a spinning partial arc for work with
 // no measurable progress yet.
 export function ProgressRing({

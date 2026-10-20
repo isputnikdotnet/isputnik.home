@@ -632,7 +632,7 @@
 }
 
 :root:is([data-theme="dark"], [data-theme="light"]) .chapter-sheet-list .player-chapter-item:hover,
-:root:is([data-theme="dark"], [data-theme="light"]) .chapter-sheet-list .player-chapter-item:focus-visible,
+:root:is([data-theme="dark"], [data-theme="light"]) .chapter-sheet-list .player-chapter-item:focus-within,
 :root:is([data-theme="dark"], [data-theme="light"]) .chapter-sheet-list .player-chapter-item.active {
   background: transparent;
 }

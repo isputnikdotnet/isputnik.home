@@ -46,6 +46,10 @@
     "chapterList": "Список глав",
     "chapters": "Главы",
     "closeChapters": "Закрыть главы",
+    "markChapterFinished": "Отметить главу прослушанной",
+    "markChapterUnfinished": "Снять отметку с главы",
+    "markTrackFinished": "Отметить дорожку прослушанной",
+    "markTrackUnfinished": "Снять отметку с дорожки",
     "closeBookmarks": "Закрыть закладки",
     "bookProgress": "Прогресс книги"
   },

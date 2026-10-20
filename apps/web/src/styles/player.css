@@ -462,7 +462,7 @@
 
 .player-chapter-item {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   min-height: 58px;
@@ -472,11 +472,10 @@
   color: var(--ink);
   background: var(--player-field-soft);
   text-align: left;
-  cursor: pointer;
 }
 
 .player-chapter-item:hover,
-.player-chapter-item:focus-visible {
+.player-chapter-item:focus-within {
   border-color: color-mix(in srgb, var(--mint) 42%, transparent);
   background: color-mix(in srgb, var(--mint) 12%, transparent);
 }
@@ -486,6 +485,23 @@
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--gold) 18%, transparent), color-mix(in srgb, var(--mint) 10%, transparent)),
     var(--player-field-active);
+}
+
+/* The row is two buttons — the ring finishes the chapter, the rest jumps to it —
+   so the jump button carries the row's remaining columns and no chrome of its own. */
+.player-chapter-item-jump {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .player-chapter-item-main {
@@ -1223,7 +1239,6 @@
   display: flex;
   grid-template-columns: unset;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   min-height: 52px;
   padding: 12px 20px;
@@ -1236,7 +1251,7 @@
 }
 
 .chapter-sheet-list .player-chapter-item:hover,
-.chapter-sheet-list .player-chapter-item:focus-visible {
+.chapter-sheet-list .player-chapter-item:focus-within {
   background: color-mix(in srgb, var(--mint) 8%, transparent);
   border-color: color-mix(in srgb, var(--muted) 15%, transparent);
 }
@@ -1253,7 +1268,17 @@
 }
 
 .chapter-sheet-list .player-chapter-item-num {
-  display: none;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.chapter-sheet-list .player-chapter-item-jump {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
 }
 
 .chapter-sheet-list .player-chapter-item-main {
@@ -1355,8 +1380,11 @@
     grid-template-columns: 30px minmax(0, 1fr);
   }
 
+  .player-chapter-item-jump {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .player-chapter-item-dur {
-    grid-column: 2;
     justify-self: start;
   }
 }

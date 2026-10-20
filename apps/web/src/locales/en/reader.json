@@ -46,6 +46,10 @@
     "chapterList": "Chapter list",
     "chapters": "Chapters",
     "closeChapters": "Close chapters",
+    "markChapterFinished": "Mark chapter finished",
+    "markChapterUnfinished": "Mark chapter unfinished",
+    "markTrackFinished": "Mark track finished",
+    "markTrackUnfinished": "Mark track unfinished",
     "closeBookmarks": "Close bookmarks",
     "bookProgress": "Book progress"
   },
