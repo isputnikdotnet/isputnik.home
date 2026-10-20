@@ -1008,3 +1008,14 @@
     font-size: 0.54rem;
   }
 }
+
+/* Phones: the slider on its own row, Speed and Sleep under it (player.css). */
+@media (max-width: 740px) {
+  :root:is([data-theme="dark"], [data-theme="light"]) .player-volume-popup {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  :root:is([data-theme="dark"], [data-theme="light"]) .player-volume-control {
+    min-height: 44px;
+  }
+}

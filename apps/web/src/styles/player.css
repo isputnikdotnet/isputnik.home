@@ -1602,22 +1602,23 @@
 }
 
 /* ── Phones: the player ─────────────────────────────────────────────────────
-   A volume slider is the one control a phone already has, on its side, under
-   the thumb that is holding it — 179px of the row for something nobody drags.
-   Speed and Sleep take the room and become targets worth tapping. */
+   One row is too narrow for a slider worth dragging next to Speed and Sleep,
+   so the slider takes a full-width row of its own (4.18 hid it, trusting the
+   phone's side buttons; a sleeping-household volume is finer than their steps)
+   and Speed and Sleep share the row under it as targets worth tapping. */
 @media (max-width: 740px) {
-  .player-volume-popup .player-volume-control {
-    display: none;
+  .player-volume-popup {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
   }
 
-  .player-volume-popup {
-    justify-content: center;
-    gap: 10px;
+  .player-volume-popup .player-volume-control {
+    grid-column: 1 / -1;
+    min-height: 44px;
   }
 
   /* Equal halves, so neither reads as the main one. */
   .player-volume-popup .player-volume-menu {
-    flex: 1 1 0;
     min-width: 0;
   }
 
