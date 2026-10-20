@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.32.1 — Finish a chapter from the player too
+
+- **The player's chapter list marks chapters finished as well.** The ring beside each chapter is a button there now, as on the book page, and it shows in the player's Chapters sheet, where it was hidden before: one tap finishes the chapter and moves playback to where the next one starts, finishing the last one finishes the book, and a tap on a finished ring takes it back and returns playback to that chapter's start. The list stays open, so several chapters can be marked in a row. The rest of the row still jumps to the chapter.
+- **A chapter jump made while paused is remembered.** Before, jumping to a chapter in another file without pressing play left the saved position in the file just left, so reopening the book went back there. The new position is saved at once now.
+
 ## 4.32.0 — Finish a chapter where you stand, and the volume is back on phones
 
 - **A chapter can be marked finished on its own.** On a book's page, the progress ring beside each chapter and each file is a button now: one click finishes it and moves your place to where the next one starts, and a click on a finished ring takes it back and returns your place to that chapter's start. Finishing the last one finishes the book. Before, a chapter was only ever finished by listening to its end, so a part you had heard elsewhere kept the book's progress wrong, and the only shortcut was to finish the whole book.

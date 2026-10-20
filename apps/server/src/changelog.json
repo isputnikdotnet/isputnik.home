@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.32.1",
+    "label": "Finish a chapter from the player too",
+    "changes": [
+      "**The player's chapter list marks chapters finished as well.** The ring beside each chapter is a button there now, as on the book page, and it shows in the player's Chapters sheet, where it was hidden before: one tap finishes the chapter and moves playback to where the next one starts, finishing the last one finishes the book, and a tap on a finished ring takes it back and returns playback to that chapter's start. The list stays open, so several chapters can be marked in a row. The rest of the row still jumps to the chapter.",
+      "**A chapter jump made while paused is remembered.** Before, jumping to a chapter in another file without pressing play left the saved position in the file just left, so reopening the book went back there. The new position is saved at once now."
+    ]
+  },
+  {
     "version": "4.32.0",
     "label": "Finish a chapter where you stand, and the volume is back on phones",
     "changes": [
