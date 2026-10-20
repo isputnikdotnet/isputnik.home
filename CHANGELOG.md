@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.32.0 — Finish a chapter where you stand, and the volume is back on phones
+
+- **A chapter can be marked finished on its own.** On a book's page, the progress ring beside each chapter and each file is a button now: one click finishes it and moves your place to where the next one starts, and a click on a finished ring takes it back and returns your place to that chapter's start. Finishing the last one finishes the book. Before, a chapter was only ever finished by listening to its end, so a part you had heard elsewhere kept the book's progress wrong, and the only shortcut was to finish the whole book.
+- **The player's volume slider is back on phones.** 4.18 hid it there in favour of the side buttons, but their steps are too coarse for a book playing quietly beside someone asleep. The slider takes a full-width row of its own above Speed and Sleep, which keep their equal halves below it.
+- Nineteen libraries the app is built on moved to their latest minor and patch releases, among them the web server, the map, the icon set, the audiobook metadata reader and React. No visible change is expected.
+
 ## 4.31.2 — Scanning settings for the Photo Inbox
 
 - **The Photo Inbox has scan settings now.** On Control → Library → Storage, the Inbox's row under App storage gained **Scanning** beside Reviewers: what the Inbox scans and, since 4.31.0, how it pairs the backs of two-sided prints with their fronts, with the same **Check this library** dry run as any other library. The Inbox is the app's own library and never appeared in the Libraries list, so until now there was no way to reach these settings for it.

@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.32.0",
+    "label": "Finish a chapter where you stand, and the volume is back on phones",
+    "changes": [
+      "**A chapter can be marked finished on its own.** On a book's page, the progress ring beside each chapter and each file is a button now: one click finishes it and moves your place to where the next one starts, and a click on a finished ring takes it back and returns your place to that chapter's start. Finishing the last one finishes the book. Before, a chapter was only ever finished by listening to its end, so a part you had heard elsewhere kept the book's progress wrong, and the only shortcut was to finish the whole book.",
+      "**The player's volume slider is back on phones.** 4.18 hid it there in favour of the side buttons, but their steps are too coarse for a book playing quietly beside someone asleep. The slider takes a full-width row of its own above Speed and Sleep, which keep their equal halves below it.",
+      "Nineteen libraries the app is built on moved to their latest minor and patch releases, among them the web server, the map, the icon set, the audiobook metadata reader and React. No visible change is expected."
+    ]
+  },
+  {
     "version": "4.31.2",
     "label": "Scanning settings for the Photo Inbox",
     "changes": [
