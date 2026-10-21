@@ -76,6 +76,12 @@ export const config = {
   // How far back the "Prune the activity log" job (off by default) keeps the
   // activity log and sign-in attempts — the two tables that hold visitor IPs.
   activityLogRetentionDays: Math.max(1, Number(process.env.ACTIVITY_LOG_RETENTION_DAYS ?? 365) || 365),
+  // The games (isputnik.games, a container of its own) reached through this server
+  // at /games — docs/games-platform-plan.md. Unset = no games, no nav entry. The
+  // secret signs every forwarded request so the games server knows it is this
+  // server, and nobody else, telling it who is signed in.
+  gamesUrl: (process.env.GAMES_URL ?? "").trim().replace(/\/+$/, ""),
+  gamesGatewaySecret: (process.env.GAMES_GATEWAY_SECRET ?? "").trim(),
   version: packageInfo.version,
   stage: packageInfo.stage ?? null,
   description: packageInfo.description

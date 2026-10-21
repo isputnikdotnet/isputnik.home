@@ -31,6 +31,7 @@ import { homePlugin } from "./modules/home/index.js";
 import { familyTreePlugin } from "./modules/familytree/index.js";
 import { maintenancePlugin } from "./modules/maintenance/index.js";
 import { mapsPlugin } from "./modules/maps/index.js";
+import { gamesPlugin } from "./modules/games/index.js";
 import { upstreamBase } from "./modules/maps/provider.js";
 
 // X-Forwarded-For is only trusted when the operator names the reverse proxies in
@@ -293,6 +294,8 @@ await app.register(homePlugin);
 await app.register(familyTreePlugin);
 await app.register(maintenancePlugin);
 await app.register(mapsPlugin);
+// Before the static fallback: /games/* belongs to the games container, not the SPA.
+await app.register(gamesPlugin);
 
 if (config.staticPath) {
   await app.register(staticFiles, {

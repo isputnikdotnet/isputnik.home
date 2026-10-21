@@ -171,4 +171,24 @@ Beta means your data is looked after: the database migrates itself forward on ev
           Required="false"
           Mask="false"></Config>
 
+  <Config Name="Games URL"
+          Target="GAMES_URL"
+          Default=""
+          Mode=""
+          Description="Where the optional isputnik.games container answers, as seen from this container (e.g. http://isputnik-games:4200 on a shared Docker network). Leave blank for no games. Both this and the Games Gateway Secret must be set for the Games entry to appear."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false"></Config>
+
+  <Config Name="Games Gateway Secret"
+          Target="GAMES_GATEWAY_SECRET"
+          Default=""
+          Mode=""
+          Description="A long random string shared with the games container (its GATEWAY_SECRET). Every request this app forwards to the games carries it, so the games server knows who is signed in came from here."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="true"></Config>
+
 </Container>

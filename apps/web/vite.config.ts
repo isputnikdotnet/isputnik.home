@@ -337,6 +337,13 @@ export default defineConfig({
       "/api": {
         target: "http://127.0.0.1:4000",
         changeOrigin: true
+      },
+      // The games (isputnik.games) are reached through the server's gateway, which
+      // needs GAMES_URL and GAMES_GATEWAY_SECRET set on it; without them it answers
+      // 404 here, as in production.
+      "/games": {
+        target: "http://127.0.0.1:4000",
+        changeOrigin: true
       }
     }
   },
@@ -346,6 +353,10 @@ export default defineConfig({
     port: port(4173),
     proxy: {
       "/api": {
+        target: "http://127.0.0.1:4000",
+        changeOrigin: true
+      },
+      "/games": {
         target: "http://127.0.0.1:4000",
         changeOrigin: true
       }
