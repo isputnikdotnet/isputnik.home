@@ -135,8 +135,14 @@ folder beside the Recycle Bin, so a wrong file can be put back by hand.
 The **Select** button in the header turns the grid into a picker — click photos
 to tick them, or use a date header's checkbox to take a whole day. A toolbar of
 icons appears with what you can do to the selection: like it, add it to an
-album, slideshow or collection, set the date taken, set the location, share it,
-or move it to the Recycle Bin. Hover an icon to see what it does.
+album, slideshow or collection, tag it, add a person to it, set the date taken,
+set the location, share it, or move it to the Recycle Bin. Hover an icon to see
+what it does.
+
+**People** puts one person on everything selected — the way to name who is in
+a batch you have just uploaded. Sort the gallery by *Date uploaded* so the new
+photos sit at the top, select them, choose **People**, and pick a name from the
+list or type a new one. Anyone already tagged on a photo stays.
 
 Date and location are two separate buttons, each with its own window — fix
 whichever is wrong and leave the other alone. Both are for what the camera got

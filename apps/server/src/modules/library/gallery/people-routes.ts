@@ -224,6 +224,76 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId, placeLanguage(request)) ?? getGalleryAssetUnscoped(request.user!.id, assetId, placeLanguage(request)) });
   });
 
+  // Tag a whole selection with one person from the multi-select bar — the batch
+  // just uploaded from a birthday, all of it Grandma. The single route's body
+  // (an existing personId, or a name that finds or creates one) over many ids;
+  // the person is resolved ONCE, so a new name becomes one person rather than
+  // one per photo. Permission is checked per item the way the single route
+  // does it, and items the user can't write are counted, not fatal — the
+  // shape every bulk route answers with.
+  const bulkTagSchema = z.object({
+    ids: z.array(z.string().trim().min(1).max(64)).min(1).max(200),
+    personId: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).max(120).optional()
+  }).refine((v) => v.personId || v.name, { message: "Provide a personId or a name." });
+
+  app.post("/api/library/gallery/assets/bulk-people", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(bulkTagSchema, request.body);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid tag", details: parsed.error });
+    }
+    const user = request.user!;
+
+    const allowed: string[] = [];
+    let forbidden = 0;
+    for (const id of parsed.data.ids) {
+      if (requireAssetWrite(request, id)) allowed.push(id);
+      else forbidden += 1;
+    }
+    // Nothing writable means nothing to tag — and no person to create for it.
+    if (allowed.length === 0) {
+      return reply.send({ updated: 0, forbidden, person: null });
+    }
+
+    let person = parsed.data.personId ? getGalleryPersonRow(parsed.data.personId) : null;
+    let createdName: string | null = null;
+    if (!person && parsed.data.name) {
+      const existing = findGalleryPersonByName(parsed.data.name);
+      if (existing) {
+        person = getGalleryPersonRow(existing.id);
+      } else {
+        const created = createGalleryPerson(parsed.data.name);
+        person = getGalleryPersonRow(created.id);
+        createdName = created.name;
+      }
+    }
+    if (!person) {
+      return reply.code(404).send({ error: "Person not found" });
+    }
+    const personId = person.id;
+
+    const updated = db.transaction(() => {
+      let count = 0;
+      for (const id of allowed) {
+        if (tagAssetPerson(id, personId)) count += 1;
+      }
+      return count;
+    })();
+
+    logActivity({
+      event: "library.gallery.person.tagged",
+      actorUserId: user.id,
+      targetType: "library_item",
+      targetId: allowed[0],
+      detail: createdName
+        ? `Tagged new person "${createdName}" in ${updated} photo${updated === 1 ? "" : "s"}.`
+        : `Tagged "${person.name}" in ${updated} photo${updated === 1 ? "" : "s"}.`,
+      ipAddress: request.ip
+    });
+
+    return reply.send({ updated, forbidden, person: { id: person.id, name: person.name } });
+  });
+
   app.delete("/api/library/gallery/assets/:id/people/:personId", { preHandler: app.authenticate }, async (request, reply) => {
     const { id: assetId, personId } = request.params as { id: string; personId: string };
     const lib = requireAssetWrite(request, assetId);

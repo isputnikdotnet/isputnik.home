@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { CalendarClock, CheckCheck, Film, Heart, ImagePlus, ListMusic, MapPinned, MessageSquareText, Share2, Tags, Trash2, X } from "lucide-react";
+import { CalendarClock, CheckCheck, Film, Heart, ImagePlus, ListMusic, MapPinned, MessageSquareText, Share2, Tags, Trash2, Users, X } from "lucide-react";
 import { Button } from "../../../shared/Button";
 
 // What the gallery toolbar holds while photos are selected: select all, then every
-// bulk verb — like, add to an album / slideshow / collection, share, tag, date,
-// place, ask someone, delete — and Done. Labelled, as on the book pages: an
+// bulk verb — like, add to an album / slideshow / collection, share, tag, people,
+// date, place, ask someone, delete — and Done. Labelled, as on the book pages: an
 // unlabelled trash icon is exactly where hesitation costs the most.
 export function GallerySelectionActions({
   selectedCount,
@@ -20,6 +20,7 @@ export function GallerySelectionActions({
   onAddToCollection,
   onShare,
   onTag,
+  onPeople,
   onDate,
   onPlace,
   onAskSomeone,
@@ -40,6 +41,7 @@ export function GallerySelectionActions({
   onAddToCollection: () => void;
   onShare: () => void;
   onTag: () => void;
+  onPeople: () => void;
   onDate: () => void;
   onPlace: () => void;
   onAskSomeone: () => void;
@@ -115,6 +117,17 @@ export function GallerySelectionActions({
         >
           <Tags size={18} aria-hidden="true" />
           <span className="toolbar-label">{t("gallery:bulk.tagLabel")}</span>
+        </Button>
+      )}
+      {canWriteAny && (
+        <Button
+          variant="toolbar"
+          onClick={onPeople}
+          disabled={idle}
+          title={t("gallery:bulk.peopleTitle")}
+        >
+          <Users size={18} aria-hidden="true" />
+          <span className="toolbar-label">{t("gallery:bulk.peopleLabel")}</span>
         </Button>
       )}
       {canWriteAny && (

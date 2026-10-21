@@ -79,6 +79,12 @@
     "unableToUpdate": "Unable to update the selected items",
     "hintEmpty": "Search above, or click the map to mark where these were taken."
   },
+  "people": {
+    "title": "Add a person",
+    "appliesTo_one": "Applies to {{count}} selected item. Pick who is in it; anyone already there stays.",
+    "appliesTo_other": "Applies to {{count}} selected items. Pick who is in them; anyone already there stays.",
+    "unableToUpdate": "Unable to tag the selected items"
+  },
   "tags": {
     "title": "Tags",
     "appliesTo_one": "Applies to {{count}} selected item. Tags you set here survive the next scan.",

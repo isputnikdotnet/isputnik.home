@@ -32,6 +32,7 @@ import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GalleryDateModal } from "./GalleryDateModal";
 import { GalleryLocationModal } from "./GalleryLocationModal";
 import { GalleryTagsModal } from "./GalleryTagsModal";
+import { GalleryPeopleModal } from "./GalleryPeopleModal";
 import { SlideshowMovieLibraryModal } from "./SlideshowMovieLibraryModal";
 import { PhotoPicker } from "./PhotoPicker";
 import { ShareSetModal } from "../share/ShareSetModal";
@@ -289,6 +290,7 @@ export function GalleryPage({
   const [bulkDateOpen, setBulkDateOpen] = useState(false);
   const [bulkLocationOpen, setBulkLocationOpen] = useState(false);
   const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
+  const [bulkPeopleOpen, setBulkPeopleOpen] = useState(false);
   // Share is opened over an explicit id set — the bulk bar passes the current
   // selection, a day/year header passes just that group. null = closed.
   const [shareIds, setShareIds] = useState<string[] | null>(null);
@@ -1000,6 +1002,7 @@ export function GalleryPage({
                     onAddToCollection={openBulk(() => setBulkCollectionOpen(true))}
                     onShare={openBulk(() => setShareIds([...selectedIds]))}
                     onTag={openBulk(() => setBulkTagsOpen(true))}
+                    onPeople={openBulk(() => setBulkPeopleOpen(true))}
                     onDate={openBulk(() => setBulkDateOpen(true))}
                     onPlace={openBulk(() => setBulkLocationOpen(true))}
                     onAskSomeone={openBulk(() => setAskSomeone({ kind: "items", itemIds: [...selectedIds] }))}
@@ -1257,6 +1260,20 @@ export function GalleryPage({
         />
       )}
 
+      {bulkPeopleOpen && (
+        <GalleryPeopleModal
+          itemIds={[...selectedIds]}
+          onClose={() => setBulkPeopleOpen(false)}
+          onApplied={(updated, forbidden, name) => {
+            setBulkPeopleOpen(false);
+            exitSelection();
+            const parts = [t("gallery:bulk.personTaggedNotice", { count: updated, name })];
+            if (forbidden > 0) parts.push(t("gallery:bulk.skippedPermissionNotice", { count: forbidden }));
+            setNotice(`${parts.join(" · ")}.`);
+            refreshView();
+          }}
+        />
+      )}
       {bulkTagsOpen && (
         <GalleryTagsModal
           itemIds={[...selectedIds]}
