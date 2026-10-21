@@ -20,6 +20,7 @@ Along the top:
 | View | What it gives you |
 |---|---|
 | **Timeline** | Everything newest-first, grouped by date. The default. |
+| **Recently added** | The same Timeline ordered by when photos arrived, newest upload first — what just came in, grouped by the day it was added. |
 | **Memories** | "On this day" — the same date in previous years. |
 | **Albums** | Sets you assemble by hand; a photo can be in several. |
 | **Slideshows** | Saved sequences with music and transitions, playable or rendered to a movie file. |
@@ -140,9 +141,10 @@ set the location, share it, or move it to the Recycle Bin. Hover an icon to see
 what it does.
 
 **People** puts one person on everything selected — the way to name who is in
-a batch you have just uploaded. Sort the gallery by *Date uploaded* so the new
-photos sit at the top, select them, choose **People**, and pick a name from the
-list or type a new one. Anyone already tagged on a photo stays.
+a batch you have just uploaded. Open **Recently added** in the side menu so the
+new photos sit at the top, select them (the day header's checkbox takes the
+whole batch), choose **People**, and pick a name from the list or type a new
+one. Anyone already tagged on a photo stays.
 
 Date and location are two separate buttons, each with its own window — fix
 whichever is wrong and leave the other alone. Both are for what the camera got

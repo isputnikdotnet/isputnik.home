@@ -1,12 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Album, ArrowLeft, CalendarDays, ChevronDown, Compass, Film, FolderOpen, Image as ImageIcon, Inbox, LayoutGrid, LibraryBig, MapPin, MapPinned, Plus, Sparkles, SquareCheck, UploadCloud, Users } from "lucide-react";
+import { Album, ArrowLeft, CalendarDays, ChevronDown, Compass, Film, FolderOpen, History, Image as ImageIcon, Inbox, LayoutGrid, LibraryBig, MapPin, MapPinned, Plus, Sparkles, SquareCheck, UploadCloud, Users } from "lucide-react";
 import { api } from "../../api";
 import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
 import { useSession } from "../../app/SessionContext";
-import { followRoute, galleryHref, galleryInboxHref, galleryReviewAlbumHref, navigate, type GalleryView } from "../../router";
+import { followRoute, galleryHref, galleryInboxHref, galleryRecentHref, galleryReviewAlbumHref, navigate, type GalleryView } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
@@ -720,9 +720,11 @@ export function GalleryPage({
 
   // Ordinary links to ordinary addresses. Memories and Map only appear when there
   // is something behind them — no anniversary today, nothing geotagged in scope —
-  // which is why they are the two conditional entries.
+  // which is why they are the two conditional entries. "Recently added" is the
+  // Timeline sorted by upload date — the row lit is whichever order is on screen.
   const galleryNavItems: SectionNavItem[] = [
     { key: "timeline", label: VIEW_TITLES.timeline, href: galleryHref("timeline"), icon: CalendarDays },
+    { key: "recent", label: t("gallery:page.views.recent"), href: galleryRecentHref(), icon: History },
     ...((memories?.groups.length ?? 0) > 0
       ? [{ key: "memories", label: VIEW_TITLES.memories, href: galleryHref("memories"), icon: Sparkles }]
       : []),
@@ -824,7 +826,7 @@ export function GalleryPage({
   return (
     <DashboardShell
       active="gallery"
-      sideNav={<SectionNav ariaLabel={t("common:nav.gallery")} groupLabel={t("common:nav.gallery")} items={galleryNavItems} activeKey={view} />}
+      sideNav={<SectionNav ariaLabel={t("common:nav.gallery")} groupLabel={t("common:nav.gallery")} items={galleryNavItems} activeKey={view === "timeline" && sort === "added" ? "recent" : view} />}
     >
       <section className={`audiobook-main-page gallery-page${selectionMode ? " is-selecting" : ""}`}>
         {showBrowseChrome && (

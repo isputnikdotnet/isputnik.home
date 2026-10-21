@@ -727,6 +727,7 @@
   "page": {
     "views": {
       "timeline": "Gallery",
+      "recent": "Recently added",
       "memories": "Memories",
       "albums": "Albums",
       "slideshows": "Slideshows",

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../api";
-import type { GalleryView } from "../../../router";
+import { queryParam, replaceQuery, type GalleryView } from "../../../router";
 import { EMPTY_GALLERY_FILTERS, FAMILY_TREE_SCOPE, activeGalleryFilterCount, type GalleryFilters } from "../GalleryFilter";
 import { galleryGridClass, readGalleryView, writeGalleryView, type GalleryViewPrefs } from "../gallery-view";
 import type { GalleryFacets } from "../types";
@@ -18,12 +18,24 @@ export function useGalleryScope({
   initialLibraryId?: string | null;
   goToView: (next: GalleryView) => void;
 }) {
-  // Seeded from the address so a deep link can ask for a particular order — the
-  // home's "New photos" card links to /gallery?sort=added, and the page it opens
-  // is then the set that card was advertising. Anything else means the default.
-  const [sort, setSort] = useState<TimelineSort>(
-    () => (new URLSearchParams(window.location.search).get("sort") === "added" ? "added" : "taken")
-  );
+  // The address carries the order, both ways. Seeded from it so a deep link can
+  // ask for a particular order — the side nav's "Recently added" and the home's
+  // "New photos" card both lead to /gallery?sort=added, and the page they open
+  // is then the set they advertised; anything else means the default. Re-read
+  // on every navigation, since the nav's two Timeline rows differ only in the
+  // query and the page stays mounted between them. And written back when the
+  // Sort menu changes it, so the row that is lit is the order on screen and a
+  // reload or a copied link keeps it.
+  const readSort = (): TimelineSort => (queryParam("sort") === "added" ? "added" : "taken");
+  const [sort, setSort] = useState<TimelineSort>(readSort);
+  useEffect(() => {
+    const sync = () => setSort(readSort());
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+  useEffect(() => {
+    if (view === "timeline") replaceQuery("sort", sort === "added" ? "added" : null);
+  }, [sort, view]);
 
   // How the photo grids look: tile size, and whether the timeline comes in dated
   // sections or as one uninterrupted grid. Both live behind the toolbar's View

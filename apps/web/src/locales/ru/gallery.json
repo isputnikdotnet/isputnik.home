@@ -805,6 +805,7 @@
   "page": {
     "views": {
       "timeline": "Галерея",
+      "recent": "Недавно добавленные",
       "memories": "Воспоминания",
       "albums": "Альбомы",
       "slideshows": "Слайд-шоу",

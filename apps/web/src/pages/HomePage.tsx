@@ -6,7 +6,7 @@ import { ActivityFeedCard } from "../features/social/ActivityCard";
 import { InboxRow, type InboxCard } from "../features/social/InboxRow";
 import { api } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { FOR_YOU_PATH, followRoute, galleryPersonHref, navigate } from "../router";
+import { followRoute, FOR_YOU_PATH, galleryPersonHref, galleryRecentHref, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { WhatsNewNote } from "../features/home/WhatsNewNote";
 import { Modal } from "../shared/Modal";
@@ -205,7 +205,7 @@ function MemoryFeedCard({ card, onOpen }: { card: MemoryCard; onOpen: (year: num
 // front page never carries an empty shortcut to the gallery.
 function PhotosAddedFeedCard({ card, onOpen }: { card: PhotosAddedCard; onOpen: (itemId: string) => void }) {
   const { t } = useTranslation();
-  const timelineHref = "/gallery?sort=added";
+  const timelineHref = galleryRecentHref();
   return (
     <section className="home-card home-card-photos" aria-label={t("home.photosAdded")}>
       <header className="home-card-head">
@@ -608,11 +608,11 @@ export function HomePage() {
     setMemoryLoading(true);
     try {
       const items = await fetchRecentlyAddedPhotos(days);
-      if (items.length === 0) { navigate("/gallery?sort=added"); return; }
+      if (items.length === 0) { navigate(galleryRecentHref()); return; }
       const start = Math.max(0, items.findIndex((item) => item.id === itemId));
       setPhotoLightbox({ items, index: start, source: { kind: "added", days } });
     } catch {
-      navigate("/gallery?sort=added");
+      navigate(galleryRecentHref());
     } finally {
       setMemoryLoading(false);
     }

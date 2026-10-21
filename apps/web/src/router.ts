@@ -248,6 +248,13 @@ export function galleryHref(view: GalleryView): string {
   return GALLERY_VIEW_PATHS[view];
 }
 
+/** The Timeline newest-upload-first: the side nav's "Recently added", and where
+ *  the Home page's "New photos" card leads. A sort of the one view, not a view
+ *  of its own, so it is the Timeline's address with the sort in the query. */
+export function galleryRecentHref(): string {
+  return `${GALLERY_VIEW_PATHS.timeline}?sort=added`;
+}
+
 // The Photo Inbox review page: /gallery/inbox opens the first Inbox this user can
 // see, /gallery/inbox/<libraryId> a particular one. Not a browse view — an Inbox
 // is a library flagged for review, and the page is how it is emptied.
