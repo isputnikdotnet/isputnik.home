@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.33.0 — Name everyone in a batch at once, and covers from the story's own photos
+
+- **Add a person to a whole selection of photos.** In the Gallery, Select some photos (a day's header checkbox takes the whole day) and the toolbar has **People** beside Tags: pick someone the library knows, or type a new name, and it goes on everything selected in one go, with the people already on each photo left in place. Sorting the Gallery by **Date uploaded** puts a fresh batch at the top, so naming who is in it is a few clicks instead of opening each photo.
+- **A story's chapter cards no longer show a blank box.** A chapter with no photo yet shows its number in the thumbnail spot, the way the rail beside the story does. Before, the empty box read as a picture that failed to load.
+- **Choose a story or chapter cover from the story's own photos.** The cover menu on the story's front page and on every chapter gains **Choose from this story's photos**: a grid of every photo the story shows, once each, the current chapter's first and the current cover marked. The photo wanted for a cover is almost always one already on the page; until now the only way to it was the whole library.
+- **The player opens at half volume** instead of full, so a book does not start at a startle, and the slider has somewhere to go in both directions.
+
 ## 4.32.1 — Finish a chapter from the player too
 
 - **The player's chapter list marks chapters finished as well.** The ring beside each chapter is a button there now, as on the book page, and it shows in the player's Chapters sheet, where it was hidden before: one tap finishes the chapter and moves playback to where the next one starts, finishing the last one finishes the book, and a tap on a finished ring takes it back and returns playback to that chapter's start. The list stays open, so several chapters can be marked in a row. The rest of the row still jumps to the chapter.
