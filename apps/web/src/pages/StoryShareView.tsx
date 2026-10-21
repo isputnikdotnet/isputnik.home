@@ -426,7 +426,9 @@ function ShareStoryHome({
           const dateLabel = dateText && chapter.dateApprox ? t("stories:chapter.approx", { date: dateText }) : dateText;
           return (
             <Button variant="tile" key={chapter.id} className="story-home-card" onClick={() => onGoTo(chapter.id)}>
-              {thumb ? <img src={thumb} alt="" loading="lazy" /> : <span className="story-home-card-blank" aria-hidden="true" />}
+              {thumb
+                ? <img src={thumb} alt="" loading="lazy" />
+                : <span className="story-home-card-blank" aria-hidden="true">{index + 1}</span>}
               <span className="story-home-card-body">
                 <span className="story-home-card-eyebrow">{label}</span>
                 {chapter.title && chapter.title !== label && (

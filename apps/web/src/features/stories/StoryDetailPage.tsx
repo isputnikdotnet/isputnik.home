@@ -442,7 +442,11 @@ function StoryHome({ story, onOpenChapter }: { story: StoryDetail; onOpenChapter
               className="story-home-card"
               onClick={() => onOpenChapter(item.id)}
             >
-              {thumb ? <img src={thumb} alt="" loading="lazy" /> : <span className="story-home-card-blank" aria-hidden="true" />}
+              {/* No picture yet? Its number, as on the rail — a blank box reads as
+                  a picture that failed to load. */}
+              {thumb
+                ? <img src={thumb} alt="" loading="lazy" />
+                : <span className="story-home-card-blank" aria-hidden="true">{index + 1}</span>}
               <span className="story-home-card-body">
                 <span className="story-home-card-eyebrow">{label}</span>
                 {/* Without a chapter noun the label already IS the title. */}

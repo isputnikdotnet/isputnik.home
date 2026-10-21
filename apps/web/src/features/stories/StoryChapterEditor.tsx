@@ -9,6 +9,7 @@ import { formatPartialDateLong, formatPartialDateRange } from "../../shared/util
 import { AddStoryBlock } from "./AddStoryBlock";
 import { StoryBlockEditor, blockMoveTargets } from "./StoryBlockEditor";
 import { StoryCoverBanner } from "./StoryCoverBanner";
+import { storyPhotos } from "./story-photos";
 import { StoryMapModal } from "./StoryMapModal";
 import { chapterLabel, type StoryBlockKind, type StoryChapter, type StoryDetail } from "./types";
 
@@ -127,6 +128,8 @@ export function StoryChapterEditor({
           ? { lat: chapter.placeLat, lng: chapter.placeLng, label: chapter.place ?? label }
           : null}
         useMap={chapter.heroMap}
+        candidates={storyPhotos(story, chapter.id)}
+        currentId={chapter.heroItemId}
         onPick={(asset) => onPatch({ heroItemId: asset.id, heroMap: false })}
         onClear={() => onPatch({ heroItemId: null, heroMap: false })}
         onUseMap={(next) => onPatch({ heroMap: next })}

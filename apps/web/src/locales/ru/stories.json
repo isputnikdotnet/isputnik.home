@@ -246,6 +246,9 @@
     "coverNeedsPin": "Сначала отметьте главу на карте",
     "coverUseBook": "Взять обложку книги",
     "coverFromStory": "Обложка истории",
+    "coverFromStoryPhotos": "Выбрать из фото этой истории",
+    "coverStoryPhotosTitle": "Фото в этой истории",
+    "coverStoryPhotosEmpty": "В этой истории пока нет фото",
     "addBlockIntro": "Что здесь будет?",
     "change": {
       "media": "Заменить фото",

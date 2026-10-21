@@ -240,6 +240,9 @@
     "coverNeedsPin": "Pin this chapter on the map first",
     "coverUseBook": "Use the book's cover",
     "coverFromStory": "The story's cover",
+    "coverFromStoryPhotos": "Choose from this story's photos",
+    "coverStoryPhotosTitle": "Photos in this story",
+    "coverStoryPhotosEmpty": "No photos in this story yet",
     "addBlockIntro": "What goes here?",
     "change": {
       "media": "Change the photo",

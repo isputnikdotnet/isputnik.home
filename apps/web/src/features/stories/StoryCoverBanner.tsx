@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image as ImageIcon, ImagePlus, MapPin, Pencil, Trash2 } from "lucide-react";
+import { BookImage, Image as ImageIcon, ImagePlus, MapPin, Pencil, Trash2 } from "lucide-react";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ActionMenu";
+import { Button } from "../../shared/Button";
+import { Modal } from "../../shared/Modal";
 import { PhotoPicker } from "../gallery/PhotoPicker";
 import { StoryMap } from "./StoryMap";
 import type { GalleryAsset } from "../gallery/types";
@@ -19,6 +21,8 @@ export function StoryCoverBanner({
   pickerTitle,
   pin,
   useMap = false,
+  candidates,
+  currentId,
   extraActions,
   onPick,
   onClear,
@@ -36,6 +40,12 @@ export function StoryCoverBanner({
   /** The chapter's place, when it has one — what "Use map as cover" draws. */
   pin?: { lat: number; lng: number; label: string } | null;
   useMap?: boolean;
+  /** The photos the story already shows, for choosing a cover from the page
+   *  itself instead of the whole library — the most likely place for it.
+   *  Offered (greyed when empty) whenever given. */
+  candidates?: GalleryAsset[];
+  /** The photo currently chosen, marked as such among the candidates. */
+  currentId?: string | null;
   /** Other places this cover could come from — a review's book, say. Offered
    *  in the same menu, because "where does this picture come from" is one
    *  question with several answers, not several buttons. */
@@ -47,6 +57,7 @@ export function StoryCoverBanner({
 }) {
   const { t } = useTranslation(["common", "stories"]);
   const [picking, setPicking] = useState(false);
+  const [choosing, setChoosing] = useState(false);
 
   const showingMap = Boolean(useMap && pin);
   const empty = !showingMap && !coverUrl;
@@ -61,6 +72,13 @@ export function StoryCoverBanner({
       icon: <ImageIcon size={15} aria-hidden="true" />,
       onSelect: () => setPicking(true)
     },
+    ...(candidates ? [{
+      key: "story-photo",
+      label: t("stories:edit.coverFromStoryPhotos"),
+      icon: <BookImage size={15} aria-hidden="true" />,
+      disabledReason: candidates.length > 0 ? undefined : t("stories:edit.coverStoryPhotosEmpty"),
+      onSelect: () => setChoosing(true)
+    }] : []),
     ...(extraActions ?? [])
   ];
   if (onUseMap) {
@@ -121,6 +139,32 @@ export function StoryCoverBanner({
           onPick={(asset) => { setPicking(false); onPick(asset); }}
           onClose={() => setPicking(false)}
         />
+      )}
+
+      {choosing && candidates && (
+        <Modal
+          variant="card"
+          className="story-cover-choices-modal"
+          title={t("stories:edit.coverStoryPhotosTitle")}
+          icon={<BookImage size={20} aria-hidden="true" />}
+          onClose={() => setChoosing(false)}
+        >
+          <div className="story-cover-choices">
+            {candidates.map((asset) => (
+              <Button
+                variant="bare"
+                key={asset.id}
+                className={`story-cover-choice${asset.id === currentId ? " is-current" : ""}`}
+                aria-label={asset.title}
+                title={asset.title}
+                aria-pressed={asset.id === currentId}
+                onClick={() => { setChoosing(false); onPick(asset); }}
+              >
+                <img src={asset.coverUrl ?? undefined} alt="" loading="lazy" />
+              </Button>
+            ))}
+          </div>
+        </Modal>
       )}
     </div>
   );

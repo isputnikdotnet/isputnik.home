@@ -11,6 +11,7 @@ import { TagEditor } from "../../shared/tags/TagEditor";
 import { useTagSuggestions } from "../../shared/tags/useTagSuggestions";
 import { SuggestInput } from "../../shared/SuggestInput";
 import { StoryCoverBanner } from "./StoryCoverBanner";
+import { storyPhotos } from "./story-photos";
 import { StoryMap } from "./StoryMap";
 import { StoryMarkdown } from "./StoryMarkdown";
 import { replaceNavigate, storyEditorHref } from "../../router";
@@ -101,6 +102,8 @@ export function StoryOverviewPane({
       <StoryCoverBanner
         coverUrl={story.coverUrl}
         pickerTitle={t("stories:fields.coverPickerTitle")}
+        candidates={storyPhotos(story)}
+        currentId={story.coverItemId}
         extraActions={bookCover}
         onPick={(asset) => onPatch({ coverItemId: asset.id })}
         onClear={() => onPatch({ coverItemId: null })}
