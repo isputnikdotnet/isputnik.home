@@ -102,6 +102,12 @@ describe("AudioPlayer toggles", () => {
     expect(sleep).not.toHaveAttribute("aria-describedby");
   });
 
+  it("opens at half volume, with the element to match", () => {
+    render(<AudioPlayer book={book} />);
+    expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("0.5");
+    expect(document.querySelector("audio")!.volume).toBe(0.5);
+  });
+
   it("expands the bookmark list the same way", async () => {
     const user = userEvent.setup();
     render(<AudioPlayer book={book} showBookmark />);

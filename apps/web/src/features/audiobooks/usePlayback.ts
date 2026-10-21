@@ -28,7 +28,9 @@ export function usePlayback({ playErrorMessage }: {
   const [currentTime, setCurrentTime] = useState(0);
   const [fileDuration, setFileDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [volume, setVolume] = useState(1);
+  // Half, not full: a player that opens at full volume startles whoever is in the
+  // room, and the slider has somewhere to go in both directions.
+  const [volume, setVolume] = useState(0.5);
   const [muted, setMuted] = useState(false);
   const [playerError, setPlayerError] = useState("");
   const [speedOpen, setSpeedOpen] = useState(false);
