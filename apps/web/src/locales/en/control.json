@@ -49,6 +49,7 @@
       "quotes": "Quotes",
       "mapSetup": "Maps",
       "storySettings": "Stories",
+      "games": "Games",
       "email": "Email",
       "notifications": "Notifications",
       "about": "About",
@@ -102,7 +103,8 @@
       "mapCaching": "Keep maps on this server",
       "namedPlaces": "Named places",
       "locationDatabase": "Sign-in location databases",
-      "appStorage": "App storage"
+      "appStorage": "App storage",
+      "gamesIntegration": "Games integration"
     }
   },
   "about": {

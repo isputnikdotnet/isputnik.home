@@ -120,6 +120,38 @@
   max-width: 520px;
 }
 
+/* Settings → Games: the integration's facts, one row each. */
+.games-status {
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+  margin: 6px 0 16px;
+}
+
+.games-status > div {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.games-status dt {
+  font-weight: 650;
+}
+
+.games-status dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .games-status > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
 .mail-check {
   display: flex;
   /* flex-start, not center: these labels wrap to two or three lines and the box

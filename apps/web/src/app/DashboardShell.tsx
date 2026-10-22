@@ -32,6 +32,7 @@ import type { LucideIcon } from "lucide-react";
 import { versionLabel } from "../shared/appVersion";
 import { useSession } from "./SessionContext";
 import { useGamesAvailable } from "./useGamesAvailable";
+import { gamesWaiting, useGamesSummary } from "../features/games/useGamesSummary";
 import { isStandalone } from "../pwa/platform";
 import { useInboxSummary } from "../features/social/useInboxSummary";
 import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
@@ -96,13 +97,18 @@ function DashboardNavLink({ item }: { item: MainNavItem }) {
 // this SPA — and shown only on an install that has them.
 const GAMES_HREF = "/games/";
 
-function GamesNavLink({ className, size }: { className: string; size: number }) {
+// Shown only on an install that has them. The number is what waits for this
+// person there: invitations to answer and matches where it is their move.
+function GamesNavLink({ className, size, badgeClassName }: { className: string; size: number; badgeClassName: string }) {
   const { t } = useTranslation();
-  if (!useGamesAvailable()) return null;
+  const available = useGamesAvailable();
+  const waiting = gamesWaiting(useGamesSummary());
+  if (!available) return null;
   return (
     <a className={className} href={GAMES_HREF}>
       <Gamepad2 size={size} aria-hidden="true" />
       <span>{t("nav.games")}</span>
+      {waiting > 0 && <span className={badgeClassName} title={t("nav.gamesWaiting", { count: waiting })}>{waiting}</span>}
     </a>
   );
 }
@@ -211,7 +217,7 @@ function MobileNav({
               <Tag size={26} aria-hidden="true" />
               <span>{t("nav.tags")}</span>
             </a>
-            <GamesNavLink className="mobile-media-option" size={26} />
+            <GamesNavLink className="mobile-media-option" size={26} badgeClassName="mobile-media-badge" />
           </div>
         </div>
       )}
@@ -448,7 +454,7 @@ export function DashboardShell({
             {mainNavItems(active, t).map((item) => (
               <DashboardNavLink item={item} key={item.href} />
             ))}
-            <GamesNavLink className="home-nav-link" size={21} />
+            <GamesNavLink className="home-nav-link" size={21} badgeClassName="home-nav-badge" />
 
             <Button
               variant="bare"

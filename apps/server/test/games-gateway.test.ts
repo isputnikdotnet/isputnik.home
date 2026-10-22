@@ -56,6 +56,15 @@ describe("the games module", () => {
     expect(res.json()).toEqual({ members: [{ id: "dad", name: "Dad" }, { id: "mum", name: "Мама" }] });
     expect((await booted.app.inject({ method: "GET", url: "/api/games/members" })).statusCode).toBe(401);
   });
+
+  it("tells an admin how the integration stands, and nobody else", async () => {
+    makeUser("admin", "admin");
+    const res = await booted.app.inject({ method: "GET", url: "/api/games/admin/status", headers: { cookie: await booted.signIn("admin") } });
+    expect(res.statusCode).toBe(200);
+    // GAMES_URL is unset under test, so the server is not probed and nothing names it.
+    expect(res.json()).toEqual({ configured: false, reason: null, url: null, secretSet: false, server: null });
+    expect((await booted.app.inject({ method: "GET", url: "/api/games/admin/status", headers: { cookie: await booted.signIn("mum") } })).statusCode).toBe(403);
+  });
 });
 
 afterEach(async () => {
@@ -90,6 +99,20 @@ describe("GET /games/*", () => {
     const res = await booted.app.inject({ method: "GET", url: "/games/" });
     expect(res.statusCode).toBe(401);
     expect(res.json()).toEqual({ error: "Not authenticated" });
+  });
+
+  it("sends a signed-out page navigation to the sign-in screen, with the way back", async () => {
+    const accept = "text/html,application/xhtml+xml,*/*;q=0.8";
+    const page = await booted.app.inject({ method: "GET", url: "/games/dots?x=1", headers: { accept } });
+    expect(page.statusCode).toBe(302);
+    expect(page.headers.location).toBe("/login?next=" + encodeURIComponent("/games/dots?x=1"));
+    expect(page.body).toBe("");
+    // The games front end's own API calls keep the 401 so it can say "signed out".
+    const api = await booted.app.inject({ method: "GET", url: "/games/api/me", headers: { accept } });
+    expect(api.statusCode).toBe(401);
+    // A signed-in navigation is proxied as before.
+    const cookie = await booted.signIn("mum");
+    expect((await booted.app.inject({ method: "GET", url: "/games/dots", headers: { accept, cookie } })).statusCode).toBe(200);
   });
 
   it("forwards a signed-in member's request with the identity headers", async () => {

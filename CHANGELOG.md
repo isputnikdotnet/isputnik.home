@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.34.0 — The games, inside the home app
+
+- **What waits for you in the games shows on the Games entry.** Invitations to answer and matches where it is your move are counted on the Games entry in the menu and on the phone's Media sheet, asked of the games server each time the app opens or comes back into view. **For you** lists them as cards beside what the family sent you: an invitation with **Accept** and **Decline**, and *Your move against …* with **Play**, which opens the board.
+- **Control panel → Settings → Games** shows how the link to the games stands: whether the gateway is on (and why not, when it is off), the games address, whether a secret is set, whether the games server answers and its version. The two settings stay environment variables on the container; the page names them. Needs isputnik.games 0.2.0 for the count and the cards.
+- **Opening the games while signed out leads to the sign-in screen,** and signing in returns to the page that was opened — a bookmark or the installed app's icon used to show a line of JSON instead.
+
 ## 4.33.2 — Online games between members
 
 - **Members can be invited to an online game.** The games app (isputnik.games 0.1.0, a container of its own reached at `/games`) plays Dots two on one screen, against the computer, and now online between two members of this install from any device; this release answers its invite dialog with the list of members. The games stay off until `GAMES_URL` and `GAMES_GATEWAY_SECRET` are set — see docs/configuration.md → Games.

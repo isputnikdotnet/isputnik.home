@@ -11,7 +11,7 @@
 // CSRF: the double-submit hook on the root runs for proxied requests too, so the
 // games front end echoes this app's CSRF cookie on its own state-changing calls.
 import type { IncomingHttpHeaders } from "node:http";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import httpProxy from "@fastify/http-proxy";
 import type { User } from "../../db.js";
 
@@ -43,6 +43,23 @@ export function stripIdentityHeaders<T extends Record<string, unknown>>(headers:
   return out;
 }
 
+/** A browser opening a games PAGE (a bookmark, the installed app's icon) rather
+ *  than the games front end calling its API. The API keeps the 401 so the front
+ *  end can say "signed out"; a page gets the sign-in screen and comes back. */
+export function isPageNavigation(request: FastifyRequest): boolean {
+  if (request.method !== "GET") return false;
+  if (request.url.startsWith(`${GAMES_PREFIX}/api/`)) return false;
+  const accept = request.headers.accept ?? "";
+  return accept.includes("text/html");
+}
+
+/** Where to send a signed-out page navigation: the sign-in screen, which brings
+ *  them back here afterwards (LoginPage reads `next`). Only the path, so the
+ *  value can never point off this origin. */
+export function signInHref(path: string): string {
+  return `/login?next=${encodeURIComponent(path)}`;
+}
+
 export interface GatewayOptions {
   /** The games server, e.g. http://isputnik-games:4200. */
   upstream: string;
@@ -50,21 +67,34 @@ export interface GatewayOptions {
 }
 
 export async function registerGamesGateway(app: FastifyInstance, options: GatewayOptions): Promise<void> {
-  await app.register(httpProxy, {
-    upstream: options.upstream,
-    prefix: GAMES_PREFIX,
-    rewritePrefix: GAMES_PREFIX,
-    // Only a signed-in member reaches the games; anonymous gets this app's 401.
-    // The proxy's hook is callback-style, so the async decorator is adapted: once
-    // authenticate has replied 401, Fastify sees the sent reply and never proxies.
-    preHandler: (request, reply, done) => {
-      app.authenticate(request, reply).then(() => done(), (err: Error) => done(err));
-    },
-    replyOptions: {
-      rewriteRequestHeaders: (request, headers): IncomingHttpHeaders => ({
-        ...stripIdentityHeaders(headers as IncomingHttpHeaders),
-        ...identityHeaders(request.user!, options.secret)
-      })
-    }
+  // Its own scope, so the hook below sees only what goes through the proxy.
+  await app.register(async (scope) => {
+    // authenticate has already written its 401 by the time it returns, so the
+    // redirect for a page navigation is applied as the reply leaves: a signed-out
+    // person opening /games/ from a bookmark or the installed app lands on the
+    // sign-in screen instead of a line of JSON. API calls keep the 401.
+    scope.addHook("onSend", async (request, reply, payload) => {
+      if (reply.statusCode !== 401 || !isPageNavigation(request)) return payload;
+      reply.code(302).header("location", signInHref(request.url)).removeHeader("content-type");
+      return "";
+    });
+
+    await scope.register(httpProxy, {
+      upstream: options.upstream,
+      prefix: GAMES_PREFIX,
+      rewritePrefix: GAMES_PREFIX,
+      // Only a signed-in member reaches the games; anonymous gets this app's 401.
+      // The proxy's hook is callback-style, so the async decorator is adapted: once
+      // authenticate has replied 401, Fastify sees the sent reply and never proxies.
+      preHandler: (request, reply, done) => {
+        app.authenticate(request, reply).then(() => done(), (err: Error) => done(err));
+      },
+      replyOptions: {
+        rewriteRequestHeaders: (request, headers): IncomingHttpHeaders => ({
+          ...stripIdentityHeaders(headers as IncomingHttpHeaders),
+          ...identityHeaders(request.user!, options.secret)
+        })
+      }
+    });
   });
 }

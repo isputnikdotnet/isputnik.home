@@ -11,6 +11,8 @@ import { InboxRow, type InboxCard } from "./InboxRow";
 import { DeliveryRow, type DeliveryCard } from "./DeliveryRow";
 import { SharedPersonRow, type SharedPersonCard } from "./SharedPersonRow";
 import { refreshInboxSummary } from "./useInboxSummary";
+import { InvitationRow, YourMoveRow } from "../games/GameRows";
+import { gameMatchHref, refreshGamesSummary, useGamesSummary, type GameInvitation } from "../games/useGamesSummary";
 import { Button } from "../../shared/Button";
 import { formatDate } from "../../shared/dates";
 
@@ -162,6 +164,9 @@ export function ForYouPage() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
   const [openAlbum, setOpenAlbum] = useState<SharedBook | null>(null);
+  // The games' invitations and turns, from the games server itself; null where
+  // this person has no games (docs/games-platform-plan.md).
+  const games = useGamesSummary();
 
   const loadShares = useCallback(
     () =>
@@ -200,6 +205,22 @@ export function ForYouPage() {
       await Promise.all([loadWaiting(), loadShares()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("user:shared.updateFailed"));
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  // Answered on the games' own API through the gateway. Accepting opens the
+  // board: that is where "accepted" is seen, and where the first move waits.
+  const answerInvitation = async (card: GameInvitation, answer: "accept" | "decline") => {
+    setBusyId(card.id);
+    setError("");
+    try {
+      await api(`/games/api/matches/${encodeURIComponent(card.id)}/${answer}`, { method: "POST" });
+      refreshGamesSummary();
+      if (answer === "accept") window.location.assign(gameMatchHref(card.game, card.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("user:games.answerFailed"));
     } finally {
       setBusyId("");
     }
@@ -244,7 +265,9 @@ export function ForYouPage() {
   const rows = waiting ?? [];
   const pending = new Set(rows.filter((row) => row.kind === "sent").map((row) => `${row.entityType}:${row.entityId}`));
   const shelf = (books ?? []).filter((book) => !pending.has(`${book.type}:${book.id}`));
-  const nothingAtAll = books !== null && waiting !== null && shelf.length === 0 && rows.length === 0;
+  const gameCards = games ? games.invitations.length + games.yourMove.length : 0;
+  const waitingCount = rows.length + gameCards;
+  const nothingAtAll = books !== null && waiting !== null && shelf.length === 0 && waitingCount === 0;
 
   return (
     <DashboardShell active="user" sideNav={<UserAreaNav active="shared" />}>
@@ -253,16 +276,20 @@ export function ForYouPage() {
           <div>
             <p className="eyebrow">{t("user:shared.eyebrow")}</p>
             <h1>{t("common:nav.forYou")}</h1>
-            {waiting !== null && <p className="muted">{t("user:forYou.intro", { count: rows.length })}</p>}
+            {waiting !== null && <p className="muted">{t("user:forYou.intro", { count: waitingCount })}</p>}
           </div>
         </div>
 
         {error && <MessageBox tone="error" title={t("user:common.errorTitle")}>{error}</MessageBox>}
 
-        {rows.length > 0 && (
+        {waitingCount > 0 && (
           <>
             <h2 className="inbox-subhead">{t("user:shared.waitingForYou")}</h2>
             <ul className="inbox-list">
+              {games?.invitations.map((card) => (
+                <InvitationRow key={`invite-${card.id}`} card={card} busy={busyId === card.id} onAnswer={answerInvitation} />
+              ))}
+              {games?.yourMove.map((card) => <YourMoveRow key={`turn-${card.id}`} card={card} />)}
               {rows.map((row) => row.kind === "delivery"
                 ? <DeliveryRow key={row.id} card={row} busy={busyId === row.id} onDismiss={dismissDelivery} />
                 : row.kind === "person"

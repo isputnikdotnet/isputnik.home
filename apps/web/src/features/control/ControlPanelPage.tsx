@@ -56,6 +56,7 @@ const AppearanceSection = lazy(() => import("./sections/AppearanceSection").then
 const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ default: m.MailSection })));
 const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
+const GamesSection = lazy(() => import("./sections/GamesSection").then((m) => ({ default: m.GamesSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
 const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
@@ -211,6 +212,7 @@ function ControlSectionBody({
     case "quotes":          return <QuotesSection />;
     case "mapSetup":        return <MapSetupSection />;
     case "storySettings":   return <StorySettingsSection />;
+    case "games":           return <GamesSection />;
     case "email":           return <MailSection />;
     case "notifications":   return <NotificationsSection />;
     case "about":           return <AboutSection />;

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyRound, MonitorSmartphone } from "lucide-react";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
@@ -9,7 +9,7 @@ import { Button } from "../shared/Button";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
 import { useConnectionStatus } from "../pwa/useOnlineStatus";
-import { navigate, takePathAfterSignIn } from "../router";
+import { navigate, queryParam, rememberPathAfterSignIn, takePathAfterSignIn } from "../router";
 
 export function LoginPage({
   onSignedIn,
@@ -50,12 +50,28 @@ export function LoginPage({
   // needs WebAuthn — which it only exposes in a secure context anyway.
   const canUsePasskey = passkeysAvailable && browserSupportsWebAuthn();
 
+  // The games gateway sends a signed-out page navigation here with ?next=/games/…
+  // (modules/games/gateway.ts). Remembered the way a scanned QR is, so signing
+  // in resumes it; rememberPathAfterSignIn keeps only a same-origin path.
+  useEffect(() => {
+    const next = queryParam("next");
+    if (next) rememberPathAfterSignIn(next);
+  }, []);
+
   const finish = async () => {
     await onSignedIn();
-    // Back to whatever they were interrupted doing — today, approving a device
-    // whose QR they scanned while signed out. Every sign-in path ends here, so
-    // password, second factor and passkey all resume the same way.
-    navigate(takePathAfterSignIn() ?? "/");
+    // Back to whatever they were interrupted doing — approving a device whose QR
+    // they scanned while signed out, or the games page they opened. Every
+    // sign-in path ends here, so password, second factor and passkey all resume
+    // the same way.
+    const next = takePathAfterSignIn() ?? "/";
+    // The games are their own app behind /games, not a route of this SPA: a
+    // full navigation hands them to the gateway (docs/games-platform-plan.md).
+    if (next.startsWith("/games")) {
+      window.location.assign(next);
+      return;
+    }
+    navigate(next);
   };
 
   // One button, no email typed: the passkeys are discoverable, so the browser

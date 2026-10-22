@@ -127,6 +127,9 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "quotes" },
       { section: "mapSetup" },
       { section: "storySettings" },
+      // The link to isputnik.games: read-only status, since the settings are
+      // environment variables (docs/games-platform-plan.md).
+      { section: "games" },
       { section: "email" },
       { section: "notifications" },
       { section: "about" }

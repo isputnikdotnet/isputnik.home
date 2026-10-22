@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.34.0",
+    "label": "The games, inside the home app",
+    "changes": [
+      "**What waits for you in the games shows on the Games entry.** Invitations to answer and matches where it is your move are counted on the Games entry in the menu and on the phone's Media sheet, asked of the games server each time the app opens or comes back into view. **For you** lists them as cards beside what the family sent you: an invitation with **Accept** and **Decline**, and *Your move against …* with **Play**, which opens the board.",
+      "**Control panel → Settings → Games** shows how the link to the games stands: whether the gateway is on (and why not, when it is off), the games address, whether a secret is set, whether the games server answers and its version. The two settings stay environment variables on the container; the page names them. Needs isputnik.games 0.2.0 for the count and the cards.",
+      "**Opening the games while signed out leads to the sign-in screen,** and signing in returns to the page that was opened — a bookmark or the installed app's icon used to show a line of JSON instead."
+    ]
+  },
+  {
     "version": "4.33.2",
     "label": "Online games between members",
     "changes": [

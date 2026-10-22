@@ -210,6 +210,50 @@ open from the list below: a live stream, notifications, rematch, ratings.
   small results history per member.
 - Needs the members-list endpoint from the home app (see the contract).
 
+## Phase A — the games in the home app (built 2026-10-22)
+
+Decided with the owner on 2026-10-22, after Dots and online duels were playable:
+how the games show up inside isputnik.home without a second notification
+system. In-app alerts pull; email (phase B) will push.
+
+- **The count.** The games server answers `GET /games/api/summary` for the
+  signed-in member: invitations to answer and matches where it is their move.
+  The home app asks for it through the gateway on page load, when the window
+  regains focus and once a minute, and shows the total on the Games entry
+  (desktop nav and the phone Media sheet). Nothing about matches is stored in
+  the home database.
+- **The cards.** For you lists the same facts beside "Dad wants you to read
+  this": an invitation with Accept and Decline (answered on the games' own API
+  through the gateway; accepting opens the board), and "Your move against …"
+  with Play. Links into the games are full navigations, never routes of the SPA.
+- **The admin's view.** Control panel → Settings → Games: read-only status —
+  gateway on or off (and why not), the URL, whether a secret is set, whether the
+  games server answers and its version (`/games/api/health`, probed from the
+  home server with a short timeout). The two settings stay environment
+  variables; the page names them.
+- **Who sees the games is the admin's call.** A per-member "Show Games" switch
+  on Profile was built and taken out again the same day: the owner wants the
+  menu's sections — Audiobooks, Ebooks, Gallery, Family Tree, Stories, Games —
+  switched on and off by the admin, for the whole household, on Settings →
+  Appearance (4.35.0). Games is one of those six, on top of the gateway being
+  configured.
+- **Signing in from a games page.** A signed-out page navigation under `/games`
+  (a bookmark, the installed app's icon) is answered with a redirect to
+  `/login?next=…` instead of the gateway's 401; the sign-in screen remembers the
+  path and returns there with a full navigation. API calls under `/games/api/`
+  keep the 401, so the games front end can say "signed out".
+
+**Phase B — email (next).** The games server tells the home server when an
+invitation is sent, a turn passes to someone, or a match ends — one call signed
+with the shared secret, so the games container needs the home server's address
+(`HOME_URL`). Home decides whether to mail: a flag on Settings → Notifications,
+off by default like the others, through the existing relay and templates. A turn
+is reported only when the other person is not looking (their browser has not
+polled the match for a couple of minutes) and at most once per turn; invitations
+always go out. Per-member or per-group grants on who may play were considered
+and left out for a family; the admin's section switch is the only control until
+a need shows up.
+
 ## Phase 3 — more games
 
 Each new game is a folder in `packages/engine/src/<game>/` implementing

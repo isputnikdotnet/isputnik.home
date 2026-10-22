@@ -6,6 +6,20 @@ import { config } from "../../config.js";
 import { db } from "../../db.js";
 import { registerGamesGateway } from "./gateway.js";
 
+/** Whether the games server answers, for the Control panel's Games tab. A short
+ *  timeout: the page is drawn around this answer, and a container that is down
+ *  should say so in a moment, not a minute. */
+async function probeGamesServer(upstream: string): Promise<{ ok: boolean; version: string | null; error: string | null }> {
+  try {
+    const response = await fetch(`${upstream}/games/api/health`, { signal: AbortSignal.timeout(4000) });
+    if (!response.ok) return { ok: false, version: null, error: `HTTP ${response.status}` };
+    const body = (await response.json().catch(() => ({}))) as { ok?: boolean; version?: string };
+    return { ok: body.ok === true, version: body.version ?? null, error: body.ok === true ? null : "Unexpected answer" };
+  } catch (err) {
+    return { ok: false, version: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export function gamesConfigured(): { enabled: boolean; reason?: string } {
   if (!config.gamesUrl) return { enabled: false };
   if (!config.gamesGatewaySecret) return { enabled: false, reason: "GAMES_URL is set but GAMES_GATEWAY_SECRET is not; the games stay off until both are set." };
@@ -30,6 +44,18 @@ export async function gamesPlugin(app: FastifyInstance) {
     ).all() as { id: string; display_name: string }[];
     return { members: rows.map((row) => ({ id: row.id, name: row.display_name })) };
   });
+
+  // Control panel → Settings → Games: how the integration stands. Read-only on
+  // purpose — the two settings are environment variables (the owner's decision:
+  // the panel shows them, the container's configuration sets them). The secret
+  // itself never leaves the server; only whether one is set.
+  app.get("/api/games/admin/status", { preHandler: app.requireAdmin }, async () => ({
+    configured: status.enabled,
+    reason: status.reason ?? null,
+    url: config.gamesUrl || null,
+    secretSet: Boolean(config.gamesGatewaySecret),
+    server: status.enabled ? await probeGamesServer(config.gamesUrl) : null
+  }));
 
   if (status.enabled) {
     await registerGamesGateway(app, { upstream: config.gamesUrl, secret: config.gamesGatewaySecret });

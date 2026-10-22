@@ -49,6 +49,7 @@
       "quotes": "Цитаты",
       "mapSetup": "Карты",
       "storySettings": "Истории",
+      "games": "Игры",
       "email": "Почта",
       "notifications": "Уведомления",
       "about": "О программе",
@@ -102,7 +103,8 @@
       "mapCaching": "Хранить карты на сервере",
       "namedPlaces": "Названия мест",
       "locationDatabase": "Базы расположения входов",
-      "appStorage": "Хранилище приложения"
+      "appStorage": "Хранилище приложения",
+      "gamesIntegration": "Интеграция игр"
     }
   },
   "about": {
