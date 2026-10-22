@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.33.1 — Recently added, in the gallery's side menu
+
+- **Recently added is a row in the gallery's side menu.** Under Gallery, it opens the same timeline ordered by when photos arrived, newest upload first and grouped by the day they came in, so a fresh batch is one click away rather than a choice in the Sort menu. The two rows and the Sort menu stay in step: whichever order is on screen is the row that is lit, and a reload or a copied link keeps it.
+- Under the hood: a gateway for a separate games app at `/games`, which uses this server for sign-in. It is off until `GAMES_URL` and `GAMES_GATEWAY_SECRET` are set (see docs/configuration.md); with them unset nothing changes.
+
 ## 4.33.0 — Name everyone in a batch at once, and covers from the story's own photos
 
 - **Add a person to a whole selection of photos.** In the Gallery, Select some photos (a day's header checkbox takes the whole day) and the toolbar has **People** beside Tags: pick someone the library knows, or type a new name, and it goes on everything selected in one go, with the people already on each photo left in place. Sorting the Gallery by **Date uploaded** puts a fresh batch at the top, so naming who is in it is a few clicks instead of opening each photo.

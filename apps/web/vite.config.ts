@@ -247,9 +247,12 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,woff2}"],
         manifestTransforms: [precache.manifestTransform],
         // SPA fallback mirrors the server's index.html catch-all — but never for
-        // API calls, which must hit the network (or their own runtime cache).
+        // API calls, which must hit the network (or their own runtime cache), and
+        // never for /games: that is another app on this origin (isputnik.games
+        // behind the gateway, docs/games-platform-plan.md). Without this, an
+        // installed PWA opening /games/ got this app's shell instead of the games.
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/games(\/|$)/],
         runtimeCaching: [
           {
             // The code the precache leaves out — the control panel, the gallery,

@@ -106,7 +106,9 @@ Nothing else crosses the boundary; the games app keeps its own data.
   rewrite above, plus `GET /api/games/status` → `{ enabled }` for the web app.
 - Web: a "Games" entry in the primary nav and the phone Media sheet, shown when the
   gateway is on. It is a plain link (full navigation), not an SPA route.
-- Vite dev server proxies `/games` to the home server, like `/api`.
+- Vite dev server proxies `/games` to the home server, like `/api`, and the
+  service worker leaves `/games` navigations alone (navigateFallbackDenylist), or
+  the installed PWA would answer them with the home shell.
 - Documentation: configuration reference, compose example, Unraid template fields.
 
 ## isputnik.games (phase 1)
@@ -157,17 +159,17 @@ the authority for online games — so the engine never touches the DOM or Node A
 
 ### Computer opponent
 
-Heuristic, two levels. Easy plays near the action and takes any capture on offer.
+Heuristic, three levels. Easy plays near the action and takes any capture on offer.
 Normal looks one reply ahead: for each candidate it weighs captures gained, the
 best capture the opponent could answer with, and distance to existing dots, with a
-little randomness so games differ. Candidates are points within two steps of an
+little randomness so games differ. Hard looks at more candidates, weighs the reply in full and also rewards the capture a move sets up for its own next turn, so it builds rings rather than only closing them. Candidates are points within two steps of an
 existing dot, which keeps a 30×30 board under a tenth of a second per move.
 
 ### Web app
 
 - `/games/` — lobby: one card per game in the registry.
 - `/games/dots` — new game (board size, mode, who the computer plays, capture
-  target) and the board: SVG grid, dots, chains drawn as lines between neighbouring dots, captured areas as filled loops, last move marked,
+  target) and the board: SVG grid, dots, captured areas as filled loops through their rings, last move marked,
   scores and turn, undo, end game, new game. The game in progress is kept in
   localStorage so a refresh or a phone lock does not lose it.
 - Language follows the home app: the same `isputnik-language` localStorage key is
