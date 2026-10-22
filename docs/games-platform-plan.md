@@ -167,7 +167,7 @@ existing dot, which keeps a 30×30 board under a tenth of a second per move.
 
 - `/games/` — lobby: one card per game in the registry.
 - `/games/dots` — new game (board size, mode, who the computer plays, capture
-  target) and the board: SVG grid, dots, territories tinted, last move marked,
+  target) and the board: SVG grid, dots, chains drawn as lines between neighbouring dots, captured areas as filled loops, last move marked,
   scores and turn, undo, end game, new game. The game in progress is kept in
   localStorage so a refresh or a phone lock does not lose it.
 - Language follows the home app: the same `isputnik-language` localStorage key is
