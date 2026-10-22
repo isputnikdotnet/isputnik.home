@@ -39,7 +39,9 @@ services:
       # SESSION_DAYS: 14
       # INVITE_DAYS: 7
       # The games (ghcr.io/isputnikdotnet/isputnik.games), a second container on
-      # the same compose network, reached inside the app at /games. Set both, and
+      # the same compose network (compose creates one per project; outside compose
+      # the two need a user-defined network, since Docker's default bridge does not
+      # resolve container names), reached inside the app at /games. Set both, and
       # give the games container the same secret as GATEWAY_SECRET.
       # See docs/configuration.md → Games.
       # GAMES_URL: http://isputnik-games:4200

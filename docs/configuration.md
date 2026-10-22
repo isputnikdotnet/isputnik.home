@@ -101,7 +101,7 @@ the design and the contract between the two are in
 
 | Variable | Default | Compose | Unraid | What it does |
 |---|---|---|---|---|
-| `GAMES_URL` | unset | commented | field, blank | Where the games container answers, as seen from this one — `http://isputnik-games:4200` on a shared Docker network. Unset means no games: `/games` answers 404 and the nav has no Games entry. |
+| `GAMES_URL` | unset | commented | field, blank | Where the games container answers, as seen from this one — `http://isputnik-games:4200` when both containers are on the same user-defined Docker network (compose creates one; with `docker run` or on Unraid, `docker network create isputnik` once and set both containers to it — Docker's default `bridge` does not resolve container names). Unset means no games: `/games` answers 404 and the nav has no Games entry. |
 | `GAMES_GATEWAY_SECRET` | unset | commented | field, blank | A long random string (`openssl rand -hex 32`) shared with the games container (its `GATEWAY_SECRET`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With `GAMES_URL` set and this unset, the games stay off and the log says why. |
 
 ## Logging
