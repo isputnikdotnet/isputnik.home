@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.33.2 — Online games between members
+
+- **Members can be invited to an online game.** The games app (isputnik.games 0.1.0, a container of its own reached at `/games`) plays Dots two on one screen, against the computer, and now online between two members of this install from any device; this release answers its invite dialog with the list of members. The games stay off until `GAMES_URL` and `GAMES_GATEWAY_SECRET` are set — see docs/configuration.md → Games.
+- **Opening the games from the installed app works.** The app's offline shell answered a tap on Games with the home page instead of the games; it now leaves `/games` to the server.
+
 ## 4.33.1 — Recently added, in the gallery's side menu
 
 - **Recently added is a row in the gallery's side menu.** Under Gallery, it opens the same timeline ordered by when photos arrived, newest upload first and grouped by the day they came in, so a fresh batch is one click away rather than a choice in the Sort menu. The two rows and the Sort menu stay in step: whichever order is on screen is the row that is lit, and a reload or a copied link keeps it.

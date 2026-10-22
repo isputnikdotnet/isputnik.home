@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.33.2",
+    "label": "Online games between members",
+    "changes": [
+      "**Members can be invited to an online game.** The games app (isputnik.games 0.1.0, a container of its own reached at `/games`) plays Dots two on one screen, against the computer, and now online between two members of this install from any device; this release answers its invite dialog with the list of members. The games stay off until `GAMES_URL` and `GAMES_GATEWAY_SECRET` are set — see docs/configuration.md → Games.",
+      "**Opening the games from the installed app works.** The app's offline shell answered a tap on Games with the home page instead of the games; it now leaves `/games` to the server."
+    ]
+  },
+  {
     "version": "4.33.1",
     "label": "Recently added, in the gallery's side menu",
     "changes": [
