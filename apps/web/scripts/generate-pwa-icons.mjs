@@ -9,8 +9,8 @@ const brandDir = path.join(here, "..", "public", "Assets", "brand");
 const src = path.join(brandDir, "isputnik-app-icon.svg");
 const out = (name) => path.join(brandDir, name);
 
-// Matches the darkest stop of the icon background gradient (#102238).
-const BG = { r: 0x10, g: 0x22, b: 0x38, alpha: 1 };
+// Matches the icon's solid background (#16213a).
+const BG = { r: 0x16, g: 0x21, b: 0x3a, alpha: 1 };
 
 async function plain(size, name) {
   await sharp(src, { density: 384 }).resize(size, size).png().toFile(out(name));
