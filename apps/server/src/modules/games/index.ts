@@ -3,6 +3,7 @@
 // it knows there are games and where they live. The gateway itself is gateway.ts.
 import type { FastifyInstance } from "fastify";
 import { config } from "../../config.js";
+import { db } from "../../db.js";
 import { registerGamesGateway } from "./gateway.js";
 
 export function gamesConfigured(): { enabled: boolean; reason?: string } {
@@ -18,6 +19,17 @@ export async function gamesPlugin(app: FastifyInstance) {
 
   // The web app asks this once to decide whether to show the Games entry.
   app.get("/api/games/status", { preHandler: app.authenticate }, async () => ({ enabled: status.enabled }));
+
+  // Who can be invited to a match: the active members, by name. The games app
+  // calls this on the home origin itself (same session cookie), so the games
+  // server never needs to reach back here — the one read the contract allows
+  // (docs/games-platform-plan.md → Members list).
+  app.get("/api/games/members", { preHandler: app.authenticate }, async () => {
+    const rows = db.prepare(
+      "SELECT id, display_name FROM users WHERE deleted_at IS NULL AND is_active = 1 ORDER BY display_name COLLATE NOCASE"
+    ).all() as { id: string; display_name: string }[];
+    return { members: rows.map((row) => ({ id: row.id, name: row.display_name })) };
+  });
 
   if (status.enabled) {
     await registerGamesGateway(app, { upstream: config.gamesUrl, secret: config.gamesGatewaySecret });

@@ -7,7 +7,8 @@ captures them. This page is the plan for the whole platform and the contract the
 projects keep between them; the games' own design lives in the `isputnik.games`
 repository.
 
-Status: phase 0 and phase 1 are being built (2026-10-21). Phases 2 and 3 are planned.
+Status: phases 0, 1 and 2 are built (2026-10-21; phase 2 with polling, not a live
+stream). Phase 3 is open.
 
 ## Why a separate project
 
@@ -187,7 +188,16 @@ existing dot, which keeps a 30×30 board under a tenth of a second per move.
 - Image: `node:26-slim`, runs as `node`, port 4200, no volume. Refuses to start in
   production without `GATEWAY_SECRET`.
 
-## Phase 2 — online duels
+## Phase 2 — online duels (built 2026-10-21)
+
+What shipped: `matches` and `members` tables in the games server (SQLite in
+`/config`), invitations (send, accept, decline, withdraw; unanswered ones expire
+after 14 days), server-validated moves with an optimistic move count (a stale
+client gets 409), resignation, a lobby with invitations and matches grouped by
+whose move it is, and a match page that polls — every 2.5 s while the other side
+is to move, every 10 s otherwise. The members list comes from the home app's
+`GET /api/games/members`, called by the games front end on the home origin. Still
+open from the list below: a live stream, notifications, rematch, ratings.
 
 - SQLite (`better-sqlite3`, WAL) in `/config`: `matches`, `moves`, `invitations`,
   per-game `ratings`. Keyed by home user ids; a departed member shows as "former

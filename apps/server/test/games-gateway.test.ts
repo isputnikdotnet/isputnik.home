@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { registerGamesGateway, identityHeaders, stripIdentityHeaders } from "../src/modules/games/gateway.js";
+import { gamesPlugin } from "../src/modules/games/index.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
@@ -29,7 +30,31 @@ beforeEach(async () => {
   upstreamUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 
   booted = await bootApp({
+    // The module itself (status + members; no gateway, since GAMES_URL is unset
+    // in tests) and the gateway registered by hand against the stand-in.
+    plugins: [gamesPlugin],
     afterRegister: (app) => registerGamesGateway(app, { upstream: upstreamUrl, secret: SECRET })
+  });
+});
+
+describe("the games module", () => {
+  it("reports the games off when GAMES_URL is unset", async () => {
+    const cookie = await booted.signIn("mum");
+    const res = await booted.app.inject({ method: "GET", url: "/api/games/status", headers: { cookie } });
+    expect(res.json()).toEqual({ enabled: false });
+    expect((await booted.app.inject({ method: "GET", url: "/api/games/status" })).statusCode).toBe(401);
+  });
+
+  it("lists the active members by name for invitations", async () => {
+    makeUser("dad", "member");
+    makeUser("gone", "member");
+    db.prepare("UPDATE users SET display_name = 'Dad' WHERE id = 'dad'").run();
+    db.prepare("UPDATE users SET is_active = 0 WHERE id = 'gone'").run();
+    const cookie = await booted.signIn("mum");
+    const res = await booted.app.inject({ method: "GET", url: "/api/games/members", headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ members: [{ id: "dad", name: "Dad" }, { id: "mum", name: "Мама" }] });
+    expect((await booted.app.inject({ method: "GET", url: "/api/games/members" })).statusCode).toBe(401);
   });
 });
 
