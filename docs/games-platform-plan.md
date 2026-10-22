@@ -71,6 +71,8 @@ pose as the gateway from outside), then adds:
 | `X-Isputnik-User-Role` | `admin` or `member` |
 | `X-Isputnik-User-Lang` | the member's interface language (`en`, `ru`) |
 | `X-Isputnik-User-Theme` | the member's theme (`minimalist`, `plain-dark`, `system`, …), so the games wear the same one |
+| `X-Isputnik-Client-Ip` | the browser's address as the home server saw it (its `request.ip`, which honours its proxy trust), so the games log names the person's machine rather than the home container |
+| `X-Isputnik-Request-Id` | the home server's id for this request, so the two servers' log lines for one request match up |
 
 The games server accepts these only when the secret matches; without a matching
 secret the request is anonymous (401 from the API). Out of the box the games
@@ -242,6 +244,45 @@ system. In-app alerts pull; email (phase B) will push.
   `/login?next=…` instead of the gateway's 401; the sign-in screen remembers the
   path and returns there with a full navigation. API calls under `/games/api/`
   keep the 401, so the games front end can say "signed out".
+
+## Logging and the admin's window (built 2026-10-22, games 0.3.0 / home 4.36.0)
+
+A security review of the pair found the gateway sound and the games side blind:
+its request log named the home container on every line, nothing recorded who
+played or who was refused, and a wrong secret was silent. The fix keeps the one
+trust direction the contract has — the games server never calls the home
+server; the home server asks, through the gateway, on an admin's behalf.
+
+- **Events table** in the games database: level, event, actor, match, the
+  browser's address, the home request id, a line of detail. Written for
+  `gateway.rejected` (a caller without a valid secret, with why but never the
+  secret itself), `match.created/accepted/declined/cancelled/finished/resigned`,
+  `move.illegal` (the rules refused it), `move.refused` (not your turn, the
+  match moved on), `request.invalid`, `request.too_large` and `request.error`
+  (a 500). Pruned after 90 days, on start and daily.
+- **Two admin routes**, answered only when the forwarded role is `admin`:
+  `GET /games/api/admin/events` (level and event filters, paging, the event
+  names on record, and how many callers were refused in the last 24 hours) and
+  `GET /games/api/admin/log`, the newest lines of the server log from an
+  in-memory ring buffer (500 lines) that pino writes through on its way to
+  stdout — what `docker logs` would show, without a shell on the host.
+- **The home app shows both** on Control panel → Settings → Games, under the
+  status it already had: a Recent events table with a level filter, and a
+  Server log panel with Refresh and Copy (`GamesSection.tsx`, calling the two
+  routes through the gateway with the admin's own session). Nothing about them
+  is stored in the home database.
+- **Two more headers** from the gateway, under the prefix it already strips
+  (see the contract): the client address and the home request id. The games
+  server puts user id, address and request id on every log line (a child
+  logger per request) and honours the forwarded id only when the secret
+  matches.
+- **Hardening that rode along**: options and moves are reduced to what the game
+  reads before they are stored (`parseOptions` / `parseMove` on
+  `GameDefinition`), the request body limit is 16 KiB, and the image refuses a
+  secret shorter than 32 characters or the compose example's placeholder.
+
+With the events on the home page, `LOG_LEVEL=warn` is the sensible production
+setting for the games container: `info` writes a line for every poll.
 
 **Phase B — email (next).** The games server tells the home server when an
 invitation is sent, a turn passes to someone, or a match ends — one call signed

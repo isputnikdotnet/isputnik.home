@@ -76,14 +76,16 @@ describe("identity headers", () => {
   it("percent-encodes the display name and carries role, language and theme", () => {
     const headers = identityHeaders({
       id: "mum", display_name: "Мама", role: "member", language: "ru", theme: "plain-dark"
-    } as never, SECRET);
+    } as never, SECRET, { ip: "192.168.2.10", requestId: "req-7" });
     expect(headers).toEqual({
       "x-isputnik-gateway": SECRET,
       "x-isputnik-user-id": "mum",
       "x-isputnik-user-name": encodeURIComponent("Мама"),
       "x-isputnik-user-role": "member",
       "x-isputnik-user-lang": "ru",
-      "x-isputnik-user-theme": "plain-dark"
+      "x-isputnik-user-theme": "plain-dark",
+      "x-isputnik-client-ip": "192.168.2.10",
+      "x-isputnik-request-id": "req-7"
     });
   });
 
@@ -127,6 +129,10 @@ describe("GET /games/*", () => {
     expect(body.headers["x-isputnik-user-role"]).toBe("member");
     expect(body.headers["x-isputnik-user-lang"]).toBe("ru");
     expect(body.headers["x-isputnik-user-theme"]).toBe("plain-dark");
+    // For the games log: the browser's address as this server saw it, and this
+    // server's request id, so the two logs can be read side by side.
+    expect(body.headers["x-isputnik-client-ip"]).toBe("127.0.0.1");
+    expect(body.headers["x-isputnik-request-id"]).toMatch(/^req-/);
   });
 
   it("drops identity headers the client tried to send", async () => {
@@ -134,12 +140,17 @@ describe("GET /games/*", () => {
     const res = await booted.app.inject({
       method: "GET",
       url: "/games/api/me",
-      headers: { cookie, "x-isputnik-user-id": "admin-please", "x-isputnik-user-role": "admin", "x-isputnik-gateway": "guess" }
+      headers: {
+        cookie, "x-isputnik-user-id": "admin-please", "x-isputnik-user-role": "admin", "x-isputnik-gateway": "guess",
+        "x-isputnik-client-ip": "10.0.0.1", "x-isputnik-request-id": "forged"
+      }
     });
     const body = res.json() as { headers: Record<string, string> };
     expect(body.headers["x-isputnik-user-id"]).toBe("mum");
     expect(body.headers["x-isputnik-user-role"]).toBe("member");
     expect(body.headers["x-isputnik-gateway"]).toBe(SECRET);
+    expect(body.headers["x-isputnik-client-ip"]).toBe("127.0.0.1");
+    expect(body.headers["x-isputnik-request-id"]).not.toBe("forged");
   });
 
   it("reaches the bare prefix and the pages, not just the API", async () => {

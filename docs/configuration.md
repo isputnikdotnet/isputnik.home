@@ -111,6 +111,15 @@ the games (invitations, matches where it is their move) shows as a count on the
 Games entry and as cards on For you, read from the games server through the
 gateway each time the app is opened or regains focus.
 
+The same page is the admin's window into the games container (isputnik.games
+0.3.0 and later): a table of the events it recorded — callers refused at its
+gateway check, invitations, finished matches, moves it threw out, errors; kept
+90 days in the games database — and the newest lines of its server log, what
+`docker logs` would show. Both are read through the gateway on the admin's
+behalf; nothing is stored in this app. The gateway forwards the browser's
+address and this server's request id with every request, so the games log
+names the person's machine and its lines can be matched to this server's.
+
 ## Logging
 
 | Variable | Default | What it does |

@@ -105,6 +105,8 @@
       "locationDatabase": "Базы расположения входов",
       "appStorage": "Хранилище приложения",
       "gamesIntegration": "Интеграция игр",
+      "gamesEvents": "События игр",
+      "gamesLog": "Журнал игрового сервера",
       "sections": "Разделы приложения"
     }
   },

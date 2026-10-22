@@ -125,7 +125,7 @@ type SettingKey =
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
-  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "sections";
+  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "sections";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab. `anchor` is the id of the card the setting sits in, where the
@@ -174,6 +174,8 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
   { titleKey: "sections", section: "appearance", anchor: "sections", keywords: "menu sections hide show switch off on audiobooks ebooks gallery family tree stories games navigation entries household uses разделы меню скрыть показать выключить включить аудиокниги книги галерея семейное древо истории игры навигация" },
   { titleKey: "gamesIntegration", section: "games", keywords: "games server container reachable version url gateway secret environment variables members showing игры сервер контейнер доступен версия адрес шлюз секрет переменные окружения участники" },
+  { titleKey: "gamesEvents", section: "games", anchor: "games-events", keywords: "games events log refused gateway rejected invitations matches errors audit container record игры события журнал отклонённые шлюз приглашения партии ошибки запись контейнер" },
+  { titleKey: "gamesLog", section: "games", anchor: "games-log", keywords: "games server log docker logs lines tail container output игры журнал сервера строки контейнер вывод" },
   { titleKey: "smtpServer", section: "email", keywords: "host port username password tls outgoing mail сервер порт имя пользователя пароль исходящая почта" },
   { titleKey: "sendTestEmail", section: "email", keywords: "verify smtp check delivery отправить тестовое письмо проверить доставку" },
   { titleKey: "twoFactorAlertsDelivery", section: "email", keywords: "mfa totp codes alert emails двухфакторные коды оповещения безопасности почта" },

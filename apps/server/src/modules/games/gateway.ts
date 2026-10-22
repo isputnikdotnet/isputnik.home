@@ -20,16 +20,26 @@ export const GAMES_PREFIX = "/games";
 export const GATEWAY_HEADER = "x-isputnik-gateway";
 const IDENTITY_PREFIX = "x-isputnik-";
 
+/** What the games server's log needs beyond who: where from, and which request.
+ *  The address is request.ip (so it honours this server's proxy trust); the id is
+ *  this server's request id, so the two servers' log lines for one request match. */
+export interface ForwardedRequest {
+  ip: string;
+  requestId: string;
+}
+
 /** The headers that tell the games server who is signed in. The display name is
  *  percent-encoded: header values are Latin-1 and the family's names are not. */
-export function identityHeaders(user: User, secret: string): Record<string, string> {
+export function identityHeaders(user: User, secret: string, forwarded: ForwardedRequest): Record<string, string> {
   return {
     [GATEWAY_HEADER]: secret,
     "x-isputnik-user-id": user.id,
     "x-isputnik-user-name": encodeURIComponent(user.display_name),
     "x-isputnik-user-role": user.role,
     "x-isputnik-user-lang": user.language,
-    "x-isputnik-user-theme": user.theme
+    "x-isputnik-user-theme": user.theme,
+    "x-isputnik-client-ip": forwarded.ip,
+    "x-isputnik-request-id": forwarded.requestId
   };
 }
 
@@ -100,7 +110,7 @@ export async function registerGamesGateway(app: FastifyInstance, options: Gatewa
       replyOptions: {
         rewriteRequestHeaders: (request, headers): IncomingHttpHeaders => ({
           ...stripIdentityHeaders(headers as IncomingHttpHeaders),
-          ...identityHeaders(request.user!, options.secret)
+          ...identityHeaders(request.user!, options.secret, { ip: request.ip, requestId: String(request.id) })
         })
       }
     });

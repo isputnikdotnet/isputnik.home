@@ -105,6 +105,8 @@
       "locationDatabase": "Sign-in location databases",
       "appStorage": "App storage",
       "gamesIntegration": "Games integration",
+      "gamesEvents": "Games events",
+      "gamesLog": "Games server log",
       "sections": "Sections of the app"
     }
   },

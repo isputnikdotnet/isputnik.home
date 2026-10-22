@@ -87,17 +87,70 @@ describe("the games' cards on For you", () => {
   });
 });
 
+// The admin's window into the games container (docs/games-platform-plan.md →
+// Logging): status from this server, events and the log tail from the games
+// server through the gateway.
+const gamesOn = {
+  configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true,
+  server: { ok: true, version: "0.3.0", error: null }
+};
+const eventsPage = {
+  events: [
+    { id: 2, at: "2026-10-22T18:09:35.000Z", level: "warn", event: "gateway.rejected", actorId: null, actorName: null, matchId: null, ip: "172.18.0.9", requestId: "req-7", detail: "GET /games/api/me: no gateway header" },
+    { id: 1, at: "2026-10-22T18:00:00.000Z", level: "info", event: "match.created", actorId: "mum", actorName: "Мама", matchId: "m1", ip: "192.168.2.10", requestId: "home-3", detail: "dots: invited Dad (dad), plays first" }
+  ],
+  total: 2, page: 1, totalPages: 1, retentionDays: 90, rejected24h: 1
+};
+const logTail = {
+  lines: [
+    JSON.stringify({ level: 40, time: Date.UTC(2026, 9, 22, 18, 9, 35), reqId: "req-7", user: null, ip: "172.18.0.9", reason: "no gateway header", msg: "Request refused at the gateway check" }),
+    "not json at all"
+  ],
+  capacity: 500,
+  available: true
+};
+const answerByPath = (path: string) => {
+  if (path === "/api/games/admin/status") return Promise.resolve(gamesOn);
+  if (path.startsWith("/games/api/admin/events")) return Promise.resolve(eventsPage);
+  if (path.startsWith("/games/api/admin/log")) return Promise.resolve(logTail);
+  return Promise.reject(new Error(`unexpected ${path}`));
+};
+
 describe("Settings → Games", () => {
   it("reports a working link with the games server's version", async () => {
-    mockApi.mockResolvedValue({
-      configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true,
-      server: { ok: true, version: "0.2.0", error: null }
-    });
+    mockApi.mockImplementation(answerByPath as never);
     render(<GamesSection />);
     expect(await screen.findByText("Games are on")).toBeInTheDocument();
     expect(screen.getByText("http://isputnik-games:4200")).toBeInTheDocument();
-    expect(screen.getByText("Answering, version 0.2.0")).toBeInTheDocument();
+    expect(screen.getByText("Answering, version 0.3.0")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledWith("/api/games/admin/status");
+  });
+
+  it("shows the games container's events and log tail once the link is on", async () => {
+    mockApi.mockImplementation(answerByPath as never);
+    render(<GamesSection />);
+    expect(await screen.findByText("1 caller was refused at the gateway check in the last 24 hours.")).toBeInTheDocument();
+    expect(screen.getByText("gateway.rejected")).toBeInTheDocument();
+    expect(screen.getByText("dots: invited Dad (dad), plays first")).toBeInTheDocument();
+    expect(screen.getByText("Мама")).toBeInTheDocument();
+    expect(screen.getByText("192.168.2.10")).toBeInTheDocument();
+    // Both asked through the gateway, with the paging the table shows.
+    expect(mockApi).toHaveBeenCalledWith("/games/api/admin/events?page=1&pageSize=25");
+    expect(mockApi).toHaveBeenCalledWith("/games/api/admin/log?lines=200");
+    // The log: pino's JSON made readable, anything else left as it came.
+    const log = await screen.findByLabelText("Server log");
+    expect(log.textContent).toContain("WARN   [req-7] 172.18.0.9  Request refused at the gateway check — no gateway header");
+    expect(log.textContent).toContain("not json at all");
+    // The level filter asks again with the level.
+    await userEvent.selectOptions(screen.getByLabelText("Level"), "warn");
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/games/api/admin/events?page=1&pageSize=25&level=warn"));
+  });
+
+  it("asks nothing of the games server while the link is off", async () => {
+    mockApi.mockResolvedValue({ configured: false, reason: null, url: null, secretSet: false, server: null });
+    render(<GamesSection />);
+    expect(await screen.findByText("Games are off")).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledTimes(1);
   });
 
   it("says why the games are off, in the server's own words", async () => {

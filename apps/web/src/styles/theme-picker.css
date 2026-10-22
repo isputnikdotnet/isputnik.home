@@ -164,6 +164,75 @@
   }
 }
 
+/* Settings → Games: the events the games container recorded, and its log tail. */
+.games-rejected {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.games-rejected.is-warning {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.games-events-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.games-events-wrap {
+  overflow-x: auto;
+}
+
+/* Fixed layout with shares, so the detail column takes what the others leave
+   rather than the table growing past the page; below the minimum the wrap
+   scrolls sideways instead of crushing a column to a letter a line. */
+.games-events-table {
+  width: 100%;
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.games-events-table th:nth-child(1) { width: 20%; }
+.games-events-table th:nth-child(2) { width: 12%; }
+.games-events-table th:nth-child(3) { width: 20%; }
+.games-events-table th:nth-child(4) { width: 18%; }
+
+.games-events-table td {
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.games-events-table tr.is-warn .games-level { color: var(--gold); }
+.games-events-table tr.is-error .games-level { color: var(--rose); }
+
+.games-level {
+  font-weight: 650;
+}
+
+.games-ip {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.games-log {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
 .mail-check {
   display: flex;
   /* flex-start, not center: these labels wrap to two or three lines and the box

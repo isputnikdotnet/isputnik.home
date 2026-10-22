@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.36.0 — The games container's log and events, from the Control panel
+
+- **Control panel → Settings → Games now shows what the games container recorded.** Under the status it already had: a **Recent events** table — callers refused at the games' gateway check, invitations sent, accepted, declined and withdrawn, finished and resigned matches, moves the rules threw out, errors — with a level filter and a line saying how many callers were refused in the last 24 hours; and a **Server log** panel with the newest lines of the games container's own log, as *docker logs* would show them, with Refresh and Copy. Both are read from the games server through the gateway on the admin's behalf; nothing is stored in this app. Needs isputnik.games 0.3.0.
+- **The games log now names the person and their machine.** The gateway forwards the browser's address and this server's request id with every request, so a line in the games log says who, from where, and which request here it belongs to — it used to name only this container.
+
 ## 4.35.0 — Choose which sections the household uses
 
 - **The menu's sections are the admin's to switch on and off.** Control panel → Settings → Appearance has a **Sections** card: Audiobooks, Ebooks, Gallery, Family Tree, Stories and Games, each with a switch, all on to begin with. A section switched off leaves the menu and the phone's Media sheet for everyone, its cards leave the home feed, Continue and Recent skip its books, its filter leaves the Tags page, and a bookmark to it opens the home page instead. Nothing is deleted and the Control panel still shows every library, so a section comes back with one click. One section always stays on. A family that keeps only photos, say, now has a menu of Home, Gallery and Tags.
