@@ -4,7 +4,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseQuery } from "../../core/shared.js";
-import { loadHomeFeed } from "./feed.js";
+import { loadHomeFeed, type HomeCard } from "./feed.js";
+import { getSections } from "../../core/sections.js";
 import { loadForYouRows } from "../social/for-you.js";
 import { registerWhatsNewRoutes } from "./whats-new.js";
 
@@ -44,7 +45,7 @@ export async function homePlugin(app: FastifyInstance) {
     return {
       waiting: waiting.slice(0, HOME_WAITING_ROWS),
       waitingTotal: waiting.length,
-      cards: loadHomeFeed(request.user!, date, {
+      cards: onlySectionsOn(loadHomeFeed(request.user!, date, {
         language: qp.lang,
         quoteCategory: qp.quoteCategory,
         // Comma-separated, and capped: a hand-built URL should not be able to
@@ -54,7 +55,35 @@ export async function homePlugin(app: FastifyInstance) {
           .map((name) => name.trim())
           .filter(Boolean)
           .slice(0, 24)
-      })
+      }))
     };
+  });
+}
+
+// A card belongs to the section it opens; with that section switched off
+// (core/sections.ts) the card is left out. The quote and the book batches of a
+// type still on stay.
+function onlySectionsOn(cards: HomeCard[]): HomeCard[] {
+  const sections = getSections();
+  return cards.filter((card) => {
+    switch (card.type) {
+      case "memory":
+      case "photos_added":
+      case "note":
+      case "album":
+      case "slideshow":
+      case "person":
+        return sections.gallery;
+      case "story":
+      case "story_update":
+        return sections.stories;
+      case "series_next":
+        return card.item.kind === "ebook" ? sections.ebooks : sections.audiobooks;
+      case "added_batch":
+        // Counted within bookLibraryIds(), which already leaves out a type that is off.
+        return sections.audiobooks || sections.ebooks;
+      default:
+        return true;
+    }
   });
 }

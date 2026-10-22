@@ -45,6 +45,9 @@
       "home": "Go home"
     },
     "codes": {
+      "config": {
+        "no_sections": "At least one section must stay on."
+      },
       "auth": {
         "invalid_details": "Invalid login details",
         "locked": "Too many failed attempts. Please try again in a few minutes.",

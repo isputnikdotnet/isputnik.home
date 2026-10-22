@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { config } from "../../config.js";
 import { db } from "../../db.js";
 import { registerGamesGateway } from "./gateway.js";
+import { getSections } from "../../core/sections.js";
 
 /** Whether the games server answers, for the Control panel's Games tab. A short
  *  timeout: the page is drawn around this answer, and a container that is down
@@ -31,8 +32,9 @@ export async function gamesPlugin(app: FastifyInstance) {
   const status = gamesConfigured();
   if (status.reason) app.log.warn(status.reason);
 
-  // The web app asks this once to decide whether to show the Games entry.
-  app.get("/api/games/status", { preHandler: app.authenticate }, async () => ({ enabled: status.enabled }));
+  // The web app asks this once to decide whether to show the Games entry: the
+  // gateway configured AND the admin's Games section on (core/sections.ts).
+  app.get("/api/games/status", { preHandler: app.authenticate }, async () => ({ enabled: status.enabled && getSections().games }));
 
   // Who can be invited to a match: the active members, by name. The games app
   // calls this on the home origin itself (same session cookie), so the games
@@ -58,7 +60,12 @@ export async function gamesPlugin(app: FastifyInstance) {
   }));
 
   if (status.enabled) {
-    await registerGamesGateway(app, { upstream: config.gamesUrl, secret: config.gamesGatewaySecret });
+    await registerGamesGateway(app, {
+      upstream: config.gamesUrl,
+      secret: config.gamesGatewaySecret,
+      // Switched off by the admin = not there: a bookmark gets a 404, not a game.
+      available: () => getSections().games
+    });
     app.log.info(`Games: proxying /games to ${config.gamesUrl}`);
   }
 }

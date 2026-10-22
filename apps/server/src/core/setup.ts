@@ -5,6 +5,7 @@ import { hashPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody, setupSchema } from "./shared.js";
 import { getDefaultTheme } from "./app-config.js";
+import { getSections } from "./sections.js";
 import { noteSignInNetwork } from "./security.js";
 import { deviceLinkAccess } from "./device-link.js";
 import { passkeysAvailable } from "./webauthn.js";
@@ -45,6 +46,10 @@ export async function setupPlugin(app: FastifyInstance) {
   app.get("/api/setup/status", { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request) => ({
     requiresSetup: !hasUsers(),
     defaultTheme: getDefaultTheme(),
+    // Which sections the household uses (core/sections.ts). Public like the
+    // default theme — it says what the app has, not who has what — and on this
+    // call so the menu is drawn right the first time, not trimmed after.
+    sections: getSections(),
     // Rides along on the call the app already makes before rendering, so the sign-in
     // screen knows whether to offer the passkey button without a second request.
     // Safe to say publicly: it only restates whether this install is reached over

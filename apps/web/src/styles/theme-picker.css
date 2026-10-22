@@ -120,6 +120,18 @@
   max-width: 520px;
 }
 
+/* Settings → Appearance → Sections: one switch per section of the menu. The
+   card follows the theme picker, which has no bottom margin of its own. */
+#sections.config-block {
+  margin-top: 28px;
+}
+
+.sections-switches {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 14px;
+}
+
 /* Settings → Games: the integration's facts, one row each. */
 .games-status {
   display: grid;

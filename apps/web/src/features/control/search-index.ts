@@ -98,8 +98,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   duplicateCleanup: "duplicate cleanup job wizard clean up duplicates saved job resume come back later owner one at a time keep clean folder rules review delete copies reclaim space scan libraries duplicate photos duplicate folders copies identical phash near-identical free space imported twice same folder twice keep photos in preferred folder already stored elsewhere contained copied into itself overlapping shared some photos partial copy " +
     "дубликаты очистка задание мастер продолжить позже владелец по одному правила папок проверка удалить копии освободить место сканирование библиотеки дубликаты фото дубликаты папок одинаковые почти одинаковые свободное место импортировано дважды",
 
-  appearance: "theme default look colours colors dark light branding " +
-    "тема по умолчанию вид цвета тёмная светлая брендинг",
+  appearance: "theme default look colours colors dark light branding sections menu hide show " +
+    "тема по умолчанию вид цвета тёмная светлая брендинг разделы меню скрыть показать",
   email: "smtp mail relay server port tls starttls password sender from test " +
     "почта сервер порт пароль отправитель тест письмо",
   notifications: "notify email alerts members shared with me sharing switch on off opt in " +
@@ -125,7 +125,7 @@ type SettingKey =
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
-  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration";
+  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "sections";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab. `anchor` is the id of the card the setting sits in, where the
@@ -172,6 +172,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "addTrustedNetwork", section: "securityTrusted", keywords: "cidr range lan skip lockout добавить доверенную сеть подсеть диапазон" },
   { titleKey: "scheduledBackups", section: "backup", anchor: "scheduled-backups", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
+  { titleKey: "sections", section: "appearance", anchor: "sections", keywords: "menu sections hide show switch off on audiobooks ebooks gallery family tree stories games navigation entries household uses разделы меню скрыть показать выключить включить аудиокниги книги галерея семейное древо истории игры навигация" },
   { titleKey: "gamesIntegration", section: "games", keywords: "games server container reachable version url gateway secret environment variables members showing игры сервер контейнер доступен версия адрес шлюз секрет переменные окружения участники" },
   { titleKey: "smtpServer", section: "email", keywords: "host port username password tls outgoing mail сервер порт имя пользователя пароль исходящая почта" },
   { titleKey: "sendTestEmail", section: "email", keywords: "verify smtp check delivery отправить тестовое письмо проверить доставку" },

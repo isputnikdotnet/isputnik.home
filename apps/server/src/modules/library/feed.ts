@@ -9,6 +9,7 @@ import { db } from "../../db.js";
 import { parseQuery } from "../../core/shared.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
 import { BOOK_LIBRARY_TYPES } from "./shared/library-types.js";
+import { bookTypesOn } from "../../core/sections.js";
 import type { AudiobookDetailRow, ItemMetadataRow, LibraryItemRow, Nullable } from "../../db/rows.js";
 
 export interface FeedItem {
@@ -93,7 +94,10 @@ export function mapRow(row: FeedRow): FeedItem {
 // and any future BOOK_LIBRARY_TYPES). Shared by the feeds and the cross-type
 // category / tag browse.
 export function bookLibraryIds(user: { id: string; role: string }): string[] {
-  return BOOK_LIBRARY_TYPES.flatMap((type) => [...accessibleLibraryIds(user.id, user.role, type)]);
+  // A section the admin switched off (core/sections.ts) has no books here: the
+  // home feed, Continue and Recent then show nothing from it.
+  const on = new Set<string>(bookTypesOn());
+  return BOOK_LIBRARY_TYPES.filter((type) => on.has(type)).flatMap((type) => [...accessibleLibraryIds(user.id, user.role, type)]);
 }
 
 // Books of any book-like type matching an extra membership predicate, mapped to

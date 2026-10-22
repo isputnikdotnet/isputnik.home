@@ -104,7 +104,8 @@
       "namedPlaces": "Named places",
       "locationDatabase": "Sign-in location databases",
       "appStorage": "App storage",
-      "gamesIntegration": "Games integration"
+      "gamesIntegration": "Games integration",
+      "sections": "Sections of the app"
     }
   },
   "about": {
@@ -123,7 +124,11 @@
     "defaultTheme": "Default theme",
     "defaultThemeHint": "The look the sign-in screen uses and the theme new members start with. Each member can still change their own appearance under the Theme menu.",
     "savedTitle": "Saved",
-    "savedBody": "Default theme updated."
+    "savedBody": "Default theme updated.",
+    "sections": "Sections",
+    "sectionsHint": "Which parts of the app this household uses. A section switched off leaves the menu, the home feed and Tags for everyone, and a link to it opens the home page instead; nothing is deleted, and the Control panel still shows every library. One section always stays on.",
+    "sectionsGamesHint": "Games also needs the games container to be set up (Settings → Games); without it there is no Games entry whatever this switch says.",
+    "sectionsSavedBody": "The menu changes for everyone the next time they open a page."
   },
   "backup": {
     "eyebrow": "Maintenance",

@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.35.0",
+    "label": "Choose which sections the household uses",
+    "changes": [
+      "**The menu's sections are the admin's to switch on and off.** Control panel → Settings → Appearance has a **Sections** card: Audiobooks, Ebooks, Gallery, Family Tree, Stories and Games, each with a switch, all on to begin with. A section switched off leaves the menu and the phone's Media sheet for everyone, its cards leave the home feed, Continue and Recent skip its books, its filter leaves the Tags page, and a bookmark to it opens the home page instead. Nothing is deleted and the Control panel still shows every library, so a section comes back with one click. One section always stays on. A family that keeps only photos, say, now has a menu of Home, Gallery and Tags.",
+      "**Games is one of those six**, on top of the games container being set up: with the switch off the Games entry goes and the games address answers nothing."
+    ]
+  },
+  {
     "version": "4.34.0",
     "label": "The games, inside the home app",
     "changes": [

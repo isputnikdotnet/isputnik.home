@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, BookText, Headphones, Images, Tag as TagIcon, TreeDeciduous } from "lucide-react";
 import i18n from "../../i18n";
 import { api } from "../../api";
+import { currentSections } from "../../app/sections";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
@@ -42,14 +43,16 @@ export function getTagScopes(): {
   icon: typeof BookOpen | null;
   countOf: (tag: TagSummary) => number;
 }[] {
+  // A section the admin switched off (app/sections.ts) has no toggle here.
+  const sections = currentSections();
   return [
-    { value: "all", label: i18n.t("common:common.all"), icon: null, countOf: (tag) => tag.count },
-    { value: "audiobook", label: i18n.t("common:nav.audiobooks"), icon: Headphones, countOf: (tag) => tag.audiobookCount },
-    { value: "ebook", label: i18n.t("common:nav.ebooks"), icon: BookOpen, countOf: (tag) => tag.ebookCount },
-    { value: "gallery", label: i18n.t("common:nav.gallery"), icon: Images, countOf: (tag) => tag.galleryCount },
-    { value: "family", label: i18n.t("common:nav.familyTree"), icon: TreeDeciduous, countOf: (tag) => tag.familyCount },
-    { value: "story", label: i18n.t("common:nav.stories"), icon: BookText, countOf: (tag) => tag.storyCount }
-  ];
+    { value: "all" as const, label: i18n.t("common:common.all"), icon: null, countOf: (tag: TagSummary) => tag.count, on: true },
+    { value: "audiobook" as const, label: i18n.t("common:nav.audiobooks"), icon: Headphones, countOf: (tag: TagSummary) => tag.audiobookCount, on: sections.audiobooks },
+    { value: "ebook" as const, label: i18n.t("common:nav.ebooks"), icon: BookOpen, countOf: (tag: TagSummary) => tag.ebookCount, on: sections.ebooks },
+    { value: "gallery" as const, label: i18n.t("common:nav.gallery"), icon: Images, countOf: (tag: TagSummary) => tag.galleryCount, on: sections.gallery },
+    { value: "family" as const, label: i18n.t("common:nav.familyTree"), icon: TreeDeciduous, countOf: (tag: TagSummary) => tag.familyCount, on: sections.familyTree },
+    { value: "story" as const, label: i18n.t("common:nav.stories"), icon: BookText, countOf: (tag: TagSummary) => tag.storyCount, on: sections.stories }
+  ].filter((scope) => scope.on).map(({ on: _on, ...scope }) => scope);
 }
 
 // Global, cross-type tag browse: a searchable cloud of every tag in use, across

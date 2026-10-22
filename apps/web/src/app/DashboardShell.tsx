@@ -33,6 +33,7 @@ import { versionLabel } from "../shared/appVersion";
 import { useSession } from "./SessionContext";
 import { useGamesAvailable } from "./useGamesAvailable";
 import { gamesWaiting, useGamesSummary } from "../features/games/useGamesSummary";
+import { useSections, type SectionKey, type Sections } from "./sections";
 import { isStandalone } from "../pwa/platform";
 import { useInboxSummary } from "../features/social/useInboxSummary";
 import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
@@ -103,7 +104,10 @@ function GamesNavLink({ className, size, badgeClassName }: { className: string; 
   const { t } = useTranslation();
   const available = useGamesAvailable();
   const waiting = gamesWaiting(useGamesSummary());
-  if (!available) return null;
+  // The server's answer already folds the admin's switch in, but it is asked once
+  // per load; reading the switch here too lets the entry go the moment it moves.
+  const { games } = useSections();
+  if (!available || !games) return null;
   return (
     <a className={className} href={GAMES_HREF}>
       <Gamepad2 size={size} aria-hidden="true" />
@@ -116,16 +120,19 @@ function GamesNavLink({ className, size, badgeClassName }: { className: string; 
 // Authors and Categories are reached from the Audiobooks/Ebooks pages (their
 // tab rows and mobile Browse menus) rather than the primary nav — they only
 // describe book-like libraries, so they don't belong beside the media types.
-function mainNavItems(active: DashboardActive, t: TFunction): MainNavItem[] {
-  return [
+// Each media section carries the switch that governs it (app/sections.ts); Home
+// and Tags have none and are always there.
+function mainNavItems(active: DashboardActive, t: TFunction, sections: Sections): MainNavItem[] {
+  const items: (MainNavItem & { section?: SectionKey })[] = [
     { label: t("nav.home"), href: "/", icon: Home, active: active === "home" },
-    { label: t("nav.audiobooks"), href: "/audiobooks", icon: Headphones, active: active === "audiobooks" },
-    { label: t("nav.ebooks"), href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
-    { label: t("nav.gallery"), href: "/gallery", icon: Image, active: active === "gallery" },
-    { label: t("nav.familyTree"), href: "/family", icon: Network, active: active === "family" },
-    { label: t("nav.stories"), href: "/stories", icon: BookText, active: active === "stories" },
+    { label: t("nav.audiobooks"), href: "/audiobooks", icon: Headphones, active: active === "audiobooks", section: "audiobooks" },
+    { label: t("nav.ebooks"), href: "/ebooks", icon: BookOpen, active: active === "ebooks", section: "ebooks" },
+    { label: t("nav.gallery"), href: "/gallery", icon: Image, active: active === "gallery", section: "gallery" },
+    { label: t("nav.familyTree"), href: "/family", icon: Network, active: active === "family", section: "familyTree" },
+    { label: t("nav.stories"), href: "/stories", icon: BookText, active: active === "stories", section: "stories" },
     { label: t("nav.tags"), href: "/tags", icon: Tag, active: active === "tags" }
   ];
+  return items.filter((item) => !item.section || sections[item.section]);
 }
 
 function userMenuLinks(t: TFunction): UserMenuLink[] {
@@ -181,6 +188,7 @@ function MobileNav({
   }, [openSheet]);
 
   const close = () => setOpenSheet(null);
+  const sections = useSections();
   // While a sheet is open it is the only lit tab — the page underneath is
   // dimmed, so also lighting the tab you came from reads as two selections.
   const lit = (tab: "home" | "media" | "offline" | "profile", onRoute: boolean) =>
@@ -193,26 +201,36 @@ function MobileNav({
         <div className="mobile-media-menu" role="dialog" aria-label={t("nav.aria.chooseLibrary")}>
           <span className="mobile-sheet-handle" aria-hidden="true" />
           <div className="mobile-media-menu-grid">
-            <a className="mobile-media-option" href="/audiobooks" onClick={(event) => { followRoute(event, "/audiobooks"); close(); }}>
-              <Headphones size={26} aria-hidden="true" />
-              <span>{t("nav.audiobooks")}</span>
-            </a>
-            <a className="mobile-media-option" href="/ebooks" onClick={(event) => { followRoute(event, "/ebooks"); close(); }}>
-              <BookOpen size={26} aria-hidden="true" />
-              <span>{t("nav.ebooks")}</span>
-            </a>
-            <a className="mobile-media-option" href="/gallery" onClick={(event) => { followRoute(event, "/gallery"); close(); }}>
-              <Image size={26} aria-hidden="true" />
-              <span>{t("nav.gallery")}</span>
-            </a>
-            <a className="mobile-media-option" href="/family" onClick={(event) => { followRoute(event, "/family"); close(); }}>
-              <Network size={26} aria-hidden="true" />
-              <span>{t("nav.familyTree")}</span>
-            </a>
-            <a className="mobile-media-option" href="/stories" onClick={(event) => { followRoute(event, "/stories"); close(); }}>
-              <BookText size={26} aria-hidden="true" />
-              <span>{t("nav.stories")}</span>
-            </a>
+            {sections.audiobooks && (
+              <a className="mobile-media-option" href="/audiobooks" onClick={(event) => { followRoute(event, "/audiobooks"); close(); }}>
+                <Headphones size={26} aria-hidden="true" />
+                <span>{t("nav.audiobooks")}</span>
+              </a>
+            )}
+            {sections.ebooks && (
+              <a className="mobile-media-option" href="/ebooks" onClick={(event) => { followRoute(event, "/ebooks"); close(); }}>
+                <BookOpen size={26} aria-hidden="true" />
+                <span>{t("nav.ebooks")}</span>
+              </a>
+            )}
+            {sections.gallery && (
+              <a className="mobile-media-option" href="/gallery" onClick={(event) => { followRoute(event, "/gallery"); close(); }}>
+                <Image size={26} aria-hidden="true" />
+                <span>{t("nav.gallery")}</span>
+              </a>
+            )}
+            {sections.familyTree && (
+              <a className="mobile-media-option" href="/family" onClick={(event) => { followRoute(event, "/family"); close(); }}>
+                <Network size={26} aria-hidden="true" />
+                <span>{t("nav.familyTree")}</span>
+              </a>
+            )}
+            {sections.stories && (
+              <a className="mobile-media-option" href="/stories" onClick={(event) => { followRoute(event, "/stories"); close(); }}>
+                <BookText size={26} aria-hidden="true" />
+                <span>{t("nav.stories")}</span>
+              </a>
+            )}
             <a className="mobile-media-option" href="/tags" onClick={(event) => { followRoute(event, "/tags"); close(); }}>
               <Tag size={26} aria-hidden="true" />
               <span>{t("nav.tags")}</span>
@@ -359,6 +377,7 @@ export function DashboardShell({
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const unseen = useInboxSummary();
+  const sections = useSections();
   const userMenuRef = useRef<HTMLDivElement>(null);
   // The About menu is portaled to <body> (see the render below) rather than
   // absolutely positioned in place — .home-primary-nav scrolls once it's long
@@ -451,7 +470,7 @@ export function DashboardShell({
           <div className="home-control-nav-wrap">{sideNav}</div>
         ) : (
           <nav className="home-primary-nav" aria-label={t("nav.aria.primary")}>
-            {mainNavItems(active, t).map((item) => (
+            {mainNavItems(active, t, sections).map((item) => (
               <DashboardNavLink item={item} key={item.href} />
             ))}
             <GamesNavLink className="home-nav-link" size={21} badgeClassName="home-nav-badge" />

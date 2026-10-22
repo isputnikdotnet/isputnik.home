@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.35.0 — Choose which sections the household uses
+
+- **The menu's sections are the admin's to switch on and off.** Control panel → Settings → Appearance has a **Sections** card: Audiobooks, Ebooks, Gallery, Family Tree, Stories and Games, each with a switch, all on to begin with. A section switched off leaves the menu and the phone's Media sheet for everyone, its cards leave the home feed, Continue and Recent skip its books, its filter leaves the Tags page, and a bookmark to it opens the home page instead. Nothing is deleted and the Control panel still shows every library, so a section comes back with one click. One section always stays on. A family that keeps only photos, say, now has a menu of Home, Gallery and Tags.
+- **Games is one of those six**, on top of the games container being set up: with the switch off the Games entry goes and the games address answers nothing.
+
 ## 4.34.0 — The games, inside the home app
 
 - **What waits for you in the games shows on the Games entry.** Invitations to answer and matches where it is your move are counted on the Games entry in the menu and on the phone's Media sheet, asked of the games server each time the app opens or comes back into view. **For you** lists them as cards beside what the family sent you: an invitation with **Accept** and **Decline**, and *Your move against …* with **Play**, which opens the board.

@@ -64,6 +64,9 @@ export interface GatewayOptions {
   /** The games server, e.g. http://isputnik-games:4200. */
   upstream: string;
   secret: string;
+  /** Asked on every request: false while the admin has the Games section off,
+   *  and the whole prefix answers 404 as if the games were not installed. */
+  available?: () => boolean;
 }
 
 export async function registerGamesGateway(app: FastifyInstance, options: GatewayOptions): Promise<void> {
@@ -87,6 +90,11 @@ export async function registerGamesGateway(app: FastifyInstance, options: Gatewa
       // The proxy's hook is callback-style, so the async decorator is adapted: once
       // authenticate has replied 401, Fastify sees the sent reply and never proxies.
       preHandler: (request, reply, done) => {
+        // Answered from the hook: no done() after a send (Fastify stops here).
+        if (options.available && !options.available()) {
+          void reply.code(404).send({ error: "Not found" });
+          return;
+        }
         app.authenticate(request, reply).then(() => done(), (err: Error) => done(err));
       },
       replyOptions: {

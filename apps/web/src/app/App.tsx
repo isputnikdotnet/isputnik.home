@@ -11,6 +11,7 @@ import { AppLoading, Shell } from "./Shell";
 import { SessionContext, type Session } from "./SessionContext";
 import { LoadErrorBoundary } from "../shared/LoadErrorBoundary";
 import { useRoute, navigate, rememberPathAfterSignIn } from "../router";
+import { rememberSections, routeAllowed, useSections } from "./sections";
 
 // Eager: the shell, the ways in, and the page you land on. Everything on the
 // critical path from a cold open to a usable Home stays in the entry chunk —
@@ -117,6 +118,7 @@ async function checkSession(): Promise<SessionCheck> {
     const setupRes = await fetch("/api/setup/status", { credentials: "include", signal: controller.signal });
     if (!setupRes.ok) return { reachable: false };
     const setup = (await setupRes.json()) as {
+      sections?: unknown;
       requiresSetup: boolean;
       defaultTheme?: Theme;
       passkeysAvailable?: boolean;
@@ -125,6 +127,9 @@ async function checkSession(): Promise<SessionCheck> {
     const defaultTheme = setup.defaultTheme ?? "minimalist";
     const passkeysAvailable = Boolean(setup.passkeysAvailable);
     const deviceLinkAvailable = Boolean(setup.deviceLinkAvailable);
+    // Which sections the household uses rides on this call (core/sections.ts), so
+    // the menu is right on the first paint; remembered for an offline start.
+    if (setup.sections !== undefined) rememberSections(setup.sections);
     if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme, passkeysAvailable, deviceLinkAvailable };
 
     const meRes = await fetch("/api/auth/me", { credentials: "include", signal: controller.signal });
@@ -149,6 +154,7 @@ async function checkSession(): Promise<SessionCheck> {
 
 export function App() {
   const route = useRoute();
+  const sections = useSections();
   const { t } = useTranslation();
   // Seeded from the cached identity rather than starting blank, so a reload
   // paints the app on its first frame. Starting at loading:true meant every
@@ -292,8 +298,15 @@ export function App() {
     // route, so letting it open the control panel yields a page of 403s.
     if (session.user && ["control", "controlCategoryEditor", "controlMember", "controlGroup"].includes(route.name) && !isAdminSession(session.user)) {
       navigate("/");
+      return;
     }
-  }, [route.name, session]);
+
+    // A section the admin switched off (app/sections.ts) is not there: a bookmark
+    // or a typed address to it lands on the home page, as the menu suggests.
+    if (session.user && !routeAllowed(route.name, sections)) {
+      navigate("/");
+    }
+  }, [route.name, session, sections]);
 
   const logout = useCallback(async () => {
     await api("/api/auth/logout", { method: "POST", body: "{}" }).catch(() => undefined);
