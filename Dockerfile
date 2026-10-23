@@ -90,6 +90,10 @@ RUN node scripts/fetch-face-model.mjs --dest /build/models/face
 FROM node:26-slim
 WORKDIR /app
 
+# Unraid draws the container's icon from this label when its saved template
+# has none, so a template edit or an update cannot leave the tile blank.
+LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/isputnikdotnet/isputnik.home/main/Assets/brand/isputnik-app-icon.png"
+
 # gosu drops the entrypoint from root to the runtime user (see
 # scripts/docker-entrypoint.sh). It is purpose-built for this — a clean privilege
 # drop with correct signal/TTY handling, unlike su/sudo.

@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.37.1 — The Unraid icon stays put
+
+- **The Docker image now carries its own Unraid icon.** Unraid draws a container's icon from its saved copy of the template, and when that copy lost the Icon URL the tile went blank after an update. The image now names the icon itself (the `net.unraid.docker.icon` label), so Unraid falls back to it. isputnik.games 0.8.1 does the same for the games container.
+
 ## 4.37.0 — Guest links for the games
 
 - **Invite someone without an account to one game.** In the games' invite dialog a member can now pick **Someone outside the family**, name the guest and get a link to send them. The link opens that one match of Dots or Star Battle and nothing else: the guest sees a one-match lobby with no way into the rest of the app, and every other address tells them it is not theirs. A link lasts 14 days; from the match page the inviter sees whether it was opened and until when, can issue a new link (the old one stops working) or revoke it, and an admin sees every guest link under Control panel → Settings → Games and can revoke one there. A dead link gets a plain page saying so, in the family's language. Needs isputnik.games 0.7.0.

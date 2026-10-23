@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.37.1",
+    "label": "The Unraid icon stays put",
+    "changes": [
+      "**The Docker image now carries its own Unraid icon.** Unraid draws a container's icon from its saved copy of the template, and when that copy lost the Icon URL the tile went blank after an update. The image now names the icon itself (the `net.unraid.docker.icon` label), so Unraid falls back to it. isputnik.games 0.8.1 does the same for the games container."
+    ]
+  },
+  {
     "version": "4.37.0",
     "label": "Guest links for the games",
     "changes": [
