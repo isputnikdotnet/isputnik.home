@@ -19,6 +19,13 @@ function readSessionToken(request: FastifyRequest): string | undefined {
   return request.cookies[cookieName] ?? request.cookies[LEGACY_SESSION_COOKIE];
 }
 
+/** Whether the browser sent a session cookie at all — not whether it is good.
+ *  The games gateway asks before it considers a guest cookie: a member's
+ *  session always wins over a guest link opened in the same browser. */
+export function hasSessionCookie(request: FastifyRequest): boolean {
+  return Boolean(readSessionToken(request));
+}
+
 export function addDays(days: number) {
   const date = new Date();
   date.setDate(date.getDate() + days);

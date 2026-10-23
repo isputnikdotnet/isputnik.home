@@ -1716,6 +1716,36 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   revoked_at   TEXT
 );
 
+-- A guest link into one online match of the games (modules/games/guest-invites.ts,
+-- docs/games-platform-plan.md → Guests). A member mints it for someone with no
+-- account here; opening the link sets a guest cookie, and the gateway then
+-- forwards guest_id as a guest identity scoped to match_id. Only sha256(token)
+-- is stored; the link is shown once and renewing it rotates the hash. match_id is
+-- NULL for the moment between minting the row and the games server answering
+-- with the match — a row that never got its match is unusable and swept.
+CREATE TABLE IF NOT EXISTS games_guest_invites (
+  id              TEXT PRIMARY KEY,
+  token_hash      TEXT NOT NULL UNIQUE,
+  -- The hash the last renewal retired: a guest clicking the old link is told it
+  -- no longer works, not counted as someone guessing tokens.
+  previous_token_hash TEXT,
+  guest_id        TEXT NOT NULL UNIQUE,      -- "guest_…", the id the games server seats
+  guest_name      TEXT NOT NULL,             -- typed by the inviter
+  game            TEXT NOT NULL,
+  match_id        TEXT,
+  created_by      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at      TEXT NOT NULL,
+  revoked_at      TEXT,
+  revoked_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
+  opened_count    INTEGER NOT NULL DEFAULT 0,
+  first_opened_at TEXT,
+  last_seen_at    TEXT,
+  last_ip         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_games_guest_invites_user ON games_guest_invites (created_by, expires_at);
+CREATE INDEX IF NOT EXISTS idx_games_guest_invites_match ON games_guest_invites (match_id);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  Recycle bin & system
 -- ════════════════════════════════════════════════════════════════════════════

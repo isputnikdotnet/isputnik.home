@@ -68,11 +68,12 @@ pose as the gateway from outside), then adds:
 | `X-Isputnik-Gateway` | the shared secret (`GAMES_GATEWAY_SECRET` on the home side, `GATEWAY_SECRET` on the games side) |
 | `X-Isputnik-User-Id` | the member's id (home `users.id`) |
 | `X-Isputnik-User-Name` | the display name, percent-encoded UTF-8 (Russian names are not header-safe raw) |
-| `X-Isputnik-User-Role` | `admin` or `member` |
+| `X-Isputnik-User-Role` | `admin`, `member` — or `guest` for someone let in by link (see Guests) |
 | `X-Isputnik-User-Lang` | the member's interface language (`en`, `ru`) |
 | `X-Isputnik-User-Theme` | the member's theme (`minimalist`, `plain-dark`, `system`, …), so the games wear the same one |
 | `X-Isputnik-Client-Ip` | the browser's address as the home server saw it (its `request.ip`, which honours its proxy trust), so the games log names the person's machine rather than the home container |
 | `X-Isputnik-Request-Id` | the home server's id for this request, so the two servers' log lines for one request match up |
+| `X-Isputnik-Guest-Match` | guests only (see Guests): the one match the identity is good for; the games server refuses a `guest` role without it |
 
 The games server accepts these only when the secret matches; without a matching
 secret the request is anonymous (401 from the API). Out of the box the games
@@ -98,6 +99,15 @@ everything; writes answer 403 from the gateway, as they do everywhere else.
 Online play needs "invite a family member". The home app will expose one read
 endpoint to the gateway for that: active members' ids, display names and avatars.
 Nothing else crosses the boundary; the games app keeps its own data.
+
+### Guests
+
+A member may invite someone with no account to one match (see Guests, below).
+The home server mints the link and creates the match on the games API in the
+member's name; the guest's browser then carries a home cookie, and the gateway
+forwards role `guest`, a `guest_…` id, the name the inviter typed and the
+`X-Isputnik-Guest-Match` header. The games server treats a guest as a player
+of that match and nobody anywhere else.
 
 ## Changes in isputnik.home (phase 0)
 
@@ -294,6 +304,79 @@ polled the match for a couple of minutes) and at most once per turn; invitations
 always go out. Per-member or per-group grants on who may play were considered
 and left out for a family; the admin's section switch is the only control until
 a need shows up.
+
+## Guests — playing by link (built 2026-10-23)
+
+A member can invite someone with no account here — a friend, a cousin abroad —
+to one online match. Decided with the owner on 2026-10-23; the member-to-member
+flow is unchanged.
+
+- **The link.** In the invite dialog, "Who" has one more chip beside the
+  family: *Someone outside the family*, with a box for their name (the member
+  types it: the match reads "vs Alex" from the start, and nothing is typed by an
+  anonymous visitor on an internet-facing path). One call to the home server,
+  `POST /api/games/guest-invites {game, options, seat, guestName}`, mints the
+  row (`games_guest_invites`: a 32-character token kept only as its sha256, a
+  `guest_…` id of the home server's choosing, 14 days to live — the games'
+  own invitation lifetime), creates the match on the games API in the member's
+  own name with the same signed headers the gateway would add (home → games is
+  the contract's trust direction; `probeGamesServer` already calls that API),
+  binds the match id to the row, and hands back `${APP_URL}/games/guest/<token>`
+  once. If the games server refuses, the row is discarded and its answer
+  forwarded.
+- **Opening it.** `GET /games/guest/:token` is a route of the home server (a
+  parametric route beats the proxy's wildcard), needing no session and
+  rate-limited (10 a minute, like minting): a live token sets an httpOnly,
+  SameSite=Lax guest cookie (`isputnik_guest`, `__Host-` on HTTPS) that
+  expires with the link, counts the open, and redirects to
+  `/games/<game>/m/<matchId>`. The link works until it expires or is revoked —
+  a match lasts days and the guest comes back — but the token leaves the URL
+  at once. A browser that already holds a session is sent to the match as the
+  member it is, and never gets the cookie.
+- **The gateway.** A session cookie always wins (a member's own session over a
+  guest link opened in the same browser). Without one, a guest cookie is
+  resolved — not revoked, not expired, bound to a match, the inviter still
+  active — and the gateway forwards role `guest`, the `guest_…` id, the name
+  the inviter typed, the inviter's language, theme `system`, and
+  `X-Isputnik-Guest-Match` naming the one match. With a dead guest cookie a
+  page navigation gets a small server-rendered "this game link no longer works"
+  page (in the browser's language), not the sign-in screen, and the API a 401
+  with `guest: true` so the games front end stops polling. The cookie is left
+  in place — it expires with the link and a new link overwrites it — so every
+  page the guest opens keeps explaining instead of falling through to sign-in.
+- **In the games.** `guest` is a role in `identity.ts`, accepted only with a
+  well-formed guest-match header and a guest-prefixed id (a member id under
+  that prefix, or a guest without a match, is nobody). A guest's `/matches`
+  and `/summary` hold that match alone; every `/matches/:id/*` route answers
+  403 for any other id and records `guest.refused`; inviting and the admin
+  routes are 403. The members roster is a home route behind a member session,
+  so a guest never sees other members' names. `players[].guest` marks the
+  guest in summaries. Web: the lobby route renders a one-match page for a
+  guest ("You are playing as Мама's guest"), the frame hides "Back to
+  iSputnik" and the phone tabs and reads "Alex · guest"; the match pages are
+  unchanged — the guest accepts the invitation there like anyone, and "All
+  games" lands on their one-match page.
+- **Renew and revoke.** The inviter sees a **Guest link** panel on the match
+  page (`shared/GuestLinkPanel`): not opened yet / opened n times and when,
+  until when it works, **New link** (a fresh token and a fresh fortnight; the
+  old link dies at once, the guest id and the match stay — the retired hash
+  is kept so a guest clicking the old link is told, not counted as a guesser)
+  and **Revoke link** behind a confirmation. The admin sees every outstanding
+  link on Control panel → Settings → Games (**Guest links**: guest, game,
+  who invited, expires, opened, last seen, Revoke). Rows that are over are
+  swept after 30 days; a row that never got its match after 10 minutes.
+- **Security.** ~190-bit tokens hashed at rest and shown once; expiry,
+  renewal and revocation instead of any new blocklist machinery; an unknown
+  token on the open route counts as an abuse hit (`flagAbusiveRequest`,
+  "token"), so the existing per-IP auto-block covers guessing, while an
+  expired or renewed link is not counted; every `X-Isputnik-*` header the
+  client sends is still stripped (the new one shares the prefix); CSRF is
+  unchanged — the guest's browser gets the double-submit cookie on first
+  contact and the games front end echoes it as before. Audit: home
+  `activity_logs` carry `games.guest_invite.created / opened / renewed /
+  revoked` (the member as actor, the guest's address on "opened"), on
+  Control panel → Activity; the games events name the guest as one
+  ("invited Alex (guest_…, a guest)") and add `guest.refused`.
 
 ## Phase 3 — more games
 

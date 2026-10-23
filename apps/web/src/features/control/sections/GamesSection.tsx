@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Check, Copy, Gamepad2 } from "lucide-react";
+import { Check, Copy, Gamepad2, Link2Off } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -47,6 +48,22 @@ interface LogTail {
   lines: string[];
   capacity: number;
   available: boolean;
+}
+
+/** A guest link, as the server lists it (modules/games/guest-invites.ts) — never the token. */
+interface GuestInvite {
+  id: string;
+  guestName: string;
+  game: string;
+  matchId: string | null;
+  createdBy: { id: string; name: string };
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  openedCount: number;
+  lastSeenAt: string | null;
+  lastIp: string | null;
+  state: "live" | "expired" | "revoked" | "pending";
 }
 
 const CONFIG_DOC = "https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md#games";
@@ -197,6 +214,7 @@ export function GamesSection() {
         )}
       </section>
 
+      {status?.configured && <GuestLinks />}
       {state === "on" && (
         <>
           <GamesEvents />
@@ -204,6 +222,128 @@ export function GamesSection() {
         </>
       )}
     </>
+  );
+}
+
+// Every outstanding guest link (docs/games-platform-plan.md → Guests): who
+// invited whom to what, whether it was opened and from where, and the one
+// thing an admin may do about it — revoke. The links themselves are never
+// shown here; the server keeps only their hashes.
+function GuestLinks() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const [invites, setInvites] = useState<GuestInvite[] | null>(null);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState<GuestInvite | null>(null);
+  const [revoking, setRevoking] = useState(false);
+  const [modalError, setModalError] = useState("");
+
+  const load = useCallback(
+    () =>
+      api<{ invites: GuestInvite[] }>("/api/games/guest-invites?all=1")
+        .then((payload) => { setInvites(payload.invites); setError(""); })
+        .catch((err: unknown) => { setError(err instanceof Error ? err.message : t("controlAdmin:games.guestLoadFailed")); throw err; }),
+    [t]
+  );
+
+  useEffect(() => {
+    load().catch(() => undefined);
+  }, [load]);
+
+  const revoke = async () => {
+    if (!pending) return;
+    setRevoking(true);
+    setModalError("");
+    try {
+      await api(`/api/games/guest-invites/${encodeURIComponent(pending.id)}`, { method: "DELETE" });
+      setPending(null);
+      await load();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : t("controlAdmin:games.guestRevokeFailed"));
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  const stateLabel = (invite: GuestInvite) =>
+    invite.state === "live" ? t("controlAdmin:games.guestStateLive")
+      : invite.state === "revoked" ? t("controlAdmin:games.guestStateRevoked")
+        : invite.state === "expired" ? t("controlAdmin:games.guestStateExpired")
+          : t("controlAdmin:games.guestStatePending");
+
+  return (
+    <section className="config-block" id="games-guest-links">
+      <h3>{t("controlAdmin:games.guestTitle")}</h3>
+      <p className="muted">{t("controlAdmin:games.guestIntro")}</p>
+
+      {error && <MessageBox tone="error" title={t("controlAdmin:games.guestLoadFailed")}>{error}</MessageBox>}
+
+      {invites && (
+        <>
+          <div className="games-events-tools">
+            <RefreshButton onRefresh={load} label={t("controlAdmin:games.refresh")} compact={false} />
+          </div>
+          {invites.length === 0 ? (
+            <p className="muted">{t("controlAdmin:games.guestEmpty")}</p>
+          ) : (
+            <div className="datagrid-wrap games-events-wrap">
+              <table className="datagrid games-events-table">
+                <thead>
+                  <tr>
+                    <th>{t("controlAdmin:games.guestColGuest")}</th>
+                    <th>{t("controlAdmin:games.guestColGame")}</th>
+                    <th>{t("controlAdmin:games.guestColInvitedBy")}</th>
+                    <th>{t("controlAdmin:games.guestColState")}</th>
+                    <th>{t("controlAdmin:games.guestColOpened")}</th>
+                    <th aria-label={t("controlAdmin:games.guestColActions")} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {invites.map((invite) => (
+                    <tr key={invite.id} className={invite.state === "live" ? undefined : "is-muted"}>
+                      <td>{invite.guestName}</td>
+                      <td><code>{invite.game}</code></td>
+                      <td>{invite.createdBy.name}</td>
+                      <td>
+                        {stateLabel(invite)}
+                        {invite.state === "live" && <span className="datagrid-muted"> · {t("controlAdmin:games.guestUntil", { date: formatManagedDate(invite.expiresAt) })}</span>}
+                      </td>
+                      <td className="datagrid-muted" title={invite.lastIp ?? undefined}>
+                        {invite.openedCount === 0
+                          ? t("controlAdmin:games.guestNotOpened")
+                          : t("controlAdmin:games.guestOpened", { count: invite.openedCount, date: invite.lastSeenAt ? formatManagedDate(invite.lastSeenAt) : "" })}
+                        {invite.lastIp && <span className="games-ip">{invite.lastIp}</span>}
+                      </td>
+                      <td>
+                        {invite.state === "live" && (
+                          <Button variant="danger" compact onClick={() => { setModalError(""); setPending(invite); }}>
+                            <Link2Off size={14} aria-hidden="true" /> {t("controlAdmin:games.guestRevoke")}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {pending && (
+        <ConfirmDialog
+          title={t("controlAdmin:games.guestRevokeTitle", { name: pending.guestName })}
+          confirmLabel={t("controlAdmin:games.guestRevoke")}
+          busyLabel={t("controlAdmin:games.guestRevoking")}
+          danger
+          busy={revoking}
+          error={modalError}
+          onConfirm={() => void revoke()}
+          onCancel={() => setPending(null)}
+        >
+          {t("controlAdmin:games.guestRevokeBody", { name: pending.guestName, by: pending.createdBy.name })}
+        </ConfirmDialog>
+      )}
+    </section>
   );
 }
 

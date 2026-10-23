@@ -720,6 +720,26 @@ export interface GalleryVoiceNoteRow {
   created_at: string;
 }
 
+/** `games_guest_invites` */
+export interface GamesGuestInviteRow {
+  id: string;
+  token_hash: string;
+  previous_token_hash: string | null;
+  guest_id: string;
+  guest_name: string;
+  game: string;
+  match_id: string | null;
+  created_by: string;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  opened_count: number;
+  first_opened_at: string | null;
+  last_seen_at: string | null;
+  last_ip: string | null;
+}
+
 /** `group_members` */
 export interface GroupMemberRow {
   group_id: string;
@@ -1499,6 +1519,7 @@ export interface TableRows {
   gallery_slideshow_items: GallerySlideshowItemRow;
   gallery_slideshows: GallerySlideshowRow;
   gallery_voice_notes: GalleryVoiceNoteRow;
+  games_guest_invites: GamesGuestInviteRow;
   group_members: GroupMemberRow;
   inbox_delivery_seen: InboxDeliverySeenRow;
   invite_groups: InviteGroupRow;

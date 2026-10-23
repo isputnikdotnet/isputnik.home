@@ -125,7 +125,7 @@ type SettingKey =
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
-  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "sections";
+  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "sections";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab. `anchor` is the id of the card the setting sits in, where the
@@ -176,6 +176,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "gamesIntegration", section: "games", keywords: "games server container reachable version url gateway secret environment variables members showing игры сервер контейнер доступен версия адрес шлюз секрет переменные окружения участники" },
   { titleKey: "gamesEvents", section: "games", anchor: "games-events", keywords: "games events log refused gateway rejected invitations matches errors audit container record игры события журнал отклонённые шлюз приглашения партии ошибки запись контейнер" },
   { titleKey: "gamesLog", section: "games", anchor: "games-log", keywords: "games server log docker logs lines tail container output игры журнал сервера строки контейнер вывод" },
+  { titleKey: "gamesGuestLinks", section: "games", anchor: "games-guest-links", keywords: "games guest link invite outsider friend no account play online match revoke expire игры гость гостевая ссылка пригласить друг без учётной записи партия отозвать" },
   { titleKey: "smtpServer", section: "email", keywords: "host port username password tls outgoing mail сервер порт имя пользователя пароль исходящая почта" },
   { titleKey: "sendTestEmail", section: "email", keywords: "verify smtp check delivery отправить тестовое письмо проверить доставку" },
   { titleKey: "twoFactorAlertsDelivery", section: "email", keywords: "mfa totp codes alert emails двухфакторные коды оповещения безопасности почта" },

@@ -8,12 +8,25 @@
 // with a shared secret. Any X-Isputnik-* header the client itself sent is dropped
 // first, so nobody can pose as this gateway from outside.
 //
+// A guest (docs → Guests) has no session: their browser carries the guest cookie
+// a link set (guest-invites.ts), and the gateway forwards a guest identity scoped
+// to the one match the link was for. A session cookie always takes precedence.
+//
 // CSRF: the double-submit hook on the root runs for proxied requests too, so the
 // games front end echoes this app's CSRF cookie on its own state-changing calls.
 import type { IncomingHttpHeaders } from "node:http";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import httpProxy from "@fastify/http-proxy";
 import type { User } from "../../db.js";
+import { hasSessionCookie } from "../../auth.js";
+import { GUEST_COOKIE, invalidLinkPage, pageLanguage, resolveGuestToken, touchGuest, guestIdentityHeaders, type GuestIdentity } from "./guest-invites.js";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    /** The guest a proxied request is from, when it is not from a member. */
+    gamesGuest?: GuestIdentity;
+  }
+}
 
 export const GAMES_PREFIX = "/games";
 
@@ -96,7 +109,8 @@ export async function registerGamesGateway(app: FastifyInstance, options: Gatewa
       upstream: options.upstream,
       prefix: GAMES_PREFIX,
       rewritePrefix: GAMES_PREFIX,
-      // Only a signed-in member reaches the games; anonymous gets this app's 401.
+      // Only a signed-in member — or a guest whose link is still good — reaches
+      // the games; anonymous gets this app's 401.
       // The proxy's hook is callback-style, so the async decorator is adapted: once
       // authenticate has replied 401, Fastify sees the sent reply and never proxies.
       preHandler: (request, reply, done) => {
@@ -105,13 +119,38 @@ export async function registerGamesGateway(app: FastifyInstance, options: Gatewa
           void reply.code(404).send({ error: "Not found" });
           return;
         }
+        // No session cookie but a guest cookie: the guest's link decides. A dead
+        // link gets, on a page navigation, the page that says so — the sign-in
+        // screen would be wrong for someone with no account — and a 401 on the
+        // API so the games front end can stop polling. The cookie is left in
+        // place: it expires with the link, a new link overwrites it, and while
+        // it lasts every page the guest opens explains itself instead of
+        // falling through to the sign-in screen.
+        if (!hasSessionCookie(request) && request.cookies[GUEST_COOKIE]) {
+          const guest = resolveGuestToken(request.cookies[GUEST_COOKIE]);
+          if (guest) {
+            request.gamesGuest = guest;
+            touchGuest(guest.inviteId, request.ip);
+            done();
+            return;
+          }
+          if (isPageNavigation(request)) {
+            void reply.code(410).type("text/html; charset=utf-8").send(invalidLinkPage(pageLanguage(request.headers["accept-language"])));
+          } else {
+            void reply.code(401).send({ error: "This game link no longer works", guest: true });
+          }
+          return;
+        }
         app.authenticate(request, reply).then(() => done(), (err: Error) => done(err));
       },
       replyOptions: {
-        rewriteRequestHeaders: (request, headers): IncomingHttpHeaders => ({
-          ...stripIdentityHeaders(headers as IncomingHttpHeaders),
-          ...identityHeaders(request.user!, options.secret, { ip: request.ip, requestId: String(request.id) })
-        })
+        rewriteRequestHeaders: (request, headers): IncomingHttpHeaders => {
+          const forwarded = { ip: request.ip, requestId: String(request.id) };
+          const identity = request.gamesGuest
+            ? guestIdentityHeaders(request.gamesGuest, options.secret, forwarded)
+            : identityHeaders(request.user!, options.secret, forwarded);
+          return { ...stripIdentityHeaders(headers as IncomingHttpHeaders), ...identity };
+        }
       }
     });
   });

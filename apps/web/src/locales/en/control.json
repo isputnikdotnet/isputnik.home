@@ -107,6 +107,7 @@
       "gamesIntegration": "Games integration",
       "gamesEvents": "Games events",
       "gamesLog": "Games server log",
+      "gamesGuestLinks": "Guest links to the games",
       "sections": "Sections of the app"
     }
   },
