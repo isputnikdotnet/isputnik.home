@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.37.3 — The control panel on a phone
+
+- **Control panel tables use the whole width of a phone.** The panel kept two margins on each side at phone width, so a table had about four fifths of the screen and most of them scrolled sideways. It keeps one now, and tables run edge to edge.
+- **Wide tables turn into a list on a phone.** Where a table still had more columns than a phone has room for — Activity, Statistics, Logs, Storage, Categories, Users, Security, Sign-ins, Tasks, Scheduled jobs and Backup — each row now reads as a small card: its name with its buttons beside it, and the rest underneath on a line of its own, a bare number said with its heading ("Failed 0"). Columns that sort stay as a row of headings above the list. Nothing scrolls sideways any more.
+
 ## 4.37.2 — The games in this app's log
 
 - **Settings → Games now says when the two containers' secrets differ.** The page used to ask the games server only whether it was up, which it answers with any secret, so it showed the games as on while every member saw "Not signed in". It now makes one signed call as well and, when the games server refuses it, says so in red with what to fix: the same value in `GAMES_GATEWAY_SECRET` here and `GATEWAY_SECRET` on the games container, then a restart of both.

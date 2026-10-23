@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.37.3",
+    "label": "The control panel on a phone",
+    "changes": [
+      "**Control panel tables use the whole width of a phone.** The panel kept two margins on each side at phone width, so a table had about four fifths of the screen and most of them scrolled sideways. It keeps one now, and tables run edge to edge.",
+      "**Wide tables turn into a list on a phone.** Where a table still had more columns than a phone has room for — Activity, Statistics, Logs, Storage, Categories, Users, Security, Sign-ins, Tasks, Scheduled jobs and Backup — each row now reads as a small card: its name with its buttons beside it, and the rest underneath on a line of its own, a bare number said with its heading (\"Failed 0\"). Columns that sort stay as a row of headings above the list. Nothing scrolls sideways any more."
+    ]
+  },
+  {
     "version": "4.37.2",
     "label": "The games in this app's log",
     "changes": [
