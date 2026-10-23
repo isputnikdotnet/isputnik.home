@@ -11,8 +11,10 @@ import { gameMatchHref, gamesHref, type GameInvitation, type GameTurn } from "./
 
 /** The game's name for a card. An unknown id is shown as is, so a game added
  *  to the games app before this list reads is still named. */
-function gameName(game: string, t: (key: "user:games.dots" | "user:games.seabattle") => string): string {
+function gameName(game: string, t: (key: "user:games.dots" | "user:games.starbattle" | "user:games.seabattle") => string): string {
   if (game === "dots") return t("user:games.dots");
+  if (game === "starbattle") return t("user:games.starbattle");
+  // The name Star Battle had for one release; a games server not yet upgraded still sends it.
   if (game === "seabattle") return t("user:games.seabattle");
   return game;
 }
