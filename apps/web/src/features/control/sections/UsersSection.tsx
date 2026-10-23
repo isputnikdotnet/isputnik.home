@@ -173,7 +173,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         </p>
       ) : (
         <div className="datagrid-wrap">
-          <table className="datagrid user-table">
+          <table className="datagrid datagrid-phone-stack user-table">
             <thead>
               <tr>
                 <th>{t("controlAdmin:users.thUser")}</th>

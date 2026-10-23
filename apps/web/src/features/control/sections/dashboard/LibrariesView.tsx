@@ -71,10 +71,10 @@ function RankTable({
   if (rows.length === 0) return <p className="status-empty">{empty}</p>;
   return (
     <div className="datagrid-wrap">
-      <table className="datagrid status-rank-table">
+      <table className="datagrid datagrid-phone-stack status-rank-table">
         <thead>
           <tr>
-            <th>#</th>
+            <th className="col-scan">#</th>
             <th>{t("controlDash:table.name")}</th>
             {columns.map((column) => (
               <th key={column} className="col-num">{column}</th>
@@ -84,15 +84,15 @@ function RankTable({
         <tbody>
           {rows.map((row, index) => (
             <tr key={row.key}>
-              <td className="datagrid-muted">{index + 1}</td>
-              <td>
+              <td className="col-scan datagrid-muted">{index + 1}</td>
+              <td className="col-title">
                 <span className="datagrid-primary">
                   <strong className="status-person-name">{row.name}</strong>
                   {row.sub && <small>{row.sub}</small>}
                 </span>
               </td>
               {row.cells.map((cell, cellIndex) => (
-                <td key={cellIndex} className="col-num datagrid-muted">{cell}</td>
+                <td key={cellIndex} className="col-num datagrid-muted" data-label={columns[cellIndex]}>{cell}</td>
               ))}
             </tr>
           ))}
@@ -217,7 +217,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
           ) : (
             <>
               <div className="datagrid-wrap">
-                <table className="datagrid locations-table">
+                <table className="datagrid datagrid-phone-stack locations-table">
                   <thead>
                     <tr>
                       <th>{t("controlDash:table.library")}</th>
@@ -251,7 +251,7 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
                               </span>
                             </span>
                           </td>
-                          <td className="col-num">{formatNumber(library.items)}</td>
+                          <td className="col-num" data-label={t("controlDash:table.items")}>{formatNumber(library.items)}</td>
                           <td className="datagrid-muted">{library.detail}</td>
                         </tr>
                       );

@@ -26,6 +26,111 @@
   }
 }
 
+/* A table that turns into a list on a phone (`datagrid-phone-stack`), for one
+   with more columns than a phone has room for. Each row becomes a small card: its
+   title cell — the first, or the one marked `col-title` — with the row's
+   `col-actions` / `col-expand` beside it, then every other cell underneath as one
+   wrapping line of muted facts. A cell whose value means nothing without its
+   heading (a bare count) carries `data-label`, said in front of it. The headings
+   go, except the ones that sort: those stay as a row above the list. `col-scan`
+   cells stay hidden, as they are in every table at this width.
+   `stack-actions-below` moves wide actions (a labelled button or three) off the
+   title line to the end of the card. */
+@media (max-width: 740px) {
+  .datagrid.datagrid-phone-stack,
+  .datagrid.datagrid-phone-stack > :is(thead, tbody) {
+    display: block;
+    min-width: 0;
+  }
+
+  .datagrid.datagrid-phone-stack > thead:not(:has(.datagrid-sort)),
+  .datagrid.datagrid-phone-stack > thead > tr > th:not(:has(.datagrid-sort)) {
+    display: none;
+  }
+
+  .datagrid.datagrid-phone-stack > thead > tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 8px 16px;
+  }
+
+  .datagrid.datagrid-phone-stack > thead > tr > th {
+    width: auto;
+    padding: 0;
+  }
+
+  .datagrid.datagrid-phone-stack > tbody > tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 10px 16px;
+  }
+
+  /* The line break between the title line and the facts. */
+  .datagrid.datagrid-phone-stack > tbody > tr::before {
+    content: "";
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  /* `width: auto` undoes the desktop's 1% "only as wide as its button" columns,
+     which as flex items shrink to nothing and spill the button off the card. */
+  .datagrid.datagrid-phone-stack > tbody > tr > td {
+    order: 3;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    color: var(--muted);
+    font-size: var(--text-sm);
+    text-align: left;
+  }
+
+  .datagrid.datagrid-phone-stack > tbody > tr:not(:has(> .col-title)) > td:first-child,
+  .datagrid.datagrid-phone-stack > tbody > tr > td.col-title {
+    order: 0;
+    flex: 1 1 0;
+    color: var(--ink);
+    font-size: inherit;
+  }
+
+  .datagrid.datagrid-phone-stack > tbody > tr > td:is(.col-actions, .col-expand) {
+    order: 1;
+    flex: none;
+  }
+
+  .datagrid.datagrid-phone-stack.stack-actions-below > tbody > tr > td.col-actions {
+    order: 4;
+    margin-left: auto;
+  }
+
+  .datagrid.datagrid-phone-stack > tbody > tr > td:empty {
+    display: none;
+  }
+
+  /* Label and value side by side, even when the value is a block (a count with
+     its bar). */
+  .datagrid.datagrid-phone-stack > tbody > tr > td[data-label] {
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
+  }
+
+  .datagrid.datagrid-phone-stack > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+  }
+
+  /* A row that is one cell across (an opened record, an error) stays whole. */
+  .datagrid.datagrid-phone-stack > tbody > tr > td[colspan] {
+    order: 0;
+    flex-basis: 100%;
+    color: inherit;
+  }
+}
+
 .datagrid thead tr {
   background: var(--surface);
   border-bottom: 1px solid var(--line);

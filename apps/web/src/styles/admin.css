@@ -238,6 +238,13 @@
   text-overflow: ellipsis;
 }
 
+/* As a phone list (datagrid-phone-stack) the detail closes the card, so the short
+   facts — time, user, address — share the line above it. */
+.datagrid.datagrid-phone-stack.log-table > tbody > tr > td.log-detail-cell {
+  order: 4;
+  flex-basis: 100%;
+}
+
 /* The opened record is the exception: it wraps, because it exists to be read whole. */
 .log-table .login-detail-row > td {
   white-space: normal;
@@ -1834,8 +1841,8 @@ tr.control-anchor-flash > td {
 .scheduled-job-run-line.success { color: var(--success, #2f9e44); }
 .scheduled-job-run-line.error   { color: var(--rose); }
 
-.scheduled-col-enabled,
-.scheduled-col-actions {
+.datagrid :is(th, td).scheduled-col-enabled,
+.datagrid :is(th, td).scheduled-col-actions {
   width: 1%;
   text-align: center;
   white-space: nowrap;
@@ -2436,6 +2443,47 @@ tr.control-anchor-flash > td {
   .datagrid .storage-path-cell {
     min-width: 11rem;
     white-space: normal;
+  }
+
+  /* One gutter, not two. .home-main already keeps 16px off each edge; the page's
+     own 18px on top of it left a table 301px of a 375px screen, and most of them
+     scrolled sideways for want of the 74px. The other shells drop it the same way
+     (home.css). */
+  .home-control-shell .control-work {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  /* A table runs edge to edge: out through the page gutter, or out to the border
+     of the card it sits in, with its first and last cells keeping the text on the
+     gutter line. Cells are tighter in between — every 6px a column gives back is
+     6px less to scroll. */
+  .control-work .datagrid-wrap {
+    --table-bleed: 16px;
+    margin-right: calc(-1 * var(--table-bleed));
+    margin-left: calc(-1 * var(--table-bleed));
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  /* 16px also happens to be Storage's cards (15px padding + 1px border); a
+     Backup card pads 22px. */
+  .control-work .backup-card .datagrid-wrap {
+    --table-bleed: 23px;
+  }
+
+  .control-work .datagrid:not(.datagrid-phone-stack) :is(th, td) {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .control-work .datagrid:not(.datagrid-phone-stack) :is(th, td):first-child {
+    padding-left: 16px;
+  }
+
+  .control-work .datagrid:not(.datagrid-phone-stack) :is(th, td):last-child {
+    padding-right: 16px;
   }
 
   /* The page header: the description runs the full width under the icon and

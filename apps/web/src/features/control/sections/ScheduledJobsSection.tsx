@@ -169,7 +169,7 @@ export function ScheduledJobsSection() {
       )}
 
       <div className="datagrid-wrap scheduled-jobs-wrap">
-        <table className="datagrid scheduled-jobs-table">
+        <table className="datagrid datagrid-phone-stack scheduled-jobs-table">
           <thead>
             <tr>
               <th scope="col">{t("controlAdmin:scheduledJobs.thJob")}</th>
@@ -298,7 +298,7 @@ function ScheduledJobRow({
         </div>
       </td>
 
-      <td className="scheduled-col-enabled">
+      <td className="col-actions scheduled-col-enabled">
         <ToggleSwitch
           checked={job.enabled}
           disabled={controlsDisabled}
@@ -307,7 +307,7 @@ function ScheduledJobRow({
         />
       </td>
 
-      <td className="scheduled-col-actions">
+      <td className="col-actions scheduled-col-actions">
         <Button
           variant="icon"
           onClick={onRun}

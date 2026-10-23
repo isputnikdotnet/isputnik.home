@@ -203,13 +203,13 @@ export function ActivityView({ status }: { status: SystemStatus }) {
           {recent.logs.length > 0 ? (
             <>
               <div className="datagrid-wrap">
-                <table className="datagrid">
+                <table className="datagrid datagrid-phone-stack">
                   <thead>
                     <tr>
                       <th>{t("controlDash:table.event")}</th>
                       <th>{t("controlDash:table.user")}</th>
                       <th>{t("controlDash:table.detail")}</th>
-                      <th>{t("controlDash:table.ipAddress")}</th>
+                      <th className="col-scan">{t("controlDash:table.ipAddress")}</th>
                       <th>{t("controlDash:table.time")}</th>
                     </tr>
                   </thead>
@@ -219,7 +219,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
                         <td><EventCell event={entry.event} /></td>
                         <td className="datagrid-muted">{entry.actorName ?? t("controlDash:activity.systemActor")}</td>
                         <td>{entry.detail}</td>
-                        <td className="datagrid-muted">{entry.ipAddress ?? "—"}</td>
+                        <td className="col-scan datagrid-muted">{entry.ipAddress ?? "—"}</td>
                         <td className="datagrid-muted">{formatManagedDate(entry.createdAt)}</td>
                       </tr>
                     ))}
@@ -245,7 +245,7 @@ export function ActivityView({ status }: { status: SystemStatus }) {
           {inProgress.length > 0 ? (
             <>
               <div className="datagrid-wrap">
-                <table className="datagrid">
+                <table className="datagrid datagrid-phone-stack">
                   <thead>
                     <tr>
                       <th>{t("controlDash:table.user")}</th>
@@ -259,14 +259,14 @@ export function ActivityView({ status }: { status: SystemStatus }) {
                     {progress.rows.map((entry, index) => (
                       <tr key={`${entry.kind}-${entry.title}-${index}`}>
                         <td>{entry.userName}</td>
-                        <td>{entry.title}</td>
+                        <td className="col-title">{entry.title}</td>
                         <td className="datagrid-muted">
                           <span className="log-event-cell">
                             {entry.kind === "audiobook" ? <Headphones size={14} aria-hidden="true" /> : <BookOpen size={14} aria-hidden="true" />}
                             {entry.kind === "audiobook" ? t("controlDash:activity.audiobook") : t("controlDash:activity.ebook")}
                           </span>
                         </td>
-                        <td className="col-num datagrid-muted">
+                        <td className="col-num datagrid-muted" data-label={t("controlDash:table.progress")}>
                           {entry.percentComplete != null ? `${Math.round(entry.percentComplete * 100)}%` : "—"}
                         </td>
                         <td className="datagrid-muted">{formatManagedDate(entry.updatedAt)}</td>

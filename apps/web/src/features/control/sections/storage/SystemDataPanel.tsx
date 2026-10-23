@@ -274,7 +274,7 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
           </div>
 
           <div className="datagrid-wrap system-data-rows">
-            <table className="datagrid">
+            <table className="datagrid datagrid-phone-stack">
               <thead>
                 <tr>
                   <th>{t("controlAdmin:systemData.thWhat")}</th>

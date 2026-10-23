@@ -169,10 +169,10 @@ export function CategoriesSection() {
       {notice && <MessageBox tone="success" title={t("control:categories.doneTitle")}>{notice}</MessageBox>}
 
       <div className="datagrid-wrap" style={{ marginTop: 12 }}>
-        <table className="datagrid">
+        <table className="datagrid datagrid-phone-stack stack-actions-below">
           <thead>
             <tr>
-              <th></th><th>{t("control:categories.thName")}</th>
+              <th className="col-scan"></th><th>{t("control:categories.thName")}</th>
               <th className="col-num">{t("control:categories.thOrder")}</th><th className="col-num">{t("control:categories.thBooks")}</th><th className="col-num">{t("control:categories.thMappings")}</th><th className="col-actions"></th>
             </tr>
           </thead>
@@ -182,18 +182,18 @@ export function CategoriesSection() {
               const orderDirty = Number(draftOrder) !== category.sortOrder;
               return (
                 <tr key={category.id}>
-                  <td>
+                  <td className="col-scan">
                     <div className="category-preview" aria-hidden="true">
                       {category.imageUrl ? <img src={category.imageUrl} alt="" /> : <CategoryIcon icon={category.icon} size={20} />}
                     </div>
                   </td>
-                  <td>
+                  <td className="col-title">
                     <div className="category-name-cell">
                       <strong>{category.name}</strong>
                       <span>{category.key}</span>
                     </div>
                   </td>
-                  <td className="col-num">
+                  <td className="col-num" data-label={t("control:categories.thOrder")}>
                     <input
                       className="library-filter"
                       style={{ minWidth: 60, width: 60 }}
@@ -202,8 +202,8 @@ export function CategoriesSection() {
                       onChange={(event) => setOrderDraft((current) => ({ ...current, [category.id]: event.target.value }))}
                     />
                   </td>
-                  <td className="col-num datagrid-muted">{category.bookCount}</td>
-                  <td className="col-num datagrid-muted">{category.mappingCount}</td>
+                  <td className="col-num datagrid-muted" data-label={t("control:categories.thBooks")}>{category.bookCount}</td>
+                  <td className="col-num datagrid-muted" data-label={t("control:categories.thMappings")}>{category.mappingCount}</td>
                   <td className="col-actions">
                     <div className="category-actions-cell">
                       <Button

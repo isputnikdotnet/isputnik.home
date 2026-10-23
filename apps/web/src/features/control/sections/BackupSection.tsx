@@ -401,7 +401,7 @@ export function BackupSection() {
               </span>
             </div>
             <div className="datagrid-wrap">
-              <table className="datagrid">
+              <table className="datagrid datagrid-phone-stack stack-actions-below">
                 <thead>
                   <tr>
                     <th>{t("control:backup.thBackup")}</th>

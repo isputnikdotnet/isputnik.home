@@ -501,7 +501,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <span>{t("controlAdmin:security.policiesSubtitle")}</span>
                   </div>
                   <div className="datagrid-wrap">
-                    <table className="datagrid locations-table">
+                    <table className="datagrid datagrid-phone-stack locations-table">
                       <tbody>
                         {(() => {
                           // `anchor` is the policy card's id, so the arrow lands on the
@@ -551,7 +551,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                     {row.level === "strong" ? t("controlAdmin:security.pillStrong") : row.level === "medium" ? t("controlAdmin:security.pillMedium") : t("controlAdmin:security.pillWeak")}
                                   </span>
                                 </td>
-                                <td className="locations-row-action">
+                                <td className="col-actions locations-row-action">
                                   <Button
                                     variant="icon"
                                     aria-label={"section" in row.target ? t("controlAdmin:security.openSettingAria", { label: row.label }) : t("controlAdmin:security.readGuideAria")}

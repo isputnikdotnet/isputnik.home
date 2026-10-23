@@ -448,7 +448,7 @@ export function TasksView() {
           ) : (
             <>
               <div className="datagrid-wrap">
-                <table className="datagrid">
+                <table className="datagrid datagrid-phone-stack">
                   <thead>
                     <tr>
                       <th>{t("controlDash:table.task")}</th>

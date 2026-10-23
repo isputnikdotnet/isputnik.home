@@ -331,7 +331,7 @@ export function LogsSection() {
       {logs.length > 0 ? (
         <>
           <div className="datagrid-wrap log-table-wrap">
-            <table className="datagrid log-table">
+            <table className="datagrid datagrid-phone-stack log-table">
               <thead>
                 <tr>
                   <th className="col-expand" aria-label={t("control:logs.colDetailsAria")} />
@@ -359,7 +359,7 @@ export function LogsSection() {
                           </Button>
                         </td>
                         <td className="datagrid-muted">{formatManagedDate(entry.createdAt)}</td>
-                        <td><LogEventCell event={entry.event} /></td>
+                        <td className="col-title"><LogEventCell event={entry.event} /></td>
                         <td className="log-detail-cell">{entry.detail}</td>
                         <td className="datagrid-muted">
                           {entry.actorId ? (

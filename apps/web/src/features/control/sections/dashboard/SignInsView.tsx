@@ -559,7 +559,7 @@ export function SignInsView() {
                       })}
                     </div>
                     <div className="datagrid-wrap">
-                      <table className="datagrid locations-table">
+                      <table className="datagrid datagrid-phone-stack locations-table">
                         <thead>
                           <tr>
                             <th>{t("controlDash:table.device")}</th>
@@ -590,8 +590,8 @@ export function SignInsView() {
                                 <td>{row.person}</td>
                                 <td className="datagrid-muted">{row.ip ?? "—"}</td>
                                 <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
-                                <td className="datagrid-muted">{formatManagedDate(row.expiresAt)}</td>
-                                <td className="locations-row-action signins-device-actions">
+                                <td className="datagrid-muted" data-label={t("controlDash:table.signedInUntil")}>{formatManagedDate(row.expiresAt)}</td>
+                                <td className="col-actions locations-row-action signins-device-actions">
                                   {!row.current && (
                                     <Button
                                       variant="icon"
@@ -672,7 +672,7 @@ export function SignInsView() {
               {data.ips.length > 0 ? (
                 <>
                   <div className="datagrid-wrap">
-                    <table className="datagrid locations-table">
+                    <table className="datagrid datagrid-phone-stack locations-table">
                       <thead>
                         <tr>
                           <th>{t("controlDash:table.address")}</th>
@@ -702,7 +702,7 @@ export function SignInsView() {
                                 </span>
                               </span>
                             </td>
-                            <td>
+                            <td data-label={t("controlDash:table.connections")}>
                               <span className="conn-cell">
                                 <span className="conn-count">{formatNumber(row.connections)}</span>
                                 <span className="conn-track" aria-hidden="true">
@@ -713,11 +713,11 @@ export function SignInsView() {
                                 </span>
                               </span>
                             </td>
-                            <td className={`col-num${row.failed > 0 ? " login-result-failed" : " datagrid-muted"}`}>
+                            <td className={`col-num${row.failed > 0 ? " login-result-failed" : " datagrid-muted"}`} data-label={t("controlDash:table.failed")}>
                               {formatNumber(row.failed)}
                             </td>
-                            <td className="col-num datagrid-muted">{formatNumber(row.people)}</td>
-                            <td className={`col-num${row.probes + row.tokens > 0 ? " login-result-failed" : " datagrid-muted"}`}>
+                            <td className="col-num datagrid-muted" data-label={t("controlDash:table.people")}>{formatNumber(row.people)}</td>
+                            <td className={`col-num${row.probes + row.tokens > 0 ? " login-result-failed" : " datagrid-muted"}`} data-label={t("controlDash:table.scanner")}>
                               {row.probes + row.tokens > 0
                                 ? t("controlDash:signIns.hits", { count: row.probes + row.tokens })
                                 : "—"}
@@ -736,7 +736,7 @@ export function SignInsView() {
                               )}
                             </td>
                             <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
-                            <td className="locations-row-action">
+                            <td className="col-actions locations-row-action">
                               {scope.ip !== row.ip && (
                                 <Button
                                   variant="icon"
@@ -768,7 +768,7 @@ export function SignInsView() {
               {data.users.length > 0 ? (
                 <>
                   <div className="datagrid-wrap">
-                    <table className="datagrid locations-table">
+                    <table className="datagrid datagrid-phone-stack locations-table">
                       <thead>
                         <tr>
                           <th>{t("controlDash:table.person")}</th>
@@ -793,14 +793,14 @@ export function SignInsView() {
                                 </small>
                               </span>
                             </td>
-                            <td className="col-num">{formatNumber(row.connections)}</td>
-                            <td className={`col-num${row.failed > 0 ? " login-result-failed" : " datagrid-muted"}`}>
+                            <td className="col-num" data-label={t("controlDash:table.signIns")}>{formatNumber(row.connections)}</td>
+                            <td className={`col-num${row.failed > 0 ? " login-result-failed" : " datagrid-muted"}`} data-label={t("controlDash:table.failed")}>
                               {formatNumber(row.failed)}
                             </td>
-                            <td className="col-num datagrid-muted">{formatNumber(row.addresses)}</td>
+                            <td className="col-num datagrid-muted" data-label={t("controlDash:table.addresses")}>{formatNumber(row.addresses)}</td>
                             <td className="datagrid-muted">{row.guest ? t("controlDash:signIns.methodShareLinkN", { count: row.guests }) : methodsSummary(row.methods, t)}</td>
                             <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
-                            <td className="locations-row-action">
+                            <td className="col-actions locations-row-action">
                               {row.userId && scope.user !== row.userId && (
                                 <Button
                                   variant="icon"

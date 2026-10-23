@@ -256,7 +256,7 @@ export function StorageContentsSection() {
             </div>
           </div>
           <div className="datagrid-wrap">
-            <table className="datagrid">
+            <table className="datagrid datagrid-phone-stack">
               <thead>
                 <tr>
                   <th>{t("controlAdmin:storage.thRoom")}</th>
@@ -275,7 +275,7 @@ export function StorageContentsSection() {
                         {[whereText(room), room.library?.name].filter(Boolean).join(" · ")}
                       </div>
                     </td>
-                    <td className="col-num">{room.mode === "off" ? "—" : countText(room.files, room.complete)}</td>
+                    <td className="col-num" data-label={t("controlAdmin:storageContents.thFiles")}>{room.mode === "off" ? "—" : countText(room.files, room.complete)}</td>
                     <td className="col-num">{room.mode === "off" ? "—" : formatBytes(room.bytes)}</td>
                   </tr>
                 ))}
@@ -286,7 +286,7 @@ export function StorageContentsSection() {
                       <code className="app-storage-path">{contents.staging.path}</code>
                       <div className="datagrid-muted app-storage-from">{t("controlAdmin:storageContents.stagingHint")}</div>
                     </td>
-                    <td className="col-num">{countText(contents.staging.files, contents.staging.complete)}</td>
+                    <td className="col-num" data-label={t("controlAdmin:storageContents.thFiles")}>{countText(contents.staging.files, contents.staging.complete)}</td>
                     <td className="col-num">{formatBytes(contents.staging.bytes)}</td>
                   </tr>
                 )}
@@ -356,7 +356,7 @@ export function StorageContentsSection() {
                       {filesPage && filesPage.key === openFolder && (
                         <>
                           <div className="datagrid-wrap">
-                            <table className="datagrid">
+                            <table className="datagrid datagrid-phone-stack">
                               <thead>
                                 <tr>
                                   <th>{t("controlAdmin:storageContents.thFile")}</th>

@@ -122,7 +122,7 @@ export function StorageSection() {
           <p className="management-empty">{t("controlAdmin:storage.noContainers")}</p>
         ) : (
           <div className="datagrid-wrap">
-            <table className="datagrid">
+            <table className="datagrid datagrid-phone-stack">
               <thead>
                 <tr>
                   <th>{t("controlAdmin:storage.thName")}</th>
@@ -136,7 +136,7 @@ export function StorageSection() {
                   <tr key={root.id}>
                     <td><strong>{root.name}</strong></td>
                     <td className="datagrid-muted storage-path-cell">{root.path}</td>
-                    <td className="col-num">
+                    <td className="col-num" data-label={t("controlAdmin:storage.thLibraries")}>
                       {root.libraryCount > 0 ? (
                         <span className="count-badge">{root.libraryCount}</span>
                       ) : (

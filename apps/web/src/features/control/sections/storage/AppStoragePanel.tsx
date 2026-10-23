@@ -306,7 +306,7 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
       )}
 
       <div className="datagrid-wrap system-data-rows">
-        <table className="datagrid">
+        <table className="datagrid datagrid-phone-stack">
           <thead>
             <tr>
               <th>{t("controlAdmin:appStorage.thPart")}</th>
