@@ -292,6 +292,7 @@
   },
   "games": {
     "dots": "Dots",
+    "seabattle": "Sea Battle",
     "invited": "{{name}} invited you to play",
     "yourMove": "Your move against {{name}}",
     "accept": "Accept",

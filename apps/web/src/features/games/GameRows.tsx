@@ -9,10 +9,12 @@ import { gameMatchHref, gamesHref, type GameInvitation, type GameTurn } from "./
 // are drawn like the other inbox rows; what they link to is the games app, so
 // every link is a plain full navigation (docs/games-platform-plan.md).
 
-/** The game's name for a card. Only Dots so far; an unknown id is shown as is,
- *  so a game added to the games app before this list reads is still named. */
-function gameName(game: string, t: (key: "user:games.dots") => string): string {
-  return game === "dots" ? t("user:games.dots") : game;
+/** The game's name for a card. An unknown id is shown as is, so a game added
+ *  to the games app before this list reads is still named. */
+function gameName(game: string, t: (key: "user:games.dots" | "user:games.seabattle") => string): string {
+  if (game === "dots") return t("user:games.dots");
+  if (game === "seabattle") return t("user:games.seabattle");
+  return game;
 }
 
 export function InvitationRow({
