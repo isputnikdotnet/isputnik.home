@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.37.4",
+    "label": "Chess, by name",
+    "changes": [
+      "**Chess invitations and \"your move\" cards say Chess.** The games app now has chess (in games 0.9.0), and the cards on For you name it instead of showing the game's internal id."
+    ]
+  },
+  {
     "version": "4.37.3",
     "label": "The control panel on a phone",
     "changes": [

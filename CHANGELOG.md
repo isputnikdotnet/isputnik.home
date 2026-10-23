@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.37.4 — Chess, by name
+
+- **Chess invitations and "your move" cards say Chess.** The games app now has chess (in games 0.9.0), and the cards on For you name it instead of showing the game's internal id.
+
 ## 4.37.3 — The control panel on a phone
 
 - **Control panel tables use the whole width of a phone.** The panel kept two margins on each side at phone width, so a table had about four fifths of the screen and most of them scrolled sideways. It keeps one now, and tables run edge to edge.
