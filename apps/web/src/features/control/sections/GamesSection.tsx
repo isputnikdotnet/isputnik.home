@@ -16,6 +16,8 @@ interface GamesStatus {
   reason: string | null;
   url: string | null;
   secretSet: boolean;
+  /** Whether the games server takes this app's signature; null = not asked or unknown. */
+  secretAccepted: boolean | null;
   server: { ok: boolean; version: string | null; error: string | null } | null;
 }
 
@@ -139,7 +141,7 @@ export function GamesSection() {
   }, [load]);
 
   const dash = "—";
-  const state = !status ? null : !status.configured ? "off" : status.server?.ok ? "on" : "unreachable";
+  const state = !status ? null : !status.configured ? "off" : !status.server?.ok ? "unreachable" : status.secretAccepted === false ? "refused" : "on";
 
   return (
     <>
@@ -168,6 +170,11 @@ export function GamesSection() {
                 {t("controlAdmin:games.unreachableBody", { url: status.url ?? dash, error: status.server?.error ?? dash })}
               </MessageBox>
             )}
+            {state === "refused" && (
+              <MessageBox tone="error" title={t("controlAdmin:games.refusedTitle")}>
+                {t("controlAdmin:games.refusedBody")}
+              </MessageBox>
+            )}
             {state === "off" && (
               <MessageBox tone="info" title={t("controlAdmin:games.offTitle")}>
                 {status.reason ?? t("controlAdmin:games.offBody")}
@@ -185,7 +192,15 @@ export function GamesSection() {
               </div>
               <div>
                 <dt>{t("controlAdmin:games.secret")}</dt>
-                <dd>{status.secretSet ? t("controlAdmin:games.secretSet") : t("controlAdmin:games.secretUnset")}</dd>
+                <dd>
+                  {!status.secretSet
+                    ? t("controlAdmin:games.secretUnset")
+                    : status.secretAccepted === true
+                      ? t("controlAdmin:games.secretAccepted")
+                      : status.secretAccepted === false
+                        ? t("controlAdmin:games.secretRefused")
+                        : t("controlAdmin:games.secretSet")}
+                </dd>
               </div>
               <div>
                 <dt>{t("controlAdmin:games.server")}</dt>

@@ -106,7 +106,9 @@ the design and the contract between the two are in
 
 Control panel → Settings → Games shows how the two stand (gateway on or off,
 the URL, whether a secret is set, whether the games server answers and its
-version) — read-only, since the values live here. What waits for a member in
+version, and whether it accepts this server's secret — a signed test call, so two
+containers holding different secrets show as an error here instead of members
+seeing "Not signed in") — read-only, since the values live here. What waits for a member in
 the games (invitations, matches where it is their move) shows as a count on the
 Games entry and as cards on For you, read from the games server through the
 gateway each time the app is opened or regains focus.
@@ -119,6 +121,14 @@ gateway check, invitations, finished matches, moves it threw out, errors; kept
 behalf; nothing is stored in this app. The gateway forwards the browser's
 address and this server's request id with every request, so the games log
 names the person's machine and its lines can be matched to this server's.
+
+This server's own log (Control panel → Logs, events `games.*`) records who
+opened the games (once per person per half hour), matches started, accepted,
+declined, withdrawn and resigned, and two kinds of trouble, each at most once
+every ten minutes while it lasts: `games.refused` — the games server turned
+down a request this server had signed, i.e. the secrets differ — and
+`games.unreachable` — it did not answer or failed. Moves are left to the games
+container's own events.
 
 ## Logging
 

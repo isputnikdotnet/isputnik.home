@@ -91,7 +91,7 @@ describe("the games' cards on For you", () => {
 // Logging): status from this server, events and the log tail from the games
 // server through the gateway.
 const gamesOn = {
-  configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true,
+  configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true, secretAccepted: true,
   server: { ok: true, version: "0.3.0", error: null }
 };
 const eventsPage = {
@@ -144,6 +144,15 @@ describe("Settings → Games", () => {
     // The level filter asks again with the level.
     await userEvent.selectOptions(screen.getByLabelText("Level"), "warn");
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/games/api/admin/events?page=1&pageSize=25&level=warn"));
+  });
+
+  it("says plainly when the games server refuses this app's secret", async () => {
+    mockApi.mockImplementation(((path: string) =>
+      path === "/api/games/admin/status" ? Promise.resolve({ ...gamesOn, secretAccepted: false }) : answerByPath(path)) as never);
+    render(<GamesSection />);
+    expect(await screen.findByText("The games server refuses this app's secret")).toBeInTheDocument();
+    expect(screen.getByText("Set, but the games server refuses it")).toBeInTheDocument();
+    expect(screen.queryByText("Games are on")).not.toBeInTheDocument();
   });
 
   it("asks nothing of the games server while the link is off", async () => {

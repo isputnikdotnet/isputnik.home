@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.37.2 — The games in this app's log
+
+- **Settings → Games now says when the two containers' secrets differ.** The page used to ask the games server only whether it was up, which it answers with any secret, so it showed the games as on while every member saw "Not signed in". It now makes one signed call as well and, when the games server refuses it, says so in red with what to fix: the same value in `GAMES_GATEWAY_SECRET` here and `GATEWAY_SECRET` on the games container, then a restart of both.
+- **The games show up in Control panel → Logs.** Opening the games (once per person per half hour, with the game), starting, accepting, declining, withdrawing and resigning a match are now recorded here under `games.*`. So are two kinds of trouble, at most once every ten minutes while they last: `games.refused` when the games server turns down a request this app signed, and `games.unreachable` when it does not answer. Both also go to the container log as warnings. Moves stay in the games container's own events.
+
 ## 4.37.1 — The Unraid icon stays put
 
 - **The Docker image now carries its own Unraid icon.** Unraid draws a container's icon from its saved copy of the template, and when that copy lost the Icon URL the tile went blank after an update. The image now names the icon itself (the `net.unraid.docker.icon` label), so Unraid falls back to it. isputnik.games 0.8.1 does the same for the games container.

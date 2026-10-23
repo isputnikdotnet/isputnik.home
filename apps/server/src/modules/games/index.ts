@@ -45,6 +45,23 @@ async function probeGamesServer(upstream: string): Promise<{ ok: boolean; versio
   }
 }
 
+/** Whether the games server takes this app's signature: one signed call as the
+ *  admin asking. Health alone answers the same with any secret, so a mismatch
+ *  looked "on" here while every member got "Not signed in". null = not known
+ *  (the call itself failed — the health probe says why). */
+async function probeSecret(upstream: string, secret: string, request: FastifyRequest): Promise<boolean | null> {
+  try {
+    const response = await fetch(`${upstream}${GAMES_PREFIX}/api/me`, {
+      headers: identityHeaders(request.user!, secret, { ip: request.ip, requestId: String(request.id) }),
+      signal: AbortSignal.timeout(4000)
+    });
+    if (response.status === 401) return false;
+    return response.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
 export function gamesConfigured(upstream = config.gamesUrl, secret = config.gamesGatewaySecret): { enabled: boolean; reason?: string } {
   if (!upstream) return { enabled: false };
   if (!secret) return { enabled: false, reason: "GAMES_URL is set but GAMES_GATEWAY_SECRET is not; the games stay off until both are set." };
@@ -107,13 +124,18 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
   // purpose — the two settings are environment variables (the owner's decision:
   // the panel shows them, the container's configuration sets them). The secret
   // itself never leaves the server; only whether one is set.
-  app.get("/api/games/admin/status", { preHandler: app.requireAdmin }, async () => ({
-    configured: status.enabled,
-    reason: status.reason ?? null,
-    url: upstream || null,
-    secretSet: Boolean(secret),
-    server: status.enabled ? await probeGamesServer(upstream) : null
-  }));
+  app.get("/api/games/admin/status", { preHandler: app.requireAdmin }, async (request) => {
+    const server = status.enabled ? await probeGamesServer(upstream) : null;
+    return {
+      configured: status.enabled,
+      reason: status.reason ?? null,
+      url: upstream || null,
+      secretSet: Boolean(secret),
+      // Asked only of a server that answers: true / false (the two secrets differ) / null.
+      secretAccepted: server?.ok ? await probeSecret(upstream, secret, request) : null,
+      server
+    };
+  });
 
   // ── Guest links (docs/games-platform-plan.md → Guests) ───────────────────
 

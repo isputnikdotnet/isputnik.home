@@ -62,7 +62,7 @@ describe("the games module", () => {
     const res = await booted.app.inject({ method: "GET", url: "/api/games/admin/status", headers: { cookie: await booted.signIn("admin") } });
     expect(res.statusCode).toBe(200);
     // GAMES_URL is unset under test, so the server is not probed and nothing names it.
-    expect(res.json()).toEqual({ configured: false, reason: null, url: null, secretSet: false, server: null });
+    expect(res.json()).toEqual({ configured: false, reason: null, url: null, secretSet: false, secretAccepted: null, server: null });
     expect((await booted.app.inject({ method: "GET", url: "/api/games/admin/status", headers: { cookie: await booted.signIn("mum") } })).statusCode).toBe(403);
   });
 });

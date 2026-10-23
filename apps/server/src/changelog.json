@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.37.2",
+    "label": "The games in this app's log",
+    "changes": [
+      "**Settings → Games now says when the two containers' secrets differ.** The page used to ask the games server only whether it was up, which it answers with any secret, so it showed the games as on while every member saw \"Not signed in\". It now makes one signed call as well and, when the games server refuses it, says so in red with what to fix: the same value in `GAMES_GATEWAY_SECRET` here and `GATEWAY_SECRET` on the games container, then a restart of both.",
+      "**The games show up in Control panel → Logs.** Opening the games (once per person per half hour, with the game), starting, accepting, declining, withdrawing and resigning a match are now recorded here under `games.*`. So are two kinds of trouble, at most once every ten minutes while they last: `games.refused` when the games server turns down a request this app signed, and `games.unreachable` when it does not answer. Both also go to the container log as warnings. Moves stay in the games container's own events."
+    ]
+  },
+  {
     "version": "4.37.1",
     "label": "The Unraid icon stays put",
     "changes": [

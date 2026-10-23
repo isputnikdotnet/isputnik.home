@@ -19,6 +19,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import httpProxy from "@fastify/http-proxy";
 import type { User } from "../../db.js";
 import { hasSessionCookie } from "../../auth.js";
+import { noteGatewayResponse } from "./gateway-log.js";
 import { GUEST_COOKIE, invalidLinkPage, pageLanguage, resolveGuestToken, touchGuest, guestIdentityHeaders, type GuestIdentity } from "./guest-invites.js";
 
 declare module "fastify" {
@@ -103,6 +104,11 @@ export async function registerGamesGateway(app: FastifyInstance, options: Gatewa
       if (reply.statusCode !== 401 || !isPageNavigation(request)) return payload;
       reply.code(302).header("location", signInHref(request.url)).removeHeader("content-type");
       return "";
+    });
+    // This app's own log of the games: who opened them, match decisions, and a
+    // games container that refused our signature or did not answer (gateway-log.ts).
+    scope.addHook("onResponse", async (request, reply) => {
+      noteGatewayResponse(request, reply.statusCode);
     });
 
     await scope.register(httpProxy, {
