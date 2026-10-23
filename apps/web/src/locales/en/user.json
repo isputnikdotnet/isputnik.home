@@ -294,6 +294,7 @@
     "dots": "Dots",
     "seabattle": "Sea Battle",
     "starbattle": "Star Battle",
+    "chess": "Chess",
     "invited": "{{name}} invited you to play",
     "yourMove": "Your move against {{name}}",
     "accept": "Accept",
