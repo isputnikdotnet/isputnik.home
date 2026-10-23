@@ -38,6 +38,8 @@ and `apps/web` (React + Vite PWA).
 
 - `isputnik-home.xml` is the **Unraid Community Applications template** (the app's
   install manifest), not source. Keep it.
+- `ca_profile.xml` is the template's **Community Applications repository profile**
+  (required by the CA submission form). Keep it.
 - The repo-root `Assets/` folder backs that template's `<Icon>` (a raw GitHub URL
   to `Assets/brand/` on `main`). Keep it even though the web app uses its own copy
   under `apps/web/public/Assets/`.

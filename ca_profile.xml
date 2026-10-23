@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!--
+  Unraid Community Applications repository profile — read by CA from the repo
+  root alongside isputnik-home.xml. A DEPLOYMENT artifact, not source. DO NOT DELETE.
+-->
+<CommunityApplications>
+  <Profile>
+isputnik.home is a private, self-hosted family media library: audiobooks with a built-in player, ebooks with an in-browser reader, a photo and video gallery with on-device face recognition, family stories and recipes, and a family tree linked to the people in the photos. One container, English or Russian interface. Report problems and ask questions on GitHub issues.
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/isputnikdotnet/isputnik.home/main/Assets/brand/isputnik-app-icon.png</Icon>
+  <WebPage>https://github.com/isputnikdotnet/isputnik.home</WebPage>
+</CommunityApplications>
