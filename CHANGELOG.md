@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.36.1 — Star Battle, by name
+
+- **The games' second game is named on the For you cards.** The games app's Sea Battle became **Star Battle** (Звёздный бой) in isputnik.games 0.5.0 — the same hidden-fleet game, set in orbit — and the invitation and *Your move against …* cards here now call it that in both languages, instead of showing the game's internal id. A games server still on 0.4.0 keeps its old name on the cards.
+
 ## 4.36.0 — The games container's log and events, from the Control panel
 
 - **Control panel → Settings → Games now shows what the games container recorded.** Under the status it already had: a **Recent events** table — callers refused at the games' gateway check, invitations sent, accepted, declined and withdrawn, finished and resigned matches, moves the rules threw out, errors — with a level filter and a line saying how many callers were refused in the last 24 hours; and a **Server log** panel with the newest lines of the games container's own log, as *docker logs* would show them, with Refresh and Copy. Both are read from the games server through the gateway on the admin's behalf; nothing is stored in this app. Needs isputnik.games 0.3.0.
