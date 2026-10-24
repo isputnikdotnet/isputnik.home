@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.37.7 — The installed app turns with the phone
+
+- **The installed app turns sideways with the phone.** Installed on a phone's home screen, iSputnik stayed upright whatever way the phone was held — a setting from when it was an audiobook player. Photos, videos and the games (Sputnik Catch plays on the wide screen) now turn with it. An app installed before this may need a day to notice, or a reinstall from the home screen.
+
 ## 4.37.6 — Faces when you ask for them
 
 - **Face boxes in the photo viewer show only when you turn them on.** Opening a photo, or its Info panel, used to draw a box around every face once "Show faces" had been on before, and hovering a person in the panel lit their face up too. Now the photo opens as a photo; the Faces button (or Show faces under People) draws the boxes, with or without the panel, and a hovered person is picked out only while they are showing.

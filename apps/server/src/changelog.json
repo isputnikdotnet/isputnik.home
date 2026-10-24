@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.37.7",
+    "label": "The installed app turns with the phone",
+    "changes": [
+      "**The installed app turns sideways with the phone.** Installed on a phone's home screen, iSputnik stayed upright whatever way the phone was held — a setting from when it was an audiobook player. Photos, videos and the games (Sputnik Catch plays on the wide screen) now turn with it. An app installed before this may need a day to notice, or a reinstall from the home screen."
+    ]
+  },
+  {
     "version": "4.37.6",
     "label": "Faces when you ask for them",
     "changes": [
