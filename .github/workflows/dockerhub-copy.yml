@@ -25,6 +25,9 @@ jobs:
       packages: read
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Check the version
         env:
           VERSION: ${{ inputs.version }}
@@ -60,3 +63,14 @@ jobs:
           fi
           docker buildx imagetools create "${tags[@]}" "$SRC:$VERSION"
           docker buildx imagetools inspect "$DST:$VERSION"
+
+      # The Docker Hub repository page shows README.md, its relative links and
+      # screenshots rewritten to absolute GitHub URLs so they resolve there.
+      - name: Update the Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: isputnikdotnet/isputnik-home
+          readme-filepath: ./README.md
+          enable-url-completion: true

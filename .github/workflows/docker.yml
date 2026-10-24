@@ -135,6 +135,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # The Docker Hub repository page shows README.md, its relative links and
+      # screenshots rewritten to absolute GitHub URLs so they resolve there.
+      - name: Update the Docker Hub description
+        if: steps.release.outputs.publish == 'true'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: isputnikdotnet/isputnik-home
+          readme-filepath: ./README.md
+          enable-url-completion: true
+
   # A GitHub Release for every published tag, its notes the version's entry from the
   # in-app changelog (apps/server/src/changelog.json via scripts/changelog-md.mjs), so
   # someone deciding whether to update can read what changed without installing it.
