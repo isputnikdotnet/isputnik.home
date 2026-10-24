@@ -48,12 +48,6 @@ function seededTransition(seed: number, id: string): SlideshowTransition {
 // reload) so the speed choice sticks across slideshows without persisting to disk.
 let sessionSlideshowInterval = 5;
 
-// "Show faces" is a way of looking at photos, so it is remembered per browser.
-const SHOW_FACES_KEY = "isputnik.gallery.showFaces";
-function readShowFaces(): boolean {
-  try { return localStorage.getItem(SHOW_FACES_KEY) === "1"; } catch { return false; }
-}
-
 // What just happened to the photo on screen. The viewer does not know what its
 // host has loaded, so it says what changed and lets the host decide how much to
 // redo: a like moves nothing and can be patched where the photo already sits, a
@@ -246,21 +240,14 @@ export function GalleryLightbox({
   // Moving to another asset closes the overflow menu.
   useEffect(() => { setMoreMenuOpen(false); }, [asset?.id]);
 
-  // Faces over the photo (GalleryFaceOverlay): all of them while "Show faces" is
-  // on, or one person's while their chip in the panel is hovered. The boxes ride
-  // the asset detail, fetched whenever either could show them; a rotation turns
-  // the boxes on the server, so it refetches too.
-  const [showFaces, setShowFaces] = useState(readShowFaces);
-  const toggleFaces = useCallback(() => {
-    setShowFaces((on) => {
-      try { localStorage.setItem(SHOW_FACES_KEY, on ? "0" : "1"); } catch { /* not remembered */ }
-      return !on;
-    });
-  }, []);
-  // On desktop the boxes belong to the Info panel: with it closed the photo is
-  // just the photo, whatever "Show faces" remembers. On a phone the panel covers
-  // the photo, so there the toggle stands on its own.
-  const facesShown = showFaces && (isMobile || showInfo);
+  // Faces over the photo (GalleryFaceOverlay), only while "Show faces" is on —
+  // its own choice, not a side effect of opening the photo or its Info panel.
+  // Every visit to the viewer starts on the plain photo. The boxes ride the asset
+  // detail, fetched whenever the panel or the toggle could use them; a rotation
+  // turns the boxes on the server, so it refetches too.
+  const [showFaces, setShowFaces] = useState(false);
+  const toggleFaces = useCallback(() => { setShowFaces((on) => !on); }, []);
+  const facesShown = showFaces;
   const [highlightPersonId, setHighlightPersonId] = useState<string | null>(null);
   const [faceState, setFaceState] = useState<{ id: string; faces: GalleryFace[]; people: GalleryPersonTag[] } | null>(null);
   const [facesVersion, setFacesVersion] = useState(0);
@@ -590,11 +577,7 @@ export function GalleryLightbox({
           key: "faces",
           icon: ScanFace as LucideIcon,
           label: facesShown ? t("gallery:faces.hide") : t("gallery:faces.show"),
-          onClick: () => {
-            if (facesShown) { toggleFaces(); return; }
-            if (!showFaces) toggleFaces();
-            if (!isMobile) setShowInfo(true);
-          },
+          onClick: toggleFaces,
           active: facesShown
         }]
       : []),
@@ -986,7 +969,9 @@ export function GalleryLightbox({
                 faces={faces}
                 people={facePeople}
                 showAll={facesShown}
-                highlightPersonId={highlightPersonId}
+                // A hovered chip picks its person out of the boxes already shown;
+                // it never puts a box on a photo that is showing none.
+                highlightPersonId={facesShown ? highlightPersonId : null}
                 canEdit={canEdit}
                 onChanged={(updated) => {
                   setFaceState({ id: updated.id, faces: updated.faces ?? [], people: updated.people ?? [] });

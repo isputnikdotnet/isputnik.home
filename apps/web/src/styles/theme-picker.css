@@ -207,6 +207,19 @@
   overflow-wrap: break-word;
 }
 
+/* Guest links: six short columns, not five with a long detail, so the events
+   shares don't fit — they left Opened and Revoke a sliver each, the date ran
+   under the IP and the button off the edge. Here the table sizes to its content
+   and fits the card; only the action stays on one line. */
+.games-guests-table {
+  min-width: 0;
+  table-layout: auto;
+}
+.games-guests-table th:nth-child(n) { width: auto; }
+.games-guests-table .datagrid-muted { white-space: normal; }
+.games-guests-table .games-ip { white-space: nowrap; }
+.games-guests-table td.col-actions { width: 1%; vertical-align: middle; }
+
 .games-events-table tr.is-warn .games-level { color: var(--gold); }
 .games-events-table tr.is-error .games-level { color: var(--rose); }
 

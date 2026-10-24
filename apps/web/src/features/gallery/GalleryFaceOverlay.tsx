@@ -8,8 +8,8 @@ import type { GalleryAsset, GalleryFace, GalleryPerson, GalleryPersonTag } from 
 
 // The faces recognition found, drawn over the photo in the lightbox.
 //
-// Boxes show in two ways: all of them while "Show faces" is on, or just one
-// person's while their chip in the panel is hovered. Someone who can edit the
+// Boxes show only while "Show faces" is on; hovering a person's chip in the
+// panel then picks theirs out (`highlightPersonId`). Someone who can edit the
 // photo clicks a box to say who that ONE face is, or that it isn't who it was
 // grouped as. A group photo keeps everyone else where they were.
 //

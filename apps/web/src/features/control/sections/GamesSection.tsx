@@ -301,7 +301,7 @@ function GuestLinks() {
             <p className="muted">{t("controlAdmin:games.guestEmpty")}</p>
           ) : (
             <div className="datagrid-wrap games-events-wrap">
-              <table className="datagrid games-events-table">
+              <table className="datagrid games-events-table games-guests-table">
                 <thead>
                   <tr>
                     <th>{t("controlAdmin:games.guestColGuest")}</th>
@@ -309,7 +309,7 @@ function GuestLinks() {
                     <th>{t("controlAdmin:games.guestColInvitedBy")}</th>
                     <th>{t("controlAdmin:games.guestColState")}</th>
                     <th>{t("controlAdmin:games.guestColOpened")}</th>
-                    <th aria-label={t("controlAdmin:games.guestColActions")} />
+                    <th className="col-actions" aria-label={t("controlAdmin:games.guestColActions")} />
                   </tr>
                 </thead>
                 <tbody>
@@ -328,7 +328,7 @@ function GuestLinks() {
                           : t("controlAdmin:games.guestOpened", { count: invite.openedCount, date: invite.lastSeenAt ? formatManagedDate(invite.lastSeenAt) : "" })}
                         {invite.lastIp && <span className="games-ip">{invite.lastIp}</span>}
                       </td>
-                      <td>
+                      <td className="col-actions">
                         {invite.state === "live" && (
                           <Button variant="danger" compact onClick={() => { setModalError(""); setPending(invite); }}>
                             <Link2Off size={14} aria-hidden="true" /> {t("controlAdmin:games.guestRevoke")}

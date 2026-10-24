@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.37.6 — Faces when you ask for them
+
+- **Face boxes in the photo viewer show only when you turn them on.** Opening a photo, or its Info panel, used to draw a box around every face once "Show faces" had been on before, and hovering a person in the panel lit their face up too. Now the photo opens as a photo; the Faces button (or Show faces under People) draws the boxes, with or without the panel, and a hovered person is picked out only while they are showing.
+- **The games guest links table fits its card.** It borrowed the column widths of the events table under it, so the Opened date ran under the visitor's address and the Revoke button sat half off the edge behind a scrollbar.
+
 ## 4.37.5 — Dominoes, by name
 
 - **Dominoes invitations and "your move" cards say Dominoes.** The games app now has dominoes, played as «Козёл» for two (in games 0.14.0), and the cards on For you name it instead of showing the game's internal id.

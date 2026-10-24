@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.37.6",
+    "label": "Faces when you ask for them",
+    "changes": [
+      "**Face boxes in the photo viewer show only when you turn them on.** Opening a photo, or its Info panel, used to draw a box around every face once \"Show faces\" had been on before, and hovering a person in the panel lit their face up too. Now the photo opens as a photo; the Faces button (or Show faces under People) draws the boxes, with or without the panel, and a hovered person is picked out only while they are showing.",
+      "**The games guest links table fits its card.** It borrowed the column widths of the events table under it, so the Opened date ran under the visitor's address and the Revoke button sat half off the edge behind a scrollbar."
+    ]
+  },
+  {
     "version": "4.37.5",
     "label": "Dominoes, by name",
     "changes": [
