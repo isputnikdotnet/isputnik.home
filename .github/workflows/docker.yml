@@ -136,9 +136,12 @@ jobs:
           cache-to: type=gha,mode=max
 
       # The Docker Hub repository page shows README.md, its relative links and
-      # screenshots rewritten to absolute GitHub URLs so they resolve there.
+      # screenshots rewritten to absolute GitHub URLs so they resolve there. The
+      # image is already out by now, so a refusal here (the token needs Read, Write,
+      # Delete scope for this) must not cost the release its GitHub Release notes.
       - name: Update the Docker Hub description
         if: steps.release.outputs.publish == 'true'
+        continue-on-error: true
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
