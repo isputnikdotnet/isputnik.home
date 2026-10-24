@@ -1,0 +1,62 @@
+name: Copy a release to Docker Hub
+
+# Releases publish to Docker Hub themselves (docker.yml). This copies a version that
+# is already on ghcr.io to docker.io/isputnikdotnet/isputnik-home without building
+# anything: the manifest is copied as-is, so the digest is the same image Unraid
+# installs pull from ghcr. Use it to fill Docker Hub with a release that predates
+# the Docker Hub step, or to re-publish one if a push there ever failed.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version already on ghcr.io (e.g. 4.37.4)"
+        required: true
+        default: "4.37.4"
+      latest:
+        description: "Also move latest and the major.minor tag"
+        type: boolean
+        default: true
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Check the version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Not a version: $VERSION"; exit 1; }
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Copy the image
+        env:
+          VERSION: ${{ inputs.version }}
+          LATEST: ${{ inputs.latest }}
+          SRC: ghcr.io/${{ github.repository }}
+          DST: docker.io/isputnikdotnet/isputnik-home
+        run: |
+          tags=(-t "$DST:$VERSION")
+          if [ "$LATEST" = "true" ]; then
+            tags+=(-t "$DST:${VERSION%.*}" -t "$DST:latest")
+          fi
+          docker buildx imagetools create "${tags[@]}" "$SRC:$VERSION"
+          docker buildx imagetools inspect "$DST:$VERSION"
