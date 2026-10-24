@@ -1,7 +1,7 @@
 name: Copy a release to Docker Hub
 
 # Releases publish to Docker Hub themselves (docker.yml). This copies a version that
-# is already on ghcr.io to docker.io/isputnikdotnet/isputnik-home without building
+# is already on ghcr.io to docker.io/isputnikdotnet/isputnik.home without building
 # anything: the manifest is copied as-is, so the digest is the same image Unraid
 # installs pull from ghcr. Use it to fill Docker Hub with a release that predates
 # the Docker Hub step, or to re-publish one if a push there ever failed.
@@ -55,7 +55,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           LATEST: ${{ inputs.latest }}
           SRC: ghcr.io/${{ github.repository }}
-          DST: docker.io/isputnikdotnet/isputnik-home
+          DST: docker.io/isputnikdotnet/isputnik.home
         run: |
           tags=(-t "$DST:$VERSION")
           if [ "$LATEST" = "true" ]; then
@@ -71,6 +71,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: isputnikdotnet/isputnik-home
+          repository: isputnikdotnet/isputnik.home
           readme-filepath: ./README.md
           enable-url-completion: true

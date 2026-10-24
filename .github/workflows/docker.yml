@@ -107,7 +107,7 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}
-            docker.io/isputnikdotnet/isputnik-home
+            docker.io/isputnikdotnet/isputnik.home
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -146,7 +146,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: isputnikdotnet/isputnik-home
+          repository: isputnikdotnet/isputnik.home
           readme-filepath: ./README.md
           enable-url-completion: true
 
