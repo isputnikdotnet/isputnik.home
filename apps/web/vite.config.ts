@@ -224,7 +224,9 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-        orientation: "portrait",
+        // Follow the phone: a photo, a video or a game under /games is wider
+        // than tall, and the installed app used to stay locked upright.
+        orientation: "any",
         background_color: "#031116",
         theme_color: "#031116",
         icons: [
