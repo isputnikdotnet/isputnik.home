@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.37.5",
+    "label": "Dominoes, by name",
+    "changes": [
+      "**Dominoes invitations and \"your move\" cards say Dominoes.** The games app now has dominoes, played as «Козёл» for two (in games 0.14.0), and the cards on For you name it instead of showing the game's internal id."
+    ]
+  },
+  {
     "version": "4.37.4",
     "label": "Chess, by name",
     "changes": [

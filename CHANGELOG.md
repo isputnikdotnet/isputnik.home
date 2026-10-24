@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.37.5 — Dominoes, by name
+
+- **Dominoes invitations and "your move" cards say Dominoes.** The games app now has dominoes, played as «Козёл» for two (in games 0.14.0), and the cards on For you name it instead of showing the game's internal id.
+
 ## 4.37.4 — Chess, by name
 
 - **Chess invitations and "your move" cards say Chess.** The games app now has chess (in games 0.9.0), and the cards on For you name it instead of showing the game's internal id.
