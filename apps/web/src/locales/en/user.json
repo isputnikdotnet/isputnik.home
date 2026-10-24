@@ -295,6 +295,7 @@
     "seabattle": "Sea Battle",
     "starbattle": "Star Battle",
     "chess": "Chess",
+    "dominoes": "Dominoes",
     "invited": "{{name}} invited you to play",
     "yourMove": "Your move against {{name}}",
     "accept": "Accept",

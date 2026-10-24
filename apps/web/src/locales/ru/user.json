@@ -323,6 +323,7 @@
     "seabattle": "Морской бой",
     "starbattle": "Звёздный бой",
     "chess": "Шахматы",
+    "dominoes": "Домино",
     "invited": "{{name}} приглашает вас сыграть",
     "yourMove": "Ваш ход в игре с {{name}}",
     "accept": "Принять",
