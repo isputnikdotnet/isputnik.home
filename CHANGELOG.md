@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.38.0 — Apps beside home, and video libraries
+
+- **A new Apps group in the Control panel looks after the containers that run beside iSputnik** — the games today, video now. **Installed** shows each one, whether it answers and its version; **Setup** pairs a container with iSputnik; **Access** chooses who may use it and from where; **Events** and **Logs** show what it has been doing. Games used to be one page under Settings, and every new container would have needed its own.
+- **Pairing replaces copying a secret into two places by hand.** On Apps → Setup, **Generate secret** makes the shared secret, shown once to paste into the container, and **Test connection** says whether the two can talk. iSputnik keeps it encrypted, so a copy of its database doesn't carry it. A secret already set in the container's environment still works and always wins.
+- **Who may use each app, and from where.** Everyone signed in may use an app until you change it; then people and groups are Members, Managers (who also see its admin pages) or Denied, and each thing an app does (play, watch, manage) can be allowed anywhere, from trusted networks only, or from the home network only.
+- **Video libraries (alpha), kept by the new isputnik.video container.** Add library → Video picks a folder on that container, as Shows or Movies; it then appears on the Libraries page and under a Video menu entry, with Shows and Movies pages and a page for each show's seasons and episodes. Files are read in the layout Jellyfin and Kodi use, .nfo files first. Playback, posters and online metadata come next.
+- **Backups carry the apps' own databases.** Full and minimal backups now include a copy of each running container's database (the games' matches, the video catalog) — never the video files themselves.
+- **Adding the games and video apps** is a new guide in Help, and the Unraid template has **Video URL** and **Video Gateway Secret** fields.
+
 ## 4.37.7 — The installed app turns with the phone
 
 - **The installed app turns sideways with the phone.** Installed on a phone's home screen, iSputnik stayed upright whatever way the phone was held — a setting from when it was an audiobook player. Photos, videos and the games (Sputnik Catch plays on the wide screen) now turn with it. An app installed before this may need a day to notice, or a reinstall from the home screen.
