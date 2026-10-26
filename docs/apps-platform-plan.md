@@ -45,9 +45,17 @@ V1 engine started (2026-10-25, https://github.com/isputnikdotnet/isputnik.video,
 as its only permission model; library put / delete / sync (detach, never drop);
 shows and movies scanner (.nfo first, release names, stable ids, copies in
 progress left for later); catalog routes; folder picker under `MEDIA_ROOT`;
-events, log and backup routes. Next: home's side of V1 (the remote `video`
-library type, the registry entry, `X-Isputnik-Libraries` from the gateway, Add
-library → Video, browse pages), then posters and TMDB.
+events, log and backup routes.
+
+V1 home side built (2026-10-26, not yet released): server — `modules/library/video`,
+video libraries as `libraries` rows of type `video` (`video:/<folder>`), created,
+changed, deleted and rescanned through the engine, `X-Isputnik-Libraries` from
+the gateway, a sync on start and every 6 hours (56d35e6); web — Add library →
+Video with the engine's folder picker, video rows on Library → Libraries, the
+Video menu entry, `/shows` and `/movies` and a title's page (664c84c2). Checked
+against the real engine. Left for later: editing a video library (rename,
+visibility) from its row. Next: posters and TMDB, then V2 (the player), and
+publishing the engine's image and Unraid template.
 
 ## Two kinds of container
 
