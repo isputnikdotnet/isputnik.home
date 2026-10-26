@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.38.1 — An app's address on Setup
+
+- **Where an app's container is now goes on Apps → Setup, next to its secret.** Type the address, press **Save address**, and it works at once — no edit to this container's template and no restart. Before, every app needed its own variable on this container (`GAMES_URL`, `VIDEO_URL`), so each new container meant editing the template again; the Unraid template no longer has those fields. A variable already set still works and wins over Setup, which says so.
+- **Setup's status line says Container for every app.** It read "Games server" even with Video chosen.
+
 ## 4.38.0 — Apps beside home, and video libraries
 
 - **A new Apps group in the Control panel looks after the containers that run beside iSputnik** — the games today, video now. **Installed** shows each one, whether it answers and its version; **Setup** pairs a container with iSputnik; **Access** chooses who may use it and from where; **Events** and **Logs** show what it has been doing. Games used to be one page under Settings, and every new container would have needed its own.

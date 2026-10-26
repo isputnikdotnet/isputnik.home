@@ -34,9 +34,13 @@ export interface AppDefinition {
   prefix: string;
   /** The menu section the admin switches it on and off with (core/sections.ts). */
   section: SectionKey;
-  /** The environment variables an install sets, named in status messages. */
+  /** The environment variables an install may set instead of Apps → Setup;
+   *  either one, set, wins over what Setup saved. */
   urlVariable: string;
   secretVariable: string;
+  /** The address on a shared Docker network with the container's own template
+   *  defaults, offered on Apps → Setup. */
+  exampleUrl: string;
   /** The variable the container itself reads the secret from, for Apps → Setup. */
   containerSecretVariable: string;
   /** A signed call under the prefix that answers 401 when the container does not
@@ -57,6 +61,7 @@ export const APPS: readonly AppDefinition[] = [
     section: "games",
     urlVariable: "GAMES_URL",
     secretVariable: "GAMES_GATEWAY_SECRET",
+    exampleUrl: "http://isputnik-games:4200",
     containerSecretVariable: "GATEWAY_SECRET",
     signedProbePath: "/games/api/me",
     docsAnchor: "games",
@@ -76,6 +81,7 @@ export const APPS: readonly AppDefinition[] = [
     section: "video",
     urlVariable: "VIDEO_URL",
     secretVariable: "VIDEO_GATEWAY_SECRET",
+    exampleUrl: "http://isputnik-video:4300",
     containerSecretVariable: "GATEWAY_SECRET",
     signedProbePath: "/video/api/me",
     docsAnchor: "video",
@@ -118,14 +124,12 @@ export function appConfigured(app: AppDefinition, upstream: string, secret: stri
   if (!upstream) return { enabled: false };
   const badUrl = urlProblem(app, upstream);
   if (badUrl) return { enabled: false, reason: badUrl };
-  if (!secret) return { enabled: false, reason: `${app.urlVariable} is set but there is no secret yet; ${app.id} stays off until it is paired on Control panel → Apps → Setup or ${app.secretVariable} is set.` };
+  if (!secret) return { enabled: false, reason: `${app.id} has an address but no secret yet; it stays off until it is paired on Control panel → Apps → Setup or ${app.secretVariable} is set.` };
   return { enabled: true };
 }
 
-/** Why an address cannot be proxied to, or null when it can. The gateway is
- *  registered for any usable address, secret or not, so pairing later needs no
- *  restart; it answers 404 until there is a secret. */
+/** Why an address cannot be proxied to, or null when it can. */
 export function urlProblem(app: AppDefinition, upstream: string): string | null {
-  if (!upstream) return `${app.urlVariable} is not set`;
-  return /^https?:\/\//.test(upstream) ? null : `${app.urlVariable} must start with http:// or https:// (got "${upstream}"); ${app.id} stays off.`;
+  if (!upstream) return `${app.id} has no address`;
+  return /^https?:\/\/[^/\s]+/.test(upstream) ? null : `The address of ${app.id} must start with http:// or https:// (got "${upstream}"); it stays off.`;
 }

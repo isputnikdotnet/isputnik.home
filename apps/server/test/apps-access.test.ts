@@ -5,7 +5,6 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { appsPlugin } from "../src/modules/apps/index.js";
-import { registerGamesGateway } from "../src/modules/games/gateway.js";
 import { gamesPlugin } from "../src/modules/games/index.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
@@ -33,8 +32,7 @@ beforeEach(async () => {
   const upstreamUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 
   booted = await bootApp({
-    plugins: [appsPlugin, gamesPlugin],
-    afterRegister: (app) => registerGamesGateway(app, { upstream: upstreamUrl, secret: SECRET })
+    plugins: [appsPlugin, [gamesPlugin, { upstream: upstreamUrl, secret: SECRET }]]
   });
 });
 

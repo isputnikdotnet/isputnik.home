@@ -101,24 +101,25 @@ containers of their own and are reached only through this server, at `/games` an
 in [apps-platform-plan.md](apps-platform-plan.md) and
 [video-architecture.md](video-architecture.md).
 
-An app needs an address here and a secret both sides share. The address is always
-an environment variable. The secret is usually made on **Control panel → Apps →
-Setup** (shown once, kept sealed with the server key) and pasted into the app's
-`GATEWAY_SECRET`; set it here as a variable instead and the variable wins, and
-pairing on Setup is off.
+An app needs an address here and a secret both sides share. Both are set on
+**Control panel → Apps → Setup**: the address saved there, the secret made there
+(shown once, kept sealed with the server key) and pasted into the app's
+`GATEWAY_SECRET`. Each works at once, with no restart, so a new app needs no
+change to this container. The variables below are an alternative: any one set
+wins over Setup, which then shows it as set in the environment.
 
 | Variable | Default | Compose | Unraid | What it does |
 |---|---|---|---|---|
-| `GAMES_URL` | unset | commented | field, blank | Where the games container answers, as seen from this one — `http://isputnik-games:4200` when both containers are on the same user-defined Docker network (compose creates one; with `docker run` or on Unraid, `docker network create isputnik` once and set both containers to it — Docker's default `bridge` does not resolve container names). Unset means no games: `/games` answers 404 and the nav has no Games entry. |
-| `GAMES_GATEWAY_SECRET` | unset | commented | field, blank | Optional: the secret shared with the games container (its `GATEWAY_SECRET`), instead of pairing on Apps → Setup. A long random string (`openssl rand -hex 32`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With `GAMES_URL` set and no secret either way, the games stay off and the log says why. |
-| `VIDEO_URL` | unset | — | — | Where the video engine answers, as seen from this one — `http://isputnik-video:4300` on a shared network. Unset means no video libraries. |
-| `VIDEO_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the video engine (its `GATEWAY_SECRET`), instead of pairing on Apps → Setup. |
+| `GAMES_URL` | unset | commented | — | Optional: where the games container answers, as seen from this one, instead of the address on Setup — `http://isputnik-games:4200` when both containers are on the same user-defined Docker network (compose creates one; with `docker run` or on Unraid, `docker network create isputnik` once and set both containers to it — Docker's default `bridge` does not resolve container names). With no address either way there are no games: `/games` answers 404 and the nav has no Games entry. |
+| `GAMES_GATEWAY_SECRET` | unset | commented | — | Optional: the secret shared with the games container (its `GATEWAY_SECRET`), instead of pairing on Setup. A long random string (`openssl rand -hex 32`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With an address and no secret either way, the games stay off and the log says why. |
+| `VIDEO_URL` | unset | — | — | Optional: where the video engine answers, instead of the address on Setup — `http://isputnik-video:4300` on a shared network. With no address either way there are no video libraries. |
+| `VIDEO_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the video engine (its `GATEWAY_SECRET`), instead of pairing on Setup. |
 
 Control panel → Apps → Installed shows how the two stand (gateway on or off,
 the URL, whether a secret is set, whether the games server answers and its
 version, and whether it accepts this server's secret — a signed test call, so two
 containers holding different secrets show as an error here instead of members
-seeing "Not signed in") — read-only, since the values live here. What waits for a member in
+seeing "Not signed in"). What waits for a member in
 the games (invitations, matches where it is their move) shows as a count on the
 Games entry and as cards on For you, read from the games server through the
 gateway each time the app is opened or regains focus.

@@ -92,8 +92,8 @@ describe("the games' cards on For you", () => {
 // log tail from the games server through the gateway on Events and Logs.
 const gamesOn = {
   id: "games", kind: "app", prefix: "/games",
-  configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true, secretAccepted: true,
-  secretSource: "environment", pairing: null,
+  configured: true, reason: null, url: "http://isputnik-games:4200", urlSource: "environment", exampleUrl: "http://isputnik-games:4200",
+  secretSet: true, secretAccepted: true, secretSource: "environment", pairing: null,
   variables: { url: "GAMES_URL", secret: "GAMES_GATEWAY_SECRET", container: "GATEWAY_SECRET" },
   server: { ok: true, version: "0.3.0", error: null }
 };
@@ -204,11 +204,32 @@ describe("Apps → Access", () => {
 });
 
 describe("Apps → Setup", () => {
-  it("keeps pairing off while the environment sets the secret", async () => {
+  it("keeps pairing and the address off while the environment sets them", async () => {
     mockApi.mockImplementation((() => appsAnswer(gamesOn)) as never);
     render(<AppsSetupSection />);
-    expect(await screen.findByText("Set in this container's environment")).toBeInTheDocument();
+    expect(await screen.findAllByText("Set in this container's environment")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Generate secret" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save address" })).not.toBeInTheDocument();
+  });
+
+  it("saves the address typed in, and offers the usual one", async () => {
+    const noAddress = { ...gamesOff, urlSource: "none", secretSource: "none" };
+    mockApi.mockImplementation(((path: string, init?: RequestInit) => {
+      if (path === "/api/apps/admin/address/games" && init?.method === "PUT") return Promise.resolve({ url: "http://10.0.0.5:4200" });
+      if (path === "/api/apps/admin/status") return appsAnswer(noAddress);
+      return Promise.reject(new Error(`unexpected ${path}`));
+    }) as never);
+    render(<AppsSetupSection />);
+    const field = await screen.findByLabelText("Address");
+    expect(field).toHaveAttribute("placeholder", "http://isputnik-games:4200");
+    const save = screen.getByRole("button", { name: "Save address" });
+    expect(save).toBeDisabled();
+    await userEvent.type(field, "http://10.0.0.5:4200");
+    await userEvent.click(save);
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith(
+      "/api/apps/admin/address/games",
+      { method: "PUT", body: JSON.stringify({ url: "http://10.0.0.5:4200" }) }
+    ));
   });
 
   it("makes a secret and shows it once", async () => {

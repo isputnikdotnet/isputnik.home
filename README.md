@@ -73,9 +73,10 @@ and offers the reverse-proxy and cookie settings as fields.
 are a second container that this one reaches by name, so the two must share a
 user-defined Docker network: compose creates one per project, while `docker run`
 and Unraid need `docker network create isputnik` once and both containers set to
-it (Docker's default `bridge` does not resolve container names). Then set
-`GAMES_URL` to `http://isputnik-games:4200` and pair them on Control panel → Apps →
-Setup — see [Adding the games and video apps](docs/users/apps.md) and
+it (Docker's default `bridge` does not resolve container names). Then save its
+address (`http://isputnik-games:4200`) and pair them on Control panel → Apps →
+Setup; video ([isputnik.video](https://github.com/isputnikdotnet/isputnik.video))
+joins the same way — see [Adding the games and video apps](docs/users/apps.md) and
 [docs/configuration.md → Apps](docs/configuration.md#apps).
 
 Then open `http://<your-server>:4000`. The first visit asks you to create the

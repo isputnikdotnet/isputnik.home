@@ -12,7 +12,7 @@ import { flagAbusiveRequest } from "../../core/security-alerts.js";
 import { parseBody } from "../../core/shared.js";
 import { appRole } from "../apps/access.js";
 import { resolveAppSecret } from "../apps/pairing.js";
-import { appConfigured, appDefinition, urlProblem, type AppConfigured } from "../apps/registry.js";
+import { appConfigured, appDefinition, type AppConfigured } from "../apps/registry.js";
 import { appStatus } from "../apps/status.js";
 import { GAMES_PREFIX, identityHeaders, registerGamesGateway } from "./gateway.js";
 import {
@@ -37,7 +37,7 @@ import {
 
 const GAMES = appDefinition("games");
 
-export function gamesConfigured(upstream = config.gamesUrl, secret = resolveAppSecret("games").secret): AppConfigured {
+export function gamesConfigured(upstream = resolveAppSecret("games").upstream, secret = resolveAppSecret("games").secret): AppConfigured {
   return appConfigured(GAMES, upstream, secret);
 }
 
@@ -70,15 +70,15 @@ export interface GamesPluginOptions {
 }
 
 export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions = {}) {
-  const upstream = opts.upstream ?? config.gamesUrl;
-  // Asked each time: a secret paired on Apps → Setup (modules/apps/pairing.ts)
-  // works without a restart, and the environment's still wins.
+  // Both asked each time: an address saved and a secret paired on Apps → Setup
+  // (modules/apps/pairing.ts) work without a restart, and the environment's win.
+  const upstream = () => opts.upstream ?? resolveAppSecret("games").upstream;
   const secret = () => opts.secret ?? resolveAppSecret("games").secret;
-  const atStart = gamesConfigured(upstream, secret());
+  const atStart = gamesConfigured(upstream(), secret());
   if (atStart.reason) app.log.warn(atStart.reason);
   // Switched off by the admin = not there, for the gateway and the guest routes
-  // alike; and not there until it has a secret.
-  const available = () => gamesConfigured(upstream, secret()).enabled && getSections().games;
+  // alike; and not there until it has an address and a secret.
+  const available = () => gamesConfigured(upstream(), secret()).enabled && getSections().games;
 
   // The web app asks this once to decide whether to show the Games entry: the
   // gateway configured, the admin's Games section on (core/sections.ts), and this
@@ -102,7 +102,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
   // Installed (/api/apps/admin/status), on its own address for callers that ask
   // about the games alone. The secret itself never leaves the server.
   app.get("/api/games/admin/status", { preHandler: app.requireAdmin }, async (request) => {
-    const answer = await appStatus(GAMES, upstream, secret(), request);
+    const answer = await appStatus(GAMES, upstream(), secret(), request);
     return {
       configured: answer.configured,
       reason: answer.reason,
@@ -134,7 +134,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
 
     let created: { status: number; body: Record<string, unknown> };
     try {
-      const response = await fetch(`${upstream}${GAMES_PREFIX}/api/matches`, {
+      const response = await fetch(`${upstream()}${GAMES_PREFIX}/api/matches`, {
         method: "POST",
         headers: { "content-type": "application/json", ...identityHeaders(me, secret(), { ip: request.ip, requestId: String(request.id) }) },
         body: JSON.stringify({ game: input.game, options: input.options ?? {}, seat: input.seat, opponent: { id: minted.guestId, name: input.guestName } }),
@@ -212,10 +212,8 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
     return reply.redirect(matchPath, 302);
   });
 
-  // Registered for any usable address, secret or not: pairing later needs no
-  // restart, and until there is a secret `available` keeps the prefix at 404.
-  if (upstream && !urlProblem(GAMES, upstream)) {
-    await registerGamesGateway(app, { upstream, secret, available });
-    app.log.info(`Games: proxying /games to ${upstream}`);
-  }
+  // Registered always: an address saved or a secret paired later needs no
+  // restart, and until both are there `available` keeps the prefix at 404.
+  await registerGamesGateway(app, { upstream, secret, available });
+  if (atStart.enabled) app.log.info(`Games: proxying /games to ${upstream()}`);
 }

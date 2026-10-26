@@ -171,44 +171,9 @@ Beta means your data is looked after: the database migrates itself forward on ev
           Required="false"
           Mask="false"></Config>
 
-  <Config Name="Games URL"
-          Target="GAMES_URL"
-          Default=""
-          Mode=""
-          Description="Where the optional isputnik.games container answers, as seen from this container (e.g. http://isputnik-games:4200 on a shared Docker network). Leave blank for no games. Then pair it under Control panel, Apps, Setup (or set Games Gateway Secret below)."
-          Type="Variable"
-          Display="advanced"
-          Required="false"
-          Mask="false"></Config>
-
-  <Config Name="Games Gateway Secret"
-          Target="GAMES_GATEWAY_SECRET"
-          Default=""
-          Mode=""
-          Description="Optional: leave blank to pair on Control panel, Apps, Setup instead. Otherwise a long random string shared with the games container (its GATEWAY_SECRET); set here it always wins over pairing. Every request this app forwards to the games carries it, so the games server knows who is signed in came from here."
-          Type="Variable"
-          Display="advanced"
-          Required="false"
-          Mask="true"></Config>
-
-  <Config Name="Video URL"
-          Target="VIDEO_URL"
-          Default=""
-          Mode=""
-          Description="Where the optional isputnik.video container answers, as seen from this container (e.g. http://isputnik-video:4300 on a shared Docker network). Leave blank for no video libraries. Then pair it under Control panel, Apps, Setup (or set Video Gateway Secret below)."
-          Type="Variable"
-          Display="advanced"
-          Required="false"
-          Mask="false"></Config>
-
-  <Config Name="Video Gateway Secret"
-          Target="VIDEO_GATEWAY_SECRET"
-          Default=""
-          Mode=""
-          Description="Optional: leave blank to pair on Control panel, Apps, Setup instead. Otherwise a long random string shared with the video container (its GATEWAY_SECRET); set here it always wins over pairing."
-          Type="Variable"
-          Display="advanced"
-          Required="false"
-          Mask="true"></Config>
+  <!-- The games and video containers are joined up on Control panel → Apps →
+       Setup (their address and secret), so this template needs no field per app.
+       GAMES_URL / VIDEO_URL and the *_GATEWAY_SECRET variables still work when
+       added by hand, and win over Setup (docs/configuration.md → Apps). -->
 
 </Container>

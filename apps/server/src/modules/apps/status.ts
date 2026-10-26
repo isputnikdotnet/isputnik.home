@@ -5,7 +5,7 @@
 // moment, not a minute.
 import type { FastifyRequest } from "fastify";
 import { forwardedFrom, identityHeaders } from "./gateway.js";
-import { pairingInfo, type SecretSource } from "./pairing.js";
+import { pairingInfo, type AddressSource, type SecretSource } from "./pairing.js";
 import { appConfigured, type AppDefinition } from "./registry.js";
 
 const PROBE_TIMEOUT_MS = 4000;
@@ -24,6 +24,10 @@ export interface AppStatus {
   configured: boolean;
   reason: string | null;
   url: string | null;
+  /** Where the address came from: this container's environment wins over Setup. */
+  urlSource: AddressSource;
+  /** The usual address on a shared Docker network, offered on Setup. */
+  exampleUrl: string;
   secretSet: boolean;
   /** Where the secret in force came from (modules/apps/pairing.ts). */
   secretSource: SecretSource;
@@ -72,7 +76,8 @@ export async function appStatus(
   upstream: string,
   secret: string,
   request: FastifyRequest,
-  source: SecretSource = secret ? "environment" : "none"
+  source: SecretSource = secret ? "environment" : "none",
+  urlSource: AddressSource = upstream ? "environment" : "none"
 ): Promise<AppStatus> {
   const configured = appConfigured(app, upstream, secret);
   const server = configured.enabled ? await probeServer(app, upstream) : null;
@@ -83,6 +88,8 @@ export async function appStatus(
     configured: configured.enabled,
     reason: configured.reason ?? null,
     url: upstream || null,
+    urlSource,
+    exampleUrl: app.exampleUrl,
     secretSet: Boolean(secret),
     secretSource: source,
     pairing: pairingInfo(app.id),

@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.38.1",
+    "label": "An app's address on Setup",
+    "changes": [
+      "**Where an app's container is now goes on Apps → Setup, next to its secret.** Type the address, press **Save address**, and it works at once — no edit to this container's template and no restart. Before, every app needed its own variable on this container (`GAMES_URL`, `VIDEO_URL`), so each new container meant editing the template again; the Unraid template no longer has those fields. A variable already set still works and wins over Setup, which says so.",
+      "**Setup's status line says Container for every app.** It read \"Games server\" even with Video chosen."
+    ]
+  },
+  {
     "version": "4.38.0",
     "label": "Apps beside home, and video libraries",
     "changes": [

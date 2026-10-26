@@ -120,8 +120,10 @@ function networkRefusal(rule: NetworkRule): string {
 
 export interface AppGatewayOptions {
   app: AppDefinition;
-  /** The container, e.g. http://isputnik-games:4200. */
-  upstream: string;
+  /** The container, e.g. http://isputnik-games:4200. Asked on every request, so
+   *  an address saved on Apps → Setup works at once; `available` must say false
+   *  while there is none. */
+  upstream: string | (() => string);
   /** Asked on every request, so a secret paired on Apps → Setup works at once. */
   secret: string | (() => string);
   /** Asked on every request: false while the admin has the container's section
@@ -179,8 +181,11 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
       return true;
     };
 
+    const upstream = options.upstream;
     await scope.register(httpProxy, {
-      upstream: options.upstream,
+      // A fixed address is the proxy's base; one looked up per request goes
+      // through getUpstream below instead ("" is the proxy's "no base").
+      upstream: typeof upstream === "string" ? upstream : "",
       prefix,
       rewritePrefix: prefix,
       // Only a signed-in member the container's access admits — or whoever a hook
@@ -205,6 +210,7 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
         }, (err: Error) => done(err));
       },
       replyOptions: {
+        ...(typeof upstream === "function" ? { getUpstream: () => upstream() } : {}),
         rewriteRequestHeaders: (proxied, headers): IncomingHttpHeaders => {
           // The proxy types its request for HTTP/2 as well; this server is HTTP/1,
           // and it is the same request the preHandler above saw.

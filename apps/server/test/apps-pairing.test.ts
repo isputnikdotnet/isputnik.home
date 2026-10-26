@@ -52,7 +52,7 @@ describe("pairing", () => {
     const stored = db.prepare("SELECT secret_sealed FROM app_pairings WHERE app_id = 'games'").get() as { secret_sealed: string };
     expect(stored.secret_sealed.startsWith("enc:v1:")).toBe(true);
     expect(stored.secret_sealed).not.toContain(secret);
-    expect(resolveAppSecret("games")).toEqual({ upstream: upstreamUrl, secret, source: "paired" });
+    expect(resolveAppSecret("games")).toEqual({ upstream: upstreamUrl, secret, source: "paired", urlSource: "environment" });
   });
 
   it("is used by the gateway at once, with no restart", async () => {
@@ -87,5 +87,47 @@ describe("pairing", () => {
   it("is for administrators only", async () => {
     const res = await booted.app.inject({ method: "POST", url: "/api/apps/admin/pairing/games", headers: { cookie: await booted.signIn("mum") } });
     expect(res.statusCode).toBe(403);
+  });
+});
+
+describe("the address, saved on Setup", () => {
+  const saveAddress = async (url: string, user = "admin") =>
+    booted.app.inject({ method: "PUT", url: "/api/apps/admin/address/games", payload: { url }, headers: { cookie: await booted.signIn(user) } });
+
+  it("needs no environment and no restart: saved and paired, the gateway reaches it", async () => {
+    config.gamesUrl = "";
+    const cookie = await booted.signIn("mum");
+    const { secret } = (await asAdmin("POST", "/api/apps/admin/pairing/games")).json() as { secret: string };
+    // A secret but nowhere to send it: the games are not there yet.
+    expect((await booted.app.inject({ method: "GET", url: "/games/api/me", headers: { cookie } })).statusCode).toBe(404);
+
+    const saved = await saveAddress(`  ${upstreamUrl}/ `);
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json()).toEqual({ url: upstreamUrl });
+    expect(resolveAppSecret("games")).toEqual({ upstream: upstreamUrl, secret, source: "paired", urlSource: "saved" });
+    const res = await booted.app.inject({ method: "GET", url: "/games/api/me", headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().headers["x-isputnik-gateway"]).toBe(secret);
+    expect((await asAdmin("GET", "/api/apps/admin/status")).json().apps[0]).toMatchObject({ url: upstreamUrl, urlSource: "saved", configured: true });
+
+    // Cleared, it is gone again.
+    expect((await saveAddress("")).json()).toEqual({ url: null });
+    expect(resolveAppSecret("games")).toMatchObject({ upstream: "", urlSource: "none" });
+    expect((await booted.app.inject({ method: "GET", url: "/games/api/me", headers: { cookie } })).statusCode).toBe(404);
+  });
+
+  it("refuses while the environment sets the address, which wins", async () => {
+    const res = await saveAddress("http://elsewhere:4200");
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toContain("GAMES_URL");
+    expect(resolveAppSecret("games")).toMatchObject({ upstream: upstreamUrl, urlSource: "environment" });
+  });
+
+  it("takes only an http(s) address, and only from an administrator", async () => {
+    config.gamesUrl = "";
+    expect((await saveAddress("isputnik-games:4200")).statusCode).toBe(400);
+    expect((await saveAddress("http://")).statusCode).toBe(400);
+    expect((await saveAddress("http://isputnik-games:4200", "mum")).statusCode).toBe(403);
+    expect(resolveAppSecret("games").urlSource).toBe("none");
   });
 });

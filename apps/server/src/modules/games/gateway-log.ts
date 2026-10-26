@@ -68,7 +68,7 @@ export function noteGatewayResponse(request: FastifyRequest, statusCode: number,
   // 502–504; the games server's own failures are 500s too. Either way: say so.
   if (statusCode >= 500) {
     if (!due(lastTrouble, "unreachable", TROUBLE_EVERY_MS, now)) return;
-    const detail = `The games server did not answer ${who}'s request, or failed it (${request.method} ${path}, ${statusCode}). Check that the games container is running and reachable at GAMES_URL; its own log says more.`;
+    const detail = `The games server did not answer ${who}'s request, or failed it (${request.method} ${path}, ${statusCode}). Check that the games container is running and reachable at the address on Control panel → Apps → Setup; its own log says more.`;
     request.log.warn({ path, statusCode }, "Games server did not answer or failed the request");
     logActivity({ event: "games.unreachable", actorUserId, targetType: "games", targetId: null, detail, ipAddress: ip });
     return;

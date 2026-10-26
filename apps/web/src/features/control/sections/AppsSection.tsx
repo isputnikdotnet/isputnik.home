@@ -6,6 +6,7 @@ import { controlHref, followRoute, queryParam, replaceQuery } from "../../../rou
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -16,12 +17,9 @@ import { ControlSectionHead } from "../ControlSectionHead";
 // Control panel → Apps: the containers beside this server (docs/apps-platform-plan.md).
 // Installed says how each one stands; Events and Logs are the admin's window into
 // a container, read from it through the gateway with this admin's own session —
-// nothing about them is stored here. Read-only by design: where a container is
-// and its secret are environment variables on this container (pairing is a later
-// phase of the plan), so this shows what they are set to, never the secret.
-//
-// Today the one container is isputnik.games, and the words on these pages are
-// still the games' own; they become per-app when the second container arrives.
+// nothing about them is stored here. Setup is where a container is joined up:
+// its address and the secret, each saved here unless this container's
+// environment sets it (which wins); the secret itself is shown only once.
 
 /** One container, as GET /api/apps/admin/status answers for it. */
 export interface AppStatus {
@@ -32,6 +30,10 @@ export interface AppStatus {
   configured: boolean;
   reason: string | null;
   url: string | null;
+  /** Where the address came from: this container's environment wins over Setup. */
+  urlSource: "environment" | "saved" | "none";
+  /** The usual address on a shared Docker network, offered on Setup. */
+  exampleUrl: string;
   secretSet: boolean;
   /** Where the secret in force came from (modules/apps/pairing.ts). */
   secretSource: "environment" | "paired" | "none";
@@ -612,9 +614,9 @@ export function AppsAccessSection() {
 // ── Setup: pairing ──────────────────────────────────────────────────────────
 
 // Pairing a container with this server (docs/apps-platform-plan.md → Pairing):
-// where it is (the environment), the secret both sides sign with (made here,
-// shown once), what to set on the container, and a test. A secret in this
-// container's environment wins, and pairing here stays off while it is set.
+// where it is (saved here), the secret both sides sign with (made here, shown
+// once), what to set on the container, and a test. An address or a secret in
+// this container's environment wins, and that half of Setup stays off while it is set.
 export function AppsSetupSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const appName = useAppName();
@@ -627,6 +629,33 @@ export function AppsSetupSection() {
   const [error, setError] = useState("");
   const [tested, setTested] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [address, setAddress] = useState("");
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [addressError, setAddressError] = useState("");
+
+  // The field starts from what is saved, again whenever another app is chosen
+  // or the saved address changes.
+  const currentId = current?.id;
+  const currentUrl = current?.url ?? "";
+  useEffect(() => {
+    setAddress(currentUrl);
+    setAddressError("");
+  }, [currentId, currentUrl]);
+
+  const saveAddress = async () => {
+    if (!current) return;
+    setSavingAddress(true);
+    setAddressError("");
+    try {
+      await api(`/api/apps/admin/address/${encodeURIComponent(current.id)}`, { method: "PUT", body: JSON.stringify({ url: address }) });
+      setTested(false);
+      await load().catch(() => undefined);
+    } catch (err) {
+      setAddressError(err instanceof Error ? err.message : t("controlAdmin:apps.setup.addressSaveFailed"));
+    } finally {
+      setSavingAddress(false);
+    }
+  };
 
   const choose = (id: string) => {
     setChosen(id);
@@ -715,16 +744,43 @@ export function AppsSetupSection() {
         <>
           <section className="config-block" id="app-setup-address">
             <h2>{t("controlAdmin:apps.setup.addressTitle")}</h2>
-            <p className="muted">
-              <Trans i18nKey="apps.setup.addressIntro" ns="controlAdmin" values={{ variable: current.variables.url }} components={{ code: <code /> }} />
-            </p>
+            <p className="muted">{t("controlAdmin:apps.setup.addressIntro")}</p>
+
+            {current.urlSource === "environment" ? (
+              <MessageBox tone="info" title={t("controlAdmin:apps.setup.fromEnvironmentTitle")}>
+                <Trans i18nKey="apps.setup.addressFromEnvironmentBody" ns="controlAdmin" values={{ variable: current.variables.url }} components={{ code: <code /> }} />
+              </MessageBox>
+            ) : (
+              <form
+                className="app-setup-address"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void saveAddress();
+                }}
+              >
+                <Field
+                  label={t("controlAdmin:apps.setup.addressLabel")}
+                  value={address}
+                  onChange={setAddress}
+                  placeholder={current.exampleUrl}
+                  autoComplete="off"
+                  required={false}
+                  disabled={savingAddress}
+                />
+                <Button type="submit" variant="primary" disabled={savingAddress || address.trim() === (current.url ?? "")}>
+                  {savingAddress ? t("controlAdmin:apps.setup.addressSaving") : t("controlAdmin:apps.setup.addressSave")}
+                </Button>
+              </form>
+            )}
+            {addressError && <MessageBox tone="error" title={t("controlAdmin:apps.setup.addressSaveFailed")}>{addressError}</MessageBox>}
+
             <dl className="games-status">
               <div>
-                <dt>{current.variables.url}</dt>
+                <dt>{t("controlAdmin:apps.setup.addressLabel")}</dt>
                 <dd>{current.url ? <code>{current.url}</code> : t("controlAdmin:apps.setup.addressUnset")}</dd>
               </div>
               <div>
-                <dt>{t("controlAdmin:games.server")}</dt>
+                <dt>{t("controlAdmin:apps.card.container")}</dt>
                 <dd>
                   {!current.server
                     ? t("controlAdmin:games.serverNotAsked")

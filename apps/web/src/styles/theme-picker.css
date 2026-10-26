@@ -164,6 +164,22 @@
   }
 }
 
+/* Apps → Setup: the address field with its Save button beside it. */
+.app-setup-address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: 560px;
+  margin: 6px 0 14px;
+}
+
+.app-setup-address .field {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+}
+
 /* Apps → Events and Logs: what a container recorded, and its log tail. */
 .games-rejected {
   margin: 0 0 12px;

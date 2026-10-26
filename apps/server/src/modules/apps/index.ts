@@ -10,15 +10,17 @@ import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { appStatus } from "./status.js";
 import { APP_GRANT_ROLES, grantAppRole, listAppAccess, revokeAppRole, rulesFor, setEveryoneAppRole, setRule } from "./access.js";
-import { forgetPairing, pairApp, resolveAppSecret, type SecretSource } from "./pairing.js";
-import { APPS, NETWORK_RULES, type AppDefinition, type AppId } from "./registry.js";
+import { forgetPairing, normalizeAddress, pairApp, resolveAppSecret, saveAppAddress, type AddressSource, type SecretSource } from "./pairing.js";
+import { APPS, NETWORK_RULES, urlProblem, type AppDefinition, type AppId } from "./registry.js";
 
 export interface AppsPluginOptions {
   /** Overrides for tests, which run without the environment and point at stand-ins. */
   settings?: Partial<Record<AppId, { upstream: string; secret: string }>>;
 }
 
-const everyoneSchema = z.object({ role: z.enum(["member", "manager"]).nullable() });
+/** "" clears the address. */
+const addressSchema = z.object({ url: z.string().max(500) });
+const everyoneSchema =z.object({ role: z.enum(["member", "manager"]).nullable() });
 const grantSchema = z.object({
   subjectType: z.enum(["user", "group"]),
   subjectId: z.string().trim().min(1).max(64),
@@ -30,21 +32,48 @@ export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions =
   /** The address and secret in force: a test's stand-in, else the install's. */
   const settingsFor = (id: AppId) => {
     const override = opts.settings?.[id];
-    if (override) return { ...override, source: (override.secret ? "environment" : "none") as SecretSource };
+    if (override) {
+      return {
+        ...override,
+        source: (override.secret ? "environment" : "none") as SecretSource,
+        urlSource: (override.upstream ? "environment" : "none") as AddressSource
+      };
+    }
     return resolveAppSecret(id);
   };
 
   // Control panel → Apps → Installed and Setup: every container this release
-  // knows, set up or not. Where a container is stays the install's environment;
-  // its secret is the environment's, or one paired below.
+  // knows, set up or not. Its address and its secret are each the environment's,
+  // or the ones saved and paired below.
   app.get("/api/apps/admin/status", { preHandler: app.requireAdmin }, async (request) => ({
     apps: await Promise.all(
       APPS.map((definition) => {
-        const { upstream, secret, source } = settingsFor(definition.id);
-        return appStatus(definition, upstream, secret, request, source);
+        const { upstream, secret, source, urlSource } = settingsFor(definition.id);
+        return appStatus(definition, upstream, secret, request, source, urlSource);
       })
     )
   }));
+
+  // ── Apps → Setup: where the container is ────────────────────────────────
+
+  // Saved here, the address needs no edit to this container's template and no
+  // restart: the gateway looks it up on each request. Refused while the
+  // environment sets one, which wins — as for the secret.
+  app.put("/api/apps/admin/address/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const definition = named(request, reply);
+    if (!definition) return reply;
+    const parsed = parseBody(addressSchema, request.body);
+    if ("error" in parsed) return reply.code(400).send(parsed.error);
+    if (settingsFor(definition.id).urlSource === "environment") {
+      return reply.code(409).send({ error: `${definition.urlVariable} is set on this container, and it wins over an address saved here. Remove it to set the address here instead.` });
+    }
+    const address = normalizeAddress(parsed.data.url);
+    const problem = address ? urlProblem(definition, address) : null;
+    if (problem) return reply.code(400).send({ error: problem });
+    saveAppAddress(definition.id, address, request.user!.id);
+    note(request, definition, "app.address", address ? `Set where ${definition.id} answers: ${address}.` : `Cleared the address of ${definition.id}; it stays off until it has one.`);
+    return { url: address || null };
+  });
 
   // ── Apps → Setup: pairing ───────────────────────────────────────────────
 

@@ -48,7 +48,7 @@ describe("GET /api/apps/admin/status", () => {
     // Every container this release knows, installed or not.
     expect(apps.map((entry) => entry.id)).toEqual(["games", "video"]);
     expect(apps[0]).toEqual({
-      id: "games", kind: "app", prefix: "/games", configured: false, reason: null, url: null, secretSet: false,
+      id: "games", kind: "app", prefix: "/games", configured: false, reason: null, url: null, urlSource: "none", exampleUrl: "http://isputnik-games:4200", secretSet: false,
       secretSource: "none", pairing: null, variables: { url: "GAMES_URL", secret: "GAMES_GATEWAY_SECRET", container: "GATEWAY_SECRET" },
       secretAccepted: null, server: null
     });

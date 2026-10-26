@@ -91,7 +91,9 @@ video library is created, shared and browsed exactly like every other library.
   with the reason recorded there and in CLAUDE.md. One nav link over one row of
   tabs, like every other group.
 - **Connection by pairing.** Home generates each container's secret and shows what
-  to put in its template. Only the container's URL stays an environment variable.
+  to put in its template. The container's address is saved on Setup too (since
+  4.38.1), so a new container never needs home's template edited; `<APP>_URL` and
+  `<APP>_GATEWAY_SECRET` in home's environment still win when set.
 - **Video's first client is the browser/PWA player.** The Stremio add-on (Fire TV)
   follows; Kodi over WebDAV after that.
 - **Home never starts, stops or updates containers.** That would need the Docker
@@ -107,7 +109,7 @@ one entry in a static registry:
 |---|---|---|
 | id / prefix | `games` → `/games` | `video` → `/video` |
 | kind | app | engine |
-| upstream (environment) | `GAMES_URL` | `VIDEO_URL` |
+| upstream (Setup, or the environment) | `GAMES_URL` | `VIDEO_URL` |
 | default port | 4200 | 4300 |
 | repository / image | `isputnik.games` | `isputnik.video` |
 

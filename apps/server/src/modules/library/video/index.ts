@@ -11,13 +11,12 @@
 //     is detached there (kept 30 days) rather than left as if it still existed.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { config } from "../../../config.js";
 import { getSections } from "../../../core/sections.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
 import { appRole } from "../../apps/access.js";
 import { registerAppGateway } from "../../apps/gateway.js";
 import { resolveAppSecret } from "../../apps/pairing.js";
-import { appConfigured, appDefinition, urlProblem } from "../../apps/registry.js";
+import { appConfigured, appDefinition } from "../../apps/registry.js";
 import { accessibleLibraryIds, canUserAccessLibrary } from "../shared/library-access.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
 import {
@@ -54,7 +53,7 @@ export interface VideoPluginOptions {
 
 export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions = {}) {
   const target = (): EngineTarget => ({
-    upstream: opts.upstream ?? config.videoUrl,
+    upstream: opts.upstream ?? resolveAppSecret("video").upstream,
     secret: opts.secret ?? resolveAppSecret("video").secret
   });
   const configured = () => appConfigured(VIDEO, target().upstream, target().secret).enabled;
@@ -196,30 +195,30 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   });
 
   // ── The gateway to the engine ───────────────────────────────────────────
-  // Registered for any usable address, secret or not, as the games' is.
-  const upstream = target().upstream;
-  if (upstream && !urlProblem(VIDEO, upstream)) {
-    await registerAppGateway(app, {
-      app: VIDEO,
-      upstream,
-      secret: () => target().secret,
-      available,
-      // An engine has no pages: a signed-out page load gets this server's 401.
-      hasPages: false,
-      hooks: {
-        // The only permission model the engine has: which of its libraries this
-        // person may see, worked out from each library's own access.
-        extraHeaders: (request) => ({
-          "x-isputnik-libraries": [...accessibleLibraryIds(request.user!.id, request.user!.role, VIDEO_LIBRARY_TYPE)].join(",")
-        })
-      }
-    });
-    app.log.info(`Video: proxying /video to ${upstream}`);
-    const timer = setInterval(() => void sync(), SYNC_EVERY_MS);
-    timer.unref();
-    app.addHook("onClose", async () => clearInterval(timer));
-    app.addHook("onReady", async () => {
-      void sync();
-    });
-  }
+  // Registered always, as the games' is: an address saved or a secret paired on
+  // Apps → Setup works without a restart; `available` keeps it at 404 till then.
+  await registerAppGateway(app, {
+    app: VIDEO,
+    upstream: () => target().upstream,
+    secret: () => target().secret,
+    available,
+    // An engine has no pages: a signed-out page load gets this server's 401.
+    hasPages: false,
+    hooks: {
+      // The only permission model the engine has: which of its libraries this
+      // person may see, worked out from each library's own access.
+      extraHeaders: (request) => ({
+        "x-isputnik-libraries": [...accessibleLibraryIds(request.user!.id, request.user!.role, VIDEO_LIBRARY_TYPE)].join(",")
+      })
+    }
+  });
+  if (configured()) app.log.info(`Video: proxying /video to ${target().upstream}`);
+  // sync() does nothing while the engine is not set up, so these cost nothing
+  // on an install without one.
+  const timer = setInterval(() => void sync(), SYNC_EVERY_MS);
+  timer.unref();
+  app.addHook("onClose", async () => clearInterval(timer));
+  app.addHook("onReady", async () => {
+    void sync();
+  });
 }

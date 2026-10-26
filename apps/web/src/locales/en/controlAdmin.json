@@ -240,7 +240,7 @@
       "container": "Container",
       "secretAccepted": "Set, accepted by the container",
       "secretRefused": "Set, but the container refuses it",
-      "howToSet": "The address is <code>{{url}}</code> on this container; the secret is made on <setup>Setup</setup>. See the <lnk>configuration reference</lnk>."
+      "howToSet": "The address and the secret are set on <setup>Setup</setup>, or on this container as <code>{{url}}</code> and its secret variable. See the <lnk>configuration reference</lnk>."
     },
     "noneRunningTitle": "No app is answering",
     "noneRunningBody": "Events and logs come from the containers themselves, so they appear here once one is set up and answering. <lnk>Installed</lnk> says how each one stands.",
@@ -286,7 +286,12 @@
       "pairFailed": "Unable to pair the app",
       "forgetFailed": "Unable to forget the secret",
       "addressTitle": "Where the container is",
-      "addressIntro": "Set on this container as <code>{{variable}}</code>: the address this server reaches the container at.",
+      "addressIntro": "The address this server reaches the container at: its name on the shared Docker network and its port, not an address for browsers. Saved here, it works at once, with no restart.",
+      "addressLabel": "Address",
+      "addressSave": "Save address",
+      "addressSaving": "Saving…",
+      "addressSaveFailed": "Unable to save the address",
+      "addressFromEnvironmentBody": "<code>{{variable}}</code> is set on this container and wins over an address saved here. Remove it from the template and restart to set it here instead.",
       "addressUnset": "Not set",
       "secretTitle": "The shared secret",
       "secretIntro": "Proves to the container that a request came from this server. It is shown once, when it is made; this server keeps it sealed.",

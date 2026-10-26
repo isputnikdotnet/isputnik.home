@@ -5,11 +5,8 @@ Some parts of iSputnik run in containers of their own, beside the main app:
 install each one like any other container, then connect it to iSputnik in
 **Control panel → Apps**. This guide is for whoever runs the server.
 
-> **Video is arriving in stages.** The video engine and its connection to iSputnik
-> (pairing, access, backups) are built. Adding video libraries on Library →
-> Libraries, the family's pages (Shows, Movies, the player) and the engine's
-> published image come in the next releases; the Video steps below apply from
-> then.
+> **Video is in alpha.** Video libraries, the Shows and Movies pages and the
+> engine's image are here; the player, posters and online metadata come next.
 
 ## How the apps fit in
 
@@ -46,7 +43,7 @@ iSputnik must be able to reach each app by address. Either:
 
 On Unraid, install **isputnik-games** from Community Applications (or add the
 template from the [isputnik.games repository](https://github.com/isputnikdotnet/isputnik.games)).
-Leave **Gateway Secret** empty for now — you'll fill it in step 4. Keep
+Leave **Gateway Secret** empty for now — you'll fill it in step 3. Keep
 **Config & Data** (`/config`) on your appdata share; it holds the matches,
 scores and the games' own log of events.
 
@@ -60,36 +57,28 @@ container:
 
 | Setting | Value |
 |---|---|
-| Image | `ghcr.io/isputnikdotnet/isputnik.video` (once published) |
+| Image | `ghcr.io/isputnikdotnet/isputnik.video` (on Unraid, the template `isputnik-video.xml` in the [isputnik.video repository](https://github.com/isputnikdotnet/isputnik.video)) |
 | `/media` | your video folder, **read-only** (for example `/mnt/user/data/video`) |
 | `/config` | an appdata folder: the catalog database and poster cache |
 | Network | the same network as iSputnik, or a fixed IP; **no port published** |
-| `GATEWAY_SECRET` | empty for now — you'll fill it in step 4 |
+| `GATEWAY_SECRET` | empty for now — you'll fill it in step 3; until then the container stops as soon as it starts |
 
 Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
 01/Show (Year) S01E01.mkv` for shows, `Movie (Year)/Movie (Year).mkv` for films.
 `.nfo` files beside them are read first.
 
-## 3. Tell iSputnik where the app is
+## 3. Connect them on Apps → Setup
 
-On the **iSputnik** container, set the app's address and restart it:
+Everything on iSputnik's side is done here: nothing to change on the iSputnik
+container, and no restart. Open **Control panel → Apps → Setup** and choose the
+app.
 
-| App | Variable | Example |
-|---|---|---|
-| Games | `GAMES_URL` | `http://isputnik-games:4200` |
-| Video | `VIDEO_URL` | `http://isputnik-video:4300` |
-
-The address is how iSputnik reaches the app, not how your browser does. Every
-variable is in the
-[configuration reference](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md#apps).
-
-## 4. Pair them on Apps → Setup
-
-Open **Control panel → Apps → Setup** and choose the app.
-
-1. **Where the container is** shows the address from step 3 and whether the app
-   answers. If it says *Not answering*, check the address and that both
-   containers are on the same network.
+1. Under **Where the container is**, type the app's **Address** and press **Save
+   address**: `http://isputnik-games:4200` or `http://isputnik-video:4300` on a
+   shared network, or `http://<its IP>:4200` / `:4300` with fixed IPs. It is how
+   iSputnik reaches the app, not how your browser does. The **Container** line
+   then says whether it answers; *Not answering* means check the address and
+   that both containers are on the same network.
 2. Under **The shared secret**, press **Generate secret**. It is shown **once** —
    press **Copy**.
 3. Paste it into the app container's `GATEWAY_SECRET` (the **Gateway Secret**
@@ -97,20 +86,23 @@ Open **Control panel → Apps → Setup** and choose the app.
 4. Press **Test connection**. **Paired** means the app answers and accepts
    iSputnik's secret.
 
-iSputnik keeps the secret encrypted with its server key, so a copy of its database
-— a backup, say — doesn't carry it. The secret works the moment it is made: no
-restart of iSputnik is needed.
+The address and the secret both work the moment they are saved. iSputnik keeps
+the secret encrypted with its server key, so a copy of its database — a backup,
+say — doesn't carry it.
 
 **Replace secret** makes a new one; the old one stops working at once, so the app
 is unavailable until its container has the new one. **Forget secret** turns the app
 off for everyone until it is paired again.
 
-> **Prefer environment variables?** Set the secret on the iSputnik container as
-> `GAMES_GATEWAY_SECRET` or `VIDEO_GATEWAY_SECRET` (a long random string, e.g.
-> `openssl rand -hex 32`) and the same value as the app's `GATEWAY_SECRET`. A
-> secret set this way always wins, and Setup then says pairing is off.
+> **Prefer environment variables?** Set them on the iSputnik container instead:
+> the address as `GAMES_URL` / `VIDEO_URL`, the secret as `GAMES_GATEWAY_SECRET`
+> / `VIDEO_GATEWAY_SECRET` (a long random string, e.g. `openssl rand -hex 32`,
+> and the same value as the app's `GATEWAY_SECRET`). A value set this way always
+> wins, and Setup then shows it as *Set in this container's environment*. All of
+> them are in the
+> [configuration reference](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md#apps).
 
-## 5. Choose who may use it, and from where
+## 4. Choose who may use it, and from where
 
 **Control panel → Apps → Access**, for the chosen app:
 
@@ -128,7 +120,7 @@ off for everyone until it is paired again.
 For Video, which libraries each person sees is set on each library, on **Library
 → Libraries**, exactly as for books and photos.
 
-## 6. Check that it's healthy
+## 5. Check that it's healthy
 
 - **Apps → Installed** — one card per app: running or not, its version, its
   address, and whether it accepts iSputnik's secret.
@@ -165,8 +157,9 @@ backup still finishes and its log line says which app was left out and why.
 
 - **For the menu only:** Control panel → Settings → Appearance → Sections, switch
   **Games** or **Video** off. The app disappears for everyone; nothing is deleted.
-- **For good:** remove `GAMES_URL` / `VIDEO_URL` from the iSputnik container and
-  restart it, then remove the app's container.
+- **For good:** on Apps → Setup, clear the app's address and press **Forget
+  secret** (or remove `GAMES_URL` / `VIDEO_URL` from the iSputnik container if
+  you set it there), then remove the app's container.
 
 ## When something goes wrong
 
@@ -174,14 +167,14 @@ backup still finishes and its log line says which app was left out and why.
 |---|---|
 | Installed: **not answering** | iSputnik can't reach the address. Check the container is running, the address and port, and that both are on the same network (not Docker's default `bridge`). |
 | Installed: **refuses this server's secret**, or members see "Not signed in" in the games | The two secrets differ. Generate a new one on Setup, paste it into the app's `GATEWAY_SECRET` and restart the app. |
-| Setup: **Set in this container's environment** | `GAMES_GATEWAY_SECRET` / `VIDEO_GATEWAY_SECRET` is set on iSputnik and wins. Use the same value on the app, or remove it to pair on Setup. |
+| Setup: **Set in this container's environment** | The address (`GAMES_URL` / `VIDEO_URL`) or the secret (`GAMES_GATEWAY_SECRET` / `VIDEO_GATEWAY_SECRET`) is set on iSputnik and wins. Keep it, or remove it and restart iSputnik to set it on Setup. |
 | A rule refuses everyone from outside | Behind a reverse proxy whose trust isn't set up, every visitor counts as outside. Set `TRUST_PROXY` — see [Exposing your library to the internet](exposing-to-the-internet.md). |
 
 ## Checklist
 
 ```
 [ ] App container on the same network as iSputnik (or a fixed IP), no port published
-[ ] GAMES_URL / VIDEO_URL set on the iSputnik container, iSputnik restarted
+[ ] Apps → Setup: address saved, and the Container line says it answers
 [ ] Apps → Setup: secret generated, pasted into the app's GATEWAY_SECRET, app restarted
 [ ] Apps → Setup: Test connection says Paired
 [ ] Apps → Access: who may use it, and from where

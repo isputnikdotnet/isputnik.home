@@ -33,8 +33,9 @@ export function isPageNavigation(request: FastifyRequest): boolean {
 }
 
 export interface GatewayOptions {
-  /** The games server, e.g. http://isputnik-games:4200. */
-  upstream: string;
+  /** The games server, e.g. http://isputnik-games:4200; a function where the
+   *  address can change while the server runs (Apps → Setup). */
+  upstream: string | (() => string);
   /** A function where the secret can change while the server runs (pairing). */
   secret: string | (() => string);
   /** Asked on every request: false while the admin has the Games section off,
