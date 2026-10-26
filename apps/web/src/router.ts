@@ -15,7 +15,7 @@ export type ControlSection =
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   | "videoStreaming"
   // Apps
-  | "appsInstalled" | "appsAccess" | "appsEvents" | "appsLogs"
+  | "appsInstalled" | "appsAccess" | "appsEvents" | "appsLogs" | "appsSetup"
   // Settings
   | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "about";
 
@@ -59,6 +59,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   appsAccess: "/control/apps/access",
   appsEvents: "/control/apps/events",
   appsLogs: "/control/apps/logs",
+  appsSetup: "/control/apps/setup",
 
   appearance: "/control/settings",
   quotes: "/control/settings/quotes",

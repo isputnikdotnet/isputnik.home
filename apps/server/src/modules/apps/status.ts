@@ -5,6 +5,7 @@
 // moment, not a minute.
 import type { FastifyRequest } from "fastify";
 import { forwardedFrom, identityHeaders } from "./gateway.js";
+import { pairingInfo, type SecretSource } from "./pairing.js";
 import { appConfigured, type AppDefinition } from "./registry.js";
 
 const PROBE_TIMEOUT_MS = 4000;
@@ -24,6 +25,12 @@ export interface AppStatus {
   reason: string | null;
   url: string | null;
   secretSet: boolean;
+  /** Where the secret in force came from (modules/apps/pairing.ts). */
+  secretSource: SecretSource;
+  /** When the paired secret was made, and by whom; null without one. */
+  pairing: { pairedAt: string; pairedBy: string | null } | null;
+  /** The variable names Apps → Setup quotes. */
+  variables: { url: string; secret: string; container: string };
   /** true / false (the two secrets differ) / null — asked only of a server that answers. */
   secretAccepted: boolean | null;
   server: ServerProbe | null;
@@ -60,7 +67,13 @@ export async function probeSecret(app: AppDefinition, upstream: string, secret: 
 
 /** The whole answer for one container. The secret itself never leaves the
  *  server; only whether one is set. */
-export async function appStatus(app: AppDefinition, upstream: string, secret: string, request: FastifyRequest): Promise<AppStatus> {
+export async function appStatus(
+  app: AppDefinition,
+  upstream: string,
+  secret: string,
+  request: FastifyRequest,
+  source: SecretSource = secret ? "environment" : "none"
+): Promise<AppStatus> {
   const configured = appConfigured(app, upstream, secret);
   const server = configured.enabled ? await probeServer(app, upstream) : null;
   return {
@@ -71,6 +84,9 @@ export async function appStatus(app: AppDefinition, upstream: string, secret: st
     reason: configured.reason ?? null,
     url: upstream || null,
     secretSet: Boolean(secret),
+    secretSource: source,
+    pairing: pairingInfo(app.id),
+    variables: { url: app.urlVariable, secret: app.secretVariable, container: app.containerSecretVariable },
     secretAccepted: server?.ok ? await probeSecret(app, upstream, secret, request) : null,
     server
   };

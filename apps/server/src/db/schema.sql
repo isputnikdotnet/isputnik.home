@@ -1814,6 +1814,17 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- The secret this server signs a container's requests with, when it was made on
+-- Control panel → Apps → Setup rather than set in the environment (which wins).
+-- Sealed with the server key (core/mfa.ts sealSecret), so the database alone —
+-- a backup copy, say — does not hand anyone the gateway's signature.
+CREATE TABLE IF NOT EXISTS app_pairings (
+  app_id        TEXT PRIMARY KEY,           -- the registry's id (modules/apps/registry.ts)
+  secret_sealed TEXT NOT NULL,
+  paired_by     TEXT REFERENCES users(id) ON DELETE SET NULL,
+  paired_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- The newest release each person has been told about on Home ("Updated to X —
 -- what changed"), so the note shows once per upgrade and never to a brand-new
 -- account. See modules/home/whats-new.ts.

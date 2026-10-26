@@ -18,7 +18,7 @@ vi.mock("../src/app/useGamesAvailable", () => ({ useGamesAvailable: () => gamesA
 const { api } = await import("../src/api");
 const { InvitationRow, YourMoveRow } = await import("../src/features/games/GameRows");
 const { useGamesSummary, gamesWaiting } = await import("../src/features/games/useGamesSummary");
-const { AppsInstalledSection, AppsAccessSection, AppsEventsSection, AppsLogsSection } = await import("../src/features/control/sections/AppsSection");
+const { AppsInstalledSection, AppsAccessSection, AppsEventsSection, AppsLogsSection, AppsSetupSection } = await import("../src/features/control/sections/AppsSection");
 const mockApi = vi.mocked(api);
 
 const member = (over: Partial<PublicUser> = {}): PublicUser =>
@@ -93,6 +93,8 @@ describe("the games' cards on For you", () => {
 const gamesOn = {
   id: "games", kind: "app", prefix: "/games",
   configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true, secretAccepted: true,
+  secretSource: "environment", pairing: null,
+  variables: { url: "GAMES_URL", secret: "GAMES_GATEWAY_SECRET", container: "GATEWAY_SECRET" },
   server: { ok: true, version: "0.3.0", error: null }
 };
 const gamesOff = { ...gamesOn, configured: false, url: null, secretSet: false, secretAccepted: null, server: null };
@@ -198,6 +200,38 @@ describe("Apps → Access", () => {
       expect.objectContaining({ method: "PUT", body: JSON.stringify({ play: "home" }) })
     ));
     await waitFor(() => expect(screen.getByLabelText("Where Play is allowed from")).toHaveValue("home"));
+  });
+});
+
+describe("Apps → Setup", () => {
+  it("keeps pairing off while the environment sets the secret", async () => {
+    mockApi.mockImplementation((() => appsAnswer(gamesOn)) as never);
+    render(<AppsSetupSection />);
+    expect(await screen.findByText("Set in this container's environment")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Generate secret" })).not.toBeInTheDocument();
+  });
+
+  it("makes a secret and shows it once", async () => {
+    const unpaired = { ...gamesOn, configured: false, secretSet: false, secretSource: "none", secretAccepted: null, server: null };
+    mockApi.mockImplementation(((path: string, init?: RequestInit) => {
+      if (path === "/api/apps/admin/pairing/games" && init?.method === "POST") return Promise.resolve({ secret: "ab".repeat(32), variable: "GATEWAY_SECRET" });
+      if (path === "/api/apps/admin/status") return appsAnswer(unpaired);
+      return Promise.reject(new Error(`unexpected ${path}`));
+    }) as never);
+    render(<AppsSetupSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Generate secret" }));
+    expect(await screen.findByText("ab".repeat(32))).toBeInTheDocument();
+    expect(screen.getByText("Copy it now — it is not shown again.")).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/pairing/games", { method: "POST" });
+  });
+
+  it("asks before replacing a paired secret", async () => {
+    const paired = { ...gamesOn, secretSource: "paired", pairing: { pairedAt: "2026-10-12T10:00:00.000Z", pairedBy: "Demo Admin" } };
+    mockApi.mockImplementation((() => appsAnswer(paired)) as never);
+    render(<AppsSetupSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Replace secret" }));
+    expect(screen.getByText("Replace the secret for Games?")).toBeInTheDocument();
+    expect(mockApi).not.toHaveBeenCalledWith("/api/apps/admin/pairing/games", expect.anything());
   });
 });
 

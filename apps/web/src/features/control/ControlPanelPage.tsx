@@ -58,6 +58,7 @@ const NotificationsSection = lazy(() => import("./sections/NotificationsSection"
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
 const AppsInstalledSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsInstalledSection })));
 const AppsAccessSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsAccessSection })));
+const AppsSetupSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsSetupSection })));
 const AppsEventsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsEventsSection })));
 const AppsLogsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsLogsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
@@ -215,6 +216,7 @@ function ControlSectionBody({
     case "appsAccess":      return <AppsAccessSection />;
     case "appsEvents":      return <AppsEventsSection />;
     case "appsLogs":        return <AppsLogsSection />;
+    case "appsSetup":       return <AppsSetupSection />;
 
     case "appearance":      return <AppearanceSection />;
     case "quotes":          return <QuotesSection />;

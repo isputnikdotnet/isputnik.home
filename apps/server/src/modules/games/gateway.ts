@@ -35,7 +35,8 @@ export function isPageNavigation(request: FastifyRequest): boolean {
 export interface GatewayOptions {
   /** The games server, e.g. http://isputnik-games:4200. */
   upstream: string;
-  secret: string;
+  /** A function where the secret can change while the server runs (pairing). */
+  secret: string | (() => string);
   /** Asked on every request: false while the admin has the Games section off,
    *  and the whole prefix answers 404 as if the games were not installed. */
   available?: () => boolean;

@@ -118,7 +118,8 @@ export interface AppGatewayOptions {
   app: AppDefinition;
   /** The container, e.g. http://isputnik-games:4200. */
   upstream: string;
-  secret: string;
+  /** Asked on every request, so a secret paired on Apps → Setup works at once. */
+  secret: string | (() => string);
   /** Asked on every request: false while the admin has the container's section
    *  off, and the whole prefix answers 404 as if it were not installed. */
   available?: () => boolean;
@@ -206,9 +207,10 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
           const request = proxied as unknown as FastifyRequest;
           const forwarded = forwardedFrom(request);
           const verdict = verdicts.get(request);
+          const secret = typeof options.secret === "function" ? options.secret() : options.secret;
           const identity = verdict?.via === "guest" && hooks.identityFor
-            ? hooks.identityFor(request, options.secret, forwarded)
-            : identityHeaders(request.user!, options.secret, forwarded);
+            ? hooks.identityFor(request, secret, forwarded)
+            : identityHeaders(request.user!, secret, forwarded);
           return { ...stripIdentityHeaders(headers as IncomingHttpHeaders), ...identity, ...(verdict ? verdictHeaders(verdict) : {}) };
         }
       }

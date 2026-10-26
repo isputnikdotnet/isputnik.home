@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Boxes, Check, Copy, Link2Off, ScrollText, ShieldCheck, Siren } from "lucide-react";
+import { Boxes, Check, Copy, KeyRound, Link2Off, ScrollText, ShieldCheck, Siren } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute, queryParam, replaceQuery } from "../../../router";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
@@ -33,6 +33,11 @@ export interface AppStatus {
   reason: string | null;
   url: string | null;
   secretSet: boolean;
+  /** Where the secret in force came from (modules/apps/pairing.ts). */
+  secretSource: "environment" | "paired" | "none";
+  pairing: { pairedAt: string; pairedBy: string | null } | null;
+  /** The variable names Setup quotes: this container's two, and the container's own. */
+  variables: { url: string; secret: string; container: string };
   /** Whether the container takes this app's signature; null = not asked or unknown. */
   secretAccepted: boolean | null;
   server: { ok: boolean; version: string | null; error: string | null } | null;
@@ -589,6 +594,235 @@ export function AppsAccessSection() {
             <p className="muted">{t("controlAdmin:apps.access.ruleHint")}</p>
           </section>
         </>
+      )}
+    </>
+  );
+}
+
+// ── Setup: pairing ──────────────────────────────────────────────────────────
+
+// Pairing a container with this server (docs/apps-platform-plan.md → Pairing):
+// where it is (the environment), the secret both sides sign with (made here,
+// shown once), what to set on the container, and a test. A secret in this
+// container's environment wins, and pairing here stays off while it is set.
+export function AppsSetupSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const appName = useAppName();
+  const { apps, error: appsError, load } = useAppsStatus();
+  const [chosen, setChosen] = useState<string | null>(() => queryParam("app"));
+  const current = apps?.find((app) => app.id === chosen) ?? apps?.[0] ?? null;
+  const [fresh, setFresh] = useState<{ app: string; secret: string } | null>(null);
+  const [confirm, setConfirm] = useState<"replace" | "forget" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [tested, setTested] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const choose = (id: string) => {
+    setChosen(id);
+    setFresh(null);
+    setTested(false);
+    replaceQuery("app", id);
+  };
+
+  const generate = async () => {
+    if (!current) return;
+    setBusy(true);
+    setError("");
+    try {
+      const made = await api<{ secret: string }>(`/api/apps/admin/pairing/${encodeURIComponent(current.id)}`, { method: "POST" });
+      setFresh({ app: current.id, secret: made.secret });
+      setConfirm(null);
+      setTested(false);
+      await load().catch(() => undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:apps.setup.pairFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forget = async () => {
+    if (!current) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/api/apps/admin/pairing/${encodeURIComponent(current.id)}`, { method: "DELETE" });
+      setFresh(null);
+      setConfirm(null);
+      await load().catch(() => undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:apps.setup.forgetFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* no clipboard (an insecure LAN origin): the secret can still be selected */
+    }
+  };
+
+  const test = async () => {
+    await load();
+    setTested(true);
+  };
+
+  const dash = "—";
+  const shown = fresh && current && fresh.app === current.id ? fresh.secret : null;
+
+  return (
+    <>
+      <ControlSectionHead
+        section="appsSetup"
+        icon={<KeyRound size={30} />}
+        iconClassName="blue"
+        description={t("controlAdmin:apps.setup.description")}
+      />
+      {appsError && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{appsError}</MessageBox>}
+      {!apps && !appsError && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
+
+      {apps && current && apps.length > 1 && (
+        <div className="games-events-tools">
+          <SelectField
+            label={t("controlAdmin:apps.appLabel")}
+            value={current.id}
+            options={apps.map((app) => ({ value: app.id, label: appName(app.id) }))}
+            onChange={choose}
+            compact
+          />
+        </div>
+      )}
+
+      {error && <MessageBox tone="error" title={t("controlAdmin:apps.setup.pairFailed")}>{error}</MessageBox>}
+
+      {current && (
+        <>
+          <section className="config-block" id="app-setup-address">
+            <h2>{t("controlAdmin:apps.setup.addressTitle")}</h2>
+            <p className="muted">
+              <Trans i18nKey="apps.setup.addressIntro" ns="controlAdmin" values={{ variable: current.variables.url }} components={{ code: <code /> }} />
+            </p>
+            <dl className="games-status">
+              <div>
+                <dt>{current.variables.url}</dt>
+                <dd>{current.url ? <code>{current.url}</code> : t("controlAdmin:apps.setup.addressUnset")}</dd>
+              </div>
+              <div>
+                <dt>{t("controlAdmin:games.server")}</dt>
+                <dd>
+                  {!current.server
+                    ? t("controlAdmin:games.serverNotAsked")
+                    : current.server.ok
+                      ? t("controlAdmin:games.serverVersion", { version: current.server.version ?? dash })
+                      : current.server.error ?? t("controlAdmin:games.serverDown")}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="config-block" id="app-setup-secret">
+            <h2>{t("controlAdmin:apps.setup.secretTitle")}</h2>
+            <p className="muted">{t("controlAdmin:apps.setup.secretIntro")}</p>
+
+            {current.secretSource === "environment" && (
+              <MessageBox tone="info" title={t("controlAdmin:apps.setup.fromEnvironmentTitle")}>
+                <Trans i18nKey="apps.setup.fromEnvironmentBody" ns="controlAdmin" values={{ variable: current.variables.secret }} components={{ code: <code /> }} />
+              </MessageBox>
+            )}
+            {current.secretSource === "paired" && current.pairing && !shown && (
+              <p>{t("controlAdmin:apps.setup.pairedOn", { date: formatManagedDate(current.pairing.pairedAt), name: current.pairing.pairedBy ?? dash })}</p>
+            )}
+            {current.secretSource === "none" && !shown && <p>{t("controlAdmin:apps.setup.noSecret")}</p>}
+
+            {shown && (
+              <div className="app-secret-once">
+                <p><strong>{t("controlAdmin:apps.setup.shownOnce")}</strong></p>
+                <div className="app-secret-row">
+                  <code className="app-secret-value">{shown}</code>
+                  <Button variant="secondary" onClick={() => void copy(shown)}>
+                    {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+                    {copied ? t("controlAdmin:games.copied") : t("controlAdmin:games.copy")}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {current.secretSource !== "environment" && (
+              <div className="mail-actions">
+                <Button
+                  variant="primary"
+                  disabled={busy}
+                  onClick={() => (current.secretSource === "paired" ? setConfirm("replace") : void generate())}
+                >
+                  {busy ? t("controlAdmin:apps.setup.generating") : current.secretSource === "paired" ? t("controlAdmin:apps.setup.replace") : t("controlAdmin:apps.setup.generate")}
+                </Button>
+                {current.secretSource === "paired" && (
+                  <Button variant="danger" disabled={busy} onClick={() => setConfirm("forget")}>{t("controlAdmin:apps.setup.forget")}</Button>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="config-block" id="app-setup-container">
+            <h2>{t("controlAdmin:apps.setup.containerTitle", { app: appName(current.id) })}</h2>
+            <p className="muted">{t("controlAdmin:apps.setup.containerIntro")}</p>
+            <dl className="games-status">
+              <div>
+                <dt><code>{current.variables.container}</code></dt>
+                <dd>{current.secretSource === "environment" ? t("controlAdmin:apps.setup.containerSameAsEnv", { variable: current.variables.secret }) : t("controlAdmin:apps.setup.containerSecret")}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="config-block" id="app-setup-test">
+            <h2>{t("controlAdmin:apps.setup.testTitle")}</h2>
+            <div className="mail-actions">
+              <RefreshButton onRefresh={test} label={t("controlAdmin:apps.setup.test")} compact={false} />
+            </div>
+            {tested && (
+              current.configured && current.server?.ok && current.secretAccepted === true
+                ? <MessageBox tone="success" title={t("controlAdmin:apps.setup.testOkTitle")}>{t("controlAdmin:apps.setup.testOkBody", { app: appName(current.id) })}</MessageBox>
+                : current.configured && current.server?.ok && current.secretAccepted === false
+                  ? <MessageBox tone="error" title={t("controlAdmin:games.refusedTitle")}>{t("controlAdmin:apps.setup.testRefusedBody", { variable: current.variables.container })}</MessageBox>
+                  : <MessageBox tone="warning" title={t("controlAdmin:apps.setup.testFailedTitle")}>{current.reason ?? current.server?.error ?? t("controlAdmin:games.serverDown")}</MessageBox>
+            )}
+          </section>
+        </>
+      )}
+
+      {current && confirm === "replace" && (
+        <ConfirmDialog
+          title={t("controlAdmin:apps.setup.replaceTitle", { app: appName(current.id) })}
+          confirmLabel={t("controlAdmin:apps.setup.replace")}
+          busyLabel={t("controlAdmin:apps.setup.generating")}
+          danger
+          busy={busy}
+          error={error}
+          onConfirm={() => void generate()}
+          onCancel={() => setConfirm(null)}
+        >
+          {t("controlAdmin:apps.setup.replaceBody", { app: appName(current.id), variable: current.variables.container })}
+        </ConfirmDialog>
+      )}
+      {current && confirm === "forget" && (
+        <ConfirmDialog
+          title={t("controlAdmin:apps.setup.forgetTitle", { app: appName(current.id) })}
+          confirmLabel={t("controlAdmin:apps.setup.forget")}
+          busyLabel={t("controlAdmin:apps.setup.forgetting")}
+          danger
+          busy={busy}
+          error={error}
+          onConfirm={() => void forget()}
+          onCancel={() => setConfirm(null)}
+        >
+          {t("controlAdmin:apps.setup.forgetBody", { app: appName(current.id) })}
+        </ConfirmDialog>
       )}
     </>
   );

@@ -49,6 +49,14 @@ export interface ApiTokenRow {
   revoked_at: string | null;
 }
 
+/** `app_pairings` */
+export interface AppPairingRow {
+  app_id: string;
+  secret_sealed: string;
+  paired_by: string | null;
+  paired_at: string;
+}
+
 /** `app_settings` */
 export interface AppSettingRow {
   key: string;
@@ -1467,6 +1475,7 @@ export interface TableRows {
   access_settings: AccessSettingRow;
   activity_logs: ActivityLogRow;
   api_tokens: ApiTokenRow;
+  app_pairings: AppPairingRow;
   app_settings: AppSettingRow;
   assignments: AssignmentRow;
   audio_bookmarks: AudioBookmarkRow;

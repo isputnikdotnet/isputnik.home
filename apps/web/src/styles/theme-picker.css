@@ -307,3 +307,23 @@
   white-space: normal;
 }
 .app-rules-table td { vertical-align: middle; }
+
+/* Apps → Setup: a new secret, shown once. */
+.app-secret-once {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+}
+.app-secret-once p { margin: 0 0 8px; }
+.app-secret-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.app-secret-value {
+  flex: 1 1 280px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

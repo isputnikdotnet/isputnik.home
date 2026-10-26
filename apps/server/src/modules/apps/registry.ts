@@ -5,7 +5,6 @@
 //
 // An "app" draws its own pages (games); an "engine" has none and this app draws
 // them (video, later). Both are reached, probed and logged the same way.
-import { config } from "../../config.js";
 import type { SectionKey } from "../../core/sections.js";
 
 export type AppId = "games";
@@ -38,6 +37,8 @@ export interface AppDefinition {
   /** The environment variables an install sets, named in status messages. */
   urlVariable: string;
   secretVariable: string;
+  /** The variable the container itself reads the secret from, for Apps → Setup. */
+  containerSecretVariable: string;
   /** A signed call under the prefix that answers 401 when the container does not
    *  take this app's signature — how Apps → Installed tells a wrong secret apart
    *  from a working one (health answers the same with any secret). */
@@ -56,6 +57,7 @@ export const APPS: readonly AppDefinition[] = [
     section: "games",
     urlVariable: "GAMES_URL",
     secretVariable: "GAMES_GATEWAY_SECRET",
+    containerSecretVariable: "GATEWAY_SECRET",
     signedProbePath: "/games/api/me",
     docsAnchor: "games",
     capabilities: [
@@ -82,13 +84,6 @@ export function appDefinition(id: AppId): AppDefinition {
   return found;
 }
 
-/** Where this install says the container is, and the secret it signs with. */
-export function appSettings(id: AppId): { upstream: string; secret: string } {
-  switch (id) {
-    case "games": return { upstream: config.gamesUrl, secret: config.gamesGatewaySecret };
-  }
-}
-
 export interface AppConfigured {
   enabled: boolean;
   /** Why a half-set container stays off, for the log and the Apps page. */
@@ -100,7 +95,16 @@ export interface AppConfigured {
  *  URL that is not http(s), stays off with a reason. */
 export function appConfigured(app: AppDefinition, upstream: string, secret: string): AppConfigured {
   if (!upstream) return { enabled: false };
-  if (!secret) return { enabled: false, reason: `${app.urlVariable} is set but ${app.secretVariable} is not; ${app.id} stays off until both are set.` };
-  if (!/^https?:\/\//.test(upstream)) return { enabled: false, reason: `${app.urlVariable} must start with http:// or https:// (got "${upstream}"); ${app.id} stays off.` };
+  const badUrl = urlProblem(app, upstream);
+  if (badUrl) return { enabled: false, reason: badUrl };
+  if (!secret) return { enabled: false, reason: `${app.urlVariable} is set but there is no secret yet; ${app.id} stays off until it is paired on Control panel → Apps → Setup or ${app.secretVariable} is set.` };
   return { enabled: true };
+}
+
+/** Why an address cannot be proxied to, or null when it can. The gateway is
+ *  registered for any usable address, secret or not, so pairing later needs no
+ *  restart; it answers 404 until there is a secret. */
+export function urlProblem(app: AppDefinition, upstream: string): string | null {
+  if (!upstream) return `${app.urlVariable} is not set`;
+  return /^https?:\/\//.test(upstream) ? null : `${app.urlVariable} must start with http:// or https:// (got "${upstream}"); ${app.id} stays off.`;
 }

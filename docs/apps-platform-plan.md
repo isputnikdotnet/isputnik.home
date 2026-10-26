@@ -24,7 +24,16 @@ groups, people as member / manager / deny on `assignments` with object_type
 the plan below: capabilities are declared in home's registry (`registry.ts`), not
 read from a container manifest — the paths are what the gateway enforces, so a
 container must not be able to widen them; and `X-Isputnik-Libraries` waits for the
-first engine (V1). Phase 2 (pairing) is next.
+first engine (V1).
+
+Phase 2 pairing built (2026-10-25, not yet released): Apps → Setup makes a secret
+(32 random bytes, shown once, kept sealed in `app_pairings` with the server key),
+replaces or forgets it, and tests the connection. `<APP>_GATEWAY_SECRET` in the
+environment still wins, and pairing is off while it is set. The gateway asks for
+the secret on every request and is registered for any usable address, so pairing
+or rotating needs no restart of home. Still open in phase 2: the containers'
+databases in home's backups (see Backups) — it needs a `GET /api/admin/backup`
+on each container first, starting with isputnik.games.
 
 ## Two kinds of container
 

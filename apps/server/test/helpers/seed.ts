@@ -51,7 +51,7 @@ export function resetDb(): void {
     // here; without this they accumulate across tests and land in the next one's counts.
     "trashed_items",
     "library_items", "people", "series", "libraries", "user_groups", "users",
-    "activity_logs", "app_settings"
+    "activity_logs", "app_settings", "app_pairings"
   ];
   for (const table of tables) {
     db.prepare(`DELETE FROM ${table}`).run();

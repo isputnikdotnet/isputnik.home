@@ -113,6 +113,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "приложения контейнеры игры точки играть онлайн шлюз статус адрес секрет окружение версия работает",
   appsAccess: "apps containers access who may use members managers deny everyone groups network rules trusted home network anywhere outside internet lan restrict games " +
     "приложения контейнеры доступ кто может участники менеджеры запретить все группы сеть правила доверенные домашняя сеть откуда снаружи интернет ограничить игры",
+  appsSetup: "apps containers setup pair pairing secret gateway secret generate rotate replace forget template unraid connect test connection games " +
+    "приложения контейнеры настройка связать связка секрет шлюз создать заменить забыть шаблон подключить проверить соединение игры",
   appsEvents: "apps containers events audit refused gateway rejected invitations matches errors games " +
     "приложения контейнеры события аудит отклонённые шлюз приглашения партии ошибки игры",
   appsLogs: "apps containers server log docker logs lines tail output games " +

@@ -45,7 +45,11 @@ describe("GET /api/apps/admin/status", () => {
     const res = await app.app.inject({ method: "GET", url: "/api/apps/admin/status", headers: { cookie: await app.signIn("admin") } });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      apps: [{ id: "games", kind: "app", prefix: "/games", configured: false, reason: null, url: null, secretSet: false, secretAccepted: null, server: null }]
+      apps: [{
+        id: "games", kind: "app", prefix: "/games", configured: false, reason: null, url: null, secretSet: false,
+        secretSource: "none", pairing: null, variables: { url: "GAMES_URL", secret: "GAMES_GATEWAY_SECRET", container: "GATEWAY_SECRET" },
+        secretAccepted: null, server: null
+      }]
     });
     expect((await app.app.inject({ method: "GET", url: "/api/apps/admin/status", headers: { cookie: await app.signIn("mum") } })).statusCode).toBe(403);
   });

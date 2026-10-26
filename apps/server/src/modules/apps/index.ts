@@ -10,7 +10,8 @@ import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { appStatus } from "./status.js";
 import { APP_GRANT_ROLES, grantAppRole, listAppAccess, revokeAppRole, rulesFor, setEveryoneAppRole, setRule } from "./access.js";
-import { APPS, NETWORK_RULES, appSettings, type AppDefinition, type AppId } from "./registry.js";
+import { forgetPairing, pairApp, resolveAppSecret, type SecretSource } from "./pairing.js";
+import { APPS, NETWORK_RULES, type AppDefinition, type AppId } from "./registry.js";
 
 export interface AppsPluginOptions {
   /** Overrides for tests, which run without the environment and point at stand-ins. */
@@ -26,17 +27,48 @@ const grantSchema = z.object({
 const rulesSchema = z.record(z.string().min(1).max(40), z.enum(NETWORK_RULES));
 
 export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions = {}) {
-  // Control panel → Apps → Installed: every container this release knows, set up
-  // or not. Read-only: where a container is and its secret are the install's
-  // environment (pairing is a later phase of the plan).
+  /** The address and secret in force: a test's stand-in, else the install's. */
+  const settingsFor = (id: AppId) => {
+    const override = opts.settings?.[id];
+    if (override) return { ...override, source: (override.secret ? "environment" : "none") as SecretSource };
+    return resolveAppSecret(id);
+  };
+
+  // Control panel → Apps → Installed and Setup: every container this release
+  // knows, set up or not. Where a container is stays the install's environment;
+  // its secret is the environment's, or one paired below.
   app.get("/api/apps/admin/status", { preHandler: app.requireAdmin }, async (request) => ({
     apps: await Promise.all(
       APPS.map((definition) => {
-        const { upstream, secret } = opts.settings?.[definition.id] ?? appSettings(definition.id);
-        return appStatus(definition, upstream, secret, request);
+        const { upstream, secret, source } = settingsFor(definition.id);
+        return appStatus(definition, upstream, secret, request, source);
       })
     )
   }));
+
+  // ── Apps → Setup: pairing ───────────────────────────────────────────────
+
+  // A new secret, shown once. Refused while the environment sets one: that one
+  // wins, and a second the owner would paste somewhere would only mislead.
+  app.post("/api/apps/admin/pairing/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const definition = named(request, reply);
+    if (!definition) return reply;
+    if (settingsFor(definition.id).source === "environment") {
+      return reply.code(409).send({ error: `${definition.secretVariable} is set on this container, and it wins over a paired secret. Remove it to pair here instead.` });
+    }
+    const replacing = settingsFor(definition.id).source === "paired";
+    const secret = pairApp(definition.id, request.user!.id);
+    note(request, definition, replacing ? "app.pairing.rotated" : "app.pairing.created",
+      replacing ? `Replaced the secret ${definition.id} is paired with.` : `Paired ${definition.id} with a new secret.`);
+    return reply.code(201).send({ secret, variable: definition.containerSecretVariable });
+  });
+
+  app.delete("/api/apps/admin/pairing/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const definition = named(request, reply);
+    if (!definition) return reply;
+    if (forgetPairing(definition.id)) note(request, definition, "app.pairing.forgotten", `Forgot the secret ${definition.id} was paired with; it stays off until paired again.`);
+    return { forgotten: true };
+  });
 
   // ── Apps → Access ────────────────────────────────────────────────────────
 

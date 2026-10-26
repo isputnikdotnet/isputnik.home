@@ -125,13 +125,14 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     key: "apps",
     icon: Boxes,
     // The containers reached through this server (games today): how each one
-    // stands, who may use it and from where, then what it recorded and its log,
-    // read from it through the gateway.
+    // stands, who may use it and from where, what it recorded and its log, read
+    // from it through the gateway — and, last, pairing one with this server.
     tabs: [
       { section: "appsInstalled" },
       { section: "appsAccess" },
       { section: "appsEvents" },
-      { section: "appsLogs" }
+      { section: "appsLogs" },
+      { section: "appsSetup" }
     ]
   },
   {
