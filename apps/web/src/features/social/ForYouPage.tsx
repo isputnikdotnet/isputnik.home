@@ -12,6 +12,7 @@ import { DeliveryRow, type DeliveryCard } from "./DeliveryRow";
 import { SharedPersonRow, type SharedPersonCard } from "./SharedPersonRow";
 import { refreshInboxSummary } from "./useInboxSummary";
 import { InvitationRow, YourMoveRow } from "../games/GameRows";
+import { ContinueWatching } from "../video/ContinueWatching";
 import { gameMatchHref, refreshGamesSummary, useGamesSummary, type GameInvitation } from "../games/useGamesSummary";
 import { Button } from "../../shared/Button";
 import { formatDate } from "../../shared/dates";
@@ -298,6 +299,10 @@ export function ForYouPage() {
             </ul>
           </>
         )}
+
+        {/* Not "waiting on you" — nothing here asks for an answer — so it is its
+            own row and never counted in the intro or the badge. */}
+        <ContinueWatching />
 
         {nothingAtAll ? (
           <div className="empty-state library-empty">

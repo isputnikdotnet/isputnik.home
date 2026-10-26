@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Film, Tv } from "lucide-react";
+import { ArrowLeft, Check, Film, Play, Tv } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followBack } from "../../router";
+import { followBack, followRoute } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 // A date the .nfo gives without a time: read as a calendar date, so it never rolls back west of Greenwich.
 import { formatDate } from "../../shared/dates";
 import { VideoSectionNav } from "./VideoSectionNav";
-import { VIDEO_API, videoHref, type VideoKind, type VideoMovie, type VideoShow } from "./types";
+import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoHref, watchHref, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
 
 // One show — its seasons and episodes — or one movie, as the video engine
-// catalogued it (.nfo files first, then the folder's own name). Playing comes
-// with V2 (docs/apps-platform-plan.md).
+// catalogued it (.nfo files first, then the folder's own name), with Play —
+// resumed where this person stopped — and each episode's progress.
 export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState<VideoShow | VideoMovie | null>(null);
@@ -79,8 +79,9 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
               </div>
             </header>
 
+            <PlayAction title={title} />
+
             {title.plot && <p className="video-plot">{title.plot}</p>}
-            <p className="muted video-play-soon">{t("video.playSoon")}</p>
 
             {show && (
               show.seasons.length === 0 ? (
@@ -90,16 +91,33 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                   <section className="video-season" key={season.number} aria-labelledby={`season-${season.number}`}>
                     <h2 id={`season-${season.number}`}>{season.number === 0 ? t("video.specials") : t("video.season", { number: season.number })}</h2>
                     <ol className="video-episodes">
-                      {season.episodes.map((episode) => (
-                        <li key={episode.id} className="video-episode">
-                          <span className="video-episode-number">{episode.episode}</span>
-                          <div className="video-episode-copy">
-                            <strong>{episode.title ?? t("video.episode", { number: episode.episode })}</strong>
-                            {episode.aired && <small className="muted">{t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) })}</small>}
-                            {episode.plot && <p>{episode.plot}</p>}
-                          </div>
-                        </li>
-                      ))}
+                      {season.episodes.map((episode) => {
+                        const name = episode.title ?? t("video.episode", { number: episode.episode });
+                        const fraction = progressFraction(episode.progress);
+                        const href = watchHref(episode.id);
+                        return (
+                          <li key={episode.id} className={`video-episode${episode.progress?.watched ? " is-watched" : ""}`}>
+                            <a
+                              className="video-episode-play"
+                              href={href}
+                              onClick={(event) => followRoute(event, href)}
+                              aria-label={t("video.playEpisode", { name })}
+                            >
+                              <span className="video-episode-number">{episode.episode}</span>
+                              <Play size={16} aria-hidden="true" />
+                            </a>
+                            <div className="video-episode-copy">
+                              <strong>
+                                {name}
+                                {episode.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
+                              </strong>
+                              {episode.aired && <small className="muted">{t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) })}</small>}
+                              {episode.plot && <p>{episode.plot}</p>}
+                              {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ol>
                   </section>
                 ))
@@ -109,5 +127,50 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
         )}
       </section>
     </DashboardShell>
+  );
+}
+
+/** Play on a title: the movie, or the show's next episode — resumed where this
+ *  person stopped. Nothing to play once every episode is watched. */
+function PlayAction({ title }: { title: VideoShow | VideoMovie }) {
+  const { t } = useTranslation();
+  let id: string;
+  let position: number;
+  let label: string;
+  if ("seasons" in title) {
+    const next = title.nextUp;
+    if (!next) {
+      const total = title.seasons.reduce((sum, season) => sum + season.episodes.length, 0);
+      return total > 0 ? <p className="muted video-play-note">{t("video.allWatched")}</p> : null;
+    }
+    id = next.id;
+    position = next.position;
+    const code = t("video.episodeCode", episodeCodeValues(next.season!, next.episode!));
+    label = position > 0 ? t("video.resumeEpisode", { code, time: formatPlayTime(position) }) : t("video.playEpisodeCode", { code });
+  } else {
+    id = title.id;
+    const progress = title.progress;
+    position = progress && !progress.watched && progress.position >= 30 ? progress.position : 0;
+    label = position > 0 ? t("video.resumeAt", { time: formatPlayTime(position) }) : t("video.play");
+  }
+  const href = watchHref(id);
+  const fraction = "seasons" in title ? 0 : progressFraction(title.progress);
+  return (
+    <div className="video-play-action">
+      {/* A link, so it opens in a new tab like any address; it wears Button's primary look. */}
+      <a className="primary-button video-play-button" href={href} onClick={(event) => followRoute(event, href)}>
+        <Play size={18} aria-hidden="true" />
+        <span>{label}</span>
+      </a>
+      {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
+    </div>
+  );
+}
+
+function ProgressBar({ fraction }: { fraction: number }) {
+  return (
+    <span className="video-progress" aria-hidden="true">
+      <span style={{ width: `${Math.round(fraction * 100)}%` }} />
+    </span>
   );
 }

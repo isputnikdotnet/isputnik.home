@@ -100,7 +100,7 @@ const ROUTE_SECTIONS: Record<string, RouteSection> = {
   familyTree: "familyTree", familyPeople: "familyTree", familyFamilies: "familyTree", familyMap: "familyTree",
   familyPerson: "familyTree", familyPersonPhotos: "familyTree",
   stories: "stories", storyDetail: "stories", storyChapter: "stories", storyCollection: "stories", storyEditor: "stories",
-  videoBrowse: "video", videoTitle: "video",
+  videoBrowse: "video", videoTitle: "video", videoWatch: "video",
   authors: "books", categories: "books", categoryDetail: "books", libraryFeed: "books"
 };
 

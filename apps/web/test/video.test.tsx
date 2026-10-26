@@ -16,6 +16,7 @@ vi.mock("../src/api", async (importOriginal) => {
 const { api } = await import("../src/api");
 const { VideoBrowsePage } = await import("../src/features/video/VideoBrowsePage");
 const { VideoTitlePage } = await import("../src/features/video/VideoTitlePage");
+const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage");
 const { LibraryWizard } = await import("../src/features/control/libraries/LibraryWizard");
 const mockApi = vi.mocked(api);
 
@@ -36,6 +37,8 @@ describe("video routes", () => {
     expect(getRoute()).toEqual({ name: "videoTitle", kind: "shows", id: "abc d" });
     at("/movies/m1");
     expect(getRoute()).toEqual({ name: "videoTitle", kind: "movies", id: "m1" });
+    at("/watch/e1");
+    expect(getRoute()).toEqual({ name: "videoWatch", id: "e1" });
   });
 });
 
@@ -86,9 +89,12 @@ describe("a show's page", () => {
       id: "s2", libraryId: "lib_tv", title: "Радар", originalTitle: null, year: 2026, plot: "1988 год.", premiered: null, status: null,
       genres: ["Драма"], imdbId: "tt33022834", tmdbId: null, source: "nfo",
       seasons: [{ number: 1, episodes: [
-        { id: "e1", episode: 1, title: "Серия 1", plot: null, aired: "2026-04-24", runtimeMinutes: null },
-        { id: "e2", episode: 2, title: null, plot: null, aired: null, runtimeMinutes: null }
-      ] }]
+        { id: "e1", episode: 1, title: "Серия 1", plot: null, aired: "2026-04-24", runtimeMinutes: null, direct: "maybe",
+          progress: { position: 2400, duration: 2400, watched: true, updatedAt: "2026-10-26T10:00:00.000Z" } },
+        { id: "e2", episode: 2, title: null, plot: null, aired: null, runtimeMinutes: null, direct: "maybe",
+          progress: { position: 754, duration: 2400, watched: false, updatedAt: "2026-10-26T11:00:00.000Z" } }
+      ] }],
+      nextUp: { id: "e2", season: 1, episode: 2, title: null, position: 754 }
     });
     renderSignedIn(<VideoTitlePage kind="shows" id="s2" />);
     expect(await screen.findByRole("heading", { name: "Радар" })).toBeInTheDocument();
@@ -97,12 +103,48 @@ describe("a show's page", () => {
     // An episode the engine has no title for is named by its number.
     expect(screen.getByText("Episode 2")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledWith("/video/api/shows/s2");
+    // Play picks up where this person stopped; a watched episode is marked.
+    expect(screen.getByRole("link", { name: "Resume S01E02 from 12:34" })).toHaveAttribute("href", "/watch/e2");
+    expect(screen.getByLabelText("Watched")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Play Серия 1" })).toHaveAttribute("href", "/watch/e1");
   });
 
   it("says so when the title is gone or not this person's", async () => {
     mockApi.mockRejectedValue(new Error("No such show"));
     renderSignedIn(<VideoTitlePage kind="shows" id="gone" />);
     expect(await screen.findByText("This is not here any more, or not for you.")).toBeInTheDocument();
+  });
+});
+
+describe("the player", () => {
+  const playInfo = {
+    id: "e2", type: "episode", title: "Birds of a Feather", show: { id: "s1", title: "Counterpart" }, season: 1, episode: 2,
+    runtimeMinutes: null, available: true, sizeBytes: 1000, mime: "video/mp4", direct: "yes",
+    stream: "/video/api/stream/e2", progress: null, resumeAt: 754,
+    next: { id: "e3", season: 1, episode: 3, title: "The Lost Art of Diplomacy" }
+  };
+
+  it("plays the engine's stream, titled by show and episode, with the next one offered", async () => {
+    mockApi.mockResolvedValue(playInfo);
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
+    expect(screen.getByText("S01E02 · Birds of a Feather")).toBeInTheDocument();
+    expect(document.querySelector("video")).toHaveAttribute("src", "/video/api/stream/e2");
+    expect(screen.getByRole("link", { name: /Up next: S01E03/ })).toHaveAttribute("href", "/watch/e3");
+    expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2");
+  });
+
+  it("says why instead of a player for a file a browser cannot play", async () => {
+    mockApi.mockResolvedValue({ ...playInfo, direct: "no", mime: "application/octet-stream" });
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    expect(await screen.findByText(/has to be converted before a browser can play it/)).toBeInTheDocument();
+    expect(document.querySelector("video")).toBeNull();
+  });
+
+  it("says the file has gone when the engine cannot find it", async () => {
+    mockApi.mockResolvedValue({ ...playInfo, available: false });
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    expect(await screen.findByText(/no longer where the video app found it/)).toBeInTheDocument();
   });
 });
 

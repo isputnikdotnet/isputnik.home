@@ -6,7 +6,11 @@ install each one like any other container, then connect it to iSputnik in
 **Control panel → Apps**. This guide is for whoever runs the server.
 
 > **Video is in alpha.** Video libraries, the Shows and Movies pages and the
-> engine's image are here; the player, posters and online metadata come next.
+> player are here. The player plays files a browser can play as they are — MP4
+> and WebM everywhere, most MKV files in Chrome and Edge — and says so for the
+> rest; converting those on the fly, subtitles, posters and online metadata come
+> next. Each person resumes where they stopped, and Continue watching (on Shows,
+> Movies and For you) lists what they left halfway and the next episode.
 
 ## How the apps fit in
 

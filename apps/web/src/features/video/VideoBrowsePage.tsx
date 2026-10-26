@@ -10,6 +10,7 @@ import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { SortMenu } from "../../shared/SortMenu";
+import { ContinueWatching } from "./ContinueWatching";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_API, videoHref, type VideoKind, type VideoLibraryRef, type VideoMovieSummary, type VideoPage, type VideoShowSummary } from "./types";
 import "../../styles/video.css";
@@ -119,6 +120,8 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
             />
           }
         />
+
+        {!filtering && <ContinueWatching only={kind === "shows" ? "episode" : "movie"} />}
 
         {items && items.length === 0 && !error ? (
           <div className="empty-state library-empty">

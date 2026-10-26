@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.39.0 — Watching video
+
+- **Shows and movies play in the browser (video alpha, needs isputnik.video 0.2.0).** A show's page has Play for the next episode and a play link on every episode; a movie has Play. The player seeks anywhere in the file, and when an episode ends the next one starts after a ten-second countdown you can cancel. Before, the pages listed what was there but nothing could be watched.
+- **Everyone picks up where they stopped.** Each person's place is kept as they watch and when they leave, so Play becomes **Resume from 12:34**, a finished episode gets a tick, and one left halfway shows how far along it is. Nobody sees anyone else's.
+- **Continue watching** on Shows, Movies and For you lists films left halfway and the next episode of a show you are watching, newest first. On For you it is a row of its own, not counted among the things waiting on you.
+- **A file a browser can't play says so.** MP4 and WebM play everywhere and most MKV files in Chrome and Edge; for the rest (AVI, WMV and the like) the player explains that converting them comes in a later version, rather than showing a player that never starts.
+
 ## 4.38.1 — An app's address on Setup
 
 - **Where an app's container is now goes on Apps → Setup, next to its secret.** Type the address, press **Save address**, and it works at once — no edit to this container's template and no restart. Before, every app needed its own variable on this container (`GAMES_URL`, `VIDEO_URL`), so each new container meant editing the template again; the Unraid template no longer has those fields. A variable already set still works and wins over Setup, which says so.

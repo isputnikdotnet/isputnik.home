@@ -387,7 +387,7 @@ responses. Measured in V2 before anything else is considered.
 | **2** | home | Pairing: `app_pairings`, Setup tab, rotate; env secrets keep winning |
 | **V1** | engine | repository, image, Unraid template; health, manifest, admin, folders and library calls; catalog scan with `.nfo` + TMDB; art; progress store |
 | **V1** | home | remote library type `video`; Add library → Video, Libraries page and Tasks from the engine; Video menu entry; browse, show and movie pages (no player yet) |
-| **V2** | both | the player: direct play, remux, transcode; tracks, subtitles, resume; Continue watching on For you; search |
+| **V2** | both | the player: direct play, remux, transcode; tracks, subtitles, resume; Continue watching on For you; search. **Step 1 built (engine 0.2.0, home 4.39.0):** direct play with byte ranges, per-person progress and resume, next episode, Continue watching |
 | **3** | home | token routes through the gateway; Profile → Devices for container tokens |
 | **V3** | engine | Stremio add-on |
 | **V4** | engine | WebDAV for Kodi; hardware transcoding |
