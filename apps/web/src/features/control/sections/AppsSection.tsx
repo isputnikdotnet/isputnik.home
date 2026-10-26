@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Boxes, Check, Copy, KeyRound, Link2Off, ScrollText, ShieldCheck, Siren } from "lucide-react";
+import { Boxes, Check, Copy, KeyRound, Link2Off, Save, ScrollText, ShieldCheck, Siren } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute, queryParam, replaceQuery } from "../../../router";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
@@ -11,7 +11,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectField } from "../../../shared/SelectField";
-import { formatManagedDate } from "../../../shared/utils";
+import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 // Control panel → Apps: the containers beside this server (docs/apps-platform-plan.md).
@@ -194,6 +194,7 @@ export function AppsInstalledSection() {
         <div key={app.id}>
           <AppCard app={app} onRefresh={load} />
           {app.id === "games" && app.configured && <GuestLinks />}
+          {app.id === "video" && isRunning(app) && <VideoConversion prefix={app.prefix} />}
         </div>
       ))}
     </>
@@ -406,6 +407,186 @@ function GuestLinks() {
         >
           {t("controlAdmin:games.guestRevokeBody", { name: pending.guestName, by: pending.createdBy.name })}
         </ConfirmDialog>
+      )}
+    </section>
+  );
+}
+
+/** GET/PUT /video/api/admin/conversion: the engine's limits on converting video
+ *  while someone watches, and who is converting now (isputnik.video hls.ts). */
+interface ConversionSettings {
+  memoryPerViewerMb: number;
+  maxViewers: number;
+  whenFull: "disk" | "wait";
+}
+
+interface ConversionState {
+  available: boolean;
+  settings: ConversionSettings;
+  usage: {
+    viewers: { user: string; title: string; mode: string; converting: boolean; memoryBytes: number; diskBytes: number }[];
+    memoryBytes: number;
+    diskBytes: number;
+  };
+}
+
+// Films a browser can't play as they are get converted as they play. Each
+// viewer's segments are kept in the engine's memory up to a share set here, then
+// on the disk (or the conversion waits); only so many people convert at once,
+// the next is told to try later. Saved in the engine, read through the gateway.
+function VideoConversion({ prefix }: { prefix: string }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const [state, setState] = useState<ConversionState | null>(null);
+  const [form, setForm] = useState<{ memory: string; viewers: string; whenFull: ConversionSettings["whenFull"] } | null>(null);
+  const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const url = `${prefix}/api/admin/conversion`;
+
+  const load = useCallback(
+    () =>
+      api<ConversionState>(url)
+        .then((payload) => { setState(payload); setError(""); return payload; })
+        .catch((err: unknown) => { setError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.loadFailed")); throw err; }),
+    [t, url]
+  );
+
+  useEffect(() => {
+    load()
+      .then((payload) => setForm({ memory: String(payload.settings.memoryPerViewerMb), viewers: String(payload.settings.maxViewers), whenFull: payload.settings.whenFull }))
+      .catch(() => undefined);
+  }, [load]);
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!form) return;
+    setSaving(true);
+    setSaved(false);
+    setSaveError("");
+    try {
+      const body: ConversionSettings = { memoryPerViewerMb: Number(form.memory), maxViewers: Number(form.viewers), whenFull: form.whenFull };
+      setState(await api<ConversionState>(url, { method: "PUT", body: JSON.stringify(body) }));
+      setSaved(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const memoryMb = form ? Number(form.memory) : 0;
+  const viewers = form ? Number(form.viewers) : 0;
+  const usage = state?.usage;
+
+  return (
+    <section className="config-block" id="video-conversion">
+      <h3>{t("controlAdmin:apps.conversion.title")}</h3>
+      <p className="muted">{t("controlAdmin:apps.conversion.intro")}</p>
+
+      {error && <MessageBox tone="error" title={t("controlAdmin:apps.conversion.loadFailed")}>{error}</MessageBox>}
+      {state && !state.available && (
+        <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
+      )}
+
+      {usage && (
+        <>
+          <dl className="games-status" aria-label={t("controlAdmin:apps.conversion.nowLabel")}>
+            <div>
+              <dt>{t("controlAdmin:apps.conversion.watching")}</dt>
+              <dd>{t("controlAdmin:apps.conversion.watchingValue", { now: usage.viewers.length, limit: state.settings.maxViewers })}</dd>
+            </div>
+            <div>
+              <dt>{t("controlAdmin:apps.conversion.inMemory")}</dt>
+              <dd>{formatBytes(usage.memoryBytes)}</dd>
+            </div>
+            <div>
+              <dt>{t("controlAdmin:apps.conversion.onDisk")}</dt>
+              <dd>{formatBytes(usage.diskBytes)}</dd>
+            </div>
+          </dl>
+          {usage.viewers.length > 0 && (
+            <div className="datagrid-wrap games-events-wrap">
+              <table className="datagrid games-events-table video-conversion-table">
+                <thead>
+                  <tr>
+                    <th>{t("controlAdmin:apps.conversion.colWho")}</th>
+                    <th>{t("controlAdmin:apps.conversion.colWhat")}</th>
+                    <th>{t("controlAdmin:apps.conversion.colHow")}</th>
+                    <th>{t("controlAdmin:apps.conversion.inMemory")}</th>
+                    <th>{t("controlAdmin:apps.conversion.onDisk")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usage.viewers.map((viewer, index) => (
+                    <tr key={`${viewer.user}-${index}`}>
+                      <td>{viewer.user}</td>
+                      <td>{viewer.title}</td>
+                      <td className="datagrid-muted">
+                        {viewer.mode === "transcode" ? t("controlAdmin:apps.conversion.modeTranscode") : t("controlAdmin:apps.conversion.modeRemux")}
+                        {!viewer.converting && ` · ${t("controlAdmin:apps.conversion.paused")}`}
+                      </td>
+                      <td>{formatBytes(viewer.memoryBytes)}</td>
+                      <td>{formatBytes(viewer.diskBytes)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="games-events-tools">
+            <RefreshButton onRefresh={() => load().then(() => undefined)} label={t("controlAdmin:games.refresh")} compact={false} />
+          </div>
+        </>
+      )}
+
+      {form && (
+        <form className="security-policy-form" onSubmit={(event) => void save(event)}>
+          <label className="security-setting-row">
+            <span className="security-setting-copy">
+              <span className="security-setting-label">{t("controlAdmin:apps.conversion.viewersLabel")}</span>
+              <span className="security-setting-help">{t("controlAdmin:apps.conversion.viewersHelp")}</span>
+            </span>
+            <input type="number" min={1} max={50} required value={form.viewers} onChange={(event) => setForm({ ...form, viewers: event.target.value })} />
+          </label>
+          <label className="security-setting-row">
+            <span className="security-setting-copy">
+              <span className="security-setting-label">{t("controlAdmin:apps.conversion.memoryLabel")}</span>
+              <span className="security-setting-help">{t("controlAdmin:apps.conversion.memoryHelp")}</span>
+            </span>
+            <input type="number" min={0} max={16384} step={50} required value={form.memory} onChange={(event) => setForm({ ...form, memory: event.target.value })} />
+          </label>
+          <div className="security-setting-row">
+            <span className="security-setting-copy">
+              <span className="security-setting-label">{t("controlAdmin:apps.conversion.whenFullLabel")}</span>
+              <span className="security-setting-help">{t("controlAdmin:apps.conversion.whenFullHelp")}</span>
+            </span>
+            <SelectField
+              label={t("controlAdmin:apps.conversion.whenFullLabel")}
+              hideLabel
+              value={form.whenFull}
+              disabled={memoryMb === 0}
+              options={[
+                { value: "disk", label: t("controlAdmin:apps.conversion.whenFullDisk") },
+                { value: "wait", label: t("controlAdmin:apps.conversion.whenFullWait") }
+              ]}
+              onChange={(value) => setForm({ ...form, whenFull: value })}
+            />
+          </div>
+          <p className="muted">
+            {memoryMb === 0
+              ? t("controlAdmin:apps.conversion.totalDiskOnly")
+              : t("controlAdmin:apps.conversion.total", { memory: formatBytes(memoryMb * viewers * 1024 * 1024) })}
+          </p>
+          {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
+          {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:apps.conversion.saved")}</MessageBox>}
+          <div className="security-policy-actions">
+            <Button variant="primary" type="submit" disabled={saving}>
+              <Save size={16} aria-hidden="true" />
+              {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:apps.conversion.save")}
+            </Button>
+          </div>
+        </form>
       )}
     </section>
   );

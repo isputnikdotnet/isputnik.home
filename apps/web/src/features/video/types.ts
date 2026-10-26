@@ -82,6 +82,8 @@ export interface VideoPlayback {
   /** The file, or its HLS playlist, through the gateway. */
   url: string | null;
   duration: number | null;
+  /** Converted, and every place the admin allows is taken (engine 0.5.0+). */
+  busy?: { limit: number } | null;
 }
 
 /** A sound track, as the engine found it (ffprobe). */

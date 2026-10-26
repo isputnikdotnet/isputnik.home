@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.42.0 — Converting video in memory
+
+- **Apps → Installed has a Converting video card (needs isputnik.video 0.5.0).** It sets how many people may watch a converted film at once, how much memory each of them gets, and what happens once it is full: carry on on the disk, or keep less ahead. Before, every conversion wrote to the disk, inside the container unless its Transcode path was mapped in Docker, and the only way to use RAM was a template setting few people find.
+- **The card shows who is watching what right now,** and how much of it sits in memory and on the disk, so the numbers can be fitted to the server.
+- **One viewer past the limit is told so instead of everyone stuttering.** The player says how many are already watching converted video and offers Try again; films that play as they are never count.
+
 ## 4.41.0 — Choosing the sound track
 
 - **A film or episode with more than one sound track has a Sound menu in the player (needs isputnik.video 0.4.0).** Each track reads by its language, its title and its channels — "Russian · Дубляж · Stereo" — and choosing one carries on from the same moment. Before, only the track the file marked as default played, so a dub or a second language couldn't be reached.

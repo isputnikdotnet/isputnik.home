@@ -236,6 +236,16 @@
 .games-guests-table .games-ip { white-space: nowrap; }
 .games-guests-table td.col-actions { width: 1%; vertical-align: middle; }
 
+/* Who is converting video: five short columns sized to their content, like
+   the guest links; How wraps instead of running under In memory. */
+.video-conversion-table {
+  min-width: 0;
+  table-layout: auto;
+}
+.video-conversion-table th:nth-child(n) { width: auto; }
+.video-conversion-table .datagrid-muted { white-space: normal; }
+.video-conversion-table td:nth-child(n + 4) { white-space: nowrap; }
+
 .games-events-table tr.is-warn .games-level { color: var(--gold); }
 .games-events-table tr.is-error .games-level { color: var(--rose); }
 

@@ -75,6 +75,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
   const [resumedAt, setResumedAt] = useState(0);
   const [nextIn, setNextIn] = useState<number | null>(null);
   const [preparing, setPreparing] = useState(false);
+  /** Bumped by "Try again" when every place to watch converted video was taken. */
+  const [attempt, setAttempt] = useState(0);
   const video = useRef<HTMLVideoElement | null>(null);
   const lastSaved = useRef(0);
   /** Where playback starts: the saved place, or where a change of sound track left it. */
@@ -105,7 +107,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
       })
       .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.loadFailed")); });
     return () => { live = false; };
-  }, [id, t]);
+  }, [id, t, attempt]);
 
   /** Where the player is, to the engine. `leaving` survives the page closing. */
   const save = useCallback((options: { watched?: boolean; leaving?: boolean } = {}) => {
@@ -145,6 +147,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
 
   const playback = info?.available ? info.playback : null;
   const isHls = playback?.mode === "remux" || playback?.mode === "transcode";
+  const busy = playback?.busy ?? null;
   const audioTracks = info?.audioTracks ?? [];
 
   /** Another sound track: the engine converts that one instead, from where the film is. */
@@ -166,7 +169,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
 
   // Leaving the film stops the engine converting it (a change of sound track
   // replaces the conversion on the engine by itself).
-  const convertingId = info && isHls ? info.id : null;
+  const convertingId = info && isHls && !busy ? info.id : null;
   useEffect(() => {
     if (!convertingId) return;
     return () => sendOnLeaving(`${VIDEO_API}/hls/${encodeURIComponent(convertingId)}`, "DELETE");
@@ -177,7 +180,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
   // converting once the player goes.
   useEffect(() => {
     const element = video.current;
-    if (!info || !element || !isHls || !playback?.url) return;
+    if (!info || !element || !isHls || !playback?.url || busy) return;
     const url = playback.url;
     let live = true;
     let hls: HlsInstance | null = null;
@@ -206,7 +209,17 @@ export function VideoPlayerPage({ id }: { id: string }) {
           return;
         }
         setPreparing(false);
-        setCannotPlay(true);
+        // Turned away because every place to convert was taken meanwhile? The
+        // engine says so on a fresh look; anything else this browser can't play.
+        const selected = info.audioTracks?.find((track) => track.selected);
+        api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(info.id)}${selected ? `?audio=${selected.index}` : ""}`).then(
+          (payload) => {
+            if (!live) return;
+            if (payload.playback.busy) setInfo((current) => (current && current.id === payload.id ? { ...current, playback: payload.playback } : current));
+            else setCannotPlay(true);
+          },
+          () => { if (live) setCannotPlay(true); }
+        );
       });
       player.loadSource(url);
       player.attachMedia(element);
@@ -215,7 +228,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
       live = false;
       hls?.destroy();
     };
-  }, [info, isHls, playback?.url]);
+  }, [info, isHls, playback?.url, busy]);
 
   // The end card counts down to the next episode.
   useEffect(() => {
@@ -269,7 +282,19 @@ export function VideoPlayerPage({ id }: { id: string }) {
         </div>
       )}
 
-      {info && playback && playback.mode !== "none" && (
+      {info && busy && (
+        <div className="video-player-message">
+          <MessageBox
+            tone="info"
+            title={t("video.busyTitle")}
+            action={<Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>{t("video.busyRetry")}</Button>}
+          >
+            {t("video.busyBody", { count: busy.limit })}
+          </MessageBox>
+        </div>
+      )}
+
+      {info && playback && playback.mode !== "none" && !busy && (
         <div className={`video-player-stage${cannotPlay ? " is-hidden" : ""}`}>
           <video
             ref={video}

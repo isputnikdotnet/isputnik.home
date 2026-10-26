@@ -70,7 +70,7 @@ container:
 | `/config` | an appdata folder: the catalog database and poster cache |
 | Network | the same network as iSputnik, or a fixed IP; **no port published** |
 | `GATEWAY_SECRET` | empty for now — you'll fill it in step 3; until then the container stops as soon as it starts |
-| `/transcode` | optional: where films are converted while someone watches (a few hundred MB per viewer, deleted as they go) — RAM such as `/tmp/isputnik-video`, or a cache-pool folder; left out, it stays inside the container |
+| `/transcode` | optional: where ffmpeg writes each piece of a film being converted before the engine takes it into memory, and where pieces past a viewer's memory share stay ([Converting video](#converting-video)); left out, a folder inside the container |
 
 Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
 01/Show (Year) S01E01.mkv` for shows, `Movie (Year)/Movie (Year).mkv` for films.
@@ -153,6 +153,30 @@ half-copied season is never catalogued as something else.
 Deleting a video library removes its catalog from the engine; your video files
 are never touched. If the engine is down when you delete it, it lets the library
 go on its next sync.
+
+## Converting video
+
+A film a browser can't play as it is (an `.mkv`, sound in AC3 or DTS, an HEVC
+picture) is converted while someone watches: the sound alone when the picture
+is fine, both when it isn't. The engine keeps a few minutes ready ahead of the
+player. **Apps → Installed → Converting video** sets how:
+
+- **People watching converted video at once** (3 to start with). Each one runs a
+  conversion of their own, and re-encoding a picture keeps a processor core
+  busy. One more sees *Too many people are watching right now* with **Try
+  again**, rather than everyone stuttering. Films that play as they are don't
+  count.
+- **Memory per viewer** (300 MB to start with). What is ready ahead is kept in
+  the engine's memory up to this much per viewer; nothing to set up in Docker.
+  0 keeps it all on the disk.
+- **When a viewer's memory is full** — *Carry on on the disk* keeps the usual
+  few minutes ready, the rest in the `/transcode` folder; *Keep less ahead*
+  stays in memory and converts a little at a time.
+
+The card shows who is watching what right now, and how much of it sits in
+memory and on the disk. Most films need well under the 300 MB; a Blu-ray rip
+whose sound is converted carries its picture unchanged, so it is the one that
+fills a share. Changes apply at once; anyone already watching carries on.
 
 ## Backups
 
