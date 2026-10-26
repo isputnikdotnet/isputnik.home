@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.41.0 — Choosing the sound track
+
+- **A film or episode with more than one sound track has a Sound menu in the player (needs isputnik.video 0.4.0).** Each track reads by its language, its title and its channels — "Russian · Дубляж · Stereo" — and choosing one carries on from the same moment. Before, only the track the file marked as default played, so a dub or a second language couldn't be reached.
+- **The next episode starts in the language chosen last.** The player remembers it in this browser and picks that track whenever an episode or film has it.
+
 ## 4.40.0 — Every film plays
 
 - **Films a browser can't play as they are now play (needs isputnik.video 0.3.0).** The video engine converts them while you watch: usually only the sound, so an MKV with AC3 or DTS sound — which played without sound before — now has it, and the picture too when a browser can't show it (HEVC, 10-bit), which takes real CPU on the server. MP4 and WebM files a browser plays as they are still go as they are.

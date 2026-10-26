@@ -170,6 +170,49 @@ describe("the player", () => {
     fetchSpy.mockRestore();
   });
 
+  describe("sound tracks", () => {
+    const english = { index: 1, codec: "ac3", channels: 6, language: "eng", title: null, default: true, selected: true };
+    const russian = { index: 2, codec: "aac", channels: 2, language: "rus", title: "Дубляж", default: false, selected: false };
+    const hlsFor = (track: number) => ({ mode: "remux", reasons: ["container", "audio"], url: `/video/api/hls/e2/t${track}/index.m3u8`, duration: 2400 });
+    const answer = (path: string) => (path.endsWith("?audio=2")
+      ? { ...playInfo, playback: hlsFor(2), audioTracks: [{ ...english, selected: false }, { ...russian, selected: true }] }
+      : { ...playInfo, playback: hlsFor(1), audioTracks: [english, russian] });
+
+    beforeEach(() => {
+      window.localStorage.removeItem("isputnik.video.audioLanguage");
+      hlsCalls.source = "";
+    });
+
+    it("names each track by language, title and channels, and switches to the one chosen from where the film is", async () => {
+      mockApi.mockImplementation((async (path: string) => answer(path)) as never);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t1/index.m3u8"));
+
+      await userEvent.click(screen.getByRole("button", { name: "Sound: English · 5.1" }));
+      await userEvent.click(screen.getByRole("option", { name: /Russian · Дубляж · Stereo/ }));
+      expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2?audio=2");
+      await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t2/index.m3u8"));
+      expect(screen.getByRole("button", { name: "Sound: Russian · Дубляж · Stereo" })).toBeInTheDocument();
+      // The next film starts in Russian.
+      expect(window.localStorage.getItem("isputnik.video.audioLanguage")).toBe("rus");
+    });
+
+    it("starts in the language chosen last time", async () => {
+      window.localStorage.setItem("isputnik.video.audioLanguage", "rus");
+      mockApi.mockImplementation((async (path: string) => answer(path)) as never);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t2/index.m3u8"));
+      expect(hlsCalls.config).toMatchObject({ startPosition: 754 });
+    });
+
+    it("shows no menu for a film with one sound track", async () => {
+      mockApi.mockResolvedValue({ ...playInfo, audioTracks: [english] });
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Sound/ })).not.toBeInTheDocument();
+    });
+  });
+
   it("says why instead of a player for a file nothing can play", async () => {
     mockApi.mockResolvedValue({ ...playInfo, playback: { mode: "none", reasons: [], url: null, duration: null } });
     renderSignedIn(<VideoPlayerPage id="e2" />);

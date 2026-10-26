@@ -369,7 +369,10 @@ re-encoded, and timestamps stay the file's own, so a run started after a seek
 lines up with the segments before it. One ffmpeg run per person and film; it
 stops 30 segments ahead and restarts where the player gets to; a session idle
 for a minute, or one whose player sends `DELETE /hls/:id`, is stopped and its
-segments deleted (`src/hls.ts`). Not yet: the per-member and household caps,
+segments deleted (`src/hls.ts`). Sound tracks (engine 0.4.0): `/play?audio=<index>`
+lists them and picks one; the HLS address carries it (`/hls/:id/t<index>/…`), and a
+file with more than one never plays direct, since no browser lets a page choose
+among them. The player remembers the language last chosen, per browser. Not yet: the per-member and household caps,
 HEVC copied for the browsers that decode it, hardware encoding.
 
 Audio track choice (dubs), subtitles (text converted to WebVTT, image subtitles

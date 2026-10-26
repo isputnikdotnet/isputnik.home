@@ -310,6 +310,11 @@
   font-size: 0.9rem;
 }
 
+/* The sound-track menu sits at the far end of the bar. */
+.video-player-audio {
+  margin-left: auto;
+}
+
 .video-player-stage {
   position: relative;
   display: flex;

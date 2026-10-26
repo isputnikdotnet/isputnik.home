@@ -84,6 +84,19 @@ export interface VideoPlayback {
   duration: number | null;
 }
 
+/** A sound track, as the engine found it (ffprobe). */
+export interface VideoAudioTrack {
+  /** The stream's index in the file: what ?audio= takes. */
+  index: number;
+  codec: string;
+  channels: number;
+  /** ISO 639-2, e.g. "rus"; null or "und" when the file doesn't say. */
+  language: string | null;
+  title: string | null;
+  default: boolean;
+  selected: boolean;
+}
+
 /** GET /video/api/play/:id — what the player needs to start. */
 export interface VideoPlayInfo {
   id: string;
@@ -97,6 +110,9 @@ export interface VideoPlayInfo {
   available: boolean;
   sizeBytes: number | null;
   playback: VideoPlayback;
+  /** Every sound track in the file; the one playing is `selected`. Empty when
+   *  the engine couldn't look inside it (or is older than 0.4.0). */
+  audioTracks?: VideoAudioTrack[];
   progress: VideoProgress | null;
   resumeAt: number;
   next: { id: string; season: number; episode: number; title: string | null } | null;

@@ -9,8 +9,10 @@ install each one like any other container, then connect it to iSputnik in
 > player are here. MP4 and WebM files a browser plays as they are are sent as
 > they are; the rest are converted while they play — usually just the sound
 > (AC3, DTS and the like become AAC), the picture too when a browser can't show
-> it (HEVC, 10-bit), which takes real CPU. Subtitles, choosing a dub, posters and
-> online metadata come next. Each person resumes where they stopped, and
+> it (HEVC, 10-bit), which takes real CPU. A film with more than one sound track
+> has a **Sound** menu in the player (a dub, a commentary), and the next film
+> starts in the language chosen last. Subtitles, posters and online metadata
+> come next. Each person resumes where they stopped, and
 > Continue watching (on Shows, Movies and For you) lists what they left halfway
 > and the next episode.
 

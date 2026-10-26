@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.41.0",
+    "label": "Choosing the sound track",
+    "changes": [
+      "**A film or episode with more than one sound track has a Sound menu in the player (needs isputnik.video 0.4.0).** Each track reads by its language, its title and its channels — \"Russian · Дубляж · Stereo\" — and choosing one carries on from the same moment. Before, only the track the file marked as default played, so a dub or a second language couldn't be reached.",
+      "**The next episode starts in the language chosen last.** The player remembers it in this browser and picks that track whenever an episode or film has it."
+    ]
+  },
+  {
     "version": "4.40.0",
     "label": "Every film plays",
     "changes": [

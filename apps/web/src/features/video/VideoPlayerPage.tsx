@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, SkipForward } from "lucide-react";
+import type { TFunction } from "i18next";
+import { ArrowLeft, AudioLines, SkipForward } from "lucide-react";
 import { api, csrfToken } from "../../api";
 import { followBack, followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoPlayInfo } from "./types";
+import { SelectMenu } from "../../shared/SelectMenu";
+import { VIDEO_API, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo } from "./types";
 import "../../styles/video.css";
 
 type HlsInstance = import("hls.js").default;
@@ -14,6 +16,42 @@ type HlsInstance = import("hls.js").default;
 const SAVE_EVERY_S = 15;
 /** How long the end card waits before the next episode starts by itself. */
 const NEXT_IN_S = 10;
+
+/** The sound language last chosen, in this browser: the next episode (or film)
+ *  starts in it when it has it — a dub watched once is the dub wanted. */
+const AUDIO_LANGUAGE_KEY = "isputnik.video.audioLanguage";
+
+function preferredLanguage(): string | null {
+  try {
+    return window.localStorage.getItem(AUDIO_LANGUAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberLanguage(language: string | null): void {
+  try {
+    if (language) window.localStorage.setItem(AUDIO_LANGUAGE_KEY, language);
+  } catch {
+    // Private window: chosen for this film only.
+  }
+}
+
+/** "Russian · Дубляж · 5.1": the language in the reader's own words, the
+ *  track's title, and its channels. */
+export function audioTrackLabel(track: VideoAudioTrack, position: number, t: TFunction, locale: string): string {
+  let language: string | null = null;
+  if (track.language && track.language !== "und") {
+    try {
+      language = new Intl.DisplayNames([locale], { type: "language" }).of(track.language) ?? null;
+    } catch {
+      language = track.language;
+    }
+  }
+  const named = language ? language.charAt(0).toLocaleUpperCase(locale) + language.slice(1) : t("video.audio.track", { number: position + 1 });
+  const channels = track.channels === 1 ? t("video.audio.mono") : track.channels === 2 ? t("video.audio.stereo") : `${track.channels - 1}.1`;
+  return [named, track.title, channels].filter(Boolean).join(" · ");
+}
 
 /** A request that outlives the page (keepalive), with the CSRF token api() would add. */
 function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): void {
@@ -30,7 +68,7 @@ function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): vo
 // itself). Where the person got is saved as it plays and on the way out, and
 // the next episode follows the end.
 export function VideoPlayerPage({ id }: { id: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [info, setInfo] = useState<VideoPlayInfo | null>(null);
   const [error, setError] = useState("");
   const [cannotPlay, setCannotPlay] = useState(false);
@@ -39,6 +77,10 @@ export function VideoPlayerPage({ id }: { id: string }) {
   const [preparing, setPreparing] = useState(false);
   const video = useRef<HTMLVideoElement | null>(null);
   const lastSaved = useRef(0);
+  /** Where playback starts: the saved place, or where a change of sound track left it. */
+  const startAt = useRef(0);
+  /** A change of sound track, not the first start: no "Resumed at". */
+  const switched = useRef(false);
 
   useEffect(() => {
     let live = true;
@@ -49,8 +91,18 @@ export function VideoPlayerPage({ id }: { id: string }) {
     setNextIn(null);
     setPreparing(false);
     lastSaved.current = 0;
-    api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(id)}`)
-      .then((payload) => { if (live) setInfo(payload); })
+    const playUrl = `${VIDEO_API}/play/${encodeURIComponent(id)}`;
+    api<VideoPlayInfo>(playUrl)
+      .then(async (payload) => {
+        // In the language chosen last time, when this one has it.
+        const language = preferredLanguage();
+        const wanted = language ? (payload.audioTracks ?? []).find((track) => track.language === language) : undefined;
+        if (wanted && !wanted.selected) payload = await api<VideoPlayInfo>(`${playUrl}?audio=${wanted.index}`).catch(() => payload);
+        if (!live) return;
+        startAt.current = payload.resumeAt;
+        switched.current = false;
+        setInfo(payload);
+      })
       .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.loadFailed")); });
     return () => { live = false; };
   }, [id, t]);
@@ -93,6 +145,32 @@ export function VideoPlayerPage({ id }: { id: string }) {
 
   const playback = info?.available ? info.playback : null;
   const isHls = playback?.mode === "remux" || playback?.mode === "transcode";
+  const audioTracks = info?.audioTracks ?? [];
+
+  /** Another sound track: the engine converts that one instead, from where the film is. */
+  const chooseAudio = async (value: string) => {
+    if (!info) return;
+    const track = audioTracks.find((candidate) => String(candidate.index) === value);
+    if (!track || track.selected) return;
+    rememberLanguage(track.language);
+    startAt.current = video.current?.currentTime ?? startAt.current;
+    switched.current = true;
+    setResumedAt(0);
+    try {
+      const payload = await api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(info.id)}?audio=${track.index}`);
+      setInfo((current) => (current && current.id === payload.id ? { ...current, playback: payload.playback, audioTracks: payload.audioTracks } : current));
+    } catch {
+      // The engine didn't answer: the sound playing now goes on.
+    }
+  };
+
+  // Leaving the film stops the engine converting it (a change of sound track
+  // replaces the conversion on the engine by itself).
+  const convertingId = info && isHls ? info.id : null;
+  useEffect(() => {
+    if (!convertingId) return;
+    return () => sendOnLeaving(`${VIDEO_API}/hls/${encodeURIComponent(convertingId)}`, "DELETE");
+  }, [convertingId]);
 
   // HLS: hls.js where the browser has Media Source (every desktop browser, iOS
   // 17.1+), else the browser's own HLS (older iPhones). The engine stops
@@ -112,7 +190,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
         return;
       }
       const player = new Hls({
-        startPosition: info.resumeAt > 0 ? info.resumeAt : -1,
+        startPosition: startAt.current > 0 ? startAt.current : -1,
         // The first play of a film reads all its keyframes before the playlist
         // exists, and a re-encode's first segment takes a while.
         manifestLoadPolicy: { default: { maxTimeToFirstByteMs: 180_000, maxLoadTimeMs: 180_000, timeoutRetry: { maxNumRetry: 1, retryDelayMs: 0, maxRetryDelayMs: 0 }, errorRetry: { maxNumRetry: 2, retryDelayMs: 1000, maxRetryDelayMs: 4000 } } },
@@ -136,7 +214,6 @@ export function VideoPlayerPage({ id }: { id: string }) {
     return () => {
       live = false;
       hls?.destroy();
-      sendOnLeaving(`${VIDEO_API}/hls/${encodeURIComponent(info.id)}`, "DELETE");
     };
   }, [info, isHls, playback?.url]);
 
@@ -170,6 +247,16 @@ export function VideoPlayerPage({ id }: { id: string }) {
             {subheading && <p>{subheading}</p>}
           </div>
         )}
+        {audioTracks.length > 1 && (
+          <SelectMenu
+            className="video-player-audio"
+            label={t("video.audio.label")}
+            triggerIcon={<AudioLines size={16} aria-hidden="true" />}
+            value={String(audioTracks.find((track) => track.selected)?.index ?? audioTracks[0].index)}
+            options={audioTracks.map((track, position) => ({ value: String(track.index), label: audioTrackLabel(track, position, t, i18n.resolvedLanguage ?? "en") }))}
+            onChange={(value) => void chooseAudio(value)}
+          />
+        )}
       </header>
 
       {error && <MessageBox tone="warning" title={t("video.unavailableTitle")}>{error}</MessageBox>}
@@ -196,9 +283,10 @@ export function VideoPlayerPage({ id }: { id: string }) {
             onLoadedMetadata={(event) => {
               const element = event.currentTarget;
               // Resume, unless it was nearly over: then from the start.
-              if (info.resumeAt > 0 && (!Number.isFinite(element.duration) || info.resumeAt < element.duration - 10)) {
-                element.currentTime = info.resumeAt;
-                setResumedAt(info.resumeAt);
+              const at = startAt.current;
+              if (at > 0 && (!Number.isFinite(element.duration) || at < element.duration - 10)) {
+                element.currentTime = at;
+                if (!switched.current) setResumedAt(at);
               }
             }}
             onTimeUpdate={(event) => {

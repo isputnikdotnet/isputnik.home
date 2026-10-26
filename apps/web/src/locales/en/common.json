@@ -795,6 +795,12 @@
     "cantPlayBrowser": "This browser couldn't play it. Try again or another browser; if it keeps happening, Control panel → Apps → Logs says why.",
     "continueWatching": "Continue watching",
     "continueLeft": "{{time}} left",
-    "upNextShort": "next"
+    "upNextShort": "next",
+    "audio": {
+      "label": "Sound",
+      "track": "Track {{number}}",
+      "mono": "Mono",
+      "stereo": "Stereo"
+    }
   }
 }
