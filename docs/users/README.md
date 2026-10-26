@@ -101,6 +101,9 @@ library.
   emailed two-factor codes or receive security alerts.
 - [Exposing your library to the internet](exposing-to-the-internet.md) — for the
   person running the server: putting it behind HTTPS and the settings to set first.
+- [Adding the games and video apps](apps.md) — installing the games and video
+  containers, pairing them on Apps → Setup, and choosing who may use them and from
+  where.
 
 Two reference pages for whoever runs the server live outside this folder, because
 they describe the container rather than the app:

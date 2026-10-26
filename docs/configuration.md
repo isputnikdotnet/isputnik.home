@@ -91,18 +91,28 @@ variables if you need them. Background:
 | `GEOIP_PATH` | the **Locations** folder of the Map data room (App storage's `Map data/Locations`, else `map-data/Locations` next to the database's folder) | – | Where the IP-location databases live — the country database the Dashboard's Locations view fetches, and any city-level `.mmdb` you add by hand. Leave it unset and they move with the Map data room. Before 4.6 the default was a `geoip` folder (`/config/geoip` in the image); anything still there is moved into the room when the server starts. Set it only to keep them in a folder of your own, which the server then never moves. |
 | `GEOIP_URL_BASE` | `https://download.db-ip.com/free` | – | Where that country database is downloaded from (`<base>/dbip-country-lite-YYYY-MM.mmdb.gz`). Change it only to point at a mirror. |
 
-## Games
+## Apps
 
-The games ([isputnik.games](https://github.com/isputnikdotnet/isputnik.games)) run
-in a container of their own and are reached through this server at `/games`, which
-signs people in for them. Both variables must be set for the Games entry to appear;
-the design and the contract between the two are in
-[games-platform-plan.md](games-platform-plan.md).
+Games ([isputnik.games](https://github.com/isputnikdotnet/isputnik.games)) and
+Video ([isputnik.video](https://github.com/isputnikdotnet/isputnik.video)) run in
+containers of their own and are reached only through this server, at `/games` and
+`/video`, which signs people in for them. The step-by-step guide is
+[Adding the games and video apps](users/apps.md); the design and the contract are
+in [apps-platform-plan.md](apps-platform-plan.md) and
+[video-architecture.md](video-architecture.md).
+
+An app needs an address here and a secret both sides share. The address is always
+an environment variable. The secret is usually made on **Control panel → Apps →
+Setup** (shown once, kept sealed with the server key) and pasted into the app's
+`GATEWAY_SECRET`; set it here as a variable instead and the variable wins, and
+pairing on Setup is off.
 
 | Variable | Default | Compose | Unraid | What it does |
 |---|---|---|---|---|
 | `GAMES_URL` | unset | commented | field, blank | Where the games container answers, as seen from this one — `http://isputnik-games:4200` when both containers are on the same user-defined Docker network (compose creates one; with `docker run` or on Unraid, `docker network create isputnik` once and set both containers to it — Docker's default `bridge` does not resolve container names). Unset means no games: `/games` answers 404 and the nav has no Games entry. |
-| `GAMES_GATEWAY_SECRET` | unset | commented | field, blank | A long random string (`openssl rand -hex 32`) shared with the games container (its `GATEWAY_SECRET`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With `GAMES_URL` set and this unset, the games stay off and the log says why. |
+| `GAMES_GATEWAY_SECRET` | unset | commented | field, blank | Optional: the secret shared with the games container (its `GATEWAY_SECRET`), instead of pairing on Apps → Setup. A long random string (`openssl rand -hex 32`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With `GAMES_URL` set and no secret either way, the games stay off and the log says why. |
+| `VIDEO_URL` | unset | — | — | Where the video engine answers, as seen from this one — `http://isputnik-video:4300` on a shared network. Unset means no video libraries. |
+| `VIDEO_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the video engine (its `GATEWAY_SECRET`), instead of pairing on Apps → Setup. |
 
 Control panel → Apps → Installed shows how the two stand (gateway on or off,
 the URL, whether a secret is set, whether the games server answers and its

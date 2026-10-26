@@ -1,5 +1,5 @@
 import {
-  BookOpen, BookText, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Mail, MonitorSmartphone,
+  BookOpen, BookText, Boxes, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Mail, MonitorSmartphone,
   Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 
@@ -144,6 +144,13 @@ export const GUIDES = {
     title: "Exposing your library to the internet",
     description: "Putting it behind HTTPS, the settings to turn on first, and the risks to weigh.",
     adminOnly: true
+  },
+  apps: {
+    slug: guide("apps.md"),
+    icon: Boxes,
+    title: "Adding the games and video apps",
+    description: "Installing the games and video containers, pairing them on Apps → Setup, and choosing who may use them and from where.",
+    adminOnly: true
   }
 } satisfies Record<string, GuideEntry>;
 
@@ -207,8 +214,8 @@ export function helpTopics(isAdmin: boolean): HelpTopic[] {
           id: "server",
           icon: Settings,
           title: "Control panel",
-          summary: "Storage, libraries, email, and opening up to the internet",
-          guides: ["firstRun", "storage", "libraries", "controlPanel", "email", "internet"],
+          summary: "Storage, libraries, email, apps, and opening up to the internet",
+          guides: ["firstRun", "storage", "libraries", "controlPanel", "email", "internet", "apps"],
           adminOnly: true
         }
       : { id: "quotes", icon: Quote, title: "Quotes", summary: "Highlights, family sayings and the quote of the day", guides: ["quotes"] }
