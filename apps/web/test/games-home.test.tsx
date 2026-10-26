@@ -18,7 +18,7 @@ vi.mock("../src/app/useGamesAvailable", () => ({ useGamesAvailable: () => gamesA
 const { api } = await import("../src/api");
 const { InvitationRow, YourMoveRow } = await import("../src/features/games/GameRows");
 const { useGamesSummary, gamesWaiting } = await import("../src/features/games/useGamesSummary");
-const { AppsInstalledSection, AppsEventsSection, AppsLogsSection } = await import("../src/features/control/sections/AppsSection");
+const { AppsInstalledSection, AppsAccessSection, AppsEventsSection, AppsLogsSection } = await import("../src/features/control/sections/AppsSection");
 const mockApi = vi.mocked(api);
 
 const member = (over: Partial<PublicUser> = {}): PublicUser =>
@@ -155,6 +155,49 @@ describe("Apps → Installed", () => {
     expect(await screen.findByText("Games are off")).toBeInTheDocument();
     expect(screen.getByText(/GAMES_GATEWAY_SECRET is not/)).toBeInTheDocument();
     expect(screen.getByText("Not checked while the gateway is off")).toBeInTheDocument();
+  });
+});
+
+describe("Apps → Access", () => {
+  const accessPayload = {
+    app: "games",
+    everyone: "member",
+    grants: [{ subjectType: "group", subjectId: "grp-kids", role: "deny", name: "Kids", email: null, missing: false }],
+    capabilities: [
+      { id: "manage", rule: "anywhere", defaultRule: "anywhere" },
+      { id: "play", rule: "anywhere", defaultRule: "anywhere" }
+    ]
+  };
+  const answer = (path: string, init?: RequestInit) => {
+    if (path === "/api/apps/admin/status") return appsAnswer(gamesOn);
+    if (path === "/api/users") return Promise.resolve({ users: [{ id: "mum", displayName: "Mum", email: "mum@example.com" }] });
+    if (path === "/api/groups") return Promise.resolve({ groups: [{ id: "grp-kids", name: "Kids" }] });
+    if (path.startsWith("/api/apps/admin/access/games/rules") && init?.method === "PUT") {
+      return Promise.resolve({ ...accessPayload, capabilities: [accessPayload.capabilities[0], { id: "play", rule: "home", defaultRule: "anywhere" }] });
+    }
+    if (path === "/api/apps/admin/access/games") return Promise.resolve(accessPayload);
+    return Promise.reject(new Error(`unexpected ${path}`));
+  };
+
+  it("shows who may use the games and from where", async () => {
+    mockApi.mockImplementation(answer as never);
+    render(<AppsAccessSection />);
+    expect(await screen.findByText("Who may use Games")).toBeInTheDocument();
+    expect(screen.getByText("Kids")).toBeInTheDocument();
+    expect(screen.getByText("The lobby, the games and matches, and guests' play")).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/access/games");
+  });
+
+  it("saves a network rule for one capability", async () => {
+    mockApi.mockImplementation(answer as never);
+    render(<AppsAccessSection />);
+    const select = await screen.findByLabelText("Where Play is allowed from");
+    await userEvent.selectOptions(select, "home");
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith(
+      "/api/apps/admin/access/games/rules",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ play: "home" }) })
+    ));
+    await waitFor(() => expect(screen.getByLabelText("Where Play is allowed from")).toHaveValue("home"));
   });
 });
 

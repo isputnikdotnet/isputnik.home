@@ -111,6 +111,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
   appsInstalled: "apps applications containers docker games dots play online gateway status url secret environment version running isputnik.games " +
     "приложения контейнеры игры точки играть онлайн шлюз статус адрес секрет окружение версия работает",
+  appsAccess: "apps containers access who may use members managers deny everyone groups network rules trusted home network anywhere outside internet lan restrict games " +
+    "приложения контейнеры доступ кто может участники менеджеры запретить все группы сеть правила доверенные домашняя сеть откуда снаружи интернет ограничить игры",
   appsEvents: "apps containers events audit refused gateway rejected invitations matches errors games " +
     "приложения контейнеры события аудит отклонённые шлюз приглашения партии ошибки игры",
   appsLogs: "apps containers server log docker logs lines tail output games " +

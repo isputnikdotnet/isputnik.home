@@ -24,7 +24,8 @@ declare module "fastify" {
   }
 }
 
-export const GAMES_PREFIX = appDefinition("games").prefix;
+const GAMES = appDefinition("games");
+export const GAMES_PREFIX = GAMES.prefix;
 
 /** A browser opening a games PAGE rather than the games front end calling its API. */
 export function isPageNavigation(request: FastifyRequest): boolean {
@@ -64,7 +65,7 @@ function admitGuest(request: FastifyRequest, reply: FastifyReply): "admit" | "an
 
 export async function registerGamesGateway(app: FastifyInstance, options: GatewayOptions): Promise<void> {
   await registerAppGateway(app, {
-    prefix: GAMES_PREFIX,
+    app: GAMES,
     upstream: options.upstream,
     secret: options.secret,
     available: options.available,

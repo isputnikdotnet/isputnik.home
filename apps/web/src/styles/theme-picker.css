@@ -299,3 +299,11 @@
   display: flex;
   gap: 10px;
 }
+
+/* Apps → Access: a capability's name over what it covers. */
+.app-rule-means {
+  display: block;
+  margin-top: 2px;
+  white-space: normal;
+}
+.app-rules-table td { vertical-align: middle; }

@@ -14,7 +14,17 @@ shared gateway, status probes, `GET /api/apps/admin/status`), games moved onto i
 and the Apps group with Installed, Events and Logs. The Games menu switch is still
 on Appearance → Sections; it moves to the Installed card with the second
 container, when the Sections card's "last section stays on" rule has to be
-rethought anyway. Phases 1 and 2 are next.
+rethought anyway.
+
+Phase 1 built (2026-10-25, not yet released): Apps → Access (who: Everyone,
+groups, people as member / manager / deny on `assignments` with object_type
+`app`; from where: a rule per capability), enforced by the shared gateway (no role
+→ 404, refused network → 403 with the reason) and forwarded as
+`X-Isputnik-App-Role`, `X-Isputnik-Via`, `X-Isputnik-Network`. Two changes from
+the plan below: capabilities are declared in home's registry (`registry.ts`), not
+read from a container manifest — the paths are what the gateway enforces, so a
+container must not be able to widen them; and `X-Isputnik-Libraries` waits for the
+first engine (V1). Phase 2 (pairing) is next.
 
 ## Two kinds of container
 

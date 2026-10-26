@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Boxes, Check, Copy, Link2Off, ScrollText, Siren } from "lucide-react";
+import { Boxes, Check, Copy, Link2Off, ScrollText, ShieldCheck, Siren } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute, queryParam, replaceQuery } from "../../../router";
+import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -393,6 +394,203 @@ function GuestLinks() {
         </ConfirmDialog>
       )}
     </section>
+  );
+}
+
+// ── Access ──────────────────────────────────────────────────────────────────
+
+type AppRuleValue = "anywhere" | "trusted" | "home";
+
+/** GET /api/apps/admin/access/:id (modules/apps/access.ts). */
+interface AppAccess {
+  app: string;
+  /** null = nobody but the grants. */
+  everyone: "member" | "manager" | null;
+  grants: { subjectType: "user" | "group"; subjectId: string; role: "member" | "manager" | "deny"; name: string; email: string | null; missing: boolean }[];
+  capabilities: { id: string; rule: AppRuleValue; defaultRule: AppRuleValue }[];
+}
+
+/** What one capability is, in the words of the page. One pair per capability this
+ *  release's registry declares (modules/apps/registry.ts). */
+function useCapabilityWords() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  return (app: string, capability: string): { name: string; means: string } => {
+    if (app === "games" && capability === "play") return { name: t("controlAdmin:apps.access.capGamesPlay"), means: t("controlAdmin:apps.access.capGamesPlayMeans") };
+    if (app === "games" && capability === "manage") return { name: t("controlAdmin:apps.access.capGamesManage"), means: t("controlAdmin:apps.access.capGamesManageMeans") };
+    return { name: capability, means: "" };
+  };
+}
+
+// Who may use each container and from where (docs/apps-platform-plan.md →
+// Access, Network rules). The member box is the one every access list wears
+// (shared/AccessControl); the rules are one select per capability.
+export function AppsAccessSection() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const appName = useAppName();
+  const words = useCapabilityWords();
+  const { apps, error: appsError } = useAppsStatus();
+  const [chosen, setChosen] = useState<string | null>(() => queryParam("app"));
+  const current = apps?.find((app) => app.id === chosen) ?? apps?.[0] ?? null;
+  const [access, setAccess] = useState<AppAccess | null>(null);
+  const [people, setPeople] = useState<{ users: AccessCandidate[]; groups: AccessCandidate[] } | null>(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!current) return;
+    let live = true;
+    setAccess(null);
+    api<AppAccess>(`/api/apps/admin/access/${encodeURIComponent(current.id)}`)
+      .then((payload) => { if (live) { setAccess(payload); setError(""); } })
+      .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("controlAdmin:apps.access.loadFailed")); });
+    return () => { live = false; };
+  }, [current, t]);
+
+  useEffect(() => {
+    Promise.all([
+      api<{ users: { id: string; displayName: string; email: string }[] }>("/api/users"),
+      api<{ groups: { id: string; name: string }[] }>("/api/groups")
+    ])
+      .then(([users, groups]) => setPeople({
+        users: users.users.map((user) => ({ id: user.id, name: `${user.displayName} (${user.email})` })),
+        groups: groups.groups.map((group) => ({ id: group.id, name: group.name }))
+      }))
+      .catch(() => setPeople({ users: [], groups: [] }));
+  }, []);
+
+  const choose = (id: string) => {
+    setChosen(id);
+    replaceQuery("app", id);
+  };
+
+  /** One change, and the page redrawn from what the server answers. */
+  const change = async (path: string, init: RequestInit) => {
+    if (!current) return;
+    setSaving(true);
+    setError("");
+    try {
+      setAccess(await api<AppAccess>(`/api/apps/admin/access/${encodeURIComponent(current.id)}${path}`, init));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:apps.access.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const role = (value: string): AccessRole =>
+    value === ACCESS_NONE
+      ? { value, label: t("controlAdmin:apps.access.roleNone"), tagline: t("controlAdmin:apps.access.roleNoneTagline"), dot: ACCESS_ROLE_DOT.none }
+      : value === "manager"
+        ? { value, label: t("controlAdmin:apps.access.roleManager"), tagline: t("controlAdmin:apps.access.roleManagerTagline"), dot: ACCESS_ROLE_DOT.manager }
+        : value === "deny"
+          ? { value, label: t("controlAdmin:apps.access.roleDeny"), tagline: t("controlAdmin:apps.access.roleDenyTagline"), dot: ACCESS_ROLE_DOT.deny }
+          : { value, label: t("controlAdmin:apps.access.roleMember"), tagline: t("controlAdmin:apps.access.roleMemberTagline"), dot: ACCESS_ROLE_DOT.member };
+
+  const ruleOptions: { value: AppRuleValue; label: string }[] = [
+    { value: "anywhere", label: t("controlAdmin:apps.access.ruleAnywhere") },
+    { value: "trusted", label: t("controlAdmin:apps.access.ruleTrusted") },
+    { value: "home", label: t("controlAdmin:apps.access.ruleHome") }
+  ];
+
+  return (
+    <>
+      <ControlSectionHead
+        section="appsAccess"
+        icon={<ShieldCheck size={30} />}
+        iconClassName="blue"
+        description={t("controlAdmin:apps.access.description")}
+      />
+      {appsError && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{appsError}</MessageBox>}
+      {!apps && !appsError && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
+
+      {apps && current && apps.length > 1 && (
+        <div className="games-events-tools">
+          <SelectField
+            label={t("controlAdmin:apps.appLabel")}
+            value={current.id}
+            options={apps.map((app) => ({ value: app.id, label: appName(app.id) }))}
+            onChange={choose}
+            compact
+          />
+        </div>
+      )}
+
+      {error && <MessageBox tone="error" title={t("controlAdmin:apps.access.saveFailed")}>{error}</MessageBox>}
+
+      {current && access && (
+        <>
+          <section className="config-block" id="app-access-who">
+            <h2>{t("controlAdmin:apps.access.whoTitle", { app: appName(current.id) })}</h2>
+            <p className="muted">{t("controlAdmin:apps.access.whoIntro")}</p>
+            <AccessControl
+              roles={["member", "manager", "deny"].map(role)}
+              defaultRole="member"
+              members={access.grants.map((grant) => ({
+                subjectType: grant.subjectType,
+                subjectId: grant.subjectId,
+                role: grant.role,
+                name: grant.name,
+                sub: grant.subjectType === "user" ? grant.email ?? undefined : undefined,
+                missing: grant.missing
+              }))}
+              candidates={people ?? undefined}
+              everyone={{
+                role: access.everyone,
+                hint: t("controlAdmin:apps.access.everyoneHint"),
+                options: [ACCESS_NONE, "member", "manager"].map(role),
+                onChange: (value) => void change("/everyone", { method: "PUT", body: JSON.stringify({ role: value }) }),
+                lockedHint: t("controlAdmin:apps.access.everyoneLocked"),
+                publicTag: false
+              }}
+              busy={saving}
+              emptyHint={t("controlAdmin:apps.access.noGrants")}
+              onGrant={(subjectType, subjectId, value) => void change("/grants", { method: "POST", body: JSON.stringify({ subjectType, subjectId, role: value }) })}
+              onRevoke={(subjectType, subjectId) => void change(`/grants/${subjectType}/${encodeURIComponent(subjectId)}`, { method: "DELETE" })}
+            />
+          </section>
+
+          <section className="config-block" id="app-access-where">
+            <h2>{t("controlAdmin:apps.access.whereTitle")}</h2>
+            <p className="muted">{t("controlAdmin:apps.access.whereIntro")}</p>
+            <div className="datagrid-wrap">
+              <table className="datagrid app-rules-table">
+                <thead>
+                  <tr>
+                    <th>{t("controlAdmin:apps.access.colWhat")}</th>
+                    <th>{t("controlAdmin:apps.access.colRule")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {access.capabilities.map((capability) => {
+                    const said = words(current.id, capability.id);
+                    return (
+                      <tr key={capability.id}>
+                        <td>
+                          <strong>{said.name}</strong>
+                          {said.means && <span className="datagrid-muted app-rule-means">{said.means}</span>}
+                        </td>
+                        <td>
+                          <SelectField
+                            label={t("controlAdmin:apps.access.ruleFor", { what: said.name })}
+                            value={capability.rule}
+                            options={ruleOptions}
+                            onChange={(rule) => void change("/rules", { method: "PUT", body: JSON.stringify({ [capability.id]: rule }) })}
+                            disabled={saving}
+                            compact
+                            hideLabel
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="muted">{t("controlAdmin:apps.access.ruleHint")}</p>
+          </section>
+        </>
+      )}
+    </>
   );
 }
 

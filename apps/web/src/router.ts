@@ -15,7 +15,7 @@ export type ControlSection =
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   | "videoStreaming"
   // Apps
-  | "appsInstalled" | "appsEvents" | "appsLogs"
+  | "appsInstalled" | "appsAccess" | "appsEvents" | "appsLogs"
   // Settings
   | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "about";
 
@@ -56,6 +56,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   videoStreaming: "/control/maintenance/videos",
 
   appsInstalled: "/control/apps",
+  appsAccess: "/control/apps/access",
   appsEvents: "/control/apps/events",
   appsLogs: "/control/apps/logs",
 

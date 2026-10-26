@@ -57,6 +57,7 @@ const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ d
 const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
 const AppsInstalledSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsInstalledSection })));
+const AppsAccessSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsAccessSection })));
 const AppsEventsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsEventsSection })));
 const AppsLogsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsLogsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
@@ -211,6 +212,7 @@ function ControlSectionBody({
     case "videoStreaming":  return <VideoStreamingSection />;
 
     case "appsInstalled":   return <AppsInstalledSection />;
+    case "appsAccess":      return <AppsAccessSection />;
     case "appsEvents":      return <AppsEventsSection />;
     case "appsLogs":        return <AppsLogsSection />;
 

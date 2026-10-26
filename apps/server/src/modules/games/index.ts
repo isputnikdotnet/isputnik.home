@@ -10,6 +10,7 @@ import { hasSessionCookie } from "../../auth.js";
 import { getSections } from "../../core/sections.js";
 import { flagAbusiveRequest } from "../../core/security-alerts.js";
 import { parseBody } from "../../core/shared.js";
+import { appRole } from "../apps/access.js";
 import { appConfigured, appDefinition, type AppConfigured } from "../apps/registry.js";
 import { appStatus } from "../apps/status.js";
 import { GAMES_PREFIX, identityHeaders, registerGamesGateway } from "./gateway.js";
@@ -76,8 +77,11 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
   const available = () => status.enabled && getSections().games;
 
   // The web app asks this once to decide whether to show the Games entry: the
-  // gateway configured AND the admin's Games section on (core/sections.ts).
-  app.get("/api/games/status", { preHandler: app.authenticate }, async () => ({ enabled: available() }));
+  // gateway configured, the admin's Games section on (core/sections.ts), and this
+  // person let in by Apps → Access (modules/apps/access.ts).
+  app.get("/api/games/status", { preHandler: app.authenticate }, async (request) => ({
+    enabled: available() && appRole("games", request.user!) !== null
+  }));
 
   // Who can be invited to a match: the active members, by name. The games app
   // calls this on the home origin itself (same session cookie), so the games
@@ -117,7 +121,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
   // direction), binds the two, and hands the link back. Shown once: only its
   // hash is kept.
   app.post("/api/games/guest-invites", { preHandler: app.authenticate, config: GUEST_RATE_LIMIT }, async (request, reply) => {
-    if (!available()) return notAvailable(reply);
+    if (!available() || !appRole("games", request.user!)) return notAvailable(reply);
     const parsed = parseBody(guestInviteSchema, request.body);
     if ("error" in parsed) return reply.code(400).send(parsed.error);
     const input = parsed.data;
