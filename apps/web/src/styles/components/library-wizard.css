@@ -581,6 +581,16 @@
   color: var(--control-primary-button, var(--mint));
 }
 
+/* A row with a count at its end (the video app's folders: "42 folders"). */
+.folder-picker-row.text-button.has-count {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+
+.folder-picker-row.has-count small {
+  font-weight: 400;
+  white-space: nowrap;
+}
+
 .library-access-list {
   display: grid;
   gap: 10px;

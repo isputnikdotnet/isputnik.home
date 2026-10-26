@@ -397,6 +397,10 @@ export type Route =
   | { name: "galleryAlbum"; id: string }
   | { name: "gallerySlideshow"; id: string }
   | { name: "galleryPerson"; id: string }
+  /** Video (docs/video-architecture.md): pages of this app over the video
+   *  engine's catalog. Never under /video — that prefix is the engine's. */
+  | { name: "videoBrowse"; kind: "shows" | "movies" }
+  | { name: "videoTitle"; kind: "shows" | "movies"; id: string }
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
   | { name: "familyFamilies" }
@@ -558,6 +562,15 @@ export function getRoute(): Route {
       folder: decodeURIComponent(galleryFolderMatch[1]),
       libraryId: new URLSearchParams(window.location.search).get("library")
     };
+  }
+
+  // Video: Shows and Movies, and one title of either.
+  if (path === "/shows" || path === "/movies") {
+    return { name: "videoBrowse", kind: path === "/shows" ? "shows" : "movies" };
+  }
+  const videoTitleMatch = path.match(/^\/(shows|movies)\/([^/]+)$/);
+  if (videoTitleMatch) {
+    return { name: "videoTitle", kind: videoTitleMatch[1] as "shows" | "movies", id: decodeURIComponent(videoTitleMatch[2]) };
   }
 
   // Family tree: the chart (optionally focused on one person — a real path so

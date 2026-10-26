@@ -1,0 +1,161 @@
+/* Video: the Shows and Movies pages and a title's page (features/video).
+   Loaded with those pages, not on every route (docs/css-map.md). The cards
+   follow the series cards' look (library-collections.css); posters come with
+   TMDB, so the cover is the kind's icon and the title's first letters for now. */
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.video-card {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.video-card:hover {
+  border-color: var(--mint);
+}
+
+.video-card-cover {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: var(--active);
+  color: var(--mint);
+}
+
+.video-card-cover strong {
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+}
+
+.video-card-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 12px 12px;
+}
+
+.video-card-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-card-body span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* A title's page */
+.video-title-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  margin: 8px 0 16px;
+}
+
+.video-title-cover {
+  display: grid;
+  place-items: center;
+  flex: 0 0 120px;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  background: var(--active);
+  color: var(--mint);
+}
+
+.video-title-copy {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.video-title-copy h1 {
+  margin: 0 0 4px;
+}
+
+.video-title-facts {
+  margin: 4px 0 10px;
+  color: var(--muted);
+}
+
+.video-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-genres li {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.video-plot {
+  max-width: 70ch;
+  line-height: 1.55;
+}
+
+.video-play-soon {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+}
+
+.video-season h2 {
+  margin: 22px 0 10px;
+  font-size: 1.15rem;
+}
+
+.video-episodes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-episode {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.video-episode-number {
+  flex: 0 0 2.2em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.video-episode-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.video-episode-copy p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}

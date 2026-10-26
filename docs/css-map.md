@@ -68,6 +68,7 @@ dashboard's `LocationsMap`, …).
 | `theme-picker.css` | Theme picker page (theme selection grid), plus the Email and Notifications settings forms |
 | `responsive.css` | Breakpoint overrides for the older shared pages (see the last section) |
 | `slideshow-fonts.css` | *Page* — the five `@font-face` the slideshow title card's font chips draw with (TTF copies of the server's render fonts, `font-display: swap`) |
+| `video.css` | *Page* — video: the Shows and Movies grids and a title's page with its seasons and episodes |
 
 *Page* marks a page stylesheet — imported by its page, not by `styles.css`.
 
@@ -77,6 +78,7 @@ dashboard's `LocationsMap`, …).
 |---|---|---|
 | `admin.css` | `features/control/ControlPanelPage.tsx` | the control panel, any tab |
 | `scan-layout.css` | `features/control/sections/LibrariesSection.tsx` | Control panel → Libraries |
+| `video.css` | `features/video/VideoBrowsePage.tsx`, `features/video/VideoTitlePage.tsx` | Shows, Movies, and a show's or movie's page |
 | `duplicates.css` | `features/control/sections/duplicates/DuplicateCleanupSection.tsx` | Control panel → Duplicate cleanup |
 | `welcome.css` | `pages/WelcomePage.tsx` | the setup guide |
 | `map-features.css` | `features/control/sections/maps/MapFeatures.tsx` | Control panel → Maps, and the setup guide's Maps step |
