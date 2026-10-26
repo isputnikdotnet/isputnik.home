@@ -15,7 +15,9 @@ describe("control panel nav", () => {
     expect(ALL_TABS).toHaveLength(sections.length);
   });
 
-  it("keeps to the six-group budget", () => {
-    expect(CONTROL_GROUPS.length).toBeLessThanOrEqual(6);
+  // Six until Apps joined (docs/apps-platform-plan.md); raising it again is a
+  // decision for nav.ts's comment, not a number to bump here.
+  it("keeps to the seven-group budget", () => {
+    expect(CONTROL_GROUPS.length).toBeLessThanOrEqual(7);
   });
 });

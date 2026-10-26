@@ -14,8 +14,10 @@ export type ControlSection =
   // Maintenance
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   | "videoStreaming"
+  // Apps
+  | "appsInstalled" | "appsEvents" | "appsLogs"
   // Settings
-  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "games" | "email" | "notifications" | "about";
+  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -53,11 +55,14 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   missingPhotos: "/control/maintenance/missing-photos",
   videoStreaming: "/control/maintenance/videos",
 
+  appsInstalled: "/control/apps",
+  appsEvents: "/control/apps/events",
+  appsLogs: "/control/apps/logs",
+
   appearance: "/control/settings",
   quotes: "/control/settings/quotes",
   mapSetup: "/control/settings/maps",
   storySettings: "/control/settings/stories",
-  games: "/control/settings/games",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
   about: "/control/settings/about"
@@ -202,6 +207,10 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maps": "mapSetup",
   "/control/maps/data": "mapSetup",
   "/control/maps/routing": "mapSetup",
+
+  // The games' status, events and log were one Settings tab (4.33–4.37) before
+  // the containers got a group of their own (docs/apps-platform-plan.md).
+  "/control/settings/games": "appsInstalled",
 
   // Config split into the Settings tabs; its old landing page was Appearance.
   "/control/config": "appearance",

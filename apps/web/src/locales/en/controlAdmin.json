@@ -218,6 +218,15 @@
     "pendingWaiting_one": "{{count}} recording made before this setting is kept inside the app, and moves into the library by itself once one is set.",
     "pendingWaiting_other": "{{count}} recordings made before this setting are kept inside the app, and move into the library by themselves once one is set."
   },
+  "apps": {
+    "installedDescription": "The containers that run beside this server and are reached only through it: whether each one is set up, answers, and takes this server's signature.",
+    "eventsDescription": "What a container recorded about itself, read from it through the gateway; nothing is stored in this app.",
+    "logsDescription": "The newest lines of a container's own log, read from it through the gateway.",
+    "loadFailed": "Unable to read the apps",
+    "appLabel": "App",
+    "noneRunningTitle": "No app is answering",
+    "noneRunningBody": "Events and logs come from the containers themselves, so they appear here once one is set up and answering. <lnk>Installed</lnk> says how each one stands."
+  },
   "games": {
     "headDescription": "The link to isputnik.games, the family games in a container of their own.",
     "intro": "The games run in a second container and are reached through this server at /games, which signs people in for them. The two settings are environment variables on this container; this page shows how they stand.",

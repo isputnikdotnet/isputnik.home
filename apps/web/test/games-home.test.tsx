@@ -18,7 +18,7 @@ vi.mock("../src/app/useGamesAvailable", () => ({ useGamesAvailable: () => gamesA
 const { api } = await import("../src/api");
 const { InvitationRow, YourMoveRow } = await import("../src/features/games/GameRows");
 const { useGamesSummary, gamesWaiting } = await import("../src/features/games/useGamesSummary");
-const { GamesSection } = await import("../src/features/control/sections/GamesSection");
+const { AppsInstalledSection, AppsEventsSection, AppsLogsSection } = await import("../src/features/control/sections/AppsSection");
 const mockApi = vi.mocked(api);
 
 const member = (over: Partial<PublicUser> = {}): PublicUser =>
@@ -87,13 +87,16 @@ describe("the games' cards on For you", () => {
   });
 });
 
-// The admin's window into the games container (docs/games-platform-plan.md →
-// Logging): status from this server, events and the log tail from the games
-// server through the gateway.
+// The admin's window into the games container (docs/apps-platform-plan.md →
+// Control panel): status from this server on Apps → Installed, events and the
+// log tail from the games server through the gateway on Events and Logs.
 const gamesOn = {
+  id: "games", kind: "app", prefix: "/games",
   configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true, secretAccepted: true,
   server: { ok: true, version: "0.3.0", error: null }
 };
+const gamesOff = { ...gamesOn, configured: false, url: null, secretSet: false, secretAccepted: null, server: null };
+const appsAnswer = (games: object) => Promise.resolve({ apps: [games] });
 const eventsPage = {
   events: [
     { id: 2, at: "2026-10-22T18:09:35.000Z", level: "warn", event: "gateway.rejected", actorId: null, actorName: null, matchId: null, ip: "172.18.0.9", requestId: "req-7", detail: "GET /games/api/me: no gateway header" },
@@ -110,66 +113,82 @@ const logTail = {
   available: true
 };
 const answerByPath = (path: string) => {
-  if (path === "/api/games/admin/status") return Promise.resolve(gamesOn);
+  if (path === "/api/apps/admin/status") return appsAnswer(gamesOn);
+  if (path.startsWith("/api/games/guest-invites")) return Promise.resolve({ invites: [] });
   if (path.startsWith("/games/api/admin/events")) return Promise.resolve(eventsPage);
   if (path.startsWith("/games/api/admin/log")) return Promise.resolve(logTail);
   return Promise.reject(new Error(`unexpected ${path}`));
 };
 
-describe("Settings → Games", () => {
+describe("Apps → Installed", () => {
   it("reports a working link with the games server's version", async () => {
     mockApi.mockImplementation(answerByPath as never);
-    render(<GamesSection />);
+    render(<AppsInstalledSection />);
     expect(await screen.findByText("Games are on")).toBeInTheDocument();
     expect(screen.getByText("http://isputnik-games:4200")).toBeInTheDocument();
     expect(screen.getByText("Answering, version 0.3.0")).toBeInTheDocument();
-    expect(mockApi).toHaveBeenCalledWith("/api/games/admin/status");
-  });
-
-  it("shows the games container's events and log tail once the link is on", async () => {
-    mockApi.mockImplementation(answerByPath as never);
-    render(<GamesSection />);
-    expect(await screen.findByText("1 caller was refused at the gateway check in the last 24 hours.")).toBeInTheDocument();
-    expect(screen.getByText("gateway.rejected")).toBeInTheDocument();
-    expect(screen.getByText("dots: invited Dad (dad), plays first")).toBeInTheDocument();
-    expect(screen.getByText("Мама")).toBeInTheDocument();
-    expect(screen.getByText("192.168.2.10")).toBeInTheDocument();
-    // Both asked through the gateway, with the paging the table shows.
-    expect(mockApi).toHaveBeenCalledWith("/games/api/admin/events?page=1&pageSize=25");
-    expect(mockApi).toHaveBeenCalledWith("/games/api/admin/log?lines=200");
-    // The log: pino's JSON made readable, anything else left as it came.
-    const log = await screen.findByLabelText("Server log");
-    expect(log.textContent).toContain("WARN   [req-7] 172.18.0.9  Request refused at the gateway check — no gateway header");
-    expect(log.textContent).toContain("not json at all");
-    // The level filter asks again with the level.
-    await userEvent.selectOptions(screen.getByLabelText("Level"), "warn");
-    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/games/api/admin/events?page=1&pageSize=25&level=warn"));
+    expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/status");
   });
 
   it("says plainly when the games server refuses this app's secret", async () => {
     mockApi.mockImplementation(((path: string) =>
-      path === "/api/games/admin/status" ? Promise.resolve({ ...gamesOn, secretAccepted: false }) : answerByPath(path)) as never);
-    render(<GamesSection />);
+      path === "/api/apps/admin/status" ? appsAnswer({ ...gamesOn, secretAccepted: false }) : answerByPath(path)) as never);
+    render(<AppsInstalledSection />);
     expect(await screen.findByText("The games server refuses this app's secret")).toBeInTheDocument();
     expect(screen.getByText("Set, but the games server refuses it")).toBeInTheDocument();
     expect(screen.queryByText("Games are on")).not.toBeInTheDocument();
   });
 
-  it("asks nothing of the games server while the link is off", async () => {
-    mockApi.mockResolvedValue({ configured: false, reason: null, url: null, secretSet: false, server: null });
-    render(<GamesSection />);
+  it("asks nothing of the games while the link is off", async () => {
+    mockApi.mockImplementation((() => appsAnswer(gamesOff)) as never);
+    render(<AppsInstalledSection />);
     expect(await screen.findByText("Games are off")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledTimes(1);
   });
 
   it("says why the games are off, in the server's own words", async () => {
-    mockApi.mockResolvedValue({
-      configured: false, reason: "GAMES_URL is set but GAMES_GATEWAY_SECRET is not; the games stay off until both are set.",
-      url: "http://isputnik-games:4200", secretSet: false, server: null
-    });
-    render(<GamesSection />);
+    mockApi.mockImplementation((() => appsAnswer({
+      ...gamesOff, reason: "GAMES_URL is set but GAMES_GATEWAY_SECRET is not; games stays off until both are set.",
+      url: "http://isputnik-games:4200"
+    })) as never);
+    render(<AppsInstalledSection />);
     expect(await screen.findByText("Games are off")).toBeInTheDocument();
     expect(screen.getByText(/GAMES_GATEWAY_SECRET is not/)).toBeInTheDocument();
     expect(screen.getByText("Not checked while the gateway is off")).toBeInTheDocument();
+  });
+});
+
+describe("Apps → Events and Logs", () => {
+  it("shows the games container's events, asked through the gateway", async () => {
+    mockApi.mockImplementation(answerByPath as never);
+    render(<AppsEventsSection />);
+    expect(await screen.findByText("1 caller was refused at the gateway check in the last 24 hours.")).toBeInTheDocument();
+    expect(screen.getByText("gateway.rejected")).toBeInTheDocument();
+    expect(screen.getByText("dots: invited Dad (dad), plays first")).toBeInTheDocument();
+    expect(screen.getByText("Мама")).toBeInTheDocument();
+    expect(screen.getByText("192.168.2.10")).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/games/api/admin/events?page=1&pageSize=25");
+    // One container needs no picker.
+    expect(screen.queryByLabelText("App")).not.toBeInTheDocument();
+    // The level filter asks again with the level.
+    await userEvent.selectOptions(screen.getByLabelText("Level"), "warn");
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/games/api/admin/events?page=1&pageSize=25&level=warn"));
+  });
+
+  it("shows the log tail with pino's JSON made readable", async () => {
+    mockApi.mockImplementation(answerByPath as never);
+    render(<AppsLogsSection />);
+    const log = await screen.findByLabelText("Server log");
+    expect(mockApi).toHaveBeenCalledWith("/games/api/admin/log?lines=200");
+    expect(log.textContent).toContain("WARN   [req-7] 172.18.0.9  Request refused at the gateway check — no gateway header");
+    expect(log.textContent).toContain("not json at all");
+  });
+
+  it("asks no container while none answers, and says where to look", async () => {
+    mockApi.mockImplementation((() => appsAnswer(gamesOff)) as never);
+    render(<AppsEventsSection />);
+    expect(await screen.findByText("No app is answering")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Installed" })).toHaveAttribute("href", "/control/apps");
+    expect(mockApi).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,6 @@
 import {
   Activity,
+  Boxes,
   LibraryBig,
   Settings,
   ShieldCheck,
@@ -20,9 +21,13 @@ import i18n from "../../i18n";
 // palette indexes the lot. Adding a control page means adding one tab here —
 // there is nowhere else to keep in sync.
 //
-// Six groups, and that is the budget. A new page almost always belongs as a tab
-// inside an existing group rather than as a seventh: a long left nav is what this
+// Seven groups, and that is the budget. A new page almost always belongs as a tab
+// inside an existing group rather than as an eighth: a long left nav is what this
 // structure exists to prevent, and the tab row is free to grow where the nav isn't.
+// It was six until Apps (2026-10-25, docs/apps-platform-plan.md): the containers
+// beside this server answer a question of their own — what runs alongside home,
+// and is it healthy — with several real tabs, and their one Settings tab was
+// already a status page, an events table and a log stacked on top of each other.
 //
 // Every group is the same thing — a link to its first tab, over one row of its
 // tabs — and nothing else. Two exceptions were tried and retired in 4.15
@@ -40,7 +45,7 @@ import i18n from "../../i18n";
 // chrome than the relationship was worth. A page whose content wants to be split
 // is split into tabs; a view switch inside a page is for views of one task.
 
-export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "settings";
+export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "apps" | "settings";
 
 export interface ControlTabDef {
   section: ControlSection;
@@ -117,6 +122,17 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     ]
   },
   {
+    key: "apps",
+    icon: Boxes,
+    // The containers reached through this server (games today): how each one
+    // stands, then what it recorded and its log, read from it through the gateway.
+    tabs: [
+      { section: "appsInstalled" },
+      { section: "appsEvents" },
+      { section: "appsLogs" }
+    ]
+  },
+  {
     key: "settings",
     icon: Settings,
     // How the app looks and what it can do. Quotes is the home widget's content,
@@ -127,9 +143,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "quotes" },
       { section: "mapSetup" },
       { section: "storySettings" },
-      // The link to isputnik.games: read-only status, since the settings are
-      // environment variables (docs/games-platform-plan.md).
-      { section: "games" },
       { section: "email" },
       { section: "notifications" },
       { section: "about" }

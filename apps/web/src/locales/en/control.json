@@ -18,6 +18,7 @@
       "members": "Members",
       "security": "Security",
       "maintenance": "Maintenance",
+      "apps": "Apps",
       "settings": "Settings"
     },
     "tabs": {
@@ -49,7 +50,9 @@
       "quotes": "Quotes",
       "mapSetup": "Maps",
       "storySettings": "Stories",
-      "games": "Games",
+      "appsInstalled": "Installed",
+      "appsEvents": "Events",
+      "appsLogs": "Logs",
       "email": "Email",
       "notifications": "Notifications",
       "about": "About",
@@ -130,7 +133,7 @@
     "savedBody": "Default theme updated.",
     "sections": "Sections",
     "sectionsHint": "Which parts of the app this household uses. A section switched off leaves the menu, the home feed and Tags for everyone, and a link to it opens the home page instead; nothing is deleted, and the Control panel still shows every library. One section always stays on.",
-    "sectionsGamesHint": "Games also needs the games container to be set up (Settings → Games); without it there is no Games entry whatever this switch says.",
+    "sectionsGamesHint": "Games also needs the games container to be set up (Apps → Installed); without it there is no Games entry whatever this switch says.",
     "sectionsSavedBody": "The menu changes for everyone the next time they open a page."
   },
   "backup": {

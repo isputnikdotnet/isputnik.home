@@ -56,7 +56,9 @@ const AppearanceSection = lazy(() => import("./sections/AppearanceSection").then
 const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ default: m.MailSection })));
 const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
-const GamesSection = lazy(() => import("./sections/GamesSection").then((m) => ({ default: m.GamesSection })));
+const AppsInstalledSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsInstalledSection })));
+const AppsEventsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsEventsSection })));
+const AppsLogsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsLogsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
 const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
@@ -208,11 +210,14 @@ function ControlSectionBody({
     case "missingPhotos":   return <MissingPhotosSection />;
     case "videoStreaming":  return <VideoStreamingSection />;
 
+    case "appsInstalled":   return <AppsInstalledSection />;
+    case "appsEvents":      return <AppsEventsSection />;
+    case "appsLogs":        return <AppsLogsSection />;
+
     case "appearance":      return <AppearanceSection />;
     case "quotes":          return <QuotesSection />;
     case "mapSetup":        return <MapSetupSection />;
     case "storySettings":   return <StorySettingsSection />;
-    case "games":           return <GamesSection />;
     case "email":           return <MailSection />;
     case "notifications":   return <NotificationsSection />;
     case "about":           return <AboutSection />;

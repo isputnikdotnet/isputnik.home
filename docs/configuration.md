@@ -104,7 +104,7 @@ the design and the contract between the two are in
 | `GAMES_URL` | unset | commented | field, blank | Where the games container answers, as seen from this one — `http://isputnik-games:4200` when both containers are on the same user-defined Docker network (compose creates one; with `docker run` or on Unraid, `docker network create isputnik` once and set both containers to it — Docker's default `bridge` does not resolve container names). Unset means no games: `/games` answers 404 and the nav has no Games entry. |
 | `GAMES_GATEWAY_SECRET` | unset | commented | field, blank | A long random string (`openssl rand -hex 32`) shared with the games container (its `GATEWAY_SECRET`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With `GAMES_URL` set and this unset, the games stay off and the log says why. |
 
-Control panel → Settings → Games shows how the two stand (gateway on or off,
+Control panel → Apps → Installed shows how the two stand (gateway on or off,
 the URL, whether a secret is set, whether the games server answers and its
 version, and whether it accepts this server's secret — a signed test call, so two
 containers holding different secrets show as an error here instead of members
