@@ -88,6 +88,10 @@ export interface GatewayHooks {
   identityFor?: (request: FastifyRequest, secret: string, forwarded: ForwardedRequest) => Record<string, string>;
   /** Called as each proxied request finishes, with the status the browser got. */
   onResponse?: (request: FastifyRequest, statusCode: number) => void;
+  /** Headers of the container's own beside the identity — an engine is told
+   *  which of its libraries the person may see (X-Isputnik-Libraries). Only
+   *  X-Isputnik-* names; anything else is ignored. */
+  extraHeaders?: (request: FastifyRequest) => Record<string, string>;
 }
 
 /** What the gateway decided about a request, and tells the container beside who. */
@@ -211,7 +215,9 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
           const identity = verdict?.via === "guest" && hooks.identityFor
             ? hooks.identityFor(request, secret, forwarded)
             : identityHeaders(request.user!, secret, forwarded);
-          return { ...stripIdentityHeaders(headers as IncomingHttpHeaders), ...identity, ...(verdict ? verdictHeaders(verdict) : {}) };
+          const extra = Object.fromEntries(Object.entries(hooks.extraHeaders?.(request) ?? {})
+            .filter(([name]) => name.toLowerCase().startsWith(IDENTITY_PREFIX)));
+          return { ...stripIdentityHeaders(headers as IncomingHttpHeaders), ...identity, ...(verdict ? verdictHeaders(verdict) : {}), ...extra };
         }
       }
     });

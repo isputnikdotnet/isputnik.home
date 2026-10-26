@@ -126,7 +126,7 @@ describe("Apps → Installed", () => {
   it("reports a working link with the games server's version", async () => {
     mockApi.mockImplementation(answerByPath as never);
     render(<AppsInstalledSection />);
-    expect(await screen.findByText("Games are on")).toBeInTheDocument();
+    expect(await screen.findByText("Games: running")).toBeInTheDocument();
     expect(screen.getByText("http://isputnik-games:4200")).toBeInTheDocument();
     expect(screen.getByText("Answering, version 0.3.0")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/status");
@@ -136,15 +136,15 @@ describe("Apps → Installed", () => {
     mockApi.mockImplementation(((path: string) =>
       path === "/api/apps/admin/status" ? appsAnswer({ ...gamesOn, secretAccepted: false }) : answerByPath(path)) as never);
     render(<AppsInstalledSection />);
-    expect(await screen.findByText("The games server refuses this app's secret")).toBeInTheDocument();
-    expect(screen.getByText("Set, but the games server refuses it")).toBeInTheDocument();
-    expect(screen.queryByText("Games are on")).not.toBeInTheDocument();
+    expect(await screen.findByText("Games: refuses this server's secret")).toBeInTheDocument();
+    expect(screen.getByText("Set, but the container refuses it")).toBeInTheDocument();
+    expect(screen.queryByText("Games: running")).not.toBeInTheDocument();
   });
 
   it("asks nothing of the games while the link is off", async () => {
     mockApi.mockImplementation((() => appsAnswer(gamesOff)) as never);
     render(<AppsInstalledSection />);
-    expect(await screen.findByText("Games are off")).toBeInTheDocument();
+    expect(await screen.findByText("Games: off")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledTimes(1);
   });
 
@@ -154,7 +154,7 @@ describe("Apps → Installed", () => {
       url: "http://isputnik-games:4200"
     })) as never);
     render(<AppsInstalledSection />);
-    expect(await screen.findByText("Games are off")).toBeInTheDocument();
+    expect(await screen.findByText("Games: off")).toBeInTheDocument();
     expect(screen.getByText(/GAMES_GATEWAY_SECRET is not/)).toBeInTheDocument();
     expect(screen.getByText("Not checked while the gateway is off")).toBeInTheDocument();
   });

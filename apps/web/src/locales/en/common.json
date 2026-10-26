@@ -111,6 +111,7 @@
     "familyTree": "Family Tree",
     "tags": "Tags",
     "games": "Games",
+    "video": "Video",
     "gamesWaiting_one": "{{count}} game is waiting for you",
     "gamesWaiting_other": "{{count}} games are waiting for you",
     "about": "About",

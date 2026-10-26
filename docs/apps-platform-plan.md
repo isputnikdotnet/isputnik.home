@@ -40,6 +40,15 @@ Still open: the container side — `GET /games/api/admin/backup` in isputnik.gam
 until a container has it, backups say "too old to hand over its database" and
 finish without it — and sending a database back from Apps → Installed.
 
+V1 engine started (2026-10-25, https://github.com/isputnikdotnet/isputnik.video,
+0.1.0; no image or Unraid template yet): identity from the gateway with `X-Isputnik-Libraries`
+as its only permission model; library put / delete / sync (detach, never drop);
+shows and movies scanner (.nfo first, release names, stable ids, copies in
+progress left for later); catalog routes; folder picker under `MEDIA_ROOT`;
+events, log and backup routes. Next: home's side of V1 (the remote `video`
+library type, the registry entry, `X-Isputnik-Libraries` from the gateway, Add
+library → Video, browse pages), then posters and TMDB.
+
 ## Two kinds of container
 
 - **An app** has its own screens and its own data. The gateway proxies the whole

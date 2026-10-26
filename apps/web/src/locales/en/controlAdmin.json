@@ -224,6 +224,24 @@
     "logsDescription": "The newest lines of a container's own log, read from it through the gateway.",
     "loadFailed": "Unable to read the apps",
     "appLabel": "App",
+    "card": {
+      "introGames": "The family games, in a container of their own, reached through this server at /games, which signs people in for them.",
+      "introVideo": "The engine behind the video libraries: it scans the shows and movies and keeps their catalog, reached through this server at /video. The libraries themselves are managed on Library → Libraries.",
+      "onTitle": "{{app}}: running",
+      "onBody": "The container answers, version {{version}}.",
+      "unreachableTitle": "{{app}}: not answering",
+      "unreachableBody": "The gateway is set up, but {{url}} did not answer: {{error}}. Check that the container is running and reachable from this one.",
+      "refusedTitle": "{{app}}: refuses this server's secret",
+      "refusedBody": "The container answers, but turns down every request this server signs. Its <code>{{container}}</code> must be the secret this server holds: set it again from <lnk>Setup</lnk> and restart the container.",
+      "offTitle": "{{app}}: off",
+      "offBody": "No container is set up: set {{variable}} on this container and restart it.",
+      "statusLabel": "{{app}} status",
+      "address": "Address",
+      "container": "Container",
+      "secretAccepted": "Set, accepted by the container",
+      "secretRefused": "Set, but the container refuses it",
+      "howToSet": "The address is <code>{{url}}</code> on this container; the secret is made on <setup>Setup</setup>. See the <lnk>configuration reference</lnk>."
+    },
     "noneRunningTitle": "No app is answering",
     "noneRunningBody": "Events and logs come from the containers themselves, so they appear here once one is set up and answering. <lnk>Installed</lnk> says how each one stands.",
     "access": {
@@ -255,7 +273,13 @@
       "capGamesPlay": "Play",
       "capGamesPlayMeans": "The lobby, the games and matches, and guests' play",
       "capGamesManage": "Manage",
-      "capGamesManageMeans": "The games' admin window: its events and log"
+      "capGamesManageMeans": "The games' admin window: its events and log",
+      "capVideoBrowse": "Browse",
+      "capVideoBrowseMeans": "Shows, movies and their episodes",
+      "capVideoWatch": "Watch",
+      "capVideoWatchMeans": "Playing a show or a film",
+      "capVideoManage": "Manage",
+      "capVideoManageMeans": "Libraries, scans and the folder picker; its events and log"
     },
     "setup": {
       "description": "Pair a container with this server, or give it a new secret.",

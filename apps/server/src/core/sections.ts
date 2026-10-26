@@ -9,10 +9,10 @@ import type { AppSettingRow } from "../db/rows.js";
 // panel still shows every library, so nothing is lost and a section comes back
 // with one click. Every section starts on — an upgrade changes nobody's menu.
 //
-// Games is one of the six, on top of the gateway being configured: an install
-// without a games container has no Games entry whatever this says.
+// Games and Video are among them, on top of their containers being set up: an
+// install without a games or video container has no such entry whatever this says.
 
-export const SECTION_KEYS = ["audiobooks", "ebooks", "gallery", "familyTree", "stories", "games"] as const;
+export const SECTION_KEYS = ["audiobooks", "ebooks", "gallery", "familyTree", "stories", "games", "video"] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 export type Sections = Record<SectionKey, boolean>;
 
@@ -24,7 +24,8 @@ export const ALL_SECTIONS_ON: Sections = {
   gallery: true,
   familyTree: true,
   stories: true,
-  games: true
+  games: true,
+  video: true
 };
 
 export const sectionsSchema = z.object({
@@ -33,7 +34,9 @@ export const sectionsSchema = z.object({
   gallery: z.boolean(),
   familyTree: z.boolean(),
   stories: z.boolean(),
-  games: z.boolean()
+  games: z.boolean(),
+  // Optional: a settings body saved before video existed still validates.
+  video: z.boolean().default(true)
 });
 
 export function getSections(): Sections {

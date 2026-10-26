@@ -44,13 +44,15 @@ describe("GET /api/apps/admin/status", () => {
     const app = await boot({ upstream: "", secret: "" });
     const res = await app.app.inject({ method: "GET", url: "/api/apps/admin/status", headers: { cookie: await app.signIn("admin") } });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({
-      apps: [{
-        id: "games", kind: "app", prefix: "/games", configured: false, reason: null, url: null, secretSet: false,
-        secretSource: "none", pairing: null, variables: { url: "GAMES_URL", secret: "GAMES_GATEWAY_SECRET", container: "GATEWAY_SECRET" },
-        secretAccepted: null, server: null
-      }]
+    const apps = res.json().apps as { id: string }[];
+    // Every container this release knows, installed or not.
+    expect(apps.map((entry) => entry.id)).toEqual(["games", "video"]);
+    expect(apps[0]).toEqual({
+      id: "games", kind: "app", prefix: "/games", configured: false, reason: null, url: null, secretSet: false,
+      secretSource: "none", pairing: null, variables: { url: "GAMES_URL", secret: "GAMES_GATEWAY_SECRET", container: "GATEWAY_SECRET" },
+      secretAccepted: null, server: null
     });
+    expect(apps[1]).toMatchObject({ id: "video", kind: "engine", prefix: "/video", configured: false, variables: { url: "VIDEO_URL" } });
     expect((await app.app.inject({ method: "GET", url: "/api/apps/admin/status", headers: { cookie: await app.signIn("mum") } })).statusCode).toBe(403);
   });
 

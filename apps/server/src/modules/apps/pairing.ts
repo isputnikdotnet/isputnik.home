@@ -25,6 +25,7 @@ export type SecretSource = "environment" | "paired" | "none";
 function environmentFor(id: AppId): { upstream: string; secret: string } {
   switch (id) {
     case "games": return { upstream: config.gamesUrl, secret: config.gamesGatewaySecret };
+    case "video": return { upstream: config.videoUrl, secret: config.videoGatewaySecret };
   }
 }
 

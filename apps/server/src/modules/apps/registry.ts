@@ -7,7 +7,7 @@
 // them (video, later). Both are reached, probed and logged the same way.
 import type { SectionKey } from "../../core/sections.js";
 
-export type AppId = "games";
+export type AppId = "games" | "video";
 export type AppKind = "app" | "engine";
 
 /** From where a capability may be used (docs/apps-platform-plan.md → Network rules). */
@@ -65,6 +65,27 @@ export const APPS: readonly AppDefinition[] = [
       { id: "manage", paths: ["/games/api/admin/"], defaultRule: "anywhere" },
       // Everything else: the lobby, the games, matches, guests' play.
       { id: "play", paths: [], defaultRule: "anywhere" }
+    ]
+  },
+  {
+    // An engine: home draws its pages and manages its libraries
+    // (docs/video-architecture.md); modules/library/video registers it.
+    id: "video",
+    kind: "engine",
+    prefix: "/video",
+    section: "video",
+    urlVariable: "VIDEO_URL",
+    secretVariable: "VIDEO_GATEWAY_SECRET",
+    containerSecretVariable: "GATEWAY_SECRET",
+    signedProbePath: "/video/api/me",
+    docsAnchor: "video",
+    capabilities: [
+      // Libraries, scans, the folder picker, events, log, backup.
+      { id: "manage", paths: ["/video/api/admin/"], defaultRule: "anywhere" },
+      // Playing (V2): the stream and its segments.
+      { id: "watch", paths: ["/video/api/stream/", "/video/api/hls/"], defaultRule: "anywhere" },
+      // Everything else: browsing shows and movies.
+      { id: "browse", paths: [], defaultRule: "anywhere" }
     ]
   }
 ];

@@ -90,7 +90,7 @@ interface GuestInvite {
   state: "live" | "expired" | "revoked" | "pending";
 }
 
-const CONFIG_DOC = "https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md#games";
+const CONFIG_DOC = "https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md";
 const LOG_LINES = 200;
 
 // pino's numeric levels, for the log lines a container hands over raw.
@@ -167,7 +167,7 @@ function useAppsStatus() {
 function useAppName() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   // One name per container this release knows; the registry (modules/apps) has the same list.
-  return (id: string) => (id === "games" ? t("common:nav.games") : id);
+  return (id: string) => (id === "games" ? t("common:nav.games") : id === "video" ? t("common:nav.video") : id);
 }
 
 // ── Installed ────────────────────────────────────────────────────────────────
@@ -198,47 +198,53 @@ export function AppsInstalledSection() {
   );
 }
 
-// How one container stands. Today's only container is the games, and these are
-// still the games' words.
+// How one container stands, in words that name it.
 function AppCard({ app, onRefresh }: { app: AppStatus; onRefresh: () => Promise<void> }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const appName = useAppName();
+  const name = appName(app.id);
   const dash = "—";
   const state = !app.configured ? "off" : !app.server?.ok ? "unreachable" : app.secretAccepted === false ? "refused" : "on";
+  const setupHref = `${controlHref("appsSetup")}?app=${encodeURIComponent(app.id)}`;
 
   return (
     <section className="config-block" id={`app-${app.id}`}>
-      <h2>{appName(app.id)}</h2>
-      <p className="muted">{t("controlAdmin:games.intro")}</p>
+      <h2>{name}</h2>
+      <p className="muted">{app.id === "video" ? t("controlAdmin:apps.card.introVideo") : t("controlAdmin:apps.card.introGames")}</p>
 
       {state === "on" && (
-        <MessageBox tone="success" title={t("controlAdmin:games.onTitle")}>
-          {t("controlAdmin:games.onBody", { version: app.server?.version ?? dash })}
+        <MessageBox tone="success" title={t("controlAdmin:apps.card.onTitle", { app: name })}>
+          {t("controlAdmin:apps.card.onBody", { version: app.server?.version ?? dash })}
         </MessageBox>
       )}
       {state === "unreachable" && (
-        <MessageBox tone="warning" title={t("controlAdmin:games.unreachableTitle")}>
-          {t("controlAdmin:games.unreachableBody", { url: app.url ?? dash, error: app.server?.error ?? dash })}
+        <MessageBox tone="warning" title={t("controlAdmin:apps.card.unreachableTitle", { app: name })}>
+          {t("controlAdmin:apps.card.unreachableBody", { url: app.url ?? dash, error: app.server?.error ?? dash })}
         </MessageBox>
       )}
       {state === "refused" && (
-        <MessageBox tone="error" title={t("controlAdmin:games.refusedTitle")}>
-          {t("controlAdmin:games.refusedBody")}
+        <MessageBox tone="error" title={t("controlAdmin:apps.card.refusedTitle", { app: name })}>
+          <Trans
+            i18nKey="apps.card.refusedBody"
+            ns="controlAdmin"
+            values={{ container: app.variables.container }}
+            components={{ code: <code />, lnk: <a href={setupHref} onClick={(event) => followRoute(event, setupHref)} /> }}
+          />
         </MessageBox>
       )}
       {state === "off" && (
-        <MessageBox tone="info" title={t("controlAdmin:games.offTitle")}>
-          {app.reason ?? t("controlAdmin:games.offBody")}
+        <MessageBox tone="info" title={t("controlAdmin:apps.card.offTitle", { app: name })}>
+          {app.reason ?? t("controlAdmin:apps.card.offBody", { variable: app.variables.url })}
         </MessageBox>
       )}
 
-      <dl className="games-status" aria-label={t("controlAdmin:games.statusLabel")}>
+      <dl className="games-status" aria-label={t("controlAdmin:apps.card.statusLabel", { app: name })}>
         <div>
           <dt>{t("controlAdmin:games.gateway")}</dt>
           <dd>{app.configured ? t("controlAdmin:games.gatewayOn") : t("controlAdmin:games.gatewayOff")}</dd>
         </div>
         <div>
-          <dt>{t("controlAdmin:games.url")}</dt>
+          <dt>{t("controlAdmin:apps.card.address")}</dt>
           <dd>{app.url ? <code>{app.url}</code> : dash}</dd>
         </div>
         <div>
@@ -247,14 +253,14 @@ function AppCard({ app, onRefresh }: { app: AppStatus; onRefresh: () => Promise<
             {!app.secretSet
               ? t("controlAdmin:games.secretUnset")
               : app.secretAccepted === true
-                ? t("controlAdmin:games.secretAccepted")
+                ? t("controlAdmin:apps.card.secretAccepted")
                 : app.secretAccepted === false
-                  ? t("controlAdmin:games.secretRefused")
+                  ? t("controlAdmin:apps.card.secretRefused")
                   : t("controlAdmin:games.secretSet")}
           </dd>
         </div>
         <div>
-          <dt>{t("controlAdmin:games.server")}</dt>
+          <dt>{t("controlAdmin:apps.card.container")}</dt>
           <dd>
             {!app.server
               ? t("controlAdmin:games.serverNotAsked")
@@ -267,9 +273,10 @@ function AppCard({ app, onRefresh }: { app: AppStatus; onRefresh: () => Promise<
 
       <p className="muted">
         <Trans
-          i18nKey="games.howToSet"
+          i18nKey="apps.card.howToSet"
           ns="controlAdmin"
-          components={{ url: <code />, secret: <code />, lnk: <a href={CONFIG_DOC} target="_blank" rel="noreferrer" /> }}
+          values={{ url: app.variables.url }}
+          components={{ code: <code />, setup: <a href={setupHref} onClick={(event) => followRoute(event, setupHref)} />, lnk: <a href={CONFIG_DOC} target="_blank" rel="noreferrer" /> }}
         />
       </p>
 
@@ -422,6 +429,9 @@ function useCapabilityWords() {
   return (app: string, capability: string): { name: string; means: string } => {
     if (app === "games" && capability === "play") return { name: t("controlAdmin:apps.access.capGamesPlay"), means: t("controlAdmin:apps.access.capGamesPlayMeans") };
     if (app === "games" && capability === "manage") return { name: t("controlAdmin:apps.access.capGamesManage"), means: t("controlAdmin:apps.access.capGamesManageMeans") };
+    if (app === "video" && capability === "browse") return { name: t("controlAdmin:apps.access.capVideoBrowse"), means: t("controlAdmin:apps.access.capVideoBrowseMeans") };
+    if (app === "video" && capability === "watch") return { name: t("controlAdmin:apps.access.capVideoWatch"), means: t("controlAdmin:apps.access.capVideoWatchMeans") };
+    if (app === "video" && capability === "manage") return { name: t("controlAdmin:apps.access.capVideoManage"), means: t("controlAdmin:apps.access.capVideoManageMeans") };
     return { name: capability, means: "" };
   };
 }

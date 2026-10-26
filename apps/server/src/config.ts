@@ -82,6 +82,11 @@ export const config = {
   // server, and nobody else, telling it who is signed in.
   gamesUrl: (process.env.GAMES_URL ?? "").trim().replace(/\/+$/, ""),
   gamesGatewaySecret: (process.env.GAMES_GATEWAY_SECRET ?? "").trim(),
+  // The video engine (isputnik.video) behind /video — docs/video-architecture.md.
+  // Unset = no video libraries. Its secret is usually paired on Apps → Setup;
+  // set here, it wins.
+  videoUrl: (process.env.VIDEO_URL ?? "").trim().replace(/\/+$/, ""),
+  videoGatewaySecret: (process.env.VIDEO_GATEWAY_SECRET ?? "").trim(),
   version: packageInfo.version,
   stage: packageInfo.stage ?? null,
   description: packageInfo.description

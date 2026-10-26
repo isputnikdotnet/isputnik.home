@@ -65,7 +65,7 @@ describe("Settings → Appearance → Sections", () => {
         const body = JSON.parse(String(options.body)) as { sections: Record<string, boolean> };
         return { config: { defaultTheme: "minimalist", sections: body.sections } };
       }
-      return { config: { defaultTheme: "minimalist", sections: { ...ALL_SECTIONS_ON, ebooks: false, gallery: false, familyTree: false, stories: false, games: false } } };
+      return { config: { defaultTheme: "minimalist", sections: { ...ALL_SECTIONS_ON, ebooks: false, gallery: false, familyTree: false, stories: false, games: false, video: false } } };
     });
     render(<><AppearanceSection /><Menu /></>);
     const audiobooks = await screen.findByRole("switch", { name: "Audiobooks" });
@@ -77,7 +77,7 @@ describe("Settings → Appearance → Sections", () => {
     await waitFor(() => expect(screen.getByRole("switch", { name: "Gallery" })).toHaveAttribute("aria-checked", "true"));
     expect(mockApi).toHaveBeenLastCalledWith("/api/config", expect.objectContaining({ method: "PATCH" }));
     const sent = JSON.parse(String(vi.mocked(api).mock.calls.at(-1)?.[1]?.body)) as { sections: Record<string, boolean> };
-    expect(sent.sections).toEqual({ ...ALL_SECTIONS_ON, ebooks: false, familyTree: false, stories: false, games: false });
+    expect(sent.sections).toEqual({ ...ALL_SECTIONS_ON, ebooks: false, familyTree: false, stories: false, games: false, video: false });
     // The menu beside the page learned it without a reload.
     expect(screen.getByTestId("menu")).toHaveTextContent("audiobooks gallery");
     // With two on, either may go now.

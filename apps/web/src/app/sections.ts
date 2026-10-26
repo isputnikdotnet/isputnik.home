@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 // status call fails and the cached identity signs in: the menu then looks as it
 // did last time rather than briefly showing everything.
 
-export const SECTION_KEYS = ["audiobooks", "ebooks", "gallery", "familyTree", "stories", "games"] as const;
+export const SECTION_KEYS = ["audiobooks", "ebooks", "gallery", "familyTree", "stories", "games", "video"] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 export type Sections = Record<SectionKey, boolean>;
 
@@ -21,7 +21,8 @@ export const ALL_SECTIONS_ON: Sections = {
   gallery: true,
   familyTree: true,
   stories: true,
-  games: true
+  games: true,
+  video: true
 };
 
 const STORAGE_KEY = "isputnik-sections";

@@ -115,6 +115,7 @@
     "familyTree": "Семейное древо",
     "tags": "Теги",
     "games": "Игры",
+    "video": "Видео",
     "gamesWaiting_one": "{{count}} игра ждёт вас",
     "gamesWaiting_few": "{{count}} игры ждут вас",
     "gamesWaiting_many": "{{count}} игр ждут вас",

@@ -83,7 +83,11 @@ export async function snapshotApps(
     : undefined;
   const actor = person && person.role === "admin" ? person : SCHEDULED_ACTOR;
   const snapshots: AppSnapshot[] = [];
-  for (const app of APPS) snapshots.push(await snapshotOne(app, dir, actor, settings));
+  for (const app of APPS) {
+    // A container with no address is not installed: nothing to say about it.
+    if (!settings(app.id).upstream) continue;
+    snapshots.push(await snapshotOne(app, dir, actor, settings));
+  }
   return snapshots;
 }
 
