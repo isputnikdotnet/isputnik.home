@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.40.0",
+    "label": "Every film plays",
+    "changes": [
+      "**Films a browser can't play as they are now play (needs isputnik.video 0.3.0).** The video engine converts them while you watch: usually only the sound, so an MKV with AC3 or DTS sound — which played without sound before — now has it, and the picture too when a browser can't show it (HEVC, 10-bit), which takes real CPU on the server. MP4 and WebM files a browser plays as they are still go as they are.",
+      "**Seeking, resuming and the next episode work the same on converted films.** The player knows the whole length from the start and jumps anywhere; the first play of a file waits a moment while the engine reads where it can cut it (\"Getting it ready…\"), and later plays start at once. Converting stops when you leave the player.",
+      "**Video's container can convert on RAM or a fast disk.** The isputnik-video template has an optional Transcode path for the few hundred MB a viewer needs while watching; the Apps guide says where to point it."
+    ]
+  },
+  {
     "version": "4.39.0",
     "label": "Watching video",
     "changes": [

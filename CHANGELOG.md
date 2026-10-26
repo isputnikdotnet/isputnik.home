@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.40.0 — Every film plays
+
+- **Films a browser can't play as they are now play (needs isputnik.video 0.3.0).** The video engine converts them while you watch: usually only the sound, so an MKV with AC3 or DTS sound — which played without sound before — now has it, and the picture too when a browser can't show it (HEVC, 10-bit), which takes real CPU on the server. MP4 and WebM files a browser plays as they are still go as they are.
+- **Seeking, resuming and the next episode work the same on converted films.** The player knows the whole length from the start and jumps anywhere; the first play of a file waits a moment while the engine reads where it can cut it ("Getting it ready…"), and later plays start at once. Converting stops when you leave the player.
+- **Video's container can convert on RAM or a fast disk.** The isputnik-video template has an optional Transcode path for the few hundred MB a viewer needs while watching; the Apps guide says where to point it.
+
 ## 4.39.0 — Watching video
 
 - **Shows and movies play in the browser (video alpha, needs isputnik.video 0.2.0).** A show's page has Play for the next episode and a play link on every episode; a movie has Play. The player seeks anywhere in the file, and when an episode ends the next one starts after a ten-second countdown you can cancel. Before, the pages listed what was there but nothing could be watched.

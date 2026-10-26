@@ -8,6 +8,23 @@ import { renderSignedIn } from "./helpers/session";
 // engine's catalog, and Add library → Video. The engine is reached through
 // /video/api; here api() answers for it.
 
+// hls.js stands in for itself: what the player hands it is what matters here.
+const hlsCalls = vi.hoisted(() => ({ config: null as unknown, source: "", attached: null as unknown, destroyed: 0 }));
+vi.mock("hls.js", () => {
+  class FakeHls {
+    static isSupported() { return true; }
+    static Events = { MANIFEST_PARSED: "hlsManifestParsed", ERROR: "hlsError" };
+    static ErrorTypes = { MEDIA_ERROR: "mediaError" };
+    constructor(config: unknown) { hlsCalls.config = config; }
+    on() { return undefined; }
+    loadSource(url: string) { hlsCalls.source = url; }
+    attachMedia(element: unknown) { hlsCalls.attached = element; }
+    recoverMediaError() { return undefined; }
+    destroy() { hlsCalls.destroyed += 1; }
+  }
+  return { default: FakeHls };
+});
+
 vi.mock("../src/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/api")>();
   return { ...actual, api: vi.fn() };
@@ -119,8 +136,8 @@ describe("a show's page", () => {
 describe("the player", () => {
   const playInfo = {
     id: "e2", type: "episode", title: "Birds of a Feather", show: { id: "s1", title: "Counterpart" }, season: 1, episode: 2,
-    runtimeMinutes: null, available: true, sizeBytes: 1000, mime: "video/mp4", direct: "yes",
-    stream: "/video/api/stream/e2", progress: null, resumeAt: 754,
+    runtimeMinutes: null, available: true, sizeBytes: 1000,
+    playback: { mode: "direct", reasons: [], url: "/video/api/stream/e2", duration: 2400 }, progress: null, resumeAt: 754,
     next: { id: "e3", season: 1, episode: 3, title: "The Lost Art of Diplomacy" }
   };
 
@@ -134,10 +151,29 @@ describe("the player", () => {
     expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2");
   });
 
-  it("says why instead of a player for a file a browser cannot play", async () => {
-    mockApi.mockResolvedValue({ ...playInfo, direct: "no", mime: "application/octet-stream" });
+  it("plays a file the engine converts through hls.js, from where the person stopped", async () => {
+    const hls = { mode: "remux", reasons: ["container", "audio"], url: "/video/api/hls/e2/index.m3u8", duration: 2400 };
+    mockApi.mockResolvedValue({ ...playInfo, playback: hls });
+    const view = renderSignedIn(<VideoPlayerPage id="e2" />);
+    await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/index.m3u8"));
+    const element = document.querySelector("video");
+    expect(element).not.toHaveAttribute("src");
+    expect(hlsCalls.attached).toBe(element);
+    expect(hlsCalls.config).toMatchObject({ startPosition: 754 });
+    expect(screen.getByText("Getting it ready…")).toBeInTheDocument();
+
+    // Leaving stops the conversion on the engine.
+    const fetchSpy = vi.spyOn(window, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    view.unmount();
+    expect(hlsCalls.destroyed).toBe(1);
+    expect(fetchSpy).toHaveBeenCalledWith("/video/api/hls/e2", expect.objectContaining({ method: "DELETE", keepalive: true }));
+    fetchSpy.mockRestore();
+  });
+
+  it("says why instead of a player for a file nothing can play", async () => {
+    mockApi.mockResolvedValue({ ...playInfo, playback: { mode: "none", reasons: [], url: null, duration: null } });
     renderSignedIn(<VideoPlayerPage id="e2" />);
-    expect(await screen.findByText(/has to be converted before a browser can play it/)).toBeInTheDocument();
+    expect(await screen.findByText(/can't convert it: ffmpeg isn't available/)).toBeInTheDocument();
     expect(document.querySelector("video")).toBeNull();
   });
 

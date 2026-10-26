@@ -358,6 +358,20 @@ decode):
 3. **Transcode** — the video itself does not decode (HEVC in most browsers): full
    re-encode to H.264 HLS, CPU at first.
 
+**As built (engine 0.3.0):** the choice is made per file from ffprobe
+(`src/delivery.ts`), not yet per browser. Direct is MP4 with 8-bit H.264 or WebM,
+with AAC/MP3/Opus/Vorbis/FLAC sound; everything else is HLS in MPEG-TS
+segments (Safari natively, hls.js elsewhere). The playlist is the whole film
+up front, so the player knows the length and seeks anywhere. Cuts fall on the
+file's own keyframes when the picture is copied (read once with ffprobe and kept
+in `media_probe`), or on a 6 s grid with keyframes forced onto it when it is
+re-encoded, and timestamps stay the file's own, so a run started after a seek
+lines up with the segments before it. One ffmpeg run per person and film; it
+stops 30 segments ahead and restarts where the player gets to; a session idle
+for a minute, or one whose player sends `DELETE /hls/:id`, is stopped and its
+segments deleted (`src/hls.ts`). Not yet: the per-member and household caps,
+HEVC copied for the browsers that decode it, hardware encoding.
+
 Audio track choice (dubs), subtitles (text converted to WebVTT, image subtitles
 burned in), resume, next episode. Seeking inside a transcode restarts it at the new
 point. One transcode per member at a time and a household cap, so a TV and two
@@ -387,7 +401,7 @@ responses. Measured in V2 before anything else is considered.
 | **2** | home | Pairing: `app_pairings`, Setup tab, rotate; env secrets keep winning |
 | **V1** | engine | repository, image, Unraid template; health, manifest, admin, folders and library calls; catalog scan with `.nfo` + TMDB; art; progress store |
 | **V1** | home | remote library type `video`; Add library → Video, Libraries page and Tasks from the engine; Video menu entry; browse, show and movie pages (no player yet) |
-| **V2** | both | the player: direct play, remux, transcode; tracks, subtitles, resume; Continue watching on For you; search. **Step 1 built (engine 0.2.0, home 4.39.0):** direct play with byte ranges, per-person progress and resume, next episode, Continue watching |
+| **V2** | both | the player: direct play, remux, transcode; tracks, subtitles, resume; Continue watching on For you; search. **Step 1 built (engine 0.2.0, home 4.39.0):** direct play with byte ranges, per-person progress and resume, next episode, Continue watching. **Step 2 built (engine 0.3.0):** remux and transcode to HLS, the sound converted to AAC |
 | **3** | home | token routes through the gateway; Profile → Devices for container tokens |
 | **V3** | engine | Stremio add-on |
 | **V4** | engine | WebDAV for Kodi; hardware transcoding |

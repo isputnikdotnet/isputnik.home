@@ -70,6 +70,20 @@ export interface VideoNextUp {
   position: number;
 }
 
+/** How the file reaches the browser: as it is (byte ranges), or as HLS with
+ *  the sound converted (remux) or the picture too (transcode); none when the
+ *  engine has no ffmpeg and the browser can't play it as it is. */
+export type VideoPlaybackMode = "direct" | "remux" | "transcode" | "none";
+
+export interface VideoPlayback {
+  mode: VideoPlaybackMode;
+  /** Why it isn't sent as it is. */
+  reasons: ("container" | "audio" | "video")[];
+  /** The file, or its HLS playlist, through the gateway. */
+  url: string | null;
+  duration: number | null;
+}
+
 /** GET /video/api/play/:id — what the player needs to start. */
 export interface VideoPlayInfo {
   id: string;
@@ -82,10 +96,7 @@ export interface VideoPlayInfo {
   /** false when the file has gone from the disk since the last scan. */
   available: boolean;
   sizeBytes: number | null;
-  mime: string;
-  direct: VideoDirectPlay;
-  /** The file, with byte ranges, through the gateway. */
-  stream: string;
+  playback: VideoPlayback;
   progress: VideoProgress | null;
   resumeAt: number;
   next: { id: string; season: number; episode: number; title: string | null } | null;

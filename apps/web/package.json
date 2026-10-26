@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/web",
   "private": true,
-  "version": "4.39.0",
+  "version": "4.40.0",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -18,6 +18,7 @@
     "chart.js": "^4.5.1",
     "country-flag-emoji-polyfill": "^0.1.10",
     "dompurify": "^3.4.17",
+    "hls.js": "^1.7.3",
     "i18next": "^26.4.6",
     "idb": "^8.0.4",
     "lucide-react": "^1.57.0",

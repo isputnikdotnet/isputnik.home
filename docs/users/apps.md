@@ -6,11 +6,13 @@ install each one like any other container, then connect it to iSputnik in
 **Control panel → Apps**. This guide is for whoever runs the server.
 
 > **Video is in alpha.** Video libraries, the Shows and Movies pages and the
-> player are here. The player plays files a browser can play as they are — MP4
-> and WebM everywhere, most MKV files in Chrome and Edge — and says so for the
-> rest; converting those on the fly, subtitles, posters and online metadata come
-> next. Each person resumes where they stopped, and Continue watching (on Shows,
-> Movies and For you) lists what they left halfway and the next episode.
+> player are here. MP4 and WebM files a browser plays as they are are sent as
+> they are; the rest are converted while they play — usually just the sound
+> (AC3, DTS and the like become AAC), the picture too when a browser can't show
+> it (HEVC, 10-bit), which takes real CPU. Subtitles, choosing a dub, posters and
+> online metadata come next. Each person resumes where they stopped, and
+> Continue watching (on Shows, Movies and For you) lists what they left halfway
+> and the next episode.
 
 ## How the apps fit in
 
@@ -66,6 +68,7 @@ container:
 | `/config` | an appdata folder: the catalog database and poster cache |
 | Network | the same network as iSputnik, or a fixed IP; **no port published** |
 | `GATEWAY_SECRET` | empty for now — you'll fill it in step 3; until then the container stops as soon as it starts |
+| `/transcode` | optional: where films are converted while someone watches (a few hundred MB per viewer, deleted as they go) — RAM such as `/tmp/isputnik-video`, or a cache-pool folder; left out, it stays inside the container |
 
 Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
 01/Show (Year) S01E01.mkv` for shows, `Movie (Year)/Movie (Year).mkv` for films.
