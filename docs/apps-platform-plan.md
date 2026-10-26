@@ -31,9 +31,14 @@ Phase 2 pairing built (2026-10-25, not yet released): Apps → Setup makes a sec
 replaces or forgets it, and tests the connection. `<APP>_GATEWAY_SECRET` in the
 environment still wins, and pairing is off while it is set. The gateway asks for
 the secret on every request and is registered for any usable address, so pairing
-or rotating needs no restart of home. Still open in phase 2: the containers'
-databases in home's backups (see Backups) — it needs a `GET /api/admin/backup`
-on each container first, starting with isputnik.games.
+or rotating needs no restart of home.
+
+Phase 2 backups, home's side built (2026-10-25, not yet released): full and
+minimal zips ask each paired container for its database (`modules/apps/backup.ts`)
+and carry `apps/<id>.sqlite`, with `backup.json` saying what went in or why not.
+Still open: the container side — `GET /games/api/admin/backup` in isputnik.games;
+until a container has it, backups say "too old to hand over its database" and
+finish without it — and sending a database back from Apps → Installed.
 
 ## Two kinds of container
 
@@ -236,6 +241,27 @@ rest.
 container has the new one. `GAMES_GATEWAY_SECRET` and `VIDEO_GATEWAY_SECRET` in
 home's environment keep working and win over a paired secret, so existing installs
 change nothing.
+
+## Backups
+
+Metadata and databases only — never media files, never a container's caches.
+
+- **Contract.** Every container answers `GET <prefix>/api/admin/backup` for the
+  `admin` role: a consistent snapshot of its whole SQLite database as the body
+  (`application/vnd.sqlite3`; better-sqlite3's `db.serialize()` is one), and
+  `X-Isputnik-Backup-Version` with its own version. Nothing else is in it.
+- **Home.** A full or minimal backup asks every paired container for it, signed
+  like any request, as the admin who started it or — for a scheduled run — as
+  `system:backup` with the `admin` role, and stores each answer in its zip as
+  `apps/<id>.sqlite`. `backup.json` gains `apps: { <id>: { included, bytes,
+  version } | { included: false, reason } }`. The quick database copy stays
+  home's alone.
+- **A container that does not answer** (down, unpaired, too old to have the
+  route) is left out, the backup still finishes, and the activity log line says
+  which one was missing and why.
+- **Restore.** Home's restore ignores `apps/`. Sending a container its database
+  back is a later step, from Apps → Installed, because the container may be on
+  another version or down.
 
 ## Logs and events
 

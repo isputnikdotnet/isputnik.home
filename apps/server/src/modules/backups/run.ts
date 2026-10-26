@@ -6,6 +6,7 @@ import { config, mfaKeyFilePath } from "../../config.js";
 import { resolveBackupPath } from "../../core/system-data.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
 import { listIrreplaceableArt } from "../library/shared/irreplaceable-art.js";
+import { snapshotApps, snapshotNote, type AppSnapshot } from "../apps/backup.js";
 import { clearPreUpgradeStaging, preUpgradeStagingPath, readPreUpgradeMeta } from "../../db/pre-upgrade.js";
 import { log } from "../../core/logger.js";
 import type { AppSettingRow } from "../../db/rows.js";
@@ -216,7 +217,7 @@ interface ZipContents {
   note: string;
 }
 
-async function writeZip(destination: string, tmpDb: string, kind: BackupKind, scope: ArtScope): Promise<ZipContents> {
+async function writeZip(destination: string, tmpDb: string, kind: BackupKind, scope: ArtScope, apps: AppSnapshot[] = []): Promise<ZipContents> {
   const contents: ZipContents = { artFiles: 0, note: "" };
   // Where the covers actually are, which is not necessarily THUMBNAIL_PATH: the
   // store is an admin setting that overrides the environment (see
@@ -259,6 +260,11 @@ async function writeZip(destination: string, tmpDb: string, kind: BackupKind, sc
         archive.file(picture.absolutePath, { name: `thumbnails/${picture.key}` });
       }
     }
+    // The containers' databases beside this one (modules/apps/backup.ts). Restore
+    // leaves apps/ alone: a container gets its database back from Apps, later.
+    for (const snapshot of apps) {
+      if (snapshot.included) archive.file(snapshot.file, { name: `apps/${snapshot.id}.sqlite` });
+    }
     // What this zip is, in the zip: the kind used to be readable only from the file
     // name, and a minimal backup now holds thumbnails too, so "has a thumbnails/
     // folder" stopped telling full and minimal apart on upload (index.ts).
@@ -267,7 +273,13 @@ async function writeZip(destination: string, tmpDb: string, kind: BackupKind, sc
       art: contents.artFiles === -1 ? "all" : "irreplaceable",
       artFiles: contents.artFiles === -1 ? null : contents.artFiles,
       version: config.version,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      apps: Object.fromEntries(apps.map((snapshot) => [
+        snapshot.id,
+        snapshot.included
+          ? { included: true, bytes: snapshot.bytes, version: snapshot.version }
+          : { included: false, reason: snapshot.reason }
+      ]))
     }, null, 2), { name: MANIFEST_NAME });
     void archive.finalize();
   });
@@ -283,16 +295,21 @@ async function runBackup(actorUserId: string | null, trigger: "manual" | "schedu
   const tmpDb = path.join(backupDir(), `.tmp-${Date.now()}.sqlite`);
 
   let artNote = "";
+  // The quick database copy stays this server's alone; the zips carry the
+  // containers' databases too, asked for first so a slow one cannot leave this
+  // snapshot older than theirs by much.
+  const apps = kind === "database" ? [] : await snapshotApps(backupDir(), actorUserId);
   await db.backup(tmpDb);
   try {
     if (kind === "database") {
       // The snapshot IS the backup: rename it into place rather than copy it.
       fs.renameSync(tmpDb, destination);
     } else {
-      artNote = (await writeZip(destination, tmpDb, kind, kind === "full" ? "all" : "irreplaceable")).note;
+      artNote = (await writeZip(destination, tmpDb, kind, kind === "full" ? "all" : "irreplaceable", apps)).note + snapshotNote(apps);
     }
   } finally {
     fs.rmSync(tmpDb, { force: true });
+    for (const snapshot of apps) if (snapshot.included) fs.rmSync(snapshot.file, { force: true });
   }
 
   const pruned = pruneBackups(kind, settings.retention[kind]);
