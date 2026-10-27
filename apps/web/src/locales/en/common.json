@@ -73,6 +73,11 @@
         "wrong_password": "Your current password is incorrect.",
         "invalid_email": "Invalid email",
         "email_taken": "That email address is already in use."
+      },
+      "video": {
+        "tmdb_no_key": "The video container has no TMDB key yet. An admin adds one on Control panel → Apps.",
+        "tmdb_refused": "TMDB refused this key. Check it was copied whole.",
+        "tmdb_unreachable": "TMDB did not answer the video container. Check it can reach the internet, then try again."
       }
     },
     "requestFailed": "Request failed"
@@ -805,6 +810,32 @@
       "track": "Track {{number}}",
       "mono": "Mono",
       "stereo": "Stereo"
+    },
+    "subtitles": {
+      "label": "Subtitles",
+      "off": "Off",
+      "track": "Subtitles {{number}}",
+      "forced": "Forced"
+    },
+    "rating": "★ {{rating}}",
+    "match": {
+      "open": "Fix match",
+      "title": "Fix match",
+      "nowAuto": "Matched automatically to TMDB {{id}}.",
+      "nowFixed": "Matched by hand to TMDB {{id}}: rescans keep it.",
+      "nowNone": "Not matched on TMDB yet. Search for it and pick the right one.",
+      "nowError": "TMDB could not be asked last time: {{error}}",
+      "query": "Title",
+      "year": "Year",
+      "search": "Search TMDB",
+      "searching": "Searching…",
+      "noResults": "Nothing on TMDB by that name. Try the original title, or leave the year out.",
+      "current": "The match now",
+      "saving": "Saving…",
+      "automatic": "Match automatically again",
+      "failedTitle": "Unable to search TMDB",
+      "searchFailed": "TMDB did not answer.",
+      "saveFailed": "The match could not be saved."
     }
   }
 }

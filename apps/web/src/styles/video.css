@@ -1,7 +1,8 @@
 /* Video: the Shows and Movies pages and a title's page (features/video).
    Loaded with those pages, not on every route (docs/css-map.md). The cards
    follow the series cards' look (library-collections.css); posters come with
-   TMDB, so the cover is the kind's icon and the title's first letters for now. */
+   the engine (beside the files, or TMDB); without one the cover is the kind's
+   icon and the title's first letters. */
 
 .video-grid {
   display: grid;
@@ -435,4 +436,157 @@
 .video-episode-copy p {
   margin: 4px 0 0;
   color: var(--muted);
+}
+
+/* Posters, a backdrop and episode stills (engine 0.6.0+: art beside the files,
+   or TMDB's). An image fills the cover it replaces. */
+.video-card-cover.has-poster,
+.video-title-cover.has-poster {
+  overflow: hidden;
+}
+
+.video-card-cover > img,
+.video-title-cover > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-title-backdrop {
+  position: relative;
+  height: clamp(140px, 26vw, 280px);
+  margin: 4px 0 -64px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.video-title-backdrop > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Fades into the page, so the poster and title sit over its lower edge. */
+.video-title-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 30%, var(--canvas) 100%);
+}
+
+.video-title-backdrop + .video-title-head {
+  position: relative;
+  padding-left: 16px;
+}
+
+.video-fix-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.video-episode-still {
+  flex: 0 0 auto;
+  width: 128px;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--active);
+}
+
+.video-episode-still > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 520px) {
+  .video-episode-still {
+    display: none;
+  }
+}
+
+/* Fix match */
+.video-match-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7em auto;
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0;
+}
+
+@media (max-width: 520px) {
+  .video-match-search {
+    grid-template-columns: minmax(0, 1fr) 6em;
+  }
+}
+
+.video-match-results {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.video-match-result {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.video-match-result:hover,
+.video-match-result:focus-visible {
+  border-color: var(--mint);
+}
+
+.video-match-result.is-current {
+  border-color: var(--gold);
+}
+
+.video-match-poster {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--active);
+  color: var(--mint);
+}
+
+.video-match-poster > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-match-copy {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+}
+
+.video-match-copy strong svg {
+  margin-left: 6px;
+  vertical-align: -2px;
+  color: var(--gold);
+}
+
+.video-match-overview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.88rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }

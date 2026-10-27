@@ -88,8 +88,8 @@ export const APPS: readonly AppDefinition[] = [
     capabilities: [
       // Libraries, scans, the folder picker, events, log, backup.
       { id: "manage", paths: ["/video/api/admin/"], defaultRule: "anywhere" },
-      // Playing (V2): the stream and its segments.
-      { id: "watch", paths: ["/video/api/stream/", "/video/api/hls/"], defaultRule: "anywhere" },
+      // Playing (V2): the stream, its segments and its subtitles.
+      { id: "watch", paths: ["/video/api/stream/", "/video/api/hls/", "/video/api/subtitles/"], defaultRule: "anywhere" },
       // Everything else: browsing shows and movies.
       { id: "browse", paths: [], defaultRule: "anywhere" }
     ]

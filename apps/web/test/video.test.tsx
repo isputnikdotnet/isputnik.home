@@ -126,6 +126,48 @@ describe("a show's page", () => {
     expect(screen.getByRole("link", { name: "Play Серия 1" })).toHaveAttribute("href", "/watch/e1");
   });
 
+  it("wears the poster and backdrop, and lets an admin fix its TMDB match", async () => {
+    const movie = {
+      id: "m1", libraryId: "lib_mov", title: "Loose Film", originalTitle: null, year: 1999, plot: null, genres: [], runtimeMinutes: null,
+      imdbId: null, tmdbId: null, source: "folder", direct: "yes", progress: null,
+      poster: "/video/api/art/m1/poster?v=1", backdrop: "/video/api/art/m1/backdrop?v=1", rating: null,
+      tmdbMatch: { id: null, state: "unmatched", locked: false, error: null }
+    };
+    const fixed = { ...movie, title: "Loose Film", plot: "The one.", tmdbId: "404", rating: 6, tmdbMatch: { id: "404", state: "matched", locked: true, error: null } };
+    mockApi.mockImplementation((async (path: string, init?: RequestInit) => {
+      if (path === "/video/api/movies/m1") return movie;
+      if (path.startsWith("/video/api/admin/metadata/search?")) {
+        return { results: [{ tmdbId: "404", title: "The Right Film", originalTitle: null, year: 1999, overview: "The one.", poster: "/video/api/admin/metadata/image/p404.jpg" }] };
+      }
+      if (path === "/video/api/admin/metadata/items/m1" && init?.method === "PUT") return { movie: fixed };
+      throw new Error(`unexpected ${path}`);
+    }) as never);
+    renderSignedIn(<VideoTitlePage kind="movies" id="m1" />, { user: { id: "a1", role: "admin" } as never });
+    expect(await screen.findByRole("heading", { name: "Loose Film" })).toBeInTheDocument();
+    expect(document.querySelector(".video-title-cover img")).toHaveAttribute("src", "/video/api/art/m1/poster?v=1");
+    expect(document.querySelector(".video-title-backdrop img")).toHaveAttribute("src", "/video/api/art/m1/backdrop?v=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Fix match" }));
+    await userEvent.click(screen.getByRole("button", { name: "Search TMDB" }));
+    expect(mockApi).toHaveBeenCalledWith("/video/api/admin/metadata/search?kind=movie&q=Loose+Film&language=en&year=1999");
+    await userEvent.click(await screen.findByRole("button", { name: /The Right Film \(1999\)/ }));
+    expect(mockApi).toHaveBeenCalledWith("/video/api/admin/metadata/items/m1", expect.objectContaining({ method: "PUT", body: JSON.stringify({ tmdbId: "404" }) }));
+    expect(await screen.findByText("The one.")).toBeInTheDocument();
+    expect(screen.getByText(/★ 6\.0/)).toBeInTheDocument();
+  });
+
+  it("offers Fix match to admins only", async () => {
+    mockApi.mockResolvedValue({
+      id: "m1", libraryId: "lib_mov", title: "Loose Film", originalTitle: null, year: 1999, plot: null, genres: [], runtimeMinutes: null,
+      imdbId: null, tmdbId: null, source: "folder", direct: "yes", progress: null
+    });
+    renderSignedIn(<VideoTitlePage kind="movies" id="m1" />);
+    expect(await screen.findByRole("heading", { name: "Loose Film" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fix match" })).not.toBeInTheDocument();
+    // An engine older than 0.6.0 sends no poster: the kind's icon stays.
+    expect(document.querySelector(".video-title-cover img")).toBeNull();
+  });
+
   it("says so when the title is gone or not this person's", async () => {
     mockApi.mockRejectedValue(new Error("No such show"));
     renderSignedIn(<VideoTitlePage kind="shows" id="gone" />);
@@ -210,6 +252,52 @@ describe("the player", () => {
       renderSignedIn(<VideoPlayerPage id="e2" />);
       expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Sound/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("subtitles", () => {
+    const text = { id: "s3", kind: "text", codec: "subrip", language: "eng", title: null, default: false, forced: false, external: false, url: "/video/api/subtitles/e2/s3.vtt", burned: false };
+    const beside = { id: "x0123456789", kind: "text", codec: "srt", language: "ru", title: "SDH", default: false, forced: false, external: true, url: "/video/api/subtitles/e2/x0123456789.vtt", burned: false };
+    const image = { id: "s4", kind: "image", codec: "hdmv_pgs_subtitle", language: "fre", title: null, default: false, forced: false, external: false, url: null, burned: false };
+    const burnedHls = { mode: "transcode", reasons: ["container", "subtitles"], url: "/video/api/hls/e2/t-b4/index.m3u8", duration: 2400 };
+    const answer = (path: string) => (path.endsWith("?subtitle=s4")
+      ? { ...playInfo, playback: burnedHls, subtitleTracks: [text, beside, { ...image, burned: true }] }
+      : { ...playInfo, subtitleTracks: [text, beside, image] });
+
+    beforeEach(() => {
+      window.localStorage.removeItem("isputnik.video.subtitleLanguage");
+      hlsCalls.source = "";
+    });
+
+    it("gives the browser each text track and shows none until one is chosen", async () => {
+      mockApi.mockImplementation((async (path: string) => answer(path)) as never);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await userEvent.click(await screen.findByRole("button", { name: "Subtitles: Off" }));
+      expect(screen.getByRole("option", { name: "Russian · SDH" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("option", { name: "English" }));
+      const tracks = [...document.querySelectorAll("video track")];
+      expect(tracks.map((track) => track.getAttribute("src"))).toEqual(["/video/api/subtitles/e2/s3.vtt", "/video/api/subtitles/e2/x0123456789.vtt"]);
+      expect(screen.getByRole("button", { name: "Subtitles: English" })).toBeInTheDocument();
+      // Text needs nothing from the engine: the film plays on as it is.
+      expect(mockApi).toHaveBeenCalledTimes(1);
+      expect(window.localStorage.getItem("isputnik.video.subtitleLanguage")).toBe("eng");
+    });
+
+    it("has the engine burn in an image subtitle, from where the film is", async () => {
+      mockApi.mockImplementation((async (path: string) => answer(path)) as never);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await userEvent.click(await screen.findByRole("button", { name: "Subtitles: Off" }));
+      await userEvent.click(screen.getByRole("option", { name: "French" }));
+      expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2?subtitle=s4");
+      await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t-b4/index.m3u8"));
+      expect(screen.getByRole("button", { name: "Subtitles: French" })).toBeInTheDocument();
+    });
+
+    it("starts in the subtitle language chosen last time, a file's two-letter code matching a track's three", async () => {
+      window.localStorage.setItem("isputnik.video.subtitleLanguage", "rus");
+      mockApi.mockImplementation((async (path: string) => answer(path)) as never);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      expect(await screen.findByRole("button", { name: "Subtitles: Russian · SDH" })).toBeInTheDocument();
     });
   });
 

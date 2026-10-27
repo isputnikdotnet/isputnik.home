@@ -178,6 +178,32 @@ memory and on the disk. Most films need well under the 300 MB; a Blu-ray rip
 whose sound is converted carries its picture unchanged, so it is the one that
 fills a share. Changes apply at once; anyone already watching carries on.
 
+## Posters and descriptions
+
+Pictures saved beside the video files are always shown: `poster.jpg` and
+`fanart.jpg` in a show's or film's folder, `Film (Year)-poster.jpg` beside a
+film, `<episode file name>-thumb.jpg` beside an episode.
+
+For the rest, give the engine a key from a free TMDB account (themoviedb.org →
+Settings → API) on **Apps → Installed → Posters and descriptions**. It is checked
+with TMDB before it is kept and never shown again. After every scan the engine
+then fetches posters, backdrops and episode pictures, and fills in descriptions
+and episode names where the `.nfo` files have none — an `.nfo`'s own words
+always stay.
+
+A title matched to the wrong film or show: open it and press **Fix match**
+(admins only), search TMDB by name and year, and pick the right one. Rescans keep
+that choice until **Match automatically again**.
+
+## Subtitles
+
+Subtitles inside a film and subtitle files beside it — `Film (Year).srt`,
+`Film (Year).ru.srt`, `Film (Year).en.forced.srt` (SRT, ASS or VTT) — appear in
+the player's **Subtitles** menu, named by language. Text subtitles show over the
+film as it plays. Blu-ray and DVD subtitles are pictures no browser can show, so
+the engine draws them onto the film, which then counts as converted video. The
+language chosen last is picked again for the next episode.
+
 ## Backups
 
 **Full** and **minimal** backups (Control panel → Maintenance → Backup) also ask

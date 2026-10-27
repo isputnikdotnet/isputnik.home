@@ -133,9 +133,15 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
           <div className="video-grid">
             {(items ?? []).map((item) => (
               <Button variant="tile" key={item.id} className="video-card" onClick={() => navigate(videoHref(kind, item.id))}>
-                <div className="video-card-cover" aria-hidden="true">
-                  <KindIcon size={22} />
-                  <strong>{item.title.slice(0, 2).toUpperCase()}</strong>
+                <div className={`video-card-cover${item.poster ? " has-poster" : ""}`} aria-hidden="true">
+                  {item.poster ? (
+                    <img src={item.poster} alt="" loading="lazy" />
+                  ) : (
+                    <>
+                      <KindIcon size={22} />
+                      <strong>{item.title.slice(0, 2).toUpperCase()}</strong>
+                    </>
+                  )}
                 </div>
                 <div className="video-card-body">
                   <strong>{item.title}</strong>

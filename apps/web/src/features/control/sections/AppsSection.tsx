@@ -195,6 +195,7 @@ export function AppsInstalledSection() {
           <AppCard app={app} onRefresh={load} />
           {app.id === "games" && app.configured && <GuestLinks />}
           {app.id === "video" && isRunning(app) && <VideoConversion prefix={app.prefix} />}
+          {app.id === "video" && isRunning(app) && <VideoMetadata prefix={app.prefix} />}
         </div>
       ))}
     </>
@@ -584,6 +585,90 @@ function VideoConversion({ prefix }: { prefix: string }) {
             <Button variant="primary" type="submit" disabled={saving}>
               <Save size={16} aria-hidden="true" />
               {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:apps.conversion.save")}
+            </Button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/** GET/PUT /video/api/admin/metadata: whether the engine has a TMDB key (never the key). */
+interface MetadataState {
+  hasKey: boolean;
+  keyHint: string | null;
+}
+
+// Posters and descriptions: art beside the files is always used; with a key from
+// the admin's own TMDB account the engine fetches the rest. The engine checks a
+// key with TMDB before keeping it, and never hands it back.
+function VideoMetadata({ prefix }: { prefix: string }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const [state, setState] = useState<MetadataState | null>(null);
+  const [key, setKey] = useState("");
+  const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [busy, setBusy] = useState<"save" | "remove" | null>(null);
+  const [saved, setSaved] = useState("");
+  const url = `${prefix}/api/admin/metadata`;
+
+  useEffect(() => {
+    api<MetadataState>(url)
+      .then((payload) => { setState(payload); setError(""); })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("controlAdmin:apps.metadata.loadFailed")));
+  }, [t, url]);
+
+  const put = async (tmdbKey: string | null) => {
+    setBusy(tmdbKey ? "save" : "remove");
+    setSaved("");
+    setSaveError("");
+    try {
+      setState(await api<MetadataState>(url, { method: "PUT", body: JSON.stringify({ tmdbKey }) }));
+      setKey("");
+      setSaved(tmdbKey ? t("controlAdmin:apps.metadata.savedKey") : t("controlAdmin:apps.metadata.removedKey"));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.metadata.saveFailed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="config-block" id="video-metadata">
+      <h3>{t("controlAdmin:apps.metadata.title")}</h3>
+      <p className="muted">{t("controlAdmin:apps.metadata.intro")}</p>
+      {error && <MessageBox tone="error" title={t("controlAdmin:apps.metadata.loadFailed")}>{error}</MessageBox>}
+      {state && (
+        <form className="security-policy-form" onSubmit={(event) => { event.preventDefault(); if (key.trim()) void put(key.trim()); }}>
+          <p>
+            {state.hasKey
+              ? t("controlAdmin:apps.metadata.hasKey", { hint: state.keyHint })
+              : t("controlAdmin:apps.metadata.noKey")}
+          </p>
+          <label className="security-setting-row">
+            <span className="security-setting-copy">
+              <span className="security-setting-label">{state.hasKey ? t("controlAdmin:apps.metadata.replaceLabel") : t("controlAdmin:apps.metadata.keyLabel")}</span>
+              <span className="security-setting-help">
+                <Trans
+                  i18nKey="apps.metadata.keyHelp"
+                  ns="controlAdmin"
+                  components={{ link: <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer noopener" /> }}
+                />
+              </span>
+            </span>
+            <input type="password" autoComplete="off" spellCheck={false} value={key} onChange={(event) => setKey(event.target.value)} />
+          </label>
+          {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
+          {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{saved}</MessageBox>}
+          <div className="security-policy-actions">
+            {state.hasKey && (
+              <Button variant="secondary" disabled={busy !== null} onClick={() => void put(null)}>
+                {busy === "remove" ? t("controlAdmin:apps.metadata.removing") : t("controlAdmin:apps.metadata.remove")}
+              </Button>
+            )}
+            <Button variant="primary" type="submit" disabled={busy !== null || !key.trim()}>
+              <KeyRound size={16} aria-hidden="true" />
+              {busy === "save" ? t("controlAdmin:apps.metadata.checking") : t("controlAdmin:apps.metadata.save")}
             </Button>
           </div>
         </form>

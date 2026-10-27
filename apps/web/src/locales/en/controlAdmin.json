@@ -350,6 +350,23 @@
       "replaceBody": "The current secret stops working at once: members cannot use {{app}} until {{variable}} on its container is set to the new one and it restarts. Its data is not affected.",
       "forgetTitle": "Forget the secret for {{app}}?",
       "forgetBody": "{{app}} stays off for everyone until it is paired again or a secret is set in the environment. Its data is not affected."
+    },
+    "metadata": {
+      "title": "Posters and descriptions",
+      "intro": "Posters, backdrops and episode pictures saved beside the video files (poster.jpg, fanart.jpg, \"<film>-poster.jpg\", \"<episode>-thumb.jpg\") are always used. With a TMDB key the video container fetches the rest, with descriptions and episode names where the .nfo files have none, after every scan.",
+      "loadFailed": "Unable to read the TMDB settings",
+      "saveFailed": "Unable to save the TMDB key",
+      "noKey": "No TMDB key: only pictures beside the files are shown.",
+      "hasKey": "A TMDB key is set ({{hint}}).",
+      "keyLabel": "TMDB API key",
+      "replaceLabel": "Replace the TMDB key",
+      "keyHelp": "From your own free account: <link>themoviedb.org → Settings → API</link>. Either the API key or the read access token. It is checked with TMDB before it is kept, and never shown again.",
+      "save": "Save key",
+      "checking": "Checking…",
+      "remove": "Remove key",
+      "removing": "Removing…",
+      "savedKey": "The key works. Titles not yet looked up are being fetched now.",
+      "removedKey": "The key is gone. Posters already fetched stay."
     }
   },
   "games": {

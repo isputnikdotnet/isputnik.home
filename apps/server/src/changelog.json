@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.43.0",
+    "label": "Subtitles and posters",
+    "changes": [
+      "**The player has a Subtitles menu (needs isputnik.video 0.6.0).** It offers the subtitles inside a film and the subtitle files saved beside it (`Film.ru.srt`, `Film.en.forced.srt`), named by language. Text subtitles show over the film at once; Blu-ray and DVD subtitles, which no browser can show, are drawn onto the picture by the video engine. The language chosen last is picked again for the next episode. Before, subtitles were dropped.",
+      "**Shows and movies wear posters.** Cards, a title's page (with a backdrop behind its heading) and episode rows show pictures saved beside the files — `poster.jpg`, `fanart.jpg`, an episode's `-thumb.jpg` — and, once an admin gives the engine a TMDB key on Apps → Installed → Posters and descriptions, TMDB's. TMDB also fills in descriptions and episode names where the .nfo files have none, so a show known only by its folder name gets real episode titles. Before, every card was the title's first two letters.",
+      "**Fix match on a title's page (admins).** When the engine matched a film or show to the wrong TMDB title, or to none, search TMDB by name and year and pick the right one; rescans keep the choice until it is handed back to the automatic match."
+    ]
+  },
+  {
     "version": "4.42.0",
     "label": "Converting video in memory",
     "changes": [

@@ -10,7 +10,24 @@ export interface VideoLibraryRef {
   kind: VideoKind;
 }
 
-export interface VideoShowSummary {
+/** Pictures and TMDB's rating on a card (engine 0.6.0+): from beside the files
+ *  or from TMDB, served by the engine; null when there is none. */
+export interface VideoArt {
+  poster?: string | null;
+  rating?: number | null;
+}
+
+/** How a title is matched on TMDB, for the admin's Fix match; null before the
+ *  engine has looked. */
+export interface VideoTmdbMatch {
+  id: string | null;
+  state: "none" | "matched" | "unmatched" | "error";
+  /** Fixed by hand: no rescan changes it. */
+  locked: boolean;
+  error: string | null;
+}
+
+export interface VideoShowSummary extends VideoArt {
   id: string;
   libraryId: string;
   title: string;
@@ -21,7 +38,7 @@ export interface VideoShowSummary {
   episodes: number;
 }
 
-export interface VideoMovieSummary {
+export interface VideoMovieSummary extends VideoArt {
   id: string;
   libraryId: string;
   title: string;
@@ -59,6 +76,8 @@ export interface VideoEpisode {
   runtimeMinutes: number | null;
   direct: VideoDirectPlay;
   progress: VideoProgress | null;
+  /** A frame of the episode (a thumb beside it, or TMDB's still). */
+  still?: string | null;
 }
 
 /** What Play on a show starts, and where. */
@@ -78,7 +97,7 @@ export type VideoPlaybackMode = "direct" | "remux" | "transcode" | "none";
 export interface VideoPlayback {
   mode: VideoPlaybackMode;
   /** Why it isn't sent as it is. */
-  reasons: ("container" | "audio" | "video")[];
+  reasons: ("container" | "audio" | "video" | "subtitles")[];
   /** The file, or its HLS playlist, through the gateway. */
   url: string | null;
   duration: number | null;
@@ -99,6 +118,24 @@ export interface VideoAudioTrack {
   selected: boolean;
 }
 
+/** A subtitle, inside the file or beside it (engine 0.6.0+). */
+export interface VideoSubtitleTrack {
+  /** s<stream index> inside the file, x<hash> for a file beside it: what ?subtitle= takes. */
+  id: string;
+  /** text: shown by the browser from `url`; image: burned into the picture when chosen. */
+  kind: "text" | "image";
+  codec: string;
+  language: string | null;
+  title: string | null;
+  default: boolean;
+  forced: boolean;
+  external: boolean;
+  /** WebVTT through the gateway; null for an image track. */
+  url: string | null;
+  /** An image track drawn onto the picture now playing. */
+  burned: boolean;
+}
+
 /** GET /video/api/play/:id — what the player needs to start. */
 export interface VideoPlayInfo {
   id: string;
@@ -115,6 +152,8 @@ export interface VideoPlayInfo {
   /** Every sound track in the file; the one playing is `selected`. Empty when
    *  the engine couldn't look inside it (or is older than 0.4.0). */
   audioTracks?: VideoAudioTrack[];
+  /** Every subtitle offered; empty from an engine older than 0.6.0. */
+  subtitleTracks?: VideoSubtitleTrack[];
   progress: VideoProgress | null;
   resumeAt: number;
   next: { id: string; season: number; episode: number; title: string | null } | null;
@@ -135,7 +174,7 @@ export interface VideoContinueItem {
   updatedAt: string;
 }
 
-export interface VideoShow {
+export interface VideoShow extends VideoArt {
   id: string;
   libraryId: string;
   title: string;
@@ -151,9 +190,11 @@ export interface VideoShow {
   seasons: { number: number; episodes: VideoEpisode[] }[];
   /** null once every episode is watched. */
   nextUp: VideoNextUp | null;
+  backdrop?: string | null;
+  tmdbMatch?: VideoTmdbMatch | null;
 }
 
-export interface VideoMovie {
+export interface VideoMovie extends VideoArt {
   id: string;
   libraryId: string;
   title: string;
@@ -167,6 +208,19 @@ export interface VideoMovie {
   source: "nfo" | "folder";
   direct: VideoDirectPlay;
   progress: VideoProgress | null;
+  backdrop?: string | null;
+  tmdbMatch?: VideoTmdbMatch | null;
+}
+
+/** GET /video/api/admin/metadata/search — TMDB's candidates for Fix match. */
+export interface VideoTmdbCandidate {
+  tmdbId: string;
+  title: string;
+  originalTitle: string | null;
+  year: number | null;
+  overview: string | null;
+  /** A small poster, through the engine. */
+  poster: string | null;
 }
 
 /** Every address under /video belongs to the engine (the gateway proxies it); the

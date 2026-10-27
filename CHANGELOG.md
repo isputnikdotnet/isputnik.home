@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.43.0 — Subtitles and posters
+
+- **The player has a Subtitles menu (needs isputnik.video 0.6.0).** It offers the subtitles inside a film and the subtitle files saved beside it (`Film.ru.srt`, `Film.en.forced.srt`), named by language. Text subtitles show over the film at once; Blu-ray and DVD subtitles, which no browser can show, are drawn onto the picture by the video engine. The language chosen last is picked again for the next episode. Before, subtitles were dropped.
+- **Shows and movies wear posters.** Cards, a title's page (with a backdrop behind its heading) and episode rows show pictures saved beside the files — `poster.jpg`, `fanart.jpg`, an episode's `-thumb.jpg` — and, once an admin gives the engine a TMDB key on Apps → Installed → Posters and descriptions, TMDB's. TMDB also fills in descriptions and episode names where the .nfo files have none, so a show known only by its folder name gets real episode titles. Before, every card was the title's first two letters.
+- **Fix match on a title's page (admins).** When the engine matched a film or show to the wrong TMDB title, or to none, search TMDB by name and year and pick the right one; rescans keep the choice until it is handed back to the automatic match.
+
 ## 4.42.0 — Converting video in memory
 
 - **Apps → Installed has a Converting video card (needs isputnik.video 0.5.0).** It sets how many people may watch a converted film at once, how much memory each of them gets, and what happens once it is full: carry on on the disk, or keep less ahead. Before, every conversion wrote to the disk, inside the container unless its Transcode path was mapped in Docker, and the only way to use RAM was a template setting few people find.

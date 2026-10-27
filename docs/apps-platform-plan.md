@@ -178,7 +178,7 @@ patterns under its prefix and a default network rule. Video's:
 | Capability | Paths | Default rule |
 |---|---|---|
 | `browse` | `/video/api/*` | Anywhere |
-| `watch` | `/video/api/stream/*`, `/video/api/hls/*` | Anywhere |
+| `watch` | `/video/api/stream/*`, `/video/api/hls/*`, `/video/api/subtitles/*` | Anywhere |
 | `download` | `/video/api/download/*` | Trusted networks only |
 | `devices` | `/video/stremio/*`, `/video/dav/*` | Home network only |
 | `manage` | `/video/api/admin/*` | Anywhere (needs `manager`) |
@@ -404,7 +404,7 @@ responses. Measured in V2 before anything else is considered.
 | **2** | home | Pairing: `app_pairings`, Setup tab, rotate; env secrets keep winning |
 | **V1** | engine | repository, image, Unraid template; health, manifest, admin, folders and library calls; catalog scan with `.nfo` + TMDB; art; progress store |
 | **V1** | home | remote library type `video`; Add library → Video, Libraries page and Tasks from the engine; Video menu entry; browse, show and movie pages (no player yet) |
-| **V2** | both | the player: direct play, remux, transcode; tracks, subtitles, resume; Continue watching on For you; search. **Step 1 built (engine 0.2.0, home 4.39.0):** direct play with byte ranges, per-person progress and resume, next episode, Continue watching. **Step 2 built (engine 0.3.0):** remux and transcode to HLS, the sound converted to AAC |
+| **V2** | both | the player: direct play, remux, transcode; tracks, subtitles, resume; Continue watching on For you; search. **Step 1 built (engine 0.2.0, home 4.39.0):** direct play with byte ranges, per-person progress and resume, next episode, Continue watching. **Step 2 built (engine 0.3.0):** remux and transcode to HLS, the sound converted to AAC. **Step 3 built (engine 0.6.0):** subtitles — text tracks inside the file and SRT/ASS/VTT files beside it served as WebVTT (`/subtitles/:id/:track.vtt`, under `watch`), image tracks (PGS, DVD) burned into a transcode (`/hls/:id/t<a>b<s>/…`); the player's Subtitles menu remembers the language per browser. Posters and TMDB built in the same engine release (`metadata.ts`): art beside the files first, TMDB with the admin's key (Apps → Installed), Fix match on a title's page |
 | **3** | home | token routes through the gateway; Profile → Devices for container tokens |
 | **V3** | engine | Stremio add-on |
 | **V4** | engine | WebDAV for Kodi; hardware transcoding |

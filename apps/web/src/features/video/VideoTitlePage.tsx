@@ -1,24 +1,30 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Check, Film, Play, Tv } from "lucide-react";
+import { ArrowLeft, Check, Film, Play, Search, Tv } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { useSession } from "../../app/SessionContext";
 import { followBack, followRoute } from "../../router";
+import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 // A date the .nfo gives without a time: read as a calendar date, so it never rolls back west of Greenwich.
 import { formatDate } from "../../shared/dates";
+import { FixMatchModal } from "./FixMatchModal";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoHref, watchHref, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
 
 // One show — its seasons and episodes — or one movie, as the video engine
-// catalogued it (.nfo files first, then the folder's own name), with Play —
-// resumed where this person stopped — and each episode's progress.
+// catalogued it (.nfo files first, then the folder's own name, TMDB filling the
+// gaps), with Play — resumed where this person stopped — and each episode's
+// progress. An admin can fix which TMDB title it was matched to.
 export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState<VideoShow | VideoMovie | null>(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState("");
+  const [fixing, setFixing] = useState(false);
+  const { user } = useSession();
   const back = videoHref(kind);
 
   useEffect(() => {
@@ -42,6 +48,7 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const facts = title
     ? [
         title.year ? String(title.year) : null,
+        title.rating ? t("video.rating", { rating: title.rating.toFixed(1) }) : null,
         show ? t("video.seasons", { count: show.seasons.length }) : null,
         show ? t("video.episodes", { count: show.seasons.reduce((sum, season) => sum + season.episodes.length, 0) }) : null,
         !show && (title as VideoMovie).runtimeMinutes ? t("video.minutes", { count: (title as VideoMovie).runtimeMinutes! }) : null
@@ -63,9 +70,14 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
 
         {title && (
           <>
+            {title.backdrop && (
+              <div className="video-title-backdrop" aria-hidden="true">
+                <img src={title.backdrop} alt="" />
+              </div>
+            )}
             <header className="video-title-head">
-              <div className="video-title-cover" aria-hidden="true">
-                <KindIcon size={34} />
+              <div className={`video-title-cover${title.poster ? " has-poster" : ""}`} aria-hidden="true">
+                {title.poster ? <img src={title.poster} alt="" /> : <KindIcon size={34} />}
               </div>
               <div className="video-title-copy">
                 <h1>{title.title}</h1>
@@ -76,8 +88,15 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                     {title.genres.map((genre) => <li key={genre}>{genre}</li>)}
                   </ul>
                 )}
+                {user.role === "admin" && (
+                  <Button variant="text" className="video-fix-match" onClick={() => setFixing(true)}>
+                    <Search size={15} aria-hidden="true" />
+                    <span>{t("video.match.open")}</span>
+                  </Button>
+                )}
               </div>
             </header>
+            {fixing && <FixMatchModal kind={kind} title={title} onClose={() => setFixing(false)} onMatched={setTitle} />}
 
             <PlayAction title={title} />
 
@@ -103,6 +122,11 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                               onClick={(event) => followRoute(event, href)}
                               aria-label={t("video.playEpisode", { name })}
                             >
+                              {episode.still && (
+                                <span className="video-episode-still">
+                                  <img src={episode.still} alt="" loading="lazy" />
+                                </span>
+                              )}
                               <span className="video-episode-number">{episode.episode}</span>
                               <Play size={16} aria-hidden="true" />
                             </a>

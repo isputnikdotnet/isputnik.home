@@ -114,6 +114,7 @@
       "gamesLog": "Games server log",
       "gamesGuestLinks": "Guest links to the games",
       "videoConversion": "Converting video while watching",
+      "videoMetadata": "Posters and descriptions (TMDB)",
       "sections": "Sections of the app"
     }
   },
