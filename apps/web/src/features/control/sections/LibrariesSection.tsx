@@ -42,6 +42,7 @@ import { ScanSourcesEditor } from "../libraries/ScanSourcesEditor";
 import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
 import { TagEncodingField } from "../libraries/TagEncodingField";
 import { LibraryWizard } from "../libraries/LibraryWizard";
+import { VideoFolderPicker } from "../libraries/VideoFolderPicker";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 import { LayoutPanel } from "../layout/LayoutPanel";
 import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
@@ -62,7 +63,14 @@ interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCount"> {
   type: ManagedLibraryType;
   fileCount: number | null;
   kind?: "shows" | "movies";
+  /** A video library's folder on the video app, and the language its titles are looked up in. */
+  folder?: string;
+  defaultLanguage?: string;
 }
+
+/** Languages a video library's titles can be described in (TMDB); one it was
+ *  given elsewhere stays in the list. */
+const VIDEO_LANGUAGES = ["en", "ru", "uk", "be", "de", "fr", "es", "it", "pl", "pt", "ja", "zh"];
 
 const TYPE_ICON: Record<ManagedLibraryType, typeof Headphones> = {
   audiobook: Headphones,
@@ -77,6 +85,16 @@ function typeLabel(type: ManagedLibraryType): string {
     case "ebook": return i18n.t("control:libraries.typeEbooks");
     case "gallery": return i18n.t("control:libraries.typeGallery");
     case "video": return i18n.t("control:libraries.typeVideo");
+  }
+}
+
+/** A language code in the reader's own words: "ru" → "Russian (ru)". */
+function languageLabel(code: string, locale: string): string {
+  try {
+    const name = new Intl.DisplayNames([locale], { type: "language" }).of(code);
+    return name ? `${name.charAt(0).toLocaleUpperCase(locale)}${name.slice(1)} (${code})` : code;
+  } catch {
+    return code;
   }
 }
 
@@ -181,7 +199,9 @@ export function LibrariesSection() {
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
-  const [editTab, setEditTab] = useState<"access" | "upload" | "scanning">("access");
+  const [editTab, setEditTab] = useState<"access" | "upload" | "scanning" | "video">("access");
+  const [editVideoFolder, setEditVideoFolder] = useState("");
+  const [editVideoLanguage, setEditVideoLanguage] = useState("en");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [videoEngineDown, setVideoEngineDown] = useState(false);
@@ -266,6 +286,8 @@ export function LibrariesSection() {
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setEditProgressMode(library.settings?.progressMode ?? "linear");
+    setEditVideoFolder(library.folder ?? "");
+    setEditVideoLanguage(library.defaultLanguage ?? "en");
     setEditTab("access");
     setError("");
   };
@@ -291,9 +313,21 @@ export function LibrariesSection() {
     setSaving(true);
     setError("");
     try {
+      // A video library is its access, folder and language; the video app reads the rest.
+      const body = editingLibrary.type === "video"
+        ? {
+            name: editName,
+            visibility: editVisibility,
+            publicRole: editPublicRole,
+            ownerId: editOwnerId || null,
+            ownerType: editOwnerType || null,
+            folder: editVideoFolder,
+            defaultLanguage: editVideoLanguage
+          }
+        : null;
       await api(`${apiBase(editingLibrary)}/${editingLibrary.id}`, {
         method: "PATCH",
-        body: JSON.stringify({
+        body: body ? JSON.stringify(body) : JSON.stringify({
           name: editName,
           visibility: editVisibility,
           publicRole: editPublicRole,
@@ -633,20 +667,14 @@ export function LibrariesSection() {
                             >
                               <Users size={15} />
                             </Button>
-                            {/* A video library's settings are its folder and kind, set when
-                                it is made; renaming and access come later (docs/apps-platform-plan.md). */}
-                            {library.type === "video" ? (
-                              <span className="library-action-spacer" aria-hidden="true" />
-                            ) : (
-                              <Button
-                                variant="icon"
-                                title={t("control:libraries.editTitle")}
-                                aria-label={t("control:libraries.editAria", { name: library.name })}
-                                onClick={() => openEdit(library)}
-                              >
-                                <Pencil size={15} />
-                              </Button>
-                            )}
+                            <Button
+                              variant="icon"
+                              title={t("control:libraries.editTitle")}
+                              aria-label={t("control:libraries.editAria", { name: library.name })}
+                              onClick={() => openEdit(library)}
+                            >
+                              <Pencil size={15} />
+                            </Button>
                             <Button
                               variant="icon"
                               className="rescan-library-button"
@@ -848,12 +876,20 @@ export function LibrariesSection() {
             <Button variant="tab" className="modal-tab" selected={editTab === "access"} onClick={() => setEditTab("access")}>
               {t("control:libraries.tabAccess")}
             </Button>
-            <Button variant="tab" className="modal-tab" selected={editTab === "upload"} onClick={() => setEditTab("upload")}>
-              {t("control:libraries.tabUpload")}
-            </Button>
-            <Button variant="tab" className="modal-tab" selected={editTab === "scanning"} onClick={() => setEditTab("scanning")}>
-              {t("control:libraries.tabScanning")}
-            </Button>
+            {editingLibrary.type === "video" ? (
+              <Button variant="tab" className="modal-tab" selected={editTab === "video"} onClick={() => setEditTab("video")}>
+                {t("control:libraries.video.tabVideo")}
+              </Button>
+            ) : (
+              <>
+                <Button variant="tab" className="modal-tab" selected={editTab === "upload"} onClick={() => setEditTab("upload")}>
+                  {t("control:libraries.tabUpload")}
+                </Button>
+                <Button variant="tab" className="modal-tab" selected={editTab === "scanning"} onClick={() => setEditTab("scanning")}>
+                  {t("control:libraries.tabScanning")}
+                </Button>
+              </>
+            )}
           </div>
 
           <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>
@@ -871,10 +907,29 @@ export function LibrariesSection() {
                   onVisibilityChange={setEditVisibility}
                   publicRole={editPublicRole}
                   onPublicRoleChange={setEditPublicRole}
-                  mode={editMode}
-                  onModeChange={setEditMode}
+                  mode={editingLibrary.type === "video" ? undefined : editMode}
+                  onModeChange={editingLibrary.type === "video" ? undefined : setEditMode}
                   users={users}
                   groups={groups}
+                />
+              </>
+            )}
+
+            {editTab === "video" && editingLibrary.type === "video" && (
+              <>
+                <p className="muted">
+                  {editingLibrary.kind === "movies" ? t("control:libraries.video.editKindMovies") : t("control:libraries.video.editKindShows")}
+                </p>
+                <VideoFolderPicker value={editVideoFolder} onChange={setEditVideoFolder} onError={setError} />
+                {editVideoFolder !== (editingLibrary.folder ?? "") && (
+                  <MessageBox tone="info" title={t("control:libraries.video.folderChangeTitle")}>{t("control:libraries.video.folderChangeHint")}</MessageBox>
+                )}
+                <SelectField
+                  label={t("control:libraries.video.languageLabel")}
+                  hint={t("control:libraries.video.languageHint")}
+                  value={editVideoLanguage}
+                  onChange={setEditVideoLanguage}
+                  options={[...new Set([...VIDEO_LANGUAGES, editVideoLanguage])].map((code) => ({ value: code, label: languageLabel(code, i18n.resolvedLanguage ?? "en") }))}
                 />
               </>
             )}
@@ -937,7 +992,12 @@ export function LibrariesSection() {
               <Button variant="secondary" onClick={() => setEditingLibrary(null)} disabled={saving}>
                 {t("control:ui.cancel")}
               </Button>
-              <Button variant="primary" type="submit" form="edit-library-form" disabled={saving || !editName.trim() || editExtensions.length === 0}>
+              <Button
+                variant="primary"
+                type="submit"
+                form="edit-library-form"
+                disabled={saving || !editName.trim() || (editingLibrary.type === "video" ? !editVideoFolder : editExtensions.length === 0)}
+              >
                 {saving ? t("control:ui.saving") : t("control:ui.saveChanges")}
               </Button>
             </div>

@@ -101,8 +101,10 @@ export interface VideoPlayback {
   /** The file, or its HLS playlist, through the gateway. */
   url: string | null;
   duration: number | null;
-  /** Converted, and every place the admin allows is taken (engine 0.5.0+). */
-  busy?: { limit: number } | null;
+  /** Converted, and every place the admin allows is taken (engine 0.5.0+), or
+   *  ("person", engine 0.7.0+) this person is converting `title` already, on
+   *  another screen or in a tab left open. */
+  busy?: { limit: number; reason?: "household" | "person"; title?: string } | null;
 }
 
 /** A sound track, as the engine found it (ffprobe). */

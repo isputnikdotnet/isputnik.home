@@ -392,10 +392,12 @@ export function VideoPlayerPage({ id }: { id: string }) {
         <div className="video-player-message">
           <MessageBox
             tone="info"
-            title={t("video.busyTitle")}
+            title={busy.reason === "person" ? t("video.busyPersonTitle") : t("video.busyTitle")}
             action={<Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>{t("video.busyRetry")}</Button>}
           >
-            {t("video.busyBody", { count: busy.limit })}
+            {busy.reason === "person"
+              ? busy.title ? t("video.busyPersonBody", { title: busy.title }) : t("video.busyPersonBodyUnnamed")
+              : t("video.busyBody", { count: busy.limit })}
           </MessageBox>
         </div>
       )}

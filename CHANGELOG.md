@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.44.0 — Editing a video library
+
+- **A video library can be edited from its row on Library → Libraries.** Rename it, change its owner and who can see it, point it at another folder on the video app, or change the language its descriptions are fetched from TMDB in (which fetches them all again in that language). Before, a video library had no Edit button: its name, access and folder were fixed once it was made. What it holds, shows or films, still stays as it was made.
+- **Searching Shows and Movies finds a title by TMDB's name too (needs isputnik.video 0.7.0).** A show filed under its Russian name turns up when you type its English one, and the other way round.
+- **One converted film at a time each.** Starting a second film that needs converting while the first is still converting for you — on another screen, or in a tab left open — now says which film is in the way and offers Try again, instead of quietly using up a second of the household's places. A tab left open lets go within a minute.
+
 ## 4.43.0 — Subtitles and posters
 
 - **The player has a Subtitles menu (needs isputnik.video 0.6.0).** It offers the subtitles inside a film and the subtitle files saved beside it (`Film.ru.srt`, `Film.en.forced.srt`), named by language. Text subtitles show over the film at once; Blu-ray and DVD subtitles, which no browser can show, are drawn onto the picture by the video engine. The language chosen last is picked again for the next episode. Before, subtitles were dropped.

@@ -53,8 +53,8 @@ changed, deleted and rescanned through the engine, `X-Isputnik-Libraries` from
 the gateway, a sync on start and every 6 hours (56d35e6); web — Add library →
 Video with the engine's folder picker, video rows on Library → Libraries, the
 Video menu entry, `/shows` and `/movies` and a title's page (664c84c2). Checked
-against the real engine. Left for later: editing a video library (rename,
-visibility) from its row. Next: posters and TMDB, then V2 (the player), and
+against the real engine. Editing a video library from its row (name, access,
+folder, the language TMDB is asked in) came with home 4.44.0. Next: posters and TMDB, then V2 (the player), and
 publishing the engine's image and Unraid template.
 
 ## Two kinds of container
@@ -372,7 +372,8 @@ for a minute, or one whose player sends `DELETE /hls/:id`, is stopped and its
 segments deleted (`src/hls.ts`). Sound tracks (engine 0.4.0): `/play?audio=<index>`
 lists them and picks one; the HLS address carries it (`/hls/:id/t<index>/…`), and a
 file with more than one never plays direct, since no browser lets a page choose
-among them. The player remembers the language last chosen, per browser. Not yet: the per-member and household caps,
+among them. The player remembers the language last chosen, per browser. Since engine 0.7.0 a person converts one film at a time (a second is refused, never
+taken over, so two screens on one account can't stop each other in turn). Not yet:
 HEVC copied for the browsers that decode it, hardware encoding.
 
 Audio track choice (dubs), subtitles (text converted to WebVTT, image subtitles

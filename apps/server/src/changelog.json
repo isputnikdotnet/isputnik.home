@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.44.0",
+    "label": "Editing a video library",
+    "changes": [
+      "**A video library can be edited from its row on Library → Libraries.** Rename it, change its owner and who can see it, point it at another folder on the video app, or change the language its descriptions are fetched from TMDB in (which fetches them all again in that language). Before, a video library had no Edit button: its name, access and folder were fixed once it was made. What it holds, shows or films, still stays as it was made.",
+      "**Searching Shows and Movies finds a title by TMDB's name too (needs isputnik.video 0.7.0).** A show filed under its Russian name turns up when you type its English one, and the other way round.",
+      "**One converted film at a time each.** Starting a second film that needs converting while the first is still converting for you — on another screen, or in a tab left open — now says which film is in the way and offers Try again, instead of quietly using up a second of the household's places. A tab left open lets go within a minute."
+    ]
+  },
+  {
     "version": "4.43.0",
     "label": "Subtitles and posters",
     "changes": [

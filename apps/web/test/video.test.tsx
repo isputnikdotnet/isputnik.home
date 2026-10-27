@@ -317,6 +317,16 @@ describe("the player", () => {
     expect(screen.queryByText("Too many people are watching right now")).not.toBeInTheDocument();
   });
 
+  it("says which film is in the way when this person is converting another already", async () => {
+    const hls = { mode: "remux", reasons: ["container"], url: "/video/api/hls/e2/index.m3u8", duration: 2400 };
+    hlsCalls.source = "";
+    mockApi.mockResolvedValueOnce({ ...playInfo, playback: { ...hls, busy: { reason: "person", limit: 3, title: "Loud Film" } } });
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    expect(await screen.findByText("You are watching something else")).toBeInTheDocument();
+    expect(screen.getByText(/"Loud Film" is being converted for you already/)).toBeInTheDocument();
+    expect(hlsCalls.source).toBe("");
+  });
+
   it("says why instead of a player for a file nothing can play", async () => {
     mockApi.mockResolvedValue({ ...playInfo, playback: { mode: "none", reasons: [], url: null, duration: null } });
     renderSignedIn(<VideoPlayerPage id="e2" />);
