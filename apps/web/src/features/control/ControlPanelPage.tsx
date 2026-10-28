@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Home, ListChecks, Menu, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { controlHref, followRoute } from "../../router";
+import { CONTROL_ALIAS_QUERY, controlHref, followRoute } from "../../router";
 import type { ControlSection, MemberPageTab } from "../../router";
 import {
   CONTROL_GROUPS,
@@ -56,11 +56,9 @@ const AppearanceSection = lazy(() => import("./sections/AppearanceSection").then
 const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ default: m.MailSection })));
 const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
-const AppsInstalledSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsInstalledSection })));
 const AppsAccessSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsAccessSection })));
 const AppsSetupSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsSetupSection })));
-const AppsEventsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsEventsSection })));
-const AppsLogsSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsLogsSection })));
+const VideoSettingsSection = lazy(() => import("./sections/VideoSettingsSection").then((m) => ({ default: m.VideoSettingsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
 const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
@@ -117,6 +115,9 @@ export function ControlPanelPage({
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === canonical && !params.has("view")) return;
     params.delete("view");
+    for (const [key, value] of Object.entries(CONTROL_ALIAS_QUERY[window.location.pathname] ?? {})) {
+      if (!params.has(key)) params.set(key, value);
+    }
     const query = params.toString();
     window.history.replaceState(window.history.state, "", `${canonical}${query ? `?${query}` : ""}${window.location.hash}`);
   }, [section, categoryId, member, group]);
@@ -212,11 +213,9 @@ function ControlSectionBody({
     case "missingPhotos":   return <MissingPhotosSection />;
     case "videoStreaming":  return <VideoStreamingSection />;
 
-    case "appsInstalled":   return <AppsInstalledSection />;
     case "appsAccess":      return <AppsAccessSection />;
-    case "appsEvents":      return <AppsEventsSection />;
-    case "appsLogs":        return <AppsLogsSection />;
     case "appsSetup":       return <AppsSetupSection />;
+    case "videoSettings":   return <VideoSettingsSection />;
 
     case "appearance":      return <AppearanceSection />;
     case "quotes":          return <QuotesSection />;

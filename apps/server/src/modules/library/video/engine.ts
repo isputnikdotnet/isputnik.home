@@ -37,7 +37,7 @@ export interface EngineClient {
 }
 
 /** A client for whichever engine `target` names when a call is made, so a
- *  secret paired on Apps → Setup is used at once. `path` is under /video/api. */
+ *  secret paired on Settings › Apps is used at once. `path` is under /video/api. */
 export function engineClient(target: () => EngineTarget): EngineClient {
   return {
     async call<T>(method: "GET" | "PUT" | "POST" | "DELETE", path: string, options: { body?: unknown; actor?: User | null; requestId?: string } = {}): Promise<T> {
@@ -60,7 +60,7 @@ export function engineClient(target: () => EngineTarget): EngineClient {
         throw new EngineError(`The video app did not answer (${err instanceof Error ? err.message : String(err)}).`, 502);
       }
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      if (response.status === 401) throw new EngineError("The video app refused this server's secret. Check Apps → Setup.", 502);
+      if (response.status === 401) throw new EngineError("The video app refused this server's secret. Check Settings › Apps.", 502);
       if (!response.ok) {
         // The engine's own 4xx (a folder that is not there, a kind that cannot
         // change) is the admin's to read; anything else is the container's problem.

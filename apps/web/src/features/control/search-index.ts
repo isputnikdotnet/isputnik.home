@@ -44,7 +44,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "активность тренды графики диаграммы загрузки скачивания удаления прослушано прочитано просмотрено в процессе воспроизведение чтение",
   libraryStats: "statistics stats numbers counts totals audiobook ebook gallery photos videos top authors narrators formats storage on disk biggest library " +
     "статистика цифры количество всего аудиокнига электронная книга галерея фото видео топ авторы чтецы форматы размер на диске",
-  logs: "activity audit trail events sign-in history retention prune clear " +
+  logs: "activity audit trail events sign-in history retention prune clear source apps containers games video server log docker logs lines tail output refused gateway rejected errors " +
     "активность аудит журнал события история входов хранение очистка удалить",
 
   libraries: "add library scan sources folders paths extensions uploads access members wizard rescan " +
@@ -109,16 +109,12 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "route roads openrouteservice api key directions " +
     "геолокация база расположений страны города входы загрузить удалить маршрут дороги ключ прокладка " +
     "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
-  appsInstalled: "apps applications containers docker games dots play online gateway status url secret environment version running isputnik.games " +
-    "приложения контейнеры игры точки играть онлайн шлюз статус адрес секрет окружение версия работает",
   appsAccess: "apps containers access who may use members managers deny everyone groups network rules trusted home network anywhere outside internet lan restrict games " +
     "приложения контейнеры доступ кто может участники менеджеры запретить все группы сеть правила доверенные домашняя сеть откуда снаружи интернет ограничить игры",
   appsSetup: "apps containers setup pair pairing secret gateway secret generate rotate replace forget template unraid connect test connection games " +
     "приложения контейнеры настройка связать связка секрет шлюз создать заменить забыть шаблон подключить проверить соединение игры",
-  appsEvents: "apps containers events audit refused gateway rejected invitations matches errors games " +
-    "приложения контейнеры события аудит отклонённые шлюз приглашения партии ошибки игры",
-  appsLogs: "apps containers server log docker logs lines tail output games " +
-    "приложения контейнеры журнал сервера строки вывод игры",
+  videoSettings: "video engine settings films movies series transcode transcoding remux convert memory viewers tmdb themoviedb posters metadata api key " +
+    "видео движок настройки фильмы сериалы перекодирование преобразование память зрители постеры метаданные ключ",
   about: "version credits licences licenses changelog release notes what's new " +
     "версия авторы лицензии список изменений заметки о выпуске что нового"
 };
@@ -181,12 +177,12 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "scheduledBackups", section: "backup", anchor: "scheduled-backups", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
   { titleKey: "sections", section: "appearance", anchor: "sections", keywords: "menu sections hide show switch off on audiobooks ebooks gallery family tree stories games navigation entries household uses разделы меню скрыть показать выключить включить аудиокниги книги галерея семейное древо истории игры навигация" },
-  { titleKey: "gamesIntegration", section: "appsInstalled", anchor: "app-games", keywords: "games server container reachable version url gateway secret environment variables members showing игры сервер контейнер доступен версия адрес шлюз секрет переменные окружения участники" },
-  { titleKey: "gamesEvents", section: "appsEvents", keywords: "games events log refused gateway rejected invitations matches errors audit container record игры события журнал отклонённые шлюз приглашения партии ошибки запись контейнер" },
-  { titleKey: "gamesLog", section: "appsLogs", keywords: "games server log docker logs lines tail container output игры журнал сервера строки контейнер вывод" },
-  { titleKey: "videoConversion", section: "appsInstalled", anchor: "video-conversion", keywords: "video transcode transcoding remux convert memory ram disk viewers watching at once limit busy ffmpeg видео перекодирование преобразование память диск зрители одновременно лимит" },
-  { titleKey: "videoMetadata", section: "appsInstalled", anchor: "video-metadata", keywords: "tmdb themoviedb api key token posters backdrops artwork descriptions plot episode names metadata match постеры обложки фон описания сюжет названия серий метаданные ключ" },
-  { titleKey: "gamesGuestLinks", section: "appsInstalled", anchor: "games-guest-links", keywords: "games guest link invite outsider friend no account play online match revoke expire игры гость гостевая ссылка пригласить друг без учётной записи партия отозвать" },
+  { titleKey: "gamesIntegration", section: "appsSetup", anchor: "app-setup-address", keywords: "games server container reachable version url gateway secret environment variables members showing игры сервер контейнер доступен версия адрес шлюз секрет переменные окружения участники" },
+  { titleKey: "gamesEvents", section: "logs", keywords: "games events log refused gateway rejected invitations matches errors audit container record игры события журнал отклонённые шлюз приглашения партии ошибки запись контейнер" },
+  { titleKey: "gamesLog", section: "logs", keywords: "games server log docker logs lines tail container output игры журнал сервера строки контейнер вывод" },
+  { titleKey: "videoConversion", section: "videoSettings", anchor: "video-conversion", keywords: "video transcode transcoding remux convert memory ram disk viewers watching at once limit busy ffmpeg видео перекодирование преобразование память диск зрители одновременно лимит" },
+  { titleKey: "videoMetadata", section: "videoSettings", anchor: "video-metadata", keywords: "tmdb themoviedb api key token posters backdrops artwork descriptions plot episode names metadata match постеры обложки фон описания сюжет названия серий метаданные ключ" },
+  { titleKey: "gamesGuestLinks", section: "invites", anchor: "games-guest-links", keywords: "games guest link invite outsider friend no account play online match revoke expire игры гость гостевая ссылка пригласить друг без учётной записи партия отозвать" },
   { titleKey: "smtpServer", section: "email", keywords: "host port username password tls outgoing mail сервер порт имя пользователя пароль исходящая почта" },
   { titleKey: "sendTestEmail", section: "email", keywords: "verify smtp check delivery отправить тестовое письмо проверить доставку" },
   { titleKey: "twoFactorAlertsDelivery", section: "email", keywords: "mfa totp codes alert emails двухфакторные коды оповещения безопасности почта" },

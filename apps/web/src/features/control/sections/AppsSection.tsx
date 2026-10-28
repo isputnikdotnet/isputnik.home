@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Boxes, Check, Copy, KeyRound, Link2Off, Save, ScrollText, ShieldCheck, Siren } from "lucide-react";
+import { Check, Copy, KeyRound, Link2Off, Save, ShieldCheck } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, followRoute, queryParam, replaceQuery } from "../../../router";
+import { queryParam, replaceQuery } from "../../../router";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -14,12 +14,15 @@ import { SelectField } from "../../../shared/SelectField";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 
-// Control panel → Apps: the containers beside this server (docs/apps-platform-plan.md).
-// Installed says how each one stands; Events and Logs are the admin's window into
-// a container, read from it through the gateway with this admin's own session —
-// nothing about them is stored here. Setup is where a container is joined up:
-// its address and the secret, each saved here unless this container's
-// environment sets it (which wins); the secret itself is shown only once.
+// The containers beside this server (docs/apps-platform-plan.md), as the control
+// panel's pages show them since the Apps group was folded into the rest
+// (docs/dashboard-and-backups-plan.md). Here: Security › App access and
+// Settings › Apps (pairing: the address and the secret, each saved here unless
+// this container's environment sets it, which wins; the secret is shown once),
+// and the pieces other pages host — a container's events and server log
+// (Overview › Logs), the games' guest links (Members › Invites) and the video
+// engine's settings (Settings › Video). Everything about a container is read
+// from it through the gateway with this admin's own session; nothing is kept here.
 
 /** One container, as GET /api/apps/admin/status answers for it. */
 export interface AppStatus {
@@ -92,7 +95,6 @@ interface GuestInvite {
   state: "live" | "expired" | "revoked" | "pending";
 }
 
-const CONFIG_DOC = "https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md";
 const LOG_LINES = 200;
 
 // pino's numeric levels, for the log lines a container hands over raw.
@@ -140,13 +142,13 @@ export function formatLogLine(raw: string): string {
   return [time, level, who, what].filter(Boolean).join("  ");
 }
 
-/** Up, set up and taking our signature: the containers Events and Logs can ask. */
-function isRunning(app: AppStatus): boolean {
+/** Up, set up and taking our signature: the containers Logs can ask. */
+export function isRunning(app: AppStatus): boolean {
   return app.configured && Boolean(app.server?.ok) && app.secretAccepted !== false;
 }
 
 /** Every container this release knows, with how it stands. */
-function useAppsStatus() {
+export function useAppsStatus() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [apps, setApps] = useState<AppStatus[] | null>(null);
   const [error, setError] = useState("");
@@ -166,136 +168,17 @@ function useAppsStatus() {
   return { apps, error, load };
 }
 
-function useAppName() {
+export function useAppName() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   // One name per container this release knows; the registry (modules/apps) has the same list.
   return (id: string) => (id === "games" ? t("common:nav.games") : id === "video" ? t("common:nav.video") : id);
-}
-
-// ── Installed ────────────────────────────────────────────────────────────────
-
-export function AppsInstalledSection() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const { apps, error, load } = useAppsStatus();
-
-  return (
-    <>
-      <ControlSectionHead
-        section="appsInstalled"
-        icon={<Boxes size={30} />}
-        iconClassName="blue"
-        description={t("controlAdmin:apps.installedDescription")}
-      />
-
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{error}</MessageBox>}
-      {!apps && !error && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
-
-      {apps?.map((app) => (
-        <div key={app.id}>
-          <AppCard app={app} onRefresh={load} />
-          {app.id === "games" && app.configured && <GuestLinks />}
-          {app.id === "video" && isRunning(app) && <VideoConversion prefix={app.prefix} />}
-          {app.id === "video" && isRunning(app) && <VideoMetadata prefix={app.prefix} />}
-        </div>
-      ))}
-    </>
-  );
-}
-
-// How one container stands, in words that name it.
-function AppCard({ app, onRefresh }: { app: AppStatus; onRefresh: () => Promise<void> }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const appName = useAppName();
-  const name = appName(app.id);
-  const dash = "—";
-  const state = !app.configured ? "off" : !app.server?.ok ? "unreachable" : app.secretAccepted === false ? "refused" : "on";
-  const setupHref = `${controlHref("appsSetup")}?app=${encodeURIComponent(app.id)}`;
-
-  return (
-    <section className="config-block" id={`app-${app.id}`}>
-      <h2>{name}</h2>
-      <p className="muted">{app.id === "video" ? t("controlAdmin:apps.card.introVideo") : t("controlAdmin:apps.card.introGames")}</p>
-
-      {state === "on" && (
-        <MessageBox tone="success" title={t("controlAdmin:apps.card.onTitle", { app: name })}>
-          {t("controlAdmin:apps.card.onBody", { version: app.server?.version ?? dash })}
-        </MessageBox>
-      )}
-      {state === "unreachable" && (
-        <MessageBox tone="warning" title={t("controlAdmin:apps.card.unreachableTitle", { app: name })}>
-          {t("controlAdmin:apps.card.unreachableBody", { url: app.url ?? dash, error: app.server?.error ?? dash })}
-        </MessageBox>
-      )}
-      {state === "refused" && (
-        <MessageBox tone="error" title={t("controlAdmin:apps.card.refusedTitle", { app: name })}>
-          <Trans
-            i18nKey="apps.card.refusedBody"
-            ns="controlAdmin"
-            values={{ container: app.variables.container }}
-            components={{ code: <code />, lnk: <a href={setupHref} onClick={(event) => followRoute(event, setupHref)} /> }}
-          />
-        </MessageBox>
-      )}
-      {state === "off" && (
-        <MessageBox tone="info" title={t("controlAdmin:apps.card.offTitle", { app: name })}>
-          {app.reason ?? t("controlAdmin:apps.card.offBody", { variable: app.variables.url })}
-        </MessageBox>
-      )}
-
-      <dl className="games-status" aria-label={t("controlAdmin:apps.card.statusLabel", { app: name })}>
-        <div>
-          <dt>{t("controlAdmin:games.gateway")}</dt>
-          <dd>{app.configured ? t("controlAdmin:games.gatewayOn") : t("controlAdmin:games.gatewayOff")}</dd>
-        </div>
-        <div>
-          <dt>{t("controlAdmin:apps.card.address")}</dt>
-          <dd>{app.url ? <code>{app.url}</code> : dash}</dd>
-        </div>
-        <div>
-          <dt>{t("controlAdmin:games.secret")}</dt>
-          <dd>
-            {!app.secretSet
-              ? t("controlAdmin:games.secretUnset")
-              : app.secretAccepted === true
-                ? t("controlAdmin:apps.card.secretAccepted")
-                : app.secretAccepted === false
-                  ? t("controlAdmin:apps.card.secretRefused")
-                  : t("controlAdmin:games.secretSet")}
-          </dd>
-        </div>
-        <div>
-          <dt>{t("controlAdmin:apps.card.container")}</dt>
-          <dd>
-            {!app.server
-              ? t("controlAdmin:games.serverNotAsked")
-              : app.server.ok
-                ? t("controlAdmin:games.serverVersion", { version: app.server.version ?? dash })
-                : app.server.error ?? t("controlAdmin:games.serverDown")}
-          </dd>
-        </div>
-      </dl>
-
-      <p className="muted">
-        <Trans
-          i18nKey="apps.card.howToSet"
-          ns="controlAdmin"
-          values={{ url: app.variables.url }}
-          components={{ code: <code />, setup: <a href={setupHref} onClick={(event) => followRoute(event, setupHref)} />, lnk: <a href={CONFIG_DOC} target="_blank" rel="noreferrer" /> }}
-        />
-      </p>
-
-      <div className="mail-actions">
-        <RefreshButton onRefresh={onRefresh} label={t("controlAdmin:games.checkAgain")} compact={false} />
-      </div>
-    </section>
-  );
 }
 
 // Every outstanding guest link (docs/games-platform-plan.md → Guests): who
 // invited whom to what, whether it was opened and from where, and the one
 // thing an admin may do about it — revoke. The links themselves are never
 // shown here; the server keeps only their hashes.
-function GuestLinks() {
+export function GuestLinks() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [invites, setInvites] = useState<GuestInvite[] | null>(null);
   const [error, setError] = useState("");
@@ -338,7 +221,7 @@ function GuestLinks() {
 
   return (
     <section className="config-block" id="games-guest-links">
-      <h3>{t("controlAdmin:games.guestTitle")}</h3>
+      <h2>{t("controlAdmin:games.guestTitle")}</h2>
       <p className="muted">{t("controlAdmin:games.guestIntro")}</p>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:games.guestLoadFailed")}>{error}</MessageBox>}
@@ -435,7 +318,7 @@ interface ConversionState {
 // viewer's segments are kept in the engine's memory up to a share set here, then
 // on the disk (or the conversion waits); only so many people convert at once,
 // the next is told to try later. Saved in the engine, read through the gateway.
-function VideoConversion({ prefix }: { prefix: string }) {
+export function VideoConversion({ prefix }: { prefix: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [state, setState] = useState<ConversionState | null>(null);
   const [form, setForm] = useState<{ memory: string; viewers: string; whenFull: ConversionSettings["whenFull"] } | null>(null);
@@ -602,7 +485,7 @@ interface MetadataState {
 // Posters and descriptions: art beside the files is always used; with a key from
 // the admin's own TMDB account the engine fetches the rest. The engine checks a
 // key with TMDB before keeping it, and never hands it back.
-function VideoMetadata({ prefix }: { prefix: string }) {
+export function VideoMetadata({ prefix }: { prefix: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [state, setState] = useState<MetadataState | null>(null);
   const [key, setKey] = useState("");
@@ -1160,109 +1043,10 @@ export function AppsSetupSection() {
   );
 }
 
-// ── Events and Logs: one container at a time ────────────────────────────────
-
-/** The running containers and the one being looked at, seeded from `?app=` so a
- *  link can open the page on a container and a reload keeps it. */
-function useChosenApp() {
-  const { apps, error } = useAppsStatus();
-  const [chosen, setChosen] = useState<string | null>(() => queryParam("app"));
-  const running = apps?.filter(isRunning) ?? [];
-  const current = running.find((app) => app.id === chosen) ?? running[0] ?? null;
-  const choose = (id: string) => {
-    setChosen(id);
-    replaceQuery("app", id);
-  };
-  return { apps, error, running, current, choose };
-}
-
-function AppPicker({ running, current, onChoose }: { running: AppStatus[]; current: AppStatus; onChoose: (id: string) => void }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const appName = useAppName();
-  // One container needs no choice; the picker appears with the second.
-  if (running.length < 2) return null;
-  return (
-    <div className="games-events-tools">
-      <SelectField
-        label={t("controlAdmin:apps.appLabel")}
-        value={current.id}
-        options={running.map((app) => ({ value: app.id, label: appName(app.id) }))}
-        onChange={onChoose}
-        compact
-      />
-    </div>
-  );
-}
-
-/** Events and Logs say so when there is no container to ask, and where to look. */
-function NoneRunning() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const href = controlHref("appsInstalled");
-  return (
-    <MessageBox tone="info" title={t("controlAdmin:apps.noneRunningTitle")}>
-      <Trans
-        i18nKey="apps.noneRunningBody"
-        ns="controlAdmin"
-        components={{ lnk: <a href={href} onClick={(event) => followRoute(event, href)} /> }}
-      />
-    </MessageBox>
-  );
-}
-
-export function AppsEventsSection() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const { apps, error, running, current, choose } = useChosenApp();
-
-  return (
-    <>
-      <ControlSectionHead
-        section="appsEvents"
-        icon={<Siren size={30} />}
-        iconClassName="blue"
-        description={t("controlAdmin:apps.eventsDescription")}
-      />
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{error}</MessageBox>}
-      {!apps && !error && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
-      {apps && !current && <NoneRunning />}
-      {current && (
-        <>
-          <AppPicker running={running} current={current} onChoose={choose} />
-          <AppEvents key={current.id} prefix={current.prefix} />
-        </>
-      )}
-    </>
-  );
-}
-
-export function AppsLogsSection() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const { apps, error, running, current, choose } = useChosenApp();
-
-  return (
-    <>
-      <ControlSectionHead
-        section="appsLogs"
-        icon={<ScrollText size={30} />}
-        iconClassName="logs"
-        description={t("controlAdmin:apps.logsDescription")}
-      />
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{error}</MessageBox>}
-      {!apps && !error && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
-      {apps && !current && <NoneRunning />}
-      {current && (
-        <>
-          <AppPicker running={running} current={current} onChoose={choose} />
-          <AppLog key={current.id} prefix={current.prefix} />
-        </>
-      )}
-    </>
-  );
-}
-
 // What a container recorded: refused callers, invitations, finished matches,
 // moves thrown out, errors. Asked of the container through the gateway, which
 // forwards this admin's role; nothing is kept here.
-function AppEvents({ prefix }: { prefix: string }) {
+export function AppEvents({ prefix }: { prefix: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   // The Dashboard links here with ?level=error for a container that logged errors.
   const [level, setLevel] = useState<LevelFilter>(() => {
@@ -1357,7 +1141,7 @@ function AppEvents({ prefix }: { prefix: string }) {
 
 // The newest lines of a container's log, from the ring buffer its server keeps
 // — what `docker logs` would show, without a shell on the host.
-function AppLog({ prefix }: { prefix: string }) {
+export function AppLog({ prefix }: { prefix: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [tail, setTail] = useState<LogTail | null>(null);
   const [error, setError] = useState("");

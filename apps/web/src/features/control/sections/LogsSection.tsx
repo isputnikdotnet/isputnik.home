@@ -1,8 +1,8 @@
-import { Fragment, useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Download, FileText, Search, Trash2 } from "lucide-react";
 import { api } from "../../../api";
-import { navigate } from "../../../router";
+import { navigate, queryParam, replaceQuery } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -22,11 +22,18 @@ import type { LogEvent } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { signInsHref } from "./dashboard/SignInsView";
 import { formatNumber } from "../../../shared/dates";
+import { AppEvents, AppLog, isRunning, useAppName, useAppsStatus } from "./AppsSection";
 
 // Overview › Logs — the activity archive. Everything the server has recorded,
 // searchable and filterable, with a date toolbar, sortable columns, a row that
 // opens to show the whole record, and an export of exactly what is on screen.
 // An address or a person in a row is a door into the Sign-ins dive for it.
+//
+// The Source picker reads the containers beside home too (?app=): one source at a
+// time — the containers page their own records, and a merged page of several
+// servers' logs would be quietly wrong. For a container, its events or its server
+// log (?log=server) — two views of one task, reading what it recorded. They were
+// the Apps group's Events and Logs tabs until that group was folded in.
 
 type LogFilterKey = "event" | "user" | "ip";
 type LogSort = "time" | "user" | "event" | "ip";
@@ -61,7 +68,76 @@ function isDiveableIp(ip: string | null): ip is string {
   return Boolean(ip) && !/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|fe80:)/.test(ip!);
 }
 
+type LogView = "events" | "server";
+
 export function LogsSection() {
+  const { t } = useTranslation(["common", "control"]);
+  const appName = useAppName();
+  const { apps } = useAppsStatus();
+  const [source, setSource] = useState<string>(() => queryParam("app") ?? "home");
+  const [view, setView] = useState<LogView>(() => (queryParam("log") === "server" ? "server" : "events"));
+  const sources = (apps ?? []).filter((app) => app.configured);
+  const app = source === "home" ? null : sources.find((entry) => entry.id === source) ?? null;
+
+  const chooseSource = (next: string) => {
+    setSource(next);
+    replaceQuery("app", next === "home" ? null : next);
+    replaceQuery("level", null);
+  };
+  const chooseView = (next: LogView) => {
+    setView(next);
+    replaceQuery("log", next === "server" ? next : null);
+  };
+
+  // The picker shows once there is a container to pick; until the list arrives, a
+  // linked ?app= keeps its own name so the page does not flash Home.
+  const known = source === "home" || sources.some((entry) => entry.id === source);
+  const picker = sources.length > 0 || source !== "home" ? (
+    <SelectMenu
+      value={source}
+      options={[
+        { value: "home", label: t("control:logs.sourceHome") },
+        ...(known ? [] : [{ value: source, label: appName(source) }]),
+        ...sources.map((entry) => ({ value: entry.id, label: appName(entry.id) }))
+      ]}
+      label={t("control:logs.sourceLabel")}
+      className="log-source"
+      onChange={chooseSource}
+    />
+  ) : null;
+
+  if (source === "home") return <HomeLogs sourcePicker={picker} />;
+
+  return (
+    <div className="compact-tables">
+      <ControlSectionHead
+        section="logs"
+        icon={<FileText size={30} />}
+        iconClassName="logs"
+        description={t("control:logs.appDescription", { app: appName(source) })}
+      >
+        {picker}
+      </ControlSectionHead>
+      <div className="modal-tabs log-view-tabs" role="tablist" aria-label={t("control:logs.viewAria", { app: appName(source) })}>
+        <Button variant="tab" className="modal-tab" selected={view === "events"} onClick={() => chooseView("events")}>
+          {t("control:logs.viewEvents")}
+        </Button>
+        <Button variant="tab" className="modal-tab" selected={view === "server"} onClick={() => chooseView("server")}>
+          {t("control:logs.viewServer")}
+        </Button>
+      </div>
+      {!apps && <p className="muted">{t("control:logs.sourceLoading")}</p>}
+      {apps && (!app || !isRunning(app)) && (
+        <MessageBox tone="info" title={t("control:logs.sourceUnavailableTitle", { app: appName(source) })}>
+          {t("control:logs.sourceUnavailableBody")}
+        </MessageBox>
+      )}
+      {app && isRunning(app) && (view === "events" ? <AppEvents key={app.id} prefix={app.prefix} /> : <AppLog key={app.id} prefix={app.prefix} />)}
+    </div>
+  );
+}
+
+function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
   const { t } = useTranslation(["common", "control"]);
   const LOG_FACET_ORDER: FacetDef<LogFilterKey>[] = [
     { key: "event", title: t("control:logs.facetEvent"), searchable: true },
@@ -253,6 +329,7 @@ export function LogsSection() {
         {/* Search rides in the header beside the title, like the Duplicate photos
             page — it's what you reach for first, and it keeps the toolbar below
             for the controls that change the whole view. */}
+        {sourcePicker}
         <label className="search-field log-search">
           <Search size={17} aria-hidden="true" />
           <span className="sr-only">{t("control:logs.searchAria")}</span>

@@ -797,7 +797,7 @@
     "cantPlayTitle": "This can't play here",
     "fileMissing": "The file is no longer where the video app found it. A rescan of the library will tidy this up.",
     "cantPlayFormat": "A browser can't play this file as it is, and the video app can't convert it: ffmpeg isn't available in its container.",
-    "cantPlayBrowser": "This browser couldn't play it. Try again or another browser; if it keeps happening, Control panel → Apps → Logs says why.",
+    "cantPlayBrowser": "This browser couldn't play it. Try again or another browser; if it keeps happening, Control panel → Overview → Logs, with Video as the source, says why.",
     "busyTitle": "Too many people are watching right now",
     "busyBody_one": "This one is converted as it plays, and {{count}} person is already watching converted video: as many as this server allows at once. Try again in a little while.",
     "busyBody_other": "This one is converted as it plays, and {{count}} people are already watching converted video: as many as this server allows at once. Try again in a little while.",

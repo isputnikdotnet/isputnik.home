@@ -16,9 +16,9 @@ function withQuery(path: string, params: Record<string, string | undefined>): st
   return suffix ? `${path}?${suffix}` : path;
 }
 
-/** An Apps page opened on one container (`?app=`); Events can also open on one level. */
-export function appPageHref(section: "appsInstalled" | "appsAccess" | "appsEvents" | "appsLogs" | "appsSetup", app: string, level?: "error" | "warn"): string {
-  return withQuery(controlHref(section), { app, level });
+/** Security › App access or Settings › Apps, opened on one container (`?app=`). */
+export function appPageHref(section: "appsAccess" | "appsSetup", app: string): string {
+  return withQuery(controlHref(section), { app });
 }
 
 /** Maintenance › Tasks, filtered. `library` is a library id, `type` a job type. */
@@ -31,8 +31,10 @@ export function recycleBinHref(filters: { library?: string; source?: string } = 
   return withQuery(controlHref("recycleBin"), filters);
 }
 
-/** Overview › Logs, filtered to one address or one person. `user` is an account id. */
-export function logsHref(filters: { ip?: string; user?: string } = {}): string {
+/** Overview › Logs, filtered to one address or one person (`user` is an account
+ *  id) — or opened on a container (`app`): its events, at one `level`, or its
+ *  server log (`log: "server"`). */
+export function logsHref(filters: { ip?: string; user?: string; app?: string; level?: "error" | "warn"; log?: "server" } = {}): string {
   return withQuery(controlHref("logs"), filters);
 }
 

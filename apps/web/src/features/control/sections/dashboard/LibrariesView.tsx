@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, FolderOpen, HardDrive, Headphones, Image, Mic2, UserRound, Video, type LucideIcon } from "lucide-react";
+import { BookOpen, Clapperboard, FolderOpen, HardDrive, Headphones, Image, Mic2, UserRound, Video, type LucideIcon } from "lucide-react";
 import { KpiCard } from "../../../../shared/KpiCard";
 import { Pager } from "../../../../shared/Pager";
 import { formatBytes } from "../../../../shared/utils";
@@ -22,18 +22,27 @@ import { formatNumber } from "../../../../shared/dates";
 // disk below (what is heaviest, where the photos pile up). Three columns left
 // each table too narrow for a name and a number once the fourth arrived.
 
-type Kind = "audiobook" | "ebook" | "gallery";
+type Kind = "audiobook" | "ebook" | "gallery" | "video";
+
+/** Video libraries as home lists them for an admin (GET /api/library/video-libraries?manage=1):
+ *  home's rows with the engine's counts, or no counts while the engine is not answering. */
+export interface VideoLibraryStats {
+  libraries: { id: string; name: string; bookCount: number | null; totalSizeBytes: number | null; engine: { online: boolean; episodes?: number } | null }[];
+  engineOnline: boolean | null;
+}
 
 const KIND_ICON: Record<Kind, LucideIcon> = {
   audiobook: Headphones,
   ebook: BookOpen,
-  gallery: Image
+  gallery: Image,
+  video: Clapperboard
 };
 
-const KIND_LABEL_KEYS: Record<Kind, "audiobooks" | "ebooks" | "gallery"> = {
+const KIND_LABEL_KEYS: Record<Kind, "audiobooks" | "ebooks" | "gallery" | "videoLibraries"> = {
   audiobook: "audiobooks",
   ebook: "ebooks",
-  gallery: "gallery"
+  gallery: "gallery",
+  video: "videoLibraries"
 };
 
 interface LibraryRow {
@@ -102,7 +111,9 @@ function RankTable({
   );
 }
 
-export function LibrariesView({ status }: { status: SystemStatus }) {
+// Video's numbers are the engine's, read through home when the page opens; null
+// while there are no video libraries (or Video is not set up), so its card stays away.
+export function LibrariesView({ status, video }: { status: SystemStatus; video: VideoLibraryStats | null }) {
   const { t } = useTranslation(["common", "controlDash"]);
   const audio = status.libraryStats;
   const ebooks = status.ebookStats;
@@ -136,10 +147,22 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
         items: library.itemCount,
         sizeBytes: library.totalSizeBytes,
         detail: `${formatNumber(library.photoCount)} photos · ${formatNumber(library.videoCount)} videos`
+      })),
+      ...(video?.libraries ?? []).map((library) => ({
+        id: `video-${library.id}`,
+        kind: "video" as const,
+        name: library.name,
+        items: library.bookCount ?? 0,
+        sizeBytes: library.totalSizeBytes ?? 0,
+        detail: !library.engine?.online
+          ? t("controlDash:libs.videoUnanswered")
+          : library.engine.episodes
+            ? t("controlDash:libs.episodes", { count: library.engine.episodes })
+            : "—"
       }))
     ];
     return rows.sort((a, b) => b.sizeBytes - a.sizeBytes || a.name.localeCompare(b.name));
-  }, [audio, ebooks, gallery]);
+  }, [audio, ebooks, gallery, video, t]);
   const largest = libraries[0]?.sizeBytes ?? 1;
   const paged = pageOf(libraries, page);
 
@@ -164,8 +187,12 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
       .slice(0, RANK_ROWS);
   }, [audio.topAuthors, ebooks.topAuthors]);
 
-  const totalBytes = audio.totalSizeBytes + ebooks.totalSizeBytes + gallery.totalSizeBytes;
-  const totalLibraries = audio.totalLibraries + ebooks.totalLibraries + gallery.totalLibraries;
+  const videoTitles = (video?.libraries ?? []).reduce((sum, library) => sum + (library.bookCount ?? 0), 0);
+  const videoEpisodes = (video?.libraries ?? []).reduce((sum, library) => sum + (library.engine?.episodes ?? 0), 0);
+  const videoBytes = (video?.libraries ?? []).reduce((sum, library) => sum + (library.totalSizeBytes ?? 0), 0);
+  const videoLibraries = video?.libraries.length ?? 0;
+  const totalBytes = audio.totalSizeBytes + ebooks.totalSizeBytes + gallery.totalSizeBytes + videoBytes;
+  const totalLibraries = audio.totalLibraries + ebooks.totalLibraries + gallery.totalLibraries + videoLibraries;
 
   return (
     <div className="status-stack compact-tables">
@@ -198,12 +225,28 @@ export function LibrariesView({ status }: { status: SystemStatus }) {
               t("controlDash:libs.ofVideo", { hours: formatHours(gallery.totalDurationSeconds) })
             ].filter(Boolean).join(" · ")}
           />
+          {videoLibraries > 0 && (
+            <KpiCard
+              icon={Clapperboard}
+              tone="info"
+              label={t("controlDash:libs.videoLibraries")}
+              value={video?.engineOnline === false ? "—" : formatNumber(videoTitles)}
+              context={video?.engineOnline === false
+                ? t("controlDash:libs.videoUnanswered")
+                : [
+                    t("controlDash:libs.titles", { count: videoTitles }),
+                    videoEpisodes > 0 ? t("controlDash:libs.episodes", { count: videoEpisodes }) : null,
+                    formatBytes(videoBytes),
+                    t("controlDash:libs.libraryCount", { count: videoLibraries })
+                  ].filter(Boolean).join(" · ")}
+            />
+          )}
           <KpiCard
             icon={HardDrive}
             tone="info"
             label={t("controlDash:libs.onDisk")}
             value={formatBytes(totalBytes)}
-            context={`${t("controlDash:libs.libraryCount", { count: totalLibraries })} · ${t("controlDash:libs.acrossTypes", { count: [audio, ebooks, gallery].filter((type) => type.totalLibraries > 0).length })}`}
+            context={`${t("controlDash:libs.libraryCount", { count: totalLibraries })} · ${t("controlDash:libs.acrossTypes", { count: [audio, ebooks, gallery].filter((type) => type.totalLibraries > 0).length + (videoLibraries > 0 ? 1 : 0) })}`}
           />
         </div>
 

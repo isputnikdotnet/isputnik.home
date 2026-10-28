@@ -19,6 +19,7 @@ import { resolveAppSecret } from "../../apps/pairing.js";
 import { appConfigured, appDefinition } from "../../apps/registry.js";
 import { accessibleLibraryIds, canUserAccessLibrary } from "../shared/library-access.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
+import { notePlayResponse } from "./play-log.js";
 import {
   VideoLibraryError,
   deleteVideoLibraryRow,
@@ -77,7 +78,7 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   };
 
   // The menu asks this once: the engine set up, the Video section on, and this
-  // person let in by Apps → Access.
+  // person let in by Security › App access.
   app.get("/api/video/status", { preHandler: app.authenticate }, async (request) => ({
     enabled: available() && appRole("video", request.user!) !== null
   }));
@@ -196,7 +197,7 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
 
   // ── The gateway to the engine ───────────────────────────────────────────
   // Registered always, as the games' is: an address saved or a secret paired on
-  // Apps → Setup works without a restart; `available` keeps it at 404 till then.
+  // Settings › Apps works without a restart; `available` keeps it at 404 till then.
   await registerAppGateway(app, {
     app: VIDEO,
     upstream: () => target().upstream,
@@ -209,7 +210,9 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
       // person may see, worked out from each library's own access.
       extraHeaders: (request) => ({
         "x-isputnik-libraries": [...accessibleLibraryIds(request.user!.id, request.user!.role, VIDEO_LIBRARY_TYPE)].join(",")
-      })
+      }),
+      // A title started: the line Overview › Activity counts as "Watched".
+      onResponse: (request, statusCode) => notePlayResponse(VIDEO.prefix, request, statusCode)
     }
   });
   if (configured()) app.log.info(`Video: proxying /video to ${target().upstream}`);

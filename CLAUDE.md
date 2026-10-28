@@ -112,9 +112,10 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   `t(key, { count })`, never hand-built plurals (Russian has three forms). The
   sweep is complete (2026-08-27; the record is `docs/i18n-plan.md`), so every file
   counts as swept: new user-facing strings must be keys, not literals.
-- **Control panel**: its whole shape (7 nav groups × their tabs — Overview, Library,
-  Members, Security, Maintenance, Apps, Settings; seven is the budget, raised from six
-  for Apps in 4.38 — `docs/apps-platform-plan.md`) is declared in
+- **Control panel**: its whole shape (6 nav groups × their tabs — Overview, Library,
+  Members, Security, Maintenance, Settings; six is the budget. Apps was a seventh in
+  4.38–4.44 and was folded into the rest — `docs/dashboard-and-backups-plan.md`; a
+  container's pages join those groups, they never bring a group back) is declared in
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.

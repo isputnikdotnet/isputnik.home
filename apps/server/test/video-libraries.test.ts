@@ -52,6 +52,8 @@ async function startEngine() {
   engine.post("/video/api/admin/libraries/:id/scan", async (_request, reply) => reply.code(202).send({}));
   engine.get("/video/api/admin/folders", async (request) => ({ path: (request.query as { path: string }).path, folders: [{ name: "Shows", path: "Shows", folders: 42 }] }));
   engine.get("/video/api/shows", async (request) => ({ headers: request.headers }));
+  engine.get("/video/api/play/:id", async (request, reply) =>
+    (request.params as { id: string }).id === "gone" ? reply.code(404).send({ error: "No such title" }) : { url: "/video/api/stream/x" });
   await engine.listen({ host: "127.0.0.1", port: 0 });
   const address = engine.server.address();
   engineUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
@@ -162,6 +164,27 @@ describe("the gateway to the engine", () => {
     const cookie = await booted.signIn("mum");
     expect((await booted.app.inject({ method: "GET", url: "/video/api/shows", headers: { cookie } })).statusCode).toBe(404);
     expect((await booted.app.inject({ method: "GET", url: "/api/video/status", headers: { cookie } })).json()).toEqual({ enabled: false });
+  });
+});
+
+// Overview › Activity counts a title started as "Watched": the gateway notes the
+// engine's play call, once per person and title for a few hours.
+describe("watching through the gateway", () => {
+  const played = () => db.prepare("SELECT actor_user_id AS who, target_id AS item FROM activity_logs WHERE event = 'library.video.played'").all();
+
+  it("notes a title started, once however often the player asks", async () => {
+    const cookie = await booted.signIn("mum");
+    expect((await booted.app.inject({ method: "GET", url: "/video/api/play/m1", headers: { cookie } })).statusCode).toBe(200);
+    await booted.app.inject({ method: "GET", url: "/video/api/play/m1?audio=1", headers: { cookie } });
+    await booted.app.inject({ method: "GET", url: "/video/api/play/m2", headers: { cookie } });
+    expect(played()).toEqual([{ who: "mum", item: "m1" }, { who: "mum", item: "m2" }]);
+  });
+
+  it("notes nothing for browsing, or for a title the engine does not have", async () => {
+    const cookie = await booted.signIn("mum");
+    await booted.app.inject({ method: "GET", url: "/video/api/shows", headers: { cookie } });
+    expect((await booted.app.inject({ method: "GET", url: "/video/api/play/gone", headers: { cookie } })).statusCode).toBe(404);
+    expect(played()).toEqual([]);
   });
 });
 

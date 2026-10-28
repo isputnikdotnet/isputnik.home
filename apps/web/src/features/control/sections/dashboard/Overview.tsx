@@ -19,7 +19,7 @@ import { MessageBox } from "../../../../shared/MessageBox";
 import { formatBytes, formatManagedDate, formatUptime } from "../../../../shared/utils";
 import { relativeTime } from "../../../../shared/relativeTime";
 import { formatNumber } from "../../../../shared/dates";
-import { appPageHref, storageHref, tasksHref } from "../../links";
+import { appPageHref, logsHref, storageHref, tasksHref } from "../../links";
 import { signInsHref } from "./SignInsView";
 import type { AppStatus } from "../AppsSection";
 import type { SystemStatus } from "../../types";
@@ -100,7 +100,7 @@ export function Overview({
   const issues: Issue[] = [];
   for (const app of apps ?? []) {
     const state = appState(app);
-    if (state === "down") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppDown", { app: appName(app.id) }), href: appPageHref("appsInstalled", app.id) });
+    if (state === "down") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppDown", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id) });
     if (state === "secret") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppSecret", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id) });
   }
   for (const disk of overview?.disks ?? []) {
@@ -123,7 +123,7 @@ export function Overview({
   }
   for (const app of apps ?? []) {
     const errors = appErrors[app.id];
-    if (errors) issues.push({ tone: "warning", text: t("controlDash:overview.issueAppErrors", { app: appName(app.id), count: errors }), href: appPageHref("appsEvents", app.id, "error") });
+    if (errors) issues.push({ tone: "warning", text: t("controlDash:overview.issueAppErrors", { app: appName(app.id), count: errors }), href: logsHref({ app: app.id, level: "error" }) });
   }
   if (overview && overview.failedSignIns24h >= FAILED_SIGN_INS_NOTICE) {
     issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedSignIns", { count: overview.failedSignIns24h }), href: signInsHref({}) });
@@ -193,7 +193,7 @@ export function Overview({
                 name={appName(app.id)}
                 what={t("controlDash:overview.problemsEvents")}
                 count={app.server?.ok ? (appErrors[app.id] ?? null) : null}
-                href={appPageHref("appsEvents", app.id, "error")}
+                href={logsHref({ app: app.id, level: "error" })}
               />
             ))}
           </ul>
@@ -249,7 +249,7 @@ function Services({ status, overview, apps }: { status: SystemStatus; overview: 
       <div className="dash-section-head">
         <h2 id="dash-services">{t("controlDash:overview.servicesTitle")}</h2>
         <span className="muted">{t("controlDash:overview.servicesNote")}</span>
-        <a href={controlHref("appsInstalled")}>{t("controlDash:overview.servicesLink")}</a>
+        <a href={controlHref("appsSetup")}>{t("controlDash:overview.servicesLink")}</a>
       </div>
       <div className="dash-diagram">
         <article className="dash-node dash-home">
@@ -370,8 +370,10 @@ function AppBranch({ app }: { app: AppStatus }) {
         )}
         {state === "down" && app.server?.error && <p className={`dash-node-note tone-${tone}`}>{app.server.error}</p>}
         <nav className="dash-links" aria-label={t("controlDash:overview.pagesOf", { name })}>
-          {state === "running" && <a href={appPageHref("appsEvents", app.id)}>{t("controlDash:overview.linkEvents")}</a>}
-          {state === "running" && <a href={appPageHref("appsLogs", app.id)}>{t("controlDash:overview.linkLog")}</a>}
+          {state === "running" && <a href={logsHref({ app: app.id })}>{t("controlDash:overview.linkEvents")}</a>}
+          {state === "running" && <a href={logsHref({ app: app.id, log: "server" })}>{t("controlDash:overview.linkLog")}</a>}
+          {app.id === "games" && app.configured && <a href={`${controlHref("invites")}#games-guest-links`}>{t("controlDash:overview.linkGuestLinks")}</a>}
+          {app.id === "video" && state === "running" && <a href={controlHref("videoSettings")}>{t("controlDash:overview.linkVideoSettings")}</a>}
           <a href={appPageHref("appsAccess", app.id)}>{t("controlDash:overview.linkAccess")}</a>
           <a href={appPageHref("appsSetup", app.id)}>{t("controlDash:overview.linkSetup")}</a>
         </nav>

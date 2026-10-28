@@ -110,7 +110,7 @@ cards.
 **Backup.** Home's backup asks the container for a snapshot of its database
 and stores it in the same zip (`apps/video.db`). Files and the poster cache are
 not backed up. Restore puts home back, then offers to send the video database
-back from Apps → Installed.
+back on its own from Maintenance › Backups (docs/dashboard-and-backups-plan.md).
 
 **Container down.** Video pages say "Video is not available right now"; the
 rest of home works. Library rows and access stay editable in home.

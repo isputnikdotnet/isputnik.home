@@ -102,7 +102,7 @@ in [apps-platform-plan.md](apps-platform-plan.md) and
 [video-architecture.md](video-architecture.md).
 
 An app needs an address here and a secret both sides share. Both are set on
-**Control panel → Apps → Setup**: the address saved there, the secret made there
+**Control panel → Settings → Apps**: the address saved there, the secret made there
 (shown once, kept sealed with the server key) and pasted into the app's
 `GATEWAY_SECRET`. Each works at once, with no restart, so a new app needs no
 change to this container. The variables below are an alternative: any one set
@@ -115,7 +115,7 @@ wins over Setup, which then shows it as set in the environment.
 | `VIDEO_URL` | unset | — | — | Optional: where the video engine answers, instead of the address on Setup — `http://isputnik-video:4300` on a shared network. With no address either way there are no video libraries. |
 | `VIDEO_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the video engine (its `GATEWAY_SECRET`), instead of pairing on Setup. |
 
-Control panel → Apps → Installed shows how the two stand (gateway on or off,
+Control panel → Overview → Dashboard shows how the two stand (gateway on or off,
 the URL, whether a secret is set, whether the games server answers and its
 version, and whether it accepts this server's secret — a signed test call, so two
 containers holding different secrets show as an error here instead of members

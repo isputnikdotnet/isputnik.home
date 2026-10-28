@@ -1,6 +1,5 @@
 import {
   Activity,
-  Boxes,
   LibraryBig,
   Settings,
   ShieldCheck,
@@ -21,13 +20,16 @@ import i18n from "../../i18n";
 // palette indexes the lot. Adding a control page means adding one tab here —
 // there is nowhere else to keep in sync.
 //
-// Seven groups, and that is the budget. A new page almost always belongs as a tab
-// inside an existing group rather than as an eighth: a long left nav is what this
+// Six groups, and that is the budget. A new page almost always belongs as a tab
+// inside an existing group rather than as a seventh: a long left nav is what this
 // structure exists to prevent, and the tab row is free to grow where the nav isn't.
-// It was six until Apps (2026-10-25, docs/apps-platform-plan.md): the containers
-// beside this server answer a question of their own — what runs alongside home,
-// and is it healthy — with several real tabs, and their one Settings tab was
-// already a status page, an events table and a log stacked on top of each other.
+// Apps was a seventh (4.38–4.44): everything about the containers beside this
+// server in one group. That meant knowing whether a thing ran in home or in a
+// container before knowing where to look, so its pages went to the groups whose
+// question they answer (docs/dashboard-and-backups-plan.md) — how each stands to
+// the Dashboard, its events and log to Logs, who may use it to Security, pairing
+// and the video settings to Settings. A new container joins those pages; it does
+// not bring a group back.
 //
 // Every group is the same thing — a link to its first tab, over one row of its
 // tabs — and nothing else. Two exceptions were tried and retired in 4.15
@@ -45,7 +47,7 @@ import i18n from "../../i18n";
 // chrome than the relationship was worth. A page whose content wants to be split
 // is split into tabs; a view switch inside a page is for views of one task.
 
-export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "apps" | "settings";
+export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "settings";
 
 export interface ControlTabDef {
   section: ControlSection;
@@ -96,14 +98,15 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     key: "security",
     icon: ShieldCheck,
     // Investigate access, then configure protection: who got in and from where
-    // sit beside the policies and lists that decide who may.
+    // sit beside the policies and lists that decide who may — the apps' too.
     tabs: [
       { section: "security" },
       { section: "signIns" },
       { section: "signInLocations" },
       { section: "securityPolicies" },
       { section: "securityTrusted" },
-      { section: "securityBlocked" }
+      { section: "securityBlocked" },
+      { section: "appsAccess" }
     ]
   },
   {
@@ -122,25 +125,12 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     ]
   },
   {
-    key: "apps",
-    icon: Boxes,
-    // The containers reached through this server (games today): how each one
-    // stands, who may use it and from where, what it recorded and its log, read
-    // from it through the gateway — and, last, pairing one with this server.
-    tabs: [
-      { section: "appsInstalled" },
-      { section: "appsAccess" },
-      { section: "appsEvents" },
-      { section: "appsLogs" },
-      { section: "appsSetup" }
-    ]
-  },
-  {
     key: "settings",
     icon: Settings,
     // How the app looks and what it can do. Quotes is the home widget's content,
     // Maps a page of feature switches. Reader access left for Profile in 4.15:
-    // the tokens are the signed-in person's own, not the server's.
+    // the tokens are the signed-in person's own, not the server's. Apps is where a
+    // container is paired with this server; Video, the engine's own settings.
     tabs: [
       { section: "appearance" },
       { section: "quotes" },
@@ -148,6 +138,8 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "storySettings" },
       { section: "email" },
       { section: "notifications" },
+      { section: "appsSetup" },
+      { section: "videoSettings" },
       { section: "about" }
     ]
   }

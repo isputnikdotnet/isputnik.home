@@ -229,6 +229,13 @@ read-only. Apps → Access adds an admin list of every container token for revok
 
 ## Control panel — the Apps group
 
+> **Retired in 4.45** (`docs/dashboard-and-backups-plan.md` → *The Apps group folds
+> into the rest*). Its pages went to the groups whose question they answer: status
+> to Overview › Dashboard, events and log to Overview › Logs (a source per
+> container), Access to Security › App access, Setup to Settings › Apps, the video
+> engine's cards to Settings › Video, guest links to Members › Invites. The table
+> below is the group as it was built (4.38–4.44); its addresses are aliases now.
+
 | Tab | Content |
 |---|---|
 | **Installed** | one card per registered container: up/down, version (and "newer version available" from GHCR), secret accepted, URL, the menu switch, a link to an app's own admin pages |

@@ -93,6 +93,8 @@
     "played": "Прослушано",
     "read": "Прочитано",
     "viewed": "Просмотрено",
+    "watched": "Фильмы и серии",
+    "matches": "Партии",
     "storageUsed": "Занято места",
     "storageSplit": "{{audio}} аудио · {{books}} книги · {{photos}} фото",
     "vsPrevious": "по сравнению с прошлым периодом ({{span}})",
@@ -181,7 +183,17 @@
     "noGalleryItems": "Пока нет фото или видео.",
     "video": "Видео",
     "photo": "Фото",
-    "audio": "Аудио"
+    "audio": "Аудио",
+    "videoLibraries": "Видео",
+    "videoUnanswered": "Видео не отвечает",
+    "titles_one": "{{count}} название",
+    "titles_few": "{{count}} названия",
+    "titles_many": "{{count}} названий",
+    "titles_other": "{{count}} названия",
+    "episodes_one": "{{count}} серия",
+    "episodes_few": "{{count}} серии",
+    "episodes_many": "{{count}} серий",
+    "episodes_other": "{{count}} серии"
   },
   "map": {
     "connections_one": "{{count}} подключение",
@@ -962,7 +974,7 @@
     "issueFailedSignIns_other": "{{count}} неудачной попытки входа за сутки",
     "servicesTitle": "Службы",
     "servicesNote": "Каждое приложение работает в своём контейнере; Home обращается к нему по сети через свой шлюз.",
-    "servicesLink": "Приложения › Установленные",
+    "servicesLink": "Настройки › Приложения",
     "homeName": "iSputnik Home",
     "homeShort": "Home",
     "core": "Ядро",
@@ -973,7 +985,7 @@
     "stateDown": "Не отвечает",
     "stateSecret": "Секрет отклонён",
     "stateUnset": "Не настроено",
-    "unsetNote": "Свяжите его в разделе Приложения › Настройка, чтобы Home мог к нему обращаться.",
+    "unsetNote": "Свяжите его в разделе Настройки › Приложения, чтобы Home мог к нему обращаться.",
     "address": "Адрес",
     "publicAddress": "Внешний адрес",
     "signedIn": "Сейчас в системе",
@@ -1029,6 +1041,8 @@
     "holdBackups": "резервные копии",
     "holdAppFiles": "файлы приложения",
     "holdTrash": "корзина",
-    "minimalBackup": "Минимальная копия"
+    "minimalBackup": "Минимальная копия",
+    "linkGuestLinks": "Гостевые ссылки",
+    "linkVideoSettings": "Настройки"
   }
 }

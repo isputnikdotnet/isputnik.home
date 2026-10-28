@@ -2,13 +2,13 @@
 //
 // Where a container is, and the secret both sides sign with, can each come from
 // two places, and the environment wins. The address: <APP>_URL in this
-// container's environment (GAMES_URL, …), else the one saved on Apps → Setup, in
+// container's environment (GAMES_URL, …), else the one saved on Settings › Apps, in
 // app_settings — so a new container never needs this one's template edited, nor
 // a restart. The secret:
 //
 //   1. <APP>_GATEWAY_SECRET in this container's environment — how games has been
 //      set up since it shipped; nothing changes for an install that uses it;
-//   2. a secret generated on Control panel → Apps → Setup, kept sealed in
+//   2. a secret generated on Control panel → Settings › Apps, kept sealed in
 //      app_pairings and shown once, for the owner to paste into the container's
 //      template as its GATEWAY_SECRET.
 //
@@ -38,7 +38,7 @@ function pairedSecret(id: AppId): string {
   return row ? openSecret(row.secret_sealed) : "";
 }
 
-// ── Addresses saved on Apps → Setup ─────────────────────────────────────────
+// ── Addresses saved on Settings › Apps ─────────────────────────────────────────
 
 const ADDRESSES_KEY = "apps.addresses";
 const addressesSchema = z.record(z.string(), z.string());
@@ -87,7 +87,7 @@ export function resolveAppSecret(id: AppId): { upstream: string; secret: string;
   return { upstream, secret: paired, source: paired ? "paired" : "none", urlSource };
 }
 
-/** When the paired secret was made and by whom, for Apps → Setup. */
+/** When the paired secret was made and by whom, for Settings › Apps. */
 export function pairingInfo(id: AppId): { pairedAt: string; pairedBy: string | null } | null {
   const row = db.prepare(`
     SELECT p.paired_at, u.display_name AS paired_by_name

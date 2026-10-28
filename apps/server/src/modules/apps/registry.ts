@@ -34,17 +34,17 @@ export interface AppDefinition {
   prefix: string;
   /** The menu section the admin switches it on and off with (core/sections.ts). */
   section: SectionKey;
-  /** The environment variables an install may set instead of Apps → Setup;
+  /** The environment variables an install may set instead of Settings › Apps;
    *  either one, set, wins over what Setup saved. */
   urlVariable: string;
   secretVariable: string;
   /** The address on a shared Docker network with the container's own template
-   *  defaults, offered on Apps → Setup. */
+   *  defaults, offered on Settings › Apps. */
   exampleUrl: string;
-  /** The variable the container itself reads the secret from, for Apps → Setup. */
+  /** The variable the container itself reads the secret from, for Settings › Apps. */
   containerSecretVariable: string;
   /** A signed call under the prefix that answers 401 when the container does not
-   *  take this app's signature — how Apps → Installed tells a wrong secret apart
+   *  take this app's signature — how the Dashboard tells a wrong secret apart
    *  from a working one (health answers the same with any secret). */
   signedProbePath: string;
   /** Where its configuration is documented (docs/configuration.md). */
@@ -124,7 +124,7 @@ export function appConfigured(app: AppDefinition, upstream: string, secret: stri
   if (!upstream) return { enabled: false };
   const badUrl = urlProblem(app, upstream);
   if (badUrl) return { enabled: false, reason: badUrl };
-  if (!secret) return { enabled: false, reason: `${app.id} has an address but no secret yet; it stays off until it is paired on Control panel → Apps → Setup or ${app.secretVariable} is set.` };
+  if (!secret) return { enabled: false, reason: `${app.id} has an address but no secret yet; it stays off until it is paired on Control panel → Settings › Apps or ${app.secretVariable} is set.` };
   return { enabled: true };
 }
 

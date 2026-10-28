@@ -1,12 +1,12 @@
 // Who may use each container, and from where (docs/apps-platform-plan.md →
-// Access, Network rules). Control panel → Apps → Access edits both; the gateway
+// Access, Network rules). Control panel → Security › App access edits both; the gateway
 // asks both on every request.
 //
 // Who: the unified `assignments` table with object_type 'app' and the container's
 // id — Everyone, groups or people, as `member` (use it) or `manager` (look after
 // it: the games' admin window, video's fix-match), or `deny`. Administrators are
 // always managers. A container nobody has set up access for behaves as it always
-// did: everyone signed in is a member. The first change on Apps → Access writes
+// did: everyone signed in is a member. The first change on Security › App access writes
 // that baseline down, so taking Everyone away later really takes it away.
 //
 // From where: one rule per capability (registry.ts), kept in app_settings.
@@ -34,7 +34,7 @@ export type NetworkClass = "trusted" | "home" | "internet";
 const SETTINGS_KEY = "apps";
 
 const settingsSchema = z.object({
-  /** Containers whose access has been set on Apps → Access at least once. */
+  /** Containers whose access has been set on Security › App access at least once. */
   accessConfigured: z.array(z.string()).default([]),
   /** Per container, per capability: the rule an admin chose. */
   rules: z.record(z.string(), z.record(z.string(), z.enum(NETWORK_RULES))).default({})
@@ -100,7 +100,7 @@ export interface AppGrant {
   missing: boolean;
 }
 
-/** Everyone's role and the explicit grants, as Apps → Access shows them. */
+/** Everyone's role and the explicit grants, as Security › App access shows them. */
 export function listAppAccess(appId: AppId): { everyone: AppRole | null; grants: AppGrant[] } {
   if (!accessConfigured(appId)) return { everyone: "member", grants: [] };
   const rows = db.prepare(`

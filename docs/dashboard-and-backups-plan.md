@@ -69,6 +69,33 @@ Unraid that is appdata on the cache pool, not where the libraries are. Instead:
 | Home's disks, grouped, with what each holds | `diskSpace()` + `sameDisk()` over known paths | `disks` in `/api/status` |
 | A container's library disks | container status | phase 4 contract |
 
+## The Apps group folds into the rest (decided 2026-10-28)
+
+The Apps group gathered everything about the containers in one place, so an admin
+had to know whether a thing lived in Home or in a container before knowing where
+to look. With the Dashboard's diagram as the hub, each piece goes to the group
+whose question it answers — the 4.15 rule — and the nav is back to six groups.
+
+| Was (Apps ›) | Now | Section / address |
+|---|---|---|
+| Installed — status, address, version | Overview › Dashboard (diagram) | `/control/apps` → Dashboard |
+| Installed — Games guest links | Members › Invites | card on `invites` |
+| Installed — Video conversion, metadata | Settings › Video | `videoSettings`, `/control/settings/video` |
+| Access | Security › App access | `appsAccess`, `/control/security/apps` |
+| Events | Overview › Logs, source = the app | `/control/apps/events?app=` → `logs?app=` |
+| Logs (server log) | Overview › Logs, source = the app, "Server log" | `/control/apps/logs?app=` → `logs?app=&log=server` |
+| Setup | Settings › Apps | `appsSetup`, `/control/settings/apps` |
+| *(new)* | Overview › Activity: Watched, Matches | `library.video.played` from the gateway |
+| *(new)* | Overview › Library statistics: Video | engine's `/api/admin/libraries` |
+
+- **Logs** gets a Source picker (Home · each set-up app). One source at a time —
+  merging separately paged logs from several servers would be quietly wrong.
+  For an app, a switch between its Events and its Server log (views of one task).
+- **Old addresses** stay in `CONTROL_ALIASES`, query kept, so every bookmark and
+  the Dashboard's buttons land on the new page already filtered.
+- **A new container** appears in every place by itself: the source picker, App
+  access, Settings › Apps and the diagram all read `modules/apps/registry.ts`.
+
 ## Backups: home stores all, each part restores alone
 
 **Decision.** Home schedules every backup and keeps every file in `BACKUP_PATH`.

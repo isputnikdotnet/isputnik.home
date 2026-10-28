@@ -76,11 +76,11 @@ Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
 01/Show (Year) S01E01.mkv` for shows, `Movie (Year)/Movie (Year).mkv` for films.
 `.nfo` files beside them are read first.
 
-## 3. Connect them on Apps → Setup
+## 3. Connect them on Settings → Apps
 
 Everything on iSputnik's side is done here: nothing to change on the iSputnik
-container, and no restart. Open **Control panel → Apps → Setup** and choose the
-app.
+container, and no restart. Open **Control panel → Settings → Apps** and choose
+the app.
 
 1. Under **Where the container is**, type the app's **Address** and press **Save
    address**: `http://isputnik-games:4200` or `http://isputnik-video:4300` on a
@@ -107,13 +107,13 @@ off for everyone until it is paired again.
 > the address as `GAMES_URL` / `VIDEO_URL`, the secret as `GAMES_GATEWAY_SECRET`
 > / `VIDEO_GATEWAY_SECRET` (a long random string, e.g. `openssl rand -hex 32`,
 > and the same value as the app's `GATEWAY_SECRET`). A value set this way always
-> wins, and Setup then shows it as *Set in this container's environment*. All of
+> wins, and Settings → Apps then shows it as *Set in this container's environment*. All of
 > them are in the
 > [configuration reference](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md#apps).
 
 ## 4. Choose who may use it, and from where
 
-**Control panel → Apps → Access**, for the chosen app:
+**Control panel → Security → App access**, for the chosen app:
 
 - **Who may use it.** Everyone signed in is a member until you change something.
   Grant people or groups **Member** (uses the app) or **Manager** (also looks
@@ -131,12 +131,13 @@ For Video, which libraries each person sees is set on each library, on **Library
 
 ## 5. Check that it's healthy
 
-- **Apps → Installed** — one card per app: running or not, its version, its
-  address, and whether it accepts iSputnik's secret.
-- **Apps → Events** — what the app recorded about itself: refused callers,
-  matches, scans, errors.
-- **Apps → Logs** — the newest lines of the app's own log, what `docker logs`
-  would show, without a shell on the host.
+- **Overview → Dashboard** — iSputnik with a branch to each app: running or
+  not, its version, its address, whether it accepts iSputnik's secret and how
+  long it takes to answer. Anything wrong is listed at the top.
+- **Overview → Logs**, with the app chosen under **Source** — **Events** is what
+  the app recorded about itself (refused callers, matches, scans, errors);
+  **Server log** is the newest lines of its own log, what `docker logs` would
+  show, without a shell on the host.
 
 Starting, stopping and updating an app's container stays where you manage
 containers (Unraid's Docker page, or compose). iSputnik only watches.
@@ -159,7 +160,7 @@ go on its next sync.
 A film a browser can't play as it is (an `.mkv`, sound in AC3 or DTS, an HEVC
 picture) is converted while someone watches: the sound alone when the picture
 is fine, both when it isn't. The engine keeps a few minutes ready ahead of the
-player. **Apps → Installed → Converting video** sets how:
+player. **Settings → Video → Converting video** sets how:
 
 - **People watching converted video at once** (3 to start with). Each one runs a
   conversion of their own, and re-encoding a picture keeps a processor core
@@ -185,7 +186,7 @@ Pictures saved beside the video files are always shown: `poster.jpg` and
 film, `<episode file name>-thumb.jpg` beside an episode.
 
 For the rest, give the engine a key from a free TMDB account (themoviedb.org →
-Settings → API) on **Apps → Installed → Posters and descriptions**. It is checked
+Settings → API) on **Settings → Video → Posters and descriptions**. It is checked
 with TMDB before it is kept and never shown again. After every scan the engine
 then fetches posters, backdrops and episode pictures, and fills in descriptions
 and episode names where the `.nfo` files have none — an `.nfo`'s own words
@@ -216,7 +217,7 @@ backup still finishes and its log line says which app was left out and why.
 
 - **For the menu only:** Control panel → Settings → Appearance → Sections, switch
   **Games** or **Video** off. The app disappears for everyone; nothing is deleted.
-- **For good:** on Apps → Setup, clear the app's address and press **Forget
+- **For good:** on Settings → Apps, clear the app's address and press **Forget
   secret** (or remove `GAMES_URL` / `VIDEO_URL` from the iSputnik container if
   you set it there), then remove the app's container.
 
@@ -224,18 +225,18 @@ backup still finishes and its log line says which app was left out and why.
 
 | What you see | What it means |
 |---|---|
-| Installed: **not answering** | iSputnik can't reach the address. Check the container is running, the address and port, and that both are on the same network (not Docker's default `bridge`). |
-| Installed: **refuses this server's secret**, or members see "Not signed in" in the games | The two secrets differ. Generate a new one on Setup, paste it into the app's `GATEWAY_SECRET` and restart the app. |
-| Setup: **Set in this container's environment** | The address (`GAMES_URL` / `VIDEO_URL`) or the secret (`GAMES_GATEWAY_SECRET` / `VIDEO_GATEWAY_SECRET`) is set on iSputnik and wins. Keep it, or remove it and restart iSputnik to set it on Setup. |
+| Dashboard: **Not answering** | iSputnik can't reach the address. Check the container is running, the address and port, and that both are on the same network (not Docker's default `bridge`). |
+| Dashboard: **Secret refused**, or members see "Not signed in" in the games | The two secrets differ. Generate a new one on Settings → Apps, paste it into the app's `GATEWAY_SECRET` and restart the app. |
+| Settings → Apps: **Set in this container's environment** | The address (`GAMES_URL` / `VIDEO_URL`) or the secret (`GAMES_GATEWAY_SECRET` / `VIDEO_GATEWAY_SECRET`) is set on iSputnik and wins. Keep it, or remove it and restart iSputnik to set it on Settings → Apps. |
 | A rule refuses everyone from outside | Behind a reverse proxy whose trust isn't set up, every visitor counts as outside. Set `TRUST_PROXY` — see [Exposing your library to the internet](exposing-to-the-internet.md). |
 
 ## Checklist
 
 ```
 [ ] App container on the same network as iSputnik (or a fixed IP), no port published
-[ ] Apps → Setup: address saved, and the Container line says it answers
-[ ] Apps → Setup: secret generated, pasted into the app's GATEWAY_SECRET, app restarted
-[ ] Apps → Setup: Test connection says Paired
-[ ] Apps → Access: who may use it, and from where
+[ ] Settings → Apps: address saved, and the Container line says it answers
+[ ] Settings → Apps: secret generated, pasted into the app's GATEWAY_SECRET, app restarted
+[ ] Settings → Apps: Test connection says Paired
+[ ] Security → App access: who may use it, and from where
 [ ] Video: media folder mounted read-only, libraries added on Library → Libraries
 ```

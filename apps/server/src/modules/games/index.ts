@@ -70,7 +70,7 @@ export interface GamesPluginOptions {
 }
 
 export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions = {}) {
-  // Both asked each time: an address saved and a secret paired on Apps → Setup
+  // Both asked each time: an address saved and a secret paired on Settings › Apps
   // (modules/apps/pairing.ts) work without a restart, and the environment's win.
   const upstream = () => opts.upstream ?? resolveAppSecret("games").upstream;
   const secret = () => opts.secret ?? resolveAppSecret("games").secret;
@@ -82,7 +82,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
 
   // The web app asks this once to decide whether to show the Games entry: the
   // gateway configured, the admin's Games section on (core/sections.ts), and this
-  // person let in by Apps → Access (modules/apps/access.ts).
+  // person let in by Security › App access (modules/apps/access.ts).
   app.get("/api/games/status", { preHandler: app.authenticate }, async (request) => ({
     enabled: available() && appRole("games", request.user!) !== null
   }));

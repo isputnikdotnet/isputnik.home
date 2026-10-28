@@ -18,7 +18,6 @@
       "members": "Members",
       "security": "Security",
       "maintenance": "Maintenance",
-      "apps": "Apps",
       "settings": "Settings"
     },
     "tabs": {
@@ -50,11 +49,9 @@
       "quotes": "Quotes",
       "mapSetup": "Maps",
       "storySettings": "Stories",
-      "appsInstalled": "Installed",
-      "appsAccess": "Access",
-      "appsEvents": "Events",
-      "appsLogs": "Logs",
-      "appsSetup": "Setup",
+      "appsAccess": "App access",
+      "appsSetup": "Apps",
+      "videoSettings": "Video",
       "email": "Email",
       "notifications": "Notifications",
       "about": "About",
@@ -137,7 +134,7 @@
     "savedBody": "Default theme updated.",
     "sections": "Sections",
     "sectionsHint": "Which parts of the app this household uses. A section switched off leaves the menu, the home feed and Tags for everyone, and a link to it opens the home page instead; nothing is deleted, and the Control panel still shows every library. One section always stays on.",
-    "sectionsGamesHint": "Games also needs the games container to be set up (Apps → Installed); without it there is no Games entry whatever this switch says.",
+    "sectionsGamesHint": "Games also needs the games container to be set up (Settings → Apps); without it there is no Games entry whatever this switch says.",
     "sectionsSavedBody": "The menu changes for everyone the next time they open a page."
   },
   "backup": {
@@ -765,6 +762,15 @@
     "deleteOldConfirmLabel": "Delete logs older than {{days}} days",
     "deleteOldBody": "Log entries older than this are permanently deleted. Nothing else is touched, and the entries currently on screen stay unless they fall outside the window.",
     "deleteOldFieldLabel": "Delete entries older than",
-    "deleteOldFieldSuffix": "days"
+    "deleteOldFieldSuffix": "days",
+    "sourceLabel": "Source",
+    "sourceHome": "Home",
+    "sourceLoading": "Asking the apps…",
+    "appDescription": "What {{app}} recorded — its events, or the newest lines of its server log — read from it through the gateway. Nothing is kept here.",
+    "viewAria": "{{app}} logs",
+    "viewEvents": "Events",
+    "viewServer": "Server log",
+    "sourceUnavailableTitle": "{{app}} isn't answering",
+    "sourceUnavailableBody": "Its logs are read from the container itself, so they show while it answers. The Dashboard says how it stands; Settings › Apps tests the connection."
   }
 }

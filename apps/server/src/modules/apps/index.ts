@@ -42,7 +42,7 @@ export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions =
     return resolveAppSecret(id);
   };
 
-  // Control panel → Apps → Installed and Setup: every container this release
+  // Overview › Dashboard and Settings › Apps: every container this release
   // knows, set up or not. Its address and its secret are each the environment's,
   // or the ones saved and paired below.
   app.get("/api/apps/admin/status", { preHandler: app.requireAdmin }, async (request) => ({
@@ -54,7 +54,7 @@ export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions =
     )
   }));
 
-  // ── Apps → Setup: where the container is ────────────────────────────────
+  // ── Settings › Apps: where the container is ────────────────────────────────
 
   // Saved here, the address needs no edit to this container's template and no
   // restart: the gateway looks it up on each request. Refused while the
@@ -75,7 +75,7 @@ export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions =
     return { url: address || null };
   });
 
-  // ── Apps → Setup: pairing ───────────────────────────────────────────────
+  // ── Settings › Apps: pairing ───────────────────────────────────────────────
 
   // A new secret, shown once. Refused while the environment sets one: that one
   // wins, and a second the owner would paste somewhere would only mislead.
@@ -99,7 +99,7 @@ export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions =
     return { forgotten: true };
   });
 
-  // ── Apps → Access ────────────────────────────────────────────────────────
+  // ── Security › App access ────────────────────────────────────────────────────────
 
   /** The container a route names, or a 404 already sent. */
   const named = (request: FastifyRequest, reply: FastifyReply): AppDefinition | null => {

@@ -1,4 +1,4 @@
-// How each container stands, for Control panel → Apps → Installed: whether it is
+// How each container stands, for Overview › Dashboard: whether it is
 // set up, whether it answers, and whether it takes this app's signature. Probed
 // when the page asks, never in the background — the page is drawn around the
 // answer, so the timeouts are short: a container that is down says so in a
@@ -35,7 +35,7 @@ export interface AppStatus {
   secretSource: SecretSource;
   /** When the paired secret was made, and by whom; null without one. */
   pairing: { pairedAt: string; pairedBy: string | null } | null;
-  /** The variable names Apps → Setup quotes. */
+  /** The variable names Settings › Apps quotes. */
   variables: { url: string; secret: string; container: string };
   /** true / false (the two secrets differ) / null — asked only of a server that answers. */
   secretAccepted: boolean | null;

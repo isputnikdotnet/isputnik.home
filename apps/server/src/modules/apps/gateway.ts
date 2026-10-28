@@ -121,10 +121,10 @@ function networkRefusal(rule: NetworkRule): string {
 export interface AppGatewayOptions {
   app: AppDefinition;
   /** The container, e.g. http://isputnik-games:4200. Asked on every request, so
-   *  an address saved on Apps → Setup works at once; `available` must say false
+   *  an address saved on Settings › Apps works at once; `available` must say false
    *  while there is none. */
   upstream: string | (() => string);
-  /** Asked on every request, so a secret paired on Apps → Setup works at once. */
+  /** Asked on every request, so a secret paired on Settings › Apps works at once. */
   secret: string | (() => string);
   /** Asked on every request: false while the admin has the container's section
    *  off, and the whole prefix answers 404 as if it were not installed. */

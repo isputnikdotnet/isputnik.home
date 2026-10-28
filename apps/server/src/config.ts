@@ -83,7 +83,7 @@ export const config = {
   gamesUrl: (process.env.GAMES_URL ?? "").trim().replace(/\/+$/, ""),
   gamesGatewaySecret: (process.env.GAMES_GATEWAY_SECRET ?? "").trim(),
   // The video engine (isputnik.video) behind /video — docs/video-architecture.md.
-  // Unset = no video libraries. Its secret is usually paired on Apps → Setup;
+  // Unset = no video libraries. Its secret is usually paired on Settings › Apps;
   // set here, it wins.
   videoUrl: (process.env.VIDEO_URL ?? "").trim().replace(/\/+$/, ""),
   videoGatewaySecret: (process.env.VIDEO_GATEWAY_SECRET ?? "").trim(),

@@ -104,11 +104,15 @@ export function ActivityView({ status }: { status: SystemStatus }) {
     ? [
         { label: t("controlDash:activity.played"), data: activity.series.played, colorVar: "--mint" },
         { label: t("controlDash:activity.read"), data: activity.series.read, colorVar: "--blue" },
-        { label: t("controlDash:activity.viewed"), data: activity.series.viewed, colorVar: "--gold" }
+        { label: t("controlDash:activity.viewed"), data: activity.series.viewed, colorVar: "--gold" },
+        { label: t("controlDash:activity.watched"), data: activity.series.watched, colorVar: "--rose" },
+        { label: t("controlDash:activity.matches"), data: activity.series.matches, colorVar: "--success" }
       ]
     : [];
   const versus = t("controlDash:activity.vsPrevious", { span: formatRangeSpan(range) });
-  const opened = activity ? activity.totals.played + activity.totals.read + activity.totals.viewed : 0;
+  const opened = activity
+    ? activity.totals.played + activity.totals.read + activity.totals.viewed + activity.totals.watched + activity.totals.matches
+    : 0;
   const progress = pageOf(inProgress, progressPage);
 
   return (

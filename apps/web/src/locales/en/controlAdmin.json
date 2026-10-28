@@ -219,9 +219,6 @@
     "pendingWaiting_other": "{{count}} recordings made before this setting are kept inside the app, and move into the library by themselves once one is set."
   },
   "apps": {
-    "installedDescription": "The containers that run beside this server and are reached only through it: whether each one is set up, answers, and takes this server's signature.",
-    "eventsDescription": "What a container recorded about itself, read from it through the gateway; nothing is stored in this app.",
-    "logsDescription": "The newest lines of a container's own log, read from it through the gateway.",
     "loadFailed": "Unable to read the apps",
     "appLabel": "App",
     "conversion": {
@@ -273,8 +270,6 @@
       "secretRefused": "Set, but the container refuses it",
       "howToSet": "The address and the secret are set on <setup>Setup</setup>, or on this container as <code>{{url}}</code> and its secret variable. See the <lnk>configuration reference</lnk>."
     },
-    "noneRunningTitle": "No app is answering",
-    "noneRunningBody": "Events and logs come from the containers themselves, so they appear here once one is set up and answering. <lnk>Installed</lnk> says how each one stands.",
     "access": {
       "description": "Who may use each app, and from where.",
       "loadFailed": "Unable to read the app's access",
@@ -367,6 +362,14 @@
       "removing": "Removing…",
       "savedKey": "The key works. Titles not yet looked up are being fetched now.",
       "removedKey": "The key is gone. Posters already fetched stay."
+    },
+    "videoSettings": {
+      "description": "The video engine's own settings: how it converts films a browser cannot play, and where posters and descriptions come from.",
+      "unavailableTitle": "Video isn't available",
+      "notAnswering": "These settings are kept in the video engine, and it isn't answering right now.",
+      "notSetUp": "Video isn't set up yet. Pair it with this server first.",
+      "openDashboard": "See how it stands",
+      "openSetup": "Open Settings › Apps"
     }
   },
   "games": {

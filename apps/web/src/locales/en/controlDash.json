@@ -93,6 +93,8 @@
     "played": "Played",
     "read": "Read",
     "viewed": "Viewed",
+    "watched": "Watched",
+    "matches": "Matches",
     "storageUsed": "Storage used",
     "storageSplit": "{{audio}} audio · {{books}} books · {{photos}} photos",
     "vsPrevious": "vs previous {{span}}",
@@ -163,7 +165,13 @@
     "noGalleryItems": "No photos or videos yet.",
     "video": "Video",
     "photo": "Photo",
-    "audio": "Audio"
+    "audio": "Audio",
+    "videoLibraries": "Video",
+    "videoUnanswered": "Video isn't answering",
+    "titles_one": "{{count}} title",
+    "titles_other": "{{count}} titles",
+    "episodes_one": "{{count}} episode",
+    "episodes_other": "{{count}} episodes"
   },
   "map": {
     "connections_one": "{{count}} connection",
@@ -834,7 +842,7 @@
     "issueFailedSignIns_other": "{{count}} failed sign-ins in the last day",
     "servicesTitle": "Services",
     "servicesNote": "Each app runs in its own container; Home reaches it over the network through its gateway.",
-    "servicesLink": "Apps › Installed",
+    "servicesLink": "Settings › Apps",
     "homeName": "iSputnik Home",
     "homeShort": "Home",
     "core": "Core",
@@ -845,7 +853,7 @@
     "stateDown": "Not answering",
     "stateSecret": "Secret refused",
     "stateUnset": "Not set up",
-    "unsetNote": "Pair it under Apps › Setup to reach it from Home.",
+    "unsetNote": "Pair it under Settings › Apps to reach it from Home.",
     "address": "Address",
     "publicAddress": "Public address",
     "signedIn": "Signed in now",
@@ -899,6 +907,8 @@
     "holdBackups": "backups",
     "holdAppFiles": "app files",
     "holdTrash": "recycle bin",
-    "minimalBackup": "Minimal backup"
+    "minimalBackup": "Minimal backup",
+    "linkGuestLinks": "Guest links",
+    "linkVideoSettings": "Settings"
   }
 }

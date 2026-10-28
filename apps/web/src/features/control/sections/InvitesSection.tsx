@@ -10,6 +10,7 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedInvite } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { GuestLinks, useAppsStatus } from "./AppsSection";
 import i18n from "../../../i18n";
 
 // Plain lookup functions rather than module-level consts, so a language switch
@@ -29,6 +30,9 @@ function inviteStatusLabel(status: ManagedInvite["status"]): string {
 
 export function InvitesSection() {
   const { t } = useTranslation(["common", "control"]);
+  // Guests asked into one game match are invites too, of a narrower kind; their
+  // card shows while Games is set up (it was under Apps › Installed until 4.45).
+  const gamesConfigured = useAppsStatus().apps?.some((app) => app.id === "games" && app.configured) ?? false;
   const [invites, setInvites] = useState<ManagedInvite[]>([]);
   const [error, setError] = useState("");
   const [modalError, setModalError] = useState("");
@@ -282,6 +286,8 @@ export function InvitesSection() {
           <p><strong>{t("control:invites.deleteBody2")}</strong></p>
         </ConfirmDialog>
       )}
+
+      {gamesConfigured && <GuestLinks />}
     </>
   );
 }

@@ -11,13 +11,12 @@ export type ControlSection =
   | "users" | "groups" | "invites"
   // Security
   | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
+  | "appsAccess"
   // Maintenance
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   | "videoStreaming"
-  // Apps
-  | "appsInstalled" | "appsAccess" | "appsEvents" | "appsLogs" | "appsSetup"
   // Settings
-  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "about";
+  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "appsSetup" | "videoSettings" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -46,6 +45,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   securityPolicies: "/control/security/policies",
   securityTrusted: "/control/security/trusted-networks",
   securityBlocked: "/control/security/blocked-ips",
+  appsAccess: "/control/security/apps",
 
   tasks: "/control/maintenance/tasks",
   scheduledJobs: "/control/maintenance/scheduled-jobs",
@@ -55,18 +55,14 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   missingPhotos: "/control/maintenance/missing-photos",
   videoStreaming: "/control/maintenance/videos",
 
-  appsInstalled: "/control/apps",
-  appsAccess: "/control/apps/access",
-  appsEvents: "/control/apps/events",
-  appsLogs: "/control/apps/logs",
-  appsSetup: "/control/apps/setup",
-
   appearance: "/control/settings",
   quotes: "/control/settings/quotes",
   mapSetup: "/control/settings/maps",
   storySettings: "/control/settings/stories",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
+  appsSetup: "/control/settings/apps",
+  videoSettings: "/control/settings/video",
   about: "/control/settings/about"
 };
 
@@ -210,13 +206,29 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maps/data": "mapSetup",
   "/control/maps/routing": "mapSetup",
 
-  // The games' status, events and log were one Settings tab (4.33–4.37) before
-  // the containers got a group of their own (docs/apps-platform-plan.md).
-  "/control/settings/games": "appsInstalled",
+  // The games' status, events and log were one Settings tab (4.33–4.37), then the
+  // containers had a group of their own, Apps (4.38–4.44), until its pages went to
+  // the groups whose questions they answer (docs/dashboard-and-backups-plan.md):
+  // status to the Dashboard, events and log to Logs (?app= picks the source),
+  // access to Security, pairing and the video settings to Settings.
+  "/control/settings/games": "dashboard",
+  "/control/apps": "dashboard",
+  "/control/apps/installed": "dashboard",
+  "/control/apps/access": "appsAccess",
+  "/control/apps/events": "logs",
+  "/control/apps/logs": "logs",
+  "/control/apps/setup": "appsSetup",
 
   // Config split into the Settings tabs; its old landing page was Appearance.
   "/control/config": "appearance",
   "/control/about": "about"
+};
+
+// What an old address meant beyond its page: the Apps group's Logs tab was a
+// container's server log, which on Overview › Logs is the "server" view of an
+// app. ControlPanelPage adds these to the query when it tidies the address.
+export const CONTROL_ALIAS_QUERY: Record<string, Record<string, string>> = {
+  "/control/apps/logs": { log: "server" }
 };
 
 // The Dashboard's views became pages when its second tab row went (4.15). A link

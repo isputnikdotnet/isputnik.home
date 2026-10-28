@@ -149,7 +149,7 @@ export const GUIDES = {
     slug: guide("apps.md"),
     icon: Boxes,
     title: "Adding the games and video apps",
-    description: "Installing the games and video containers, pairing them on Apps → Setup, and choosing who may use them and from where.",
+    description: "Installing the games and video containers, pairing them on Settings → Apps, and choosing who may use them and from where.",
     adminOnly: true
   }
 } satisfies Record<string, GuideEntry>;
