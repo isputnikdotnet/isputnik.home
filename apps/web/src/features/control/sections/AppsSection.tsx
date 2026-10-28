@@ -42,7 +42,7 @@ export interface AppStatus {
   variables: { url: string; secret: string; container: string };
   /** Whether the container takes this app's signature; null = not asked or unknown. */
   secretAccepted: boolean | null;
-  server: { ok: boolean; version: string | null; error: string | null } | null;
+  server: { ok: boolean; version: string | null; error: string | null; roundTripMs: number | null } | null;
 }
 
 type EventLevel = "info" | "warn" | "error";
@@ -1264,7 +1264,11 @@ export function AppsLogsSection() {
 // forwards this admin's role; nothing is kept here.
 function AppEvents({ prefix }: { prefix: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
-  const [level, setLevel] = useState<LevelFilter>("all");
+  // The Dashboard links here with ?level=error for a container that logged errors.
+  const [level, setLevel] = useState<LevelFilter>(() => {
+    const wanted = queryParam("level");
+    return wanted === "info" || wanted === "warn" || wanted === "error" ? wanted : "all";
+  });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<EventsPage | null>(null);
   const [error, setError] = useState("");

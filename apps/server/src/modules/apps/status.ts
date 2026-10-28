@@ -14,6 +14,8 @@ export interface ServerProbe {
   ok: boolean;
   version: string | null;
   error: string | null;
+  /** How long the health check took from here, in ms; null when it did not answer. */
+  roundTripMs: number | null;
 }
 
 export interface AppStatus {
@@ -42,13 +44,15 @@ export interface AppStatus {
 
 /** Whether the container answers its health check, and which version it runs. */
 export async function probeServer(app: AppDefinition, upstream: string): Promise<ServerProbe> {
+  const started = performance.now();
   try {
     const response = await fetch(`${upstream}${app.prefix}/api/health`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
-    if (!response.ok) return { ok: false, version: null, error: `HTTP ${response.status}` };
+    const roundTripMs = Math.round(performance.now() - started);
+    if (!response.ok) return { ok: false, version: null, error: `HTTP ${response.status}`, roundTripMs };
     const body = (await response.json().catch(() => ({}))) as { ok?: boolean; version?: string };
-    return { ok: body.ok === true, version: body.version ?? null, error: body.ok === true ? null : "Unexpected answer" };
+    return { ok: body.ok === true, version: body.version ?? null, error: body.ok === true ? null : "Unexpected answer", roundTripMs };
   } catch (err) {
-    return { ok: false, version: null, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, version: null, error: err instanceof Error ? err.message : String(err), roundTripMs: null };
   }
 }
 

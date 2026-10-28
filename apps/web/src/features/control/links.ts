@@ -16,6 +16,11 @@ function withQuery(path: string, params: Record<string, string | undefined>): st
   return suffix ? `${path}?${suffix}` : path;
 }
 
+/** An Apps page opened on one container (`?app=`); Events can also open on one level. */
+export function appPageHref(section: "appsInstalled" | "appsAccess" | "appsEvents" | "appsLogs" | "appsSetup", app: string, level?: "error" | "warn"): string {
+  return withQuery(controlHref(section), { app, level });
+}
+
 /** Maintenance › Tasks, filtered. `library` is a library id, `type` a job type. */
 export function tasksHref(filters: { library?: string; status?: "failed" | "completed"; type?: string } = {}): string {
   return withQuery(controlHref("tasks"), filters);

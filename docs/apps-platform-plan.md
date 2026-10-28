@@ -281,6 +281,13 @@ Metadata and databases only — never media files, never a container's caches.
 - **Restore.** Home's restore ignores `apps/`. Sending a container its database
   back is a later step, from Apps → Installed, because the container may be on
   another version or down.
+- **Decided 2026-10-28: home stores everything, each part restores alone.** Backups
+  stay in home's `BACKUP_PATH` only — a container never keeps a backup store of its
+  own (it would sit on the same appdata it protects, and every container would
+  re-implement list/retention/download). Restore moves to Maintenance › Backups as
+  a per-part choice (Home · each app), with a new `POST <prefix>/api/admin/restore`
+  on the container that keeps the database it replaces as its one undo copy. The
+  full design: `docs/dashboard-and-backups-plan.md`.
 
 ## Logs and events
 
