@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.45.0 — One control panel for Home and its apps
+
+- **The Dashboard shows Home and the apps beside it on one page.** Home sits at the top with its addresses, the gateway under it, and a branch to Games and Video: the line is solid green while an app answers, dashed red when it doesn't, dashed amber when it refuses Home's secret, and each branch says the route, the port and how long the app took to answer. Each app's card has its address, where that address was set, its secret and its version, with buttons to its events, log, access and setup. Before, the Dashboard described Home alone and the apps were four clicks away.
+- **What needs a look is listed at the top of the Dashboard.** An app not answering or refusing the secret, a disk running low, no backup for a week, tasks that failed today, errors an app recorded today, a run of failed sign-ins — each a line that opens the page to deal with it. With nothing wrong it is one green line.
+- **Every disk Home's files sit on gets its own bar.** The Dashboard used to measure only the disk the database is on — on Unraid that is the app data pool, not where the photos and books are. Now each disk shows its free space and what is on it: which libraries, the thumbnails, the backups, the recycle bin. The help line says what Home can and cannot see from inside its container.
+- **The Apps group is gone from the control panel; its pages moved to where you would look for them.** An app's events and server log are on **Overview → Logs** with a new **Source** picker beside Home's own log; who may use an app is **Security → App access**; pairing is **Settings → Apps**; the video engine's conversion and poster settings are **Settings → Video**; the games' guest links are on **Members → Invites**. The old addresses still work and open the new page already filtered, so bookmarks and links keep landing in the right place.
+- **Activity counts films watched and matches played.** Two more series sit beside Played, Read and Viewed: **Watched**, a film or an episode started (once per person and title every few hours, however often the player reloads), and **Matches**, a game started.
+- **Library statistics include Video.** A Video card with the titles, episodes and size of every video library, and the video libraries in the table with the rest; while the video app is not answering the card says so instead of showing zeros.
+
 ## 4.44.0 — Editing a video library
 
 - **A video library can be edited from its row on Library → Libraries.** Rename it, change its owner and who can see it, point it at another folder on the video app, or change the language its descriptions are fetched from TMDB in (which fetches them all again in that language). Before, a video library had no Edit button: its name, access and folder were fixed once it was made. What it holds, shows or films, still stays as it was made.
