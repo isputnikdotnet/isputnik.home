@@ -134,7 +134,7 @@ The Stremio add-on protocol; all JSON with `Access-Control-Allow-Origin: *`.
 | `manifest.json` | id, name, version, `resources` (catalog, meta, stream, subtitles), `types` (`movie`, `series`), `idPrefixes`, catalogs, logo from home's brand |
 | `catalog/movie/isp-movies[/<extra>].json` | films in the member's libraries; extras `search`, `genre`, `skip` (any offset — the TV sends 1, 3, 4…), 100 a page |
 | `catalog/series/isp-shows[/<extra>].json` | shows, same extras |
-| `catalog/<type>/isp-continue.json` | **Continue watching from iSputnik's own progress** — what was started in the browser shows up on the TV |
+| `catalog/<type>/isp-continue.json` | one per type: **Continue watching from iSputnik's own progress** — what was started in the browser shows up on the TV |
 | `meta/<type>/<id>.json` | title, poster, background, description, year, genres; for a series `videos[]` with season, episode, title, still, released |
 | `stream/<type>/<id>.json` | the original file (`url`, `behaviorHints.filename`, `videoSize`, `notWebReady` for non-MP4, `bingeGroup` per show for next-episode) |
 | `subtitles/<type>/<id>[/<extra>].json` | sidecars (and text tracks the player would not show) as WebVTT URLs; `lang` as ISO 639-2 (`eng`, `rus`) — what Stremio's menu names; the `filename`/`videoSize`/`videoHash` extras are ignored |
@@ -209,7 +209,7 @@ defaults. Open question 3.
 |---|---|---|
 | **S0** | spike | **done 2026-10-29** — see *What the spike showed* |
 | **S1** | home | **built 2026-10-29**: `core/server-id.ts`; `video-stremio` scope; `devices` capability (Home network only); the gateway's `userFromToken` hook (`modules/library/video/stremio.ts`) with the site headers; Profile › Security › Stremio; Stremio links on Security › App access; the token masked in home's log, the proxy's line included; `test/video-stremio.test.ts` |
-| **S2** | engine | **built 2026-10-29**. Left out of the first cut: the `genre` extra (Stremio needs the list of genres up front), and Continue watching is a `movie` row holding shows too. The engine's own log masks `/video/stremio/<token>` like home's; `stremio.ts`: manifest with a catalog per library, catalogs with search/genre/any `skip`, meta, the original stream plus Converted for formats TVs refuse, subtitles, the token-prefixed play/art/subs; tests against the protocol's shapes |
+| **S2** | engine | **built 2026-10-29**. Released in engine 0.9.0 + home 4.46.0. Since: each library catalog offers its genres as a `genre` filter (the card's genres: the scan's, else TMDB's), and Continue watching is one row per kind the member has (`movie` films, `series` shows). The engine's own log masks `/video/stremio/<token>` like home's; `stremio.ts`: manifest with a catalog per library, catalogs with search/genre/any `skip`, meta, the original stream plus Converted for formats TVs refuse, subtitles, the token-prefixed play/art/subs; tests against the protocol's shapes |
 | **S3** | both | `isp-continue`; user guide `docs/users/stremio.md` (listed on the Help page — `check:ui`) with removing Cinemeta and the network-rule note, screenshots; release engine + home together |
 | later | | Clean this Stremio account |
 
