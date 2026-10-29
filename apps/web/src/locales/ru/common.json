@@ -381,7 +381,8 @@
       "security": "Безопасность",
       "shares": "Ссылки",
       "appearance": "Оформление",
-      "readerAccess": "Доступ для читалок"
+      "readerAccess": "Доступ для читалок",
+      "stremio": "Stremio"
     },
     "account": {
       "displayName": "Отображаемое имя",

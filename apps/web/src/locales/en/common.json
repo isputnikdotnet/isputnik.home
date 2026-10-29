@@ -355,7 +355,8 @@
       "security": "Security",
       "shares": "Shared links",
       "appearance": "Appearance",
-      "readerAccess": "Reader access"
+      "readerAccess": "Reader access",
+      "stremio": "Stremio"
     },
     "account": {
       "displayName": "Display name",

@@ -80,6 +80,12 @@ export function signInHref(path: string): string {
 
 /** What one container adds to the shared gateway. */
 export interface GatewayHooks {
+  /** Asked first, for a client that cannot carry the session cookie (a TV app):
+   *  the member a token in the request names, who then goes through the same
+   *  access and network checks as a session ("token" in X-Isputnik-Via).
+   *  "answered" means the hook replied itself (a bad token); null means the
+   *  request is not one of the token routes, and goes on as usual. */
+  userFromToken?: (request: FastifyRequest, reply: FastifyReply) => User | "answered" | null;
   /** Asked before the session check, for someone with no session. "admit" lets
    *  the request through without one (identityFor then says who it is),
    *  "answered" means the hook replied itself, "authenticate" goes on as usual. */
@@ -98,7 +104,7 @@ export interface GatewayHooks {
 export interface AccessVerdict {
   /** The person's role in this container; null for someone a hook admitted (a guest). */
   role: AppRole | null;
-  via: "session" | "guest";
+  via: "session" | "token" | "guest";
   network: NetworkClass;
 }
 
@@ -165,8 +171,8 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
      *  no role gets 404 — the container is not there for them, as when its
      *  section is off — and a refused network a 403 that says why. */
     const authorize = (request: FastifyRequest, reply: FastifyReply, via: AccessVerdict["via"]): boolean => {
-      const role = via === "session" ? appRole(definition.id, request.user!) : null;
-      if (via === "session" && !role) {
+      const role = via === "guest" ? null : appRole(definition.id, request.user!);
+      if (via !== "guest" && !role) {
         void reply.code(404).send({ error: "Not found" });
         return false;
       }
@@ -196,6 +202,13 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
         // Answered from the hook: no done() after a send (Fastify stops here).
         if (options.available && !options.available()) {
           void reply.code(404).send({ error: "Not found" });
+          return;
+        }
+        const tokenUser = hooks.userFromToken?.(request, reply) ?? null;
+        if (tokenUser === "answered") return;
+        if (tokenUser) {
+          request.user = tokenUser;
+          if (authorize(request, reply, "token")) done();
           return;
         }
         const decision = hooks.admitWithoutSession?.(request, reply) ?? "authenticate";

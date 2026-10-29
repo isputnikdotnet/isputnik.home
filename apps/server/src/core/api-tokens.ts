@@ -15,7 +15,9 @@ import { parseBody } from "./shared.js";
 const TOKEN_PREFIX = "isp_";
 const tokenBody = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 32);
 
-export type ApiTokenScope = "opds";
+// "opds": reading apps. "video-stremio": a member's Stremio add-on link
+// (modules/library/video/stremio.ts, docs/stremio-plan.md).
+export type ApiTokenScope = "opds" | "video-stremio";
 
 export interface ApiTokenRow {
   id: string;
@@ -87,7 +89,37 @@ export function listApiTokens(userId: string, scope?: ApiTokenScope): ApiTokenRo
   return (scope ? db.prepare(sql).all(userId, scope) : db.prepare(sql).all(userId)) as ApiTokenRow[];
 }
 
-export function revokeApiToken(userId: string, id: string): boolean {
+export interface ApiTokenOwnerRow extends ApiTokenRow {
+  user_id: string;
+  user_name: string;
+}
+
+// Everyone's live tokens of one scope, with their owner — for an administrator
+// revoking a lost device's link. Never the secret.
+export function listAllApiTokens(scope: ApiTokenScope): ApiTokenOwnerRow[] {
+  return db.prepare(`
+    SELECT api_tokens.id, label, scope, api_tokens.created_at, last_seen_at, last_ip, expires_at,
+           users.id AS user_id, users.display_name AS user_name
+    FROM api_tokens
+    JOIN users ON users.id = api_tokens.user_id
+    WHERE api_tokens.scope = ? AND api_tokens.revoked_at IS NULL AND users.deleted_at IS NULL
+    ORDER BY users.display_name COLLATE NOCASE, api_tokens.created_at DESC
+  `).all(scope) as ApiTokenOwnerRow[];
+}
+
+// An administrator's revoke: any owner's token of the scope. Returns the owner, or null.
+export function revokeAnyApiToken(id: string, scope: ApiTokenScope): string | null {
+  const row = db.prepare("SELECT user_id FROM api_tokens WHERE id = ? AND scope = ? AND revoked_at IS NULL").get(id, scope) as { user_id: string } | undefined;
+  if (!row) return null;
+  db.prepare("UPDATE api_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
+  return row.user_id;
+}
+
+export function revokeApiToken(userId: string, id: string, scope?: ApiTokenScope): boolean {
+  if (scope) {
+    const owned = db.prepare("SELECT 1 FROM api_tokens WHERE id = ? AND user_id = ? AND scope = ? AND revoked_at IS NULL").get(id, userId, scope);
+    if (!owned) return false;
+  }
   const row = db.prepare("SELECT id FROM api_tokens WHERE id = ? AND user_id = ? AND revoked_at IS NULL").get(id, userId);
   if (!row) return false;
   db.prepare("UPDATE api_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Check, Copy, KeyRound, Link2Off, Save, ShieldCheck } from "lucide-react";
+import { Check, Copy, KeyRound, Link2Off, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { queryParam, replaceQuery } from "../../../router";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
@@ -582,6 +582,7 @@ function useCapabilityWords() {
     if (app === "games" && capability === "manage") return { name: t("controlAdmin:apps.access.capGamesManage"), means: t("controlAdmin:apps.access.capGamesManageMeans") };
     if (app === "video" && capability === "browse") return { name: t("controlAdmin:apps.access.capVideoBrowse"), means: t("controlAdmin:apps.access.capVideoBrowseMeans") };
     if (app === "video" && capability === "watch") return { name: t("controlAdmin:apps.access.capVideoWatch"), means: t("controlAdmin:apps.access.capVideoWatchMeans") };
+    if (app === "video" && capability === "devices") return { name: t("controlAdmin:apps.access.capVideoDevices"), means: t("controlAdmin:apps.access.capVideoDevicesMeans") };
     if (app === "video" && capability === "manage") return { name: t("controlAdmin:apps.access.capVideoManage"), means: t("controlAdmin:apps.access.capVideoManageMeans") };
     return { name: capability, means: "" };
   };
@@ -754,9 +755,118 @@ export function AppsAccessSection() {
             </div>
             <p className="muted">{t("controlAdmin:apps.access.ruleHint")}</p>
           </section>
+
+          {current.id === "video" && <StremioLinksBlock />}
         </>
       )}
     </>
+  );
+}
+
+/** GET /api/apps/admin/video/stremio-links (modules/library/video/stremio.ts). */
+interface MemberStremioLink {
+  id: string;
+  label: string | null;
+  createdAt: string;
+  lastSeen: string | null;
+  userId: string;
+  userName: string;
+}
+
+// Every member's Stremio links, for revoking one when a device is lost or given
+// away (docs/stremio-plan.md). Members make and revoke their own in Profile.
+function StremioLinksBlock() {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const [links, setLinks] = useState<MemberStremioLink[] | null>(null);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState<MemberStremioLink | null>(null);
+  const [revoking, setRevoking] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setLinks((await api<{ links: MemberStremioLink[] }>("/api/apps/admin/video/stremio-links")).links);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:stremio.loadFailed"));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const nameOf = (link: MemberStremioLink) => link.label || t("controlAdmin:stremio.defaultLabel");
+
+  const revoke = async () => {
+    if (!pending) return;
+    setRevoking(true);
+    try {
+      await api(`/api/apps/admin/video/stremio-links/${pending.id}`, { method: "DELETE" });
+      setPending(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:stremio.revokeFailed"));
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  return (
+    <section className="config-block" id="app-access-stremio">
+      <h2>{t("controlAdmin:stremio.adminTitle")}</h2>
+      <p className="muted">{t("controlAdmin:stremio.adminIntro")}</p>
+      {error && <MessageBox tone="error" title={t("controlAdmin:stremio.loadFailed")}>{error}</MessageBox>}
+      {links && links.length === 0 && <p className="muted">{t("controlAdmin:stremio.adminEmpty")}</p>}
+      {links && links.length > 0 && (
+        <div className="datagrid-wrap">
+          <table className="datagrid">
+            <thead>
+              <tr>
+                <th>{t("controlAdmin:stremio.colMember")}</th>
+                <th>{t("controlAdmin:stremio.colDevice")}</th>
+                <th>{t("controlAdmin:stremio.colAdded")}</th>
+                <th>{t("controlAdmin:stremio.colLastUsed")}</th>
+                <th aria-label={t("controlAdmin:stremio.revoke")} />
+              </tr>
+            </thead>
+            <tbody>
+              {links.map((link) => (
+                <tr key={link.id}>
+                  <td>{link.userName}</td>
+                  <td>{nameOf(link)}</td>
+                  <td>{formatManagedDate(link.createdAt)}</td>
+                  <td>{link.lastSeen ? formatManagedDate(link.lastSeen) : t("controlAdmin:stremio.never")}</td>
+                  <td>
+                    <Button
+                      variant="icon"
+                      danger
+                      title={t("controlAdmin:stremio.revoke")}
+                      aria-label={t("controlAdmin:stremio.revokeMemberAria", { name: link.userName, label: nameOf(link) })}
+                      onClick={() => setPending(link)}
+                    >
+                      <Trash2 size={18} />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {pending && (
+        <ConfirmDialog
+          title={t("controlAdmin:stremio.adminConfirmTitle", { name: pending.userName, label: nameOf(pending) })}
+          confirmLabel={t("controlAdmin:stremio.revoke")}
+          busyLabel={t("controlAdmin:stremio.revoking")}
+          danger
+          busy={revoking}
+          onConfirm={revoke}
+          onCancel={() => setPending(null)}
+        >
+          {t("controlAdmin:stremio.adminConfirmBody", { name: pending.userName })}
+        </ConfirmDialog>
+      )}
+    </section>
   );
 }
 

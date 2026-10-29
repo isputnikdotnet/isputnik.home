@@ -21,7 +21,8 @@ import { createFamilyCitation, createFamilySource, listFamilySources, listPerson
 import { attachFamilyEventPhotos, attachFamilyPhotos, attachedFamilyPhotoIds } from "../src/modules/familytree/photos.js";
 import { setUploadedPortraitFile } from "../src/modules/familytree/portraits.js";
 import { getFamilyTreeSettings, setFamilyTreeSettings } from "../src/modules/familytree/settings.js";
-import { buildPackage, getServerId, writePackage } from "../src/modules/familytree/package/export.js";
+import { buildPackage, writePackage } from "../src/modules/familytree/package/export.js";
+import { getServerId } from "../src/core/server-id.js";
 import { readPackage, sweepPendingImports } from "../src/modules/familytree/package/pending.js";
 import { planImport, type ImportDecisions } from "../src/modules/familytree/package/import-plan.js";
 import { applyImportPlan } from "../src/modules/familytree/package/import-apply.js";

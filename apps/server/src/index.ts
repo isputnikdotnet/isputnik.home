@@ -53,6 +53,10 @@ const app = fastify({
     // "warn" drops the per-request lines, which on a busy install are most of the
     // log (every audio range request is one).
     level: process.env.LOG_LEVEL?.trim() || "info",
+    // The gateway's proxy writes its own line with the path it forwards
+    // ("fetching from remote server", { source }), which for a Stremio link has
+    // the token in it — masked the same way as the request line.
+    redact: { paths: ["source"], censor: (value: unknown) => (typeof value === "string" ? maskLogUrl(value) : value) },
     serializers: {
       // Mirror Fastify's default request log, but mask every path-segment token
       // (OPDS feed, guest share, invite) so the token-in-URL convenience never

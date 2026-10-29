@@ -330,6 +330,7 @@ export const PROFILE_ANCHORS = {
   language: { tab: "account", id: "language" },
   ereader: { tab: "account", id: "send-to-ereader" },
   readerAccess: { tab: "security", id: "reader-access" },
+  stremio: { tab: "security", id: "stremio" },
   devices: { tab: "security", id: "linked-devices" }
 } as const satisfies Record<string, { tab: ProfileTab; id: string }>;
 export type ProfileAnchor = keyof typeof PROFILE_ANCHORS;

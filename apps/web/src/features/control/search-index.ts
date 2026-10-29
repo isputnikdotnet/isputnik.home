@@ -109,8 +109,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "route roads openrouteservice api key directions " +
     "геолокация база расположений страны города входы загрузить удалить маршрут дороги ключ прокладка " +
     "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
-  appsAccess: "apps containers access who may use members managers deny everyone groups network rules trusted home network anywhere outside internet lan restrict games " +
-    "приложения контейнеры доступ кто может участники менеджеры запретить все группы сеть правила доверенные домашняя сеть откуда снаружи интернет ограничить игры",
+  appsAccess: "apps containers access who may use members managers deny everyone groups network rules trusted home network anywhere outside internet lan restrict games stremio devices tv links revoke " +
+    "приложения контейнеры доступ кто может участники менеджеры запретить все группы сеть правила доверенные домашняя сеть откуда снаружи интернет ограничить игры стремио устройства телевизор ссылки отозвать",
   appsSetup: "apps containers setup pair pairing secret gateway secret generate rotate replace forget template unraid connect test connection games " +
     "приложения контейнеры настройка связать связка секрет шлюз создать заменить забыть шаблон подключить проверить соединение игры",
   videoSettings: "video engine settings films movies series transcode transcoding remux convert memory viewers tmdb themoviedb posters metadata api key " +
@@ -280,6 +280,14 @@ export function getControlSearchEntries(): ControlSearchEntry[] {
       href: profileAnchorHref("readerAccess"),
       keywords: "opds catalog token koreader thorium moon+ reader ereader e-reader basic auth device create qr " +
         "каталог токен читалка электронная книга устройство создать"
+    },
+    {
+      id: "profile:stremio",
+      title: i18n.t("profile.tabs.stremio"),
+      breadcrumb: i18n.t("nav.profile"),
+      href: profileAnchorHref("stremio"),
+      keywords: "stremio video tv fire tv android tv add-on addon link token device films shows install qr " +
+        "стремио видео телевизор приставка дополнение ссылка токен устройство фильмы сериалы установить"
     }
   ];
 }

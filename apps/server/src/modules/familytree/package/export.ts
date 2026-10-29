@@ -5,10 +5,10 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Writable } from "node:stream";
-import { nanoid } from "nanoid";
 import { ZipArchive } from "archiver";
 import { db } from "../../../db.js";
 import { config } from "../../../config.js";
+import { getServerId } from "../../../core/server-id.js";
 import { FAMILY_PERSON_ENTITY_TYPE } from "../access.js";
 import { exportGedcom } from "../gedcom.js";
 import { getFamilyTreeSettings } from "../settings.js";
@@ -24,18 +24,6 @@ import type {
   FamilyTreeChildRow, FamilyTreeCitationRow, FamilyTreeEventPhotoRow, FamilyTreeEventRow, FamilyTreePersonNameRow,
   FamilyTreePersonRow, FamilyTreePhotoRow, FamilyTreeSourceRow, FamilyTreeUnionRow, GalleryDetailRow, LibraryRow
 } from "../../../db/rows.js";
-
-const SERVER_ID_KEY = "server_id";
-
-/** This install's random id, made the first time it is asked for. It names this
- *  server as the origin of the records in a package it exports. */
-export function getServerId(): string {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SERVER_ID_KEY) as { value: string } | undefined;
-  if (row?.value) return row.value;
-  const id = nanoid(16);
-  db.prepare("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)").run(SERVER_ID_KEY, id);
-  return (db.prepare("SELECT value FROM app_settings WHERE key = ?").get(SERVER_ID_KEY) as { value: string }).value;
-}
 
 const pin = (lat: number | null, lng: number | null) => (lat != null && lng != null ? { lat, lng } : null);
 

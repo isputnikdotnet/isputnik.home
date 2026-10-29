@@ -12,6 +12,8 @@ const TOKEN_IN_PATH: RegExp[] = [
   /(\/opds\/)isp_[^/?]+/g,
   /(\/api\/share\/)[^/?]+/g,
   /(\/api\/invites\/)[^/?]+/g,
+  // A member's Stremio add-on link (modules/library/video/stremio.ts).
+  /(\/video\/stremio\/)[^/?]+/g,
   // The browser-facing SPA routes that carry the same tokens — the MOST logged
   // occurrence, since every guest page load and every invite click hits them (the
   // SPA fallback serves index.html and the request is logged). Anchored to the

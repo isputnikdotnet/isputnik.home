@@ -88,6 +88,10 @@ export const APPS: readonly AppDefinition[] = [
     capabilities: [
       // Libraries, scans, the folder picker, events, log, backup.
       { id: "manage", paths: ["/video/api/admin/"], defaultRule: "anywhere" },
+      // Stremio on a TV, with a member's link instead of a session
+      // (modules/library/video/stremio.ts). The house by default: the spike found
+      // the TV's requests arrive from the LAN where the domain resolves there.
+      { id: "devices", paths: ["/video/stremio/"], defaultRule: "home" },
       // Playing (V2): the stream, its segments and its subtitles.
       { id: "watch", paths: ["/video/api/stream/", "/video/api/hls/", "/video/api/subtitles/"], defaultRule: "anywhere" },
       // Everything else: browsing shows and movies.

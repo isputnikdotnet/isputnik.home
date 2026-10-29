@@ -404,8 +404,9 @@ responses. Measured in V2 before anything else is considered.
 - **Stremio add-on** — manifest, catalog, meta, stream and subtitle routes under
   `/video/stremio/<token>/`; ids `isputnik:<id>`, never IMDb ids, so Stremio's
   Cinemeta is not told what the family watches; art from this server; `devices`
-  at Home network only by default. The TV plays the original file itself, no
-  transcode. Stremio keeps its own progress — the protocol never reports back.
+  at Home network only by default. The TV plays the original file itself, with a
+  Converted stream for formats TVs refuse. Stremio keeps its own progress — the
+  protocol never reports back. Worked out in `docs/stremio-plan.md`.
 - **Kodi / WebDAV** — a read-only view of the libraries with their `.nfo` files and
   posters, Basic auth with a `video-webdav` token.
 - **Hardware transcoding** — Intel Quick Sync or NVIDIA passed into the container.

@@ -20,6 +20,7 @@ import { PasskeysSection } from "../features/profile/PasskeysSection";
 import { SharedLinksSection } from "../features/profile/SharedLinksSection";
 import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
 import { ReaderAccessSection } from "../features/profile/ReaderAccessSection";
+import { StremioSection } from "../features/profile/StremioSection";
 import { useSession } from "../app/SessionContext";
 // The install card's stylesheet (Profile is the only page that shows it): loads with this page, not on every route (docs/css-map.md).
 import "../styles/install.css";
@@ -290,6 +291,9 @@ export function ProfilePage({
 
             {/* Mounted only when open: it fetches the person's tokens on arrival. */}
             {activeTab === "security" && <ReaderAccessSection />}
+
+            {/* Likewise: it asks whether Video is there for this person. */}
+            {activeTab === "security" && <StremioSection />}
           </div>
 
           <div
