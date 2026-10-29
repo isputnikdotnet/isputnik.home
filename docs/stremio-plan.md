@@ -4,7 +4,8 @@ Phase **3** (home) and **V3** (engine) of `docs/apps-platform-plan.md`, worked o
 Background: `docs/video-architecture.md`.
 
 Status: 2026-10-29. S0 spike done (*What the spike showed*); S1 (home) built the
-same day, uncommitted at the time; S2 (engine) not started.
+same day (home f7d72c1d); S2 (engine, `src/stremio.ts`) built the same day, uncommitted
+at the time — live-checked through home's gateway, the Converted stream included.
 
 ## In one sentence
 
@@ -51,6 +52,24 @@ Fire TV (AFTKRT, Android 11) through a temporary Nginx Proxy Manager host.
   must read well with that suffix (the library's name, not "Movies").
 - **Cinemeta can stay for now.** Our rows, meta and streams work with it installed;
   removing it only tidies the account and is tested with the guide in S3.
+
+## What the PC test of S1 + S2 showed (2026-10-29)
+
+Stremio desktop against home + engine, all three fixed in home (`stremio.ts`,
+`modules/apps/gateway.ts`):
+
+- **Posters were refused**: home's `Cross-Origin-Resource-Policy: same-origin`.
+  Stremio responses now say `cross-origin`.
+- **MKVs never started, seeks failed**: home's CORS answered with its own origin
+  and credentials, replacing the engine's `*`. Stremio responses now carry
+  `Access-Control-Allow-Origin: *`, no credentials, no cookie.
+- **Random seeks got a bare 400** — the real cause of "plays but won't seek": the
+  gateway's proxy copied the engine's `Connection: keep-alive` onto home's answer
+  to a player that had asked for `Connection: close`; the next request on that
+  socket was refused. The gateway now drops hop-by-hop headers for every
+  container (`stripHopByHopHeaders`) — the browser player benefits too.
+- Stremio remembers the last stream per title and resumes with it: a test after
+  a fix must pick the stream again and start from the beginning.
 
 ## Picture
 
@@ -190,7 +209,7 @@ defaults. Open question 3.
 |---|---|---|
 | **S0** | spike | **done 2026-10-29** — see *What the spike showed* |
 | **S1** | home | **built 2026-10-29**: `core/server-id.ts`; `video-stremio` scope; `devices` capability (Home network only); the gateway's `userFromToken` hook (`modules/library/video/stremio.ts`) with the site headers; Profile › Security › Stremio; Stremio links on Security › App access; the token masked in home's log, the proxy's line included; `test/video-stremio.test.ts` |
-| **S2** | engine | the engine's own log masks `/video/stremio/<token>` like home's; `stremio.ts`: manifest with a catalog per library, catalogs with search/genre/any `skip`, meta, the original stream plus Converted for formats TVs refuse, subtitles, the token-prefixed play/art/subs; tests against the protocol's shapes |
+| **S2** | engine | **built 2026-10-29**. Left out of the first cut: the `genre` extra (Stremio needs the list of genres up front), and Continue watching is a `movie` row holding shows too. The engine's own log masks `/video/stremio/<token>` like home's; `stremio.ts`: manifest with a catalog per library, catalogs with search/genre/any `skip`, meta, the original stream plus Converted for formats TVs refuse, subtitles, the token-prefixed play/art/subs; tests against the protocol's shapes |
 | **S3** | both | `isp-continue`; user guide `docs/users/stremio.md` (listed on the Help page — `check:ui`) with removing Cinemeta and the network-rule note, screenshots; release engine + home together |
 | later | | Clean this Stremio account |
 

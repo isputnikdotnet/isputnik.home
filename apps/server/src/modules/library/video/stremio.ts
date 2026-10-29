@@ -92,6 +92,20 @@ const createSchema = z.object({ label: z.string().trim().max(60).optional() });
 /** Profile → Security › Stremio (the person's own links), and the administrator's
  *  list on Security › App access for revoking a lost device's link. */
 export function registerStremioRoutes(app: FastifyInstance, enabled: (user: User) => boolean) {
+  // Stremio is another origin. Home's own Cross-Origin-Resource-Policy
+  // (same-origin) would have it refuse every poster, and home's CORS (its own
+  // origin, with credentials) would have its player refuse every seek and
+  // subtitle — an MP4 started, an MKV never did. The link's token is the
+  // protection here, not the origin, and no cookie is needed.
+  app.addHook("onSend", async (request, reply, payload) => {
+    if (stremioTokenFromPath(request.url) === null) return payload;
+    reply.header("cross-origin-resource-policy", "cross-origin");
+    reply.header("access-control-allow-origin", "*");
+    reply.removeHeader("access-control-allow-credentials");
+    reply.removeHeader("set-cookie");
+    return payload;
+  });
+
   app.get("/api/account/stremio", { preHandler: app.authenticate }, async (request) => ({
     enabled: enabled(request.user!),
     links: listApiTokens(request.user!.id, SCOPE).map(serializeLink)

@@ -61,6 +61,21 @@ export function stripIdentityHeaders<T extends Record<string, unknown>>(headers:
   return out;
 }
 
+/** The container's answer without the headers that describe ITS connection to
+ *  this server (RFC 9110 §7.6.1). The proxy copies them through on HTTP/1: a
+ *  player that asked for "Connection: close" was told "keep-alive", and the next
+ *  request on that socket got a bare 400 — Stremio's seeks, one in three. This
+ *  server says for itself how its own connection behaves. */
+export function stripHopByHopHeaders<T extends Record<string, unknown>>(headers: T): T {
+  const named = String(headers.connection ?? "").toLowerCase().split(",").map((name) => name.trim()).filter(Boolean);
+  const drop = new Set(["connection", "keep-alive", "proxy-connection", "upgrade", ...named]);
+  const out = {} as T;
+  for (const key of Object.keys(headers) as (keyof T)[]) {
+    if (!drop.has(String(key).toLowerCase())) out[key] = headers[key];
+  }
+  return out;
+}
+
 /** A browser opening one of the container's PAGES (a bookmark, the installed
  *  app's icon) rather than its front end calling the API. The API keeps the 401
  *  so the front end can say "signed out"; a page gets the sign-in screen. */
@@ -237,7 +252,8 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
           const extra = Object.fromEntries(Object.entries(hooks.extraHeaders?.(request) ?? {})
             .filter(([name]) => name.toLowerCase().startsWith(IDENTITY_PREFIX)));
           return { ...stripIdentityHeaders(headers as IncomingHttpHeaders), ...identity, ...(verdict ? verdictHeaders(verdict) : {}), ...extra };
-        }
+        },
+        rewriteHeaders: (headers) => stripHopByHopHeaders(headers)
       }
     });
   });

@@ -8,6 +8,7 @@ import { db } from "../src/db.js";
 import { createApiToken } from "../src/core/api-tokens.js";
 import { maskLogUrl } from "../src/core/log-redaction.js";
 import { getServerId } from "../src/core/server-id.js";
+import { stripHopByHopHeaders } from "../src/modules/apps/gateway.js";
 import { videoPlugin } from "../src/modules/library/video/index.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
@@ -79,6 +80,11 @@ describe("a member's Stremio link", () => {
 
     const res = await fromTv(`/video/stremio/${raw}/manifest.json`);
     expect(res.statusCode).toBe(200);
+    // Stremio is another origin: posters must be allowed to load there.
+    expect(res.headers["cross-origin-resource-policy"]).toBe("cross-origin");
+    // …and its player must be allowed to read the stream and seek in it.
+    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-credentials"]).toBeUndefined();
     const { url, headers } = res.json() as { url: string; headers: Record<string, string> };
     expect(url).toBe(`/video/stremio/${raw}/manifest.json`);
     const mum = db.prepare("SELECT id FROM users WHERE email LIKE 'mum%'").get() as { id: string };
@@ -134,6 +140,14 @@ describe("a member's Stremio link", () => {
   it("cannot take back someone else's link", async () => {
     const { id } = await mumsLink();
     expect((await as("admin", "DELETE", `/api/account/stremio/${id}`)).statusCode).toBe(404);
+  });
+
+  it("never passes on the engine's own connection headers", () => {
+    // Copied through, a player that asked to close was told keep-alive, and its
+    // next request on that socket got a bare 400 (every third Stremio seek).
+    expect(stripHopByHopHeaders({
+      connection: "keep-alive, x-hop", "keep-alive": "timeout=72", "x-hop": "1", "content-type": "video/x-matroska", "content-range": "bytes 0-9/10"
+    })).toEqual({ "content-type": "video/x-matroska", "content-range": "bytes 0-9/10" });
   });
 
   it("never lands in a log", () => {
