@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.46.1",
+    "label": "Stremio links on the address you made them on",
+    "changes": [
+      "**A Stremio link now uses the address it was made on.** Every poster, film and subtitle a link sends Stremio to used to be built on the server's main address, so on a server reached by two names — one at home, one through Cloudflare — a link made at home still sent Stremio out through Cloudflare, where the home-network rule refused it: the rows appeared, but no posters and nothing played. Open iSputnik on the address the TV should use and create the link there; the dialog names the address, and Profile and **Security → App access** list each link with it. Links made before this keep the main address — create a new one if yours shows no posters.",
+      "**The Stremio guide covers two addresses.** Why a name behind Cloudflare is refused at home, and why streaming video through Cloudflare's free proxy is best avoided."
+    ]
+  },
+  {
     "version": "4.46.0",
     "label": "Watch in Stremio",
     "changes": [

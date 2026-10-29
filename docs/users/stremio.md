@@ -24,6 +24,13 @@ can open in iSputnik — nothing more — and a link can be revoked at any time.
 The link works like a password for your videos: anyone who has it sees what you
 see. Don't share it — make one per device instead.
 
+**The link uses the address you made it on.** Everything Stremio fetches through
+it — posters, films, subtitles — goes to the address you had open in iSputnik
+when you chose Create link, and the dialog names it. If your server has two
+addresses (say, one for home and one for outside), open iSputnik on the one the
+TV should use and create the link there. Profile lists each link with its
+address.
+
 ## Installing it in Stremio
 
 In Stremio, open **Add-ons**, paste the link into the **Search or paste link**
@@ -94,8 +101,13 @@ An administrator can revoke anyone's link — for a lost or given-away device �
 
 - **Stremio needs HTTPS.** It refuses an add-on on a plain `http://` address on
   your network, so a link only works where iSputnik is reached over HTTPS — see
-  [Exposing your library to the internet](exposing-to-the-internet.md). The links
-  are built from the server's `APP_URL`.
+  [Exposing your library to the internet](exposing-to-the-internet.md). Each link
+  is built on the address it was created on (links made before 4.46.1 use
+  `APP_URL`).
+- **Two addresses, one behind Cloudflare?** A name proxied by Cloudflare reaches
+  the server from the internet even inside the house, so *Home network only*
+  refuses it — and Cloudflare's terms don't cover streaming video through its
+  free proxy. Make Stremio links on the name that resolves to the server at home.
 - **Where links work from** is the **Stremio** rule on **Security → App access →
   From where**, *Home network only* to start with. That works when your domain
   resolves to the server's own address inside the house (a local DNS entry on the

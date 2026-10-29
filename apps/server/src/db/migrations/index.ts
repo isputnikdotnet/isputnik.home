@@ -63,6 +63,7 @@ import * as m081 from "./081-gallery-faststart.js";
 import * as m082 from "./082-family-portrait-crops.js";
 import * as m083 from "./083-family-tree-living.js";
 import * as m084 from "./084-back-sides.js";
+import * as m085 from "./085-api-token-origin.js";
 
 export interface Migration {
   readonly version: number;
@@ -75,5 +76,5 @@ export const migrations: readonly Migration[] = [
   m053, m054, m055, m056, m057, m058, m059, m060, m061, m062,
   m063, m064, m065, m066, m067, m068, m069, m070, m071, m072,
   m073, m074, m075, m076, m077, m078, m079, m080,
-  m081, m082, m083, m084
+  m081, m082, m083, m084, m085
 ];

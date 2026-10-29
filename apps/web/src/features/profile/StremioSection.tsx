@@ -16,6 +16,8 @@ interface StremioLink {
   label: string | null;
   createdAt: string;
   lastSeen: string | null;
+  /** The address the link was made on, which Stremio is sent to. */
+  address: string;
 }
 
 /** The one-time answer when a link is made: the token is inside both addresses. */
@@ -151,6 +153,7 @@ export function StremioSection() {
                 <span className="opds-intro">
                   {t("controlAdmin:stremio.added", { date: formatDate(link.createdAt) })}
                   {link.lastSeen ? t("controlAdmin:stremio.lastUsed", { date: formatDate(link.lastSeen) }) : t("controlAdmin:stremio.neverUsed")}
+                  {link.address && ` · ${link.address}`}
                 </span>
               </div>
               <Button
@@ -211,6 +214,7 @@ export function StremioSection() {
           ) : (
             <>
               <p className="opds-intro">{t("controlAdmin:stremio.deviceIntro")}</p>
+              <p className="opds-intro">{t("controlAdmin:stremio.addressIntro", { address: window.location.host })}</p>
               <Field label={t("controlAdmin:stremio.deviceName")} value={label} onChange={setLabel} placeholder={t("controlAdmin:stremio.deviceNamePlaceholder")} required={false} />
               {createError && <MessageBox tone="error" title={t("controlAdmin:stremio.createFailed")}>{createError}</MessageBox>}
               <div className="modal-actions">

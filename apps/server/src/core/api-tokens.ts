@@ -27,6 +27,8 @@ export interface ApiTokenRow {
   last_seen_at: string | null;
   last_ip: string | null;
   expires_at: string | null;
+  /** Stremio links: the address the link was made on; null = APP_URL. */
+  origin: string | null;
 }
 
 export function generateApiToken(scope: ApiTokenScope = "opds"): { raw: string; hash: string } {
@@ -36,13 +38,20 @@ export function generateApiToken(scope: ApiTokenScope = "opds"): { raw: string; 
 
 // Mint a token for a user. Returns the row id and the RAW token (caller surfaces
 // it once, then it's unrecoverable — only the hash is stored).
-export function createApiToken(userId: string, label: string | null, scope: ApiTokenScope = "opds"): { id: string; raw: string } {
+export function createApiToken(userId: string, label: string | null, scope: ApiTokenScope = "opds", origin: string | null = null): { id: string; raw: string } {
   const id = nanoid(16);
   const { raw, hash } = generateApiToken(scope);
   db.prepare(
-    "INSERT INTO api_tokens (id, user_id, token_hash, scope, label) VALUES (?, ?, ?, ?, ?)"
-  ).run(id, userId, hash, scope, label);
+    "INSERT INTO api_tokens (id, user_id, token_hash, scope, label, origin) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(id, userId, hash, scope, label, origin);
   return { id, raw };
+}
+
+// The address a token was made on (Stremio links), or null for APP_URL. Only
+// asked after resolveApiToken has accepted the token.
+export function apiTokenOrigin(raw: string): string | null {
+  const row = db.prepare("SELECT origin FROM api_tokens WHERE token_hash = ?").get(sha256(raw)) as { origin: string | null } | undefined;
+  return row?.origin ?? null;
 }
 
 // Resolve a raw token to its live user, or null when unknown / revoked / expired
@@ -81,7 +90,7 @@ export function isUnknownApiToken(raw: string): boolean {
 // A user's active (non-revoked) tokens — never the secret.
 export function listApiTokens(userId: string, scope?: ApiTokenScope): ApiTokenRow[] {
   const sql = `
-    SELECT id, label, scope, created_at, last_seen_at, last_ip, expires_at
+    SELECT id, label, scope, created_at, last_seen_at, last_ip, expires_at, origin
     FROM api_tokens
     WHERE user_id = ? AND revoked_at IS NULL ${scope ? "AND scope = ?" : ""}
     ORDER BY created_at DESC
@@ -98,7 +107,7 @@ export interface ApiTokenOwnerRow extends ApiTokenRow {
 // revoking a lost device's link. Never the secret.
 export function listAllApiTokens(scope: ApiTokenScope): ApiTokenOwnerRow[] {
   return db.prepare(`
-    SELECT api_tokens.id, label, scope, api_tokens.created_at, last_seen_at, last_ip, expires_at,
+    SELECT api_tokens.id, label, scope, api_tokens.created_at, last_seen_at, last_ip, expires_at, api_tokens.origin,
            users.id AS user_id, users.display_name AS user_name
     FROM api_tokens
     JOIN users ON users.id = api_tokens.user_id

@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.46.1 — Stremio links on the address you made them on
+
+- **A Stremio link now uses the address it was made on.** Every poster, film and subtitle a link sends Stremio to used to be built on the server's main address, so on a server reached by two names — one at home, one through Cloudflare — a link made at home still sent Stremio out through Cloudflare, where the home-network rule refused it: the rows appeared, but no posters and nothing played. Open iSputnik on the address the TV should use and create the link there; the dialog names the address, and Profile and **Security → App access** list each link with it. Links made before this keep the main address — create a new one if yours shows no posters.
+- **The Stremio guide covers two addresses.** Why a name behind Cloudflare is refused at home, and why streaming video through Cloudflare's free proxy is best avoided.
+
 ## 4.46.0 — Watch in Stremio
 
 - **Your video libraries in Stremio.** Stremio, the free player for TVs, phones and computers, can show iSputnik as an add-on: **Profile → Security → Stremio** makes a link of your own for each device, with an **Install in Stremio** button and a QR code. Stremio then shows exactly the shows and films you can open here — a row per library, your **Continue watching**, seasons and episodes, posters and the subtitle files beside a film — and nothing of anyone else's. Install it from your phone and it appears on the TV signed in to the same Stremio account; nothing to type with a remote. The guide is **Watching in Stremio**.

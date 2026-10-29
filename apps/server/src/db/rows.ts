@@ -47,6 +47,7 @@ export interface ApiTokenRow {
   last_ip: string | null;
   expires_at: string | null;
   revoked_at: string | null;
+  origin: string | null;
 }
 
 /** `app_pairings` */

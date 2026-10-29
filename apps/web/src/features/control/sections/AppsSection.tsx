@@ -769,6 +769,7 @@ interface MemberStremioLink {
   label: string | null;
   createdAt: string;
   lastSeen: string | null;
+  address: string;
   userId: string;
   userName: string;
 }
@@ -824,6 +825,7 @@ function StremioLinksBlock() {
               <tr>
                 <th>{t("controlAdmin:stremio.colMember")}</th>
                 <th>{t("controlAdmin:stremio.colDevice")}</th>
+                <th>{t("controlAdmin:stremio.colAddress")}</th>
                 <th>{t("controlAdmin:stremio.colAdded")}</th>
                 <th>{t("controlAdmin:stremio.colLastUsed")}</th>
                 <th aria-label={t("controlAdmin:stremio.revoke")} />
@@ -834,6 +836,7 @@ function StremioLinksBlock() {
                 <tr key={link.id}>
                   <td>{link.userName}</td>
                   <td>{nameOf(link)}</td>
+                  <td>{link.address}</td>
                   <td>{formatManagedDate(link.createdAt)}</td>
                   <td>{link.lastSeen ? formatManagedDate(link.lastSeen) : t("controlAdmin:stremio.never")}</td>
                   <td>

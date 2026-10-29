@@ -72,6 +72,34 @@ describe("a member's Stremio link", () => {
     expect(JSON.stringify(listed)).not.toContain(link.raw);
   });
 
+  it("sends Stremio to the address the link was made on, whatever name Stremio uses later", async () => {
+    // Made at home, on the name that skips Cloudflare.
+    const made = await booted.app.inject({
+      method: "POST", url: "/api/account/stremio", payload: { label: "TV" },
+      headers: { cookie: await booted.signIn("mum"), host: "hub.example.com" }
+    });
+    const { manifestUrl } = made.json() as { manifestUrl: string };
+    expect(manifestUrl).toMatch(/^https?:\/\/hub\.example\.com\/video\/stremio\/isp_video-stremio_[^/]+\/manifest\.json$/);
+    const raw = /\/video\/stremio\/([^/]+)\//.exec(manifestUrl)![1];
+
+    // Asked on another name (or a forged Host), the links inside still go home.
+    const res = await booted.app.inject({ method: "GET", url: `/video/stremio/${raw}/manifest.json`, remoteAddress: "192.168.1.226", headers: { host: "elsewhere.example.net" } });
+    const headers = res.json().headers as Record<string, string>;
+    expect(headers["x-isputnik-base-url"]).toMatch(new RegExp(`^https?://hub\\.example\\.com/video/stremio/${raw}$`));
+    expect(decodeURIComponent(headers["x-isputnik-site-name"])).toBe("iSputnik · hub.example.com");
+
+    const listed = (await as("mum", "GET", "/api/account/stremio")).json();
+    expect(listed.links[0].address).toBe("hub.example.com");
+  });
+
+  it("falls back to APP_URL for a Host that is not a plain name", async () => {
+    const made = await booted.app.inject({
+      method: "POST", url: "/api/account/stremio", payload: {},
+      headers: { cookie: await booted.signIn("mum"), host: "evil.example/../x" }
+    });
+    expect((made.json() as { manifestUrl: string }).manifestUrl).not.toContain("evil");
+  });
+
   it("reaches the engine as its owner, with the libraries they may see and this install's id", async () => {
     const library = await as("admin", "POST", "/api/library/video-libraries", { name: "Family films", kind: "movies", folder: "Films" });
     expect(library.statusCode).toBe(201);

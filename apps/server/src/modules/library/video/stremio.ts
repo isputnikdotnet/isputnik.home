@@ -18,7 +18,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { config } from "../../../config.js";
 import { logActivity, type User } from "../../../db.js";
-import { createApiToken, isUnknownApiToken, listAllApiTokens, listApiTokens, resolveApiToken, revokeAnyApiToken, revokeApiToken, type ApiTokenRow } from "../../../core/api-tokens.js";
+import { apiTokenOrigin, createApiToken, isUnknownApiToken, listAllApiTokens, listApiTokens, resolveApiToken, revokeAnyApiToken, revokeApiToken, type ApiTokenRow } from "../../../core/api-tokens.js";
 import { getServerId } from "../../../core/server-id.js";
 import { flagAbusiveRequest } from "../../../core/security-alerts.js";
 import { parseBody } from "../../../core/shared.js";
@@ -38,33 +38,54 @@ function appOrigin(): string {
   return config.appUrl.replace(/\/+$/, "");
 }
 
-/** What the add-on is called in Stremio: the install's own address tells two apart. */
-export function stremioSiteName(): string {
+const HOST = /^(\[[0-9a-fA-F:.]+\]|[A-Za-z0-9.-]{1,253})(:\d{1,5})?$/;
+
+/** The address a member is creating a link on, as their browser reached this
+ *  server — so a link made at hub.example.com sends Stremio there, and one made on
+ *  the name behind Cloudflare goes there. Read once, when the link is made, from
+ *  a signed-in request; never from what Stremio later sends. https whenever
+ *  APP_URL is, since a proxy whose trust is not set up reports plain http. Null
+ *  when the Host is not a plain host name (APP_URL is used then). */
+export function creationOrigin(request: FastifyRequest): string | null {
+  const host = String(request.headers.host ?? "").trim();
+  if (!HOST.test(host)) return null;
+  const protocol = config.appUrl.startsWith("https://") ? "https" : request.protocol === "https" ? "https" : "http";
+  return `${protocol}://${host.toLowerCase()}`;
+}
+
+/** What the add-on is called in Stremio: the address it lives on tells two apart. */
+export function stremioSiteName(origin: string | null = null): string {
   try {
-    return `iSputnik · ${new URL(config.appUrl).host}`;
+    return `iSputnik · ${new URL(origin ?? config.appUrl).host}`;
   } catch {
     return "iSputnik";
   }
 }
 
-/** The base every add-on address is built from — the operator's APP_URL, never the
- *  Host a client sent. */
-export function stremioBaseUrl(raw: string): string {
-  return `${appOrigin()}${STREMIO_PREFIX}/${raw}`;
+/** The base every add-on address is built from: the address the link was made on,
+ *  else the operator's APP_URL — never the Host Stremio sends. */
+export function stremioBaseUrl(raw: string, origin: string | null = null): string {
+  return `${origin ?? appOrigin()}${STREMIO_PREFIX}/${raw}`;
 }
 
-export function stremioLinks(raw: string): { manifestUrl: string; installUrl: string } {
-  const manifestUrl = `${stremioBaseUrl(raw)}/manifest.json`;
+export function stremioLinks(raw: string, origin: string | null = null): { manifestUrl: string; installUrl: string } {
+  const manifestUrl = `${stremioBaseUrl(raw, origin)}/manifest.json`;
   // stremio:// opens the app's install dialog; Stremio reads it as https.
   return { manifestUrl, installUrl: manifestUrl.replace(/^https?:\/\//, "stremio://") };
 }
+
+/** The address each admitted link was made on, for stremioHeaders on the same request. */
+const linkOrigins = new WeakMap<FastifyRequest, string | null>();
 
 /** The gateway's userFromToken hook for /video. */
 export function stremioTokenUser(request: FastifyRequest, reply: FastifyReply): User | "answered" | null {
   const raw = stremioTokenFromPath(request.url);
   if (raw === null) return null;
   const user = raw ? resolveApiToken(raw, SCOPE, request.ip) : null;
-  if (user) return user;
+  if (user) {
+    linkOrigins.set(request, apiTokenOrigin(raw!));
+    return user;
+  }
   // Only a token matching nothing at all counts as a guess; a revoked one is a TV
   // still holding a link its owner has since taken back.
   if (raw && isUnknownApiToken(raw)) flagAbusiveRequest(request, "token");
@@ -76,15 +97,22 @@ export function stremioTokenUser(request: FastifyRequest, reply: FastifyReply): 
 export function stremioHeaders(request: FastifyRequest): Record<string, string> {
   const raw = stremioTokenFromPath(request.url);
   if (!raw) return {};
+  const origin = linkOrigins.get(request) ?? null;
   return {
     "x-isputnik-site-id": getServerId(),
-    "x-isputnik-site-name": encodeURIComponent(stremioSiteName()),
-    "x-isputnik-base-url": stremioBaseUrl(raw)
+    "x-isputnik-site-name": encodeURIComponent(stremioSiteName(origin)),
+    "x-isputnik-base-url": stremioBaseUrl(raw, origin)
   };
 }
 
 function serializeLink(row: ApiTokenRow) {
-  return { id: row.id, label: row.label, createdAt: row.created_at, lastSeen: row.last_seen_at, lastIp: row.last_ip };
+  let address: string;
+  try {
+    address = new URL(row.origin ?? config.appUrl).host;
+  } catch {
+    address = "";
+  }
+  return { id: row.id, label: row.label, createdAt: row.created_at, lastSeen: row.last_seen_at, lastIp: row.last_ip, address };
 }
 
 const createSchema = z.object({ label: z.string().trim().max(60).optional() });
@@ -117,16 +145,17 @@ export function registerStremioRoutes(app: FastifyInstance, enabled: (user: User
     if (parsed.error) return reply.code(400).send({ error: "Invalid link details", details: parsed.error });
     const user = request.user!;
     const label = parsed.data.label?.length ? parsed.data.label : null;
-    const { id, raw } = createApiToken(user.id, label, SCOPE);
+    const origin = creationOrigin(request);
+    const { id, raw } = createApiToken(user.id, label, SCOPE, origin);
     logActivity({
       event: "account.stremio_link_created",
       actorUserId: user.id,
       targetType: "user",
       targetId: user.id,
-      detail: `Created a Stremio link${label ? ` ("${label}")` : ""}.`,
+      detail: `Created a Stremio link${label ? ` ("${label}")` : ""} on ${stremioSiteName(origin).replace(/^iSputnik · /, "")}.`,
       ipAddress: request.ip
     });
-    return reply.code(201).send({ id, ...stremioLinks(raw) });
+    return reply.code(201).send({ id, ...stremioLinks(raw, origin) });
   });
 
   // untrustedAllow: taking a link back protects the account — never refused.

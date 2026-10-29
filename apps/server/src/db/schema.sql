@@ -1713,7 +1713,8 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   last_seen_at TEXT,
   last_ip      TEXT,
   expires_at   TEXT,                            -- NULL = no expiry
-  revoked_at   TEXT
+  revoked_at   TEXT,
+  origin       TEXT                             -- the address a Stremio link was made on; NULL = APP_URL
 );
 
 -- A guest link into one online match of the games (modules/games/guest-invites.ts,
