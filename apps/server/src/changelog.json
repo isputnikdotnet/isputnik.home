@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.45.1",
+    "label": "A bar for every folder, Video's disks too",
+    "changes": [
+      "**The Dashboard draws a bar for every folder mapped into the container.** On Unraid, `/config` and the media folder both mapped from `/mnt/user` are one user-share filesystem, so 4.45.0 drew a single bar named `/config` and your libraries only appeared in its small print. Each folder now has its own bar with the libraries that are on it, and folders that share one filesystem say so — their numbers are for all of them together. A filesystem running low is reported once, however many folders come from it.",
+      "**Video's disks are on the Dashboard (needs isputnik.video 0.8.0).** The video engine says which disks its libraries, catalog, posters and conversion folder sit on — folders iSputnik itself can't see, as they are mounted on the engine — and they appear as bars marked Video, beside iSputnik's own."
+    ]
+  },
+  {
     "version": "4.45.0",
     "label": "One control panel for Home and its apps",
     "changes": [

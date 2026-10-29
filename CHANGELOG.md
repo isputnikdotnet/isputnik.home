@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.45.1 — A bar for every folder, Video's disks too
+
+- **The Dashboard draws a bar for every folder mapped into the container.** On Unraid, `/config` and the media folder both mapped from `/mnt/user` are one user-share filesystem, so 4.45.0 drew a single bar named `/config` and your libraries only appeared in its small print. Each folder now has its own bar with the libraries that are on it, and folders that share one filesystem say so — their numbers are for all of them together. A filesystem running low is reported once, however many folders come from it.
+- **Video's disks are on the Dashboard (needs isputnik.video 0.8.0).** The video engine says which disks its libraries, catalog, posters and conversion folder sit on — folders iSputnik itself can't see, as they are mounted on the engine — and they appear as bars marked Video, beside iSputnik's own.
+
 ## 4.45.0 — One control panel for Home and its apps
 
 - **The Dashboard shows Home and the apps beside it on one page.** Home sits at the top with its addresses, the gateway under it, and a branch to Games and Video: the line is solid green while an app answers, dashed red when it doesn't, dashed amber when it refuses Home's secret, and each branch says the route, the port and how long the app took to answer. Each app's card has its address, where that address was set, its secret and its version, with buttons to its events, log, access and setup. Before, the Dashboard described Home alone and the apps were four clicks away.
