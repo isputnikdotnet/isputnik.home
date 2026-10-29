@@ -211,7 +211,7 @@ defaults. Open question 3.
 | **S1** | home | **built 2026-10-29**: `core/server-id.ts`; `video-stremio` scope; `devices` capability (Home network only); the gateway's `userFromToken` hook (`modules/library/video/stremio.ts`) with the site headers; Profile › Security › Stremio; Stremio links on Security › App access; the token masked in home's log, the proxy's line included; `test/video-stremio.test.ts` |
 | **S2** | engine | **built 2026-10-29**. Released in engine 0.9.0 + home 4.46.0. Since: each library catalog offers its genres as a `genre` filter (the card's genres: the scan's, else TMDB's), and Continue watching is one row per kind the member has (`movie` films, `series` shows). The engine's own log masks `/video/stremio/<token>` like home's; `stremio.ts`: manifest with a catalog per library, catalogs with search/genre/any `skip`, meta, the original stream plus Converted for formats TVs refuse, subtitles, the token-prefixed play/art/subs; tests against the protocol's shapes |
 | **S3** | both | `isp-continue`; user guide `docs/users/stremio.md` (listed on the Help page — `check:ui`) with removing Cinemeta and the network-rule note, screenshots; release engine + home together |
-| later | | Clean this Stremio account |
+| later | | — |
 
 ## Open questions
 
@@ -220,7 +220,8 @@ defaults. Open question 3.
 2. **Server id from home or from the engine?** Planned: home's (it is the install the
    family knows, and it already exists). The engine's ids change if its database
    is reset anyway, so either is honest.
-3. **Clean this Stremio account in the app** — worth building, given it is
-   unofficial and handles a Stremio sign-in in our page?
+3. ~~Clean this Stremio account in the app~~ — **not built** (owner, 2026-10-29):
+   unofficial API, a Stremio password on our page, and a one-time job the guide
+   already explains. Do not re-propose.
 4. ~~Guessing progress from stream requests~~ — dropped after S0: players read one
    open-ended range per playback, which says nothing about how far anyone got.
