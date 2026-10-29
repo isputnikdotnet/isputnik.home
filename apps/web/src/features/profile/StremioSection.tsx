@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { api } from "../../api";
-import { PROFILE_ANCHORS } from "../../router";
+import { followRoute, PROFILE_ANCHORS } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatDate } from "../../shared/dates";
@@ -122,6 +122,13 @@ export function StremioSection() {
       <h2 id="stremio-heading">{t("controlAdmin:stremio.title")}</h2>
       <p className="opds-intro">{t("controlAdmin:stremio.intro")}</p>
       <p className="opds-intro">{t("controlAdmin:stremio.homeOnly")}</p>
+      <p className="opds-intro">
+        <Trans
+          i18nKey="stremio.guideLink"
+          ns="controlAdmin"
+          components={{ guide: <a href="/help/stremio" onClick={(event) => followRoute(event, "/help/stremio")} /> }}
+        />
+      </p>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:stremio.loadFailed")}>{error}</MessageBox>}
 

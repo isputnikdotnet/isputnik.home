@@ -506,6 +506,7 @@
     "title": "Stremio",
     "intro": "Watch the shows and films you can see here in Stremio, on a TV, phone or computer. Create a link for each device and install it in Stremio; you can revoke a link at any time.",
     "homeOnly": "Stremio needs this server's https address, and a link works only at home unless an administrator allows more.",
+    "guideLink": "Installing it on a TV, and what each stream means, is in <guide>the guide</guide>.",
     "createLink": "Create link",
     "creating": "Creating…",
     "noLinks": "No Stremio links yet.",

@@ -155,6 +155,10 @@ Deleting a video library removes its catalog from the engine; your video files
 are never touched. If the engine is down when you delete it, it lets the library
 go on its next sync.
 
+Each member can also watch their video libraries in the Stremio player on a TV,
+with a link of their own from Profile; HTTPS and the network rule it needs are in
+[Watching in Stremio](stremio.md#for-administrators).
+
 ## Converting video
 
 A film a browser can't play as it is (an `.mkv`, sound in AC3 or DTS, an HEVC

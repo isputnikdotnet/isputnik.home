@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.46.0 — Watch in Stremio
+
+- **Your video libraries in Stremio.** Stremio, the free player for TVs, phones and computers, can show iSputnik as an add-on: **Profile → Security → Stremio** makes a link of your own for each device, with an **Install in Stremio** button and a QR code. Stremio then shows exactly the shows and films you can open here — a row per library, your **Continue watching**, seasons and episodes, posters and the subtitle files beside a film — and nothing of anyone else's. Install it from your phone and it appears on the TV signed in to the same Stremio account; nothing to type with a remote. The guide is **Watching in Stremio**.
+- **Films a TV can't decode are converted for it.** A TV's Stremio player closes outright on some formats instead of saying so, so a film in one of them is offered as **Converted · H.264 for TVs** first, beside the original file. It counts towards the converting limits on **Settings → Video**, like the browser player.
+- **Stremio works at home, and links can be taken back.** A new **Stremio** rule on **Security → App access** says where the links work from — the home network to start with — and the same page lists every member's links, so a lost or given-away device can be revoked. A member revokes their own in Profile. Each link is shown once, is kept only as a fingerprint, and never appears in a log.
+- **Every install is its own add-on.** The add-on is named after this server's address and numbered after it, so someone who belongs to two family servers can install both and Stremio never mixes them up.
+- **Fixed: players behind the gateway were sometimes refused for no reason.** The gateway passed the video engine's own connection settings on to the player, so a player that had asked to close its connection was told to keep it, and its next request was turned away — in Stremio, every few seeks. The gateway now answers for its own connections, for every app behind it.
+
 ## 4.45.2 — Camera videos optimised
 
 - **GoPro and Sony videos can be optimised for streaming.** Optimising rewrites a video with its index in front so it starts at once, copying every track as it is — and camera clips failed every time with "The video could not be rewritten", because they carry tracks of the camera's own (a timecode, GoPro's telemetry, Sony's camera data) that an MP4 cannot hold as they are read. Now the timecode is written afresh from the clip's own details, and the camera's other tracks are kept under their own names. A track that still cannot be kept leaves the video exactly as it was, and the task says which track — nothing is ever thrown away to make a file fit.

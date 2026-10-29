@@ -1,5 +1,16 @@
 [
   {
+    "version": "4.46.0",
+    "label": "Watch in Stremio",
+    "changes": [
+      "**Your video libraries in Stremio.** Stremio, the free player for TVs, phones and computers, can show iSputnik as an add-on: **Profile → Security → Stremio** makes a link of your own for each device, with an **Install in Stremio** button and a QR code. Stremio then shows exactly the shows and films you can open here — a row per library, your **Continue watching**, seasons and episodes, posters and the subtitle files beside a film — and nothing of anyone else's. Install it from your phone and it appears on the TV signed in to the same Stremio account; nothing to type with a remote. The guide is **Watching in Stremio**.",
+      "**Films a TV can't decode are converted for it.** A TV's Stremio player closes outright on some formats instead of saying so, so a film in one of them is offered as **Converted · H.264 for TVs** first, beside the original file. It counts towards the converting limits on **Settings → Video**, like the browser player.",
+      "**Stremio works at home, and links can be taken back.** A new **Stremio** rule on **Security → App access** says where the links work from — the home network to start with — and the same page lists every member's links, so a lost or given-away device can be revoked. A member revokes their own in Profile. Each link is shown once, is kept only as a fingerprint, and never appears in a log.",
+      "**Every install is its own add-on.** The add-on is named after this server's address and numbered after it, so someone who belongs to two family servers can install both and Stremio never mixes them up.",
+      "**Fixed: players behind the gateway were sometimes refused for no reason.** The gateway passed the video engine's own connection settings on to the player, so a player that had asked to close its connection was told to keep it, and its next request was turned away — in Stremio, every few seeks. The gateway now answers for its own connections, for every app behind it."
+    ]
+  },
+  {
     "version": "4.45.2",
     "label": "Camera videos optimised",
     "changes": [
