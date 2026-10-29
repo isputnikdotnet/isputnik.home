@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.45.2 — Camera videos optimised
+
+- **GoPro and Sony videos can be optimised for streaming.** Optimising rewrites a video with its index in front so it starts at once, copying every track as it is — and camera clips failed every time with "The video could not be rewritten", because they carry tracks of the camera's own (a timecode, GoPro's telemetry, Sony's camera data) that an MP4 cannot hold as they are read. Now the timecode is written afresh from the clip's own details, and the camera's other tracks are kept under their own names. A track that still cannot be kept leaves the video exactly as it was, and the task says which track — nothing is ever thrown away to make a file fit.
+- **A failed optimisation says why.** The task shows the reason the converter gave, not only that the video could not be rewritten; and before an optimised copy replaces the original, every track is now counted by kind and name, not just the first picture and sound.
+
 ## 4.45.1 — A bar for every folder, Video's disks too
 
 - **The Dashboard draws a bar for every folder mapped into the container.** On Unraid, `/config` and the media folder both mapped from `/mnt/user` are one user-share filesystem, so 4.45.0 drew a single bar named `/config` and your libraries only appeared in its small print. Each folder now has its own bar with the libraries that are on it, and folders that share one filesystem say so — their numbers are for all of them together. A filesystem running low is reported once, however many folders come from it.
