@@ -19,12 +19,18 @@ export type DiskHolding =
   | { kind: "library"; name: string; libraryType: string; path: string };
 
 export interface DashboardDisk {
-  /** The top folder of the mount as this server sees it (`/media`), or the
-   *  nearest folder above the first holding when that cannot be told. */
+  /** The top folder of the mount as this server sees it (`/media`): in a
+   *  container, the folder mapped in from the host. */
   mount: string;
+  /** Which filesystem it is, so mounts of the same one can be told apart from
+   *  different disks (the device id; only compared, never shown). */
+  filesystem: string;
   freeBytes: number;
   totalBytes: number;
   holds: DiskHolding[];
+  /** Other mounts on the SAME filesystem — on Unraid, every folder mapped from
+   *  /mnt/user is one user-share filesystem, so they share these numbers. */
+  sharesWith: string[];
 }
 
 /** The device and the folder a path is on: the path itself, or the nearest
@@ -79,14 +85,19 @@ export function homeHoldings(): DiskHolding[] {
   return holds;
 }
 
-/** The holdings grouped by the disk they are on, biggest disk first. A place
- *  that cannot be measured (no folder above it exists) is left out. */
+/** The holdings grouped by the mount they are on — one bar per folder mapped
+ *  into the container, not one per device: on Unraid, /config and /media both
+ *  mapped from /mnt/user are one filesystem with one device id, and grouping by
+ *  device drew everything as one bar named after whichever came first. Mounts of
+ *  one filesystem name each other in `sharesWith`. Biggest filesystem first; a
+ *  place that cannot be measured (no folder above it exists) is left out. */
 export function groupByDisk(holds: DiskHolding[]): DashboardDisk[] {
-  const byDevice = new Map<number, DashboardDisk>();
+  const byMount = new Map<string, DashboardDisk>();
   for (const hold of holds) {
     const where = existingAncestor(hold.path);
     if (!where) continue;
-    let disk = byDevice.get(where.dev);
+    const mount = mountOf(where.dir, where.dev);
+    let disk = byMount.get(mount);
     if (!disk) {
       let stats: fs.StatsFs;
       try {
@@ -95,16 +106,22 @@ export function groupByDisk(holds: DiskHolding[]): DashboardDisk[] {
         continue;
       }
       disk = {
-        mount: mountOf(where.dir, where.dev),
+        mount,
+        filesystem: String(where.dev),
         freeBytes: Number(stats.bavail) * Number(stats.bsize),
         totalBytes: Number(stats.blocks) * Number(stats.bsize),
-        holds: []
+        holds: [],
+        sharesWith: []
       };
-      byDevice.set(where.dev, disk);
+      byMount.set(mount, disk);
     }
     disk.holds.push(hold);
   }
-  return [...byDevice.values()].sort((a, b) => b.totalBytes - a.totalBytes);
+  const disks = [...byMount.values()];
+  for (const disk of disks) {
+    disk.sharesWith = disks.filter((other) => other !== disk && other.filesystem === disk.filesystem).map((other) => other.mount);
+  }
+  return disks.sort((x, y) => y.totalBytes - x.totalBytes || x.filesystem.localeCompare(y.filesystem) || x.mount.localeCompare(y.mount));
 }
 
 /** This machine's own addresses (a container on br0 has the LAN one). */

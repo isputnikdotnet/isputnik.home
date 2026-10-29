@@ -46,6 +46,9 @@ describe("groupByDisk", () => {
     expect(disks[0].holds.map((hold) => hold.kind)).toEqual(["library", "backups"]);
     expect(disks[0].totalBytes).toBeGreaterThan(0);
     expect(disks[0].freeBytes).toBeLessThanOrEqual(disks[0].totalBytes);
+    // One mount: nothing else on its filesystem to name.
+    expect(disks[0].sharesWith).toEqual([]);
+    expect(disks[0].filesystem).toMatch(/^\d+$/);
   });
 });
 

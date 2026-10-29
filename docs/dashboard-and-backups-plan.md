@@ -43,9 +43,18 @@ Unraid that is appdata on the cache pool, not where the libraries are. Instead:
   path, freeBytes, totalBytes, holds: [{ kind, name, bytes? }] }]`; `disk` stays
   for older clients. The label is the mount path as Home sees it (`/media`); an
   optional admin-given name per disk is a later nicety.
-- **Container disks.** The status contract (phase 4) gains `disks` in the same
-  shape for the container's own library folders — Video's `/movies`. Shown with
-  the container as owner and "last reported …" when it is not answering.
+- **One bar per mapped folder, not per device (4.45.1).** On Unraid, `/config`
+  and `/media` both mapped from `/mnt/user` are one user-share filesystem with one
+  device id, so grouping by device drew a single bar named `/config` with every
+  library in its small print. Now each mount gets a bar; mounts of one filesystem
+  name each other ("Same filesystem as …") and a low one is reported once.
+- **Container disks (4.45.1, isputnik.video 0.8.0).** The engine answers
+  `GET /video/api/admin/disks` in the same shape for its library folders,
+  catalog, posters and conversion folder; the Dashboard reads it through the
+  gateway and tags those bars "Video". Across containers, a share is only named
+  when the device id AND the size match, so two hosts' device numbers that
+  happen to coincide are never called one filesystem. An older engine answers
+  404 and simply shows no bars.
 - **Attention.** A disk under the existing low-space tone (`diskTone`) joins the
   attention line, naming the disk and what is on it.
 - **Limits, said on the page's help, not hidden.** Inside a container Home sees

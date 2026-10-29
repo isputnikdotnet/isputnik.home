@@ -899,7 +899,7 @@
     "diskFree": "{{free}} free of {{total}}",
     "diskUsedLabel": "{{mount}}: {{share}}% used",
     "disksUnknown": "Couldn't measure the disks",
-    "disksHelp": "Disks are grouped by what is mounted where, as Home sees its own folders. A share mapped through /mnt/user reports the whole user share, not one drive.",
+    "disksHelp": "One bar per folder mapped into each container. Folders mapped from Unraid's /mnt/user are one user-share filesystem, so they show the same numbers; map /mnt/cache/… or /mnt/diskN/… instead for one drive's figures.",
     "holdLibraries": "Libraries: {{names}}",
     "holdDatabase": "database",
     "holdSystemData": "system data",
@@ -909,6 +909,9 @@
     "holdTrash": "recycle bin",
     "minimalBackup": "Minimal backup",
     "linkGuestLinks": "Guest links",
-    "linkVideoSettings": "Settings"
+    "linkVideoSettings": "Settings",
+    "holdArtwork": "posters",
+    "holdTranscode": "conversion folder",
+    "diskShared": "Same filesystem as {{mounts}}: the numbers are for all of them together."
   }
 }

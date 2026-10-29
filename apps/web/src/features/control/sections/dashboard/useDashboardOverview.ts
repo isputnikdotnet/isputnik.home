@@ -6,19 +6,29 @@ import type { AppStatus } from "../AppsSection";
 // last day's failures (modules/dashboard/overview.ts), how each container stands
 // (Apps › Installed's own call), the newest backup, and each running container's
 // errors of the last day — read through the gateway from its own events, as
-// Apps › Events does. Each is loaded on its own so one that fails costs its part
-// of the page, never the rest.
+// Apps › Events does — and the disks the video engine's files sit on, which home
+// cannot see (they are mounted on the engine). Each is loaded on its own so one
+// that fails costs its part of the page, never the rest.
 
 export type DiskHolding =
-  | { kind: "database" | "thumbnails" | "backups" | "appFiles" | "trash" | "systemData"; path: string }
-  | { kind: "library"; name: string; libraryType: string; path: string };
+  | { kind: "database" | "thumbnails" | "backups" | "appFiles" | "trash" | "systemData" | "artwork" | "transcode"; path: string }
+  | { kind: "library"; name: string; libraryType?: string; path: string };
 
+/** One folder mapped into a container, as home (modules/dashboard/overview.ts)
+ *  or the video engine (its /api/admin/disks) measured it. */
 export interface DashboardDisk {
   mount: string;
+  /** The device id; mounts of one filesystem share it. Only compared. */
+  filesystem: string;
   freeBytes: number;
   totalBytes: number;
   holds: DiskHolding[];
+  /** Other mounts of the same filesystem in the same container. */
+  sharesWith: string[];
 }
+
+/** A disk with whose container measured it: "home", or an app's id. */
+export type OwnedDisk = DashboardDisk & { owner: string };
 
 export interface DashboardOverview {
   home: { addresses: string[]; port: number; publicUrl: string };
@@ -54,6 +64,7 @@ export function useDashboardOverview() {
   /** undefined = still asking, null = there isn't one (or it could not be read). */
   const [lastBackup, setLastBackup] = useState<LastBackup | null | undefined>(undefined);
   const [appErrors, setAppErrors] = useState<Record<string, number | null>>({});
+  const [appDisks, setAppDisks] = useState<OwnedDisk[]>([]);
 
   const load = useCallback(async () => {
     const overviewCall = api<DashboardOverview>("/api/dashboard/overview").then(setOverview).catch(() => setOverview(null));
@@ -68,8 +79,17 @@ export function useDashboardOverview() {
       .then(async (payload) => {
         setApps(payload.apps);
         const running = payload.apps.filter((app) => app.server?.ok);
-        const counts = await Promise.all(running.map(async (app) => [app.id, await errorsToday(app.prefix)] as const));
+        const [counts, disks] = await Promise.all([
+          Promise.all(running.map(async (app) => [app.id, await errorsToday(app.prefix)] as const)),
+          // Only an engine keeps media of its own; an engine too old to answer is left out.
+          Promise.all(running.filter((app) => app.kind === "engine").map((app) =>
+            api<{ disks: DashboardDisk[] }>(`${app.prefix}/api/admin/disks`)
+              .then((payload) => payload.disks.map((disk) => ({ ...disk, owner: app.id })))
+              .catch(() => [] as OwnedDisk[])
+          ))
+        ]);
         setAppErrors(Object.fromEntries(counts));
+        setAppDisks(disks.flat());
       })
       .catch(() => setApps([]));
     await Promise.all([overviewCall, backupCall, appsCall]);
@@ -79,5 +99,5 @@ export function useDashboardOverview() {
     void load();
   }, [load]);
 
-  return { overview, apps, lastBackup, appErrors, reload: load };
+  return { overview, apps, lastBackup, appErrors, appDisks, reload: load };
 }

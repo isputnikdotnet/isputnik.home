@@ -15,7 +15,7 @@ import { useSystemStatus } from "./dashboard/useSystemStatus";
 export function DashboardSection() {
   const { t } = useTranslation(["common", "controlDash"]);
   const { status, error, refresh } = useSystemStatus();
-  const { overview, apps, lastBackup, appErrors, reload } = useDashboardOverview();
+  const { overview, apps, lastBackup, appErrors, appDisks, reload } = useDashboardOverview();
 
   return (
     <>
@@ -29,7 +29,7 @@ export function DashboardSection() {
 
       {error && <MessageBox tone="error" title={t("controlDash:dash.errorTitle")}>{error}</MessageBox>}
 
-      {status && <Overview status={status} overview={overview} apps={apps} lastBackup={lastBackup} appErrors={appErrors} />}
+      {status && <Overview status={status} overview={overview} apps={apps} lastBackup={lastBackup} appErrors={appErrors} appDisks={appDisks} />}
     </>
   );
 }

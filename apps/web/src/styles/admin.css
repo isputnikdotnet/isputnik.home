@@ -2946,6 +2946,15 @@ tr.control-anchor-flash > td {
 .dash-disk-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .dash-disk-head code { font-size: 0.9rem; }
 .dash-disk-free { margin-left: auto; color: var(--tone); font-size: 0.875rem; font-weight: 600; }
+.dash-disk-owner {
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--hover);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.dash-disk-shared { color: var(--muted); font-size: 0.8rem; font-style: italic; }
 
 .dash-disk-bar {
   height: 8px;
