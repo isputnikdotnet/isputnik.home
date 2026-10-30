@@ -33,6 +33,7 @@ import { systemDataRoutesPlugin } from "../src/modules/library/system-data-route
 import { convertStorageSettings } from "../src/modules/library/system-data-upgrade.js";
 import { waitForStorageMoves } from "../src/modules/library/shared/storage-move.js";
 import { bootApp } from "./helpers/boot.js";
+import { mountPoints } from "../src/modules/library/server-folders.js";
 import { makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
 // System data (docs/system-data-plan.md, phase 2): the one folder the app needs,
@@ -282,5 +283,41 @@ describe("the routes", () => {
     const cookie = await signIn("kid");
     const read = await app.inject({ method: "GET", url: "/api/storage/system-data", headers: { cookie } });
     expect(read.statusCode).toBe(403);
+    const browse = await app.inject({ method: "GET", url: "/api/storage/server-folders", headers: { cookie } });
+    expect(browse.statusCode).toBe(403);
+  });
+
+  it("browses folders, not files, from the drives down", async () => {
+    const cookie = await signIn("admin");
+    const browse = (wanted: string) => app.inject({ method: "GET", url: `/api/storage/server-folders?path=${encodeURIComponent(wanted)}`, headers: { cookie } });
+
+    const top = (await browse("")).json();
+    expect(top).toMatchObject({ path: null, parent: null });
+    expect(top.entries.length).toBeGreaterThan(0);
+
+    fs.mkdirSync(path.join(base, "drive", "folder10"), { recursive: true });
+    fs.mkdirSync(path.join(base, "drive", "folder9"));
+    fs.writeFileSync(path.join(base, "drive", "a-file.txt"), "x");
+    const inside = (await browse(path.join(base, "drive"))).json();
+    expect(inside.path).toBe(path.join(base, "drive"));
+    expect(inside.parent).toBe(base);
+    expect(inside.entries.map((entry: { name: string }) => entry.name)).toEqual(["folder9", "folder10"]);
+
+    expect((await browse(path.parse(base).root)).json().parent).toBe("");
+    expect((await browse("not/absolute")).statusCode).toBe(400);
+    expect((await browse(path.join(base, "missing"))).statusCode).toBe(400);
+  });
+
+  it("offers real mounts from /proc/mounts: Docker volumes yes, the system's own no", () => {
+    expect(mountPoints([
+      "overlay / overlay rw 0 0",
+      "proc /proc proc rw 0 0",
+      "tmpfs /dev tmpfs rw 0 0",
+      "tmpfs /backups-in-memory tmpfs rw 0 0",
+      "/dev/sda1 /etc/hosts ext4 rw 0 0",
+      "shfs /media fuse.shfs rw 0 0",
+      "/dev/sdb1 /mnt/my\\040backups xfs rw 0 0",
+      ""
+    ].join("\n"))).toEqual(["/media", "/mnt/my backups"]);
   });
 });

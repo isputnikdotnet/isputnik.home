@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { parseBody } from "../../core/shared.js";
 import { diskSpace } from "../../core/system-data.js";
+import { listServerFolders } from "./server-folders.js";
 import {
   cancelSystemDataMove,
   retrySystemDataMove,
@@ -22,6 +23,7 @@ const ownFolderSchema = z.object({
   path: z.string().trim().max(1000).nullable()
 });
 const spaceQuerySchema = z.object({ path: z.string().trim().min(1).max(1000) });
+const foldersQuerySchema = z.object({ path: z.string().trim().max(1000).default("") });
 
 const MOVE_ROOMS: readonly SystemDataMoveRoom[] = ["thumbnails", "backups", "metadata"];
 
@@ -81,5 +83,16 @@ export async function systemDataRoutesPlugin(app: FastifyInstance) {
     const parsed = parseBody(spaceQuerySchema, request.query);
     if (parsed.error || !path.isAbsolute(parsed.data.path)) return reply.code(400).send({ error: "Use an absolute server path." });
     return reply.send({ space: diskSpace(parsed.data.path) });
+  });
+
+  // The Browse button beside a folder field: the drives, then the folders inside them.
+  app.get("/api/storage/server-folders", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(foldersQuerySchema, request.query);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid folder", details: parsed.error });
+    try {
+      return reply.send(await listServerFolders(parsed.data.path));
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to open that folder" });
+    }
   });
 }

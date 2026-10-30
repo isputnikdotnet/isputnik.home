@@ -15,6 +15,7 @@ import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { formatBytes } from "../../../../shared/utils";
+import { ServerFolderPicker } from "./ServerFolderPicker";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 // The panel's stylesheet: it arrives with the panel, on the Storage page and in the setup guide (docs/css-map.md).
 import "../../../../styles/system-data.css";
@@ -76,6 +77,7 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
+  const [browsing, setBrowsing] = useState<{ start: string; onPick: (path: string) => void } | null>(null);
 
   const typedSpace = useDiskSpace(view && !view.path ? (input.trim() || view.suggested) : "");
   const editorSpace = useDiskSpace(editor && (editor.target === "system" || editor.own) ? editor.path : "");
@@ -212,6 +214,15 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
     : t("controlAdmin:systemData.backupsCount", { count: view.backups.count, size: formatBytes(view.backups.bytes) });
   const pendingCopy = pending ? confirmCopy(pending) : null;
 
+  const folderField = (value: string, onChange: (path: string) => void, placeholder?: string) => (
+    <div className="system-data-folder">
+      <Field label={t("controlAdmin:systemData.folderLabel")} value={value} onChange={onChange} placeholder={placeholder} required={false} />
+      <Button variant="secondary" onClick={() => setBrowsing({ start: value, onPick: onChange })}>
+        {t("controlAdmin:systemData.browse")}
+      </Button>
+    </div>
+  );
+
   return (
     <section id="system-data" className="library-settings-panel storage-settings-panel system-data-panel">
       <div>
@@ -232,13 +243,7 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
 
       {!view.path ? (
         <div className="system-data-choose">
-          <Field
-            label={t("controlAdmin:systemData.folderLabel")}
-            value={input}
-            onChange={setInput}
-            placeholder={view.suggested}
-            required={false}
-          />
+          {folderField(input, setInput, view.suggested)}
           <p className="datagrid-muted">{t("controlAdmin:systemData.suggestion", { path: view.suggested })}</p>
           <SpaceMeter space={typedSpace} />
           {isLowSpace(typedSpace) && (
@@ -389,12 +394,7 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
           )}
           {(editor.target === "system" || editor.own) && (
             <>
-              <Field
-                label={t("controlAdmin:systemData.folderLabel")}
-                value={editor.path}
-                onChange={(path) => setEditor({ ...editor, path })}
-                required={false}
-              />
+              {folderField(editor.path, (path) => setEditor({ ...editor, path }))}
               <SpaceMeter space={editorSpace} />
               {isLowSpace(editorSpace) && (
                 <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
@@ -414,6 +414,14 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
             </Button>
           </div>
         </Modal>
+      )}
+
+      {browsing && (
+        <ServerFolderPicker
+          start={browsing.start}
+          onPick={(path) => { browsing.onPick(path); setBrowsing(null); }}
+          onClose={() => setBrowsing(null)}
+        />
       )}
 
       {pending && pendingCopy && (

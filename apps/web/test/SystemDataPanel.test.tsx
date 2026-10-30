@@ -47,6 +47,13 @@ function mount(initial: object, space = { free: 30, total: 1000 }) {
     }
     if (path === "/api/storage/system-data") return current;
     if (path.startsWith("/api/storage/disk-space")) return { space };
+    if (path.startsWith("/api/storage/server-folders")) {
+      const wanted = new URLSearchParams(path.split("?")[1]).get("path");
+      if (wanted === "E:\\") return { path: "E:\\", parent: "", entries: [{ name: "offsite", path: "E:\\offsite" }] };
+      if (wanted === "E:\\offsite") return { path: "E:\\offsite", parent: "E:\\", entries: [] };
+      if (wanted) throw new Error("no such folder");
+      return { path: null, parent: null, entries: [{ name: "E:\\", path: "E:\\" }] };
+    }
     throw new Error(`unexpected ${path}`);
   });
   render(<SystemDataPanel />);
@@ -103,5 +110,38 @@ describe("once system data is set", () => {
     expect(within(confirm).getByText("Keep backups in E:\\offsite?")).toBeInTheDocument();
     await user.click(within(confirm).getByRole("button", { name: "Move backups" }));
     await waitFor(() => expect(puts).toEqual([{ path: "/api/storage/system-data/backups", body: { path: "E:\\offsite" } }]));
+  });
+
+  it("browses to a folder on another drive and puts it in the field", async () => {
+    const user = userEvent.setup();
+    mount(set, { free: 3000, total: 4000 });
+    const row = (await screen.findByText("D:\\iSputnikData\\backups")).closest("tr") as HTMLElement;
+    await user.click(within(row).getByRole("button", { name: "Change" }));
+    await user.click(within(await screen.findByRole("dialog")).getByText("A folder of their own"));
+    await user.click(screen.getByRole("button", { name: "Browse" }));
+
+    // The top lists drives and can't itself be chosen.
+    await screen.findByText("Drives and mapped folders");
+    const use = screen.getByRole("button", { name: "Use this folder" });
+    expect(use).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "E:\\" }));
+    await user.click(await screen.findByRole("button", { name: "offsite" }));
+    await screen.findByText("E:\\offsite");
+    await user.click(screen.getByRole("button", { name: "Use this folder" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Folder")).toHaveValue("E:\\offsite"));
+    expect(screen.queryByText("Drives and mapped folders")).toBeNull();
+  });
+
+  it("opens the browser at the top when the typed folder does not exist yet", async () => {
+    const user = userEvent.setup();
+    mount(set, { free: 3000, total: 4000 });
+    const row = (await screen.findByText("D:\\iSputnikData\\backups")).closest("tr") as HTMLElement;
+    await user.click(within(row).getByRole("button", { name: "Change" }));
+    await user.click(within(await screen.findByRole("dialog")).getByText("A folder of their own"));
+    await user.type(screen.getByLabelText("Folder"), "Z:\\nothing");
+    await user.click(screen.getByRole("button", { name: "Browse" }));
+    expect(await screen.findByText("Drives and mapped folders")).toBeInTheDocument();
   });
 });
