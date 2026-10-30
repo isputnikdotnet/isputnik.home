@@ -232,6 +232,21 @@ describe("the folder picker", () => {
   });
 });
 
+describe("after a restore of the engine", () => {
+  it("hands every library back and sends the list again", async () => {
+    await create({});
+    const [row] = [...known.keys()];
+    known.clear(); // the catalog went back to before this library existed
+    calls.length = 0;
+
+    const { runAfterRestore } = await import("../src/modules/apps/backup.js");
+    await runAfterRestore("video");
+
+    expect([...known.keys()]).toEqual([row]);
+    expect(calls.find((call) => call.url === "/video/api/admin/libraries/sync")?.body).toEqual({ ids: [row] });
+  });
+});
+
 describe("syncing", () => {
   it("sends home's list to the engine when the server starts", async () => {
     // Started on ready without waiting for it, so it lands a moment later.

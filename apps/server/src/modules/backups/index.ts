@@ -9,6 +9,7 @@ import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
 import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
 import { configureScheduledJob } from "../maintenance/scheduler.js";
+import { registerAppBackupRoutes } from "./app-backups.js";
 import { extractFromZip, isBackupDatabaseEntry, isBackupManifestEntry, isBackupMfaKeyEntry, readZipEntryText, zipHasEntry } from "./zip-read.js";
 import {
   BACKUP_KINDS,
@@ -202,6 +203,9 @@ export async function backupsPlugin(app: FastifyInstance) {
   } catch (err) {
     app.log.warn({ err }, "Could not carry the old backup schedule into the scheduled jobs; set it again on the Backup page.");
   }
+
+  // One container's backups, apart from these (app-backups.ts).
+  registerAppBackupRoutes(app);
 
   app.get("/api/backups", { preHandler: app.requireAdmin }, async () => {
     const backups = listBackupFiles();

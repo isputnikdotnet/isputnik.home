@@ -9,16 +9,20 @@ import { db } from "../src/db.js";
 import {
   FASTSTART_JOB_TYPE,
   enqueueFaststartJobs,
-  faststartBacklogCount,
+  faststartPage,
   listFaststartCandidates,
+  processFaststartQueue,
   readFaststart
 } from "../src/modules/library/gallery/faststart.js";
+import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
+import { up as addFaststartError } from "../src/db/migrations/086-gallery-faststart-error.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
 let dir: string;
 
 beforeEach(() => {
   resetDb();
+  db.prepare("DELETE FROM jobs").run();
   makeUser("admin", "admin");
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "faststart-"));
 });
@@ -104,7 +108,7 @@ describe("the backlog of videos to optimise", () => {
     db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES ('photo', ?, 'gallery', 'p.jpg', 'ready')").run(lib);
     db.prepare("INSERT INTO gallery_details (item_id, kind, relative_path, faststart) VALUES ('photo', 'photo', 'p.jpg', 0)").run();
 
-    expect(faststartBacklogCount()).toBe(1);
+    expect(faststartPage(1, 20).summary.total).toBe(1);
     expect(listFaststartCandidates().map((c) => c.itemId)).toEqual(["back"]);
   });
 
@@ -112,7 +116,7 @@ describe("the backlog of videos to optimise", () => {
     const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
     makeVideo("gone", lib);
     db.prepare("UPDATE library_items SET deleted_at = '2026-01-01T00:00:00Z' WHERE id = 'gone'").run();
-    expect(faststartBacklogCount()).toBe(0);
+    expect(faststartPage(1, 20).summary.total).toBe(0);
   });
 
   it("lists a video in a read-only library, but will not rewrite it", () => {
@@ -150,5 +154,129 @@ describe("the backlog of videos to optimise", () => {
     expect(enqueueFaststartJobs("all")).toBe(1); // only "two" is left
     const jobs = db.prepare("SELECT payload FROM jobs WHERE type = ?").all(FASTSTART_JOB_TYPE) as { payload: string }[];
     expect(jobs.map((j) => (JSON.parse(j.payload) as { itemId: string }).itemId).sort()).toEqual(["one", "two"]);
+  });
+});
+
+describe("a video the rewrite has already failed on", () => {
+  const failed = (itemId: string, reason: string) =>
+    db.prepare("UPDATE gallery_details SET faststart_error = ? WHERE item_id = ?").run(reason, itemId);
+
+  it("is passed over by Optimise all, but can still be asked for by name", () => {
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+    makeVideo("camera", lib, { size: 9000 });
+    makeVideo("plain", lib, { size: 100 });
+    failed("camera", "Left as it is: the camera wrote a track (rtmd).");
+
+    expect(enqueueFaststartJobs("all")).toBe(1);
+    const queuedIds = (db.prepare("SELECT payload FROM jobs WHERE type = ?").all(FASTSTART_JOB_TYPE) as { payload: string }[])
+      .map((j) => (JSON.parse(j.payload) as { itemId: string }).itemId);
+    expect(queuedIds).toEqual(["plain"]);
+
+    expect(enqueueFaststartJobs(["camera"])).toBe(1);
+  });
+
+  it("keeps the reason on the video once the job has used its attempts", async () => {
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+    const source = path.join(dir, "videos");
+    const thumbs = path.join(dir, "thumbs");
+    fs.mkdirSync(source);
+    fs.mkdirSync(thumbs);
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = ?").run(source, lib);
+    db.prepare("INSERT OR REPLACE INTO storage_roots (id, name, path, created_by) VALUES ('sr1', 'test', ?, 'admin')").run(dir);
+    db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(thumbnailPathSettingKey, thumbs);
+    fs.writeFileSync(path.join(source, "junk.mp4"), Buffer.alloc(32));
+    makeVideo("junk", lib, { relativePath: "junk.mp4" });
+
+    expect(enqueueFaststartJobs(["junk"])).toBe(1);
+    db.prepare("UPDATE jobs SET attempts = max_attempts - 1 WHERE type = ?").run(FASTSTART_JOB_TYPE);
+    await processFaststartQueue();
+
+    const [candidate] = listFaststartCandidates();
+    expect(candidate.failure).toMatch(/could not be read/i);
+    expect(faststartPage(1, 20).summary).toMatchObject({ ready: 0, unable: 1 });
+
+    // Jobs get pruned; the label must outlive them.
+    db.prepare("DELETE FROM jobs").run();
+    expect(listFaststartCandidates()[0].failure).toMatch(/could not be read/i);
+  });
+
+  it("says nothing about the file when its library could not be reached", async () => {
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" }); // /src/gal is not there
+    makeVideo("clip", lib);
+
+    expect(enqueueFaststartJobs(["clip"])).toBe(1);
+    db.prepare("UPDATE jobs SET attempts = max_attempts - 1 WHERE type = ?").run(FASTSTART_JOB_TYPE);
+    await processFaststartQueue();
+
+    expect(listFaststartCandidates()[0].failure).toBeNull();
+    expect(faststartPage(1, 20).summary.ready).toBe(1);
+  });
+
+  it("is picked up from the jobs on record when the column arrives", () => {
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+    for (const id of ["camera", "mount", "fixed"]) makeVideo(id, lib);
+    const job = db.prepare("INSERT INTO jobs (id, type, payload, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+    const payload = (itemId: string) => JSON.stringify({ itemId });
+    job.run("j1", FASTSTART_JOB_TYPE, payload("camera"), "failed", "Left as it is: the camera wrote a track (rtmd).", "2026-01-01");
+    job.run("j2", FASTSTART_JOB_TYPE, payload("mount"), "failed", "The library could not be reached.", "2026-01-01");
+    job.run("j3", FASTSTART_JOB_TYPE, payload("fixed"), "failed", "The rewritten video was empty, so the original was kept.", "2026-01-01");
+    job.run("j4", FASTSTART_JOB_TYPE, payload("fixed"), "completed", null, "2026-01-02");
+
+    addFaststartError(db);
+
+    const failure = (id: string) => listFaststartCandidates().find((c) => c.itemId === id)?.failure;
+    expect(failure("camera")).toMatch(/Left as it is/);
+    expect(failure("mount")).toBeNull();
+    expect(failure("fixed")).toBeNull();
+  });
+
+  it("is not counted as unable while a retry of it waits in the queue", () => {
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+    makeVideo("retry", lib);
+    failed("retry", "The video could not be read before rewriting it.");
+    enqueueFaststartJobs(["retry"]);
+
+    expect(faststartPage(1, 20).summary).toMatchObject({ queued: 1, unable: 0 });
+  });
+});
+
+describe("a page of the backlog", () => {
+  it("puts what can be done first and what can't last, biggest first within each", () => {
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+    makeVideo("big-failed", lib, { size: 9000 });
+    makeVideo("big-queued", lib, { size: 8000 });
+    makeVideo("small-ready", lib, { size: 10 });
+    makeVideo("big-ready", lib, { size: 500 });
+    db.prepare("UPDATE gallery_details SET faststart_error = 'no' WHERE item_id = 'big-failed'").run();
+    enqueueFaststartJobs(["big-queued"]);
+
+    expect(listFaststartCandidates().map((c) => c.itemId)).toEqual(["big-ready", "small-ready", "big-queued", "big-failed"]);
+  });
+
+  it("cuts pages and keeps the summary about the whole backlog", () => {
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+    for (let i = 0; i < 5; i += 1) makeVideo(`v${i}`, lib, { size: 100 - i });
+
+    const second = faststartPage(2, 2);
+    expect(second.items.map((c) => c.itemId)).toEqual(["v2", "v3"]);
+    expect(second).toMatchObject({ page: 2, totalPages: 3, total: 5 });
+    expect(second.summary).toMatchObject({ total: 5, ready: 5, readyBytes: 490 });
+
+    expect(faststartPage(99, 2).page).toBe(3); // a page gone since it was opened
+  });
+
+  it("filters to what can and can't be optimised", () => {
+    const ext = makeLibrary("ext", { createdBy: "admin", type: "gallery", policyJson: JSON.stringify({ mode: "external" }) });
+    const lib = makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+    makeVideo("readonly", ext);
+    makeVideo("failed", lib);
+    makeVideo("fine", lib);
+    db.prepare("UPDATE gallery_details SET faststart_error = 'no' WHERE item_id = 'failed'").run();
+
+    expect(faststartPage(1, 20, "ready").items.map((c) => c.itemId)).toEqual(["fine"]);
+    const unable = faststartPage(1, 20, "unable");
+    expect(unable.items.map((c) => c.itemId).sort()).toEqual(["failed", "readonly"]);
+    expect(unable.summary.total).toBe(3);
   });
 });

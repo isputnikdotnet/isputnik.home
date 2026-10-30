@@ -90,7 +90,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "корзина удалено восстановить очистить хранение сколько дней очистка истечение расположение папка путь",
   quotes: "quotes quote of the day import pack json wikiquote widget home card sayings " +
     "categories delete import undo bulk famous family",
-  videoStreaming: "video streaming faststart moov slow to start buffering optimise videos for streaming mp4 index rewrite remux playback delay starts slowly phone mobile stream",
+  videoStreaming: "video streaming faststart moov slow to start buffering optimise videos for streaming mp4 index rewrite remux playback delay starts slowly phone mobile stream failed cannot be optimised camera track",
   missingPhotos: "gallery missing gone offline broken files photos videos " +
     "галерея пропавшие исчезли недоступно повреждённые файлы фото видео утерянные",
   // Short labels now that they are views of Duplicates, so the words someone would
@@ -126,7 +126,7 @@ type SettingKey =
   | "logRetention" | "systemData" | "appStorage" | "thumbnailStorage" | "backupFolder" | "libraryContainers" | "scanSources" | "backSides"
   | "libraryAccessMembers" | "accountLockout" | "ipAutoBlock" | "passwordPolicy"
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
-  | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "defaultTheme"
+  | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "containerBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
   | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoMetadata" | "sections";
@@ -175,6 +175,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   { titleKey: "addTrustedNetwork", section: "securityTrusted", keywords: "cidr range lan skip lockout добавить доверенную сеть подсеть диапазон" },
   { titleKey: "scheduledBackups", section: "backup", anchor: "scheduled-backups", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
+  { titleKey: "containerBackups", section: "backup", anchor: "container-backups", keywords: "container games video restore download upload undo database back up one apart individually контейнер игры видео восстановить скачать загрузить отменить отдельно копия базы" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
   { titleKey: "sections", section: "appearance", anchor: "sections", keywords: "menu sections hide show switch off on audiobooks ebooks gallery family tree stories games navigation entries household uses разделы меню скрыть показать выключить включить аудиокниги книги галерея семейное древо истории игры навигация" },
   { titleKey: "gamesIntegration", section: "appsSetup", anchor: "app-setup-address", keywords: "games server container reachable version url gateway secret environment variables members showing игры сервер контейнер доступен версия адрес шлюз секрет переменные окружения участники" },

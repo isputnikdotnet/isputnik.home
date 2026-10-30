@@ -516,6 +516,7 @@ export interface GalleryDetailRow {
   web_video_key: string | null;
   web_video_attempts: number;
   faststart: number | null;
+  faststart_error: string | null;
   derived_from_item_id: string | null;
   back_relative_path: string | null;
   back_rotation: number;

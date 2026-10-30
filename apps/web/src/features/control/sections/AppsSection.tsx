@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Check, Copy, KeyRound, Link2Off, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { api } from "../../../api";
-import { queryParam, replaceQuery } from "../../../router";
+import { controlHref, followRoute, queryParam, replaceQuery } from "../../../router";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -1006,7 +1006,15 @@ export function AppsSetupSection() {
         <>
           <section className="config-block" id="app-setup-address">
             <h2>{t("controlAdmin:apps.setup.addressTitle")}</h2>
-            <p className="muted">{t("controlAdmin:apps.setup.addressIntro")}</p>
+            <p className="muted">
+              {t("controlAdmin:apps.setup.addressIntro")}{" "}
+              <a
+                href={`${controlHref("backup")}#container-backup-${current.id}`}
+                onClick={(event) => followRoute(event, `${controlHref("backup")}#container-backup-${current.id}`)}
+              >
+                {t("controlAdmin:apps.setup.backupsLink")}
+              </a>
+            </p>
 
             {current.urlSource === "environment" ? (
               <MessageBox tone="info" title={t("controlAdmin:apps.setup.fromEnvironmentTitle")}>

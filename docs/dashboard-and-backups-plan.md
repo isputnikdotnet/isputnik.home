@@ -107,6 +107,18 @@ whose question it answers — the 4.15 rule — and the nav is back to six group
 
 ## Backups: home stores all, each part restores alone
 
+**Built 2026-10-30, not released; supersedes parts of this section.** Each container
+got its own card on Maintenance › Backup (`modules/backups/app-backups.ts`,
+`ContainerBackups.tsx`) instead of a checkbox per part in Home's restore dialog: back
+up now, download, upload, restore, undo, an include switch and its own retention.
+Its own files are `isputnik-<app>-<stamp>-v<version>.sqlite` beside Home's, and the
+copies inside full and minimal zips are listed with them and restore the same way.
+A restore replaces every table's rows in one transaction on the open database
+(`restore.ts` in each container), so nothing restarts and a failure rolls back. It is
+refused through the gateway: only the Backup page reaches it, and that applies Home's
+rule on destructive actions. After a Video restore Home hands its library list back
+(`onAppRestored`). Still open from below: part chips on Home's own list, and phase 4.
+
 **Decision.** Home schedules every backup and keeps every file in `BACKUP_PATH`.
 Containers keep no backup store. Rejected: backups stored on each container and
 managed from Home — they would share the appdata disk they protect, need one

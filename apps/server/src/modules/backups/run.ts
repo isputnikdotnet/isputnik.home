@@ -56,6 +56,9 @@ export const BACKUP_KINDS: BackupKind[] = ["full", "minimal", "database"];
 
 const BACKUP_PREFIX = "isputnik-";
 export const NAME_PATTERN = /^isputnik-[0-9]{8}-[0-9]{6}(?:(?:-minimal)?\.zip|(?:-pre-upgrade)?\.sqlite)$/;
+/** One container's own backup, beside these and not one of them (app-backups.ts).
+ *  The first group is the container's id. */
+export const APP_BACKUP_PATTERN = /^isputnik-([a-z]+)-[0-9]{8}-[0-9]{6}(?:-v[0-9][0-9A-Za-z.-]{0,39})?\.sqlite$/;
 export const PRE_UPGRADE_SUFFIX = "-pre-upgrade.sqlite";
 export const PRE_UPGRADE_KEEP = 2;
 
@@ -260,8 +263,9 @@ async function writeZip(destination: string, tmpDb: string, kind: BackupKind, sc
         archive.file(picture.absolutePath, { name: `thumbnails/${picture.key}` });
       }
     }
-    // The containers' databases beside this one (modules/apps/backup.ts). Restore
-    // leaves apps/ alone: a container gets its database back from Apps, later.
+    // The containers' databases beside this one (modules/apps/backup.ts). Home's
+    // restore leaves apps/ alone: each container restores from its own card on the
+    // Backup page (app-backups.ts).
     for (const snapshot of apps) {
       if (snapshot.included) archive.file(snapshot.file, { name: `apps/${snapshot.id}.sqlite` });
     }

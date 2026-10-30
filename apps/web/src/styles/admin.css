@@ -1414,13 +1414,38 @@ tr.control-anchor-flash > td {
   margin-bottom: 16px;
 }
 
-.backup-list-head span {
+.backup-list-head > span {
   color: var(--muted);
   font-size: 0.86rem;
 }
 
 .backup-list-card .datagrid-wrap {
   background: var(--surface);
+}
+
+/* A card per container, under Home's own backups. */
+.container-backups { display: flex; flex-direction: column; gap: 16px; }
+.container-backups-head h2 { margin: 8px 0 4px; font-size: 1.05rem; }
+.container-backups-head p { margin: 0; }
+.container-backup-card { display: flex; flex-direction: column; gap: 12px; }
+.container-backup-card .backup-list-head { margin-bottom: 0; }
+.container-backup-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+}
+.container-backup-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.9rem;
 }
 
 /* Incremental "Show more" row under a paged list (e.g. the Tags table). */
@@ -1460,6 +1485,19 @@ tr.control-anchor-flash > td {
 
 /* Why a video cannot be optimised, in the column where its button would be. */
 .video-blocked { display: inline-flex; align-items: center; gap: 6px; }
+.video-failed-actions { display: inline-flex; align-items: center; gap: 10px; }
+/* The reason the rewrite gave, under the video it is about. */
+.video-failure { margin: 4px 0 0; color: var(--muted); font-size: 0.84rem; white-space: normal; }
+/* What the backlog holds, beside the controls that narrow it. */
+.video-streaming-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.video-streaming-summary { margin: 0; font-size: 0.84rem; white-space: normal; }
 
 /* ── Recycle Bin ────────────────────────────────────────────────── */
 
@@ -2775,9 +2813,9 @@ tr.control-anchor-flash > td {
 }
 
 .dash-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
   margin: 0;
   padding: 10px 12px;
   border-radius: 10px;
@@ -2786,7 +2824,9 @@ tr.control-anchor-flash > td {
 
 .dash-facts > div { min-width: 0; }
 .dash-facts dt { color: var(--muted); font-size: 0.75rem; }
-.dash-facts dd { margin: 0; font-size: 0.875rem; overflow-wrap: anywhere; }
+.dash-facts dd { margin: 0; font-size: 0.875rem; white-space: nowrap; }
+.dash-fact-line { flex: 0 0 100%; }
+.dash-fact-line dd { overflow: hidden; text-overflow: ellipsis; }
 .dash-facts dd.mono,
 .dash-route,
 .dash-disk-head code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
@@ -2994,4 +3034,6 @@ tr.control-anchor-flash > td {
   .dash-branches { grid-template-columns: minmax(0, 1fr); }
   .dash-bar { display: none; }
   .dash-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* No tooltip on a phone: an address that doesn't fit wraps, or it couldn't be read. */
+  .dash-fact-line dd { white-space: normal; overflow-wrap: anywhere; }
 }

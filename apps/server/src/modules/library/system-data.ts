@@ -41,7 +41,7 @@ import {
 import { startFolderMove } from "./shared/folder-move.js";
 import { cachedFolderStats, type FolderStats } from "./app-storage.js";
 import { pathIsInside } from "./shared/storage-roots.js";
-import { NAME_PATTERN } from "../backups/run.js";
+import { APP_BACKUP_PATTERN, NAME_PATTERN } from "../backups/run.js";
 import type { LibraryRow, StorageRootRow } from "../../db/rows.js";
 
 export class SystemDataError extends Error {
@@ -164,7 +164,7 @@ function backupFiles(dir: string): { count: number; bytes: number } {
   let bytes = 0;
   try {
     for (const name of fs.readdirSync(dir)) {
-      if (!NAME_PATTERN.test(name)) continue;
+      if (!NAME_PATTERN.test(name) && !APP_BACKUP_PATTERN.test(name)) continue;
       count += 1;
       try { bytes += fs.statSync(path.join(dir, name)).size; } catch { /* gone meanwhile */ }
     }

@@ -582,6 +582,34 @@ older later and need to go back.
 > everyone using two-factor has to set it up again, so either copy `mfa.key` across
 > by hand or take a new backup first.
 
+#### Containers
+
+Games and Video each have a card of their own at the bottom of this page, so one can
+be backed up and put back without touching Home or the other. A container's backup
+is its database: matches, chat and scores for Games; the catalog, watch progress and
+settings for Video. Video files are never included, and neither are Video's poster
+images, which are fetched again.
+
+- **Back up now** saves the database as one `.sqlite` file in the backups folder.
+  **Keep newest** says how many of these to keep.
+- **Include in Full and Minimal backups** takes the database along in those backups,
+  on by default. Those copies are listed on the card too, and restore the same way.
+- **Download** gives you that one database, and **Upload** adds a downloaded file back
+  to the list. Treat a download with care: the file is not encrypted, and the Games
+  one holds chat messages.
+- **Restore** puts it back straight away, with no restart. Anything changed since
+  that backup is lost from that container, and nothing else is affected. Restoring
+  Video leaves your video files alone, and libraries you added since are scanned again.
+- **Undo restore** brings back what the last restore replaced. It works once, and
+  only until the next restore.
+
+The container must be running to restore, and must be up to date: an older one says
+so on its card, and a backup from a newer version than the container is refused. Video
+also refuses a restore while a scan is running.
+
+If you ever rebuild everything, restore Home first, then each container.
+
+
 ### Recycle Bin
 
 Deleting from the app moves things here rather than erasing them. They keep their
@@ -717,8 +745,9 @@ player has to reach all the way to the end of the file and fetch it. At home you
 may not notice. Over the internet, or on a phone, it is a pause before anything
 happens, on every video, every time.
 
-This page lists the videos in that state, biggest first, and **Optimise** rewrites
-one with its index at the front. The picture and the sound are copied across
+This page lists the videos in that state, the ones that can be fixed first and the
+biggest of those at the top, and **Optimise** rewrites one with its index at the
+front. The picture and the sound are copied across
 exactly as they are — nothing is re-encoded, nothing loses quality, and the file
 stays the same size. It takes a minute or two for a large video and runs in the
 background, yielding to any scan already going; follow it on **Tasks**.
@@ -729,6 +758,12 @@ the old one first (same tracks, same running time, index in front) and only then
 replaces it; if any check fails, the original is kept exactly as it was. A video in
 a [locked folder](libraries.md) or in a library the app only reads is listed with
 the reason, and left alone.
+
+A rewrite can also fail. Some cameras write a track an optimised copy cannot keep,
+and the app won't drop a track to make a file fit. Such a video is marked **Couldn't
+be rewritten** with the reason beneath its name, and **Optimise all** passes over
+it from then on; **Try again** asks for that one video. Choose **Can't be optimised**
+in the menu above the list to see them all together.
 
 Videos already written this way never appear here, and nothing new needs doing
 after a video is optimised once.

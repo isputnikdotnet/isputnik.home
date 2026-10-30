@@ -35,6 +35,19 @@ beforeEach(async () => {
   });
 });
 
+describe("restoring", () => {
+  it("is not reachable through the gateway, even for an admin", async () => {
+    makeUser("admin", "admin");
+    const cookie = await booted.signIn("admin");
+    for (const url of ["/games/api/admin/restore", "/games/api/admin/restore/undo"]) {
+      const res = await booted.app.inject({ method: "POST", url, headers: { cookie }, payload: {} });
+      expect(res.statusCode, url).toBe(404);
+    }
+    // The admin's other routes still are.
+    expect((await booted.app.inject({ method: "GET", url: "/games/api/admin/events", headers: { cookie } })).statusCode).toBe(200);
+  });
+});
+
 describe("the games module", () => {
   it("reports the games on once they have an address and a secret, to members only", async () => {
     const cookie = await booted.signIn("mum");

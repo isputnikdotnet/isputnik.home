@@ -14,6 +14,7 @@ import { z } from "zod";
 import { getSections } from "../../../core/sections.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
 import { appRole } from "../../apps/access.js";
+import { onAppRestored } from "../../apps/backup.js";
 import { registerAppGateway } from "../../apps/gateway.js";
 import { resolveAppSecret } from "../../apps/pairing.js";
 import { appConfigured, appDefinition } from "../../apps/registry.js";
@@ -77,6 +78,20 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
       app.log.warn({ err }, "Video: could not sync the library list with the video app");
     }
   };
+
+  // A restored catalog is the engine's as it was then, and the library list is
+  // Home's as it is now: one made since is put back (the engine scans it), one
+  // deleted since is detached.
+  onAppRestored("video", async () => {
+    for (const row of listVideoLibraries()) {
+      try {
+        await engine.call("PUT", `/admin/libraries/${row.id}`, { body: engineBody(row) });
+      } catch (err) {
+        app.log.warn({ err, library: row.id }, "Video: could not hand a library back to the video app after a restore");
+      }
+    }
+    await sync();
+  });
 
   // The menu asks this once: the engine set up, the Video section on, and this
   // person let in by Security › App access.

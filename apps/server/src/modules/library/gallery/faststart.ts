@@ -112,10 +112,13 @@ export interface FaststartCandidate {
   /** Why this one can't be optimised, if it can't: the library is one the app only
    *  reads, or a folder lock covers it. Null means it is ready to go. */
   blocked: "library" | "locked" | null;
+  /** Why the last rewrite left the file as it was. "Optimise all" passes over it;
+   *  only someone asking for this one video tries it again. */
+  failure: string | null;
   queued: boolean;
 }
 
-type CandidateRow = Pick<GalleryDetailRow, "item_id" | "relative_path" | "size" | "duration_seconds">
+type CandidateRow = Pick<GalleryDetailRow, "item_id" | "relative_path" | "size" | "duration_seconds" | "faststart_error">
   & Pick<LibraryItemRow, "library_id">
   & Pick<LibraryRow, "source_path">
   & { library_name: string; title: string | null };
@@ -128,19 +131,17 @@ function queuedItemIds(): Set<string> {
   return new Set(rows.map((r) => r.itemId).filter((id): id is string => Boolean(id)));
 }
 
-export function faststartBacklogCount(): number {
-  return (db.prepare(`
-    SELECT COUNT(*) AS n
-    FROM gallery_details gd
-    JOIN library_items li ON li.id = gd.item_id
-    WHERE ${CANDIDATE_WHERE}
-  `).get() as { n: number }).n;
-}
+/** Nothing stands in its way and nobody has asked yet: what "Optimise all" takes on. */
+const isReady = (c: FaststartCandidate) => !c.queued && c.blocked === null && c.failure === null;
+/** Held back by its library or a lock, or tried and left as it was. A queued retry
+ *  isn't: its verdict is still to come. */
+const isUnable = (c: FaststartCandidate) => !c.queued && (c.blocked !== null || c.failure !== null);
 
-/** The backlog, biggest first — the big ones are where the wait is worst. */
-export function listFaststartCandidates(limit = 500): FaststartCandidate[] {
+/** The whole backlog: what can be done first, then what is lined up, then what can't
+ *  be — and biggest first within each, the big ones being where the wait is worst. */
+export function listFaststartCandidates(): FaststartCandidate[] {
   const rows = db.prepare(`
-    SELECT gd.item_id, gd.relative_path, gd.size, gd.duration_seconds,
+    SELECT gd.item_id, gd.relative_path, gd.size, gd.duration_seconds, gd.faststart_error,
            li.library_id, lib.source_path, lib.name AS library_name, im.title AS title
     FROM gallery_details gd
     JOIN library_items li ON li.id = gd.item_id
@@ -148,12 +149,11 @@ export function listFaststartCandidates(limit = 500): FaststartCandidate[] {
     LEFT JOIN item_metadata im ON im.item_id = gd.item_id
     WHERE ${CANDIDATE_WHERE}
     ORDER BY gd.size DESC
-    LIMIT ?
-  `).all(limit) as CandidateRow[];
+  `).all() as CandidateRow[];
   const queued = queuedItemIds();
   // The policy gate is per-library, so it is answered once per library, not per row.
   const allowed = new Map<string, boolean>();
-  return rows.map((row) => {
+  return rows.map((row): FaststartCandidate => {
     let mayWrite = allowed.get(row.library_id);
     if (mayWrite === undefined) {
       mayWrite = libraryAllowsDelete(row.library_id);
@@ -169,20 +169,64 @@ export function listFaststartCandidates(limit = 500): FaststartCandidate[] {
       size: row.size,
       durationSeconds: row.duration_seconds,
       blocked: !mayWrite ? "library" : locked ? "locked" : null,
+      failure: row.faststart_error,
       queued: queued.has(row.item_id)
     };
-  });
+  }).sort((a, b) => candidateRank(a) - candidateRank(b)); // stable: size order holds within each
+}
+
+const candidateRank = (c: FaststartCandidate) => (isReady(c) ? 0 : c.queued ? 1 : 2);
+
+export type FaststartShow = "all" | "ready" | "unable";
+
+export interface FaststartPage {
+  items: FaststartCandidate[];
+  page: number;
+  pageSize: number;
+  /** Rows this view pages over, for the pager. */
+  total: number;
+  totalPages: number;
+  /** The whole backlog, whichever view is showing — the header's button and the line
+   *  above the table must not change their story with the page or the filter. */
+  summary: { total: number; ready: number; readyBytes: number; queued: number; unable: number };
+}
+
+/** One page of the backlog. Whether a video can be rewritten is answered per library
+ *  and per lock, not in SQL, so the page is cut after that has been worked out. */
+export function faststartPage(page: number, pageSize: number, show: FaststartShow = "all"): FaststartPage {
+  const candidates = listFaststartCandidates();
+  const ready = candidates.filter(isReady);
+  // "ready" here means can be done, so what is already lined up stays in view.
+  const shown = show === "all" ? candidates : candidates.filter((c) => (show === "unable" ? isUnable(c) : !isUnable(c)));
+  const totalPages = Math.max(1, Math.ceil(shown.length / pageSize));
+  const current = Math.min(Math.max(1, page), totalPages);
+  return {
+    items: shown.slice((current - 1) * pageSize, current * pageSize),
+    page: current,
+    pageSize,
+    total: shown.length,
+    totalPages,
+    summary: {
+      total: candidates.length,
+      ready: ready.length,
+      readyBytes: ready.reduce((sum, c) => sum + (c.size ?? 0), 0),
+      queued: candidates.filter((c) => c.queued).length,
+      unable: candidates.filter(isUnable).length
+    }
+  };
 }
 
 /**
  * Queue the named items (or the whole backlog). Anything already queued, or held
- * back by its library's policy or a folder lock, is skipped. Returns how many jobs
- * were made.
+ * back by its library's policy or a folder lock, is skipped — and so, in the bulk
+ * case, is a video that has already failed: running a file through the same rewrite
+ * on every press only repeats the answer. Naming it is how to try again. Returns how
+ * many jobs were made.
  */
 export function enqueueFaststartJobs(itemIds: string[] | "all"): number {
   const wanted = itemIds === "all" ? null : new Set(itemIds);
-  const candidates = listFaststartCandidates(2000)
-    .filter((c) => !c.queued && c.blocked === null && (wanted === null || wanted.has(c.itemId)));
+  const candidates = listFaststartCandidates()
+    .filter((c) => (wanted === null ? isReady(c) : !c.queued && c.blocked === null && wanted.has(c.itemId)));
   candidates.forEach((candidate, i) => {
     db.prepare("INSERT INTO jobs (id, type, payload, status, max_attempts) VALUES (?, ?, ?, 'pending', 2)")
       .run(nanoid(16), FASTSTART_JOB_TYPE, JSON.stringify({
@@ -386,7 +430,7 @@ export async function remuxInPlace(target: FaststartTarget): Promise<string | nu
     const replaced = fs.statSync(target.srcPath);
     db.prepare(`
       UPDATE gallery_details
-      SET faststart = 1, size = ?, modified_at = ?,
+      SET faststart = 1, faststart_error = NULL, size = ?, modified_at = ?,
           -- The bytes moved, so a hash taken from them is stale; the duplicate scan
           -- re-takes it when it next needs one.
           content_hash = NULL, content_hash_at = NULL,
@@ -448,15 +492,18 @@ export async function processFaststartQueue(): Promise<void> {
       } catch (err) {
         failure = err instanceof Error ? err.message : "The video could not be rewritten.";
       }
-      finishJob(job.id, failure);
+      finishJob(job.id, failure, payload.itemId);
     }
   } finally {
     queueRunning = false;
   }
 }
 
-/** Complete a job, or retry/fail it with a reason the Tasks page can show. */
-function finishJob(jobId: string, failure: string | null): void {
+/** Complete a job, or retry/fail it with a reason the Tasks page can show. `itemId`
+ *  names the file when the failure is the file's own: the reason then stays on the
+ *  video, because finished jobs are pruned. A library that could not be reached says
+ *  nothing about the file, so that one passes none. */
+function finishJob(jobId: string, failure: string | null, itemId?: string): void {
   if (!failure) {
     db.prepare(
       "UPDATE jobs SET status = 'completed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?"
@@ -472,6 +519,7 @@ function finishJob(jobId: string, failure: string | null): void {
     db.prepare(
       "UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?"
     ).run(failure, jobId);
+    if (itemId) db.prepare("UPDATE gallery_details SET faststart_error = ? WHERE item_id = ?").run(failure, itemId);
   }
 }
 

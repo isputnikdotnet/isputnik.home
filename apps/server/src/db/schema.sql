@@ -497,6 +497,10 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- file's first few boxes by the scan; 0 is what Maintenance -> Videos offers to fix
   -- (faststart.ts), which rewrites the file in place.
   faststart           INTEGER,
+  -- Why the last rewrite left the file as it was (a camera track an optimised copy
+  -- cannot keep, say). Maintenance -> Videos labels the video with it and "Optimise
+  -- all" passes over it; cleared by a rewrite that works, or when the file changes.
+  faststart_error     TEXT,
   -- A picture the app made FROM another one (a family-tree portrait cut from a
   -- group photo): the source item. The face scan skips these, or the crop would
   -- grow a second copy of the same face (migration 82).

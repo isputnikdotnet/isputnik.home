@@ -288,8 +288,8 @@ function Services({ status, overview, apps }: { status: SystemStatus; overview: 
             <StateLabel tone="success" label={t("controlDash:overview.stateRunning")} />
           </div>
           <dl className="dash-facts">
-            <Fact label={t("controlDash:overview.address")} value={homeAddress} mono />
-            <Fact label={t("controlDash:overview.publicAddress")} value={overview?.home.publicUrl ?? "…"} mono />
+            <Fact label={t("controlDash:overview.publicAddress")} value={overview?.home.publicUrl ?? "…"} line />
+            <Fact label={t("controlDash:overview.ipAddress")} value={homeAddress} line />
             <Fact label={t("controlDash:system.uptime")} value={formatUptime(status.uptimeSeconds)} />
             <Fact label={t("controlDash:overview.signedIn")} value={formatNumber(status.activeSessions)} />
           </dl>
@@ -351,9 +351,7 @@ function AppBranch({ app }: { app: AppStatus }) {
     none: t("controlDash:overview.setByNone")
   }[app.urlSource];
   const secret = app.secretAccepted === true
-    ? app.pairing
-      ? t("controlDash:overview.secretPaired", { date: formatManagedDate(app.pairing.pairedAt) })
-      : t("controlDash:overview.secretAccepted")
+    ? t("controlDash:overview.secretAccepted")
     : app.secretAccepted === false
       ? t("controlDash:overview.secretRefused")
       : app.secretSet
@@ -384,9 +382,14 @@ function AppBranch({ app }: { app: AppStatus }) {
           <p className="muted">{t("controlDash:overview.unsetNote")}</p>
         ) : (
           <dl className="dash-facts">
-            <Fact label={t("controlDash:overview.address")} value={app.url ?? "—"} mono />
+            <Fact label={t("controlDash:overview.address")} value={app.url ?? "—"} line />
             <Fact label={t("controlDash:overview.setBy")} value={setBy} />
-            <Fact label={t("controlDash:overview.secret")} value={secret} tone={app.secretAccepted === false ? "warning" : undefined} />
+            <Fact
+              label={t("controlDash:overview.secret")}
+              value={secret}
+              tone={app.secretAccepted === false ? "warning" : undefined}
+              title={app.secretAccepted === true && app.pairing ? t("controlDash:overview.secretPaired", { date: formatManagedDate(app.pairing.pairedAt) }) : undefined}
+            />
             <Fact label={t("controlDash:overview.roundTrip")} value={trip} />
           </dl>
         )}
@@ -398,6 +401,7 @@ function AppBranch({ app }: { app: AppStatus }) {
           {app.id === "video" && state === "running" && <a href={controlHref("videoSettings")}>{t("controlDash:overview.linkVideoSettings")}</a>}
           <a href={appPageHref("appsAccess", app.id)}>{t("controlDash:overview.linkAccess")}</a>
           <a href={appPageHref("appsSetup", app.id)}>{t("controlDash:overview.linkSetup")}</a>
+          <a href={`${controlHref("backup")}#container-backup-${app.id}`}>{t("controlDash:overview.linkBackups")}</a>
         </nav>
       </article>
     </div>
@@ -415,11 +419,19 @@ function StateLabel({ tone, label }: { tone: Tone; label: string }) {
   );
 }
 
-function Fact({ label, value, mono, tone }: { label: string; value: string; mono?: boolean; tone?: Tone }) {
+/** `line` is an address: a whole row of its own, in the mono face, never broken in
+ *  two (too long for the card, it is cut and the rest is in the tooltip). The other
+ *  facts share the row under the addresses. */
+function Fact({ label, value, line, tone, title }: { label: string; value: string; line?: boolean; tone?: Tone; title?: string }) {
   return (
-    <div>
+    <div className={line ? "dash-fact-line" : undefined}>
       <dt>{label}</dt>
-      <dd className={[mono ? "mono" : "", tone ? `tone-${tone}` : ""].filter(Boolean).join(" ") || undefined}>{value}</dd>
+      <dd
+        className={[line ? "mono" : "", tone ? `tone-${tone}` : ""].filter(Boolean).join(" ") || undefined}
+        title={line ? value : title}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

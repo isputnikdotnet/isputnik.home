@@ -219,6 +219,13 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
           void reply.code(404).send({ error: "Not found" });
           return;
         }
+        // Restoring goes through the Backup page (backups/app-backups.ts), which
+        // calls the container itself and applies this server's rule on destructive
+        // actions. Nobody's browser gets to it round the side, through here.
+        if (request.url.split("?")[0].startsWith(`${prefix}/api/admin/restore`)) {
+          void reply.code(404).send({ error: "Not found" });
+          return;
+        }
         const tokenUser = hooks.userFromToken?.(request, reply) ?? null;
         if (tokenUser === "answered") return;
         if (tokenUser) {
