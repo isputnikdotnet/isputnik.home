@@ -888,6 +888,14 @@
     "linkAccess": "Access",
     "linkSetup": "Setup",
     "linkBackups": "Backups",
+    "backupOwn": "Its own backup",
+    "backupAppHint": "Taken with the next Full or Minimal backup, or from its card.",
+    "backupLeftOut": "Left out of Full and Minimal backups.",
+    "backupRestored": "Restored {{date}}; can be undone.",
+    "issueAppNoBackup": "{{app}} has no backup yet.",
+    "issueAppOldBackup": "The last backup of {{app}} was {{when}}.",
+    "diskFolders_one": "{{count}} folder on this drive",
+    "diskFolders_other": "{{count}} folders on this drive",
     "securityTitle": "Security & access",
     "securityLink": "Security › Overview",
     "failedSignIns": "Failed sign-ins · 24h",
@@ -901,7 +909,7 @@
     "diskFree": "{{free}} free of {{total}}",
     "diskUsedLabel": "{{mount}}: {{share}}% used",
     "disksUnknown": "Couldn't measure the disks",
-    "disksHelp": "One bar per folder mapped into each container. Folders mapped from Unraid's /mnt/user are one user-share filesystem, so they show the same numbers; map /mnt/cache/… or /mnt/diskN/… instead for one drive's figures.",
+    "disksHelp": "One bar per drive, with the folders each container maps from it. Folders mapped from Unraid's /mnt/user are one user-share filesystem, so they share a bar; map /mnt/cache/… or /mnt/diskN/… instead for one drive's figures.",
     "holdLibraries": "Libraries: {{names}}",
     "holdDatabase": "database",
     "holdSystemData": "system data",
@@ -913,7 +921,6 @@
     "linkGuestLinks": "Guest links",
     "linkVideoSettings": "Settings",
     "holdArtwork": "posters",
-    "holdTranscode": "conversion folder",
-    "diskShared": "Same filesystem as {{mounts}}: the numbers are for all of them together."
+    "holdTranscode": "conversion folder"
   }
 }

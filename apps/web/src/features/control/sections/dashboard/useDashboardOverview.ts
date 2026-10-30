@@ -44,8 +44,20 @@ export interface LastBackup {
   stale: boolean;
 }
 
+/** A container's backups as the Backup page's cards hold them (backups/app-backups.ts);
+ *  files are newest first, its own and the copies inside full and minimal zips. */
+export interface AppBackupSummary {
+  id: string;
+  configured: boolean;
+  include: boolean;
+  files: { createdAt: string; source: "own" | "full" | "minimal" }[];
+  undo: { takenAt: string } | null;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STALE_BACKUP_DAYS = 7;
+
+export const isStaleBackup = (createdAt: string) => Date.now() - Date.parse(createdAt) > STALE_BACKUP_DAYS * DAY_MS;
 
 /** Error events a container recorded in the last day; null when it could not be asked. */
 async function errorsToday(prefix: string): Promise<number | null> {
@@ -65,15 +77,20 @@ export function useDashboardOverview() {
   const [lastBackup, setLastBackup] = useState<LastBackup | null | undefined>(undefined);
   const [appErrors, setAppErrors] = useState<Record<string, number | null>>({});
   const [appDisks, setAppDisks] = useState<OwnedDisk[]>([]);
+  /** undefined = still asking, or it could not be read: no rows and no alarm. */
+  const [appBackups, setAppBackups] = useState<AppBackupSummary[] | undefined>(undefined);
 
   const load = useCallback(async () => {
     const overviewCall = api<DashboardOverview>("/api/dashboard/overview").then(setOverview).catch(() => setOverview(null));
     const backupCall = api<{ backups: Omit<LastBackup, "stale">[] }>("/api/backups")
       .then((payload) => {
         const newest = payload.backups[0];
-        setLastBackup(newest ? { ...newest, stale: Date.now() - Date.parse(newest.createdAt) > STALE_BACKUP_DAYS * DAY_MS } : null);
+        setLastBackup(newest ? { ...newest, stale: isStaleBackup(newest.createdAt) } : null);
       })
       // Unreadable is not "none yet": leave it unknown rather than raise a false alarm.
+      .catch(() => undefined);
+    const appBackupsCall = api<{ apps: AppBackupSummary[] }>("/api/backups/apps")
+      .then((payload) => setAppBackups(payload.apps))
       .catch(() => undefined);
     const appsCall = api<{ apps: AppStatus[] }>("/api/apps/admin/status")
       .then(async (payload) => {
@@ -92,12 +109,12 @@ export function useDashboardOverview() {
         setAppDisks(disks.flat());
       })
       .catch(() => setApps([]));
-    await Promise.all([overviewCall, backupCall, appsCall]);
+    await Promise.all([overviewCall, backupCall, appBackupsCall, appsCall]);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  return { overview, apps, lastBackup, appErrors, appDisks, reload: load };
+  return { overview, apps, lastBackup, appErrors, appDisks, appBackups, reload: load };
 }

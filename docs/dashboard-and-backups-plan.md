@@ -48,6 +48,11 @@ Unraid that is appdata on the cache pool, not where the libraries are. Instead:
   device id, so grouping by device drew a single bar named `/config` with every
   library in its small print. Now each mount gets a bar; mounts of one filesystem
   name each other ("Same filesystem as …") and a low one is reported once.
+- **One bar per filesystem again (2026-10-30), with the folders listed.** Several
+  bars with the same numbers read as several drives. A filesystem now has one bar, and
+  under it each folder, who mapped it and what it holds, which keeps what 4.45.1 was
+  after: no library ends up in the small print of a bar named `/config`. The rule for
+  merging across containers is unchanged (device id AND size).
 - **Container disks (4.45.1, isputnik.video 0.8.0).** The engine answers
   `GET /video/api/admin/disks` in the same shape for its library folders,
   catalog, posters and conversion folder; the Dashboard reads it through the

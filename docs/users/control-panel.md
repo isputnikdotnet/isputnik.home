@@ -61,14 +61,17 @@ Is the server well? The panel opens here.
 
 ![The Dashboard](images/60-dashboard.png)
 
-Is the server well? Four cards: uptime with the version and Node
-release under it, memory in use, free space on the data disk (green until a
-fifth is left, amber below that, red below a tenth), and the database on disk
-with its file and WAL sizes (the WAL is SQLite's write-ahead log, which grows
-between checkpoints and is normal). Under them, a short table of counts that
-have pages of their own — members, signed-in devices, open invite links, log
-entries, and when the last backup was taken — each row a door to that page. Come
+Is the server well? From the top: anything that needs a look, Home and each
+container with how they connect, then security and the last day's problems. Come
 here first when something feels wrong.
+
+**Storage** has one bar per drive (green until a fifth is left, amber below that,
+red below a tenth). When several folders sit on one drive, even across containers,
+they share its bar and each is listed under it with what it holds.
+
+**Last backup** has a row for Home and one for each container, each a door to its
+backups. A container with no backup, or none in the last week, joins the list at the
+top, unless you have left it out of Full and Minimal backups.
 
 ### Activity
 

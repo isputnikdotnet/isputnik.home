@@ -23,13 +23,13 @@ import { appPageHref, logsHref, storageHref, tasksHref } from "../../links";
 import { signInsHref } from "./SignInsView";
 import type { AppStatus } from "../AppsSection";
 import type { SystemStatus } from "../../types";
-import type { DashboardDisk, DashboardOverview, DiskHolding, LastBackup, OwnedDisk } from "./useDashboardOverview";
+import { isStaleBackup, type AppBackupSummary, type DashboardDisk, type DashboardOverview, type DiskHolding, type LastBackup, type OwnedDisk } from "./useDashboardOverview";
 
 // Overview › Dashboard (docs/dashboard-and-backups-plan.md): Home and the
 // containers beside it on one page. It reads and points; every setting stays on
 // its own page. From the top: what needs a look (or one quiet line), Home with
 // its gateway and a branch per container, security and the last day's problems,
-// then the disks Home's files sit on and the last backup.
+// then the disks every container's files sit on and each one's last backup.
 
 type Tone = "success" | "warning" | "danger" | "muted";
 
@@ -74,22 +74,32 @@ function useAppName() {
 
 const APP_ICONS: Record<string, LucideIcon> = { games: Gamepad2, video: Tv };
 
-/** Every disk on the page — home's, then each engine's — with the other mounts of
- *  its filesystem named. Within one container the device id says so; across two
- *  (home and Video on one Unraid user share) the id must match AND the size, so
- *  a coincidence between two hosts' device numbers is never called a share. */
-function allDisks(overview: DashboardOverview | null, appDisks: OwnedDisk[]): (OwnedDisk & { shared: { owner: string; mount: string }[] })[] {
-  const disks: OwnedDisk[] = [...(overview?.disks ?? []).map((disk) => ({ ...disk, owner: "home" })), ...appDisks];
-  return disks.map((disk) => ({
-    ...disk,
-    shared: disks
-      .filter((other) => other !== disk && other.filesystem === disk.filesystem && (other.owner === disk.owner || other.totalBytes === disk.totalBytes))
-      .map((other) => ({ owner: other.owner, mount: other.mount }))
-  }));
+const containerBackupHref = (id: string) => `${controlHref("backup")}#container-backup-${id}`;
+
+/** One filesystem and the folders mapped from it, in every container: one bar, since
+ *  they all show the same numbers. Within a container the device id says it is one
+ *  filesystem; across two (home and Video on one Unraid user share) the id must match
+ *  AND the size, so a coincidence between two hosts' device numbers never merges them. */
+interface DiskGroup {
+  key: string;
+  freeBytes: number;
+  totalBytes: number;
+  folders: OwnedDisk[];
 }
 
-/** One key per filesystem, so a low disk is reported once, not once per mount. */
-const filesystemKey = (disk: OwnedDisk) => `${disk.filesystem}:${disk.totalBytes}`;
+function groupDisks(overview: DashboardOverview | null, appDisks: OwnedDisk[]): DiskGroup[] {
+  const groups = new Map<string, DiskGroup>();
+  for (const disk of [...(overview?.disks ?? []).map((disk) => ({ ...disk, owner: "home" })), ...appDisks]) {
+    const key = `${disk.filesystem}:${disk.totalBytes}`;
+    const group = groups.get(key);
+    if (group) group.folders.push(disk);
+    else groups.set(key, { key, freeBytes: disk.freeBytes, totalBytes: disk.totalBytes, folders: [disk] });
+  }
+  return [...groups.values()];
+}
+
+/** The folders of a disk by their paths, each once: home and Video may both say /media. */
+const folderNames = (group: DiskGroup) => [...new Set(group.folders.map((folder) => folder.mount))].join(", ");
 
 interface Issue {
   tone: Tone;
@@ -103,7 +113,8 @@ export function Overview({
   apps,
   lastBackup,
   appErrors,
-  appDisks
+  appDisks,
+  appBackups
 }: {
   status: SystemStatus;
   overview: DashboardOverview | null;
@@ -111,6 +122,7 @@ export function Overview({
   lastBackup: LastBackup | null | undefined;
   appErrors: Record<string, number | null>;
   appDisks: OwnedDisk[];
+  appBackups?: AppBackupSummary[];
 }) {
   const { t } = useTranslation(["common", "controlDash"]);
   const appName = useAppName();
@@ -122,15 +134,13 @@ export function Overview({
     if (state === "down") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppDown", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id) });
     if (state === "secret") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppSecret", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id) });
   }
-  const disks = allDisks(overview, appDisks);
-  const reported = new Set<string>();
+  const disks = groupDisks(overview, appDisks);
   for (const disk of disks) {
     const tone = diskTone(disk);
-    if ((tone === "danger" || tone === "warning") && !reported.has(filesystemKey(disk))) {
-      reported.add(filesystemKey(disk));
+    if (tone === "danger" || tone === "warning") {
       issues.push({
         tone,
-        text: t("controlDash:overview.issueDiskLow", { mount: disk.mount, share: Math.round((disk.freeBytes / disk.totalBytes) * 100) }),
+        text: t("controlDash:overview.issueDiskLow", { mount: folderNames(disk), share: Math.round((disk.freeBytes / disk.totalBytes) * 100) }),
         href: storageHref()
       });
     }
@@ -139,6 +149,16 @@ export function Overview({
     issues.push({ tone: "warning", text: t("controlDash:overview.issueNoBackup"), href: controlHref("backup") });
   } else if (lastBackup?.stale) {
     issues.push({ tone: "warning", text: t("controlDash:overview.issueOldBackup", { when: relativeTime(lastBackup.createdAt) }), href: controlHref("backup") });
+  }
+  // A container left out of the backups on purpose has nothing to warn about.
+  for (const app of appBackups ?? []) {
+    if (!app.configured || !app.include) continue;
+    const newest = app.files[0];
+    if (!newest) {
+      issues.push({ tone: "warning", text: t("controlDash:overview.issueAppNoBackup", { app: appName(app.id) }), href: containerBackupHref(app.id) });
+    } else if (isStaleBackup(newest.createdAt)) {
+      issues.push({ tone: "warning", text: t("controlDash:overview.issueAppOldBackup", { app: appName(app.id), when: relativeTime(newest.createdAt) }), href: containerBackupHref(app.id) });
+    }
   }
   if (overview && overview.failedTasks24h > 0) {
     issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedTasks", { count: overview.failedTasks24h }), href: tasksHref({ status: "failed" }) });
@@ -231,7 +251,7 @@ export function Overview({
         <div className="dash-storage">
           <div className="dash-disks">
             {overview === null && <p className="muted">{t("controlDash:overview.disksUnknown")}</p>}
-            {disks.map((disk) => <DiskRow key={`${disk.owner}:${disk.mount}`} disk={disk} />)}
+            {disks.map((disk) => <DiskRow key={disk.key} disk={disk} />)}
             <p className="dash-note">{t("controlDash:overview.disksHelp")}</p>
           </div>
           <div className="dash-side">
@@ -240,17 +260,21 @@ export function Overview({
               <Stat icon={Database} label={t("controlDash:system.database")} value={formatBytes(status.databaseBytes)} />
               <Stat icon={Clock3} label={t("controlDash:system.uptime")} value={formatUptime(status.uptimeSeconds)} />
             </dl>
-            <a href={controlHref("backup")} className="dash-backup">
+            <div className="dash-backup">
               <span className="dash-backup-label"><Archive size={16} aria-hidden="true" />{t("controlDash:system.lastBackup")}</span>
-              <strong>
-                {lastBackup === undefined ? "…" : lastBackup ? relativeTime(lastBackup.createdAt) : t("controlDash:system.noneYet")}
-              </strong>
-              <span className="muted">
-                {lastBackup
+              <BackupRow
+                name={t("controlDash:overview.homeShort")}
+                href={controlHref("backup")}
+                when={lastBackup === undefined ? "…" : lastBackup ? relativeTime(lastBackup.createdAt) : t("controlDash:system.noneYet")}
+                stale={Boolean(lastBackup?.stale)}
+                detail={lastBackup
                   ? `${lastBackup.kind === "full" ? t("controlDash:system.fullBackup") : lastBackup.kind === "minimal" ? t("controlDash:overview.minimalBackup") : t("controlDash:system.databaseOnly")} · ${formatManagedDate(lastBackup.createdAt)}`
                   : t("controlDash:system.backupHint")}
-              </span>
-            </a>
+              />
+              {(appBackups ?? []).filter((app) => app.configured || app.files.length > 0).map((app) => (
+                <AppBackupRow key={app.id} app={app} />
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -401,7 +425,7 @@ function AppBranch({ app }: { app: AppStatus }) {
           {app.id === "video" && state === "running" && <a href={controlHref("videoSettings")}>{t("controlDash:overview.linkVideoSettings")}</a>}
           <a href={appPageHref("appsAccess", app.id)}>{t("controlDash:overview.linkAccess")}</a>
           <a href={appPageHref("appsSetup", app.id)}>{t("controlDash:overview.linkSetup")}</a>
-          <a href={`${controlHref("backup")}#container-backup-${app.id}`}>{t("controlDash:overview.linkBackups")}</a>
+          <a href={containerBackupHref(app.id)}>{t("controlDash:overview.linkBackups")}</a>
         </nav>
       </article>
     </div>
@@ -467,17 +491,68 @@ function Stat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; v
   );
 }
 
-function DiskRow({ disk }: { disk: OwnedDisk & { shared: { owner: string; mount: string }[] } }) {
+function BackupRow({ name, href, when, stale, detail, note }: { name: string; href: string; when: string; stale: boolean; detail: string; note?: string }) {
+  return (
+    <a href={href} className="dash-backup-row">
+      <span className="dash-backup-head">
+        <span>{name}</span>
+        <strong className={stale ? "tone-warning" : undefined}>{when}</strong>
+      </span>
+      <span className="muted">{detail}</span>
+      {note && <span className="muted">{note}</span>}
+    </a>
+  );
+}
+
+function AppBackupRow({ app }: { app: AppBackupSummary }) {
+  const { t } = useTranslation(["common", "controlDash"]);
+  const appName = useAppName();
+  const newest = app.files[0];
+  const source = newest && {
+    own: t("controlDash:overview.backupOwn"),
+    full: t("controlDash:system.fullBackup"),
+    minimal: t("controlDash:overview.minimalBackup")
+  }[newest.source];
+  return (
+    <BackupRow
+      name={appName(app.id)}
+      href={containerBackupHref(app.id)}
+      when={newest ? relativeTime(newest.createdAt) : t("controlDash:system.noneYet")}
+      stale={Boolean(newest && app.include && isStaleBackup(newest.createdAt))}
+      detail={newest ? `${source} · ${formatManagedDate(newest.createdAt)}` : app.include ? t("controlDash:overview.backupAppHint") : t("controlDash:overview.backupLeftOut")}
+      note={app.undo ? t("controlDash:overview.backupRestored", { date: formatManagedDate(app.undo.takenAt) }) : undefined}
+    />
+  );
+}
+
+function DiskRow({ disk }: { disk: DiskGroup }) {
   const { t } = useTranslation(["common", "controlDash"]);
   const appName = useAppName();
   const ownerName = (owner: string) => (owner === "home" ? t("controlDash:overview.homeShort") : appName(owner));
   const tone = diskTone(disk);
   const usedShare = disk.totalBytes > 0 ? Math.min(100, Math.round(((disk.totalBytes - disk.freeBytes) / disk.totalBytes) * 100)) : 0;
+  const holdings = (folder: OwnedDisk) => describeHoldings(folder.holds, {
+    database: t("controlDash:overview.holdDatabase"),
+    systemData: t("controlDash:overview.holdSystemData"),
+    thumbnails: t("controlDash:overview.holdThumbnails"),
+    backups: t("controlDash:overview.holdBackups"),
+    appFiles: t("controlDash:overview.holdAppFiles"),
+    trash: t("controlDash:overview.holdTrash"),
+    artwork: t("controlDash:overview.holdArtwork"),
+    transcode: t("controlDash:overview.holdTranscode")
+  }, (names) => t("controlDash:overview.holdLibraries", { names }));
+  const [only] = disk.folders;
   return (
     <div className={`dash-disk tone-${tone}`}>
       <div className="dash-disk-head">
-        <code>{disk.mount}</code>
-        <span className="dash-disk-owner">{ownerName(disk.owner)}</span>
+        {disk.folders.length === 1 ? (
+          <>
+            <code>{only.mount}</code>
+            <span className="dash-disk-owner">{ownerName(only.owner)}</span>
+          </>
+        ) : (
+          <span className="dash-disk-title">{t("controlDash:overview.diskFolders", { count: disk.folders.length })}</span>
+        )}
         <span className={`dash-disk-free tone-${tone}`}>
           {t("controlDash:overview.diskFree", { free: formatBytes(disk.freeBytes), total: formatBytes(disk.totalBytes) })}
         </span>
@@ -488,28 +563,24 @@ function DiskRow({ disk }: { disk: OwnedDisk & { shared: { owner: string; mount:
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={usedShare}
-        aria-label={t("controlDash:overview.diskUsedLabel", { mount: disk.mount, share: usedShare })}
+        aria-label={t("controlDash:overview.diskUsedLabel", { mount: folderNames(disk), share: usedShare })}
       >
         <span className={`tone-${tone}`} style={{ width: `${usedShare}%` }} />
       </div>
-      <span className="muted">
-        {describeHoldings(disk.holds, {
-          database: t("controlDash:overview.holdDatabase"),
-          systemData: t("controlDash:overview.holdSystemData"),
-          thumbnails: t("controlDash:overview.holdThumbnails"),
-          backups: t("controlDash:overview.holdBackups"),
-          appFiles: t("controlDash:overview.holdAppFiles"),
-          trash: t("controlDash:overview.holdTrash"),
-          artwork: t("controlDash:overview.holdArtwork"),
-          transcode: t("controlDash:overview.holdTranscode")
-        }, (names) => t("controlDash:overview.holdLibraries", { names }))}
-      </span>
-      {disk.shared.length > 0 && (
-        <span className="dash-disk-shared">
-          {t("controlDash:overview.diskShared", {
-            mounts: disk.shared.map((other) => (other.owner === disk.owner ? other.mount : `${ownerName(other.owner)} ${other.mount}`)).join(", ")
-          })}
-        </span>
+      {disk.folders.length === 1 ? (
+        <span className="muted">{holdings(only)}</span>
+      ) : (
+        <ul className="dash-disk-folders">
+          {disk.folders.map((folder) => (
+            <li key={`${folder.owner}:${folder.mount}`}>
+              <span className="dash-disk-folder">
+                <code>{folder.mount}</code>
+                <span className="dash-disk-owner">{ownerName(folder.owner)}</span>
+              </span>
+              <span className="muted">{holdings(folder)}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
