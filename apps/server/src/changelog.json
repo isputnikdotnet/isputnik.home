@@ -1,5 +1,18 @@
 [
   {
+    "version": "4.48.0",
+    "label": "Back up each container on its own",
+    "changes": [
+      "**Each container has its own backups.** **Maintenance → Backup** now has a card for Games and for Video: back up now, download, upload, restore, and choose how many to keep and whether Full and Minimal backups include it. Its files sit beside Home's, and the copies inside Full and Minimal backups are listed and restore the same way, so a bad day in one container no longer means going back on everything. Needs Games 0.22.0 and video engine 0.11.0; an older container says to update it first.",
+      "**A restore takes effect at once and can be taken back.** Nothing restarts. A restore that fails changes nothing, and the database it replaced is kept so one click undoes the last restore.",
+      "**Overview shows every container's last backup.** **Last backup** has a row for Home and each container, linking to its card. A container with no backup, or none in the last week, joins the list of things needing attention, unless you left it out of Full and Minimal on purpose.",
+      "**One bar per drive.** Folders on the same drive used to get a bar each, with the same numbers, and read as several drives. Now a drive has one bar, with each folder listed under it, who mapped it and what it holds. A drive running low is reported once.",
+      "**Browse for a folder.** On **Library → Storage**, the backup folder, the thumbnail folder and System data now have a **Browse** button that walks the server's drives, so a folder on another disk no longer has to be typed. In Docker, a drive appears once it is mapped into the container.",
+      "**The Videos tab is easier to read.** **Maintenance → Videos** is paged, with a summary and a filter. A video that could not be optimised says why, sorts last and is skipped by **Optimise all**; **Try again** asks for that one video.",
+      "**Tidier container cards on Overview.** Each address has its own unbroken line, with the other settings in one row beneath."
+    ]
+  },
+  {
     "version": "4.47.0",
     "label": "Film sets",
     "changes": [
