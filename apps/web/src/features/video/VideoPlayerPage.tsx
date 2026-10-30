@@ -85,6 +85,14 @@ export function pickSubtitle(tracks: VideoSubtitleTrack[], preference: string | 
 }
 
 /** ?audio=…&subtitle=…: the sound track and the image subtitle burned in. */
+/** What comes next, for the end card: "S01E03 · Title" for an episode, the
+ *  film's own title after a film of a set. */
+function nextName(t: TFunction, next: NonNullable<VideoPlayInfo["next"]>): string {
+  if (next.season === null || next.episode === null) return next.title ?? "";
+  const code = t("video.episodeCode", episodeCodeValues(next.season, next.episode));
+  return next.title ? `${code} · ${next.title}` : code;
+}
+
 function playQuery(audio: number | null | undefined, burn: string | null | undefined): string {
   const params = new URLSearchParams();
   if (audio !== null && audio !== undefined) params.set("audio", String(audio));
@@ -470,11 +478,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
 
           {info.next && nextIn !== null && (
             <div className="video-player-next" role="status">
-              <span>{t("video.nextIn", { count: nextIn })}</span>
-              <strong>
-                {t("video.episodeCode", episodeCodeValues(info.next.season!, info.next.episode!))}
-                {info.next.title ? ` · ${info.next.title}` : ""}
-              </strong>
+              <span>{info.next.season === null ? t("video.set.nextIn", { count: nextIn }) : t("video.nextIn", { count: nextIn })}</span>
+              <strong>{nextName(t, info.next)}</strong>
               <div className="video-player-next-actions">
                 <Button variant="secondary" onClick={() => setNextIn(null)}>{t("common.cancel")}</Button>
                 <Button variant="primary" onClick={() => navigate(watchHref(info.next!.id))}>
@@ -490,8 +495,12 @@ export function VideoPlayerPage({ id }: { id: string }) {
       {info?.next && nextIn === null && !unplayable && (
         <p className="video-player-after">
           <a href={watchHref(info.next.id)} onClick={(event) => followRoute(event, watchHref(info.next!.id))}>
-            {t("video.upNext", { code: t("video.episodeCode", episodeCodeValues(info.next.season!, info.next.episode!)) })}
-            {info.next.title ? ` · ${info.next.title}` : ""}
+            {info.next.season === null || info.next.episode === null
+              ? t("video.set.upNext", { title: info.next.title ?? "" })
+              : <>
+                  {t("video.upNext", { code: t("video.episodeCode", episodeCodeValues(info.next.season, info.next.episode)) })}
+                  {info.next.title ? ` · ${info.next.title}` : ""}
+                </>}
           </a>
         </p>
       )}

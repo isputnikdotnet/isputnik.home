@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.47.0 — Film sets
+
+- **Films that belong together are a set.** A trilogy, a series of films, a family's own summers: films are grouped into a set from the `<set>` their `.nfo` files name, else from the collection TMDB knows them by — nobody builds one by hand. On **Movies**, **View → Sets** lists each set you can see two or more films of; a set's page shows its films in order, by release date, and one **Play** starts the first you haven't watched yet.
+- **A film says which set it is part of.** Its page names the set, with the other films beside it, and when a film of a set ends the player offers the next one, as it does for episodes.
+- **Each person sees only their part of a set.** Films in libraries someone may not watch never show in their sets, and films you don't have are never listed. Needs video engine 0.10.0; films matched on TMDB before it are asked about their set on the next scan.
+
 ## 4.46.1 — Stremio links on the address you made them on
 
 - **A Stremio link now uses the address it was made on.** Every poster, film and subtitle a link sends Stremio to used to be built on the server's main address, so on a server reached by two names — one at home, one through Cloudflare — a link made at home still sent Stremio out through Cloudflare, where the home-network rule refused it: the rows appeared, but no posters and nothing played. Open iSputnik on the address the TV should use and create the link there; the dialog names the address, and Profile and **Security → App access** list each link with it. Links made before this keep the main address — create a new one if yours shows no posters.

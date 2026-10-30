@@ -414,6 +414,7 @@ export type Route =
    *  engine's catalog. Never under /video — that prefix is the engine's. */
   | { name: "videoBrowse"; kind: "shows" | "movies" }
   | { name: "videoTitle"; kind: "shows" | "movies"; id: string }
+  | { name: "videoSet"; id: string }
   /** The player, for one episode or movie (its id in the engine). */
   | { name: "videoWatch"; id: string }
   | { name: "familyTree"; focusId?: string }
@@ -582,6 +583,10 @@ export function getRoute(): Route {
   // Video: Shows and Movies, and one title of either.
   if (path === "/shows" || path === "/movies") {
     return { name: "videoBrowse", kind: path === "/shows" ? "shows" : "movies" };
+  }
+  const videoSetMatch = path.match(/^\/movies\/sets\/([^/]+)$/);
+  if (videoSetMatch) {
+    return { name: "videoSet", id: decodeURIComponent(videoSetMatch[1]) };
   }
   const videoTitleMatch = path.match(/^\/(shows|movies)\/([^/]+)$/);
   if (videoTitleMatch) {

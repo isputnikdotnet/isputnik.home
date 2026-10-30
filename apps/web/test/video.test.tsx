@@ -34,6 +34,7 @@ const { api } = await import("../src/api");
 const { VideoBrowsePage } = await import("../src/features/video/VideoBrowsePage");
 const { VideoTitlePage } = await import("../src/features/video/VideoTitlePage");
 const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage");
+const { VideoSetPage } = await import("../src/features/video/VideoSetPage");
 const { LibraryWizard } = await import("../src/features/control/libraries/LibraryWizard");
 const mockApi = vi.mocked(api);
 
@@ -338,6 +339,100 @@ describe("the player", () => {
     mockApi.mockResolvedValue({ ...playInfo, available: false });
     renderSignedIn(<VideoPlayerPage id="e2" />);
     expect(await screen.findByText(/no longer where the video app found it/)).toBeInTheDocument();
+  });
+});
+
+describe("film sets", () => {
+  const matrix = {
+    id: "set1", name: "The Matrix Collection", overview: "Neo and friends.", poster: "/video/api/art/set1/poster?v=1", backdrop: null,
+    films: [
+      { id: "m1", title: "The Matrix", year: 1999, runtimeMinutes: 136, poster: null, progress: { position: 8000, duration: 8000, watched: true, updatedAt: "2026-10-26T10:00:00.000Z" } },
+      { id: "m2", title: "The Matrix Reloaded", year: 2003, runtimeMinutes: 138, poster: null, progress: { position: 754, duration: 8000, watched: false, updatedAt: "2026-10-27T10:00:00.000Z" } },
+      { id: "m3", title: "The Matrix Revolutions", year: 2003, runtimeMinutes: 129, poster: null, progress: null }
+    ],
+    next: { id: "m2", title: "The Matrix Reloaded", position: 754 }
+  };
+  const summary = { id: "set1", name: "The Matrix Collection", films: 3, watched: 1, firstYear: 1999, lastYear: 2003, poster: null };
+  const page = <T,>(items: T[]) => ({ items, total: items.length, page: 1, pageSize: 200 });
+
+  it("has its own address under /movies", () => {
+    at("/movies/sets/set1");
+    expect(getRoute()).toEqual({ name: "videoSet", id: "set1" });
+  });
+
+  it("switches Movies to its Sets and keeps the choice in the address", async () => {
+    mockApi.mockImplementation((async (path: string) => {
+      if (path === "/video/api/libraries") return { libraries: [] };
+      if (path === "/video/api/continue?limit=12" || path.startsWith("/video/api/continue")) return { items: [] };
+      if (path.startsWith("/video/api/sets")) return page([summary]);
+      if (path.startsWith("/video/api/movies")) return page([{ id: "m1", libraryId: "lib", title: "The Matrix", year: 1999, imdbId: null, genres: [], runtimeMinutes: 136 }]);
+      throw new Error(`unexpected ${path}`);
+    }) as never);
+    at("/movies");
+    renderSignedIn(<VideoBrowsePage kind="movies" />);
+    expect(await screen.findByText("The Matrix")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "View: Films" }));
+    await userEvent.click(screen.getByRole("menuitemradio", { name: "Sets" }));
+    expect(await screen.findByText("The Matrix Collection")).toBeInTheDocument();
+    expect(screen.getByText("3 films · 1999–2003")).toBeInTheDocument();
+    expect(screen.getByText("1 set")).toBeInTheDocument();
+    expect(window.location.search).toBe("?view=sets");
+    expect(mockApi).toHaveBeenCalledWith("/video/api/sets?pageSize=200");
+    // Sets are by name: no Sort while they show.
+    expect(screen.queryByRole("button", { name: /^Sort:/ })).not.toBeInTheDocument();
+  });
+
+  it("offers no View where there are no sets, as with an engine from before them", async () => {
+    mockApi.mockImplementation((async (path: string) => {
+      if (path === "/video/api/libraries") return { libraries: [] };
+      if (path.startsWith("/video/api/continue")) return { items: [] };
+      if (path.startsWith("/video/api/sets")) throw new Error("Not Found");
+      if (path.startsWith("/video/api/movies")) return page([]);
+      throw new Error(`unexpected ${path}`);
+    }) as never);
+    renderSignedIn(<VideoBrowsePage kind="movies" />);
+    expect(await screen.findByText("Nothing here yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^View:/ })).not.toBeInTheDocument();
+  });
+
+  it("plays on from the first film not yet watched, and lists the films in order", async () => {
+    mockApi.mockResolvedValue(matrix);
+    renderSignedIn(<VideoSetPage id="set1" />);
+    expect(await screen.findByRole("heading", { name: "The Matrix Collection" })).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/video/api/sets/set1");
+    expect(screen.getByText("3 films · 1999–2003 · 1 of 3 watched")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume The Matrix Reloaded from 12:34" })).toHaveAttribute("href", "/watch/m2");
+    expect(screen.getAllByRole("listitem").map((item) => item.querySelector(".video-card-body strong")?.textContent)).toEqual(["The Matrix", "The Matrix Reloaded", "The Matrix Revolutions"]);
+    expect(screen.getByRole("link", { name: /The Matrix Revolutions/ })).toHaveAttribute("href", "/movies/m3");
+    expect(screen.getByRole("link", { name: "Sets" })).toHaveAttribute("href", "/movies?view=sets");
+  });
+
+  it("says so when every film of the set is watched", async () => {
+    mockApi.mockResolvedValue({ ...matrix, next: null });
+    renderSignedIn(<VideoSetPage id="set1" />);
+    expect(await screen.findByText("Every film of this set is watched.")).toBeInTheDocument();
+  });
+
+  it("names the set on a film's page, over its films with this one marked", async () => {
+    mockApi.mockResolvedValue({
+      id: "m2", libraryId: "lib", title: "The Matrix Reloaded", originalTitle: null, year: 2003, plot: null, genres: [], runtimeMinutes: 138,
+      imdbId: null, tmdbId: "604", source: "folder", direct: "yes", progress: null,
+      set: { id: "set1", name: "The Matrix Collection", films: matrix.films.map(({ id, title, year, poster }) => ({ id, title, year, poster })) }
+    });
+    renderSignedIn(<VideoTitlePage kind="movies" id="m2" />);
+    expect(await screen.findByRole("link", { name: "Part of The Matrix Collection" })).toHaveAttribute("href", "/movies/sets/set1");
+    expect(screen.getByRole("link", { name: "The Matrix" })).toHaveAttribute("href", "/movies/m1");
+    expect(document.querySelector(".video-set-strip [aria-current='page']")).toHaveTextContent("The Matrix Reloaded");
+  });
+
+  it("offers the next film of the set when a film ends", async () => {
+    mockApi.mockResolvedValue({
+      id: "m1", type: "movie", title: "The Matrix", show: null, season: null, episode: null, runtimeMinutes: 136, available: true, sizeBytes: 1000,
+      playback: { mode: "direct", reasons: [], url: "/video/api/stream/m1", duration: 8000 }, progress: null, resumeAt: 0,
+      next: { id: "m2", season: null, episode: null, title: "The Matrix Reloaded" }
+    });
+    renderSignedIn(<VideoPlayerPage id="m1" />);
+    expect(await screen.findByRole("link", { name: "Up next: The Matrix Reloaded" })).toHaveAttribute("href", "/watch/m2");
   });
 });
 

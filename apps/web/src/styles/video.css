@@ -590,3 +590,100 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+
+/* Film sets (docs/video-sets-plan.md): a set's films are links, not buttons, so
+   each opens in a new tab like any address. */
+.video-set-films {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-set-films a.video-card {
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.video-set-films .video-card-body strong {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.video-set-films .video-progress {
+  margin-top: 6px;
+}
+
+/* "Part of …" on a film's page: the set's name over its films in order. */
+.video-set-strip {
+  margin: 4px 0 20px;
+}
+
+.video-set-strip h2 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.video-set-strip h2 a {
+  color: inherit;
+}
+
+.video-set-strip ol {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.video-set-strip li > a,
+.video-set-strip li > span {
+  display: grid;
+  gap: 4px;
+  width: 84px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.video-set-strip small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-set-strip-cover {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 2 / 3;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--active);
+  color: var(--mint);
+  overflow: hidden;
+}
+
+.video-set-strip-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-set-strip a:hover .video-set-strip-cover {
+  border-color: var(--mint);
+}
+
+.video-set-strip li.is-current .video-set-strip-cover {
+  border-color: var(--gold);
+}
+
+.video-set-strip li.is-current small {
+  color: var(--ink);
+  font-weight: 600;
+}

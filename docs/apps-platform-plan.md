@@ -431,7 +431,8 @@ Phases 0–2 are worth doing for games alone. V1 starts once phase 1 has landed.
 
 - **Tags, collections, bookmarks for video.** Home would keep references like
   `video:<itemId>` and ask the engine for titles and art when it shows them.
-  Possible; not before V2 has been used.
+  Possible; not before V2 has been used. Automatic film sets (TMDB collections,
+  `.nfo` `<set>`) are planned apart, in `docs/video-sets-plan.md`.
 - **Security events into home.** Mirroring an engine's refused requests into home's
   security alerts means the engine calling home, which the contract has avoided.
 - **Secret rotation without a gap.** Accepting the previous secret for a short

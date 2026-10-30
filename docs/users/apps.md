@@ -200,6 +200,31 @@ A title matched to the wrong film or show: open it and press **Fix match**
 (admins only), search TMDB by name and year, and pick the right one. Rescans keep
 that choice until **Match automatically again**.
 
+## Sets of films
+
+Films that belong together — a trilogy, a series of films, a family's own
+"Summer at the dacha 2019–2024" — are grouped into a **set** without anyone
+building it:
+
+- **From the `.nfo` files.** A `<set>` in a film's `.nfo` (Kodi and Jellyfin
+  write `<set>The Matrix Collection</set>` or `<set><name>…</name><overview>…</overview></set>`)
+  puts it in that set. Films whose `.nfo` names the same set — capital letters
+  and spaces aside — are one set, even in different libraries.
+- **From TMDB.** With a key, a film TMDB knows as part of a collection joins that
+  collection, with its description, poster and order. A set named in an `.nfo`
+  always wins over TMDB's.
+
+On **Movies**, **View → Sets** lists every set you can see two or more films of.
+A set's page shows its films in order — by release date, else by year — and one
+**Play** that starts the first film you haven't watched yet. A film's own page
+says which set it is part of, with the others beside it, and when a film of a
+set ends the player offers the next one.
+
+Each person only sees the films of a set that are in libraries they may watch:
+someone who sees only *Kids* sees only that part of a set. Films you don't have
+are never listed. Films matched before sets came in are asked about their set
+on the next metadata pass, which follows every scan.
+
 ## Subtitles
 
 Subtitles inside a film and subtitle files beside it — `Film (Year).srt`,

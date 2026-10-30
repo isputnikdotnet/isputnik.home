@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Check, Film, Play, Search, Tv } from "lucide-react";
+import { ArrowLeft, Check, Film, Layers, Play, Search, Tv } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { useSession } from "../../app/SessionContext";
@@ -11,7 +11,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatDate } from "../../shared/dates";
 import { FixMatchModal } from "./FixMatchModal";
 import { VideoSectionNav } from "./VideoSectionNav";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoHref, watchHref, type VideoKind, type VideoMovie, type VideoShow } from "./types";
+import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoHref, videoSetHref, watchHref, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
 
 // One show — its seasons and episodes — or one movie, as the video engine
@@ -102,6 +102,8 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
 
             {title.plot && <p className="video-plot">{title.plot}</p>}
 
+            {!show && (title as VideoMovie).set && <SetStrip movieId={title.id} set={(title as VideoMovie).set!} />}
+
             {show && (
               show.seasons.length === 0 ? (
                 <p className="muted">{t("video.noEpisodes")}</p>
@@ -188,6 +190,45 @@ function PlayAction({ title }: { title: VideoShow | VideoMovie }) {
       </a>
       {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
     </div>
+  );
+}
+
+/** "Part of The Matrix set": the set's name, linking to it, over its films in
+ *  order, this one marked. */
+function SetStrip({ movieId, set }: { movieId: string; set: NonNullable<VideoMovie["set"]> }) {
+  const { t } = useTranslation();
+  const setHref = videoSetHref(set.id);
+  return (
+    <section className="video-set-strip" aria-labelledby="video-set-strip-title">
+      <h2 id="video-set-strip-title">
+        <Layers size={17} aria-hidden="true" />
+        <a href={setHref} onClick={(event) => followRoute(event, setHref)}>{t("video.set.partOf", { name: set.name })}</a>
+      </h2>
+      {set.films.length > 1 && (
+        <ol>
+          {set.films.map((film) => {
+            const current = film.id === movieId;
+            const href = videoHref("movies", film.id);
+            const cover = film.poster ? <img src={film.poster} alt="" loading="lazy" /> : <Film size={20} aria-hidden="true" />;
+            return (
+              <li key={film.id} className={current ? "is-current" : undefined}>
+                {current ? (
+                  <span aria-current="page" title={t("video.set.current")}>
+                    <span className="video-set-strip-cover">{cover}</span>
+                    <small>{film.title}</small>
+                  </span>
+                ) : (
+                  <a href={href} onClick={(event) => followRoute(event, href)}>
+                    <span className="video-set-strip-cover">{cover}</span>
+                    <small>{film.title}</small>
+                  </a>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
   );
 }
 

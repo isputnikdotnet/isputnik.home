@@ -158,7 +158,9 @@ export interface VideoPlayInfo {
   subtitleTracks?: VideoSubtitleTrack[];
   progress: VideoProgress | null;
   resumeAt: number;
-  next: { id: string; season: number; episode: number; title: string | null } | null;
+  /** After an episode the next one; after a film the next of its set (engine
+   *  0.10.0+), without a season or episode. */
+  next: { id: string; season: number | null; episode: number | null; title: string | null } | null;
 }
 
 /** GET /video/api/continue — newest first, one per show. */
@@ -212,6 +214,32 @@ export interface VideoMovie extends VideoArt {
   progress: VideoProgress | null;
   backdrop?: string | null;
   tmdbMatch?: VideoTmdbMatch | null;
+  /** The set it is in, with the films of it this person may see (engine 0.10.0+). */
+  set?: { id: string; name: string; films: { id: string; title: string; year: number | null; poster: string | null }[] } | null;
+}
+
+/** GET /video/api/sets — film sets (docs/video-sets-plan.md): those this person
+ *  can see two or more films of. */
+export interface VideoSetSummary {
+  id: string;
+  name: string;
+  films: number;
+  watched: number;
+  firstYear: number | null;
+  lastYear: number | null;
+  poster: string | null;
+}
+
+/** GET /video/api/sets/:id — one set, its films in order. */
+export interface VideoSet {
+  id: string;
+  name: string;
+  overview: string | null;
+  poster: string | null;
+  backdrop: string | null;
+  films: { id: string; title: string; year: number | null; runtimeMinutes: number | null; poster: string | null; progress: VideoProgress | null }[];
+  /** What Play starts: the first film not yet watched; null once all are. */
+  next: { id: string; title: string; position: number } | null;
 }
 
 /** GET /video/api/admin/metadata/search — TMDB's candidates for Fix match. */
@@ -232,6 +260,17 @@ export const VIDEO_API = "/video/api";
 export function videoHref(kind: VideoKind, id?: string): string {
   const base = kind === "shows" ? "/shows" : "/movies";
   return id ? `${base}/${encodeURIComponent(id)}` : base;
+}
+
+/** A film set's page: under /movies, two segments so it never reads as a film. */
+export function videoSetHref(id: string): string {
+  return `/movies/sets/${encodeURIComponent(id)}`;
+}
+
+/** 1999–2003, or one year, or nothing. */
+export function yearSpan(first: number | null, last: number | null): string | null {
+  if (!first || !last) return null;
+  return first === last ? String(first) : `${first}–${last}`;
 }
 
 /** The player for one episode or movie. */
