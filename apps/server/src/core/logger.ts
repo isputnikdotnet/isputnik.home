@@ -26,7 +26,7 @@ function emit(level: Level, first: object | string, message?: string): void {
   }
   const out = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
   if (typeof first === "string") out(first);
-  else out(message ?? "", first);
+  else out("%s", message ?? "", first);
 }
 
 /** `log.warn("text")`, or `log.error({ err }, "text")` to attach an error or fields. */
