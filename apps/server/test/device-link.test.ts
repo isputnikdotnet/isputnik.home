@@ -7,6 +7,7 @@ import {
   attachSession,
   createLinkRequest,
   denyLinkRequest,
+  describeUserAgent,
   findPendingByUserCode,
   formatUserCode,
   noteFailedApproval,
@@ -20,6 +21,12 @@ import { makeUser, resetDb } from "./helpers/seed.js";
 // The service behind linking a display. Most of what matters here is what happens
 // when two things arrive at once or one arrives late, so the clock is moved by
 // rewriting the row rather than by waiting.
+
+describe("describeUserAgent", () => {
+  it("names the TV app, not an unknown device", () => {
+    expect(describeUserAgent("iSputnikTV/0.1.0 (Android 11; AFTKRT)")).toBe("iSputnik TV app on Android");
+  });
+});
 
 function rowFor(id: string): LinkRequestRow {
   return db.prepare("SELECT * FROM device_link_requests WHERE id = ?").get(id) as LinkRequestRow;

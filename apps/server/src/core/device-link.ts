@@ -376,6 +376,7 @@ export function deviceLinkAccess(ip: string | null | undefined, headers: Record<
 // approximately right beats a parser that has to be maintained. Order matters
 // (Edge and Chrome both say "Chrome"); anything unrecognised says so plainly.
 const BROWSERS: [RegExp, string][] = [
+  [/\biSputnikTV\//, "iSputnik TV app"],
   [/\bEdg[eA-Z]?\//, "Edge"],
   [/\bOPR\/|\bOpera\//, "Opera"],
   [/\bSamsungBrowser\//, "Samsung Internet"],
