@@ -112,10 +112,13 @@ export interface FaststartCandidate {
   /** Why this one can't be optimised, if it can't: the library is one the app only
    *  reads, or a folder lock covers it. Null means it is ready to go. */
   blocked: "library" | "locked" | null;
+  /** Why the last rewrite left the file as it was. "Optimise all" passes over it;
+   *  only someone asking for this one video tries it again. */
+  failure: string | null;
   queued: boolean;
 }
 
-type CandidateRow = Pick<GalleryDetailRow, "item_id" | "relative_path" | "size" | "duration_seconds">
+type CandidateRow = Pick<GalleryDetailRow, "item_id" | "relative_path" | "size" | "duration_seconds" | "faststart_error">
   & Pick<LibraryItemRow, "library_id">
   & Pick<LibraryRow, "source_path">
   & { library_name: string; title: string | null };
@@ -128,19 +131,17 @@ function queuedItemIds(): Set<string> {
   return new Set(rows.map((r) => r.itemId).filter((id): id is string => Boolean(id)));
 }
 
-export function faststartBacklogCount(): number {
-  return (db.prepare(`
-    SELECT COUNT(*) AS n
-    FROM gallery_details gd
-    JOIN library_items li ON li.id = gd.item_id
-    WHERE ${CANDIDATE_WHERE}
-  `).get() as { n: number }).n;
-}
+/** Nothing stands in its way and nobody has asked yet: what "Optimise all" takes on. */
+const isReady = (c: FaststartCandidate) => !c.queued && c.blocked === null && c.failure === null;
+/** Held back by its library or a lock, or tried and left as it was. A queued retry
+ *  isn't: its verdict is still to come. */
+const isUnable = (c: FaststartCandidate) => !c.queued && (c.blocked !== null || c.failure !== null);
 
-/** The backlog, biggest first — the big ones are where the wait is worst. */
-export function listFaststartCandidates(limit = 500): FaststartCandidate[] {
+/** The whole backlog: what can be done first, then what is lined up, then what can't
+ *  be — and biggest first within each, the big ones being where the wait is worst. */
+export function listFaststartCandidates(): FaststartCandidate[] {
   const rows = db.prepare(`
-    SELECT gd.item_id, gd.relative_path, gd.size, gd.duration_seconds,
+    SELECT gd.item_id, gd.relative_path, gd.size, gd.duration_seconds, gd.faststart_error,
            li.library_id, lib.source_path, lib.name AS library_name, im.title AS title
     FROM gallery_details gd
     JOIN library_items li ON li.id = gd.item_id
@@ -148,12 +149,11 @@ export function listFaststartCandidates(limit = 500): FaststartCandidate[] {
     LEFT JOIN item_metadata im ON im.item_id = gd.item_id
     WHERE ${CANDIDATE_WHERE}
     ORDER BY gd.size DESC
-    LIMIT ?
-  `).all(limit) as CandidateRow[];
+  `).all() as CandidateRow[];
   const queued = queuedItemIds();
   // The policy gate is per-library, so it is answered once per library, not per row.
   const allowed = new Map<string, boolean>();
-  return rows.map((row) => {
+  return rows.map((row): FaststartCandidate => {
     let mayWrite = allowed.get(row.library_id);
     if (mayWrite === undefined) {
       mayWrite = libraryAllowsDelete(row.library_id);
@@ -169,20 +169,64 @@ export function listFaststartCandidates(limit = 500): FaststartCandidate[] {
       size: row.size,
       durationSeconds: row.duration_seconds,
       blocked: !mayWrite ? "library" : locked ? "locked" : null,
+      failure: row.faststart_error,
       queued: queued.has(row.item_id)
     };
-  });
+  }).sort((a, b) => candidateRank(a) - candidateRank(b)); // stable: size order holds within each
+}
+
+const candidateRank = (c: FaststartCandidate) => (isReady(c) ? 0 : c.queued ? 1 : 2);
+
+export type FaststartShow = "all" | "ready" | "unable";
+
+export interface FaststartPage {
+  items: FaststartCandidate[];
+  page: number;
+  pageSize: number;
+  /** Rows this view pages over, for the pager. */
+  total: number;
+  totalPages: number;
+  /** The whole backlog, whichever view is showing — the header's button and the line
+   *  above the table must not change their story with the page or the filter. */
+  summary: { total: number; ready: number; readyBytes: number; queued: number; unable: number };
+}
+
+/** One page of the backlog. Whether a video can be rewritten is answered per library
+ *  and per lock, not in SQL, so the page is cut after that has been worked out. */
+export function faststartPage(page: number, pageSize: number, show: FaststartShow = "all"): FaststartPage {
+  const candidates = listFaststartCandidates();
+  const ready = candidates.filter(isReady);
+  // "ready" here means can be done, so what is already lined up stays in view.
+  const shown = show === "all" ? candidates : candidates.filter((c) => (show === "unable" ? isUnable(c) : !isUnable(c)));
+  const totalPages = Math.max(1, Math.ceil(shown.length / pageSize));
+  const current = Math.min(Math.max(1, page), totalPages);
+  return {
+    items: shown.slice((current - 1) * pageSize, current * pageSize),
+    page: current,
+    pageSize,
+    total: shown.length,
+    totalPages,
+    summary: {
+      total: candidates.length,
+      ready: ready.length,
+      readyBytes: ready.reduce((sum, c) => sum + (c.size ?? 0), 0),
+      queued: candidates.filter((c) => c.queued).length,
+      unable: candidates.filter(isUnable).length
+    }
+  };
 }
 
 /**
  * Queue the named items (or the whole backlog). Anything already queued, or held
- * back by its library's policy or a folder lock, is skipped. Returns how many jobs
- * were made.
+ * back by its library's policy or a folder lock, is skipped — and so, in the bulk
+ * case, is a video that has already failed: running a file through the same rewrite
+ * on every press only repeats the answer. Naming it is how to try again. Returns how
+ * many jobs were made.
  */
 export function enqueueFaststartJobs(itemIds: string[] | "all"): number {
   const wanted = itemIds === "all" ? null : new Set(itemIds);
-  const candidates = listFaststartCandidates(2000)
-    .filter((c) => !c.queued && c.blocked === null && (wanted === null || wanted.has(c.itemId)));
+  const candidates = listFaststartCandidates()
+    .filter((c) => (wanted === null ? isReady(c) : !c.queued && c.blocked === null && wanted.has(c.itemId)));
   candidates.forEach((candidate, i) => {
     db.prepare("INSERT INTO jobs (id, type, payload, status, max_attempts) VALUES (?, ?, ?, 'pending', 2)")
       .run(nanoid(16), FASTSTART_JOB_TYPE, JSON.stringify({
@@ -246,29 +290,68 @@ function run(bin: string, args: string[]): Promise<{ ok: boolean; stdout: string
   });
 }
 
-interface Probe { duration: number | null; videoCodec: string | null; audioCodec: string | null }
+interface ProbeStream { index: number; type: string; codec: string | null; tag: string | null }
+interface Probe { duration: number | null; videoCodec: string | null; audioCodec: string | null; streams: ProbeStream[] }
 
 async function probe(filePath: string): Promise<Probe | null> {
   const result = await run(FFPROBE_BIN, [
-    "-v", "error", "-show_entries", "format=duration:stream=codec_type,codec_name",
+    "-v", "error", "-show_entries", "format=duration:stream=index,codec_type,codec_name,codec_tag_string",
     "-print_format", "json", filePath
   ]);
   if (!result.ok) return null;
   try {
     const parsed = JSON.parse(result.stdout) as {
       format?: { duration?: string };
-      streams?: { codec_type?: string; codec_name?: string }[];
+      streams?: { index?: number; codec_type?: string; codec_name?: string; codec_tag_string?: string }[];
     };
-    const streams = parsed.streams ?? [];
+    const streams = (parsed.streams ?? []).map((stream, position) => ({
+      index: stream.index ?? position,
+      type: stream.codec_type ?? "unknown",
+      codec: stream.codec_name && stream.codec_name !== "unknown" ? stream.codec_name : null,
+      // ffprobe spells a missing tag as its hex code ("[0][0][0][0]"); only a real
+      // four-letter name is worth naming or handing back to ffmpeg.
+      tag: stream.codec_tag_string && /^[\x20-\x7e]{4}$/.test(stream.codec_tag_string) ? stream.codec_tag_string : null
+    }));
     const duration = Number(parsed.format?.duration);
     return {
       duration: Number.isFinite(duration) ? duration : null,
-      videoCodec: streams.find((s) => s.codec_type === "video")?.codec_name ?? null,
-      audioCodec: streams.find((s) => s.codec_type === "audio")?.codec_name ?? null
+      videoCodec: streams.find((stream) => stream.type === "video")?.codec ?? null,
+      audioCodec: streams.find((stream) => stream.type === "audio")?.codec ?? null,
+      streams
     };
   } catch {
     return null;
   }
+}
+
+/** A camera's timecode track: ffmpeg cannot copy it into an MP4 as it is, but
+ *  writes a new one from the timecode the file's metadata carries. */
+const isTimecode = (stream: ProbeStream) => stream.type === "data" && stream.tag === "tmcd";
+
+/** ffmpeg's own reason, for the task: its first line that says what went wrong,
+ *  without the "[mp4 @ 0x…]" it puts in front. */
+function ffmpegReason(stderr: string): string {
+  const lines = stderr.split(/\r?\n/).map((line) => line.replace(/^\[[^\]]*@ [^\]]*\]\s*/, "").trim()).filter(Boolean);
+  const telling = lines.find((line) => /could not|invalid|error|unsupported|not supported|failed/i.test(line)) ?? lines[0] ?? "no reason given";
+  return telling.length > 200 ? `${telling.slice(0, 197)}…` : telling;
+}
+
+/** Every track a rewrite must still have: the same number of each kind, and every
+ *  data track by its name (a timecode comes back rebuilt, under the same name). */
+function lostTracks(before: Probe, after: Probe): string[] {
+  const lost: string[] = [];
+  for (const type of ["video", "audio", "subtitle"]) {
+    const had = before.streams.filter((stream) => stream.type === type).length;
+    const has = after.streams.filter((stream) => stream.type === type).length;
+    if (has < had) lost.push(`${had - has} ${type}`);
+  }
+  const kept = after.streams.filter((stream) => stream.type === "data").map((stream) => stream.tag);
+  for (const stream of before.streams.filter((entry) => entry.type === "data")) {
+    const at = kept.indexOf(stream.tag);
+    if (at === -1) lost.push(stream.tag ?? "data");
+    else kept.splice(at, 1);
+  }
+  return lost;
 }
 
 /**
@@ -299,12 +382,38 @@ export async function remuxInPlace(target: FaststartTarget): Promise<string | nu
     ]);
     if (!remux.ok) {
       log.error(`faststart: ffmpeg failed for ${target.srcPath}\n${remux.stderr.trim() || "(no stderr)"}`);
-      return "The video could not be rewritten.";
+      // A camera's own tracks (GoPro, Sony) are what a plain copy trips over: an
+      // MP4 cannot carry them as ffmpeg reads them. Once more, then: the timecode
+      // left for ffmpeg to rebuild from the metadata, every other camera track
+      // copied under its own name. Nothing is ever dropped to make a file fit —
+      // a track that still cannot be kept leaves the original as it is.
+      const cameraTracks = before.streams.filter((stream) => stream.type === "data");
+      if (cameraTracks.length === 0) return `The video could not be rewritten: ${ffmpegReason(remux.stderr)}`;
+      const args = ["-v", "error", "-i", target.srcPath];
+      const tags: string[] = [];
+      let out = 0;
+      for (const stream of before.streams) {
+        if (isTimecode(stream)) continue;
+        args.push("-map", `0:${stream.index}`);
+        if (stream.type === "data" && stream.tag) tags.push(`-tag:${out}`, stream.tag);
+        out += 1;
+      }
+      const retry = await run(FFMPEG_BIN, [
+        ...args, "-map_metadata", "0", "-copy_unknown", "-c", "copy", ...tags,
+        "-movflags", "+faststart", "-y", tmpPath
+      ]);
+      if (!retry.ok) {
+        log.error(`faststart: ffmpeg failed again for ${target.srcPath}, keeping the camera's tracks\n${retry.stderr.trim() || "(no stderr)"}`);
+        const kept = cameraTracks.filter((stream) => !isTimecode(stream)).map((stream) => stream.tag ?? stream.codec ?? "data");
+        return kept.length > 0
+          ? `Left as it is: the camera wrote a track (${[...new Set(kept)].join(", ")}) that an optimised copy cannot keep, and it is not dropped to make the file fit.`
+          : `The video could not be rewritten: ${ffmpegReason(retry.stderr)}`;
+      }
     }
 
     const after = await probe(tmpPath);
     if (!after) return "The rewritten video could not be read back, so the original was kept.";
-    if (after.videoCodec !== before.videoCodec || after.audioCodec !== before.audioCodec) {
+    if (after.videoCodec !== before.videoCodec || after.audioCodec !== before.audioCodec || lostTracks(before, after).length > 0) {
       return "The rewritten video did not carry the same tracks, so the original was kept.";
     }
     if (before.duration != null && after.duration != null && Math.abs(before.duration - after.duration) > 1) {
@@ -321,7 +430,7 @@ export async function remuxInPlace(target: FaststartTarget): Promise<string | nu
     const replaced = fs.statSync(target.srcPath);
     db.prepare(`
       UPDATE gallery_details
-      SET faststart = 1, size = ?, modified_at = ?,
+      SET faststart = 1, faststart_error = NULL, size = ?, modified_at = ?,
           -- The bytes moved, so a hash taken from them is stale; the duplicate scan
           -- re-takes it when it next needs one.
           content_hash = NULL, content_hash_at = NULL,
@@ -383,15 +492,18 @@ export async function processFaststartQueue(): Promise<void> {
       } catch (err) {
         failure = err instanceof Error ? err.message : "The video could not be rewritten.";
       }
-      finishJob(job.id, failure);
+      finishJob(job.id, failure, payload.itemId);
     }
   } finally {
     queueRunning = false;
   }
 }
 
-/** Complete a job, or retry/fail it with a reason the Tasks page can show. */
-function finishJob(jobId: string, failure: string | null): void {
+/** Complete a job, or retry/fail it with a reason the Tasks page can show. `itemId`
+ *  names the file when the failure is the file's own: the reason then stays on the
+ *  video, because finished jobs are pruned. A library that could not be reached says
+ *  nothing about the file, so that one passes none. */
+function finishJob(jobId: string, failure: string | null, itemId?: string): void {
   if (!failure) {
     db.prepare(
       "UPDATE jobs SET status = 'completed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?"
@@ -407,6 +519,7 @@ function finishJob(jobId: string, failure: string | null): void {
     db.prepare(
       "UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?"
     ).run(failure, jobId);
+    if (itemId) db.prepare("UPDATE gallery_details SET faststart_error = ? WHERE item_id = ?").run(failure, itemId);
   }
 }
 

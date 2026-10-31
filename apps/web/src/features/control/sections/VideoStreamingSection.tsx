@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileVideo, Lock, Zap } from "lucide-react";
+import { AlertTriangle, FileVideo, Lock, Zap } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { CLIP_LENGTH, formatClock } from "../../../shared/formatClock";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Pager } from "../../../shared/Pager";
+import { PageSizeMenu, usePageSize } from "../../../shared/PageSizeMenu";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { SelectMenu } from "../../../shared/SelectMenu";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 // Videos whose index sits at the end of the file, and the button that moves it to
@@ -24,13 +27,25 @@ interface VideoCandidate {
   size: number | null;
   durationSeconds: number | null;
   blocked: "library" | "locked" | null;
+  failure: string | null;
   queued: boolean;
+}
+
+type Show = "all" | "ready" | "unable";
+
+interface VideoPage {
+  items: VideoCandidate[];
+  page: number;
+  totalPages: number;
+  summary: { total: number; ready: number; readyBytes: number; queued: number; unable: number };
 }
 
 export function VideoStreamingSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
-  const [items, setItems] = useState<VideoCandidate[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [data, setData] = useState<VideoPage | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize("isputnik.videoStreaming.pageSize");
+  const [show, setShow] = useState<Show>("all");
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [queueing, setQueueing] = useState(false);
@@ -38,21 +53,17 @@ export function VideoStreamingSection() {
   const [target, setTarget] = useState<VideoCandidate | null>(null);
   const [queuedNow, setQueuedNow] = useState(0);
 
-  const load = async () => {
-    const payload = await api<{ items: VideoCandidate[] }>("/api/library/gallery/video-streaming");
-    setItems(payload.items);
-  };
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({ page: String(page), pageSize, show });
+    setData(await api<VideoPage>(`/api/library/gallery/video-streaming?${params}`));
+  }, [page, pageSize, show]);
 
   useEffect(() => {
-    load()
-      .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:videoStreaming.loadFailed")))
-      .finally(() => setLoaded(true));
-  }, [t]);
+    load().catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:videoStreaming.loadFailed")));
+  }, [load, t]);
 
-  // What "Optimise all" would actually take on: everything not already queued and
-  // not held back by its library or a folder lock.
-  const ready = useMemo(() => items.filter((item) => item.blocked === null && !item.queued), [items]);
-  const readyBytes = useMemo(() => ready.reduce((sum, item) => sum + (item.size ?? 0), 0), [ready]);
+  const summary = data?.summary;
+  const ready = summary?.ready ?? 0;
 
   const optimise = async (which: VideoCandidate | "all") => {
     setQueueing(true);
@@ -83,10 +94,10 @@ export function VideoStreamingSection() {
         description={t("controlAdmin:videoStreaming.headDescription")}
       >
         <div className="row-actions control-head-actions">
-          {ready.length > 0 && (
+          {ready > 0 && (
             <Button variant="primary" compact disabled={queueing} onClick={() => { setActionError(""); setOptimiseAllOpen(true); }}>
               <Zap size={16} />
-              <span>{t("controlAdmin:videoStreaming.optimiseAll", { count: ready.length })}</span>
+              <span>{t("controlAdmin:videoStreaming.optimiseAll", { count: ready })}</span>
             </Button>
           )}
           <RefreshButton
@@ -111,58 +122,111 @@ export function VideoStreamingSection() {
         </MessageBox>
       )}
 
-      {loaded && items.length === 0 && !error ? (
+      {data && summary && summary.total === 0 && !error ? (
         <p className="management-empty">{t("controlAdmin:videoStreaming.empty")}</p>
-      ) : items.length > 0 ? (
-        <div className="datagrid-wrap">
-          <table className="datagrid">
-            <thead>
-              <tr>
-                <th>{t("controlAdmin:videoStreaming.thVideo")}</th>
-                <th>{t("controlAdmin:videoStreaming.thLibrary")}</th>
-                <th>{t("controlAdmin:videoStreaming.thLength")}</th>
-                <th>{t("controlAdmin:videoStreaming.thSize")}</th>
-                <th className="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.itemId}>
-                  <td>
-                    <strong>{item.title}</strong>
-                    <span className="datagrid-muted missing-path"> · {item.relativePath}</span>
-                  </td>
-                  <td className="datagrid-muted">{item.libraryName}</td>
-                  <td className="datagrid-muted">
-                    {item.durationSeconds ? formatClock(item.durationSeconds, CLIP_LENGTH) : "—"}
-                  </td>
-                  <td className="datagrid-muted">{item.size ? formatBytes(item.size) : "—"}</td>
-                  <td className="col-actions">
-                    {item.queued ? (
-                      <span className="datagrid-muted">{t("controlAdmin:videoStreaming.queued")}</span>
-                    ) : item.blocked ? (
-                      <span className="datagrid-muted video-blocked">
-                        <Lock size={14} aria-hidden="true" />
-                        {item.blocked === "locked"
-                          ? t("controlAdmin:videoStreaming.blockedLocked")
-                          : t("controlAdmin:videoStreaming.blockedLibrary")}
-                      </span>
-                    ) : (
-                      <Button
-                        variant="text"
-                        compact
-                        disabled={queueing}
-                        onClick={() => { setActionError(""); setTarget(item); }}
-                      >
-                        {t("controlAdmin:videoStreaming.optimise")}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      ) : data && summary ? (
+        <>
+          <div className="video-streaming-bar">
+            <p className="datagrid-muted video-streaming-summary">
+              {[
+                t("controlAdmin:videoStreaming.summaryVideos", { count: summary.total }),
+                t("controlAdmin:videoStreaming.summaryReady", { count: summary.ready }),
+                ...(summary.queued > 0 ? [t("controlAdmin:videoStreaming.summaryQueued", { count: summary.queued })] : []),
+                ...(summary.unable > 0 ? [t("controlAdmin:videoStreaming.summaryUnable", { count: summary.unable })] : [])
+              ].join(" · ")}
+            </p>
+            <div className="row-actions">
+              <SelectMenu
+                value={show}
+                options={[
+                  { value: "all", label: t("controlAdmin:videoStreaming.showAll") },
+                  { value: "ready", label: t("controlAdmin:videoStreaming.showReady") },
+                  { value: "unable", label: t("controlAdmin:videoStreaming.showUnable") }
+                ]}
+                label={t("controlAdmin:videoStreaming.showLabel")}
+                onChange={(next) => { setShow(next as Show); setPage(1); }}
+              />
+              <PageSizeMenu value={pageSize} onChange={(next) => { setPageSize(next); setPage(1); }} />
+            </div>
+          </div>
+
+          {data.items.length === 0 ? (
+            <p className="management-empty">{t("controlAdmin:videoStreaming.emptyFiltered")}</p>
+          ) : (
+            <div className="datagrid-wrap">
+              <table className="datagrid">
+                <thead>
+                  <tr>
+                    <th>{t("controlAdmin:videoStreaming.thVideo")}</th>
+                    <th>{t("controlAdmin:videoStreaming.thLibrary")}</th>
+                    <th>{t("controlAdmin:videoStreaming.thLength")}</th>
+                    <th>{t("controlAdmin:videoStreaming.thSize")}</th>
+                    <th className="col-actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.items.map((item) => (
+                    <tr key={item.itemId}>
+                      <td>
+                        <strong>{item.title}</strong>
+                        <span className="datagrid-muted missing-path"> · {item.relativePath}</span>
+                        {item.failure && !item.queued && !item.blocked && <p className="video-failure">{item.failure}</p>}
+                      </td>
+                      <td className="datagrid-muted">{item.libraryName}</td>
+                      <td className="datagrid-muted">
+                        {item.durationSeconds ? formatClock(item.durationSeconds, CLIP_LENGTH) : "—"}
+                      </td>
+                      <td className="datagrid-muted">{item.size ? formatBytes(item.size) : "—"}</td>
+                      <td className="col-actions">
+                        {item.queued ? (
+                          <span className="datagrid-muted">{t("controlAdmin:videoStreaming.queued")}</span>
+                        ) : item.blocked ? (
+                          <span className="datagrid-muted video-blocked">
+                            <Lock size={14} aria-hidden="true" />
+                            {item.blocked === "locked"
+                              ? t("controlAdmin:videoStreaming.blockedLocked")
+                              : t("controlAdmin:videoStreaming.blockedLibrary")}
+                          </span>
+                        ) : item.failure ? (
+                          <span className="video-failed-actions">
+                            <span className="datagrid-muted video-blocked">
+                              <AlertTriangle size={14} aria-hidden="true" />
+                              {t("controlAdmin:videoStreaming.failed")}
+                            </span>
+                            <Button
+                              variant="text"
+                              compact
+                              disabled={queueing}
+                              onClick={() => { setActionError(""); setTarget(item); }}
+                            >
+                              {t("controlAdmin:videoStreaming.tryAgain")}
+                            </Button>
+                          </span>
+                        ) : (
+                          <Button
+                            variant="text"
+                            compact
+                            disabled={queueing}
+                            onClick={() => { setActionError(""); setTarget(item); }}
+                          >
+                            {t("controlAdmin:videoStreaming.optimise")}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <Pager
+            page={data.page}
+            totalPages={data.totalPages}
+            onChange={setPage}
+            label={t("controlAdmin:videoStreaming.pagerLabel")}
+          />
+        </>
       ) : null}
 
       {target && (
@@ -178,16 +242,17 @@ export function VideoStreamingSection() {
         </ConfirmDialog>
       )}
 
-      {optimiseAllOpen && (
+      {optimiseAllOpen && summary && (
         <ConfirmDialog
-          title={t("controlAdmin:videoStreaming.confirmAllTitle", { count: ready.length })}
-          confirmLabel={t("controlAdmin:videoStreaming.confirmAll", { count: ready.length })}
+          title={t("controlAdmin:videoStreaming.confirmAllTitle", { count: ready })}
+          confirmLabel={t("controlAdmin:videoStreaming.confirmAll", { count: ready })}
           busy={queueing}
           onCancel={() => setOptimiseAllOpen(false)}
           onConfirm={() => void optimise("all")}
         >
-          <p>{t("controlAdmin:videoStreaming.confirmAllBody", { size: formatBytes(readyBytes) })}</p>
+          <p>{t("controlAdmin:videoStreaming.confirmAllBody", { size: formatBytes(summary.readyBytes) })}</p>
           <p>{t("controlAdmin:videoStreaming.confirmKept")}</p>
+          {summary.unable > 0 && <p>{t("controlAdmin:videoStreaming.confirmAllSkips", { count: summary.unable })}</p>}
         </ConfirmDialog>
       )}
     </>

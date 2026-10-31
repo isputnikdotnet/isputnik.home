@@ -1,0 +1,689 @@
+/* Video: the Shows and Movies pages and a title's page (features/video).
+   Loaded with those pages, not on every route (docs/css-map.md). The cards
+   follow the series cards' look (library-collections.css); posters come with
+   the engine (beside the files, or TMDB); without one the cover is the kind's
+   icon and the title's first letters. */
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.video-card {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.video-card:hover {
+  border-color: var(--mint);
+}
+
+.video-card-cover {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: var(--active);
+  color: var(--mint);
+}
+
+.video-card-cover strong {
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+}
+
+.video-card-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 12px 12px;
+}
+
+.video-card-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-card-body span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* A title's page */
+.video-title-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  margin: 8px 0 16px;
+}
+
+.video-title-cover {
+  display: grid;
+  place-items: center;
+  flex: 0 0 120px;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  background: var(--active);
+  color: var(--mint);
+}
+
+.video-title-copy {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.video-title-copy h1 {
+  margin: 0 0 4px;
+}
+
+.video-title-facts {
+  margin: 4px 0 10px;
+  color: var(--muted);
+}
+
+.video-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-genres li {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.video-plot {
+  max-width: 70ch;
+  line-height: 1.55;
+}
+
+/* Play / Resume on a title, with how far this person got. */
+.video-play-action {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  max-width: 320px;
+  margin: 0 0 18px;
+}
+
+.video-play-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.video-play-action .video-progress {
+  width: 100%;
+}
+
+.video-play-note {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+}
+
+.video-progress {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.video-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
+.video-episode-play {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 3.6em;
+  padding: 2px 4px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.video-episode-play svg {
+  color: var(--gold);
+}
+
+.video-episode-play:hover,
+.video-episode-play:focus-visible {
+  background: var(--line);
+}
+
+.video-episode.is-watched .video-episode-copy > strong {
+  color: var(--muted);
+}
+
+.video-watched-mark {
+  margin-left: 6px;
+  vertical-align: -2px;
+  color: var(--gold);
+}
+
+/* Continue watching: one row of cards, scrolled sideways inside itself. */
+.video-continue {
+  margin: 4px 0 18px;
+}
+
+.video-continue h2 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}
+
+.video-continue-list {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 280px);
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 6px;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.video-continue-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  height: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.video-continue-card:hover,
+.video-continue-card:focus-visible {
+  border-color: var(--gold);
+}
+
+.video-continue-cover {
+  position: relative;
+  display: grid;
+  flex: 0 0 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--line);
+  color: var(--muted);
+}
+
+.video-continue-play {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  color: var(--gold);
+}
+
+.video-continue-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.video-continue-copy strong,
+.video-continue-copy > span:not(.video-progress) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-continue-copy > span:not(.video-progress) {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* The player: a dark page of its own, the video as large as the window allows. */
+.video-player-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 12px 16px 24px;
+  box-sizing: border-box;
+  background: #0b0c0f;
+  color: #f2efe8;
+}
+
+.video-player-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+
+.video-player-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.video-player-back:hover,
+.video-player-back:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.video-player-heading {
+  min-width: 0;
+}
+
+.video-player-heading h1 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.video-player-heading p {
+  margin: 2px 0 0;
+  color: rgba(242, 239, 232, 0.7);
+  font-size: 0.9rem;
+}
+
+/* The sound-track menu sits at the far end of the bar. */
+.video-player-audio {
+  margin-left: auto;
+}
+
+.video-player-stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.video-player-stage.is-hidden {
+  display: none;
+}
+
+.video-player {
+  width: 100%;
+  max-height: calc(100dvh - 120px);
+  background: #000;
+  border-radius: 6px;
+}
+
+.video-player-resumed,
+.video-player-next {
+  position: absolute;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(11, 12, 15, 0.86);
+  color: #f2efe8;
+}
+
+.video-player-resumed {
+  top: 12px;
+  left: 12px;
+}
+
+/* While the engine reads the film and cuts its first segment. */
+.video-player-preparing {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(11, 12, 15, 0.86);
+  color: #f2efe8;
+  pointer-events: none;
+}
+
+.video-player-resumed .text-button {
+  color: var(--gold);
+}
+
+/* Light, in the theme's own colours, so its buttons read as they do elsewhere. */
+.video-player-next {
+  right: 16px;
+  bottom: 64px;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: min(360px, calc(100% - 32px));
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.video-player-next-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.video-player-message,
+.video-player-after {
+  max-width: 720px;
+}
+
+.video-player-after a {
+  color: var(--gold);
+}
+
+.video-season h2 {
+  margin: 22px 0 10px;
+  font-size: 1.15rem;
+}
+
+.video-episodes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-episode {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.video-episode-number {
+  flex: 0 0 2.2em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.video-episode-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.video-episode-copy p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+/* Posters, a backdrop and episode stills (engine 0.6.0+: art beside the files,
+   or TMDB's). An image fills the cover it replaces. */
+.video-card-cover.has-poster,
+.video-title-cover.has-poster {
+  overflow: hidden;
+}
+
+.video-card-cover > img,
+.video-title-cover > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-title-backdrop {
+  position: relative;
+  height: clamp(140px, 26vw, 280px);
+  margin: 4px 0 -64px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.video-title-backdrop > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Fades into the page, so the poster and title sit over its lower edge. */
+.video-title-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 30%, var(--canvas) 100%);
+}
+
+.video-title-backdrop + .video-title-head {
+  position: relative;
+  padding-left: 16px;
+}
+
+.video-fix-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.video-episode-still {
+  flex: 0 0 auto;
+  width: 128px;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--active);
+}
+
+.video-episode-still > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 520px) {
+  .video-episode-still {
+    display: none;
+  }
+}
+
+/* Fix match */
+.video-match-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7em auto;
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0;
+}
+
+@media (max-width: 520px) {
+  .video-match-search {
+    grid-template-columns: minmax(0, 1fr) 6em;
+  }
+}
+
+.video-match-results {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.video-match-result {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.video-match-result:hover,
+.video-match-result:focus-visible {
+  border-color: var(--mint);
+}
+
+.video-match-result.is-current {
+  border-color: var(--gold);
+}
+
+.video-match-poster {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--active);
+  color: var(--mint);
+}
+
+.video-match-poster > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-match-copy {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+}
+
+.video-match-copy strong svg {
+  margin-left: 6px;
+  vertical-align: -2px;
+  color: var(--gold);
+}
+
+.video-match-overview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.88rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Film sets (docs/video-sets-plan.md): a set's films are links, not buttons, so
+   each opens in a new tab like any address. */
+.video-set-films {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-set-films a.video-card {
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.video-set-films .video-card-body strong {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.video-set-films .video-progress {
+  margin-top: 6px;
+}
+
+/* "Part of …" on a film's page: the set's name over its films in order. */
+.video-set-strip {
+  margin: 4px 0 20px;
+}
+
+.video-set-strip h2 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.video-set-strip h2 a {
+  color: inherit;
+}
+
+.video-set-strip ol {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.video-set-strip li > a,
+.video-set-strip li > span {
+  display: grid;
+  gap: 4px;
+  width: 84px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.video-set-strip small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-set-strip-cover {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 2 / 3;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--active);
+  color: var(--mint);
+  overflow: hidden;
+}
+
+.video-set-strip-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-set-strip a:hover .video-set-strip-cover {
+  border-color: var(--mint);
+}
+
+.video-set-strip li.is-current .video-set-strip-cover {
+  border-color: var(--gold);
+}
+
+.video-set-strip li.is-current small {
+  color: var(--ink);
+  font-weight: 600;
+}

@@ -52,13 +52,15 @@ describe("GET /api/dashboard/activity", () => {
     log("library.audiobook.played", 3);
     log("library.ebook.read", 3);
     log("library.gallery.viewed", 3);
+    log("library.video.played", 4);
+    log("games.match_started", 5);
     log("library.gallery.uploaded", 30); // outside a 24h window
 
     const session = await signIn(admin);
     const { status, body } = await activity(hoursAgo(24), new Date(), session);
     expect(status).toBe(200);
     expect(body.bucket).toBe("hour");
-    expect(body.totals).toEqual({ uploads: 2, downloads: 1, deletes: 1, played: 1, read: 1, viewed: 1 });
+    expect(body.totals).toEqual({ uploads: 2, downloads: 1, deletes: 1, played: 1, read: 1, viewed: 1, watched: 1, matches: 1 });
     // The chart's buckets add up to the totals — same rows, same window.
     const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
     expect(sum(body.series.uploads)).toBe(2);

@@ -12,6 +12,7 @@ import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { FileUpload } from "../../../shared/FileUpload";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { JobScheduleControls, type JobScheduleFields } from "../JobScheduleControls";
+import { ContainerBackups } from "./ContainerBackups";
 
 type BackupKind = "full" | "minimal" | "database";
 
@@ -445,6 +446,8 @@ export function BackupSection() {
             </div>
           </section>
         )}
+
+        <ContainerBackups />
       </div>
 
       {pendingDelete && (

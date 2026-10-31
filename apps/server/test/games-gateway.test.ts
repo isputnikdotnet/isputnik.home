@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
-import { registerGamesGateway, identityHeaders, stripIdentityHeaders } from "../src/modules/games/gateway.js";
+import { identityHeaders, stripIdentityHeaders } from "../src/modules/games/gateway.js";
 import { gamesPlugin } from "../src/modules/games/index.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
@@ -30,19 +30,41 @@ beforeEach(async () => {
   upstreamUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 
   booted = await bootApp({
-    // The module itself (status + members; no gateway, since GAMES_URL is unset
-    // in tests) and the gateway registered by hand against the stand-in.
-    plugins: [gamesPlugin],
-    afterRegister: (app) => registerGamesGateway(app, { upstream: upstreamUrl, secret: SECRET })
+    // The module (status, members and its gateway) pointed at the stand-in.
+    plugins: [[gamesPlugin, { upstream: upstreamUrl, secret: SECRET }]]
+  });
+});
+
+describe("restoring", () => {
+  it("is not reachable through the gateway, even for an admin", async () => {
+    makeUser("admin", "admin");
+    const cookie = await booted.signIn("admin");
+    for (const url of ["/games/api/admin/restore", "/games/api/admin/restore/undo"]) {
+      const res = await booted.app.inject({ method: "POST", url, headers: { cookie }, payload: {} });
+      expect(res.statusCode, url).toBe(404);
+    }
+    // The admin's other routes still are.
+    expect((await booted.app.inject({ method: "GET", url: "/games/api/admin/events", headers: { cookie } })).statusCode).toBe(200);
   });
 });
 
 describe("the games module", () => {
-  it("reports the games off when GAMES_URL is unset", async () => {
+  it("reports the games on once they have an address and a secret, to members only", async () => {
     const cookie = await booted.signIn("mum");
     const res = await booted.app.inject({ method: "GET", url: "/api/games/status", headers: { cookie } });
-    expect(res.json()).toEqual({ enabled: false });
+    expect(res.json()).toEqual({ enabled: true });
     expect((await booted.app.inject({ method: "GET", url: "/api/games/status" })).statusCode).toBe(401);
+  });
+
+  it("reports the games off, and answers 404 under /games, with no address", async () => {
+    const bare = await bootApp({ plugins: [gamesPlugin] });
+    try {
+      const cookie = await bare.signIn("mum");
+      expect((await bare.app.inject({ method: "GET", url: "/api/games/status", headers: { cookie } })).json()).toEqual({ enabled: false });
+      expect((await bare.app.inject({ method: "GET", url: "/games/api/me", headers: { cookie } })).statusCode).toBe(404);
+    } finally {
+      await bare.app.close();
+    }
   });
 
   it("lists the active members by name for invitations", async () => {
@@ -61,8 +83,8 @@ describe("the games module", () => {
     makeUser("admin", "admin");
     const res = await booted.app.inject({ method: "GET", url: "/api/games/admin/status", headers: { cookie: await booted.signIn("admin") } });
     expect(res.statusCode).toBe(200);
-    // GAMES_URL is unset under test, so the server is not probed and nothing names it.
-    expect(res.json()).toEqual({ configured: false, reason: null, url: null, secretSet: false, secretAccepted: null, server: null });
+    // The stand-in answers health with no version and takes any secret.
+    expect(res.json()).toMatchObject({ configured: true, reason: null, url: upstreamUrl, secretSet: true });
     expect((await booted.app.inject({ method: "GET", url: "/api/games/admin/status", headers: { cookie: await booted.signIn("mum") } })).statusCode).toBe(403);
   });
 });

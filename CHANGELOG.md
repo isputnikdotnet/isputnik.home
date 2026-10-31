@@ -3,6 +3,104 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.48.0 — Back up each container on its own
+
+- **Each container has its own backups.** **Maintenance → Backup** now has a card for Games and for Video: back up now, download, upload, restore, and choose how many to keep and whether Full and Minimal backups include it. Its files sit beside Home's, and the copies inside Full and Minimal backups are listed and restore the same way, so a bad day in one container no longer means going back on everything. Needs Games 0.22.0 and video engine 0.11.0; an older container says to update it first.
+- **A restore takes effect at once and can be taken back.** Nothing restarts. A restore that fails changes nothing, and the database it replaced is kept so one click undoes the last restore.
+- **Overview shows every container's last backup.** **Last backup** has a row for Home and each container, linking to its card. A container with no backup, or none in the last week, joins the list of things needing attention, unless you left it out of Full and Minimal on purpose.
+- **One bar per drive.** Folders on the same drive used to get a bar each, with the same numbers, and read as several drives. Now a drive has one bar, with each folder listed under it, who mapped it and what it holds. A drive running low is reported once.
+- **Browse for a folder.** On **Library → Storage**, the backup folder, the thumbnail folder and System data now have a **Browse** button that walks the server's drives, so a folder on another disk no longer has to be typed. In Docker, a drive appears once it is mapped into the container.
+- **The Videos tab is easier to read.** **Maintenance → Videos** is paged, with a summary and a filter. A video that could not be optimised says why, sorts last and is skipped by **Optimise all**; **Try again** asks for that one video.
+- **Tidier container cards on Overview.** Each address has its own unbroken line, with the other settings in one row beneath.
+
+## 4.47.0 — Film sets
+
+- **Films that belong together are a set.** A trilogy, a series of films, a family's own summers: films are grouped into a set from the `<set>` their `.nfo` files name, else from the collection TMDB knows them by — nobody builds one by hand. On **Movies**, **View → Sets** lists each set you can see two or more films of; a set's page shows its films in order, by release date, and one **Play** starts the first you haven't watched yet.
+- **A film says which set it is part of.** Its page names the set, with the other films beside it, and when a film of a set ends the player offers the next one, as it does for episodes.
+- **Each person sees only their part of a set.** Films in libraries someone may not watch never show in their sets, and films you don't have are never listed. Needs video engine 0.10.0; films matched on TMDB before it are asked about their set on the next scan.
+
+## 4.46.1 — Stremio links on the address you made them on
+
+- **A Stremio link now uses the address it was made on.** Every poster, film and subtitle a link sends Stremio to used to be built on the server's main address, so on a server reached by two names — one at home, one through Cloudflare — a link made at home still sent Stremio out through Cloudflare, where the home-network rule refused it: the rows appeared, but no posters and nothing played. Open iSputnik on the address the TV should use and create the link there; the dialog names the address, and Profile and **Security → App access** list each link with it. Links made before this keep the main address — create a new one if yours shows no posters.
+- **The Stremio guide covers two addresses.** Why a name behind Cloudflare is refused at home, and why streaming video through Cloudflare's free proxy is best avoided.
+
+## 4.46.0 — Watch in Stremio
+
+- **Your video libraries in Stremio.** Stremio, the free player for TVs, phones and computers, can show iSputnik as an add-on: **Profile → Security → Stremio** makes a link of your own for each device, with an **Install in Stremio** button and a QR code. Stremio then shows exactly the shows and films you can open here — a row per library, your **Continue watching**, seasons and episodes, posters and the subtitle files beside a film — and nothing of anyone else's. Install it from your phone and it appears on the TV signed in to the same Stremio account; nothing to type with a remote. The guide is **Watching in Stremio**.
+- **Films a TV can't decode are converted for it.** A TV's Stremio player closes outright on some formats instead of saying so, so a film in one of them is offered as **Converted · H.264 for TVs** first, beside the original file. It counts towards the converting limits on **Settings → Video**, like the browser player.
+- **Stremio works at home, and links can be taken back.** A new **Stremio** rule on **Security → App access** says where the links work from — the home network to start with — and the same page lists every member's links, so a lost or given-away device can be revoked. A member revokes their own in Profile. Each link is shown once, is kept only as a fingerprint, and never appears in a log.
+- **Every install is its own add-on.** The add-on is named after this server's address and numbered after it, so someone who belongs to two family servers can install both and Stremio never mixes them up.
+- **Fixed: players behind the gateway were sometimes refused for no reason.** The gateway passed the video engine's own connection settings on to the player, so a player that had asked to close its connection was told to keep it, and its next request was turned away — in Stremio, every few seeks. The gateway now answers for its own connections, for every app behind it.
+
+## 4.45.2 — Camera videos optimised
+
+- **GoPro and Sony videos can be optimised for streaming.** Optimising rewrites a video with its index in front so it starts at once, copying every track as it is — and camera clips failed every time with "The video could not be rewritten", because they carry tracks of the camera's own (a timecode, GoPro's telemetry, Sony's camera data) that an MP4 cannot hold as they are read. Now the timecode is written afresh from the clip's own details, and the camera's other tracks are kept under their own names. A track that still cannot be kept leaves the video exactly as it was, and the task says which track — nothing is ever thrown away to make a file fit.
+- **A failed optimisation says why.** The task shows the reason the converter gave, not only that the video could not be rewritten; and before an optimised copy replaces the original, every track is now counted by kind and name, not just the first picture and sound.
+
+## 4.45.1 — A bar for every folder, Video's disks too
+
+- **The Dashboard draws a bar for every folder mapped into the container.** On Unraid, `/config` and the media folder both mapped from `/mnt/user` are one user-share filesystem, so 4.45.0 drew a single bar named `/config` and your libraries only appeared in its small print. Each folder now has its own bar with the libraries that are on it, and folders that share one filesystem say so — their numbers are for all of them together. A filesystem running low is reported once, however many folders come from it.
+- **Video's disks are on the Dashboard (needs isputnik.video 0.8.0).** The video engine says which disks its libraries, catalog, posters and conversion folder sit on — folders iSputnik itself can't see, as they are mounted on the engine — and they appear as bars marked Video, beside iSputnik's own.
+
+## 4.45.0 — One control panel for Home and its apps
+
+- **The Dashboard shows Home and the apps beside it on one page.** Home sits at the top with its addresses, the gateway under it, and a branch to Games and Video: the line is solid green while an app answers, dashed red when it doesn't, dashed amber when it refuses Home's secret, and each branch says the route, the port and how long the app took to answer. Each app's card has its address, where that address was set, its secret and its version, with buttons to its events, log, access and setup. Before, the Dashboard described Home alone and the apps were four clicks away.
+- **What needs a look is listed at the top of the Dashboard.** An app not answering or refusing the secret, a disk running low, no backup for a week, tasks that failed today, errors an app recorded today, a run of failed sign-ins — each a line that opens the page to deal with it. With nothing wrong it is one green line.
+- **Every disk Home's files sit on gets its own bar.** The Dashboard used to measure only the disk the database is on — on Unraid that is the app data pool, not where the photos and books are. Now each disk shows its free space and what is on it: which libraries, the thumbnails, the backups, the recycle bin. The help line says what Home can and cannot see from inside its container.
+- **The Apps group is gone from the control panel; its pages moved to where you would look for them.** An app's events and server log are on **Overview → Logs** with a new **Source** picker beside Home's own log; who may use an app is **Security → App access**; pairing is **Settings → Apps**; the video engine's conversion and poster settings are **Settings → Video**; the games' guest links are on **Members → Invites**. The old addresses still work and open the new page already filtered, so bookmarks and links keep landing in the right place.
+- **Activity counts films watched and matches played.** Two more series sit beside Played, Read and Viewed: **Watched**, a film or an episode started (once per person and title every few hours, however often the player reloads), and **Matches**, a game started.
+- **Library statistics include Video.** A Video card with the titles, episodes and size of every video library, and the video libraries in the table with the rest; while the video app is not answering the card says so instead of showing zeros.
+
+## 4.44.0 — Editing a video library
+
+- **A video library can be edited from its row on Library → Libraries.** Rename it, change its owner and who can see it, point it at another folder on the video app, or change the language its descriptions are fetched from TMDB in (which fetches them all again in that language). Before, a video library had no Edit button: its name, access and folder were fixed once it was made. What it holds, shows or films, still stays as it was made.
+- **Searching Shows and Movies finds a title by TMDB's name too (needs isputnik.video 0.7.0).** A show filed under its Russian name turns up when you type its English one, and the other way round.
+- **One converted film at a time each.** Starting a second film that needs converting while the first is still converting for you — on another screen, or in a tab left open — now says which film is in the way and offers Try again, instead of quietly using up a second of the household's places. A tab left open lets go within a minute.
+
+## 4.43.0 — Subtitles and posters
+
+- **The player has a Subtitles menu (needs isputnik.video 0.6.0).** It offers the subtitles inside a film and the subtitle files saved beside it (`Film.ru.srt`, `Film.en.forced.srt`), named by language. Text subtitles show over the film at once; Blu-ray and DVD subtitles, which no browser can show, are drawn onto the picture by the video engine. The language chosen last is picked again for the next episode. Before, subtitles were dropped.
+- **Shows and movies wear posters.** Cards, a title's page (with a backdrop behind its heading) and episode rows show pictures saved beside the files — `poster.jpg`, `fanart.jpg`, an episode's `-thumb.jpg` — and, once an admin gives the engine a TMDB key on Apps → Installed → Posters and descriptions, TMDB's. TMDB also fills in descriptions and episode names where the .nfo files have none, so a show known only by its folder name gets real episode titles. Before, every card was the title's first two letters.
+- **Fix match on a title's page (admins).** When the engine matched a film or show to the wrong TMDB title, or to none, search TMDB by name and year and pick the right one; rescans keep the choice until it is handed back to the automatic match.
+
+## 4.42.0 — Converting video in memory
+
+- **Apps → Installed has a Converting video card (needs isputnik.video 0.5.0).** It sets how many people may watch a converted film at once, how much memory each of them gets, and what happens once it is full: carry on on the disk, or keep less ahead. Before, every conversion wrote to the disk, inside the container unless its Transcode path was mapped in Docker, and the only way to use RAM was a template setting few people find.
+- **The card shows who is watching what right now,** and how much of it sits in memory and on the disk, so the numbers can be fitted to the server.
+- **One viewer past the limit is told so instead of everyone stuttering.** The player says how many are already watching converted video and offers Try again; films that play as they are never count.
+
+## 4.41.0 — Choosing the sound track
+
+- **A film or episode with more than one sound track has a Sound menu in the player (needs isputnik.video 0.4.0).** Each track reads by its language, its title and its channels — "Russian · Дубляж · Stereo" — and choosing one carries on from the same moment. Before, only the track the file marked as default played, so a dub or a second language couldn't be reached.
+- **The next episode starts in the language chosen last.** The player remembers it in this browser and picks that track whenever an episode or film has it.
+
+## 4.40.0 — Every film plays
+
+- **Films a browser can't play as they are now play (needs isputnik.video 0.3.0).** The video engine converts them while you watch: usually only the sound, so an MKV with AC3 or DTS sound — which played without sound before — now has it, and the picture too when a browser can't show it (HEVC, 10-bit), which takes real CPU on the server. MP4 and WebM files a browser plays as they are still go as they are.
+- **Seeking, resuming and the next episode work the same on converted films.** The player knows the whole length from the start and jumps anywhere; the first play of a file waits a moment while the engine reads where it can cut it ("Getting it ready…"), and later plays start at once. Converting stops when you leave the player.
+- **Video's container can convert on RAM or a fast disk.** The isputnik-video template has an optional Transcode path for the few hundred MB a viewer needs while watching; the Apps guide says where to point it.
+
+## 4.39.0 — Watching video
+
+- **Shows and movies play in the browser (video alpha, needs isputnik.video 0.2.0).** A show's page has Play for the next episode and a play link on every episode; a movie has Play. The player seeks anywhere in the file, and when an episode ends the next one starts after a ten-second countdown you can cancel. Before, the pages listed what was there but nothing could be watched.
+- **Everyone picks up where they stopped.** Each person's place is kept as they watch and when they leave, so Play becomes **Resume from 12:34**, a finished episode gets a tick, and one left halfway shows how far along it is. Nobody sees anyone else's.
+- **Continue watching** on Shows, Movies and For you lists films left halfway and the next episode of a show you are watching, newest first. On For you it is a row of its own, not counted among the things waiting on you.
+- **A file a browser can't play says so.** MP4 and WebM play everywhere and most MKV files in Chrome and Edge; for the rest (AVI, WMV and the like) the player explains that converting them comes in a later version, rather than showing a player that never starts.
+
+## 4.38.1 — An app's address on Setup
+
+- **Where an app's container is now goes on Apps → Setup, next to its secret.** Type the address, press **Save address**, and it works at once — no edit to this container's template and no restart. Before, every app needed its own variable on this container (`GAMES_URL`, `VIDEO_URL`), so each new container meant editing the template again; the Unraid template no longer has those fields. A variable already set still works and wins over Setup, which says so.
+- **Setup's status line says Container for every app.** It read "Games server" even with Video chosen.
+
+## 4.38.0 — Apps beside home, and video libraries
+
+- **A new Apps group in the Control panel looks after the containers that run beside iSputnik** — the games today, video now. **Installed** shows each one, whether it answers and its version; **Setup** pairs a container with iSputnik; **Access** chooses who may use it and from where; **Events** and **Logs** show what it has been doing. Games used to be one page under Settings, and every new container would have needed its own.
+- **Pairing replaces copying a secret into two places by hand.** On Apps → Setup, **Generate secret** makes the shared secret, shown once to paste into the container, and **Test connection** says whether the two can talk. iSputnik keeps it encrypted, so a copy of its database doesn't carry it. A secret already set in the container's environment still works and always wins.
+- **Who may use each app, and from where.** Everyone signed in may use an app until you change it; then people and groups are Members, Managers (who also see its admin pages) or Denied, and each thing an app does (play, watch, manage) can be allowed anywhere, from trusted networks only, or from the home network only.
+- **Video libraries (alpha), kept by the new isputnik.video container.** Add library → Video picks a folder on that container, as Shows or Movies; it then appears on the Libraries page and under a Video menu entry, with Shows and Movies pages and a page for each show's seasons and episodes. Files are read in the layout Jellyfin and Kodi use, .nfo files first. Playback, posters and online metadata come next.
+- **Backups carry the apps' own databases.** Full and minimal backups now include a copy of each running container's database (the games' matches, the video catalog) — never the video files themselves.
+- **Adding the games and video apps** is a new guide in Help, and the Unraid template has **Video URL** and **Video Gateway Secret** fields.
+
 ## 4.37.7 — The installed app turns with the phone
 
 - **The installed app turns sideways with the phone.** Installed on a phone's home screen, iSputnik stayed upright whatever way the phone was held — a setting from when it was an audiobook player. Photos, videos and the games (Sputnik Catch plays on the wide screen) now turn with it. An app installed before this may need a day to notice, or a reinstall from the home screen.

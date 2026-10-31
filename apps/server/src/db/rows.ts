@@ -47,6 +47,15 @@ export interface ApiTokenRow {
   last_ip: string | null;
   expires_at: string | null;
   revoked_at: string | null;
+  origin: string | null;
+}
+
+/** `app_pairings` */
+export interface AppPairingRow {
+  app_id: string;
+  secret_sealed: string;
+  paired_by: string | null;
+  paired_at: string;
 }
 
 /** `app_settings` */
@@ -507,6 +516,7 @@ export interface GalleryDetailRow {
   web_video_key: string | null;
   web_video_attempts: number;
   faststart: number | null;
+  faststart_error: string | null;
   derived_from_item_id: string | null;
   back_relative_path: string | null;
   back_rotation: number;
@@ -1467,6 +1477,7 @@ export interface TableRows {
   access_settings: AccessSettingRow;
   activity_logs: ActivityLogRow;
   api_tokens: ApiTokenRow;
+  app_pairings: AppPairingRow;
   app_settings: AppSettingRow;
   assignments: AssignmentRow;
   audio_bookmarks: AudioBookmarkRow;

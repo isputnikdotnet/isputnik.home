@@ -80,6 +80,10 @@ their own stay where they are. **Change** on the Thumbnails or Backups row gives
 that one a folder of its own, or sends it back to system data, and carries what
 is already there across the same way.
 
+**Browse** beside the folder field walks the server's drives, so you can pick a
+folder instead of typing its path. You can still type, for example to add a new
+folder's name after the drive you picked; it is created when you save.
+
 > **Running in Docker?** Use the path *inside the container* — the one you mapped
 > your volume to — not the path on the host.
 

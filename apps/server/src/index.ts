@@ -31,7 +31,9 @@ import { homePlugin } from "./modules/home/index.js";
 import { familyTreePlugin } from "./modules/familytree/index.js";
 import { maintenancePlugin } from "./modules/maintenance/index.js";
 import { mapsPlugin } from "./modules/maps/index.js";
+import { appsPlugin } from "./modules/apps/index.js";
 import { gamesPlugin } from "./modules/games/index.js";
+import { videoPlugin } from "./modules/library/video/index.js";
 import { upstreamBase } from "./modules/maps/provider.js";
 
 // X-Forwarded-For is only trusted when the operator names the reverse proxies in
@@ -51,6 +53,10 @@ const app = fastify({
     // "warn" drops the per-request lines, which on a busy install are most of the
     // log (every audio range request is one).
     level: process.env.LOG_LEVEL?.trim() || "info",
+    // The gateway's proxy writes its own line with the path it forwards
+    // ("fetching from remote server", { source }), which for a Stremio link has
+    // the token in it — masked the same way as the request line.
+    redact: { paths: ["source"], censor: (value: unknown) => (typeof value === "string" ? maskLogUrl(value) : value) },
     serializers: {
       // Mirror Fastify's default request log, but mask every path-segment token
       // (OPDS feed, guest share, invite) so the token-in-URL convenience never
@@ -295,7 +301,10 @@ await app.register(familyTreePlugin);
 await app.register(maintenancePlugin);
 await app.register(mapsPlugin);
 // Before the static fallback: /games/* belongs to the games container, not the SPA.
+await app.register(appsPlugin);
 await app.register(gamesPlugin);
+// Before the static fallback too: /video/* belongs to the video engine.
+await app.register(videoPlugin);
 
 if (config.staticPath) {
   await app.register(staticFiles, {

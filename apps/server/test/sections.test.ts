@@ -9,7 +9,6 @@ import { db } from "../src/db.js";
 import { appConfigPlugin } from "../src/core/app-config.js";
 import { setupPlugin } from "../src/core/setup.js";
 import { gamesPlugin } from "../src/modules/games/index.js";
-import { registerGamesGateway } from "../src/modules/games/gateway.js";
 import { ALL_SECTIONS_ON, bookTypesOn, getSections } from "../src/core/sections.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
@@ -29,8 +28,7 @@ beforeEach(async () => {
   const address = upstream.server.address();
   const upstreamUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
   booted = await bootApp({
-    plugins: [appConfigPlugin, setupPlugin, gamesPlugin],
-    afterRegister: (app) => registerGamesGateway(app, { upstream: upstreamUrl, secret: "s", available: () => getSections().games })
+    plugins: [appConfigPlugin, setupPlugin, [gamesPlugin, { upstream: upstreamUrl, secret: "s".repeat(32) }]]
   });
 });
 

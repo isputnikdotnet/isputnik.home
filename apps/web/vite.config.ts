@@ -254,7 +254,8 @@ export default defineConfig({
         // behind the gateway, docs/games-platform-plan.md). Without this, an
         // installed PWA opening /games/ got this app's shell instead of the games.
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//, /^\/games(\/|$)/],
+        // /video/ likewise: the video engine's API behind the gateway (docs/video-architecture.md).
+        navigateFallbackDenylist: [/^\/api\//, /^\/games(\/|$)/, /^\/video\//],
         runtimeCaching: [
           {
             // The code the precache leaves out — the control panel, the gallery,
@@ -349,6 +350,12 @@ export default defineConfig({
       "/games": {
         target: "http://127.0.0.1:4000",
         changeOrigin: true
+      },
+      // The video engine's API, through the gateway (VIDEO_URL on the server). A
+      // pattern, not a prefix: the app's own pages never start with /video/.
+      "^/video/": {
+        target: "http://127.0.0.1:4000",
+        changeOrigin: true
       }
     }
   },
@@ -362,6 +369,12 @@ export default defineConfig({
         changeOrigin: true
       },
       "/games": {
+        target: "http://127.0.0.1:4000",
+        changeOrigin: true
+      },
+      // The video engine's API, through the gateway (VIDEO_URL on the server). A
+      // pattern, not a prefix: the app's own pages never start with /video/.
+      "^/video/": {
         target: "http://127.0.0.1:4000",
         changeOrigin: true
       }

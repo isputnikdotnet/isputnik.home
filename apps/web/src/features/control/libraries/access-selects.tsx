@@ -121,7 +121,8 @@ export function ModeSelect({
 
 // Icon-row access fields (owner / visibility / public role / mode) shared by the create
 // wizard's Access step and the edit-library dialog's Access tab. Hosts supply their own
-// surrounding section/heading.
+// surrounding section/heading. A video library has no mode (the video app keeps its
+// files): leave mode out and its row goes.
 export function LibraryAccessRows({
   ownerId, ownerType, onOwnerChange,
   visibility, onVisibilityChange,
@@ -136,8 +137,8 @@ export function LibraryAccessRows({
   onVisibilityChange: (value: "public" | "private") => void;
   publicRole: PublicRole;
   onPublicRoleChange: (value: PublicRole) => void;
-  mode: LibraryMode;
-  onModeChange: (value: LibraryMode) => void;
+  mode?: LibraryMode;
+  onModeChange?: (value: LibraryMode) => void;
   users: ManagedUser[];
   groups: ManagedGroup[];
 }) {
@@ -158,9 +159,11 @@ export function LibraryAccessRows({
         </AccessSettingRow>
       )}
 
-      <AccessSettingRow icon={Shield} title={t("control:libraries.fieldMode")} description={t("control:libraries.modeRowDescription")}>
-        <ModeSelect value={mode} onChange={onModeChange} />
-      </AccessSettingRow>
+      {mode && onModeChange && (
+        <AccessSettingRow icon={Shield} title={t("control:libraries.fieldMode")} description={t("control:libraries.modeRowDescription")}>
+          <ModeSelect value={mode} onChange={onModeChange} />
+        </AccessSettingRow>
+      )}
 
     </div>
   );

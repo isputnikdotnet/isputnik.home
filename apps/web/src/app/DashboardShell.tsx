@@ -9,6 +9,7 @@ import {
   Bug,
   ChevronDown,
   ChevronRight,
+  Clapperboard,
   DownloadCloud,
   Gamepad2,
   Headphones,
@@ -32,6 +33,7 @@ import type { LucideIcon } from "lucide-react";
 import { versionLabel } from "../shared/appVersion";
 import { useSession } from "./SessionContext";
 import { useGamesAvailable } from "./useGamesAvailable";
+import { useVideoAvailable } from "./useVideoAvailable";
 import { gamesWaiting, useGamesSummary } from "../features/games/useGamesSummary";
 import { useSections, type SectionKey, type Sections } from "./sections";
 import { isStandalone } from "../pwa/platform";
@@ -45,7 +47,7 @@ import { PreviewBanner } from "./PreviewBanner";
 // The control panel's landing page — Overview › Dashboard.
 const CONTROL_HOME = controlHref("dashboard");
 
-export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "stories" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
+export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "video" | "family" | "stories" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 
 interface AboutMenuLink {
   href: string;
@@ -122,12 +124,15 @@ function GamesNavLink({ className, size, badgeClassName }: { className: string; 
 // describe book-like libraries, so they don't belong beside the media types.
 // Each media section carries the switch that governs it (app/sections.ts); Home
 // and Tags have none and are always there.
-function mainNavItems(active: DashboardActive, t: TFunction, sections: Sections): MainNavItem[] {
+function mainNavItems(active: DashboardActive, t: TFunction, sections: Sections, videoOn: boolean): MainNavItem[] {
   const items: (MainNavItem & { section?: SectionKey })[] = [
     { label: t("nav.home"), href: "/", icon: Home, active: active === "home" },
     { label: t("nav.audiobooks"), href: "/audiobooks", icon: Headphones, active: active === "audiobooks", section: "audiobooks" },
     { label: t("nav.ebooks"), href: "/ebooks", icon: BookOpen, active: active === "ebooks", section: "ebooks" },
     { label: t("nav.gallery"), href: "/gallery", icon: Image, active: active === "gallery", section: "gallery" },
+    // Pages of this app (the engine has none), so a route like any other — but
+    // only where the video engine is set up and this person may use it.
+    ...(videoOn ? [{ label: t("nav.video"), href: "/shows", icon: Clapperboard, active: active === "video", section: "video" as const }] : []),
     { label: t("nav.familyTree"), href: "/family", icon: Network, active: active === "family", section: "familyTree" },
     { label: t("nav.stories"), href: "/stories", icon: BookText, active: active === "stories", section: "stories" },
     { label: t("nav.tags"), href: "/tags", icon: Tag, active: active === "tags" }
@@ -177,6 +182,8 @@ function MobileNav({
     currentPath.startsWith("/gallery") ||
     currentPath.startsWith("/family") ||
     currentPath.startsWith("/stories") ||
+    currentPath.startsWith("/shows") ||
+    currentPath.startsWith("/movies") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
   const profileActive = PROFILE_ROUTES.some((route) => currentPath === route || currentPath.startsWith(`${route}/`));
 
@@ -189,6 +196,7 @@ function MobileNav({
 
   const close = () => setOpenSheet(null);
   const sections = useSections();
+  const videoAvailable = useVideoAvailable();
   // While a sheet is open it is the only lit tab — the page underneath is
   // dimmed, so also lighting the tab you came from reads as two selections.
   const lit = (tab: "home" | "media" | "offline" | "profile", onRoute: boolean) =>
@@ -217,6 +225,12 @@ function MobileNav({
               <a className="mobile-media-option" href="/gallery" onClick={(event) => { followRoute(event, "/gallery"); close(); }}>
                 <Image size={26} aria-hidden="true" />
                 <span>{t("nav.gallery")}</span>
+              </a>
+            )}
+            {sections.video && videoAvailable && (
+              <a className="mobile-media-option" href="/shows" onClick={(event) => { followRoute(event, "/shows"); close(); }}>
+                <Clapperboard size={26} aria-hidden="true" />
+                <span>{t("nav.video")}</span>
               </a>
             )}
             {sections.familyTree && (
@@ -378,6 +392,7 @@ export function DashboardShell({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const unseen = useInboxSummary();
   const sections = useSections();
+  const videoAvailable = useVideoAvailable();
   const userMenuRef = useRef<HTMLDivElement>(null);
   // The About menu is portaled to <body> (see the render below) rather than
   // absolutely positioned in place — .home-primary-nav scrolls once it's long
@@ -470,7 +485,7 @@ export function DashboardShell({
           <div className="home-control-nav-wrap">{sideNav}</div>
         ) : (
           <nav className="home-primary-nav" aria-label={t("nav.aria.primary")}>
-            {mainNavItems(active, t, sections).map((item) => (
+            {mainNavItems(active, t, sections, videoAvailable).map((item) => (
               <DashboardNavLink item={item} key={item.href} />
             ))}
             <GamesNavLink className="home-nav-link" size={21} badgeClassName="home-nav-badge" />

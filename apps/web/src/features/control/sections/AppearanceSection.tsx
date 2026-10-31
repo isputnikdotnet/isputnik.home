@@ -9,13 +9,14 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import { rememberSections, SECTION_KEYS, type SectionKey, type Sections } from "../../../app/sections";
 
 // The menu's sections, in menu order, each labelled by its own nav word.
-const SECTION_LABELS: Record<SectionKey, "nav.audiobooks" | "nav.ebooks" | "nav.gallery" | "nav.familyTree" | "nav.stories" | "nav.games"> = {
+const SECTION_LABELS: Record<SectionKey, "nav.audiobooks" | "nav.ebooks" | "nav.gallery" | "nav.familyTree" | "nav.stories" | "nav.games" | "nav.video"> = {
   audiobooks: "nav.audiobooks",
   ebooks: "nav.ebooks",
   gallery: "nav.gallery",
   familyTree: "nav.familyTree",
   stories: "nav.stories",
-  games: "nav.games"
+  games: "nav.games",
+  video: "nav.video"
 };
 
 // Settings › Appearance. Was the landing tab of the old Config page, which also

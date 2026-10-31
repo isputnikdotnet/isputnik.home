@@ -23,6 +23,13 @@ import i18n from "../../i18n";
 // Six groups, and that is the budget. A new page almost always belongs as a tab
 // inside an existing group rather than as a seventh: a long left nav is what this
 // structure exists to prevent, and the tab row is free to grow where the nav isn't.
+// Apps was a seventh (4.38–4.44): everything about the containers beside this
+// server in one group. That meant knowing whether a thing ran in home or in a
+// container before knowing where to look, so its pages went to the groups whose
+// question they answer (docs/dashboard-and-backups-plan.md) — how each stands to
+// the Dashboard, its events and log to Logs, who may use it to Security, pairing
+// and the video settings to Settings. A new container joins those pages; it does
+// not bring a group back.
 //
 // Every group is the same thing — a link to its first tab, over one row of its
 // tabs — and nothing else. Two exceptions were tried and retired in 4.15
@@ -91,14 +98,15 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     key: "security",
     icon: ShieldCheck,
     // Investigate access, then configure protection: who got in and from where
-    // sit beside the policies and lists that decide who may.
+    // sit beside the policies and lists that decide who may — the apps' too.
     tabs: [
       { section: "security" },
       { section: "signIns" },
       { section: "signInLocations" },
       { section: "securityPolicies" },
       { section: "securityTrusted" },
-      { section: "securityBlocked" }
+      { section: "securityBlocked" },
+      { section: "appsAccess" }
     ]
   },
   {
@@ -121,17 +129,17 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     icon: Settings,
     // How the app looks and what it can do. Quotes is the home widget's content,
     // Maps a page of feature switches. Reader access left for Profile in 4.15:
-    // the tokens are the signed-in person's own, not the server's.
+    // the tokens are the signed-in person's own, not the server's. Apps is where a
+    // container is paired with this server; Video, the engine's own settings.
     tabs: [
       { section: "appearance" },
       { section: "quotes" },
       { section: "mapSetup" },
       { section: "storySettings" },
-      // The link to isputnik.games: read-only status, since the settings are
-      // environment variables (docs/games-platform-plan.md).
-      { section: "games" },
       { section: "email" },
       { section: "notifications" },
+      { section: "appsSetup" },
+      { section: "videoSettings" },
       { section: "about" }
     ]
   }

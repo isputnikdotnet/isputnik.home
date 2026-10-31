@@ -59,6 +59,10 @@ Background: `docs/architecture.md` (Backend structure). The rule:
   A new media type goes in `modules/library/<type>/` and must join the
   cross-type systems (categories, tags, collections, bookmarks) by filtering on
   `libraries.type` and passing the correct `entityType`.
+- **Containers beside home** (games, later video) are reached only through the
+  shared gateway in `modules/apps/` (`registry.ts`, `gateway.ts`); a container's own
+  module registers it with its hooks (games: guests, its log lines). Never add a
+  second proxy or a container-specific copy of the gateway — `docs/apps-platform-plan.md`.
 - Each module exposes a Fastify plugin from its `index.ts`; register it in
   `apps/server/src/index.ts` as a sibling of `corePlugin`. Auth decorators
   (`authenticate`/`requireAdmin`) are added on the root app, so they propagate
@@ -109,7 +113,9 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   sweep is complete (2026-08-27; the record is `docs/i18n-plan.md`), so every file
   counts as swept: new user-facing strings must be keys, not literals.
 - **Control panel**: its whole shape (6 nav groups × their tabs — Overview, Library,
-  Members, Security, Maintenance, Settings; six is the budget) is declared in
+  Members, Security, Maintenance, Settings; six is the budget. Apps was a seventh in
+  4.38–4.44 and was folded into the rest — `docs/dashboard-and-backups-plan.md`; a
+  container's pages join those groups, they never bring a group back) is declared in
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.

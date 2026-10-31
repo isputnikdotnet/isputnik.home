@@ -17,8 +17,10 @@ import {
   LayoutGrid,
   LibraryBig,
   Wand2,
-  ScanFace
+  ScanFace,
+  Clapperboard
 } from "lucide-react";
+import { useVideoAvailable } from "../../../app/useVideoAvailable";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
 import { tasksHref } from "../links";
@@ -40,6 +42,7 @@ import { ScanSourcesEditor } from "../libraries/ScanSourcesEditor";
 import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
 import { TagEncodingField } from "../libraries/TagEncodingField";
 import { LibraryWizard } from "../libraries/LibraryWizard";
+import { VideoFolderPicker } from "../libraries/VideoFolderPicker";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 import { LayoutPanel } from "../layout/LayoutPanel";
 import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
@@ -51,18 +54,29 @@ import { formatNumber } from "../../../shared/dates";
 // Scan layouts' stylesheet: it loads with this section, not on every route (docs/css-map.md).
 import "../../../styles/scan-layout.css";
 
-type ManagedLibraryType = "audiobook" | "ebook" | "gallery";
+type ManagedLibraryType = "audiobook" | "ebook" | "gallery" | "video";
 
-// One row shape for every library type (the server serializes them identically).
+// One row shape for every library type (the server serializes them identically;
+// a video library adds what it is and the video app's counts —
+// modules/library/video/libraries.ts).
 interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCount"> {
   type: ManagedLibraryType;
   fileCount: number | null;
+  kind?: "shows" | "movies";
+  /** A video library's folder on the video app, and the language its titles are looked up in. */
+  folder?: string;
+  defaultLanguage?: string;
 }
+
+/** Languages a video library's titles can be described in (TMDB); one it was
+ *  given elsewhere stays in the list. */
+const VIDEO_LANGUAGES = ["en", "ru", "uk", "be", "de", "fr", "es", "it", "pl", "pt", "ja", "zh"];
 
 const TYPE_ICON: Record<ManagedLibraryType, typeof Headphones> = {
   audiobook: Headphones,
   ebook: BookOpen,
-  gallery: Image
+  gallery: Image,
+  video: Clapperboard
 };
 
 function typeLabel(type: ManagedLibraryType): string {
@@ -70,10 +84,28 @@ function typeLabel(type: ManagedLibraryType): string {
     case "audiobook": return i18n.t("control:libraries.typeAudiobooks");
     case "ebook": return i18n.t("control:libraries.typeEbooks");
     case "gallery": return i18n.t("control:libraries.typeGallery");
+    case "video": return i18n.t("control:libraries.typeVideo");
   }
 }
 
-const TYPE_FILTER_VALUES: ("all" | ManagedLibraryType)[] = ["all", "audiobook", "ebook", "gallery"];
+/** A language code in the reader's own words: "ru" → "Russian (ru)". */
+function languageLabel(code: string, locale: string): string {
+  try {
+    const name = new Intl.DisplayNames([locale], { type: "language" }).of(code);
+    return name ? `${name.charAt(0).toLocaleUpperCase(locale)}${name.slice(1)} (${code})` : code;
+  } catch {
+    return code;
+  }
+}
+
+/** The type, and for a video library what it holds: "Video · Shows". */
+function rowTypeLabel(library: ManagedLibrary): string {
+  if (library.type !== "video") return typeLabel(library.type);
+  const kind = library.kind === "movies" ? i18n.t("control:libraries.video.kindMovies") : i18n.t("control:libraries.video.kindShows");
+  return `${typeLabel("video")} · ${kind}`;
+}
+
+const TYPE_FILTER_VALUES: ("all" | ManagedLibraryType)[] = ["all", "audiobook", "ebook", "gallery", "video"];
 
 function typeFilterLabel(value: "all" | ManagedLibraryType): string {
   return value === "all" ? i18n.t("control:libraries.filterAll") : typeLabel(value);
@@ -167,9 +199,13 @@ export function LibrariesSection() {
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
-  const [editTab, setEditTab] = useState<"access" | "upload" | "scanning">("access");
+  const [editTab, setEditTab] = useState<"access" | "upload" | "scanning" | "video">("access");
+  const [editVideoFolder, setEditVideoFolder] = useState("");
+  const [editVideoLanguage, setEditVideoLanguage] = useState("en");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [videoEngineDown, setVideoEngineDown] = useState(false);
+  const videoAvailable = useVideoAvailable();
 
   // API prefix for a row's type-specific endpoints (rescan/PATCH/DELETE).
   const apiBase = (library: ManagedLibrary) => `/api/library/${library.type}-libraries`;
@@ -196,17 +232,20 @@ export function LibrariesSection() {
 
   const loadLibraries = useCallback(async () => {
     await loadStorage();
-    const [audiobooksPayload, ebooksPayload, galleryPayload, usersPayload, groupsPayload] = await Promise.all([
+    const [audiobooksPayload, ebooksPayload, galleryPayload, videoPayload, usersPayload, groupsPayload] = await Promise.all([
       api<{ libraries: ManagedLibrary[] }>("/api/library/audiobook-libraries?manage=1"),
       api<{ libraries: ManagedLibrary[] }>("/api/library/ebook-libraries?manage=1"),
       api<{ libraries: ManagedLibrary[] }>("/api/library/gallery-libraries?manage=1"),
+      // Rows here, counts from the video app; engineOnline false = it did not answer.
+      api<{ libraries: ManagedLibrary[]; engineOnline: boolean | null }>("/api/library/video-libraries?manage=1"),
       api<{ users: ManagedUser[] }>("/api/users"),
       api<{ groups: ManagedGroup[] }>("/api/groups")
     ]);
     setLibraries(
-      [...audiobooksPayload.libraries, ...ebooksPayload.libraries, ...galleryPayload.libraries]
+      [...audiobooksPayload.libraries, ...ebooksPayload.libraries, ...galleryPayload.libraries, ...videoPayload.libraries]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     );
+    setVideoEngineDown(videoPayload.engineOnline === false);
     setUsers(usersPayload.users);
     setGroups(groupsPayload.groups);
   }, [loadStorage]);
@@ -247,6 +286,8 @@ export function LibrariesSection() {
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setEditProgressMode(library.settings?.progressMode ?? "linear");
+    setEditVideoFolder(library.folder ?? "");
+    setEditVideoLanguage(library.defaultLanguage ?? "en");
     setEditTab("access");
     setError("");
   };
@@ -272,9 +313,21 @@ export function LibrariesSection() {
     setSaving(true);
     setError("");
     try {
+      // A video library is its access, folder and language; the video app reads the rest.
+      const body = editingLibrary.type === "video"
+        ? {
+            name: editName,
+            visibility: editVisibility,
+            publicRole: editPublicRole,
+            ownerId: editOwnerId || null,
+            ownerType: editOwnerType || null,
+            folder: editVideoFolder,
+            defaultLanguage: editVideoLanguage
+          }
+        : null;
       await api(`${apiBase(editingLibrary)}/${editingLibrary.id}`, {
         method: "PATCH",
-        body: JSON.stringify({
+        body: body ? JSON.stringify(body) : JSON.stringify({
           name: editName,
           visibility: editVisibility,
           publicRole: editPublicRole,
@@ -460,6 +513,11 @@ export function LibrariesSection() {
           {t("control:libraries.storageSetupBody")}
         </MessageBox>
       )}
+      {videoEngineDown && (
+        <MessageBox tone="warning" title={t("control:libraries.typeVideo")}>
+          {t("control:libraries.video.engineDown")}
+        </MessageBox>
+      )}
       {scanningLibraries.length > 0 && (
         <MessageBox
           tone="info"
@@ -492,7 +550,9 @@ export function LibrariesSection() {
               ? <Headphones size={18} />
               : value === "ebook"
                 ? <BookOpen size={18} />
-                : <LayoutGrid size={18} />
+                : value === "video"
+                  ? <Clapperboard size={18} />
+                  : <LayoutGrid size={18} />
           }))}
         />
         <label className="search-field library-search">
@@ -554,7 +614,7 @@ export function LibrariesSection() {
                     </td>
                     <td>
                       <span className="library-type-cell">
-                        <TypeIcon size={14} aria-hidden="true" /> {typeLabel(library.type)}
+                        <TypeIcon size={14} aria-hidden="true" /> {rowTypeLabel(library)}
                         {library.role && (
                           <span className="count-badge" title={t("control:libraries.systemBadgeTitle")}>
                             {library.role === "inbox" ? t("control:libraries.systemInbox") : t("control:libraries.systemAppFiles")}
@@ -672,7 +732,8 @@ export function LibrariesSection() {
 
       {createLibraryOpen && (
         <LibraryWizard
-          initialType={typeFilter === "ebook" || typeFilter === "gallery" ? typeFilter : "audiobook"}
+          initialType={typeFilter === "ebook" || typeFilter === "gallery" || (typeFilter === "video" && videoAvailable) ? typeFilter : "audiobook"}
+          videoAvailable={videoAvailable}
           users={users}
           groups={groups}
           storageRoots={storageRoots}
@@ -695,7 +756,8 @@ export function LibrariesSection() {
         />
       )}
 
-      {scanRulesLibrary && scanRulesLibrary.type !== "gallery" && (
+      {/* Scan rules are the book libraries' own (the row offers them only there). */}
+      {scanRulesLibrary && (scanRulesLibrary.type === "audiobook" || scanRulesLibrary.type === "ebook") && (
         <LayoutPanel
           library={{ id: scanRulesLibrary.id, name: scanRulesLibrary.name, type: scanRulesLibrary.type }}
           sources={(scanRulesLibrary.settings?.scanSources ?? typeDefaults[scanRulesLibrary.type]?.sources ?? [])
@@ -777,8 +839,9 @@ export function LibrariesSection() {
           onConfirm={deleteLibrary}
           onCancel={() => setDeleteConfirmLibrary(null)}
         >
-          <p>{t("control:libraries.deleteBody1")}</p>
-          <p><strong>{t("control:libraries.deleteBody2")}</strong></p>
+          {/* A video library's catalog is the video app's: say what goes, there. */}
+          <p>{deleteConfirmLibrary.type === "video" ? t("control:libraries.video.deleteBody1") : t("control:libraries.deleteBody1")}</p>
+          <p><strong>{deleteConfirmLibrary.type === "video" ? t("control:libraries.video.deleteBody2") : t("control:libraries.deleteBody2")}</strong></p>
         </ConfirmDialog>
       )}
 
@@ -813,12 +876,20 @@ export function LibrariesSection() {
             <Button variant="tab" className="modal-tab" selected={editTab === "access"} onClick={() => setEditTab("access")}>
               {t("control:libraries.tabAccess")}
             </Button>
-            <Button variant="tab" className="modal-tab" selected={editTab === "upload"} onClick={() => setEditTab("upload")}>
-              {t("control:libraries.tabUpload")}
-            </Button>
-            <Button variant="tab" className="modal-tab" selected={editTab === "scanning"} onClick={() => setEditTab("scanning")}>
-              {t("control:libraries.tabScanning")}
-            </Button>
+            {editingLibrary.type === "video" ? (
+              <Button variant="tab" className="modal-tab" selected={editTab === "video"} onClick={() => setEditTab("video")}>
+                {t("control:libraries.video.tabVideo")}
+              </Button>
+            ) : (
+              <>
+                <Button variant="tab" className="modal-tab" selected={editTab === "upload"} onClick={() => setEditTab("upload")}>
+                  {t("control:libraries.tabUpload")}
+                </Button>
+                <Button variant="tab" className="modal-tab" selected={editTab === "scanning"} onClick={() => setEditTab("scanning")}>
+                  {t("control:libraries.tabScanning")}
+                </Button>
+              </>
+            )}
           </div>
 
           <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>
@@ -836,10 +907,29 @@ export function LibrariesSection() {
                   onVisibilityChange={setEditVisibility}
                   publicRole={editPublicRole}
                   onPublicRoleChange={setEditPublicRole}
-                  mode={editMode}
-                  onModeChange={setEditMode}
+                  mode={editingLibrary.type === "video" ? undefined : editMode}
+                  onModeChange={editingLibrary.type === "video" ? undefined : setEditMode}
                   users={users}
                   groups={groups}
+                />
+              </>
+            )}
+
+            {editTab === "video" && editingLibrary.type === "video" && (
+              <>
+                <p className="muted">
+                  {editingLibrary.kind === "movies" ? t("control:libraries.video.editKindMovies") : t("control:libraries.video.editKindShows")}
+                </p>
+                <VideoFolderPicker value={editVideoFolder} onChange={setEditVideoFolder} onError={setError} />
+                {editVideoFolder !== (editingLibrary.folder ?? "") && (
+                  <MessageBox tone="info" title={t("control:libraries.video.folderChangeTitle")}>{t("control:libraries.video.folderChangeHint")}</MessageBox>
+                )}
+                <SelectField
+                  label={t("control:libraries.video.languageLabel")}
+                  hint={t("control:libraries.video.languageHint")}
+                  value={editVideoLanguage}
+                  onChange={setEditVideoLanguage}
+                  options={[...new Set([...VIDEO_LANGUAGES, editVideoLanguage])].map((code) => ({ value: code, label: languageLabel(code, i18n.resolvedLanguage ?? "en") }))}
                 />
               </>
             )}
@@ -902,7 +992,12 @@ export function LibrariesSection() {
               <Button variant="secondary" onClick={() => setEditingLibrary(null)} disabled={saving}>
                 {t("control:ui.cancel")}
               </Button>
-              <Button variant="primary" type="submit" form="edit-library-form" disabled={saving || !editName.trim() || editExtensions.length === 0}>
+              <Button
+                variant="primary"
+                type="submit"
+                form="edit-library-form"
+                disabled={saving || !editName.trim() || (editingLibrary.type === "video" ? !editVideoFolder : editExtensions.length === 0)}
+              >
                 {saving ? t("control:ui.saving") : t("control:ui.saveChanges")}
               </Button>
             </div>

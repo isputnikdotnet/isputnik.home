@@ -11,11 +11,12 @@ export type ControlSection =
   | "users" | "groups" | "invites"
   // Security
   | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
+  | "appsAccess"
   // Maintenance
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   | "videoStreaming"
   // Settings
-  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "games" | "email" | "notifications" | "about";
+  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "appsSetup" | "videoSettings" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -44,6 +45,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   securityPolicies: "/control/security/policies",
   securityTrusted: "/control/security/trusted-networks",
   securityBlocked: "/control/security/blocked-ips",
+  appsAccess: "/control/security/apps",
 
   tasks: "/control/maintenance/tasks",
   scheduledJobs: "/control/maintenance/scheduled-jobs",
@@ -57,9 +59,10 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   quotes: "/control/settings/quotes",
   mapSetup: "/control/settings/maps",
   storySettings: "/control/settings/stories",
-  games: "/control/settings/games",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
+  appsSetup: "/control/settings/apps",
+  videoSettings: "/control/settings/video",
   about: "/control/settings/about"
 };
 
@@ -203,9 +206,29 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maps/data": "mapSetup",
   "/control/maps/routing": "mapSetup",
 
+  // The games' status, events and log were one Settings tab (4.33–4.37), then the
+  // containers had a group of their own, Apps (4.38–4.44), until its pages went to
+  // the groups whose questions they answer (docs/dashboard-and-backups-plan.md):
+  // status to the Dashboard, events and log to Logs (?app= picks the source),
+  // access to Security, pairing and the video settings to Settings.
+  "/control/settings/games": "dashboard",
+  "/control/apps": "dashboard",
+  "/control/apps/installed": "dashboard",
+  "/control/apps/access": "appsAccess",
+  "/control/apps/events": "logs",
+  "/control/apps/logs": "logs",
+  "/control/apps/setup": "appsSetup",
+
   // Config split into the Settings tabs; its old landing page was Appearance.
   "/control/config": "appearance",
   "/control/about": "about"
+};
+
+// What an old address meant beyond its page: the Apps group's Logs tab was a
+// container's server log, which on Overview › Logs is the "server" view of an
+// app. ControlPanelPage adds these to the query when it tidies the address.
+export const CONTROL_ALIAS_QUERY: Record<string, Record<string, string>> = {
+  "/control/apps/logs": { log: "server" }
 };
 
 // The Dashboard's views became pages when its second tab row went (4.15). A link
@@ -307,6 +330,7 @@ export const PROFILE_ANCHORS = {
   language: { tab: "account", id: "language" },
   ereader: { tab: "account", id: "send-to-ereader" },
   readerAccess: { tab: "security", id: "reader-access" },
+  stremio: { tab: "security", id: "stremio" },
   devices: { tab: "security", id: "linked-devices" }
 } as const satisfies Record<string, { tab: ProfileTab; id: string }>;
 export type ProfileAnchor = keyof typeof PROFILE_ANCHORS;
@@ -386,6 +410,13 @@ export type Route =
   | { name: "galleryAlbum"; id: string }
   | { name: "gallerySlideshow"; id: string }
   | { name: "galleryPerson"; id: string }
+  /** Video (docs/video-architecture.md): pages of this app over the video
+   *  engine's catalog. Never under /video — that prefix is the engine's. */
+  | { name: "videoBrowse"; kind: "shows" | "movies" }
+  | { name: "videoTitle"; kind: "shows" | "movies"; id: string }
+  | { name: "videoSet"; id: string }
+  /** The player, for one episode or movie (its id in the engine). */
+  | { name: "videoWatch"; id: string }
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
   | { name: "familyFamilies" }
@@ -547,6 +578,23 @@ export function getRoute(): Route {
       folder: decodeURIComponent(galleryFolderMatch[1]),
       libraryId: new URLSearchParams(window.location.search).get("library")
     };
+  }
+
+  // Video: Shows and Movies, and one title of either.
+  if (path === "/shows" || path === "/movies") {
+    return { name: "videoBrowse", kind: path === "/shows" ? "shows" : "movies" };
+  }
+  const videoSetMatch = path.match(/^\/movies\/sets\/([^/]+)$/);
+  if (videoSetMatch) {
+    return { name: "videoSet", id: decodeURIComponent(videoSetMatch[1]) };
+  }
+  const videoTitleMatch = path.match(/^\/(shows|movies)\/([^/]+)$/);
+  if (videoTitleMatch) {
+    return { name: "videoTitle", kind: videoTitleMatch[1] as "shows" | "movies", id: decodeURIComponent(videoTitleMatch[2]) };
+  }
+  const videoWatchMatch = path.match(/^\/watch\/([^/]+)$/);
+  if (videoWatchMatch) {
+    return { name: "videoWatch", id: decodeURIComponent(videoWatchMatch[1]) };
   }
 
   // Family tree: the chart (optionally focused on one person — a real path so

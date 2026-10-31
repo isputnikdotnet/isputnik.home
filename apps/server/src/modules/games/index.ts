@@ -10,6 +10,10 @@ import { hasSessionCookie } from "../../auth.js";
 import { getSections } from "../../core/sections.js";
 import { flagAbusiveRequest } from "../../core/security-alerts.js";
 import { parseBody } from "../../core/shared.js";
+import { appRole } from "../apps/access.js";
+import { resolveAppSecret } from "../apps/pairing.js";
+import { appConfigured, appDefinition, type AppConfigured } from "../apps/registry.js";
+import { appStatus } from "../apps/status.js";
 import { GAMES_PREFIX, identityHeaders, registerGamesGateway } from "./gateway.js";
 import {
   GUEST_COOKIE,
@@ -31,42 +35,10 @@ import {
   revokeGuestInvite
 } from "./guest-invites.js";
 
-/** Whether the games server answers, for the Control panel's Games tab. A short
- *  timeout: the page is drawn around this answer, and a container that is down
- *  should say so in a moment, not a minute. */
-async function probeGamesServer(upstream: string): Promise<{ ok: boolean; version: string | null; error: string | null }> {
-  try {
-    const response = await fetch(`${upstream}/games/api/health`, { signal: AbortSignal.timeout(4000) });
-    if (!response.ok) return { ok: false, version: null, error: `HTTP ${response.status}` };
-    const body = (await response.json().catch(() => ({}))) as { ok?: boolean; version?: string };
-    return { ok: body.ok === true, version: body.version ?? null, error: body.ok === true ? null : "Unexpected answer" };
-  } catch (err) {
-    return { ok: false, version: null, error: err instanceof Error ? err.message : String(err) };
-  }
-}
+const GAMES = appDefinition("games");
 
-/** Whether the games server takes this app's signature: one signed call as the
- *  admin asking. Health alone answers the same with any secret, so a mismatch
- *  looked "on" here while every member got "Not signed in". null = not known
- *  (the call itself failed — the health probe says why). */
-async function probeSecret(upstream: string, secret: string, request: FastifyRequest): Promise<boolean | null> {
-  try {
-    const response = await fetch(`${upstream}${GAMES_PREFIX}/api/me`, {
-      headers: identityHeaders(request.user!, secret, { ip: request.ip, requestId: String(request.id) }),
-      signal: AbortSignal.timeout(4000)
-    });
-    if (response.status === 401) return false;
-    return response.ok ? true : null;
-  } catch {
-    return null;
-  }
-}
-
-export function gamesConfigured(upstream = config.gamesUrl, secret = config.gamesGatewaySecret): { enabled: boolean; reason?: string } {
-  if (!upstream) return { enabled: false };
-  if (!secret) return { enabled: false, reason: "GAMES_URL is set but GAMES_GATEWAY_SECRET is not; the games stay off until both are set." };
-  if (!/^https?:\/\//.test(upstream)) return { enabled: false, reason: `GAMES_URL must start with http:// or https:// (got "${upstream}"); the games stay off.` };
-  return { enabled: true };
+export function gamesConfigured(upstream = resolveAppSecret("games").upstream, secret = resolveAppSecret("games").secret): AppConfigured {
+  return appConfigured(GAMES, upstream, secret);
 }
 
 const guestInviteSchema = z.object({
@@ -98,16 +70,22 @@ export interface GamesPluginOptions {
 }
 
 export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions = {}) {
-  const upstream = opts.upstream ?? config.gamesUrl;
-  const secret = opts.secret ?? config.gamesGatewaySecret;
-  const status = gamesConfigured(upstream, secret);
-  if (status.reason) app.log.warn(status.reason);
-  // Switched off by the admin = not there, for the gateway and the guest routes alike.
-  const available = () => status.enabled && getSections().games;
+  // Both asked each time: an address saved and a secret paired on Settings › Apps
+  // (modules/apps/pairing.ts) work without a restart, and the environment's win.
+  const upstream = () => opts.upstream ?? resolveAppSecret("games").upstream;
+  const secret = () => opts.secret ?? resolveAppSecret("games").secret;
+  const atStart = gamesConfigured(upstream(), secret());
+  if (atStart.reason) app.log.warn(atStart.reason);
+  // Switched off by the admin = not there, for the gateway and the guest routes
+  // alike; and not there until it has an address and a secret.
+  const available = () => gamesConfigured(upstream(), secret()).enabled && getSections().games;
 
   // The web app asks this once to decide whether to show the Games entry: the
-  // gateway configured AND the admin's Games section on (core/sections.ts).
-  app.get("/api/games/status", { preHandler: app.authenticate }, async () => ({ enabled: available() }));
+  // gateway configured, the admin's Games section on (core/sections.ts), and this
+  // person let in by Security › App access (modules/apps/access.ts).
+  app.get("/api/games/status", { preHandler: app.authenticate }, async (request) => ({
+    enabled: available() && appRole("games", request.user!) !== null
+  }));
 
   // Who can be invited to a match: the active members, by name. The games app
   // calls this on the home origin itself (same session cookie), so the games
@@ -120,20 +98,18 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
     return { members: rows.map((row) => ({ id: row.id, name: row.display_name })) };
   });
 
-  // Control panel → Settings → Games: how the integration stands. Read-only on
-  // purpose — the two settings are environment variables (the owner's decision:
-  // the panel shows them, the container's configuration sets them). The secret
-  // itself never leaves the server; only whether one is set.
+  // How the integration stands — the games' row of Control panel → Apps →
+  // Installed (/api/apps/admin/status), on its own address for callers that ask
+  // about the games alone. The secret itself never leaves the server.
   app.get("/api/games/admin/status", { preHandler: app.requireAdmin }, async (request) => {
-    const server = status.enabled ? await probeGamesServer(upstream) : null;
+    const answer = await appStatus(GAMES, upstream(), secret(), request);
     return {
-      configured: status.enabled,
-      reason: status.reason ?? null,
-      url: upstream || null,
-      secretSet: Boolean(secret),
-      // Asked only of a server that answers: true / false (the two secrets differ) / null.
-      secretAccepted: server?.ok ? await probeSecret(upstream, secret, request) : null,
-      server
+      configured: answer.configured,
+      reason: answer.reason,
+      url: answer.url,
+      secretSet: answer.secretSet,
+      secretAccepted: answer.secretAccepted,
+      server: answer.server
     };
   });
 
@@ -149,7 +125,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
   // direction), binds the two, and hands the link back. Shown once: only its
   // hash is kept.
   app.post("/api/games/guest-invites", { preHandler: app.authenticate, config: GUEST_RATE_LIMIT }, async (request, reply) => {
-    if (!available()) return notAvailable(reply);
+    if (!available() || !appRole("games", request.user!)) return notAvailable(reply);
     const parsed = parseBody(guestInviteSchema, request.body);
     if ("error" in parsed) return reply.code(400).send(parsed.error);
     const input = parsed.data;
@@ -158,9 +134,9 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
 
     let created: { status: number; body: Record<string, unknown> };
     try {
-      const response = await fetch(`${upstream}${GAMES_PREFIX}/api/matches`, {
+      const response = await fetch(`${upstream()}${GAMES_PREFIX}/api/matches`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...identityHeaders(me, secret, { ip: request.ip, requestId: String(request.id) }) },
+        headers: { "content-type": "application/json", ...identityHeaders(me, secret(), { ip: request.ip, requestId: String(request.id) }) },
         body: JSON.stringify({ game: input.game, options: input.options ?? {}, seat: input.seat, opponent: { id: minted.guestId, name: input.guestName } }),
         signal: AbortSignal.timeout(8000)
       });
@@ -236,8 +212,8 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
     return reply.redirect(matchPath, 302);
   });
 
-  if (status.enabled) {
-    await registerGamesGateway(app, { upstream, secret, available });
-    app.log.info(`Games: proxying /games to ${upstream}`);
-  }
+  // Registered always: an address saved or a secret paired later needs no
+  // restart, and until both are there `available` keeps the prefix at 404.
+  await registerGamesGateway(app, { upstream, secret, available });
+  if (atStart.enabled) app.log.info(`Games: proxying /games to ${upstream()}`);
 }

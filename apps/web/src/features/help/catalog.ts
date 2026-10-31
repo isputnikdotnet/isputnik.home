@@ -1,6 +1,6 @@
 import {
-  BookOpen, BookText, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Mail, MonitorSmartphone,
-  Quote, Rocket, Send, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
+  BookOpen, BookText, Boxes, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Mail, MonitorSmartphone,
+  Quote, Rocket, Send, Settings, ShieldCheck, Trash2, Tv, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 
 // Every user guide the app can open, and how the Help pages arrange them.
@@ -124,6 +124,12 @@ export const GUIDES = {
     title: "Link a device",
     description: "Sign a TV, wall display or kiosk in by scanning a code with your phone — and how to remove one later."
   },
+  stremio: {
+    slug: guide("stremio.md"),
+    icon: Tv,
+    title: "Watching in Stremio",
+    description: "Your own add-on link for the Stremio player on a TV, phone or computer: installing it, the converted stream, subtitles, and revoking a link."
+  },
   controlPanel: {
     slug: guide("control-panel.md"),
     icon: Settings,
@@ -143,6 +149,13 @@ export const GUIDES = {
     icon: Wifi,
     title: "Exposing your library to the internet",
     description: "Putting it behind HTTPS, the settings to turn on first, and the risks to weigh.",
+    adminOnly: true
+  },
+  apps: {
+    slug: guide("apps.md"),
+    icon: Boxes,
+    title: "Adding the games and video apps",
+    description: "Installing the games and video containers, pairing them on Settings → Apps, and choosing who may use them and from where.",
     adminOnly: true
   }
 } satisfies Record<string, GuideEntry>;
@@ -201,14 +214,14 @@ export function helpTopics(isAdmin: boolean): HelpTopic[] {
       guides: isAdmin ? ["stories", "quotes"] : ["stories"]
     },
     { id: "account", icon: UserRound, title: "Your account", summary: "Profile, themes, sharing and your e-reader", guides: ["yourAccount", "familySharing"] },
-    { id: "security", icon: ShieldCheck, title: "Sign-in & security", summary: "Passkeys, two-factor and linked devices", guides: ["passkeys", "twoFactor", "linkDevice"] },
+    { id: "security", icon: ShieldCheck, title: "Sign-in & security", summary: "Passkeys, two-factor, linked devices and Stremio", guides: ["passkeys", "twoFactor", "linkDevice", "stremio"] },
     isAdmin
       ? {
           id: "server",
           icon: Settings,
           title: "Control panel",
-          summary: "Storage, libraries, email, and opening up to the internet",
-          guides: ["firstRun", "storage", "libraries", "controlPanel", "email", "internet"],
+          summary: "Storage, libraries, email, apps, and opening up to the internet",
+          guides: ["firstRun", "storage", "libraries", "controlPanel", "email", "internet", "apps"],
           adminOnly: true
         }
       : { id: "quotes", icon: Quote, title: "Quotes", summary: "Highlights, family sayings and the quote of the day", guides: ["quotes"] }

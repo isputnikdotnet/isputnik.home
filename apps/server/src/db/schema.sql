@@ -497,6 +497,10 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- file's first few boxes by the scan; 0 is what Maintenance -> Videos offers to fix
   -- (faststart.ts), which rewrites the file in place.
   faststart           INTEGER,
+  -- Why the last rewrite left the file as it was (a camera track an optimised copy
+  -- cannot keep, say). Maintenance -> Videos labels the video with it and "Optimise
+  -- all" passes over it; cleared by a rewrite that works, or when the file changes.
+  faststart_error     TEXT,
   -- A picture the app made FROM another one (a family-tree portrait cut from a
   -- group photo): the source item. The face scan skips these, or the crop would
   -- grow a second copy of the same face (migration 82).
@@ -1713,7 +1717,8 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   last_seen_at TEXT,
   last_ip      TEXT,
   expires_at   TEXT,                            -- NULL = no expiry
-  revoked_at   TEXT
+  revoked_at   TEXT,
+  origin       TEXT                             -- the address a Stremio link was made on; NULL = APP_URL
 );
 
 -- A guest link into one online match of the games (modules/games/guest-invites.ts,
@@ -1812,6 +1817,17 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value      TEXT NOT NULL,
   updated_by TEXT REFERENCES users(id),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- The secret this server signs a container's requests with, when it was made on
+-- Control panel → Apps → Setup rather than set in the environment (which wins).
+-- Sealed with the server key (core/mfa.ts sealSecret), so the database alone —
+-- a backup copy, say — does not hand anyone the gateway's signature.
+CREATE TABLE IF NOT EXISTS app_pairings (
+  app_id        TEXT PRIMARY KEY,           -- the registry's id (modules/apps/registry.ts)
+  secret_sealed TEXT NOT NULL,
+  paired_by     TEXT REFERENCES users(id) ON DELETE SET NULL,
+  paired_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 -- The newest release each person has been told about on Home ("Updated to X —

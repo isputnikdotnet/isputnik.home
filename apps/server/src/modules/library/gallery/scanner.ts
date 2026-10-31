@@ -309,6 +309,8 @@ export async function ingestGalleryAsset(
         size = excluded.size, width = excluded.width, height = excluded.height, orientation = excluded.orientation,
         duration_seconds = excluded.duration_seconds, modified_at = excluded.modified_at, playable = excluded.playable,
         faststart = excluded.faststart,
+        -- A new file, so what the last rewrite made of the old one no longer applies.
+        faststart_error = NULL,
         -- A user-set date/location is preserved; scan-owned values track the file.
         taken_at = CASE WHEN gallery_details.taken_at_source = 'manual' THEN gallery_details.taken_at ELSE excluded.taken_at END,
         gps_lat = CASE WHEN gallery_details.gps_source = 'manual' THEN gallery_details.gps_lat ELSE excluded.gps_lat END,

@@ -14,7 +14,7 @@ import { relativePathWithinRoot } from "../shared/storage-roots.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
 import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
 import { FolderMoveError, planFolderMove, queueFolderMove } from "./folder-move.js";
-import { enqueueFaststartJobs, faststartBacklogCount, listFaststartCandidates } from "./faststart.js";
+import { enqueueFaststartJobs, faststartPage } from "./faststart.js";
 import { folderMoveStatuses } from "../shared/storage-move.js";
 import { sharedPeopleFor } from "./people-access.js";
 import type { LibraryRow } from "../../../db/rows.js";
@@ -233,8 +233,20 @@ export function registerGalleryLibraryRoutes(app: FastifyInstance) {
   // ── Videos not ready for streaming (faststart.ts) ──
   // Admin-only, and never on a schedule: the fix rewrites the original file, so it
   // is always something somebody asked for.
-  app.get("/api/library/gallery/video-streaming", { preHandler: app.requireAdmin }, async () => {
-    return { items: listFaststartCandidates(), total: faststartBacklogCount() };
+  const videoStreamingQuerySchema = z.object({
+    page: z.string().optional(),
+    pageSize: z.string().optional(),
+    show: z.enum(["all", "ready", "unable"]).optional()
+  });
+
+  app.get("/api/library/gallery/video-streaming", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseQuery(videoStreamingQuerySchema, request.query);
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid query", details: parsed.error });
+    }
+    const page = Math.max(1, Number.parseInt(parsed.data.page ?? "1", 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(parsed.data.pageSize ?? "20", 10) || 20));
+    return faststartPage(page, pageSize, parsed.data.show);
   });
 
   const optimiseSchema = z.object({

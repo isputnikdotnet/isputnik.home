@@ -284,7 +284,7 @@ export interface DashboardSummary {
 // /api/dashboard/activity — the Activity tab's range-scoped payload, shaped
 // like DashboardSignIns' series, so the two tabs' date toolbars drive identical
 // machinery.
-export type ActivityKey = "uploads" | "downloads" | "deletes" | "played" | "read" | "viewed";
+export type ActivityKey = "uploads" | "downloads" | "deletes" | "played" | "read" | "viewed" | "watched" | "matches";
 
 export interface DashboardActivity {
   from: string;

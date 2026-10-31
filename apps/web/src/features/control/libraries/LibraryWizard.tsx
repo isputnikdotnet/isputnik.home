@@ -6,13 +6,16 @@ import {
   BookOpen,
   Check,
   ChevronDown,
+  Clapperboard,
   ClipboardList,
+  Film,
   Globe2,
   Headphones,
   Image as ImageIcon,
   LibraryBig,
   LockKeyhole,
   SlidersHorizontal,
+  Tv,
   X,
   type LucideIcon
 } from "lucide-react";
@@ -29,11 +32,13 @@ import { BackSidesEditor } from "./BackSidesEditor";
 import { PRESETS, humanize } from "../layout/layout-model";
 import { useRoleLabels } from "../layout/useRoleLabels";
 import { SourceFolderPicker } from "./SourceFolderPicker";
+import { VideoFolderPicker } from "./VideoFolderPicker";
 import { TagEncodingField } from "./TagEncodingField";
 import { UploadSettingsFields } from "./UploadSettingsFields";
 import { ModeSelect, OwnerSelect, PublicRoleSelect, publicRoleLabel } from "./access-selects";
 
-type WizardLibraryType = "audiobook" | "ebook" | "gallery";
+type WizardLibraryType = "audiobook" | "ebook" | "gallery" | "video";
+type VideoKind = "shows" | "movies";
 type StepKey = "type" | "basics" | "layout" | "review";
 type AdvancedTab = "access" | "upload" | "scanning";
 
@@ -80,10 +85,14 @@ export function LibraryWizard({
   initialRootId,
   metadataSources,
   typeDefaults,
+  videoAvailable = false,
   onClose,
   onCreated
 }: {
   initialType: WizardLibraryType;
+  /** The video app is set up: Video is offered, its folders are the engine's
+   *  (docs/video-architecture.md). */
+  videoAvailable?: boolean;
   users: ManagedUser[];
   groups: ManagedGroup[];
   storageRoots: StorageRoot[];
@@ -93,7 +102,7 @@ export function LibraryWizard({
   onClose: () => void;
   onCreated: (type: WizardLibraryType) => void;
 }) {
-  const { t } = useTranslation(["common", "control", "controlAdmin"]);
+  const { t, i18n } = useTranslation(["common", "control", "controlAdmin"]);
 
   const TYPE_OPTIONS: {
     type: WizardLibraryType;
@@ -118,7 +127,14 @@ export function LibraryWizard({
       label: t("control:libraries.typeGallery"),
       caption: t("control:libraries.wizard.typeCaptionGallery"),
       icon: ImageIcon
-    }
+    },
+    // Kept by the video app; offered only where one is set up.
+    ...(videoAvailable ? [{
+      type: "video" as const,
+      label: t("control:libraries.typeVideo"),
+      caption: t("control:libraries.wizard.typeCaptionVideo"),
+      icon: Clapperboard
+    }] : [])
   ];
 
   const roleLabels = useRoleLabels();
@@ -163,8 +179,12 @@ export function LibraryWizard({
   const [draftBackSides, setDraftBackSides] = useState<BackSidesSettings>(DEFAULT_BACK_SIDES);
   const [draftMaxUploadMB, setDraftMaxUploadMB] = useState("");
   const [draftTagEncoding, setDraftTagEncoding] = useState("");
+  // A video library: what it holds, and its folder on the video app.
+  const [videoKind, setVideoKind] = useState<VideoKind>("shows");
+  const [videoFolder, setVideoFolder] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const isVideo = libraryType === "video";
 
   const defaults = typeDefaults[libraryType];
   const typeSourceInfo = useMemo(
@@ -172,8 +192,9 @@ export function LibraryWizard({
     [metadataSources, libraryType]
   );
 
-  // Galleries have no folder layout to read; book libraries get the Layout step.
-  const steps: StepKey[] = libraryType === "gallery" ? ["type", "basics", "review"] : ["type", "basics", "layout", "review"];
+  // Galleries have no folder layout to read, and a video library's is read by
+  // the video app (Shows or Movies); book libraries get the Layout step.
+  const steps: StepKey[] = libraryType === "gallery" || isVideo ? ["type", "basics", "review"] : ["type", "basics", "layout", "review"];
   const lastStep = steps.length - 1;
   const current = Math.min(stepIndex, lastStep);
   const stepKey = steps[current];
@@ -195,10 +216,11 @@ export function LibraryWizard({
     setTagEncoding("");
   };
 
-  const basicsReady = name.trim().length >= 2 && Boolean(storageBrowse?.selectedPath);
+  const basicsReady = name.trim().length >= 2 && (isVideo ? Boolean(videoFolder) : Boolean(storageBrowse?.selectedPath));
 
-  const typeRoving = useRovingRadio<WizardLibraryType>(["audiobook", "ebook", "gallery"], libraryType, pickType);
+  const typeRoving = useRovingRadio<WizardLibraryType>(TYPE_OPTIONS.map((option) => option.type), libraryType, pickType);
   const visibilityRoving = useRovingRadio<"public" | "private">(["public", "private"], visibility, setVisibility);
+  const kindRoving = useRovingRadio<VideoKind>(["shows", "movies"], videoKind, setVideoKind);
 
   const openAdvanced = () => {
     setDraftPublicRole(publicRole);
@@ -238,8 +260,26 @@ export function LibraryWizard({
         : users.find((user) => user.id === ownerId)?.displayName ?? t("control:libraries.unknownUser"))
     : t("control:libraries.noOwner");
   const typeLabel = TYPE_OPTIONS.find((option) => option.type === libraryType)?.label ?? libraryType;
-  const reviewGlance = `${typeLabel} · ${visibility === "public" ? t("control:libraries.public") : t("control:libraries.private")} · ${mode === "managed" ? t("control:libraries.modeManaged") : t("control:libraries.wizard.glanceExternal")}`;
-  const reviewRows: { label: string; value: string }[] = [
+  const kindLabel = videoKind === "shows" ? t("control:libraries.video.kindShows") : t("control:libraries.video.kindMovies");
+  const visibilityWord = visibility === "public" ? t("control:libraries.public") : t("control:libraries.private");
+  const reviewGlance = isVideo
+    ? `${typeLabel} · ${kindLabel} · ${visibilityWord}`
+    : `${typeLabel} · ${visibilityWord} · ${mode === "managed" ? t("control:libraries.modeManaged") : t("control:libraries.wizard.glanceExternal")}`;
+  // A video library has no extensions, sources or uploads here: the video app reads it.
+  const videoReviewRows: { label: string; value: string }[] = [
+    { label: t("control:libraries.fieldType"), value: `${typeLabel} · ${kindLabel}` },
+    { label: t("control:libraries.fieldName"), value: name.trim() || "—" },
+    { label: t("control:libraries.folderLabel"), value: videoFolder ? t("control:libraries.video.folderOnEngine", { folder: videoFolder }) : "—" },
+    {
+      label: t("control:libraries.visibilityLabel"),
+      value: visibility === "public"
+        ? t("control:libraries.wizard.reviewPublicValue", { role: publicRoleLabel(publicRole) })
+        : t("control:libraries.privateOptionFull")
+    },
+    { label: t("control:libraries.fieldOwner"), value: ownerLabel },
+    { label: t("control:libraries.video.firstScan"), value: t("control:libraries.video.firstScanValue") }
+  ];
+  const reviewRows: { label: string; value: string }[] = isVideo ? videoReviewRows : [
     { label: t("control:libraries.fieldType"), value: typeLabel },
     { label: t("control:libraries.fieldName"), value: name.trim() || "—" },
     { label: t("control:libraries.folderLabel"), value: storageBrowse?.selectedPath || "—" },
@@ -283,6 +323,33 @@ export function LibraryWizard({
       setError(name.trim().length < 2
         ? t("control:libraries.wizard.errorNameRequired")
         : t("control:libraries.wizard.errorFolderRequired"));
+      return;
+    }
+    if (isVideo) {
+      setCreating(true);
+      setError("");
+      try {
+        // The row is written here and the video app told of it, which scans it.
+        await api("/api/library/video-libraries", {
+          method: "POST",
+          body: JSON.stringify({
+            name,
+            kind: videoKind,
+            folder: videoFolder,
+            // The language its metadata is described in: the admin's, to start with.
+            defaultLanguage: i18n.resolvedLanguage === "ru" ? "ru" : "en",
+            visibility,
+            publicRole,
+            ownerId: ownerId || null,
+            ownerType: ownerType || null
+          })
+        });
+        onCreated(libraryType);
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("control:libraries.wizard.unableToCreate"));
+        setCreating(false);
+      }
       return;
     }
     if (extensions.length === 0) {
@@ -430,13 +497,44 @@ export function LibraryWizard({
             placeholder={t("control:libraries.wizard.namePlaceholder")}
           />
 
-          <SourceFolderPicker
-            storageRoots={storageRoots}
-            selectedRootId={selectedRootId}
-            storageBrowse={storageBrowse}
-            onBrowse={browse}
-            onError={setError}
-          />
+          {isVideo ? (
+            <>
+              {/* Shows and movies are read differently, so a library is one or the other. */}
+              <div className="field library-visibility-field">
+                <span>{t("control:libraries.video.kindLabel")}</span>
+                <div className="library-visibility-grid" role="radiogroup" aria-label={t("control:libraries.video.kindLabel")}>
+                  {(["shows", "movies"] as const).map((kind) => (
+                    <Button
+                      variant="text"
+                      type="button"
+                      key={kind}
+                      role="radio"
+                      aria-checked={videoKind === kind}
+                      className={`library-visibility-card${videoKind === kind ? " selected" : ""}`}
+                      {...kindRoving(kind)}
+                      onClick={() => setVideoKind(kind)}
+                    >
+                      <span className="library-visibility-radio" aria-hidden="true" />
+                      {kind === "shows" ? <Tv size={22} aria-hidden="true" /> : <Film size={22} aria-hidden="true" />}
+                      <span className="library-visibility-copy">
+                        <strong>{kind === "shows" ? t("control:libraries.video.kindShows") : t("control:libraries.video.kindMovies")}</strong>
+                        <small>{kind === "shows" ? t("control:libraries.video.kindShowsHint") : t("control:libraries.video.kindMoviesHint")}</small>
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <VideoFolderPicker value={videoFolder} onChange={setVideoFolder} onError={setError} />
+            </>
+          ) : (
+            <SourceFolderPicker
+              storageRoots={storageRoots}
+              selectedRootId={selectedRootId}
+              storageBrowse={storageBrowse}
+              onBrowse={browse}
+              onError={setError}
+            />
+          )}
 
           <label className="field library-owner-field">
             <span>{t("control:libraries.fieldOwner")}</span>
@@ -488,21 +586,24 @@ export function LibraryWizard({
             </div>
           </div>
 
-          <Button
-            variant="text"
-            type="button"
-            className="library-advanced-options"
-            onClick={openAdvanced}
-            aria-expanded={advancedOpen}
-          >
-            <span>
-              <SlidersHorizontal size={19} aria-hidden="true" />
-              <strong>{t("control:libraries.wizard.advancedOptions")}</strong>
-            </span>
-            <ChevronDown size={18} aria-hidden="true" />
-          </Button>
+          {/* A video library's scanning is the video app's: nothing to tune here. */}
+          {!isVideo && (
+            <Button
+              variant="text"
+              type="button"
+              className="library-advanced-options"
+              onClick={openAdvanced}
+              aria-expanded={advancedOpen}
+            >
+              <span>
+                <SlidersHorizontal size={19} aria-hidden="true" />
+                <strong>{t("control:libraries.wizard.advancedOptions")}</strong>
+              </span>
+              <ChevronDown size={18} aria-hidden="true" />
+            </Button>
+          )}
 
-          {advancedOpen && (
+          {advancedOpen && !isVideo && (
             <section className="library-advanced-inline" aria-label={t("control:libraries.wizard.advancedSettingsAria")}>
               <div className="modal-tabs" role="tablist" aria-label={t("control:libraries.wizard.advancedSettingsAria")}>
                 <Button
@@ -608,7 +709,7 @@ export function LibraryWizard({
         </section>
       )}
 
-      {stepKey === "layout" && libraryType !== "gallery" && (
+      {stepKey === "layout" && libraryType !== "gallery" && libraryType !== "video" && (
         <section className="library-layout-step">
           <div className="library-details-copy">
             <h3>{t("control:libraries.wizard.layoutHeading")}</h3>

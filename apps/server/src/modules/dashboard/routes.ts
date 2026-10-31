@@ -839,9 +839,11 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
 
   // The Activity tab's range-scoped payload — the same window and bucketing rule
   // as /api/dashboard/signins, so the two tabs' date toolbars behave identically.
-  // Six series: what was put in or taken out (uploads, downloads, deletes) and
-  // what was opened (played, read, viewed), with totals for this window and the
-  // equal-length one before it so each card can say how it compares.
+  // Eight series: what was put in or taken out (uploads, downloads, deletes) and
+  // what was opened (played, read, viewed, watched — a video title started, which
+  // the /video gateway records — and matches started in the games), with totals
+  // for this window and the equal-length one before it so each card can say how
+  // it compares.
   app.get("/api/dashboard/activity", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(rangeQuerySchema, request.query);
     if (parsed.error) {
@@ -863,10 +865,15 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       SUM(CASE WHEN event LIKE '%.deleted' OR event IN ('library.item_trashed', 'library.item_purged') THEN 1 ELSE 0 END) AS deletes,
       SUM(CASE WHEN event = 'library.audiobook.played' THEN 1 ELSE 0 END) AS played,
       SUM(CASE WHEN event = 'library.ebook.read' THEN 1 ELSE 0 END) AS read,
-      SUM(CASE WHEN event = 'library.gallery.viewed' THEN 1 ELSE 0 END) AS viewed
+      SUM(CASE WHEN event = 'library.gallery.viewed' THEN 1 ELSE 0 END) AS viewed,
+      SUM(CASE WHEN event = 'library.video.played' THEN 1 ELSE 0 END) AS watched,
+      SUM(CASE WHEN event = 'games.match_started' THEN 1 ELSE 0 END) AS matches
     `;
-    type ActivityCounts = { uploads: number | null; downloads: number | null; deletes: number | null; played: number | null; read: number | null; viewed: number | null };
-    const KEYS = ["uploads", "downloads", "deletes", "played", "read", "viewed"] as const;
+    type ActivityCounts = {
+      uploads: number | null; downloads: number | null; deletes: number | null;
+      played: number | null; read: number | null; viewed: number | null; watched: number | null; matches: number | null;
+    };
+    const KEYS = ["uploads", "downloads", "deletes", "played", "read", "viewed", "watched", "matches"] as const;
     const clean = (row: ActivityCounts) =>
       Object.fromEntries(KEYS.map((key) => [key, row[key] ?? 0])) as Record<(typeof KEYS)[number], number>;
 
@@ -881,7 +888,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     // Every bucket in the window is emitted, empty ones included — a gap in the
     // chart should read as "nothing then", not as a missing sample.
     const buckets: string[] = [];
-    const series: Record<(typeof KEYS)[number], number[]> = { uploads: [], downloads: [], deletes: [], played: [], read: [], viewed: [] };
+    const series: Record<(typeof KEYS)[number], number[]> = { uploads: [], downloads: [], deletes: [], played: [], read: [], viewed: [], watched: [], matches: [] };
     const step = bucket === "hour" ? HOUR_MS : DAY_MS;
     for (let cursor = floorToBucket(from, bucket).getTime(); cursor <= to.getTime(); cursor += step) {
       const key = new Date(cursor).toISOString();
