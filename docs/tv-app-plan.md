@@ -5,10 +5,52 @@ A native app for Android TV and Fire TV. Background: `docs/video-architecture.md
 `docs/auth.md` (Link a device).
 
 Status: 2026-10-31. Plan accepted by the owner. T0 and T1 passed, owner's checks included;
-T1 is on GitHub (private `isputnikdotnet/isputnik.tv`). T2 is built and awaits the owner's
-check on the TV (*T2 as built*); it's uncommitted. All of it runs against this PC's dev
-servers so far. Owner chose fully native, and wants the plan to leave room for the other
-parts of iSputnik that make sense on a TV.
+T1 is on GitHub (private `isputnikdotnet/isputnik.tv`). T2 passed the owner's check and is
+committed locally, and so is T3 (*T3 as built*). All of it runs against this PC's dev
+servers so far, and the engine fix below needs a release. Owner chose fully native,
+and wants the plan to leave room for the other parts of iSputnik that make sense on a TV.
+
+## T3 as built (2026-10-31)
+
+**Seen working on the Fire TV:**
+
+- **Audio:** the choice among a file's tracks with no conversion (Russian to English), and on
+  a converted copy, where the engine is asked for that track and the film carries on.
+- **Subtitles:** a track inside an HEVC file, through the engine's WebVTT route.
+- **Skip intro:** shown while the intro plays; Select jumps past it. Times from an `.edl`.
+- **Next episode:** the card comes up with the credits and counts down; **Play now** works,
+  and Back still goes to where the player was opened.
+- **Who's watching:** one linked session per person. The picker opens with the app once
+  there are two; each person has their own rows; switching works; unlinking one leaves the
+  rest signed in.
+
+**The player's keys:** on the picture, Left and Right seek and Select pauses, or skips while
+the intro plays. Down opens the Audio and Subtitles buttons, which appear only when there's
+a choice. The rules are the browser's, in `PlayerChoices.kt`: a language chosen carries over,
+per person; full subtitles before forced, text before image; off stays off.
+
+**Bugs this found:**
+
+- **Engine, a real one:** a converted film started part-way showed about 8 s behind the
+  player's clock. With the picture re-encoded and the sound copied, ffmpeg starts the sound
+  at the keyframe before the seek, and Media3 sets its clock from a segment's first packet.
+  Fixed with `-copypriorss 0` in `hls.ts`, measured with ffprobe (24.000 for both, was 24.000
+  and 20.053) and on the TV. It needs an engine release.
+- **Whole tracks compared:** asking the engine again changes which track is `selected`, so
+  tracks now go by index and id.
+- **Focus settled too early:** rows build during layout, so Compose first focused the next
+  thing ready, here **Unlink**, and that was remembered. `FocusMemory` now ignores focus until
+  the screen has settled. Unlink also disarms when focus leaves it.
+- **Next on the keyboard** landed under the middle of the field; it now goes to the first result.
+
+**Not seen yet:** image subtitles burned in (still no PGS or DVD sample, so only the same
+engine route the browser uses); pausing in the credits cancelling the card, and seeking back
+from them; Back and Cancel on the card; the player's strings in Russian; a remembered language
+on a file played direct, since the bug above was fixed; a revoked person leaving while others
+stay, seen for a single person and unit-tested for several.
+
+**To note:** the same person linking twice replaces themselves on the TV, but their old session
+stays listed in Profile until it's revoked.
 
 ## T2 as built (2026-10-31)
 
