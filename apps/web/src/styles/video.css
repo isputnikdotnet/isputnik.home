@@ -388,6 +388,47 @@
   gap: 8px;
 }
 
+/* Over the picture while the intro plays, where the end card comes later. */
+.video-player-skip {
+  position: absolute;
+  right: 16px;
+  bottom: 64px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.video-player-fullscreen {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(11, 12, 15, 0.6);
+  color: #f2efe8;
+  opacity: 0.55;
+}
+
+.video-player-fullscreen:hover,
+.video-player-fullscreen:focus-visible {
+  background: rgba(11, 12, 15, 0.86);
+  color: #f2efe8;
+  opacity: 1;
+}
+
+/* The page in full screen: the picture and what is drawn over it, nothing else. */
+.video-player-page.is-fullscreen {
+  padding: 0;
+  background: #000;
+}
+
+.video-player-page.is-fullscreen > .video-player-bar,
+.video-player-page.is-fullscreen > .video-player-after {
+  display: none;
+}
+
+.video-player-page.is-fullscreen .video-player {
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+}
+
 .video-player-message,
 .video-player-after {
   max-width: 720px;

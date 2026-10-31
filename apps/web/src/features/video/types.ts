@@ -138,6 +138,13 @@ export interface VideoSubtitleTrack {
   burned: boolean;
 }
 
+/** Where a title's intro and credits are, when its files say (engine 0.12.0+;
+ *  docs/video-skip-plan.md): seconds on the player's clock. */
+export interface VideoMarkers {
+  intro: { start: number; end: number; source: "edl" | "chapter" } | null;
+  credits: { start: number; source: "edl" | "chapter" } | null;
+}
+
 /** GET /video/api/play/:id — what the player needs to start. */
 export interface VideoPlayInfo {
   id: string;
@@ -156,6 +163,7 @@ export interface VideoPlayInfo {
   audioTracks?: VideoAudioTrack[];
   /** Every subtitle offered; empty from an engine older than 0.6.0. */
   subtitleTracks?: VideoSubtitleTrack[];
+  markers?: VideoMarkers;
   progress: VideoProgress | null;
   resumeAt: number;
   /** After an episode the next one; after a film the next of its set (engine

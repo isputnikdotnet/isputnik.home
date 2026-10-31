@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowLeft, AudioLines, Captions, SkipForward } from "lucide-react";
+import { ArrowLeft, AudioLines, Captions, Maximize, Minimize, SkipForward } from "lucide-react";
 import { api, csrfToken } from "../../api";
 import { followBack, followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
@@ -114,7 +114,12 @@ function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): vo
 // anything else comes as HLS the engine cuts as it goes — the sound converted
 // to AAC, the picture too when it must be — played by hls.js (Safari plays HLS
 // itself). Where the person got is saved as it plays and on the way out, and
-// the next episode follows the end.
+// the next episode follows the end — or the start of the credits, where the file
+// says where they are; its intro, likewise, offers Skip intro.
+//
+// Full screen is this page's, not the <video>'s: a video element in full screen
+// hides everything drawn over it (Skip intro, the end card), and a new episode
+// would drop out of it. Where the browser can't (iPhones), its own stays.
 export function VideoPlayerPage({ id }: { id: string }) {
   const { t, i18n } = useTranslation();
   const [info, setInfo] = useState<VideoPlayInfo | null>(null);
@@ -123,11 +128,16 @@ export function VideoPlayerPage({ id }: { id: string }) {
   const [resumedAt, setResumedAt] = useState(0);
   const [nextIn, setNextIn] = useState<number | null>(null);
   const [preparing, setPreparing] = useState(false);
+  const [inIntro, setInIntro] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   /** The subtitle shown: a track id, or "off". */
   const [subtitle, setSubtitle] = useState<string>(SUBTITLES_OFF);
   /** Bumped by "Try again" when every place to watch converted video was taken. */
   const [attempt, setAttempt] = useState(0);
   const video = useRef<HTMLVideoElement | null>(null);
+  const page = useRef<HTMLElement | null>(null);
+  /** The credits have brought the end card up, and aren't to again until seeked back from. */
+  const creditsOffered = useRef(false);
   const lastSaved = useRef(0);
   /** Where playback starts: the saved place, or where a change of sound track left it. */
   const startAt = useRef(0);
@@ -143,6 +153,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
     setNextIn(null);
     setPreparing(false);
     setSubtitle(SUBTITLES_OFF);
+    setInIntro(false);
+    creditsOffered.current = false;
     lastSaved.current = 0;
     const playUrl = `${VIDEO_API}/play/${encodeURIComponent(id)}`;
     api<VideoPlayInfo>(playUrl)
@@ -342,6 +354,55 @@ export function VideoPlayerPage({ id }: { id: string }) {
     return () => window.clearTimeout(timer);
   }, [nextIn, info]);
 
+  /** Skip intro while it plays; the end card once the credits start, unless paused there. */
+  const followMarkers = (element: HTMLVideoElement) => {
+    const at = element.currentTime;
+    const intro = info?.markers?.intro;
+    setInIntro(Boolean(intro && at >= intro.start && at < intro.end));
+    const credits = info?.markers?.credits;
+    if (!credits || !info?.next) return;
+    if (at < credits.start) {
+      if (creditsOffered.current) {
+        creditsOffered.current = false;
+        setNextIn(null);
+      }
+    } else if (!creditsOffered.current && !element.paused) {
+      creditsOffered.current = true;
+      // The card may move on without the page ever saying where it was.
+      save();
+      setNextIn(NEXT_IN_S);
+    }
+  };
+
+  const introEnd = info?.markers?.intro?.end ?? null;
+  const skipIntro = useCallback(() => {
+    if (video.current && introEnd !== null) video.current.currentTime = introEnd;
+    setInIntro(false);
+  }, [introEnd]);
+
+  const canFullscreen = document.fullscreenEnabled === true;
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    else void page.current?.requestFullscreen().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const changed = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", changed);
+    return () => document.removeEventListener("fullscreenchange", changed);
+  }, []);
+
+  // S skips the intro, F is full screen; by the key's place, so a Russian layout's "ы" counts.
+  useEffect(() => {
+    const keys = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+      if (event.code === "KeyS" && inIntro) skipIntro();
+      else if (event.code === "KeyF" && canFullscreen) toggleFullscreen();
+    };
+    window.addEventListener("keydown", keys);
+    return () => window.removeEventListener("keydown", keys);
+  }, [inIntro, skipIntro, canFullscreen, toggleFullscreen]);
+
   const back = info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : videoHref("shows");
   const code = info && info.season !== null && info.episode !== null ? t("video.episodeCode", episodeCodeValues(info.season!, info.episode!)) : null;
   const heading = info ? (info.show ? info.show.title : info.title) : "";
@@ -349,7 +410,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
   const unplayable = info ? !info.available || info.playback.mode === "none" || cannotPlay : false;
 
   return (
-    <main className="video-player-page">
+    <main ref={page} className={`video-player-page${fullscreen ? " is-fullscreen" : ""}`}>
       <header className="video-player-bar">
         <a className="video-player-back" href={back} onClick={(event) => followBack(event, back)}>
           <ArrowLeft size={18} aria-hidden="true" />
@@ -420,6 +481,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
             className="video-player"
             src={isHls ? undefined : playback.url ?? undefined}
             controls
+            controlsList={canFullscreen ? "nofullscreen" : undefined}
+            onDoubleClick={canFullscreen ? toggleFullscreen : undefined}
             autoPlay
             playsInline
             preload="metadata"
@@ -435,12 +498,19 @@ export function VideoPlayerPage({ id }: { id: string }) {
             }}
             onTimeUpdate={(event) => {
               if (Math.abs(event.currentTarget.currentTime - lastSaved.current) >= SAVE_EVERY_S) save();
+              followMarkers(event.currentTarget);
             }}
-            onPause={(event) => { if (!event.currentTarget.ended) save(); }}
+            onPause={(event) => {
+              if (event.currentTarget.ended) return;
+              save();
+              // Stopped in the credits: nothing moves on by itself.
+              setNextIn(null);
+            }}
             onSeeked={() => save()}
             onEnded={() => {
               save({ watched: true });
-              if (info.next) setNextIn(NEXT_IN_S);
+              // Already counting from the credits: it goes on, not over.
+              if (info.next) setNextIn((value) => value ?? NEXT_IN_S);
             }}
             onPlay={() => setNextIn(null)}
             onError={() => setCannotPlay(true)}
@@ -474,6 +544,25 @@ export function VideoPlayerPage({ id }: { id: string }) {
                 {t("video.startOver")}
               </Button>
             </div>
+          )}
+
+          {canFullscreen && (
+            <Button
+              variant="icon"
+              className="video-player-fullscreen"
+              aria-label={fullscreen ? t("video.fullscreenLeave") : t("video.fullscreen")}
+              title={fullscreen ? t("video.fullscreenLeave") : t("video.fullscreen")}
+              onClick={toggleFullscreen}
+            >
+              {fullscreen ? <Minimize size={18} aria-hidden="true" /> : <Maximize size={18} aria-hidden="true" />}
+            </Button>
+          )}
+
+          {inIntro && nextIn === null && (
+            <Button variant="secondary" className="video-player-skip" onClick={skipIntro}>
+              <SkipForward size={16} aria-hidden="true" />
+              <span>{t("video.skipIntro")}</span>
+            </Button>
           )}
 
           {info.next && nextIn !== null && (

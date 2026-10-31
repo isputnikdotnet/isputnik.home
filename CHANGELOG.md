@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.49.0 — Skip intro and credits
+
+- **Skip intro.** While a show's intro plays, the player offers **Skip intro** (or press **S**). It only knows where the intro is when the file says: a chapter named *Intro*, *Opening*, *Заставка* and the like, or an `.edl` file beside the video. Files with neither play as before; marking them by hand comes later.
+- **The next episode comes up when the credits start.** The card with its countdown used to wait until the file had ended, credits and all. Where the file says where the credits are, it now appears as they start, for the next episode or the next film of a set; **Cancel** lets them play on, and pausing stops the countdown. A title counts as watched from where its credits start.
+- **Full screen is the player's own.** The browser's full screen shows only the picture, which hid Skip intro and the next-episode card. Use the button at the top right of the picture, **F**, or a double click. Firefox still shows its own full-screen control, which hides them; iPhones have only the phone's own. Needs video engine 0.12.0.
+
 ## 4.48.0 — Back up each container on its own
 
 - **Each container has its own backups.** **Maintenance → Backup** now has a card for Games and for Video: back up now, download, upload, restore, and choose how many to keep and whether Full and Minimal backups include it. Its files sit beside Home's, and the copies inside Full and Minimal backups are listed and restore the same way, so a bad day in one container no longer means going back on everything. Needs Games 0.22.0 and video engine 0.11.0; an older container says to update it first.

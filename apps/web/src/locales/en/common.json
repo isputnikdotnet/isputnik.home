@@ -809,6 +809,9 @@
     "continueWatching": "Continue watching",
     "continueLeft": "{{time}} left",
     "upNextShort": "next",
+    "skipIntro": "Skip intro",
+    "fullscreen": "Full screen",
+    "fullscreenLeave": "Leave full screen",
     "audio": {
       "label": "Sound",
       "track": "Track {{number}}",

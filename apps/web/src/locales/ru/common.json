@@ -881,6 +881,9 @@
     "continueWatching": "Продолжить просмотр",
     "continueLeft": "Осталось {{time}}",
     "upNextShort": "следующая",
+    "skipIntro": "Пропустить заставку",
+    "fullscreen": "Во весь экран",
+    "fullscreenLeave": "Выйти из полноэкранного режима",
     "audio": {
       "label": "Звук",
       "track": "Дорожка {{number}}",

@@ -225,6 +225,39 @@ someone who sees only *Kids* sees only that part of a set. Films you don't have
 are never listed. Films matched before sets came in are asked about their set
 on the next metadata pass, which follows every scan.
 
+## Skipping intros and credits
+
+While a show's intro plays, the player offers **Skip intro** (or press **S**). When
+the credits start, the card for the next episode, or the next film of a set, comes
+up with its countdown; **Cancel** lets the credits play on, and pausing stops the
+countdown too. A film with nothing after it shows no card, and counts as watched
+from where its credits start.
+
+The player only knows where they are when the files say:
+
+- **Chapters inside the file**, by name: *Intro, Opening, OP, Opening Credits,
+  Вступление, Заставка, Начальные титры* and *Credits, End Credits, Ending, ED,
+  Outro, Титры, Финальные титры*. Unnamed chapters say nothing.
+- **An `.edl` file beside the video**, named like it (`Episode.edl`), which Kodi
+  reads too and intro-skipper tools can write. Each line is `start end action`, in
+  seconds or `h:mm:ss`, with action `0` or `3`. A stretch starting in the first
+  third of the file is the intro; one from the second half that reaches the end is
+  the credits. For a two-minute intro after a one-minute cold open and credits from
+  42:00 of a 44-minute episode:
+
+  ```
+  60 180 3
+  2520 2640 3
+  ```
+
+An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
+Files with neither play as before.
+
+The **full-screen button** at the top right of the picture (or **F**, or a double
+click) keeps Skip intro and the card on screen, and stays full screen into the next
+episode. On Firefox the player's own full-screen control hides them, so use this
+one; on iPhones only the phone's own full screen exists, and they don't show there.
+
 ## Subtitles
 
 Subtitles inside a film and subtitle files beside it — `Film (Year).srt`,

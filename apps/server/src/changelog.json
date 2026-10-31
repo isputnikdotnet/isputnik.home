@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.49.0",
+    "label": "Skip intro and credits",
+    "changes": [
+      "**Skip intro.** While a show's intro plays, the player offers **Skip intro** (or press **S**). It only knows where the intro is when the file says: a chapter named *Intro*, *Opening*, *Заставка* and the like, or an `.edl` file beside the video. Files with neither play as before; marking them by hand comes later.",
+      "**The next episode comes up when the credits start.** The card with its countdown used to wait until the file had ended, credits and all. Where the file says where the credits are, it now appears as they start, for the next episode or the next film of a set; **Cancel** lets them play on, and pausing stops the countdown. A title counts as watched from where its credits start.",
+      "**Full screen is the player's own.** The browser's full screen shows only the picture, which hid Skip intro and the next-episode card. Use the button at the top right of the picture, **F**, or a double click. Firefox still shows its own full-screen control, which hides them; iPhones have only the phone's own. Needs video engine 0.12.0."
+    ]
+  },
+  {
     "version": "4.48.0",
     "label": "Back up each container on its own",
     "changes": [

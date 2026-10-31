@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getRoute } from "../src/router";
@@ -433,6 +433,126 @@ describe("film sets", () => {
     });
     renderSignedIn(<VideoPlayerPage id="m1" />);
     expect(await screen.findByRole("link", { name: "Up next: The Matrix Reloaded" })).toHaveAttribute("href", "/watch/m2");
+  });
+});
+
+describe("skipping the intro and the credits", () => {
+  const info = {
+    id: "e2", type: "episode", title: "Birds of a Feather", show: { id: "s1", title: "Counterpart" }, season: 1, episode: 2,
+    runtimeMinutes: null, available: true, sizeBytes: 1000,
+    playback: { mode: "direct", reasons: [], url: "/video/api/stream/e2", duration: 2400 }, progress: null, resumeAt: 0,
+    next: { id: "e3", season: 1, episode: 3, title: "The Lost Art of Diplomacy" },
+    markers: { intro: { start: 60, end: 150, source: "chapter" }, credits: { start: 2300, source: "chapter" } }
+  };
+  const playerAt = (at: number, paused = false) => {
+    const element = document.querySelector("video")!;
+    Object.defineProperty(element, "currentTime", { configurable: true, writable: true, value: at });
+    Object.defineProperty(element, "paused", { configurable: true, value: paused });
+    fireEvent.timeUpdate(element);
+    return element;
+  };
+  const saves = () => mockApi.mock.calls.filter(([path]) => path === "/video/api/progress/e2");
+
+  it("offers Skip intro only while it plays, and goes to its end", async () => {
+    mockApi.mockResolvedValue(info);
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    playerAt(30);
+    expect(screen.queryByRole("button", { name: "Skip intro" })).not.toBeInTheDocument();
+    const element = playerAt(60);
+    await userEvent.click(screen.getByRole("button", { name: "Skip intro" }));
+    expect(element.currentTime).toBe(150);
+    expect(screen.queryByRole("button", { name: "Skip intro" })).not.toBeInTheDocument();
+    playerAt(100);
+    expect(screen.getByRole("button", { name: "Skip intro" })).toBeInTheDocument();
+    playerAt(150);
+    expect(screen.queryByRole("button", { name: "Skip intro" })).not.toBeInTheDocument();
+  });
+
+  it("skips it with S, wherever the keyboard layout puts the letter", async () => {
+    mockApi.mockResolvedValue(info);
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    fireEvent.keyDown(window, { code: "KeyS", key: "s" });
+    const element = playerAt(70);
+    expect(element.currentTime).toBe(70);
+    fireEvent.keyDown(window, { code: "KeyS", key: "ы" });
+    expect(element.currentTime).toBe(150);
+  });
+
+  it("brings the end card up when the credits start, saving where it is, and Cancel lets them play", async () => {
+    mockApi.mockResolvedValue(info);
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    playerAt(2299);
+    expect(screen.queryByText(/Next episode in/)).not.toBeInTheDocument();
+    const before = saves().length;
+    playerAt(2300);
+    expect(screen.getByText("Next episode in 10 seconds")).toBeInTheDocument();
+    expect(saves().length).toBe(before + 1);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText(/Next episode in/)).not.toBeInTheDocument();
+    playerAt(2310);
+    expect(screen.queryByText(/Next episode in/)).not.toBeInTheDocument();
+    // Back before them and on again: offered again.
+    playerAt(2000);
+    playerAt(2301);
+    expect(screen.getByText("Next episode in 10 seconds")).toBeInTheDocument();
+  });
+
+  it("never moves on from a paused film: pausing in the credits stops the card", async () => {
+    mockApi.mockResolvedValue(info);
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    playerAt(2300, true);
+    expect(screen.queryByText(/Next episode in/)).not.toBeInTheDocument();
+    const element = playerAt(2301);
+    expect(screen.getByText("Next episode in 10 seconds")).toBeInTheDocument();
+    fireEvent.pause(element);
+    expect(screen.queryByText(/Next episode in/)).not.toBeInTheDocument();
+  });
+
+  it("shows no card at the credits of a film with nothing after it", async () => {
+    mockApi.mockResolvedValue({ ...info, next: null });
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    playerAt(2350);
+    expect(screen.queryByText(/Next episode in/)).not.toBeInTheDocument();
+  });
+
+  it("changes nothing with an engine from before markers", async () => {
+    mockApi.mockResolvedValue({ ...info, markers: undefined });
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    playerAt(100);
+    playerAt(2350);
+    expect(screen.queryByRole("button", { name: "Skip intro" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Next episode in/)).not.toBeInTheDocument();
+  });
+
+  it("goes full screen as a page, where the browser can, so what is drawn over the picture stays", async () => {
+    const requestFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true });
+    Object.defineProperty(HTMLElement.prototype, "requestFullscreen", { configurable: true, value: requestFullscreen });
+    try {
+      mockApi.mockResolvedValue(info);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await screen.findByRole("heading", { name: "Counterpart" });
+      expect(document.querySelector("video")).toHaveAttribute("controlslist", "nofullscreen");
+      await userEvent.click(screen.getByRole("button", { name: "Full screen" }));
+      expect(requestFullscreen.mock.contexts[0]).toBe(document.querySelector("main"));
+    } finally {
+      Reflect.deleteProperty(document, "fullscreenEnabled");
+      Reflect.deleteProperty(HTMLElement.prototype, "requestFullscreen");
+    }
+  });
+
+  it("leaves full screen to the browser where it can't", async () => {
+    mockApi.mockResolvedValue(info);
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    expect(document.querySelector("video")).not.toHaveAttribute("controlslist");
+    expect(screen.queryByRole("button", { name: "Full screen" })).not.toBeInTheDocument();
   });
 });
 
