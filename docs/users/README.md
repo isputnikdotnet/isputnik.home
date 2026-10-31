@@ -72,6 +72,8 @@ library.
   to your sign-in, manage backup codes, and what to do if you get locked out.
 - [Link a device](link-a-device.md) — signing a TV, wall display or tablet in by
   scanning a code with your phone, and removing one later.
+- [The TV app](tv-app.md) — iSputnik TV on an Android TV or Fire TV: installing it,
+  signing in, several people on one TV, and updates.
 
 ## Using your libraries
 

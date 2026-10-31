@@ -8,6 +8,9 @@ living room with its own remote.
 Each person gets their own link. Stremio shows exactly the video libraries you
 can open in iSputnik — nothing more — and a link can be revoked at any time.
 
+> For a TV, [the TV app](tv-app.md) is usually the better choice: its home screen is only
+> iSputnik, your place is shared with the website, and there's no outside account.
+
 > Video has to be set up on this server first (an administrator's job, in
 > [Adding the games and video apps](apps.md)). Until it is, the Stremio card in
 > Profile is not there.

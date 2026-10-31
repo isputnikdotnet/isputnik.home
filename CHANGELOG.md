@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.50.0 — The TV app
+
+- **iSputnik TV.** There is now an app for Android TV and Fire TV: your films and shows on the television with its own remote, a home screen that is only iSputnik, and your place shared with the website. You sign it in with your phone through **Link a device**, and nothing but the server's address is typed on the TV. Several people can be linked on one TV, each with their own place. A new guide, **The TV app**, on the Help page covers installing it; newer Fire TV sticks running Vega OS can't run it.
+- Linked devices in **Profile → Security** now name the app as **iSputnik TV app**, instead of an unrecognised device.
+- **Video 0.13.0** tells the app where the original file is, so a TV that can play it directly doesn't need the converted copy. It also fixes sound starting ahead of the picture when a film with copied audio is opened partway through. Update the video container to get both.
+
 ## 4.49.0 — Skip intro and credits
 
 - **Skip intro.** While a show's intro plays, the player offers **Skip intro** (or press **S**). It only knows where the intro is when the file says: a chapter named *Intro*, *Opening*, *Заставка* and the like, or an `.edl` file beside the video. Files with neither play as before; marking them by hand comes later.

@@ -124,6 +124,12 @@ export const GUIDES = {
     title: "Link a device",
     description: "Sign a TV, wall display or kiosk in by scanning a code with your phone — and how to remove one later."
   },
+  tvApp: {
+    slug: guide("tv-app.md"),
+    icon: Tv,
+    title: "The TV app",
+    description: "iSputnik TV on an Android TV or Fire TV: installing it, signing in with your phone, several people on one TV, and updates."
+  },
   stremio: {
     slug: guide("stremio.md"),
     icon: Tv,
@@ -214,7 +220,7 @@ export function helpTopics(isAdmin: boolean): HelpTopic[] {
       guides: isAdmin ? ["stories", "quotes"] : ["stories"]
     },
     { id: "account", icon: UserRound, title: "Your account", summary: "Profile, themes, sharing and your e-reader", guides: ["yourAccount", "familySharing"] },
-    { id: "security", icon: ShieldCheck, title: "Sign-in & security", summary: "Passkeys, two-factor, linked devices and Stremio", guides: ["passkeys", "twoFactor", "linkDevice", "stremio"] },
+    { id: "security", icon: ShieldCheck, title: "Sign-in & security", summary: "Passkeys, two-factor, linked devices, the TV app and Stremio", guides: ["passkeys", "twoFactor", "linkDevice", "tvApp", "stremio"] },
     isAdmin
       ? {
           id: "server",

@@ -4,11 +4,36 @@ A native app for Android TV and Fire TV. Background: `docs/video-architecture.md
 `docs/apps-platform-plan.md`, `docs/stremio-plan.md`, `docs/video-skip-plan.md`,
 `docs/auth.md` (Link a device).
 
-Status: 2026-10-31. Plan accepted by the owner. T0 and T1 passed, owner's checks included;
-T1 is on GitHub (private `isputnikdotnet/isputnik.tv`). T2 passed the owner's check and is
-committed locally, and so is T3 (*T3 as built*). All of it runs against this PC's dev
-servers so far, and the engine fix below needs a release. Owner chose fully native,
-and wants the plan to leave room for the other parts of iSputnik that make sense on a TV.
+Status: 2026-10-31. Plan accepted by the owner. T0 to T3 passed, owner's checks included.
+T4 is released (*T4 as built*) with the check on the owner's real server still to do. Owner
+chose fully native, and wants the plan to leave room for the other parts of iSputnik that
+make sense on a TV.
+
+## T4 as built (2026-10-31)
+
+- **Where it lives.** `isputnik.tv` is public, because a TV can't download a private repo's
+  release file without a login. It holds no key or password. The APK is always named
+  `iSputnik-TV.apk`, so `releases/latest/download/iSputnik-TV.apk` never changes and the guide
+  can print it.
+- **Releasing.** `tvVersion` in `gradle.properties`, then an annotated tag `v<version>`.
+  `.github/workflows/release.yml` refuses a tag that doesn't match, tests, builds with
+  `-PrequireKey`, checks the APK's certificate against the pinned SHA-256, and publishes.
+- **Signing key.** Made once, in `C:\Users\sergeym\.isputnik-tv` on the owner's PC, with a copy
+  in the repo's Actions secrets and an offline backup that is the owner's to keep. A build with
+  no key falls back to the debug key, for trying builds on a TV. The debug-signed test builds
+  can't be updated by a real one: the first real install needs an uninstall and relinking.
+- **The update offer.** The app asks GitHub's latest release when it opens, with none of the
+  session's cookies, and says nothing if it can't. A newer version shows **Update available** in
+  the top bar and on no other screen, so it never covers a film. Its page downloads the APK and
+  hands it to the system's installer. Checked end to end on the Fire TV, 0.1.9 to 0.2.0, with a
+  local stand-in for GitHub; everyone stayed linked.
+- **Fire TV has no per-app switch to open.** `ACTION_MANAGE_UNKNOWN_APP_SOURCES` lands on the My
+  Fire TV menu, so the page spells out the path instead of saying "the next screen".
+- **"Too old" messages aren't built.** Nothing has needed one: the app takes the converted stream
+  from an engine older than 0.13, the routes it uses are the website's, and an old app is offered
+  the update. It gets built when a route first has to change.
+- **Session lifetime** (open question 5): an ended session falls back to a fresh code with no
+  message saying why; the guide explains it.
 
 ## T3 as built (2026-10-31)
 

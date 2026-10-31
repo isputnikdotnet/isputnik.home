@@ -216,7 +216,8 @@ policy, per container and per capability.
 
 ## Tokens — clients without a session
 
-Stremio, Kodi and TV apps cannot carry the session cookie. `api_tokens` already has
+Stremio and Kodi cannot carry the session cookie (the native TV app can, and does:
+`docs/tv-app-plan.md`). `api_tokens` already has
 scopes (OPDS); a manifest lists its **token routes** and the scope each takes
 (`video-stremio`, `video-webdav`). On those routes the gateway takes the token from
 the path (`/video/stremio/<token>/…`) or Basic auth (WebDAV), resolves it with
