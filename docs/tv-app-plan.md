@@ -4,10 +4,48 @@ A native app for Android TV and Fire TV. Background: `docs/video-architecture.md
 `docs/apps-platform-plan.md`, `docs/stremio-plan.md`, `docs/video-skip-plan.md`,
 `docs/auth.md` (Link a device).
 
-Status: 2026-10-30. Plan accepted by the owner. T0 passed, owner's check included. T1 is
-built in `D:\MyProjects\Web\isputnik.tv` (local, uncommitted) and works on the Fire TV
-against this PC's dev servers (*T1 as built*). Owner chose fully native, and wants the
-plan to leave room for the other parts of iSputnik that make sense on a TV.
+Status: 2026-10-31. Plan accepted by the owner. T0 and T1 passed, owner's checks included;
+T1 is on GitHub (private `isputnikdotnet/isputnik.tv`). T2 is built and awaits the owner's
+check on the TV (*T2 as built*); it's uncommitted. All of it runs against this PC's dev
+servers so far. Owner chose fully native, and wants the plan to leave room for the other
+parts of iSputnik that make sense on a TV.
+
+## T2 as built (2026-10-31)
+
+**Seen working on the Fire TV, English and Russian:** the owner's look (top menu, heading and
+sort, banner, poster grid, teal focus); Home, Movies, Shows and Search; a movie page with
+Resume and Start over; a show page with seasons and episode stills; film sets as a row, a
+page, and a row on the film's own page; search as you type, with Next on the Fire keyboard
+going to the first result; an episode played to its end marks itself watched and returns.
+About 110 MB of memory. Twenty-six unit tests.
+
+**How it's put together:**
+
+- **`core` holds the shape:** `Feature` (menu entries and screens), `Navigator`, `TopBar`,
+  `PosterCard`. `Shell` in `app` knows only `Feature`, so T5's photos add one feature.
+- **Back lands on the card you left.** Each screen keeps its scroll through a saveable state
+  holder and its last focus in `FocusMemory`. `VideoStore` keeps what was loaded, so a page
+  returns with the same rows while the server is asked again behind them.
+- **Language:** the app follows the person's setting in iSputnik once signed in. Before
+  that, on the connect and link screens, there's no person yet, so it follows the TV's.
+- **Photos isn't in the menu yet.** The owner's picture has it; an entry that leads nowhere
+  would be worse, so it arrives with T5. Unlink moved behind the name at the top right, where
+  T3's person picker will go.
+
+**Dev setup changed for this:** a **Test Shows** library, and `movie.nfo` files making a
+**Test Trilogy** set in the scratch media.
+
+**Worth knowing:** a title only counts as in progress after 30 seconds (`RESUME_MIN_S`), so a
+short try never reaches Continue watching. Fire TV's keyboard drops or misreads keys sent
+quickly over `adb`, and Back at Home leaves the app, so any key script must check the app is
+still in front before each press.
+
+**Not seen yet:** real artwork, since the test backdrops are nearly black gradients, so the
+banner's picture and scrims are the thing to judge on a real library; hundreds of titles;
+the Russian link screen, which needs a TV set to Russian (the text is sized to fit by
+arithmetic only).
+
+**Sort and sets:** sort is per page and resets to Recently added when the app restarts.
 
 ## T1 as built (2026-10-30)
 
@@ -46,12 +84,15 @@ it always starts a device of its own and has nowhere to type a code (`DeviceLink
 same words in `docs/users/link-a-device.md`). The TV therefore shows the full address with
 the code in it.
 
-**Not tested yet:** revoking the TV from Profile and Unlink on the TV (unit-tested only);
-the `ru` strings on the TV, which are longer and must fit in 540 dp; a real install over
-HTTPS, with its `__Host-` cookies; an episode through to the end.
+**Owner's check (2026-10-31), all passed:** resume, show episodes, revoking from Profile
+(the TV goes to a new code at its next request), linking again, and Unlink (the session is
+gone from Profile too). T1's "done when" is met on the dev setup.
 
-**Left for T2:** focus returns to the first card after Back, not the one you left; a title
-with no poster is a blank card; the language follows the device, not the person's setting.
+**Not tested yet:** the `ru` strings on the TV, which are longer and must fit in 540 dp; a
+real install over HTTPS, with its `__Host-` cookies.
+
+**Left for T2, all done there:** focus returning to the card you left, a title with no poster
+showing a blank card, and the language following the person's setting.
 
 ## T0 results (2026-10-30)
 
