@@ -1,7 +1,7 @@
 # The control panel
 
 Everything an administrator runs the server with. **Control panel** sits at the
-bottom of the sidebar, above the menu with your name on it, and only administrators
+right of the top bar, beside the menu with your name on it, and only administrators
 see it. Inside the panel that link steps aside; **Home** at the top of the panel's
 own nav is the way back out.
 

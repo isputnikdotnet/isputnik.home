@@ -24,6 +24,8 @@ export interface FeedItem {
   durationSeconds: number | null;
   format: string | null;
   totalSize: number | null;
+  /** When this person last played or read it; only the Continue feed knows. */
+  lastActivityAt?: string | null;
 }
 
 export type FeedRow = Pick<LibraryItemRow, "id" | "folder_path" | "discovered_at"> &
@@ -36,6 +38,7 @@ export type FeedRow = Pick<LibraryItemRow, "id" | "folder_path" | "discovered_at
     completed_at: string | null;
     doc_format: string | null;
     doc_total_size: number | null;
+    last_activity_at?: string | null;
   };
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
@@ -86,7 +89,8 @@ export function mapRow(row: FeedRow): FeedItem {
     discoveredAt: row.discovered_at,
     durationSeconds: row.duration_seconds ?? null,
     format: row.doc_format ?? null,
-    totalSize: row.doc_total_size ?? null
+    totalSize: row.doc_total_size ?? null,
+    ...(row.last_activity_at !== undefined ? { lastActivityAt: row.last_activity_at } : {})
   };
 }
 
@@ -160,7 +164,7 @@ export function inProgress(user: { id: string; role: string }, limit: number, of
 
   const rows = db.prepare(`
     ${PROGRESS_CTE}
-    SELECT ${FEED_COLUMNS}, prog.pct AS pct, prog.completed_at AS completed_at
+    SELECT ${FEED_COLUMNS}, prog.pct AS pct, prog.completed_at AS completed_at, prog.updated_at AS last_activity_at
     ${FEED_JOINS}
     JOIN prog ON prog.item_id = library_items.id
     ${where}

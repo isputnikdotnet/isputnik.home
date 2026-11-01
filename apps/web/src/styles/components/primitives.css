@@ -329,6 +329,11 @@ a.icon-button svg {
   font-weight: 760;
 }
 
+:root[data-theme="orbit"] .primary-button:not(.danger) {
+  color: #04121c;
+  background: var(--mint);
+}
+
 :root[data-theme="plain-light"] .primary-button:not(.danger) {
   color: #ffffff;
   background: #7c3aed;

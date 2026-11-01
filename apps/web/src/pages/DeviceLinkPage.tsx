@@ -224,7 +224,7 @@ function DeviceLinkFrame({ children }: { children: React.ReactNode }) {
       </div>
       <section className="device-link-panel">
         <header className="device-link-head">
-          <img src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg" alt="" />
+          <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
           <div>
             <p className="eyebrow">{t("deviceLink.eyebrow")}</p>
             <h1>{t("deviceLink.heading")}</h1>

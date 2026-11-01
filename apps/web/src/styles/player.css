@@ -68,6 +68,29 @@
   --player-primary-glow: color-mix(in srgb, var(--amber) 28%, transparent);
 }
 
+:root[data-theme="orbit"] .audio-player {
+  --player-panel-a: rgba(8, 19, 33, 0.97);
+  --player-panel-b: rgba(18, 35, 52, 0.93);
+  --player-panel-soft: rgba(5, 12, 23, 0.6);
+  --player-panel-muted: rgba(5, 12, 23, 0.46);
+  --player-field: rgba(8, 19, 33, 0.9);
+  --player-field-soft: rgba(18, 35, 52, 0.58);
+  --player-field-active: rgba(36, 209, 224, 0.18);
+  --player-track: rgba(36, 209, 224, 0.18);
+  --player-track-strong: rgba(36, 209, 224, 0.26);
+  --player-grid: rgba(233, 241, 247, 0.035);
+  --player-line-soft: rgba(233, 241, 247, 0.13);
+  --player-line-faint: rgba(233, 241, 247, 0.1);
+  --player-shadow: rgba(0, 0, 0, 0.36);
+  --player-thumb-ring: #050c17;
+  --player-primary-ink: #04121c;
+  --player-primary-start: var(--mint);
+  --player-primary-end: color-mix(in srgb, var(--mint) 76%, #0a5a78);
+  --player-primary-hover-start: color-mix(in srgb, var(--mint) 78%, white);
+  --player-primary-ring: color-mix(in srgb, var(--mint) 16%, transparent);
+  --player-primary-glow: color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
 :root[data-theme="plain-light"] .audio-player {
   --player-panel-a: rgba(255, 255, 255, 0.96);
   --player-panel-b: rgba(241, 245, 249, 0.92);

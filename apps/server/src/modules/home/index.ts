@@ -5,7 +5,13 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseQuery } from "../../core/shared.js";
 import { loadHomeFeed, type HomeCard } from "./feed.js";
-import { getSections } from "../../core/sections.js";
+import { bookTypesOn, getSections } from "../../core/sections.js";
+import { db } from "../../db.js";
+import { queryGalleryTimeline } from "../library/gallery/catalog.js";
+import { resolveGalleryBrowseLibraryIds } from "../library/gallery/catalog-scope.js";
+import { EMPTY_GALLERY_FILTERS } from "../library/gallery/catalog-filters.js";
+import { editionRepresentativeSql } from "../library/shared/catalog-core.js";
+import { accessibleLibraryIds } from "../library/shared/library-access.js";
 import { loadForYouRows } from "../social/for-you.js";
 import { registerWhatsNewRoutes } from "./whats-new.js";
 
@@ -22,6 +28,29 @@ const feedQuerySchema = z.object({
 
 export async function homePlugin(app: FastifyInstance) {
   registerWhatsNewRoutes(app);
+
+  // How much is in each digital library, for this person: the counts on the big
+  // cards in Media and on Home. What a section's own page counts, in one request.
+  app.get("/api/home/libraries", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const on = new Set<string>(bookTypesOn());
+    const books = (type: "audiobook" | "ebook") => {
+      const libIds = on.has(type) ? [...accessibleLibraryIds(user.id, user.role, type)] : [];
+      if (libIds.length === 0) return 0;
+      return (db.prepare(`
+        SELECT COUNT(*) AS n FROM library_items
+        WHERE library_items.deleted_at IS NULL
+          AND library_items.library_id IN (${libIds.map(() => "?").join(", ")})
+          AND ${editionRepresentativeSql("library_items")}
+      `).get(...libIds) as { n: number }).n;
+    };
+    const photos = getSections().gallery
+      ? queryGalleryTimeline(user.id, resolveGalleryBrowseLibraryIds(user, []), {
+        q: "", kinds: [], filters: EMPTY_GALLERY_FILTERS, sort: "added", limit: 1, offset: 0
+      }).total
+      : 0;
+    return { audiobooks: books("audiobook"), ebooks: books("ebook"), photos };
+  });
 
   // `date` is the VIEWER'S local calendar date (the server may sit in another
   // timezone), same contract as the gallery memories endpoint. A malformed or

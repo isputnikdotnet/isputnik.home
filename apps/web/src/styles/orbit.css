@@ -1,0 +1,934 @@
+/* The top layout: a bar with a Media menu and section tabs in place of the sidebar,
+   and the Home that goes with it (`orbit-*`, app/layoutChoice.ts). It wears whichever
+   theme a person chose, so colours come from tokens; the Orbit theme itself lives in
+   tokens.css like the others. Phones keep their four-tab bar and feed: the bar and
+   tabs stop at 740px. */
+
+/* Earth from orbit. Dimmed and fixed on most pages, where its bright corner would
+   compete with covers and the toolbar. On Home it is full strength but belongs to
+   the top of the page: it scrolls away and fades into the navy, so the rows below
+   never sit on the planet's bright edge. The control panel keeps no picture. */
+:root[data-theme="orbit"] .orbit-shell .scene-page::before {
+  display: block;
+  background-image: url("../assets/backgrounds/orbit-earth.webp");
+  background-position: top right;
+  opacity: 0.3;
+}
+
+:root:is([data-theme="dark"], [data-theme="light"]) .orbit-shell .scene-page::before {
+  opacity: 0.32;
+}
+
+:root[data-theme="orbit"] .orbit-shell .scene-page:has(.orbit-home)::before {
+  bottom: auto;
+  height: min(100vh, 56vw);
+  background-attachment: scroll;
+  opacity: 1;
+  mask-image: linear-gradient(180deg, #000 62%, transparent);
+}
+
+/* ── The shell ─────────────────────────────────────────────────────────────── */
+
+.orbit-shell {
+  --orbit-bar: 64px;
+  --orbit-gutter: clamp(20px, 3vw, 40px);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: var(--canvas);
+}
+
+.orbit-topbar {
+  position: sticky;
+  top: 0;
+  z-index: calc(var(--z-sticky, 20) + 2);
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 30px);
+  min-width: 0;
+  height: var(--orbit-bar);
+  padding: 0 var(--orbit-gutter);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--canvas) 86%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.orbit-brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  font-size: 1.22rem;
+  text-decoration: none;
+}
+
+.orbit-nav {
+  display: flex;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  gap: 2px;
+}
+
+.orbit-nav-link {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.orbit-nav-link svg {
+  display: none;
+}
+
+.orbit-nav-link:hover,
+.orbit-nav-link:focus-visible {
+  color: var(--ink);
+  outline: 0;
+}
+
+.orbit-nav-link.is-active {
+  color: var(--mint);
+}
+
+.orbit-nav-link.is-active::after {
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  content: "";
+  background: var(--mint);
+}
+
+.orbit-nav-link .home-nav-badge {
+  position: static;
+}
+
+.orbit-topbar-end {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.orbit-control-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.orbit-control-link:hover {
+  color: var(--ink);
+}
+
+.orbit-user {
+  position: relative;
+}
+
+.orbit-user-button.orbit-user-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  padding: 5px 8px 5px 5px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 600;
+}
+
+.orbit-user-button.orbit-user-button:hover {
+  background: var(--hover);
+}
+
+.orbit-user-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+}
+
+.orbit-user-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  width: 230px;
+  max-height: calc(100vh - var(--orbit-bar) - 16px);
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 40px var(--shadow);
+}
+
+/* Media: a button that reads as the library you are in, opening onto big cards.
+   The panel hangs from the whole bar, not from the button. */
+.orbit-media {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.orbit-media-button.orbit-media-button {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+}
+
+.orbit-media-button.orbit-media-button svg {
+  display: block;
+  transition: transform 140ms ease;
+}
+
+.orbit-media-button.is-open svg {
+  transform: rotate(180deg);
+}
+
+.orbit-media-button.is-open {
+  color: var(--ink);
+}
+
+.orbit-media-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: var(--orbit-gutter);
+  left: var(--orbit-gutter);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  box-shadow: 0 22px 50px var(--shadow);
+}
+
+.orbit-library-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.orbit-library-card {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  text-decoration: none;
+  transition: border-color 140ms ease;
+}
+
+.orbit-library-card:hover,
+.orbit-library-card:focus-visible {
+  border-color: var(--mint);
+  outline: 0;
+}
+
+.orbit-library-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 19 / 7;
+  object-fit: cover;
+  mask-image: linear-gradient(180deg, #000 60%, transparent);
+}
+
+.orbit-library-copy {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 2px 12px 13px 14px;
+}
+
+.orbit-library-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.orbit-library-text strong,
+.orbit-library-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-library-text strong {
+  font-weight: 600;
+}
+
+.orbit-library-text small {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.orbit-library-chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.orbit-library-home {
+  display: none;
+}
+
+@media (min-width: 1400px) and (min-height: 820px) {
+  .orbit-library-home {
+    display: grid;
+  }
+}
+
+/* Each section's own destinations, as one row of tabs under the bar. The navs are
+   the same components the sidebar holds, flattened: their "back to Home" row and
+   group headings have no job up here. */
+.orbit-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 var(--orbit-gutter);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  scrollbar-width: none;
+}
+
+.orbit-tabs .home-control-nav-wrap,
+.orbit-tabs .home-control-nav,
+.orbit-tabs .home-control-group {
+  display: contents;
+}
+
+.orbit-tabs .home-control-group > p {
+  display: none;
+}
+
+:root .orbit-shell .orbit-tabs .home-nav-link {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  min-height: 0;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.orbit-tabs .home-nav-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+:root .orbit-shell .orbit-tabs .home-nav-link:hover {
+  color: var(--ink);
+  background: transparent;
+}
+
+:root .orbit-shell .orbit-tabs .home-nav-link.is-active {
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  box-shadow: none;
+}
+
+:root .orbit-shell .orbit-tabs .home-nav-link.is-active::after {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  left: 10px;
+  height: 2px;
+  content: "";
+  background: var(--mint);
+}
+
+.orbit-tabs .home-control-group + .home-control-group::before {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 20px;
+  margin: 0 8px;
+  content: "";
+  background: var(--line);
+}
+
+/* A nav's own row directly under it is its way back to Home; the bar has that. */
+:root .orbit-shell .orbit-tabs .home-control-nav > .home-nav-link {
+  display: none;
+}
+
+.orbit-tabs-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 20px;
+  margin: 0 8px;
+  background: var(--line);
+}
+
+.orbit-shell > .home-main {
+  min-height: 0;
+  grid-column: 1;
+}
+
+.orbit-shell .ft-chart-wrap {
+  height: max(520px, calc(100vh - 260px));
+}
+
+.orbit-shell .ft-map,
+.orbit-shell .ft-map-panel {
+  height: calc(100vh - 394px);
+}
+
+.orbit-shell .library-toolbar.is-selecting {
+  top: calc(var(--orbit-bar) + 8px);
+}
+
+@media (max-width: 1240px) {
+  .orbit-control-link span {
+    display: none;
+  }
+}
+
+@media (max-width: 1040px) {
+  .orbit-nav-link {
+    padding: 0 8px;
+    font-size: 0.92rem;
+  }
+
+  .orbit-user-name {
+    display: none;
+  }
+}
+
+@media (max-width: 880px) {
+  .orbit-brand strong {
+    display: none;
+  }
+}
+
+@media (max-width: 740px) {
+  .orbit-topbar,
+  .orbit-tabs {
+    display: none;
+  }
+}
+
+/* ── Home ──────────────────────────────────────────────────────────────────── */
+
+.orbit-home {
+  position: relative;
+  display: grid;
+  gap: 30px;
+  width: min(100%, 1680px);
+  margin: 0 auto;
+  padding: 0 0 48px;
+}
+
+.orbit-hello h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
+  letter-spacing: 0;
+}
+
+.orbit-hello p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.orbit-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.orbit-top.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.orbit-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.orbit-card-eyebrow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.orbit-card-eyebrow svg {
+  color: var(--mint);
+}
+
+:root[data-theme="orbit"] .orbit-continue {
+  --continue-accent: var(--mint);
+}
+
+.orbit-continue {
+  --ink: #f3f7fa;
+  --continue-accent: #f3f7fa;
+  display: grid;
+  gap: 14px;
+  padding: 20px 24px 22px;
+  color: var(--ink);
+  background: #0b1725;
+}
+
+.orbit-continue-backdrop {
+  position: absolute;
+  inset: -40px;
+  background-position: center;
+  background-size: cover;
+  filter: blur(34px) saturate(1.1) brightness(0.42);
+  opacity: 0.8;
+}
+
+.orbit-continue-body {
+  position: relative;
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  min-width: 0;
+}
+
+.orbit-continue-cover {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 170px;
+  height: 170px;
+  overflow: hidden;
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface-raised);
+  box-shadow: 0 12px 26px var(--shadow);
+}
+
+.orbit-continue-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.orbit-continue-copy {
+  display: grid;
+  flex: 1 1 auto;
+  justify-items: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.orbit-continue-copy strong {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.orbit-continue-copy small {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(243, 247, 250, 0.78);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 340px);
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.orbit-progress-bar {
+  flex: 1 1 auto;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+.orbit-progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--continue-accent);
+}
+
+.orbit-continue .orbit-card-eyebrow svg {
+  color: var(--continue-accent);
+}
+
+.orbit-resume {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-inline: 34px;
+  border-radius: 999px;
+}
+
+/* Always on the card's dark picture, so not the theme's own primary colour: a dark
+   button on a dark card would vanish under Minimalist. */
+:root .orbit-continue .orbit-resume.primary-button,
+:root .orbit-continue .orbit-resume.primary-button:hover:not(:disabled) {
+  color: #0b1725;
+  background: var(--continue-accent);
+  box-shadow: none;
+}
+
+.orbit-memory {
+  display: flex;
+  gap: 16px;
+  min-height: 248px;
+  padding: 20px 8px 20px 24px;
+}
+
+.orbit-memory-copy {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 46%;
+}
+
+.orbit-memory-copy strong {
+  margin-top: 28px;
+  color: var(--ink);
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.orbit-memory-copy small {
+  color: var(--muted);
+  font-size: 0.98rem;
+}
+
+.orbit-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.orbit-memory-photos {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Prints laid on the table, whatever their quality: a white border and a tilt suit
+   an old scan better than a clean crop would. */
+.orbit-print.orbit-print {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(44%, 200px);
+  aspect-ratio: 1;
+  padding: 7px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  background: #f4f1e8;
+  box-shadow: 0 12px 24px var(--shadow);
+  transform: translate(-50%, -50%);
+  transition: transform 160ms ease;
+}
+
+.orbit-print img {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  display: block;
+  width: calc(100% - 14px);
+  height: calc(100% - 14px);
+  object-fit: cover;
+}
+
+.orbit-years .button-chip,
+.orbit-years button {
+  min-height: 0;
+  padding: 5px 15px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.orbit-years button:hover {
+  border-color: var(--mint);
+  background: var(--active);
+}
+
+.orbit-memory-photos.is-count-2 .orbit-print:nth-child(1) { transform: translate(-82%, -50%) rotate(-5deg); }
+.orbit-memory-photos.is-count-2 .orbit-print:nth-child(2) { transform: translate(-18%, -50%) rotate(4deg); }
+.orbit-memory-photos.is-count-3 .orbit-print:nth-child(1) { transform: translate(-112%, -46%) rotate(-7deg); }
+.orbit-memory-photos.is-count-3 .orbit-print:nth-child(2) { z-index: 1; transform: translate(-50%, -54%) rotate(2deg); }
+.orbit-memory-photos.is-count-3 .orbit-print:nth-child(3) { transform: translate(12%, -46%) rotate(7deg); }
+
+.orbit-print:hover,
+.orbit-print:focus-visible {
+  z-index: 2;
+  outline: 2px solid var(--mint);
+}
+
+.orbit-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.orbit-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.orbit-section-head h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.orbit-section-head a {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.orbit-section-head a:hover {
+  color: var(--mint);
+}
+
+/* One line of whole tiles; the ones that do not fit wrap below the clipped height. */
+.orbit-row {
+  --orbit-cover: 190px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px 16px;
+  height: calc(var(--orbit-cover) + 52px);
+  overflow: hidden;
+}
+
+.orbit-tile {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.orbit-tile.is-square { width: var(--orbit-cover); }
+.orbit-tile.is-tall { width: calc(var(--orbit-cover) * 2 / 3); }
+
+.orbit-tile-cover {
+  position: relative;
+  display: block;
+  height: var(--orbit-cover);
+  margin-bottom: 6px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.orbit-tile:hover .orbit-tile-cover,
+.orbit-tile:focus-visible .orbit-tile-cover {
+  outline: 2px solid var(--mint);
+}
+
+.orbit-tile:focus-visible {
+  outline: 0;
+}
+
+.orbit-tile-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.orbit-tile-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--muted);
+}
+
+.orbit-tile-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.orbit-tile-bar span {
+  display: block;
+  height: 100%;
+  background: var(--mint);
+}
+
+.orbit-tile strong,
+.orbit-tile small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-tile strong {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.orbit-tile small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.orbit-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.orbit-split.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.orbit-split .home-card-quote {
+  align-self: stretch;
+  margin: 0;
+}
+
+.orbit-photo-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.orbit-photo.orbit-photo {
+  aspect-ratio: 3 / 2;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.orbit-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.orbit-photo:hover,
+.orbit-photo:focus-visible {
+  outline: 2px solid var(--mint);
+}
+
+/* The family's feed uses the width the old single column left empty. */
+.orbit-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.orbit-feed > * {
+  min-width: 0;
+  margin: 0;
+}
+
+.orbit-home > .home-feed-sent,
+.orbit-home > .inbox-list {
+  margin: 0;
+}
+
+@media (max-width: 1180px) {
+  .orbit-top,
+  .orbit-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.appearance-layout {
+  max-width: 340px;
+  margin-top: 22px;
+}
+
+@media (max-width: 740px) {
+  .appearance-layout {
+    display: none;
+  }
+}
+
+/* The sidebar brand is the logo now, not a coloured star. */
+:root .home-sidebar img.home-sidebar-brand-star {
+  stroke: none;
+  filter: none;
+}

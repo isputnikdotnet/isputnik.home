@@ -27,12 +27,13 @@ dashboard's `LocationsMap`, …).
 
 | Stylesheet | Purpose |
 |---|---|
-| `tokens.css` | Design tokens — colours for the five themes (`dark`, `light`, `plain-dark`, `plain-light`, `minimalist`) via `data-theme` |
+| `tokens.css` | Design tokens — colours for the six themes (`dark`, `light`, `plain-dark`, `plain-light`, `minimalist`, `orbit`) via `data-theme` |
 | `base.css` | Global resets and typography |
 | `auth.css` | Sign-in / invite split-screen (pre-auth), device-link screens, and the `--auth-*` token set per theme |
 | `layout.css` | Main column, avatar, work area, scene backgrounds, control-panel grid and tab row |
 | `components.css` | Shared UI — fields, buttons, message boxes, modals, datagrid, badges. A barrel over `components/` (see below) |
 | `home.css` | Home — resume hero + the ranked card feed — and the app shell every signed-in page wears: left sidebar, menus, mobile tab bar (`home-*`). One design, for every theme; the iSputnik re-skin is the next file |
+| `orbit.css` | The top layout (`orbit-*`, `app/layoutChoice.ts`): the bar, Media menu, section tabs and its Home, for every theme, and the pictures behind it. Imported last, so it overrides the sidebar shell. The classic sidebar never sees it |
 | `themes/sputnik-home.css` | The iSputnik Night / Light re-skin of the shell and Home, under `:root:is([data-theme="dark"], [data-theme="light"])`, then Light's own overrides. Moved out of `home.css` unchanged and imported straight after it, so each rule still follows the base rule it re-skins. One rule of the set stayed in `home.css` — the main column's padding, which must keep losing to the mobile tab-bar shell's padding there |
 | `player.css` | Audio player widget and its popup/chapter sheet |
 | `themes/sputnik-player.css` | The iSputnik Night / Light re-skin of the player (popup player page, transport, volume, chapter sheet). It was the tail of `player.css` and is imported straight after it, so the cascade is exactly what it was |
@@ -184,8 +185,8 @@ import order above:
 ## tokens.css
 **Design tokens — colours and theming**
 
-CSS custom properties used everywhere else. Five themes — `dark`, `light`,
-`plain-dark`, `plain-light` and `minimalist` — each a `:root[data-theme="…"]`
+CSS custom properties used everywhere else. Six themes — `dark`, `light`,
+`plain-dark`, `plain-light`, `minimalist` and `orbit` — each a `:root[data-theme="…"]`
 block; `:root` with no attribute gets the dark palette. The app stamps the chosen
 theme on `<html>` (a new install defaults to `minimalist`), and a user's **System**
 choice is resolved to light or dark in JavaScript — there is no

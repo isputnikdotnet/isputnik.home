@@ -1,3 +1,5 @@
+import { SelectField } from "../shared/SelectField";
+import { chooseLayout, layoutChoice, type LayoutChoice } from "../app/layoutChoice";
 import { useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link2, Palette, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
@@ -318,6 +320,18 @@ export function ProfilePage({
               <p className="appearance-intro">{t("profile.appearance.intro")}</p>
               <ThemePicker value={user.theme} onChange={chooseTheme} disabled={themeSaving} />
               {themeError && <MessageBox tone="error" title={t("errors.unableToSave")}>{themeError}</MessageBox>}
+              <div className="appearance-layout">
+                <SelectField
+                  label={t("profile.appearance.layoutLabel")}
+                  value={layoutChoice()}
+                  onChange={(value) => chooseLayout(value as LayoutChoice)}
+                  options={[
+                    { value: "top", label: t("profile.appearance.layoutTop") },
+                    { value: "classic", label: t("profile.appearance.layoutClassic") }
+                  ]}
+                />
+                <p className="muted">{t("profile.appearance.layoutHint")}</p>
+              </div>
             </section>
           </div>
         </div>

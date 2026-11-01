@@ -45,7 +45,9 @@ export function identityHeaders(user: User, secret: string, forwarded: Forwarded
     "x-isputnik-user-name": encodeURIComponent(user.display_name),
     "x-isputnik-user-role": user.role,
     "x-isputnik-user-lang": user.language,
-    "x-isputnik-user-theme": user.theme,
+    // Games has no Orbit theme of its own yet, and an unknown name would leave it
+    // uncoloured: it gets the nearest one it knows.
+    "x-isputnik-user-theme": user.theme === "orbit" ? "plain-dark" : user.theme,
     "x-isputnik-client-ip": forwarded.ip,
     "x-isputnik-request-id": forwarded.requestId
   };

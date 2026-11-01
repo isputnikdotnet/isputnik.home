@@ -199,3 +199,25 @@
   --space-10: 40px;
   --space-12: 48px;
 }
+
+:root[data-theme="orbit"] {
+  color-scheme: dark;
+  --ink: #e9f1f7;
+  --muted: #92a6b8;
+  --line: rgba(142, 182, 212, 0.17);
+  --canvas: #050c17;
+  --surface: #0b1725;
+  --surface-raised: #122334;
+  --field: #081321;
+  --hover: rgba(36, 209, 224, 0.1);
+  --active: rgba(36, 209, 224, 0.16);
+  --mint: #24d1e0;
+  --gold: #e3b566;
+  --amber: #d98a4b;
+  --rose: #e0766b;
+  --blue: #7fb0dd;
+  --success: #7ecf90;
+  --warning: #e3b566;
+  --danger: #e0766b;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

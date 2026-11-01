@@ -108,6 +108,9 @@
     "saveFailed": "Unable to save the recording"
   },
   "nav": {
+    "photos": "Photos",
+    "family": "Family",
+    "familyTreeTab": "Family Tree",
     "brandTagline": "Your stories — in orbit",
     "home": "Home",
     "audiobooks": "Audiobooks",
@@ -225,6 +228,7 @@
   "theme": {
     "label": "Theme",
     "system": "System",
+    "orbit": "Orbit",
     "plainLight": "Plain Light",
     "plainDark": "Plain Dark",
     "minimalist": "Minimalist",
@@ -278,6 +282,22 @@
     "sending": "Sending…",
     "resendFailed": "Unable to send another code",
     "back": "Back to sign in"
+  },
+  "orbit": {
+    "yourLibrary": "Your library",
+    "gamesSub": "Play with the family",
+    "titlesCount_one": "{{count}} title",
+    "titlesCount_other": "{{count}} titles",
+    "photosCount_one": "{{count}} photo",
+    "photosCount_other": "{{count}} photos",
+    "resume": "Resume",
+    "inProgress": "In progress",
+    "recentlyAdded": "Recently added",
+    "newVideo": "New on video",
+    "feedTitle": "Around the family",
+    "memoriesSub": "from this day over the years",
+    "memories_one": "{{count}} memory",
+    "memories_other": "{{count}} memories"
   },
   "home": {
     "welcome": "Welcome back, {{name}}",
@@ -367,6 +387,10 @@
       "unableToSave": "Unable to save profile"
     },
     "appearance": {
+      "layoutLabel": "Layout",
+      "layoutTop": "Top bar",
+      "layoutClassic": "Classic sidebar",
+      "layoutHint": "Applies to this browser. The classic layout will be retired in a later release.",
       "heading": "Appearance",
       "intro": "Choose how iSputnik looks. Your choice is saved to your account and applies right away.",
       "unableToSave": "Unable to save theme"

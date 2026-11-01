@@ -5,7 +5,7 @@ export interface PublicUser {
   email: string;
   displayName: string;
   role: "admin" | "member";
-  theme: "system" | "light" | "dark" | "plain-light" | "plain-dark" | "minimalist";
+  theme: "system" | "light" | "dark" | "plain-light" | "plain-dark" | "minimalist" | "orbit";
   protectedFromDelete: boolean;
   isActive: boolean;
   createdAt: string;

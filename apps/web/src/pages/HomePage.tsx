@@ -28,6 +28,8 @@ import type { GalleryAsset, GalleryMemories } from "../features/gallery/types";
 import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 import { useSession } from "../app/SessionContext";
 import { useInboxSummary } from "../features/social/useInboxSummary";
+import { usesTopLayout } from "../app/layoutChoice";
+import { OrbitHome } from "../features/home/OrbitHome";
 
 // The resume hero — the single most-recent in-progress book, pinned above the
 // feed on every screen size (it grew up on mobile; desktop adopted it in the
@@ -816,9 +818,45 @@ export function HomePage() {
     }
   };
 
+  // What is waiting on you outranks everything time-ranked: the first few rows of
+  // For you, decided right here, and a link to the rest (docs/for-you-plan.md).
+  const waitingList = waiting.length > 0 && (
+    <ul className="inbox-list home-feed-sent">
+      {waiting.map((row) => row.kind === "delivery"
+        ? <DeliveryRow key={row.id} card={row} busy={busySent === row.id} onDismiss={dismissDelivery} />
+        : row.kind === "person"
+          ? <SharedPersonRow key={row.id} card={row} busy={busySent === row.id} onClear={clearPerson} />
+          : <InboxRow key={row.id} card={row} busy={busySent === row.id} onAct={actOnSent} />)}
+      {waitingTotal > waiting.length && (
+        <li className="home-feed-seeall">
+          <a href={FOR_YOU_PATH} onClick={(event) => followRoute(event, FOR_YOU_PATH)}>
+            {t("home.seeAllWaiting", { count: waitingTotal })} <ChevronRight size={15} aria-hidden="true" />
+          </a>
+        </li>
+      )}
+    </ul>
+  );
+
   return (
     <>
     <DashboardShell active="home">
+      {usesTopLayout() && !isMobile ? (
+        <OrbitHome
+          displayName={user.displayName}
+          cards={cards}
+          waiting={waitingList}
+          notice={
+            <>
+              {error && <MessageBox tone="error" title={t("home.loadTitle")}>{error}</MessageBox>}
+              <WhatsNewNote />
+            </>
+          }
+          renderCard={renderCard}
+          onRead={handleRead}
+          onOpenMemory={(year, itemId) => void openMemory(year, itemId)}
+          onOpenRecentPhoto={(itemId, days) => void openRecentPhoto(itemId, days)}
+        />
+      ) : (
       <section className="home-page" aria-label="Home">
         {isMobile ? (
           // Phones: a greeting beside a small mark, and on the right whichever
@@ -830,7 +868,7 @@ export function HomePage() {
             <div className="home-brand">
               <img
                 className="home-brand-mark"
-                src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg"
+                src="/Assets/brand/isputnik-app-icon.svg"
                 alt=""
                 width={30}
                 height={30}
@@ -920,25 +958,7 @@ export function HomePage() {
             )}
 
             <div className="home-feed">
-              {/* What is waiting on you outranks everything time-ranked: the first
-                  few rows of For you, decided right here, and a link to the rest
-                  (docs/for-you-plan.md). */}
-              {waiting.length > 0 && (
-                <ul className="inbox-list home-feed-sent">
-                  {waiting.map((row) => row.kind === "delivery"
-                    ? <DeliveryRow key={row.id} card={row} busy={busySent === row.id} onDismiss={dismissDelivery} />
-                    : row.kind === "person"
-                      ? <SharedPersonRow key={row.id} card={row} busy={busySent === row.id} onClear={clearPerson} />
-                      : <InboxRow key={row.id} card={row} busy={busySent === row.id} onAct={actOnSent} />)}
-                  {waitingTotal > waiting.length && (
-                    <li className="home-feed-seeall">
-                      <a href={FOR_YOU_PATH} onClick={(event) => followRoute(event, FOR_YOU_PATH)}>
-                        {t("home.seeAllWaiting", { count: waitingTotal })} <ChevronRight size={15} aria-hidden="true" />
-                      </a>
-                    </li>
-                  )}
-                </ul>
-              )}
+              {waitingList}
 
               {cards === null ? (
                 <>
@@ -965,6 +985,7 @@ export function HomePage() {
           </div>
         )}
       </section>
+      )}
     </DashboardShell>
 
     {toast && createPortal(

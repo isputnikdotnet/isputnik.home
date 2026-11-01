@@ -70,7 +70,7 @@ administrator cannot list yours from here either.
 
 ### Appearance
 
-Six choices, saved to your account, applied the moment you pick one — so the same
+Seven choices, saved to your account, applied the moment you pick one — so the same
 theme follows you to your phone.
 
 ![The Appearance tab, with the six themes as previews](images/72-profile-appearance.png)
@@ -80,6 +80,7 @@ theme follows you to your phone.
 | **System** | Follows your device's light/dark setting |
 | **iSputnik Night** | The house dark theme — dark teal, warm text |
 | **iSputnik Light** | The house light theme — soft paper and green |
+| **Orbit** | Deep navy with a teal accent and Earth from orbit behind Home |
 | **Plain Dark** | Deep blue-black with a cyan accent, no scene artwork |
 | **Plain Light** | Neutral light greys, if you'd rather the app got out of the way |
 | **Minimalist** | Platinum grey and black ink, like a certain beige computer |

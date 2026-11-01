@@ -112,6 +112,9 @@
     "saveFailed": "Не удалось сохранить запись"
   },
   "nav": {
+    "photos": "Фото",
+    "family": "Семья",
+    "familyTreeTab": "Семейное древо",
     "brandTagline": "Ваши истории — на орбите",
     "home": "Главная",
     "audiobooks": "Аудиокниги",
@@ -237,6 +240,7 @@
   "theme": {
     "label": "Тема",
     "system": "Системная",
+    "orbit": "Orbit",
     "plainLight": "Plain Light",
     "plainDark": "Plain Dark",
     "minimalist": "Minimalist",
@@ -290,6 +294,28 @@
     "sending": "Отправка…",
     "resendFailed": "Не удалось отправить ещё один код",
     "back": "Назад ко входу"
+  },
+  "orbit": {
+    "yourLibrary": "Ваша библиотека",
+    "gamesSub": "Играйте всей семьёй",
+    "titlesCount_one": "{{count}} название",
+    "titlesCount_few": "{{count}} названия",
+    "titlesCount_many": "{{count}} названий",
+    "titlesCount_other": "{{count}} названия",
+    "photosCount_one": "{{count}} фото",
+    "photosCount_few": "{{count}} фото",
+    "photosCount_many": "{{count}} фото",
+    "photosCount_other": "{{count}} фото",
+    "resume": "Продолжить",
+    "inProgress": "Сейчас в процессе",
+    "recentlyAdded": "Недавно добавлено",
+    "newVideo": "Новое видео",
+    "feedTitle": "Что нового в семье",
+    "memoriesSub": "в этот день в разные годы",
+    "memories_one": "{{count}} воспоминание",
+    "memories_few": "{{count}} воспоминания",
+    "memories_many": "{{count}} воспоминаний",
+    "memories_other": "{{count}} воспоминания"
   },
   "home": {
     "welcome": "С возвращением, {{name}}",
@@ -393,6 +419,10 @@
       "unableToSave": "Не удалось сохранить профиль"
     },
     "appearance": {
+      "layoutLabel": "Расположение",
+      "layoutTop": "Верхняя панель",
+      "layoutClassic": "Классическая боковая панель",
+      "layoutHint": "Действует в этом браузере. Классическое оформление будет убрано в одном из следующих выпусков.",
       "heading": "Оформление",
       "intro": "Выберите, как выглядит iSputnik. Выбор сохраняется в вашем аккаунте и применяется сразу.",
       "unableToSave": "Не удалось сохранить тему"

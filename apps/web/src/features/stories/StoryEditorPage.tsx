@@ -181,7 +181,7 @@ export function StoryEditorPage({
 
   return (
     <DashboardShell
-      active="stories"
+      active="stories" keepSidebar
       sideNav={story
         ? (
           <StoryEditorNav

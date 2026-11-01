@@ -17,6 +17,8 @@ export interface FeedItem {
   durationSeconds: number | null;
   format: string | null;
   totalSize: number | null;
+  /** When this person last played or read it; only the Continue feed knows. */
+  lastActivityAt?: string | null;
 }
 
 export interface FeedResponse {

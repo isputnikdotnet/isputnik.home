@@ -24,7 +24,6 @@ import {
   Network,
   Quote,
   Settings,
-  Star,
   Tag,
   UsersRound,
   UserRound
@@ -42,6 +41,9 @@ import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
 import { Button } from "../shared/Button";
 import { PreviewBanner } from "./PreviewBanner";
+import { usesTopLayout } from "./layoutChoice";
+import { OrbitMediaMenu } from "./OrbitLibraries";
+import { OrbitTopBar, type OrbitMenuLink, type OrbitNavItem } from "./OrbitTopBar";
 
 
 // The control panel's landing page — Overview › Dashboard.
@@ -138,6 +140,35 @@ function mainNavItems(active: DashboardActive, t: TFunction, sections: Sections,
     { label: t("nav.tags"), href: "/tags", icon: Tag, active: active === "tags" }
   ];
   return items.filter((item) => !item.section || sections[item.section]);
+}
+
+// The top layout's sections (app/layoutChoice.ts): the digital libraries live
+// behind Media, Family gathers the Tree and Stories; Tags and About move to the
+// person's menu.
+function orbitNavItems(active: DashboardActive, t: TFunction, sections: Sections): OrbitNavItem[] {
+  const familyHref = sections.familyTree ? "/family" : "/stories";
+  return [
+    { label: t("nav.home"), href: "/", icon: Home, active: active === "home" },
+    ...(sections.familyTree || sections.stories ? [{ label: t("nav.family"), href: familyHref, icon: Network, active: active === "family" || active === "stories" }] : [])
+  ];
+}
+
+// Which library the Media button reads as, when you are inside one.
+function orbitCurrentLibrary(active: DashboardActive, t: TFunction) {
+  if (active === "audiobooks") return { key: "audiobooks", label: t("nav.audiobooks") } as const;
+  if (active === "ebooks") return { key: "ebooks", label: t("nav.ebooks") } as const;
+  if (active === "gallery") return { key: "photos", label: t("nav.photos") } as const;
+  if (active === "video") return { key: "video", label: t("nav.video") } as const;
+  return null;
+}
+
+function orbitMenuLinks(t: TFunction): OrbitMenuLink[] {
+  return [
+    { label: t("nav.profile"), href: "/profile", icon: UserRound },
+    ...userMenuLinks(t),
+    { label: t("nav.tags"), href: "/tags", icon: Tag },
+    ...aboutMenuLinks(t).map(({ href, icon, label, external }) => ({ href, icon, label, external }))
+  ];
 }
 
 function userMenuLinks(t: TFunction): UserMenuLink[] {
@@ -366,10 +397,14 @@ export function DashboardShell({
   active,
   sideNav,
   bottomNav,
+  keepSidebar = false,
   children
 }: {
   active: DashboardActive;
   sideNav?: ReactNode;
+  /** Stay on the sidebar under the top layout: a nav too long or too busy for
+   *  a row of tabs (the story editor's reorderable chapters). */
+  keepSidebar?: boolean;
   /** A section's own bar for phones, in the place the four-tab bar holds elsewhere
    *  (the control panel's; it renders nothing above the phone breakpoint). */
   bottomNav?: ReactNode;
@@ -402,6 +437,19 @@ export function DashboardShell({
   const aboutTriggerRef = useRef<HTMLButtonElement>(null);
   const aboutMenuRef = useRef<HTMLDivElement>(null);
   const currentPath = window.location.pathname;
+  // The control panel keeps its sidebar under this layout; everything else moves.
+  const orbit = usesTopLayout() && !isControlPanel && !keepSidebar;
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  // A long row of tabs scrolls sideways: keep the page you are on in view. Only the
+  // row moves. The last lit tab is the page's own (Family lights its section first).
+  useEffect(() => {
+    const row = tabsRef.current;
+    const lit = row?.querySelectorAll<HTMLElement>(".home-nav-link.is-active");
+    const tab = lit?.[lit.length - 1];
+    if (!row || !tab) return;
+    row.scrollLeft = tab.offsetLeft - row.offsetLeft - (row.clientWidth - tab.offsetWidth) / 2;
+  });
 
   const toggleAboutMenu = () => {
     setAboutMenuOpen((open) => {
@@ -471,10 +519,40 @@ export function DashboardShell({
   }, [aboutMenuOpen]);
 
   return (
-    <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}${mobileTabBar ? " home-mobile-tabbar-shell" : ""}`}>
-      <aside className="home-sidebar" aria-label={isControlPanel ? t("nav.aria.controlNav") : isUserArea ? t("nav.aria.userNav") : t("nav.aria.appNav")}>
+    <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}${mobileTabBar ? " home-mobile-tabbar-shell" : ""}${orbit ? " orbit-shell" : ""}`}>
+      {orbit && (
+        <OrbitTopBar
+          items={orbitNavItems(active, t, sections)}
+          media={<OrbitMediaMenu current={orbitCurrentLibrary(active, t)} />}
+          controlHref={isAdmin ? CONTROL_HOME : null}
+          displayName={user.displayName}
+          unseen={unseen}
+          menuLinks={orbitMenuLinks(t)}
+          onLogout={() => void logout()}
+        />
+      )}
+      {orbit && (sideNav != null || active === "family" || active === "stories") && (
+        <div className="orbit-tabs" ref={tabsRef}>
+          {/* Family is two sections under one name, so its tabs start with the choice. */}
+          {(active === "family" || active === "stories") && sections.familyTree && sections.stories && (
+            <>
+              <a className={`home-nav-link${active === "family" ? " is-active" : ""}`} href="/family" onClick={(event) => followRoute(event, "/family")}>
+                <Network size={16} aria-hidden="true" />
+                <span>{t("nav.familyTreeTab")}</span>
+              </a>
+              <a className={`home-nav-link${active === "stories" ? " is-active" : ""}`} href="/stories" onClick={(event) => followRoute(event, "/stories")}>
+                <BookText size={16} aria-hidden="true" />
+                <span>{t("nav.stories")}</span>
+              </a>
+              {sideNav != null && <span className="orbit-tabs-divider" aria-hidden="true" />}
+            </>
+          )}
+          {sideNav}
+        </div>
+      )}
+      {!orbit && <aside className="home-sidebar" aria-label={isControlPanel ? t("nav.aria.controlNav") : isUserArea ? t("nav.aria.userNav") : t("nav.aria.appNav")}>
         <a className="home-sidebar-brand" href="/" onClick={(event) => followRoute(event, "/")} aria-label={t("nav.aria.brandHome")}>
-          <Star className="home-sidebar-brand-star" size={29} fill="currentColor" aria-hidden="true" />
+          <img className="home-sidebar-brand-star" src="/Assets/brand/isputnik-app-icon.svg" alt="" width={29} height={29} />
           <span className="home-sidebar-brand-copy">
             <strong>iSputnik</strong>
             <small>{t("nav.brandTagline")}</small>
@@ -640,7 +718,7 @@ export function DashboardShell({
             )}
           </div>
         </div>
-      </aside>
+      </aside>}
 
       <section className={mainClasses}>
         <div className="dashboard-main">

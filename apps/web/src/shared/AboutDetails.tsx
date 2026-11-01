@@ -94,7 +94,7 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
     <section className="about-panel">
       <div className="about-heading">
         <div className="about-icon-wrap">
-          <img src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg" alt="" />
+          <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
         </div>
         <div className="about-heading-text">
           <h2>{about.name}</h2>
