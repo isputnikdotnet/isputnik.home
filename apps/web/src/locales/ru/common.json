@@ -844,6 +844,8 @@
     "season": "Сезон {{number}}",
     "specials": "Дополнительные материалы",
     "episode": "Серия {{number}}",
+    "parts": "Части",
+    "part": "Часть {{number}}",
     "genres": "Жанры",
     "aired": "Вышла {{date}}",
     "noEpisodes": "Серий пока не найдено.",

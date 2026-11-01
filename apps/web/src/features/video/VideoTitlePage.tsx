@@ -102,6 +102,8 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
 
             {title.plot && <p className="video-plot">{title.plot}</p>}
 
+            {!show && ((title as VideoMovie).parts?.length ?? 0) > 0 && <PartList parts={(title as VideoMovie).parts!} />}
+
             {!show && (title as VideoMovie).set && <SetStrip movieId={title.id} set={(title as VideoMovie).set!} />}
 
             {show && (
@@ -174,7 +176,7 @@ function PlayAction({ title }: { title: VideoShow | VideoMovie }) {
     const code = t("video.episodeCode", episodeCodeValues(next.season!, next.episode!));
     label = position > 0 ? t("video.resumeEpisode", { code, time: formatPlayTime(position) }) : t("video.playEpisodeCode", { code });
   } else {
-    id = title.id;
+    id = title.playId ?? title.id;
     const progress = title.progress;
     position = progress && !progress.watched && progress.position >= 30 ? progress.position : 0;
     label = position > 0 ? t("video.resumeAt", { time: formatPlayTime(position) }) : t("video.play");
@@ -190,6 +192,39 @@ function PlayAction({ title }: { title: VideoShow | VideoMovie }) {
       </a>
       {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
     </div>
+  );
+}
+
+/** A film in several files: each part, with how far this person got in it. Looks
+ *  like a season's episodes, because it behaves like them. */
+function PartList({ parts }: { parts: NonNullable<VideoMovie["parts"]> }) {
+  const { t } = useTranslation();
+  return (
+    <section className="video-season" aria-labelledby="video-parts-title">
+      <h2 id="video-parts-title">{t("video.parts")}</h2>
+      <ol className="video-episodes">
+        {parts.map((part) => {
+          const name = t("video.part", { number: part.part });
+          const fraction = progressFraction(part.progress);
+          const href = watchHref(part.id);
+          return (
+            <li key={part.id} className={`video-episode${part.progress?.watched ? " is-watched" : ""}`}>
+              <a className="video-episode-play" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("video.playEpisode", { name })}>
+                <span className="video-episode-number">{part.part}</span>
+                <Play size={16} aria-hidden="true" />
+              </a>
+              <div className="video-episode-copy">
+                <strong>
+                  {name}
+                  {part.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
+                </strong>
+                {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 

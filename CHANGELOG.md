@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.51.0 — Folders of films, and films in parts
+
+- **A folder of films now shows all of them.** A movie folder used to count as one film, its biggest file, so a folder holding a whole series showed one film and hid the rest. Now each film appears, grouped as a set named after the folder and in the order their file names number them. Trailers and extras stay out, and a `movie.nfo` in a folder still means that folder is one film.
+- **A film in several files is one film.** Files whose names differ only by a part number, such as `part1` and `part2`, `CD2` or `часть 2`, are read as one film. Its page lists the parts, **Play** goes to the part you have reached, the next part follows at the end of the last, and the film counts as watched after its final part.
+- **Video 0.14.0** does this. Update the video container, then rescan your movie libraries to pick up what was missed; films already found keep their place.
+
 ## 4.50.0 — The TV app
 
 - **iSputnik TV.** There is now an app for Android TV and Fire TV: your films and shows on the television with its own remote, a home screen that is only iSputnik, and your place shared with the website. You sign it in with your phone through **Link a device**, and nothing but the server's address is typed on the TV. Several people can be linked on one TV, each with their own place. A new guide, **The TV app**, on the Help page covers installing it; newer Fire TV sticks running Vega OS can't run it.

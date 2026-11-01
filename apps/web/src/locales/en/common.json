@@ -776,6 +776,8 @@
     "season": "Season {{number}}",
     "specials": "Specials",
     "episode": "Episode {{number}}",
+    "parts": "Parts",
+    "part": "Part {{number}}",
     "genres": "Genres",
     "aired": "Aired {{date}}",
     "noEpisodes": "No episodes found yet.",

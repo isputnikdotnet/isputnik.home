@@ -220,6 +220,10 @@ export interface VideoMovie extends VideoArt {
   source: "nfo" | "folder";
   direct: VideoDirectPlay;
   progress: VideoProgress | null;
+  /** What Play starts: the part this person has got to (engine 0.14.0+). */
+  playId?: string;
+  /** Its files, when the film is in several; empty when it is in one (engine 0.14.0+). */
+  parts?: { id: string; part: number; direct: VideoDirectPlay; progress: VideoProgress | null }[];
   backdrop?: string | null;
   tmdbMatch?: VideoTmdbMatch | null;
   /** The set it is in, with the films of it this person may see (engine 0.10.0+). */
