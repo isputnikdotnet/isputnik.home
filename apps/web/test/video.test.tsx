@@ -213,6 +213,29 @@ describe("the player", () => {
     fetchSpy.mockRestore();
   });
 
+  it("stops the conversion when the tab closes, and hangs up before it says so", async () => {
+    const hls = { mode: "remux", reasons: ["container", "audio"], url: "/video/api/hls/e2/index.m3u8", duration: 2400 };
+    mockApi.mockResolvedValue({ ...playInfo, playback: hls });
+    // Left by the test before; only this film's player may answer the wait below.
+    hlsCalls.source = "";
+    const view = renderSignedIn(<VideoPlayerPage id="e2" />);
+    await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/index.m3u8"));
+
+    const stops = () => fetchSpy.mock.calls.filter(([, init]) => init?.method === "DELETE").length;
+    const destroyedBefore = hlsCalls.destroyed;
+    let destroyedAtStop = -1;
+    const fetchSpy = vi.spyOn(window, "fetch").mockImplementation((_url, init) => {
+      if (init?.method === "DELETE") destroyedAtStop = hlsCalls.destroyed;
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    window.dispatchEvent(new Event("pagehide"));
+    expect(stops()).toBe(1);
+
+    view.unmount();
+    expect(destroyedAtStop).toBe(destroyedBefore + 1);
+    fetchSpy.mockRestore();
+  });
+
   describe("sound tracks", () => {
     const english = { index: 1, codec: "ac3", channels: 6, language: "eng", title: null, default: true, selected: true };
     const russian = { index: 2, codec: "aac", channels: 2, language: "rus", title: "Дубляж", default: false, selected: false };

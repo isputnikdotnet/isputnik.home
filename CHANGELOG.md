@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.51.1 — A film you left no longer blocks the next one
+
+- **Leaving a film now really lets go of it.** After you left a film the app had to convert as it played, it could still say you were watching it and refuse the next one, sometimes for over a minute. Closing the tab now stops the conversion straight away, and a film that has asked for nothing for 20 seconds no longer stands in your way. Two films really playing at once on one account are still refused.
+- **Video 0.14.1** does most of this. Update the video container along with home.
+
 ## 4.51.0 — Folders of films, and films in parts
 
 - **A folder of films now shows all of them.** A movie folder used to count as one film, its biggest file, so a folder holding a whole series showed one film and hid the rest. Now each film appears, grouped as a set named after the folder and in the order their file names number them. Trailers and extras stay out, and a `movie.nfo` in a folder still means that folder is one film.

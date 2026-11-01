@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.51.1",
+    "label": "A film you left no longer blocks the next one",
+    "changes": [
+      "**Leaving a film now really lets go of it.** After you left a film the app had to convert as it played, it could still say you were watching it and refuse the next one, sometimes for over a minute. Closing the tab now stops the conversion straight away, and a film that has asked for nothing for 20 seconds no longer stands in your way. Two films really playing at once on one account are still refused.",
+      "**Video 0.14.1** does most of this. Update the video container along with home."
+    ]
+  },
+  {
     "version": "4.51.0",
     "label": "Folders of films, and films in parts",
     "changes": [

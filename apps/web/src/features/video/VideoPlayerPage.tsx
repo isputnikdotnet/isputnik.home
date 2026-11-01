@@ -279,14 +279,6 @@ export function VideoPlayerPage({ id }: { id: string }) {
     return () => list.removeEventListener("addtrack", apply);
   }, [subtitle, textIds, info?.playback.url]);
 
-  // Leaving the film stops the engine converting it (a change of sound track
-  // replaces the conversion on the engine by itself).
-  const convertingId = info && isHls && !busy ? info.id : null;
-  useEffect(() => {
-    if (!convertingId) return;
-    return () => sendOnLeaving(`${VIDEO_API}/hls/${encodeURIComponent(convertingId)}`, "DELETE");
-  }, [convertingId]);
-
   // HLS: hls.js where the browser has Media Source (every desktop browser, iOS
   // 17.1+), else the browser's own HLS (older iPhones). The engine stops
   // converting once the player goes.
@@ -342,6 +334,20 @@ export function VideoPlayerPage({ id }: { id: string }) {
       hls?.destroy();
     };
   }, [info, isHls, playback?.url, busy]);
+
+  // Leaving the film stops the engine converting it (a change of sound track
+  // replaces the conversion on the engine by itself): another page or a closed
+  // tab. After the effect above, so hls.js has hung up before the engine hears.
+  const convertingId = info && isHls && !busy ? info.id : null;
+  useEffect(() => {
+    if (!convertingId) return;
+    const stop = () => sendOnLeaving(`${VIDEO_API}/hls/${encodeURIComponent(convertingId)}`, "DELETE");
+    window.addEventListener("pagehide", stop);
+    return () => {
+      window.removeEventListener("pagehide", stop);
+      stop();
+    };
+  }, [convertingId]);
 
   // The end card counts down to the next episode.
   useEffect(() => {
