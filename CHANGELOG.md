@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.57.1 — Movies and shows as posters
+
+- **Every movie and show is a full poster**, the standard tall shape filling its column, on the Overview, Movies, Shows and a film set's page, so a row of them is even. A title with no poster yet gets a poster-shaped card with its initials instead of a square.
+
 ## 4.57.0 — Your own pages, laid out like the rest
 
 - **Profile, Likes, Bookmarks, Quotes, Collections and For you sit in the middle of the screen**, at the same width as Home and the libraries, each with a plain title and its button or count on the right.
