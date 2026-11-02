@@ -877,10 +877,7 @@
 }
 
 /* A book cover or poster is taller than the square: shown whole, not cropped, so
-   its title survives. */
-.orbit-tile.is-tall .orbit-tile-cover img {
-  object-fit: contain;
-}
+   its title survives, with a blur of it either side (cover-backdrop). */
 
 .orbit-tile-empty {
   display: grid;

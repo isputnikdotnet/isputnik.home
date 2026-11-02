@@ -269,6 +269,9 @@ export interface VideoTmdbCandidate {
  *  pages that show it live at /shows and /movies. */
 export const VIDEO_API = "/video/api";
 
+/** Video's front page. Not under /video: that address belongs to the engine. */
+export const VIDEO_OVERVIEW_HREF = "/videos";
+
 export function videoHref(kind: VideoKind, id?: string): string {
   const base = kind === "shows" ? "/shows" : "/movies";
   return id ? `${base}/${encodeURIComponent(id)}` : base;

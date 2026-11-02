@@ -31,6 +31,7 @@ vi.mock("../src/api", async (importOriginal) => {
 });
 
 const { api } = await import("../src/api");
+const { VideoHomePage } = await import("../src/features/video/VideoHomePage");
 const { VideoBrowsePage } = await import("../src/features/video/VideoBrowsePage");
 const { VideoTitlePage } = await import("../src/features/video/VideoTitlePage");
 const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage");
@@ -47,6 +48,8 @@ beforeEach(() => {
 
 describe("video routes", () => {
   it("reads Shows, Movies and one title of either, never under /video", () => {
+    at("/videos");
+    expect(getRoute()).toEqual({ name: "videoHome" });
     at("/shows");
     expect(getRoute()).toEqual({ name: "videoBrowse", kind: "shows" });
     at("/movies");
@@ -69,6 +72,73 @@ const shows = {
   page: 1,
   pageSize: 200
 };
+
+const movie = { id: "m1", libraryId: "lib_mov", title: "The General", originalTitle: null, year: 1926, plot: "A train.", genres: [], runtimeMinutes: 67, imdbId: null, tmdbId: null, source: "nfo", direct: "yes", progress: null, backdrop: "/video/api/art/m1/backdrop", poster: "/video/api/art/m1/poster" };
+
+describe("the overview", () => {
+  const answer = (over: Record<string, unknown> = {}) => mockApi.mockImplementation((async (path: string) => {
+    if (path in over) return over[path];
+    if (path === "/video/api/continue") return { items: [] };
+    if (path.startsWith("/video/api/movies?")) return { items: [{ ...movie, seasons: undefined }], total: 1, page: 1, pageSize: 30 };
+    if (path.startsWith("/video/api/shows?")) return shows;
+    if (path === "/video/api/movies/m1") return movie;
+    throw new Error(`unexpected ${path}`);
+  }) as never);
+
+  it("leads with the newest title when nothing is in progress, over rows of what is new", async () => {
+    answer();
+    renderSignedIn(<VideoHomePage />);
+    const banner = await screen.findByRole("region", { name: "The General" });
+    expect(banner.querySelector("img")).toHaveAttribute("src", "/video/api/art/m1/backdrop");
+    expect(screen.getByRole("link", { name: "Play" })).toHaveAttribute("href", "/watch/m1");
+    expect(screen.getByRole("link", { name: "More" })).toHaveAttribute("href", "/movies/m1");
+    expect(await screen.findByRole("heading", { name: "Recently added movies" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recently added shows" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Counterpart/ })).toHaveAttribute("href", "/shows/s1");
+  });
+
+  it("leads with what is in progress, saying how far along it is", async () => {
+    answer({
+      "/video/api/continue": { items: [{ id: "m1", type: "movie", title: "The General", show: null, season: null, episode: null, position: 600, duration: 1800, resume: true, updatedAt: "2026-11-01T00:00:00.000Z" }] }
+    });
+    renderSignedIn(<VideoHomePage />);
+    await screen.findByRole("region", { name: "The General" });
+    expect(screen.getByRole("link", { name: "Continue" })).toHaveAttribute("href", "/watch/m1");
+    expect(screen.getByText("20:00 left")).toBeInTheDocument();
+  });
+
+  it("keeps its rows when the banner cannot be read", async () => {
+    mockApi.mockImplementation((async (path: string) => {
+      if (path === "/video/api/continue") return { items: [] };
+      if (path.startsWith("/video/api/movies?")) return { items: [{ id: "m1", title: "The General", year: 1926 }], total: 1, page: 1, pageSize: 30 };
+      if (path.startsWith("/video/api/shows?")) return { items: [], total: 0, page: 1, pageSize: 30 };
+      throw new Error("The video app did not answer.");
+    }) as never);
+    renderSignedIn(<VideoHomePage />);
+    expect(await screen.findByRole("link", { name: /The General/ })).toHaveAttribute("href", "/movies/m1");
+    expect(screen.queryByRole("region", { name: "The General" })).toBeNull();
+  });
+});
+
+describe("a show's seasons", () => {
+  const episode = (id: string, number: number) => ({ id, season: 0, episode: number, title: `Episode ${id}`, plot: null, aired: null, direct: "yes", progress: null });
+  const show = {
+    id: "s1", libraryId: "lib_tv", title: "Counterpart", originalTitle: null, year: 2017, plot: null, premiered: null, status: null, genres: ["Drama"], imdbId: null, tmdbId: null, source: "nfo",
+    seasons: [{ number: 1, episodes: [episode("e1", 1)] }, { number: 2, episodes: [episode("e2", 1), episode("e3", 2)] }],
+    nextUp: { id: "e2", season: 2, episode: 1, title: "Episode e2", position: 0 }
+  };
+
+  it("opens on the season this person is up to, and shows one at a time", async () => {
+    mockApi.mockResolvedValue(show as never);
+    renderSignedIn(<VideoTitlePage kind="shows" id="s1" />);
+    expect(await screen.findByRole("tab", { name: "Season 2" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("link", { name: "Play Episode e3" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Play Episode e1" })).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "Season 1" }));
+    expect(screen.getByRole("link", { name: "Play Episode e1" })).toHaveAttribute("href", "/watch/e1");
+    expect(screen.queryByRole("link", { name: "Play Episode e3" })).toBeNull();
+  });
+});
 
 describe("Shows", () => {
   it("lists the shows the engine answers with, and offers its libraries as a filter", async () => {

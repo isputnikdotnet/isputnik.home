@@ -838,6 +838,15 @@
     "stopping": "Завершаем…"
   },
   "video": {
+    "overview": "Обзор",
+    "continue": "Продолжить",
+    "more": "Подробнее",
+    "episodesButton": "Серии",
+    "allShows": "Все сериалы",
+    "allMovies": "Все фильмы",
+    "recentMovies": "Недавно добавленные фильмы",
+    "recentShows": "Недавно добавленные сериалы",
+    "seasonsAria": "Сезоны",
     "shows": "Сериалы",
     "movies": "Фильмы",
     "searchShows": "Поиск сериалов",
@@ -876,7 +885,6 @@
     "episode": "Серия {{number}}",
     "parts": "Части",
     "part": "Часть {{number}}",
-    "genres": "Жанры",
     "aired": "Вышла {{date}}",
     "noEpisodes": "Серий пока не найдено.",
     "notFound": "Этого здесь больше нет — или это не для вас.",

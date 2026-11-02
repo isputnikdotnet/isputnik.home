@@ -7,6 +7,7 @@ import { useSections } from "../../app/sections";
 import { useVideoAvailable } from "../../app/useVideoAvailable";
 import { followRoute, galleryRecentHref, navigate } from "../../router";
 import { Button } from "../../shared/Button";
+import { coverBackdrop } from "../../shared/coverBackdrop";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { authorLine, feedHref, fetchFeed, type FeedItem } from "../library/feed";
 import {
@@ -100,7 +101,7 @@ function TileRow({ title, viewAll, tiles }: { title: string; viewAll?: string; t
               href={tile.href}
               onClick={tile.onClick ?? ((event) => followRoute(event, tile.href))}
             >
-              <span className="orbit-tile-cover">
+              <span className={`orbit-tile-cover${tile.cover ? " cover-backdrop" : ""}`} style={coverBackdrop(tile.cover)}>
                 {tile.cover
                   ? <img src={tile.cover} alt="" loading="lazy" />
                   : <span className="orbit-tile-empty"><Fallback size={30} aria-hidden="true" /></span>}

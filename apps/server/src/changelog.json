@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.54.0",
+    "label": "Video like the TV app, and one look for every card",
+    "changes": [
+      "**Video is laid out like the TV app.** A new **Overview** page leads with a big banner of what you were watching, or else the newest title, with Continue and Episodes or More, over rows of what you left halfway and what's newest in movies and shows. **Shows** and **Movies** open on the same banner, then the sets, then every poster. A title's page has its picture behind the words, and a show has a tab per season over its episodes as picture cards. The video pages sit in the middle of a wide screen, like Home.",
+      "**Books and video share one card.** Covers no longer sit in a frame with black bars: audiobooks are square, ebooks and films are tall, and a cover of another shape is shown whole, with a soft blur of the same picture filling the space around it. This is the same on the Audiobooks and Ebooks pages, Home, Recently added, Continue and the video pages.",
+      "Fixed: on the Minimalist theme the progress badge on a cover was dark text on a dark pill, so the percentage couldn't be read."
+    ]
+  },
+  {
     "version": "4.53.0",
     "label": "A Thanksgiving theme, and a tidier Home",
     "changes": [

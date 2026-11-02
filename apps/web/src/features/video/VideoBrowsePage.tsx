@@ -3,14 +3,15 @@ import { useTranslation } from "react-i18next";
 import { Clapperboard, Film, Layers, LibraryBig, Tv } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate, queryParam, replaceQuery } from "../../router";
-import { Button } from "../../shared/Button";
+import { queryParam, replaceQuery } from "../../router";
 import { LibraryMenu } from "../../shared/LibraryMenu";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { SortMenu } from "../../shared/SortMenu";
 import { ContinueWatching } from "./ContinueWatching";
+import { VideoBanner } from "./VideoBanner";
+import { PosterGrid, PosterRow, type PosterItem } from "./VideoPoster";
 import { VideoSectionNav } from "./VideoSectionNav";
 import {
   VIDEO_API, videoHref, videoSetHref, yearSpan,
@@ -37,8 +38,8 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
   const [libraries, setLibraries] = useState<VideoLibraryRef[]>([]);
   const [items, setItems] = useState<(VideoShowSummary | VideoMovieSummary)[] | null>(null);
   const [sets, setSets] = useState<VideoSetSummary[] | null>(null);
-  /** Whether any set exists for this person: the View control waits until one does. */
-  const [hasSets, setHasSets] = useState(false);
+  /** The sets this person can see, for their row; the View control waits until there is one. */
+  const [setRow, setSetRow] = useState<VideoSetSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -67,10 +68,10 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
   useEffect(() => {
     if (kind !== "movies") return;
     let live = true;
-    api<VideoPage<VideoSetSummary>>(`${VIDEO_API}/sets?pageSize=1`)
-      .then((payload) => { if (live) setHasSets(payload.total > 0); })
-      // An engine from before sets answers 404: no View control, nothing else changes.
-      .catch(() => { if (live) setHasSets(false); });
+    api<VideoPage<VideoSetSummary>>(`${VIDEO_API}/sets?pageSize=${PAGE_SIZE}`)
+      .then((payload) => { if (live) setSetRow(payload.items); })
+      // An engine from before sets answers 404: no row, no View control, nothing else changes.
+      .catch(() => { if (live) setSetRow([]); });
     return () => { live = false; };
   }, [kind]);
 
@@ -129,6 +130,15 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
     return parts.join(" · ");
   };
 
+  const setItem = (set: VideoSetSummary): PosterItem => ({
+    key: set.id,
+    href: videoSetHref(set.id),
+    title: set.name,
+    sub: [t("video.films", { count: set.films }), yearSpan(set.firstYear, set.lastYear)].filter(Boolean).join(" · "),
+    poster: set.poster,
+    icon: Layers
+  });
+
   const subtitle = showingSets
     ? t("video.countSets", { count: total })
     : kind === "shows" ? t("video.countShows", { count: total }) : t("video.countMovies", { count: total });
@@ -136,7 +146,7 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
 
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav activeKey={kind} />}>
-      <section className="audiobook-main-page">
+      <section className="audiobook-main-page video-page">
         <LibraryPageHeader
           title={title}
           subtitle={subtitle}
@@ -173,7 +183,7 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
                   ]}
                 />
               )}
-              {kind === "movies" && (hasSets || showingSets) && (
+              {kind === "movies" && (setRow.length > 0 || showingSets) && (
                 <SortMenu
                   presentation="labelled"
                   value={view}
@@ -190,7 +200,9 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
           }
         />
 
+        {!filtering && !showingSets && <VideoBanner kinds={[kind]} />}
         {!filtering && <ContinueWatching only={kind === "shows" ? "episode" : "movie"} />}
+        {!filtering && !showingSets && <PosterRow title={t("video.viewSets")} items={setRow.map(setItem)} />}
 
         {showingSets ? (
           sets && sets.length === 0 && !error ? (
@@ -200,26 +212,7 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
               {!filtering && <p className="muted">{t("video.setsEmptyBody")}</p>}
             </div>
           ) : (
-            <div className="video-grid">
-              {(sets ?? []).map((set) => (
-                <Button variant="tile" key={set.id} className="video-card" onClick={() => navigate(videoSetHref(set.id))}>
-                  <div className={`video-card-cover${set.poster ? " has-poster" : ""}`} aria-hidden="true">
-                    {set.poster ? (
-                      <img src={set.poster} alt="" loading="lazy" />
-                    ) : (
-                      <>
-                        <Layers size={22} />
-                        <strong>{set.name.slice(0, 2).toUpperCase()}</strong>
-                      </>
-                    )}
-                  </div>
-                  <div className="video-card-body">
-                    <strong>{set.name}</strong>
-                    <span>{[t("video.films", { count: set.films }), yearSpan(set.firstYear, set.lastYear)].filter(Boolean).join(" · ")}</span>
-                  </div>
-                </Button>
-              ))}
-            </div>
+            <PosterGrid items={(sets ?? []).map(setItem)} />
           )
         ) : items && items.length === 0 && !error ? (
           <div className="empty-state library-empty">
@@ -228,26 +221,19 @@ export function VideoBrowsePage({ kind }: { kind: VideoKind }) {
             {!filtering && <p className="muted">{t("video.emptyBody")}</p>}
           </div>
         ) : (
-          <div className="video-grid">
-            {(items ?? []).map((item) => (
-              <Button variant="tile" key={item.id} className="video-card" onClick={() => navigate(videoHref(kind, item.id))}>
-                <div className={`video-card-cover${item.poster ? " has-poster" : ""}`} aria-hidden="true">
-                  {item.poster ? (
-                    <img src={item.poster} alt="" loading="lazy" />
-                  ) : (
-                    <>
-                      <KindIcon size={22} />
-                      <strong>{item.title.slice(0, 2).toUpperCase()}</strong>
-                    </>
-                  )}
-                </div>
-                <div className="video-card-body">
-                  <strong>{item.title}</strong>
-                  <span>{meta(item)}</span>
-                </div>
-              </Button>
-            ))}
-          </div>
+          <>
+            {!filtering && (items?.length ?? 0) > 0 && <h2 className="video-all-title">{kind === "shows" ? t("video.allShows") : t("video.allMovies")}</h2>}
+            <PosterGrid
+              items={(items ?? []).map((item) => ({
+                key: item.id,
+                href: videoHref(kind, item.id),
+                title: item.title,
+                sub: meta(item),
+                poster: item.poster,
+                icon: KindIcon
+              }))}
+            />
+          </>
         )}
       </section>
     </DashboardShell>

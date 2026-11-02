@@ -73,7 +73,7 @@ function useLibraryCards(): LibraryCard[] {
     sections.audiobooks && { key: "audiobooks", label: t("nav.audiobooks"), sub: titles(known.audiobooks), href: "/audiobooks", art: audiobooksArt, icon: Headphones, external: false, badge: 0 },
     sections.ebooks && { key: "ebooks", label: t("nav.ebooks"), sub: titles(known.ebooks), href: "/ebooks", art: ebooksArt, icon: BookOpen, external: false, badge: 0 },
     sections.gallery && { key: "photos", label: t("nav.photos"), sub: known.photos === undefined ? null : t("orbit.photosCount", { count: known.photos }), href: "/gallery", art: photosArt, icon: Image, external: false, badge: 0 },
-    videoOn && { key: "video", label: t("nav.video"), sub: titles(known.video), href: "/shows", art: videoArt, icon: Clapperboard, external: false, badge: 0 },
+    videoOn && { key: "video", label: t("nav.video"), sub: titles(known.video), href: "/videos", art: videoArt, icon: Clapperboard, external: false, badge: 0 },
     gamesAvailable && sections.games && { key: "games", label: t("nav.games"), sub: t("orbit.gamesSub"), href: "/games/", art: gamesArt, icon: Gamepad2, external: true, badge: waiting }
   ];
   return cards.filter((card): card is LibraryCard => Boolean(card));

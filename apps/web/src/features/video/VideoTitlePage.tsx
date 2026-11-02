@@ -11,13 +11,14 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatDate } from "../../shared/dates";
 import { FixMatchModal } from "./FixMatchModal";
 import { VideoSectionNav } from "./VideoSectionNav";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoHref, videoSetHref, watchHref, type VideoKind, type VideoMovie, type VideoShow } from "./types";
+import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
 
 // One show — its seasons and episodes — or one movie, as the video engine
 // catalogued it (.nfo files first, then the folder's own name, TMDB filling the
-// gaps), with Play — resumed where this person stopped — and each episode's
-// progress. An admin can fix which TMDB title it was matched to.
+// gaps), laid out as on the TV: the title over its backdrop, Play — resumed where
+// this person stopped — and the season's episodes as picture cards, with each
+// one's progress. An admin can fix which TMDB title it was matched to.
 export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState<VideoShow | VideoMovie | null>(null);
@@ -51,13 +52,19 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
         title.rating ? t("video.rating", { rating: title.rating.toFixed(1) }) : null,
         show ? t("video.seasons", { count: show.seasons.length }) : null,
         show ? t("video.episodes", { count: show.seasons.reduce((sum, season) => sum + season.episodes.length, 0) }) : null,
-        !show && (title as VideoMovie).runtimeMinutes ? t("video.minutes", { count: (title as VideoMovie).runtimeMinutes! }) : null
+        !show && (title as VideoMovie).runtimeMinutes ? t("video.minutes", { count: (title as VideoMovie).runtimeMinutes! }) : null,
+        title.genres.slice(0, 3).join(", ") || null
       ].filter(Boolean).join(" · ")
     : "";
 
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav activeKey={kind} />}>
-      <section className="audiobook-main-page video-title-page">
+      <section className="audiobook-main-page video-page video-title-page">
+        {title?.backdrop && (
+          <div className="video-title-backdrop" aria-hidden="true">
+            <img src={title.backdrop} alt="" />
+          </div>
+        )}
         <div className="book-detail-topbar">
           <a className="audiobook-back-button" href={back} onClick={(event) => followBack(event, back)}>
             <ArrowLeft size={18} aria-hidden="true" />
@@ -70,11 +77,6 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
 
         {title && (
           <>
-            {title.backdrop && (
-              <div className="video-title-backdrop" aria-hidden="true">
-                <img src={title.backdrop} alt="" />
-              </div>
-            )}
             <header className="video-title-head">
               <div className={`video-title-cover${title.poster ? " has-poster" : ""}`} aria-hidden="true">
                 {title.poster ? <img src={title.poster} alt="" /> : <KindIcon size={34} />}
@@ -83,78 +85,89 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                 <h1>{title.title}</h1>
                 {title.originalTitle && title.originalTitle !== title.title && <p className="muted">{title.originalTitle}</p>}
                 {facts && <p className="video-title-facts">{facts}</p>}
-                {title.genres.length > 0 && (
-                  <ul className="video-genres" aria-label={t("video.genres")}>
-                    {title.genres.map((genre) => <li key={genre}>{genre}</li>)}
-                  </ul>
-                )}
-                {user.role === "admin" && (
-                  <Button variant="text" className="video-fix-match" onClick={() => setFixing(true)}>
-                    <Search size={15} aria-hidden="true" />
-                    <span>{t("video.match.open")}</span>
-                  </Button>
-                )}
+                {title.plot && <p className="video-plot">{title.plot}</p>}
+                <div className="video-title-actions">
+                  <PlayAction title={title} />
+                  {user.role === "admin" && (
+                    <Button variant="text" className="video-fix-match" onClick={() => setFixing(true)}>
+                      <Search size={15} aria-hidden="true" />
+                      <span>{t("video.match.open")}</span>
+                    </Button>
+                  )}
+                </div>
               </div>
             </header>
             {fixing && <FixMatchModal kind={kind} title={title} onClose={() => setFixing(false)} onMatched={setTitle} />}
-
-            <PlayAction title={title} />
-
-            {title.plot && <p className="video-plot">{title.plot}</p>}
 
             {!show && ((title as VideoMovie).parts?.length ?? 0) > 0 && <PartList parts={(title as VideoMovie).parts!} />}
 
             {!show && (title as VideoMovie).set && <SetStrip movieId={title.id} set={(title as VideoMovie).set!} />}
 
-            {show && (
-              show.seasons.length === 0 ? (
-                <p className="muted">{t("video.noEpisodes")}</p>
-              ) : (
-                show.seasons.map((season) => (
-                  <section className="video-season" key={season.number} aria-labelledby={`season-${season.number}`}>
-                    <h2 id={`season-${season.number}`}>{season.number === 0 ? t("video.specials") : t("video.season", { number: season.number })}</h2>
-                    <ol className="video-episodes">
-                      {season.episodes.map((episode) => {
-                        const name = episode.title ?? t("video.episode", { number: episode.episode });
-                        const fraction = progressFraction(episode.progress);
-                        const href = watchHref(episode.id);
-                        return (
-                          <li key={episode.id} className={`video-episode${episode.progress?.watched ? " is-watched" : ""}`}>
-                            <a
-                              className="video-episode-play"
-                              href={href}
-                              onClick={(event) => followRoute(event, href)}
-                              aria-label={t("video.playEpisode", { name })}
-                            >
-                              {episode.still && (
-                                <span className="video-episode-still">
-                                  <img src={episode.still} alt="" loading="lazy" />
-                                </span>
-                              )}
-                              <span className="video-episode-number">{episode.episode}</span>
-                              <Play size={16} aria-hidden="true" />
-                            </a>
-                            <div className="video-episode-copy">
-                              <strong>
-                                {name}
-                                {episode.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
-                              </strong>
-                              {episode.aired && <small className="muted">{t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) })}</small>}
-                              {episode.plot && <p>{episode.plot}</p>}
-                              {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </section>
-                ))
-              )
-            )}
+            {show && (show.seasons.length === 0 ? <p className="muted">{t("video.noEpisodes")}</p> : <Seasons show={show} />)}
           </>
         )}
       </section>
     </DashboardShell>
+  );
+}
+
+const seasonName = (number: number, t: (key: "video.specials" | "video.season", options?: { number: number }) => string) =>
+  (number === 0 ? t("video.specials") : t("video.season", { number }));
+
+/** One season at a time, opening on the one this person is up to, as on the TV. */
+function Seasons({ show }: { show: VideoShow }) {
+  const { t } = useTranslation();
+  const [chosen, setChosen] = useState<number | null>(null);
+  const number = chosen ?? show.nextUp?.season ?? show.seasons[0].number;
+  const current = show.seasons.find((season) => season.number === number) ?? show.seasons[0];
+  const several = show.seasons.length > 1;
+  return (
+    <section className="video-season" aria-labelledby={`season-${current.number}`}>
+      {several && (
+        <div className="video-season-tabs" role="tablist" aria-label={t("video.seasonsAria")}>
+          {show.seasons.map((season) => (
+            <Button variant="tab" key={season.number} selected={season.number === current.number} onClick={() => setChosen(season.number)}>
+              {seasonName(season.number, t)}
+            </Button>
+          ))}
+        </div>
+      )}
+      <h2 id={`season-${current.number}`} className={several ? "sr-only" : undefined}>{seasonName(current.number, t)}</h2>
+      <ol className="video-episodes">
+        {current.episodes.map((episode) => <EpisodeCard key={episode.id} season={current.number} episode={episode} />)}
+      </ol>
+    </section>
+  );
+}
+
+function EpisodeCard({ season, episode }: { season: number; episode: VideoEpisode }) {
+  const { t } = useTranslation();
+  const name = episode.title ?? t("video.episode", { number: episode.episode });
+  const fraction = progressFraction(episode.progress);
+  const href = watchHref(episode.id);
+  return (
+    <li className={`video-episode${episode.progress?.watched ? " is-watched" : ""}`}>
+      <a className="video-episode-play" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("video.playEpisode", { name })}>
+        {episode.still ? <img src={episode.still} alt="" loading="lazy" /> : <span className="video-episode-number">{episode.episode}</span>}
+        <Play className="video-episode-icon" size={30} fill="currentColor" aria-hidden="true" />
+        {fraction > 0 && fraction < 1 && (
+          <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(fraction * 100)}%` }} /></span>
+        )}
+      </a>
+      <div className="video-episode-copy">
+        <strong>
+          {name}
+          {episode.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
+        </strong>
+        <small className="muted">
+          {[
+            t("video.episodeCode", episodeCodeValues(season, episode.episode)),
+            episode.aired ? t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) }) : null
+          ].filter(Boolean).join(" · ")}
+        </small>
+        {episode.plot && <p>{episode.plot}</p>}
+      </div>
+    </li>
   );
 }
 
@@ -187,7 +200,7 @@ function PlayAction({ title }: { title: VideoShow | VideoMovie }) {
     <div className="video-play-action">
       {/* A link, so it opens in a new tab like any address; it wears Button's primary look. */}
       <a className="primary-button video-play-button" href={href} onClick={(event) => followRoute(event, href)}>
-        <Play size={18} aria-hidden="true" />
+        <Play size={18} fill="currentColor" aria-hidden="true" />
         <span>{label}</span>
       </a>
       {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
@@ -211,14 +224,16 @@ function PartList({ parts }: { parts: NonNullable<VideoMovie["parts"]> }) {
             <li key={part.id} className={`video-episode${part.progress?.watched ? " is-watched" : ""}`}>
               <a className="video-episode-play" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("video.playEpisode", { name })}>
                 <span className="video-episode-number">{part.part}</span>
-                <Play size={16} aria-hidden="true" />
+                <Play className="video-episode-icon" size={30} fill="currentColor" aria-hidden="true" />
+                {fraction > 0 && fraction < 1 && (
+                  <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(fraction * 100)}%` }} /></span>
+                )}
               </a>
               <div className="video-episode-copy">
                 <strong>
                   {name}
                   {part.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
                 </strong>
-                {fraction > 0 && fraction < 1 && <ProgressBar fraction={fraction} />}
               </div>
             </li>
           );

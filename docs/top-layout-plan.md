@@ -27,6 +27,15 @@ Why the sidebar gave way to a top bar, what it is now, and what is left. Accepte
 - **Logo:** the official app icon (`Assets/brand/isputnik-app-icon.svg`: house, orbit,
   satellite) everywhere the app shows one, in place of the Earth mark and sidebar star.
 
+## Video
+
+Video follows the TV app (`docs/tv-app-plan.md`, *T2 as built*) and sits centred like Home:
+an overview at `/videos` (banner, Continue watching, what is newest in each kind) beside
+Shows and Movies, each with the banner, then its sets and every poster. A title has its
+backdrop behind the words, and one season at a time as tabs over picture cards. The
+banner picks what the TV picks: what is in progress here, else the newest. Not `/video`:
+that address belongs to the engine.
+
 ## Layout and theme are separate
 
 The layout wears any theme. **Orbit** is a seventh theme, not the layout: navy and teal,

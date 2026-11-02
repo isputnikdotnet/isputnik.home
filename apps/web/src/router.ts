@@ -412,6 +412,7 @@ export type Route =
   | { name: "galleryPerson"; id: string }
   /** Video (docs/video-architecture.md): pages of this app over the video
    *  engine's catalog. Never under /video — that prefix is the engine's. */
+  | { name: "videoHome" }
   | { name: "videoBrowse"; kind: "shows" | "movies" }
   | { name: "videoTitle"; kind: "shows" | "movies"; id: string }
   | { name: "videoSet"; id: string }
@@ -581,6 +582,9 @@ export function getRoute(): Route {
   }
 
   // Video: Shows and Movies, and one title of either.
+  if (path === "/videos") {
+    return { name: "videoHome" };
+  }
   if (path === "/shows" || path === "/movies") {
     return { name: "videoBrowse", kind: path === "/shows" ? "shows" : "movies" };
   }

@@ -57,6 +57,7 @@ const LibraryFeedPage = lazy(() => import("../features/library/LibraryFeedPage")
 const CollectionsPage = lazy(() => import("../features/collections/CollectionsPage").then((m) => ({ default: m.CollectionsPage })));
 const CollectionDetailPage = lazy(() => import("../features/collections/CollectionDetailPage").then((m) => ({ default: m.CollectionDetailPage })));
 const StoriesPage = lazy(() => import("../features/stories/StoriesPage").then((m) => ({ default: m.StoriesPage })));
+const VideoHomePage = lazy(() => import("../features/video/VideoHomePage").then((m) => ({ default: m.VideoHomePage })));
 const VideoBrowsePage = lazy(() => import("../features/video/VideoBrowsePage").then((m) => ({ default: m.VideoBrowsePage })));
 const VideoTitlePage = lazy(() => import("../features/video/VideoTitlePage").then((m) => ({ default: m.VideoTitlePage })));
 const VideoSetPage = lazy(() => import("../features/video/VideoSetPage").then((m) => ({ default: m.VideoSetPage })));
@@ -587,6 +588,10 @@ export function App() {
 
     if (route.name === "stories") {
       return <StoriesPage />;
+    }
+
+    if (route.name === "videoHome") {
+      return <VideoHomePage />;
     }
 
     if (route.name === "videoBrowse") {

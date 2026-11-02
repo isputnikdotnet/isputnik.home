@@ -844,7 +844,7 @@ input.library-filter {
 
 .audiobook-catalog-card.selected .audiobook-catalog-cover {
   border-color: var(--mint);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mint) 55%, transparent);
+  box-shadow: 0 0 0 3px var(--mint);
 }
 
 .audiobook-catalog-check {
@@ -883,8 +883,23 @@ input.library-filter {
     var(--active);
 }
 
+/* Each kind in its own shape: square audiobook art, tall book covers. No frame. */
 .audiobook-catalog-card.grid .audiobook-catalog-cover {
-  aspect-ratio: 1.25 / 1;
+  aspect-ratio: 1 / 1;
+  border: 0;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-cover.is-tall {
+  aspect-ratio: 2 / 3;
+}
+
+/* Tall covers in narrower columns, so a grid of them isn't twice as tall. */
+.audiobook-catalog.grid:has(.audiobook-catalog-cover.is-tall) {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.audiobook-catalog.grid.compact:has(.audiobook-catalog-cover.is-tall) {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
 }
 
 .audiobook-catalog-cover:focus-visible {
@@ -967,6 +982,11 @@ input.library-filter {
   color: #06241f;
   background: var(--mint);
   box-shadow: 0 2px 6px var(--shadow);
+}
+
+/* Minimalist's accent is near-black ink: the badge's dark text would vanish on it. */
+:root[data-theme="minimalist"] .audiobook-catalog-pct {
+  color: #fff;
 }
 
 /* editions badge — top-right corner; marks a grouped work with its edition count */

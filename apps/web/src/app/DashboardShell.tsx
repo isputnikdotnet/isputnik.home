@@ -134,7 +134,7 @@ function mainNavItems(active: DashboardActive, t: TFunction, sections: Sections,
     { label: t("nav.gallery"), href: "/gallery", icon: Image, active: active === "gallery", section: "gallery" },
     // Pages of this app (the engine has none), so a route like any other — but
     // only where the video engine is set up and this person may use it.
-    ...(videoOn ? [{ label: t("nav.video"), href: "/shows", icon: Clapperboard, active: active === "video", section: "video" as const }] : []),
+    ...(videoOn ? [{ label: t("nav.video"), href: "/videos", icon: Clapperboard, active: active === "video", section: "video" as const }] : []),
     { label: t("nav.familyTree"), href: "/family", icon: Network, active: active === "family", section: "familyTree" },
     { label: t("nav.stories"), href: "/stories", icon: BookText, active: active === "stories", section: "stories" },
     { label: t("nav.tags"), href: "/tags", icon: Tag, active: active === "tags" }
@@ -213,6 +213,7 @@ function MobileNav({
     currentPath.startsWith("/gallery") ||
     currentPath.startsWith("/family") ||
     currentPath.startsWith("/stories") ||
+    currentPath.startsWith("/videos") ||
     currentPath.startsWith("/shows") ||
     currentPath.startsWith("/movies") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
@@ -259,7 +260,7 @@ function MobileNav({
               </a>
             )}
             {sections.video && videoAvailable && (
-              <a className="mobile-media-option" href="/shows" onClick={(event) => { followRoute(event, "/shows"); close(); }}>
+              <a className="mobile-media-option" href="/videos" onClick={(event) => { followRoute(event, "/videos"); close(); }}>
                 <Clapperboard size={26} aria-hidden="true" />
                 <span>{t("nav.video")}</span>
               </a>

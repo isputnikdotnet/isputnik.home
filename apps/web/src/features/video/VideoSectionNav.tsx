@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { Film, Tv } from "lucide-react";
+import { Clapperboard, Film, Tv } from "lucide-react";
 import { SectionNav } from "../../shared/SectionNav";
-import { videoHref } from "./types";
+import { VIDEO_OVERVIEW_HREF, videoHref } from "./types";
 
-// Video's left nav: Shows and Movies, each a real address.
-export function VideoSectionNav({ activeKey }: { activeKey: "shows" | "movies" }) {
+// Video's nav: its front page, Shows and Movies, each a real address.
+export function VideoSectionNav({ activeKey }: { activeKey: "overview" | "shows" | "movies" }) {
   const { t } = useTranslation();
   return (
     <SectionNav
@@ -12,6 +12,7 @@ export function VideoSectionNav({ activeKey }: { activeKey: "shows" | "movies" }
       groupLabel={t("nav.video")}
       activeKey={activeKey}
       items={[
+        { key: "overview", label: t("video.overview"), href: VIDEO_OVERVIEW_HREF, icon: Clapperboard },
         { key: "shows", label: t("video.shows"), href: videoHref("shows"), icon: Tv },
         { key: "movies", label: t("video.movies"), href: videoHref("movies"), icon: Film }
       ]}

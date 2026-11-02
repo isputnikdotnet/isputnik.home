@@ -772,6 +772,15 @@
     "stopping": "Stopping…"
   },
   "video": {
+    "overview": "Overview",
+    "continue": "Continue",
+    "more": "More",
+    "episodesButton": "Episodes",
+    "allShows": "All shows",
+    "allMovies": "All movies",
+    "recentMovies": "Recently added movies",
+    "recentShows": "Recently added shows",
+    "seasonsAria": "Seasons",
     "shows": "Shows",
     "movies": "Movies",
     "searchShows": "Search shows",
@@ -802,7 +811,6 @@
     "episode": "Episode {{number}}",
     "parts": "Parts",
     "part": "Part {{number}}",
-    "genres": "Genres",
     "aired": "Aired {{date}}",
     "noEpisodes": "No episodes found yet.",
     "notFound": "This is not here any more, or not for you.",

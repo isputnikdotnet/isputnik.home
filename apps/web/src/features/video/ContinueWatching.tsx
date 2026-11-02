@@ -1,69 +1,68 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Film, Play, Tv } from "lucide-react";
+import { Film, Tv } from "lucide-react";
 import { api } from "../../api";
 import { useVideoAvailable } from "../../app/useVideoAvailable";
-import { followRoute } from "../../router";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, watchHref, type VideoContinueItem } from "./types";
+import { VIDEO_API, episodeCodeValues, formatPlayTime, watchHref, type VideoArt, type VideoContinueItem } from "./types";
+import { PosterRow } from "./VideoPoster";
 import "../../styles/video.css";
+
+// The engine's continue list has no pictures, so each costs a request of its own.
+// A row shows about this many before it scrolls.
+const POSTERS_ASKED = 8;
 
 // Continue watching: what this person left halfway, and the next episode of a
 // show they finished one of — newest first, one per show, from the engine
-// (GET /video/api/continue). On Shows (episodes only), Movies (films only) and
-// For you (both). Nothing at all, not even a heading, when there is nothing to
-// continue or no video here.
+// (GET /video/api/continue). On the overview, Shows (episodes only), Movies (films
+// only) and For you (both). Nothing at all, not even a heading, when there is
+// nothing to continue or no video here.
 export function ContinueWatching({ only }: { only?: "episode" | "movie" }) {
   const { t } = useTranslation();
   const available = useVideoAvailable();
   const [items, setItems] = useState<VideoContinueItem[] | null>(null);
+  const [posters, setPosters] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     if (!available) return;
     let live = true;
     api<{ items: VideoContinueItem[] }>(`${VIDEO_API}/continue`)
-      .then((payload) => { if (live) setItems(payload.items); })
+      .then(async (payload) => {
+        if (!live) return;
+        setItems(payload.items);
+        const wanted = payload.items.filter((item) => !only || item.type === only).slice(0, POSTERS_ASKED);
+        const pictures = await Promise.allSettled(wanted.map(async (item) => {
+          const path = item.show ? `shows/${encodeURIComponent(item.show.id)}` : `movies/${encodeURIComponent(item.id)}`;
+          const detail = await api<VideoArt>(`${VIDEO_API}/${path}`);
+          return [item.id, detail?.poster ?? null] as const;
+        }));
+        if (live) setPosters(Object.fromEntries(pictures.flatMap((entry) => (entry.status === "fulfilled" ? [entry.value] : []))));
+      })
       // A row that cannot be read is simply not shown.
       .catch(() => { if (live) setItems([]); });
     return () => { live = false; };
-  }, [available]);
+  }, [available, only]);
 
   const shown = (items ?? []).filter((item) => !only || item.type === only);
-  if (!available || shown.length === 0) return null;
+  if (!available) return null;
 
   return (
-    <section className="video-continue" aria-labelledby="video-continue-title">
-      <h2 id="video-continue-title">{t("video.continueWatching")}</h2>
-      <ul className="video-continue-list">
-        {shown.map((item) => {
-          const href = watchHref(item.id);
-          const code = item.season !== null && item.episode !== null ? t("video.episodeCode", episodeCodeValues(item.season!, item.episode!)) : null;
-          const fraction = item.resume && item.duration ? Math.min(1, item.position / item.duration) : 0;
-          const Icon = item.type === "episode" ? Tv : Film;
-          return (
-            <li key={item.id}>
-              <a className="video-continue-card" href={href} onClick={(event) => followRoute(event, href)}>
-                <span className="video-continue-cover" aria-hidden="true">
-                  <Icon size={20} />
-                  <Play size={18} className="video-continue-play" />
-                </span>
-                <span className="video-continue-copy">
-                  <strong>{item.show ? item.show.title : item.title}</strong>
-                  <span>
-                    {item.show ? [code, item.title].filter(Boolean).join(" · ") : null}
-                    {!item.show && item.resume && item.duration ? t("video.continueLeft", { time: formatPlayTime(item.duration - item.position) }) : null}
-                    {item.show && !item.resume ? ` · ${t("video.upNextShort")}` : null}
-                  </span>
-                  {fraction > 0 && (
-                    <span className="video-progress" aria-hidden="true">
-                      <span style={{ width: `${Math.round(fraction * 100)}%` }} />
-                    </span>
-                  )}
-                </span>
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <PosterRow
+      title={t("video.continueWatching")}
+      items={shown.map((item) => {
+        const code = item.season !== null && item.episode !== null ? t("video.episodeCode", episodeCodeValues(item.season, item.episode)) : null;
+        const sub = item.show
+          ? [code, item.title, item.resume ? null : t("video.upNextShort")].filter(Boolean).join(" · ")
+          : item.resume && item.duration ? t("video.continueLeft", { time: formatPlayTime(item.duration - item.position) }) : null;
+        return {
+          key: item.id,
+          href: watchHref(item.id),
+          title: item.show ? item.show.title : item.title,
+          sub,
+          poster: posters[item.id] ?? null,
+          icon: item.type === "episode" ? Tv : Film,
+          fraction: item.resume && item.duration ? Math.min(1, item.position / item.duration) : undefined
+        };
+      })}
+    />
   );
 }

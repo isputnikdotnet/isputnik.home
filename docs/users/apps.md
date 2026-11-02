@@ -13,8 +13,11 @@ install each one like any other container, then connect it to iSputnik in
 > has a **Sound** menu in the player (a dub, a commentary), and the next film
 > starts in the language chosen last. Subtitles, posters and online metadata
 > come next. Each person resumes where they stopped, and
-> Continue watching (on Shows, Movies and For you) lists what they left halfway
-> and the next episode.
+> Continue watching (on Video's **Overview**, Shows, Movies and For you) lists what
+> they left halfway and the next episode. The video pages are laid out like the
+> TV app: **Overview** leads with a banner of what you were watching, else the
+> newest title, over rows of what's new; a show's page has a tab per season over
+> its episodes.
 
 ## How the apps fit in
 
@@ -214,7 +217,8 @@ building it:
   collection, with its description, poster and order. A set named in an `.nfo`
   always wins over TMDB's.
 
-On **Movies**, **View → Sets** lists every set you can see two or more films of.
+On **Movies**, a **Sets** row shows every set you can see two or more films of, and
+**View → Sets** lists them on their own.
 A set's page shows its films in order — by release date, else by year — and one
 **Play** that starts the first film you haven't watched yet. A film's own page
 says which set it is part of, with the others beside it, and when a film of a

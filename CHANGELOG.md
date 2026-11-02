@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.54.0 — Video like the TV app, and one look for every card
+
+- **Video is laid out like the TV app.** A new **Overview** page leads with a big banner of what you were watching, or else the newest title, with Continue and Episodes or More, over rows of what you left halfway and what's newest in movies and shows. **Shows** and **Movies** open on the same banner, then the sets, then every poster. A title's page has its picture behind the words, and a show has a tab per season over its episodes as picture cards. The video pages sit in the middle of a wide screen, like Home.
+- **Books and video share one card.** Covers no longer sit in a frame with black bars: audiobooks are square, ebooks and films are tall, and a cover of another shape is shown whole, with a soft blur of the same picture filling the space around it. This is the same on the Audiobooks and Ebooks pages, Home, Recently added, Continue and the video pages.
+- Fixed: on the Minimalist theme the progress badge on a cover was dark text on a dark pill, so the percentage couldn't be read.
+
 ## 4.53.0 — A Thanksgiving theme, and a tidier Home
 
 - **A new theme, Thanksgiving:** warm autumn browns, an amber accent and serif headings, with a lake at sunset behind Home. Pick it in **Profile → Appearance**.

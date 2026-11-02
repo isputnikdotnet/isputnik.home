@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Check, Film, Layers, Play } from "lucide-react";
+import { ArrowLeft, Film, Layers, Play } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followBack, followRoute } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { PosterGrid } from "./VideoPoster";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_API, formatPlayTime, progressFraction, videoHref, watchHref, yearSpan, type VideoSet } from "./types";
 import "../../styles/video.css";
@@ -49,7 +50,12 @@ export function VideoSetPage({ id }: { id: string }) {
 
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav activeKey="movies" />}>
-      <section className="audiobook-main-page video-title-page">
+      <section className="audiobook-main-page video-page video-title-page">
+        {set?.backdrop && (
+          <div className="video-title-backdrop" aria-hidden="true">
+            <img src={set.backdrop} alt="" />
+          </div>
+        )}
         <div className="book-detail-topbar">
           <a className="audiobook-back-button" href={SETS_HREF} onClick={(event) => followBack(event, SETS_HREF)}>
             <ArrowLeft size={18} aria-hidden="true" />
@@ -62,11 +68,6 @@ export function VideoSetPage({ id }: { id: string }) {
 
         {set && (
           <>
-            {set.backdrop && (
-              <div className="video-title-backdrop" aria-hidden="true">
-                <img src={set.backdrop} alt="" />
-              </div>
-            )}
             <header className="video-title-head">
               <div className={`video-title-cover${set.poster ? " has-poster" : ""}`} aria-hidden="true">
                 {set.poster ? <img src={set.poster} alt="" /> : <Layers size={34} />}
@@ -74,61 +75,39 @@ export function VideoSetPage({ id }: { id: string }) {
               <div className="video-title-copy">
                 <h1>{set.name}</h1>
                 {facts && <p className="video-title-facts">{facts}</p>}
+                {set.overview && <p className="video-plot">{set.overview}</p>}
+                <div className="video-title-actions">
+                {set.next ? (
+                  <div className="video-play-action">
+                    {/* A link, so it opens in a new tab like any address; it wears Button's primary look. */}
+                    <a className="primary-button video-play-button" href={watchHref(set.next.id)} onClick={(event) => followRoute(event, watchHref(set.next!.id))}>
+                      <Play size={18} aria-hidden="true" />
+                      <span>
+                        {set.next.position > 0
+                          ? t("video.set.resume", { title: set.next.title, time: formatPlayTime(set.next.position) })
+                          : t("video.set.play", { title: set.next.title })}
+                      </span>
+                    </a>
+                  </div>
+                ) : (
+                  <p className="muted video-play-note">{t("video.set.allWatched")}</p>
+                )}
+                </div>
               </div>
             </header>
 
-            {set.next ? (
-              <div className="video-play-action">
-                {/* A link, so it opens in a new tab like any address; it wears Button's primary look. */}
-                <a className="primary-button video-play-button" href={watchHref(set.next.id)} onClick={(event) => followRoute(event, watchHref(set.next!.id))}>
-                  <Play size={18} aria-hidden="true" />
-                  <span>
-                    {set.next.position > 0
-                      ? t("video.set.resume", { title: set.next.title, time: formatPlayTime(set.next.position) })
-                      : t("video.set.play", { title: set.next.title })}
-                  </span>
-                </a>
-              </div>
-            ) : (
-              <p className="muted video-play-note">{t("video.set.allWatched")}</p>
-            )}
-
-            {set.overview && <p className="video-plot">{set.overview}</p>}
-
-            <ol className="video-grid video-set-films">
-              {set.films.map((film) => {
-                const href = videoHref("movies", film.id);
-                const fraction = progressFraction(film.progress);
-                return (
-                  <li key={film.id}>
-                    <a className="video-card" href={href} onClick={(event) => followRoute(event, href)}>
-                      <div className={`video-card-cover${film.poster ? " has-poster" : ""}`} aria-hidden="true">
-                        {film.poster ? (
-                          <img src={film.poster} alt="" loading="lazy" />
-                        ) : (
-                          <>
-                            <Film size={22} />
-                            <strong>{film.title.slice(0, 2).toUpperCase()}</strong>
-                          </>
-                        )}
-                      </div>
-                      <div className="video-card-body">
-                        <strong>
-                          {film.title}
-                          {film.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
-                        </strong>
-                        <span>{[film.year ? String(film.year) : null, film.runtimeMinutes ? t("video.minutes", { count: film.runtimeMinutes }) : null].filter(Boolean).join(" · ")}</span>
-                        {fraction > 0 && fraction < 1 && (
-                          <span className="video-progress" aria-hidden="true">
-                            <span style={{ width: `${Math.round(fraction * 100)}%` }} />
-                          </span>
-                        )}
-                      </div>
-                    </a>
-                  </li>
-                );
-              })}
-            </ol>
+            <PosterGrid
+              items={set.films.map((film) => ({
+                key: film.id,
+                href: videoHref("movies", film.id),
+                title: film.title,
+                sub: [film.year ? String(film.year) : null, film.runtimeMinutes ? t("video.minutes", { count: film.runtimeMinutes }) : null].filter(Boolean).join(" · "),
+                poster: film.poster,
+                icon: Film,
+                fraction: progressFraction(film.progress),
+                watched: film.progress?.watched
+              }))}
+            />
           </>
         )}
       </section>
