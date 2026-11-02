@@ -246,8 +246,7 @@ The player knows where they are from, in this order:
   the same time in every episode; choose **This episode only** for one with a cold
   open that moves it. An episode's own mark wins over its season's. The coloured
   bar shows the marks as they stand, and **Clear mark** puts back what the files
-  say. Most downloaded shows have neither chapters nor an `.edl`, so this is the
-  usual way.
+  say, or what the video app found. Mark only where what it found is wrong.
 - **Chapters inside the file**, by name: *Intro, Opening, OP, Opening Credits,
   Вступление, Заставка, Начальные титры* and *Credits, End Credits, Ending, ED,
   Outro, Титры, Финальные титры*. Unnamed chapters say nothing.
@@ -263,8 +262,19 @@ The player knows where they are from, in this order:
   2520 2640 3
   ```
 
+- **What the video app finds by itself**, for everything else, in the background
+  after each scan. A show's **intro** is the stretch of sound its season's episodes
+  share, wherever each episode puts it after its cold open; it needs three or more
+  episodes, and an episode whose opening differs from the rest is left unmarked
+  rather than marked wrong. The **credits** are where the picture turns to text on
+  black near the end (films too), or a closing tune the episodes share. The panel
+  says **Found automatically** for these; **Find again** looks at the season (or
+  film) afresh, which takes a few minutes. A season takes about four minutes the
+  first time, so a large library is a while being covered; it is looked at once,
+  and again only when its files change.
+
 An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
-Files with none of the three play as before.
+Files where nothing is known play as before.
 
 The **full-screen button** at the top right of the picture (or **F**, or a double
 click) keeps Skip intro and the card on screen, and stays full screen into the next

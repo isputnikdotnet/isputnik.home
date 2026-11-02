@@ -5,7 +5,7 @@ For the video engine (isputnik.video) and home's player. Background:
 
 Status: owner accepted the four decisions as recommended. K1 built 2026-10-30
 (engine `src/markers.ts`, home's player). K2 built 2026-11-02 (see "As built in
-K2"). K3 open.
+K2"), K3 the same day (see "As built in K3").
 
 ## In one sentence
 
@@ -161,12 +161,85 @@ PCM. A background job per season, CPU-heavy, stored as `detected` rows that any
 compare them with. **Spike first**: a season of the owner's own shows, how many
 intros it finds and how far off.
 
+### Spike results (2026-11-02)
+
+Scripts in the session scratchpad (`k3/spike.mjs`, `k3/credits.mjs`), run on the
+owner's library and checked frame by frame against the picture.
+
+**Chromaprint is not needed.** ffmpeg only decodes the sound (8 kHz mono PCM, which
+every build does); the fingerprint is ours: every 0.128 s, 32 bits, each the sign of
+how the energy difference between two neighbouring bands (300–3000 Hz, log spaced)
+changed since the frame before. Near-silent frames never match, or silence would
+match silence. Two episodes are compared at every alignment; frames differing in
+at most 10 of 32 bits match, and the longest run of matches (gaps up to ~1.5 s) is
+what they share. Each episode takes the stretch most of the season's others agree
+on.
+
+**Intros, by sound: right wherever there is one.**
+
+| Show | Found | Notes |
+|---|---|---|
+| Counterpart S1 + S2 (20) | 20/20, ~71 s | starts 2:45–10:28 (cold opens of every length); start on the cut, end within ~3 s |
+| Долгая дорога в дюнах (7) | 7/7, ~80 s | start a few seconds after the titles appear, end right after «Вторая серия» |
+| Ералаш S1, first 12 | 10/12, ~26 s | sketches 1 and 10 have another opening, matched only in part (10 s) |
+
+- **The window must be long**: 10 minutes missed a cold open of 10:28 and cut another
+  intro at the window's edge. First 15 minutes (or a quarter of a short file).
+- **Accept only a length near the season's median** (±25 %) agreed by at least half
+  the others: that drops the partial Ералаш matches instead of marking half an intro.
+- Cost: decoding 10 minutes of sound off the NAS ~7 s per episode, fingerprinting
+  0.4 s, every pair of a 10-episode season 6 s. A season in about 1½ minutes.
+
+**Credits, by sound: no.** Counterpart's credits play different music each episode
+(0/20); the 1980 series has none. Only Ералаш's closing jingle (~25 s, to the end of
+the file) was found that way.
+
+**Credits, by picture: yes.** End credits are text on near-pure black. ffmpeg's
+`blackdetect` on keyframes only (`-skip_frame nokey`, scaled to 320 px) over the last
+10 minutes, ~6 s per episode: `pix_th=0.03` (dark scenes at 0.10 passed for black),
+`pic_th=0.80` (at 0.92 a crowded crew list was too bright, which put one start 45 s
+late and missed another), stretches under 6 s apart joined, the first of ≥ 20 s is
+the credits. Counterpart 20/20, each start on the cut to the credits. The 1980 series
+correctly gives none (a 5-second end card only). Needs no season, so **films get it
+too**.
+
+**What it adds up to for K3:**
+
+- Intro: sound, per season, at least 3 episodes; median-length rule above.
+- Credits: picture first, a shared sound stretch reaching the end second.
+- Kept apart from the admin's marks (`detected` rows can't share the `(item_id,
+  season, kind)` key with an episode's own manual mark, so a table of their own or
+  a key with `source` in it). Order: manual, `.edl`, chapters, detected.
+- A queued background job like the metadata pass, one season at a time, after a
+  scan finds new episodes; a per-show "Find again" for the admin.
+
+### As built in K3 (2026-11-02, engine 0.16.0)
+
+- `src/detect.ts`: the spike's fingerprint and comparison, made to yield to the event
+  loop between pieces. Two changes from the spike: each episode is compared with
+  its 6 neighbours each side rather than every other episode (a 120-episode season
+  stays linear), and a shared run's ends are trimmed until a quarter of the frames
+  around them match (a stray chance match could stretch a run by a second or two).
+  Windows: the first 15 minutes or a third of the file for the intro; the last 10
+  minutes or a quarter for the credits by picture, 6 minutes for a closing tune.
+- `detected_markers`: one row per episode or film file, for that file's size and
+  date; a season is compared again when any episode in it is new or changed. Order
+  in `findMarkers`: manual, `.edl`, chapters, detected.
+- A queue of its own after each scan and on start (everything not yet looked at),
+  outside the catalog work a restore waits for; `POST /admin/markers/:id/detect`
+  (the panel's **Find again**) re-runs that episode's season or that film.
+  `DETECT_MARKERS=false` turns it off.
+- On the owner's library through the engine's own code: Counterpart 20/20 intros
+  and 20/20 credits (~4 minutes a season off the NAS), Долгая дорога в дюнах 7/7
+  intros and correctly no credits, Ералаш S1 22/25 intros (two with another opening
+  and one more left unmarked) and 21/25 closing tunes.
+
 ## Phases
 
 | Phase | Where | What |
 |---|---|---|
 | **K1** | both | chapters (probe) + `.edl` → `markers` in `/play`; Skip intro button; end card at the credits; watched at the credits; tests with a chaptered MKV and an `.edl` made by ffmpeg in the test |
 | **K2** | both | `markers` table, admin marking in the player (episode / season), seek-bar band, Clear marks; guide |
-| **K3** | engine | spike, then automatic detection only if K1 + K2 leave too much uncovered |
+| **K3** | both | built 2026-11-02: intro by sound per season, credits by black frames, a background job, `detected_markers`; home's panel says Found automatically and offers Find again |
 
 K1 releases on its own (engine minor + home minor) and needs no setting.

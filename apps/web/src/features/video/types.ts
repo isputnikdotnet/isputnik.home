@@ -143,10 +143,13 @@ export interface VideoSubtitleTrack {
 /** Where an admin's mark is kept: this episode or film alone, or its whole season. */
 export type VideoMarkScope = "episode" | "season";
 
-/** "manual" (engine 0.15.0+) is an admin's mark, with its `scope`. */
+/** "manual" (engine 0.15.0+) is an admin's mark, with its `scope`; "detected"
+ *  (0.16.0+) what the engine found by itself. */
+export type VideoMarkerSource = "manual" | "edl" | "chapter" | "detected";
+
 export interface VideoMarkers {
-  intro: { start: number; end: number; source: "manual" | "edl" | "chapter"; scope?: VideoMarkScope } | null;
-  credits: { start: number; source: "manual" | "edl" | "chapter"; scope?: VideoMarkScope } | null;
+  intro: { start: number; end: number; source: VideoMarkerSource; scope?: VideoMarkScope } | null;
+  credits: { start: number; source: VideoMarkerSource; scope?: VideoMarkScope } | null;
 }
 
 /** GET /video/api/play/:id — what the player needs to start. */

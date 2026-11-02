@@ -32,8 +32,9 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
   const [introStart, setIntroStart] = useState<number | null>(markers.intro?.start ?? null);
   const [introEnd, setIntroEnd] = useState<number | null>(markers.intro?.end ?? null);
   const [creditsStart, setCreditsStart] = useState<number | null>(markers.credits?.start ?? null);
-  const [saving, setSaving] = useState<Kind | null>(null);
+  const [saving, setSaving] = useState<Kind | "detect" | null>(null);
   const [error, setError] = useState("");
+  const [lookingAgain, setLookingAgain] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -75,13 +76,28 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
     }
   };
 
-  const introReady = introStart !== null && introEnd !== null && introEnd > introStart;
+  /** The engine looks for this season's intros and credits again, in the background. */
+  const findAgain = async () => {
+    setSaving("detect");
+    setError("");
+    try {
+      await api(`${VIDEO_API}/admin/markers/${encodeURIComponent(info.id)}/detect`, { method: "POST" });
+      setLookingAgain(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("video.marks.findFailed"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const introReady =introStart !== null && introEnd !== null && introEnd > introStart;
   const band = (from: number, to: number) => duration > 0
     ? { left: `${(from / duration) * 100}%`, width: `${(Math.max(0, Math.min(to, duration) - from) / duration) * 100}%` }
     : undefined;
   /** "Season 2" or "this episode", for the source line. */
   const sourceLabel = (marker: { source: string; scope?: VideoMarkScope } | null) => {
     if (!marker) return t("video.marks.none");
+    if (marker.source === "detected") return t("video.marks.detected");
     if (marker.source !== "manual") return t(marker.source === "edl" ? "video.marks.fromEdl" : "video.marks.fromChapters");
     return marker.scope === "season" ? t("video.marks.bySeason", { season: info.season ?? 0 }) : t(isEpisode ? "video.marks.byEpisode" : "video.marks.byFilm");
   };
@@ -167,6 +183,20 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
           </Button>
         </div>
       </div>
+
+      <div className="video-marks-row">
+        <div className="video-marks-label">
+          <strong>{t("video.marks.findTitle")}</strong>
+          <small className="muted">{t(isEpisode ? "video.marks.findHintSeason" : "video.marks.findHintFilm")}</small>
+        </div>
+        <div />
+        <div className="video-marks-actions">
+          <Button variant="secondary" compact disabled={saving !== null || lookingAgain} onClick={() => void findAgain()}>
+            {saving === "detect" ? t("video.marks.finding") : t("video.marks.findAgain")}
+          </Button>
+        </div>
+      </div>
+      {lookingAgain && <MessageBox tone="info" title={t("video.marks.findQueuedTitle")}>{t("video.marks.findQueued")}</MessageBox>}
 
       {error && <MessageBox tone="error" title={t("video.marks.failedTitle")}>{error}</MessageBox>}
     </section>

@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.59.0",
+    "label": "Intros and credits found by themselves",
+    "changes": [
+      "**Shows no longer need marking a season at a time.** The video app now finds a show's intro by the stretch of sound its season's episodes share, wherever each episode puts it after its cold open, and the credits where the picture turns to text on black (films too). It looks in the background after each scan, about four minutes a season the first time. An episode whose opening differs from the rest is left alone rather than marked wrong, and your own marks still win. The marking panel says **Found automatically** for these, and **Find again** looks at the season afresh. Needs the video engine 0.16.0."
+    ]
+  },
+  {
     "version": "4.58.0",
     "label": "Mark where the intro and credits are",
     "changes": [

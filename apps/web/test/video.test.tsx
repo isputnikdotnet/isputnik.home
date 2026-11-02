@@ -663,6 +663,21 @@ describe("skipping the intro and the credits", () => {
     expect(screen.getByText("Next episode in 10 seconds")).toBeInTheDocument();
   });
 
+  it("says when a time was found automatically, and asks the engine to look again", async () => {
+    const found = { ...info, markers: { intro: { start: 60, end: 131, source: "detected" }, credits: null } };
+    mockApi.mockImplementation(async (path: string) => (path === "/video/api/admin/markers/e2/detect" ? { queued: true } : found));
+    renderSignedIn(<VideoPlayerPage id="e2" />, { user: { id: "a1", role: "admin" } as never });
+    await screen.findByRole("heading", { name: "Counterpart" });
+    await userEvent.click(screen.getByRole("button", { name: "Mark intro" }));
+    expect(screen.getByText("Found automatically")).toBeInTheDocument();
+    // A found time is not a mark: nothing to clear.
+    expect(screen.queryByRole("button", { name: "Clear mark" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Find again" }));
+    expect(await screen.findByText("Looking again")).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/video/api/admin/markers/e2/detect", { method: "POST" });
+    expect(screen.getByRole("button", { name: "Find again" })).toBeDisabled();
+  });
+
   it("offers marking to admins only", async () => {
     mockApi.mockResolvedValue(info);
     renderSignedIn(<VideoPlayerPage id="e2" />);

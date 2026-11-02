@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.59.0 — Intros and credits found by themselves
+
+- **Shows no longer need marking a season at a time.** The video app now finds a show's intro by the stretch of sound its season's episodes share, wherever each episode puts it after its cold open, and the credits where the picture turns to text on black (films too). It looks in the background after each scan, about four minutes a season the first time. An episode whose opening differs from the rest is left alone rather than marked wrong, and your own marks still win. The marking panel says **Found automatically** for these, and **Find again** looks at the season afresh. Needs the video engine 0.16.0.
+
 ## 4.58.0 — Mark where the intro and credits are
 
 - **Admins can mark a show's intro and credits in the player.** Most downloaded shows carry no chapters or `.edl` saying where they are, so Skip intro and the next-episode card never came for them. **Mark intro** above the picture opens a panel under it: play or scrub to the spot and press **Here** for where the intro starts and ends and where the credits start, then save. A mark covers the whole season by default, with **This episode only** for one whose intro moves; it wins over the file's own, and **Clear mark** puts that back. The TV app follows the marks too. Needs the video engine 0.15.0.
