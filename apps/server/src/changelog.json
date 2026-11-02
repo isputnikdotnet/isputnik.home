@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.58.0",
+    "label": "Mark where the intro and credits are",
+    "changes": [
+      "**Admins can mark a show's intro and credits in the player.** Most downloaded shows carry no chapters or `.edl` saying where they are, so Skip intro and the next-episode card never came for them. **Mark intro** above the picture opens a panel under it: play or scrub to the spot and press **Here** for where the intro starts and ends and where the credits start, then save. A mark covers the whole season by default, with **This episode only** for one whose intro moves; it wins over the file's own, and **Clear mark** puts that back. The TV app follows the marks too. Needs the video engine 0.15.0."
+    ]
+  },
+  {
     "version": "4.57.2",
     "label": "Bigger covers on Home",
     "changes": [

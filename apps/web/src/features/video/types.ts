@@ -140,9 +140,13 @@ export interface VideoSubtitleTrack {
 
 /** Where a title's intro and credits are, when its files say (engine 0.12.0+;
  *  docs/video-skip-plan.md): seconds on the player's clock. */
+/** Where an admin's mark is kept: this episode or film alone, or its whole season. */
+export type VideoMarkScope = "episode" | "season";
+
+/** "manual" (engine 0.15.0+) is an admin's mark, with its `scope`. */
 export interface VideoMarkers {
-  intro: { start: number; end: number; source: "edl" | "chapter" } | null;
-  credits: { start: number; source: "edl" | "chapter" } | null;
+  intro: { start: number; end: number; source: "manual" | "edl" | "chapter"; scope?: VideoMarkScope } | null;
+  credits: { start: number; source: "manual" | "edl" | "chapter"; scope?: VideoMarkScope } | null;
 }
 
 /** GET /video/api/play/:id — what the player needs to start. */

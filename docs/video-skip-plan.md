@@ -4,7 +4,8 @@ For the video engine (isputnik.video) and home's player. Background:
 `docs/video-architecture.md`; sits beside `docs/video-sets-plan.md`.
 
 Status: owner accepted the four decisions as recommended. K1 built 2026-10-30
-(engine `src/markers.ts`, home's player), uncommitted at the time. K2 and K3 open.
+(engine `src/markers.ts`, home's player). K2 built 2026-11-02 (see "As built in
+K2"). K3 open.
 
 ## In one sentence
 
@@ -68,6 +69,22 @@ In this order — the family's own files first, as everywhere in the engine:
   (`controlsList="nofullscreen"`, a button, F, double click), which also holds across
   the next episode. Firefox ignores `controlsList`; iPhones have only their own.
 - Pausing while the card counts down cancels it: nothing moves on from a paused film.
+
+## As built in K2
+
+- The `markers` table below, `PUT /video/api/admin/markers/:id` with
+  `{ kind, scope, start, end }` (a null `start` clears that scope's mark). `/play`'s
+  markers carry `source: "manual"` and the mark's `scope`, so the player can clear it
+  where it is kept. Marks need no probe; the daily sweep drops those whose episode,
+  film or show is gone. Watched-at-the-credits follows a credits mark too.
+- **Not a dialog but a panel under the picture** (**Mark intro** in the player's bar,
+  admins only): marking means scrubbing the film to the spot, which a modal over it
+  would hide. Each time has **Here** (from where the film is) and the time itself
+  goes there, to check; scope is a tab pair, season first for an episode.
+- **No band in the seek bar**: the player uses the browser's own controls, which
+  can't be drawn into. The panel has its own thin bar of the marks with the playhead
+  instead.
+- The TV app needed nothing: it reads `markers` from `/play` and ignores `source`.
 
 ## Engine (isputnik.video)
 

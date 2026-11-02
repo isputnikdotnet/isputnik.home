@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.58.0 — Mark where the intro and credits are
+
+- **Admins can mark a show's intro and credits in the player.** Most downloaded shows carry no chapters or `.edl` saying where they are, so Skip intro and the next-episode card never came for them. **Mark intro** above the picture opens a panel under it: play or scrub to the spot and press **Here** for where the intro starts and ends and where the credits start, then save. A mark covers the whole season by default, with **This episode only** for one whose intro moves; it wins over the file's own, and **Clear mark** puts that back. The TV app follows the marks too. Needs the video engine 0.15.0.
+
 ## 4.57.2 — Bigger covers on Home
 
 - **Home's covers are bigger.** In progress and Recently added grow with the screen — about the size of a cover on the Ebooks page on a wide one — with a little more room between them.

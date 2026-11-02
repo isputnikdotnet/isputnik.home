@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowLeft, AudioLines, Captions, Maximize, Minimize, SkipForward } from "lucide-react";
+import { ArrowLeft, AudioLines, Captions, Flag, Maximize, Minimize, SkipForward } from "lucide-react";
 import { api, csrfToken } from "../../api";
+import { useSession } from "../../app/SessionContext";
 import { followBack, followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { SelectMenu } from "../../shared/SelectMenu";
+import { VideoMarksPanel } from "./VideoMarksPanel";
 import { VIDEO_API, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoSubtitleTrack } from "./types";
 import "../../styles/video.css";
 
@@ -122,7 +124,10 @@ function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): vo
 // would drop out of it. Where the browser can't (iPhones), its own stays.
 export function VideoPlayerPage({ id }: { id: string }) {
   const { t, i18n } = useTranslation();
+  const { user } = useSession();
   const [info, setInfo] = useState<VideoPlayInfo | null>(null);
+  /** Admins: the panel for marking the intro and credits is open. */
+  const [marking, setMarking] = useState(false);
   const [error, setError] = useState("");
   const [cannotPlay, setCannotPlay] = useState(false);
   const [resumedAt, setResumedAt] = useState(0);
@@ -451,6 +456,18 @@ export function VideoPlayerPage({ id }: { id: string }) {
             onChange={(value) => void chooseSubtitle(value)}
           />
         )}
+        {user.role === "admin" && info?.available && (
+          <Button
+            variant="secondary"
+            compact
+            className={`video-player-mark${audioTracks.length > 1 || subtitleTracks.length > 0 ? "" : " is-alone"}`}
+            aria-pressed={marking}
+            onClick={() => setMarking((value) => !value)}
+          >
+            <Flag size={16} aria-hidden="true" />
+            <span>{t("video.marks.open")}</span>
+          </Button>
+        )}
       </header>
 
       {error && <MessageBox tone="warning" title={t("video.unavailableTitle")}>{error}</MessageBox>}
@@ -585,6 +602,17 @@ export function VideoPlayerPage({ id }: { id: string }) {
             </div>
           )}
         </div>
+      )}
+
+      {marking && info && !unplayable && !busy && (
+        <VideoMarksPanel
+          key={info.id}
+          info={info}
+          video={video}
+          onSeek={(at) => { if (video.current) video.current.currentTime = at; }}
+          onMarkers={(markers) => setInfo((current) => (current && current.id === info.id ? { ...current, markers } : current))}
+          onClose={() => setMarking(false)}
+        />
       )}
 
       {info?.next && nextIn === null && !unplayable && (

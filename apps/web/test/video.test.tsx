@@ -640,6 +640,36 @@ describe("skipping the intro and the credits", () => {
     }
   });
 
+  it("lets an admin mark the credits for the whole season from where the film is, and the player follows the mark", async () => {
+    const plain = { ...info, markers: { intro: null, credits: null } };
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === "/video/api/admin/markers/e2") {
+        expect(JSON.parse(String(init?.body))).toEqual({ kind: "credits", scope: "season", start: 2250.5 });
+        return { markers: { intro: null, credits: { start: 2250.5, source: "manual", scope: "season" } } };
+      }
+      return plain;
+    });
+    renderSignedIn(<VideoPlayerPage id="e2" />, { user: { id: "a1", role: "admin" } as never });
+    await screen.findByRole("heading", { name: "Counterpart" });
+    await userEvent.click(screen.getByRole("button", { name: "Mark intro" }));
+    expect(screen.getByRole("tab", { name: "Whole season 1" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Save credits" })).toBeDisabled();
+    playerAt(2250.54);
+    await userEvent.click(screen.getAllByRole("button", { name: "Here" })[2]);
+    await userEvent.click(screen.getByRole("button", { name: "Save credits" }));
+    expect(await screen.findByText("Marked for season 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear mark" })).toBeInTheDocument();
+    playerAt(2251);
+    expect(screen.getByText("Next episode in 10 seconds")).toBeInTheDocument();
+  });
+
+  it("offers marking to admins only", async () => {
+    mockApi.mockResolvedValue(info);
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    expect(screen.queryByRole("button", { name: "Mark intro" })).not.toBeInTheDocument();
+  });
+
   it("leaves full screen to the browser where it can't", async () => {
     mockApi.mockResolvedValue(info);
     renderSignedIn(<VideoPlayerPage id="e2" />);

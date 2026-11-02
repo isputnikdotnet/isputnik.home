@@ -237,8 +237,17 @@ up with its countdown; **Cancel** lets the credits play on, and pausing stops th
 countdown too. A film with nothing after it shows no card, and counts as watched
 from where its credits start.
 
-The player only knows where they are when the files say:
+The player knows where they are from, in this order:
 
+- **A mark an admin set** in the player. **Mark intro** in the bar above the
+  picture opens a panel under it: play or scrub the film to where the intro starts
+  and press **Here**, then where it ends, then **Save intro**; the credits the same
+  way. A mark is for the **whole season** by default, since intros usually sit at
+  the same time in every episode; choose **This episode only** for one with a cold
+  open that moves it. An episode's own mark wins over its season's. The coloured
+  bar shows the marks as they stand, and **Clear mark** puts back what the files
+  say. Most downloaded shows have neither chapters nor an `.edl`, so this is the
+  usual way.
 - **Chapters inside the file**, by name: *Intro, Opening, OP, Opening Credits,
   Вступление, Заставка, Начальные титры* and *Credits, End Credits, Ending, ED,
   Outro, Титры, Финальные титры*. Unnamed chapters say nothing.
@@ -255,7 +264,7 @@ The player only knows where they are when the files say:
   ```
 
 An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
-Files with neither play as before.
+Files with none of the three play as before.
 
 The **full-screen button** at the top right of the picture (or **F**, or a double
 click) keeps Skip intro and the card on screen, and stays full screen into the next
