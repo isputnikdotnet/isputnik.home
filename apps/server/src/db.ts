@@ -14,6 +14,7 @@ export type Role = UserRow["role"];
 // Which second factor an account uses: a rolling code from an authenticator app,
 // or a one-time code emailed at sign-in. Handling lives in core/mfa.ts.
 export type MfaMethod = UserRow["mfa_method"];
+// A new theme also needs a palette in the TV app (paletteFor in isputnik.tv), or TVs show the default.
 export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "minimalist", "orbit", "thanksgiving"] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 // Interface languages the web app ships strings for (apps/web/src/locales).
