@@ -98,6 +98,15 @@ There's no PIN on that screen. Anyone holding the remote can choose anyone linke
 If a child's account is limited, those limits only hold while no less limited account is linked
 here.
 
+## Its colours
+
+The app wears the theme you chose in **Profile → Appearance**, and there's nothing to set on the
+TV. Each person on a TV gets their own, and a change shows the next time you come back to the app.
+
+It's always a dark version, because a white screen is hard on a dark room: the light themes keep
+their colour but on a dark background, and **System** shows as Plain Dark. **Who's watching?** and
+the sign-in screens are nobody's in particular, so they stay navy and teal.
+
 ## Updates
 
 When there's a new version, **Update available** appears at the top of the screen when the

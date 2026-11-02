@@ -9,6 +9,22 @@ T4 is released (*T4 as built*) with the check on the owner's real server still t
 chose fully native, and wants the plan to leave room for the other parts of iSputnik that
 make sense on a TV.
 
+## Themes (2026-11-01)
+
+Released in app v0.3.0, without having been looked at on a TV: tests cover the palettes' contrast
+and focus, not how they look.
+
+- **Home decides.** The TV follows `theme` on the account (`/api/auth/me`), with no picker of its
+  own and no server change. Owner's decision: one setting to keep track of, set where typing is easy.
+- **Always dark.** `paletteFor()` in the app's `core/Theme.kt` maps each of `THEME_PREFERENCES` to
+  a dark palette. Dark and Plain Dark are home's tokens as they stand; Light, Plain Light and
+  Minimalist keep their colour at night; System is Plain Dark, since a TV has no preference to
+  follow; Orbit is the owner's picture below, and an unknown name falls back to it. **A new theme
+  in home needs a palette here too.** The web's backdrops stay on the web.
+- **When it changes.** Each person's theme is stored beside their session, so the app opens in it
+  before the server answers. It re-reads the account on every return to the app, which carries
+  the language and name too. Who's watching and the sign-in screens stay on the default.
+
 ## T4 as built (2026-10-31)
 
 - **Where it lives.** `isputnik.tv` is public, because a TV can't download a private repo's
