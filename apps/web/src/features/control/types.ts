@@ -58,6 +58,8 @@ export interface LogEvent {
   actorName: string | null;
   /** The account behind the row, for linking into its Sign-ins dive; null for System and failures. */
   actorId: string | null;
+  /** Sign-ins page only: the address a failed attempt tried, since it has no actor. */
+  triedName?: string | null;
 }
 
 export interface LibraryStatusStats {

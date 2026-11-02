@@ -16,6 +16,7 @@ import { describeUserAgent, deviceType } from "../../core/device-link.js";
 import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
 import { signInPlaceNames } from "./place-names.js";
 import { parseBody } from "../../core/shared.js";
+import { triedNameFromDetail } from "../../core/auth-routes.js";
 import type {
   ActivityLogRow,
   BlockedIpRow,
@@ -718,20 +719,27 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     // returns — the client renders it through the very same table, so a sign-in
     // reads identically here and on the Logs page. Two hundred is a few pages of
     // reading; the Logs page carries the full archive.
+    //
+    // A failed attempt has no actor, so each one also carries the name that was
+    // tried: the typed address for a password failure (read back out of its
+    // detail), the account's address for a rejected two-factor code.
     const events = (db.prepare(`
       SELECT activity_logs.id, event, detail, ip_address, activity_logs.created_at,
-        users.display_name AS actor_name, users.id AS actor_id
+        users.display_name AS actor_name, users.id AS actor_id, target.email AS target_email
       FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
+        LEFT JOIN users AS target ON activity_logs.event = 'auth.mfa_failed'
+          AND activity_logs.target_type = 'user' AND target.id = activity_logs.target_id
       WHERE ${where}
       ORDER BY activity_logs.created_at DESC, activity_logs.rowid DESC LIMIT 200
-    `).all(params) as EventRow[]).map((row) => ({
+    `).all(params) as (EventRow & { target_email: string | null })[]).map((row) => ({
       id: row.id,
       event: row.event,
       detail: row.detail,
       ipAddress: row.ip_address,
       createdAt: row.created_at,
       actorName: row.actor_name,
-      actorId: row.actor_id
+      actorId: row.actor_id,
+      triedName: row.event === "auth.login_failed" ? triedNameFromDetail(row.detail) : row.target_email
     }));
 
     return reply.send({

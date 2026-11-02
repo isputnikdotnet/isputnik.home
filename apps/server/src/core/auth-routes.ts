@@ -25,6 +25,17 @@ function failureReason(email: string, user: User | undefined): string {
   return deleted ? "that account was deleted" : "there is no account with that address";
 }
 
+// The failed-sign-in sentence and the reader that takes the typed name back out of
+// it live side by side, so the Sign-ins table (which shows that name on the row)
+// can't drift from what is written — and rows logged before it asked still read.
+export function failedSignInDetail(email: string, reason: string): string {
+  return `A sign-in attempt for ${email} failed — ${reason}.`;
+}
+
+export function triedNameFromDetail(detail: string): string | null {
+  return /^A sign-in attempt for (.+) failed — /.exec(detail)?.[1] ?? null;
+}
+
 export async function authPlugin(app: FastifyInstance) {
   app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const parsed = parseBody(credentialsSchema, request.body);
@@ -75,7 +86,7 @@ export async function authPlugin(app: FastifyInstance) {
     if (!ok) {
       logActivity({
         event: "auth.login_failed",
-        detail: `A sign-in attempt for ${email} failed — ${failureReason(email, user)}.`,
+        detail: failedSignInDetail(email, failureReason(email, user)),
         ipAddress: request.ip
       });
       // Trusted networks are never auto-blocked or locked out.

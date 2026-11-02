@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
 import { dashboardPlugin } from "../src/modules/dashboard/index.js";
+import { failedSignInDetail } from "../src/core/auth-routes.js";
 import { bootApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
@@ -270,6 +271,24 @@ describe("GET /api/dashboard/signins over a window", () => {
     expect(body.events[0]).toMatchObject({ event: "auth.login", ipAddress: "9.9.9.9", actorId: admin });
     expect(body.events[0].createdAt).toBeTruthy();
     expect(body.events[0].actorName).toBeTruthy();
+  });
+
+  it("names what a failed attempt tried, though it has no actor", async () => {
+    const memberEmail = (db.prepare("SELECT email FROM users WHERE id = ?").get(member) as { email: string }).email;
+    const at = new Date(Date.now() - 3_600_000).toISOString();
+    const insert = db.prepare(`
+      INSERT INTO activity_logs (id, event, target_type, target_id, detail, ip_address, created_at)
+      VALUES (?, ?, ?, ?, ?, '7.7.7.7', ?)
+    `);
+    insert.run("fail-pw", "auth.login_failed", null, null, failedSignInDetail("root@nowhere.test", "there is no account with that address"), at);
+    insert.run("fail-mfa", "auth.mfa_failed", "user", member, "A two-factor code was rejected.", at);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(hoursAgo(24)));
+    const byId = Object.fromEntries((body.events as { id: string; triedName: string | null }[]).map((e) => [e.id, e]));
+
+    expect(byId["fail-pw"]).toMatchObject({ actorName: null, triedName: "root@nowhere.test" });
+    expect(byId["fail-mfa"]).toMatchObject({ actorName: null, triedName: memberEmail });
   });
 
   it("lists guest share-link visits beside the sign-ins, as their own kind", async () => {

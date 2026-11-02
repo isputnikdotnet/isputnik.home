@@ -42,6 +42,7 @@ const METHOD_ICONS: Record<string, LucideIcon> = {
 // thing from a name the address gave that matched nobody.
 function actorLabel(entry: LogEvent, t: TFunction<readonly ["common", "controlDash"], undefined>, long: boolean): string {
   if (entry.actorName) return entry.actorName;
+  if (entry.triedName) return entry.triedName;
   if (isGuestVisitEvent(entry.event)) return t("controlDash:loginsTable.guest");
   return long ? t("controlDash:loginsTable.unknownActor") : t("controlDash:loginsTable.unknown");
 }

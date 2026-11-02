@@ -332,7 +332,7 @@ export function SignInsView() {
   const events = useMemo(() => {
     const key: Record<ActivitySort, (row: LogEvent) => string> = {
       time: (row) => row.createdAt,
-      user: (row) => row.actorName ?? "",
+      user: (row) => row.actorName ?? row.triedName ?? "",
       event: (row) => row.event,
       ip: (row) => row.ipAddress ?? ""
     };
