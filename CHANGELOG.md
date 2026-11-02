@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.57.0 — Your own pages, laid out like the rest
+
+- **Profile, Likes, Bookmarks, Quotes, Collections and For you sit in the middle of the screen**, at the same width as Home and the libraries, each with a plain title and its button or count on the right.
+- **Profile is in the row of tabs** with your other pages, first and set apart, so it is lit when you are on it.
+- **Profile's cards sit two abreast** on a wide screen, under a lighter row of its own tabs: Account, Security, Shared links and Appearance.
+- Fixed: a failed sign-in in Control panel › Sign-ins now shows the address that was tried, instead of Unknown.
+
 ## 4.56.1 — The cover menu sits on the cover
 
 - **A book's actions now appear on its cover.** Point at a cover on Audiobooks or Ebooks and it lifts and darkens at the foot, with **Play** or **Read** in the middle and Like, Finished, Download, Add to collection and the ⋯ menu along the bottom. The dark panel that used to open under the cover, wider than a narrow book, is gone.

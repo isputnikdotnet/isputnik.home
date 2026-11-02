@@ -5,6 +5,7 @@ import {
   Home,
   ListMusic,
   Quote,
+  UserRound,
   UsersRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -44,6 +45,12 @@ export function UserAreaNav({ active }: { active: UserAreaSection }) {
   return (
     <nav className="home-control-nav" aria-label={t("nav.aria.userPages")}>
       <UserNavLink icon={Home} label={t("nav.home")} href="/" active={false} />
+
+      {/* Its own group, so under the top layout Profile leads the row of tabs, set
+          apart from the library pages by the row's divider. */}
+      <div className="home-control-group">
+        <UserNavLink icon={UserRound} label={t("nav.profile")} href="/profile" active={active === "profile"} />
+      </div>
 
       <div className="home-control-group">
         <p>{t("nav.myLibrary")}</p>

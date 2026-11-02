@@ -554,6 +554,88 @@
   }
 }
 
+/* ── Your own pages ──────────────────────────────────────────────────────────
+   Profile, Likes, Bookmarks, Quotes, Collections, For you and Downloads wear the
+   main pages' shape under the top bar: the same width in the middle of the
+   screen, a plain title (no eyebrow, no icon tile) with its count or action at
+   the right, and Profile's cards laid two abreast on a wide screen instead of
+   one narrow column down the left edge. The classic sidebar never sees this. */
+.orbit-shell.home-user-shell .work-area {
+  width: var(--browse-page-width);
+  margin-inline: auto;
+  padding-inline: 0;
+}
+
+.orbit-shell.home-user-shell .work-area > .section-head .eyebrow,
+.orbit-shell.home-user-shell .user-page-icon {
+  display: none;
+}
+
+.orbit-shell.home-user-shell .work-area > .section-head h1 {
+  margin: 0;
+  font-size: clamp(1.9rem, 3vw, 2.35rem);
+  line-height: 1.06;
+}
+
+.orbit-shell.home-user-shell .empty-state {
+  justify-self: center;
+  margin-inline: auto;
+}
+
+.orbit-shell .profile-area > * {
+  width: auto;
+}
+
+/* Profile's own four tabs read as a lighter row under the title — an underline
+   on the one you are on, like the section tabs above — rather than four wide
+   boxes stretched across the page. Above the phone breakpoint only: a phone
+   keeps its four even columns. */
+@media (min-width: 741px) {
+  :root .orbit-shell .profile-tabs.control-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 4px 0 28px;
+    border-top: 0;
+  }
+
+  :root .orbit-shell .control-tabs a.profile-tab {
+    min-height: 46px;
+    padding: 0 16px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    white-space: nowrap;
+  }
+
+  :root .orbit-shell .control-tabs a.profile-tab:hover,
+  :root .orbit-shell .control-tabs a.profile-tab:focus-visible {
+    background: transparent;
+  }
+
+  :root .orbit-shell .control-tabs a.profile-tab.active {
+    border-bottom-color: var(--mint);
+    background: transparent;
+  }
+}
+
+@media (min-width: 1200px) {
+  .orbit-shell .profile-tab-panel:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 24px;
+  }
+
+  .orbit-shell .profile-tab-panel:not([hidden]) > * {
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  .orbit-shell .profile-tab-panel:not([hidden]) > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ── Home ──────────────────────────────────────────────────────────────────── */
 
 .orbit-home {
