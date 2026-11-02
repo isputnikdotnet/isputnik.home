@@ -318,7 +318,8 @@
   overflow-x: auto;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 70%, transparent);
-  scrollbar-width: none;
+  /* Thin but there: a row that overflows has to say that it scrolls. */
+  scrollbar-width: thin;
 }
 
 .orbit-tabs .home-control-nav-wrap,

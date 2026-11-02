@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.52.0 — A new layout: the top bar
+
+- **A top bar replaces the sidebar on computers.** Opening a section used to swap the main menu for that section's own, so getting from Audiobooks to Photos meant going back through Home. The menu now stays at the top of every page: **Home**, **Media** and **Family**, with the Control panel and your name on the right. Each section's pages are a row of tabs underneath, and the content gets the width the sidebar took. Phones keep their tab bar, and the control panel and story editor keep their sidebars.
+- **Media holds your libraries.** It opens onto big picture cards for Audiobooks, Ebooks, Photos, Video and Games, each with how much is in it for you, and it names the library you are in. On a large screen the same cards are on Home. **Family** gathers the Family Tree and Stories. **Tags**, **Info** and **Help** moved to the menu with your name on it.
+- **A new Home on computers.** It leads with whatever you last played, read or watched and with **On this day**. Below come anything waiting on you, what is still in progress, what is new in books and video, new photos and the quote, then the family's feed, across the full width of the page. Video now counts as something to continue, beside books.
+- **A new theme, Orbit:** deep navy with a teal accent, with Earth from orbit behind Home. Pick it in **Profile → Appearance**. Your current theme stays as it is, and every theme works with the new layout.
+- **The classic layout is still there for now.** **Profile → Appearance → Layout** brings the sidebar back on that browser. It will be retired in a later release.
+- The official iSputnik icon now appears everywhere the app shows a logo, in place of the old Earth mark and sidebar star.
+
 ## 4.51.1 — A film you left no longer blocks the next one
 
 - **Leaving a film now really lets go of it.** After you left a film the app had to convert as it played, it could still say you were watching it and refuse the next one, sometimes for over a minute. Closing the tab now stops the conversion straight away, and a film that has asked for nothing for 20 seconds no longer stands in your way. Two films really playing at once on one account are still refused.

@@ -73,7 +73,7 @@ administrator cannot list yours from here either.
 Seven choices, saved to your account, applied the moment you pick one — so the same
 theme follows you to your phone.
 
-![The Appearance tab, with the six themes as previews](images/72-profile-appearance.png)
+![The Appearance tab, with the seven themes as previews](images/72-profile-appearance.png)
 
 | | |
 |---|---|
@@ -84,6 +84,10 @@ theme follows you to your phone.
 | **Plain Dark** | Deep blue-black with a cyan accent, no scene artwork |
 | **Plain Light** | Neutral light greys, if you'd rather the app got out of the way |
 | **Minimalist** | Platinum grey and black ink, like a certain beige computer |
+
+**Layout**, below the themes, brings back the classic sidebar on the computer you are
+using, if you would rather have it for now. The classic layout will be retired in a
+later release. Phones have one layout, so they don't show this.
 
 ## Reader access
 

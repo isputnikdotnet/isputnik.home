@@ -220,7 +220,7 @@ The server side has matured alongside: a full control panel, scheduled jobs, a r
 
 * Modern, responsive web interface for desktop, tablet, and phone
 * The whole interface in English or Russian, chosen per person
-* Six themes, light and dark
+* Seven themes, light and dark
 * Progressive Web App: installable on Android and iPhone with phone-style bottom
   navigation
 * Download audiobooks to the device and keep listening with no server in reach;

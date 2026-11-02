@@ -258,7 +258,7 @@ in it stays out of the Timeline, Memories, the Home feed, People and the pickers
 until someone decides it stays — face recognition waits too.
 
 Fill it the way you fill any library: drop files into its folder and re-scan,
-or upload. Then open **Inbox** in the gallery's left nav (it appears once an
+or upload. Then open **Inbox** in the gallery's row of tabs (it appears once an
 Inbox exists; the Home page shows a card while photos are waiting). The review
 page groups photos by **delivery** — the top-level folder each batch arrived in
 — and selection offers two verbs:

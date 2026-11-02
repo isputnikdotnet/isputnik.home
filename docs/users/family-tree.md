@@ -1,8 +1,8 @@
 # Family tree
 
 The family tree records the people in your family, how they're related, what
-happened in their lives, and the photos that go with it. It sits beside your
-libraries in the main menu.
+happened in their lives, and the photos that go with it. You'll find it under
+**Family** in the top bar.
 
 Unlike a library, it isn't pointed at a folder — there's nothing to scan. You
 either type people in, or import a GEDCOM file from another genealogy service.
