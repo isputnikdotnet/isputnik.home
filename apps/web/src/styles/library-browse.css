@@ -1095,12 +1095,6 @@ input.library-filter {
   background: transparent;
 }
 
-/* A narrow cover still gets the whole row of actions under it on hover. */
-.audiobook-catalog-card.grid .audiobook-catalog-actions {
-  right: auto;
-  width: max(calc(100% + 2px), 100cqw);
-}
-
 /* Nothing under the cover any more, so the lift on hover is all the shadow. */
 .audiobook-catalog-card.grid .audiobook-catalog-cover {
   box-shadow: 0 10px 22px var(--shadow);
@@ -1775,4 +1769,67 @@ input.library-filter {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px 12px;
   }
+}
+
+/* ── Cover actions on the picture ────────────────────────────────────────────
+   With the cover a bare picture, the dark panel that used to open UNDER it no
+   longer matched it: wider than a narrow book cover, and not growing with the
+   cover's zoom. So in the grid the actions sit on the picture itself — a deeper
+   shade at its foot, the round actions along the bottom (wrapping on a narrow
+   cover), Play or Read in the middle — and the title, already written under the
+   cover, is not repeated. The cover lifts a little rather than zooming, so it
+   stays in its slot. Placed last: these replace the panel rules above. */
+.audiobook-catalog-card.grid:hover .audiobook-catalog-cover,
+.audiobook-catalog-card.grid:focus-within .audiobook-catalog-cover {
+  border-radius: 10px;
+  transform: translateY(-4px);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.5);
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-cover::after {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.28) 55%, rgba(0, 0, 0, 0.12));
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-actions {
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: auto;
+  padding: 10px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-action-row {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-action:not(.primary) {
+  width: 30px;
+  height: 30px;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-action:not(.primary) > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-hover-info {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-hover-text {
+  display: none;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-hover-info .audiobook-catalog-action.primary {
+  pointer-events: auto;
 }

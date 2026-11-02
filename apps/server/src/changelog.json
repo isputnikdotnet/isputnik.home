@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.56.1",
+    "label": "The cover menu sits on the cover",
+    "changes": [
+      "**A book's actions now appear on its cover.** Point at a cover on Audiobooks or Ebooks and it lifts and darkens at the foot, with **Play** or **Read** in the middle and Like, Finished, Download, Add to collection and the ⋯ menu along the bottom. The dark panel that used to open under the cover, wider than a narrow book, is gone."
+    ]
+  },
+  {
     "version": "4.56.0",
     "label": "Covers like books on a shelf",
     "changes": [

@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.56.1 — The cover menu sits on the cover
+
+- **A book's actions now appear on its cover.** Point at a cover on Audiobooks or Ebooks and it lifts and darkens at the foot, with **Play** or **Read** in the middle and Like, Finished, Download, Add to collection and the ⋯ menu along the bottom. The dark panel that used to open under the cover, wider than a narrow book, is gone.
+
 ## 4.56.0 — Covers like books on a shelf
 
 - **Covers are just the picture.** No box, frame or blurred fill around them any more: every cover in a row is the same height and keeps its own shape, so a shelf of books, audiobooks or films reads like the real thing, with the titles lined up underneath.
