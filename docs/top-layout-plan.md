@@ -20,8 +20,8 @@ Why the sidebar gave way to a top bar, what it is now, and what is left. Accepte
 - **Tabs:** each section's existing `sideNav` component, flattened by CSS into one row
   under the bar. A long row scrolls, keeping the current page in view.
 - **Home:** Continue (the most recent book or video) and On this day, what is waiting on
-  you, your library, in progress, recently added, new on video, new photos and the
-  quote, then the family feed.
+  you, your library, new photos and the quote, in progress, recently added (books and
+  video together), then the family feed. Every tile is the same square.
 - **Stays as it was:** the control panel and story editor keep the sidebar (the editor's
   chapters are reorderable); phones keep the four-tab bar and feed.
 - **Logo:** the official app icon (`Assets/brand/isputnik-app-icon.svg`: house, orbit,
@@ -34,7 +34,10 @@ with Earth at full strength at the top of Home and dimmed on other pages. The pl
 have no picture; the iSputnik themes keep their scenes, dimmed. The default theme did not
 change, so existing accounts keep what they chose.
 
-Games has no Orbit of its own yet, so the gateway tells it `plain-dark` for now.
+**Thanksgiving** is an eighth: warm browns, an amber accent, serif headings and an autumn
+lake at sunset, on the same terms as Earth.
+
+Games has neither of its own yet, so the gateway tells it `plain-dark` for now.
 
 ## Classic
 
@@ -46,10 +49,11 @@ needs the sidebar itself.
 ## Left to do
 
 - Regenerate the guide screenshots and re-record the tutorial videos, videos last.
-- Replace the library card pictures, cut from the mock-up, with the originals.
 - The engine's continue list has no posters, so Home asks for up to eight one at a time;
   put `poster` on `/continue` in `isputnik.video` and drop those requests.
+- Recently added takes books and video turn about, because the engine's titles carry
+  no date; give them one and sort by it. Its **View all** page still lists books only.
 - Global search in the bar (the shell has none; pages keep their own boxes).
 - Decide whether "Gallery" becomes "Photos" everywhere; the bar says Photos, its page
   title and the phone sheet still say Gallery.
-- Give games an Orbit theme and drop the gateway's mapping.
+- Give games these themes and drop the gateway's mapping.

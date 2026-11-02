@@ -1,5 +1,15 @@
 [
   {
+    "version": "4.53.0",
+    "label": "A Thanksgiving theme, and a tidier Home",
+    "changes": [
+      "**A new theme, Thanksgiving:** warm autumn browns, an amber accent and serif headings, with a lake at sunset behind Home. Pick it in **Profile → Appearance**.",
+      "**Your libraries got proper pictures.** The cards in **Media** and on Home now use sharp, full-size pictures, with each library's name on the picture itself.",
+      "**Home reads more evenly.** **New photos** moved up under **Your library**, and every tile on the page is now the same size. A tall book cover or poster is shown whole instead of being cropped, so its title stays readable.",
+      "**Recently added now includes video.** New films and shows appear in that row beside new books, so there is no separate **New on video** row any more. Its **View all** page still lists books only."
+    ]
+  },
+  {
     "version": "4.52.0",
     "label": "A new layout: the top bar",
     "changes": [

@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.53.0 — A Thanksgiving theme, and a tidier Home
+
+- **A new theme, Thanksgiving:** warm autumn browns, an amber accent and serif headings, with a lake at sunset behind Home. Pick it in **Profile → Appearance**.
+- **Your libraries got proper pictures.** The cards in **Media** and on Home now use sharp, full-size pictures, with each library's name on the picture itself.
+- **Home reads more evenly.** **New photos** moved up under **Your library**, and every tile on the page is now the same size. A tall book cover or poster is shown whole instead of being cropped, so its title stays readable.
+- **Recently added now includes video.** New films and shows appear in that row beside new books, so there is no separate **New on video** row any more. Its **View all** page still lists books only.
+
 ## 4.52.0 — A new layout: the top bar
 
 - **A top bar replaces the sidebar on computers.** Opening a section used to swap the main menu for that section's own, so getting from Audiobooks to Photos meant going back through Home. The menu now stays at the top of every page: **Home**, **Media** and **Family**, with the Control panel and your name on the right. Each section's pages are a row of tabs underneath, and the content gets the width the sidebar took. Phones keep their tab bar, and the control panel and story editor keep their sidebars.

@@ -80,11 +80,21 @@ describe("the Continue feed", () => {
 describe("the Orbit theme", () => {
   it("can be chosen", () => {
     expect(THEME_PREFERENCES).toContain("orbit");
+    expect(THEME_PREFERENCES).toContain("thanksgiving");
   });
 
   it("reaches the apps as the nearest theme they know", () => {
     const headers = identityHeaders(
       { id: "dad", display_name: "Dad", role: "member", language: "en", theme: "orbit" } as never,
+      "secret",
+      { ip: "127.0.0.1", requestId: "r" }
+    );
+    expect(headers["x-isputnik-user-theme"]).toBe("plain-dark");
+  });
+
+  it("sends Thanksgiving to the apps the same way", () => {
+    const headers = identityHeaders(
+      { id: "dad", display_name: "Dad", role: "member", language: "en", theme: "thanksgiving" } as never,
       "secret",
       { ip: "127.0.0.1", requestId: "r" }
     );

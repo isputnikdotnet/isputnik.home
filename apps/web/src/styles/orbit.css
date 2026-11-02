@@ -27,6 +27,55 @@
   mask-image: linear-gradient(180deg, #000 62%, transparent);
 }
 
+/* Thanksgiving's autumn lake, on the same terms as Orbit's Earth: dimmed and fixed on
+   most pages; on Home full strength at the top, scrolling away into the dark. */
+:root[data-theme="thanksgiving"] .orbit-shell .scene-page::before {
+  display: block;
+  background-image: url("../assets/backgrounds/thanksgiving-autumn.webp");
+  background-position: top center;
+  opacity: 0.3;
+}
+
+:root[data-theme="thanksgiving"] .orbit-shell .scene-page:has(.orbit-home)::before {
+  bottom: auto;
+  height: min(100vh, 56vw);
+  background-attachment: scroll;
+  opacity: 1;
+  mask-image: linear-gradient(180deg, #000 62%, transparent);
+}
+
+/* The greeting sits on bright leaves. */
+:root[data-theme="thanksgiving"] .orbit-hello {
+  text-shadow: 0 2px 14px rgba(23, 11, 6, 0.85);
+}
+
+:root[data-theme="thanksgiving"] .orbit-hello p {
+  color: var(--ink);
+}
+
+/* Cards let a little of the picture through, as they do on Orbit. */
+:root[data-theme="thanksgiving"] .orbit-card:not(.orbit-continue) {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+}
+
+:root[data-theme="thanksgiving"] .orbit-hello h1,
+:root[data-theme="thanksgiving"] .orbit-hello p,
+:root[data-theme="thanksgiving"] .orbit-section-head h2,
+:root[data-theme="thanksgiving"] .orbit-card-eyebrow,
+:root[data-theme="thanksgiving"] .orbit-continue-copy strong,
+:root[data-theme="thanksgiving"] .orbit-memory-copy strong,
+:root[data-theme="thanksgiving"] .orbit-library-text strong {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+:root[data-theme="thanksgiving"] .orbit-library-card {
+  background: #27140b;
+}
+
+:root[data-theme="thanksgiving"] .orbit-library-copy {
+  background: linear-gradient(180deg, transparent, rgba(23, 11, 6, 0.86) 62%);
+}
+
 /* ── The shell ─────────────────────────────────────────────────────────────── */
 
 .orbit-shell {
@@ -235,14 +284,19 @@
   gap: 14px;
 }
 
+/* The picture is the card; the name sits on its dark lower edge, so the text is
+   light in every theme. */
 .orbit-library-card {
+  --ink: #f3f7fa;
+  position: relative;
   display: block;
   min-width: 0;
+  aspect-ratio: 19 / 10;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
   color: var(--ink);
-  background: var(--surface);
+  background: #0b1725;
   text-decoration: none;
   transition: border-color 140ms ease;
 }
@@ -254,19 +308,26 @@
 }
 
 .orbit-library-card img {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  aspect-ratio: 19 / 7;
+  height: 100%;
   object-fit: cover;
-  mask-image: linear-gradient(180deg, #000 60%, transparent);
+  object-position: center 30%;
 }
 
 .orbit-library-copy {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   align-items: center;
   gap: 11px;
   min-width: 0;
-  padding: 2px 12px 13px 14px;
+  padding: 26px 12px 12px 14px;
+  background: linear-gradient(180deg, transparent, rgba(5, 12, 23, 0.82) 62%);
 }
 
 .orbit-library-text {
@@ -287,13 +348,13 @@
 }
 
 .orbit-library-text small {
-  color: var(--muted);
+  color: rgba(243, 247, 250, 0.74);
   font-size: 0.82rem;
 }
 
 .orbit-library-chevron {
   flex: 0 0 auto;
-  color: var(--muted);
+  color: rgba(243, 247, 250, 0.74);
 }
 
 .orbit-library-home {
@@ -504,8 +565,12 @@
   color: var(--mint);
 }
 
-:root[data-theme="orbit"] .orbit-continue {
+:root:is([data-theme="orbit"], [data-theme="thanksgiving"]) .orbit-continue {
   --continue-accent: var(--mint);
+}
+
+:root[data-theme="thanksgiving"] .orbit-continue {
+  background: #27140b;
 }
 
 .orbit-continue {
@@ -780,8 +845,10 @@
   text-decoration: none;
 }
 
-.orbit-tile.is-square { width: var(--orbit-cover); }
-.orbit-tile.is-tall { width: calc(var(--orbit-cover) * 2 / 3); }
+/* Every tile is the same square, whatever its kind. */
+.orbit-tile {
+  width: var(--orbit-cover);
+}
 
 .orbit-tile-cover {
   position: relative;
@@ -807,6 +874,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* A book cover or poster is taller than the square: shown whole, not cropped, so
+   its title survives. */
+.orbit-tile.is-tall .orbit-tile-cover img {
+  object-fit: contain;
 }
 
 .orbit-tile-empty {
@@ -865,14 +938,19 @@
   margin: 0;
 }
 
+/* The same squares as the rows below, as many whole ones as fit. */
 .orbit-photo-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px 16px;
+  height: 190px;
+  overflow: hidden;
 }
 
 .orbit-photo.orbit-photo {
-  aspect-ratio: 3 / 2;
+  flex: 0 0 auto;
+  width: 190px;
+  height: 190px;
   padding: 0;
   overflow: hidden;
   border: 0;

@@ -15,9 +15,10 @@ interface Palette {
 // Palettes mirror styles/tokens.css so each card previews the real theme colors.
 // Labels come from the theme.* locale keys ("System" is the one that localizes;
 // the named themes are product names and stay as they are in every language).
-const THEMES: { value: Theme; labelKey: "system" | "plainLight" | "plainDark" | "minimalist" | "light" | "dark" | "orbit"; palette?: Palette }[] = [
+const THEMES: { value: Theme; labelKey: "system" | "plainLight" | "plainDark" | "minimalist" | "light" | "dark" | "orbit" | "thanksgiving"; palette?: Palette }[] = [
   { value: "system", labelKey: "system" },
   { value: "orbit", labelKey: "orbit", palette: { canvas: "#050c17", surface: "#0b1725", ink: "#e9f1f7", mint: "#24d1e0", muted: "#92a6b8" } },
+  { value: "thanksgiving", labelKey: "thanksgiving", palette: { canvas: "#170b06", surface: "#27140b", ink: "#f7ead9", mint: "#f0a23c", muted: "#c7a98e" } },
   { value: "plain-light", labelKey: "plainLight", palette: { canvas: "#f3f6fb", surface: "#ffffff", ink: "#1f2937", mint: "#2563eb", muted: "#64748b" } },
   { value: "plain-dark", labelKey: "plainDark", palette: { canvas: "#04080c", surface: "#141f27", ink: "#edf2f4", mint: "#45bed2", muted: "#9fa9ad" } },
   { value: "minimalist", labelKey: "minimalist", palette: { canvas: "#e2e2df", surface: "#ffffff", ink: "#1d1d1f", mint: "#1d1d1f", muted: "#58585c" } },

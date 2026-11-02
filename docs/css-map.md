@@ -27,7 +27,7 @@ dashboard's `LocationsMap`, …).
 
 | Stylesheet | Purpose |
 |---|---|
-| `tokens.css` | Design tokens — colours for the six themes (`dark`, `light`, `plain-dark`, `plain-light`, `minimalist`, `orbit`) via `data-theme` |
+| `tokens.css` | Design tokens — colours for the seven themes (`dark`, `light`, `plain-dark`, `plain-light`, `minimalist`, `orbit`, `thanksgiving`) via `data-theme` |
 | `base.css` | Global resets and typography |
 | `auth.css` | Sign-in / invite split-screen (pre-auth), device-link screens, and the `--auth-*` token set per theme |
 | `layout.css` | Main column, avatar, work area, scene backgrounds, control-panel grid and tab row |
@@ -185,8 +185,8 @@ import order above:
 ## tokens.css
 **Design tokens — colours and theming**
 
-CSS custom properties used everywhere else. Six themes — `dark`, `light`,
-`plain-dark`, `plain-light`, `minimalist` and `orbit` — each a `:root[data-theme="…"]`
+CSS custom properties used everywhere else. Seven themes — `dark`, `light`,
+`plain-dark`, `plain-light`, `minimalist`, `orbit` and `thanksgiving` — each a `:root[data-theme="…"]`
 block; `:root` with no attribute gets the dark palette. The app stamps the chosen
 theme on `<html>` (a new install defaults to `minimalist`), and a user's **System**
 choice is resolved to light or dark in JavaScript — there is no

@@ -231,6 +231,39 @@
   --auth-panel-muted: #92a6b8;
 }
 
+:root[data-theme="thanksgiving"] {
+  --auth-glow-primary: rgba(240, 162, 60, 0.3);
+  --auth-glow-secondary: rgba(217, 119, 47, 0.22);
+  --auth-bg-start: #170b06;
+  --auth-bg-mid: #27140b;
+  --auth-bg-end: #351d10;
+  --auth-bottom-fade: rgba(23, 11, 6, 0.92);
+  --auth-scene-opacity: 0.22;
+  --auth-scene-filter: saturate(0.76) hue-rotate(148deg) contrast(1.08) brightness(0.66);
+  --auth-scene-position: center center;
+  --auth-scene-size: cover;
+  --auth-scene-transform: scaleX(-1) scale(1.04);
+  --auth-scene-shade: linear-gradient(90deg, rgba(23, 11, 6, 0.08), rgba(23, 11, 6, 0.66) 62%, rgba(23, 11, 6, 0.18)),
+    linear-gradient(180deg, rgba(23, 11, 6, 0.04), rgba(23, 11, 6, 0.44));
+  --auth-mobile-scene-shade:
+    linear-gradient(180deg, rgba(23, 11, 6, 0.18), rgba(23, 11, 6, 0.66) 42%, rgba(23, 11, 6, 0.9)),
+    linear-gradient(90deg, rgba(23, 11, 6, 0.24), rgba(23, 11, 6, 0.5));
+  --auth-title: #f0a23c;
+  --auth-title-shadow: rgba(0, 0, 0, 0.55);
+  --auth-orbit-a: rgba(240, 162, 60, 0.34);
+  --auth-orbit-b: rgba(217, 119, 47, 0.22);
+  --auth-orbit-c: rgba(247, 234, 217, 0.12);
+  --auth-brass: #d9a56b;
+  --auth-brass-bright: #f0a23c;
+  --auth-red: #f0a23c;
+  --auth-frame: rgba(240, 162, 60, 0.5);
+  --auth-frame-soft: rgba(240, 162, 60, 0.24);
+  --auth-panel-bg: rgba(23, 11, 6, 0.76);
+  --auth-panel-bg-strong: rgba(29, 14, 7, 0.94);
+  --auth-panel-ink: #f7ead9;
+  --auth-panel-muted: #c7a98e;
+}
+
 :root[data-theme="plain-light"] {
   --auth-glow-primary: rgba(124, 58, 237, 0.14);
   --auth-glow-secondary: rgba(37, 99, 235, 0.12);

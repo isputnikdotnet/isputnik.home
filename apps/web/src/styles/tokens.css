@@ -221,3 +221,25 @@
   --danger: #e0766b;
   --shadow: rgba(0, 0, 0, 0.5);
 }
+
+:root[data-theme="thanksgiving"] {
+  color-scheme: dark;
+  --ink: #f7ead9;
+  --muted: #c7a98e;
+  --line: rgba(232, 164, 92, 0.3);
+  --canvas: #170b06;
+  --surface: #27140b;
+  --surface-raised: #351d10;
+  --field: #1d0e07;
+  --hover: rgba(240, 162, 60, 0.12);
+  --active: rgba(240, 162, 60, 0.2);
+  --mint: #f0a23c;
+  --gold: #f0a23c;
+  --amber: #d9772f;
+  --rose: #e0766b;
+  --blue: #d9a56b;
+  --success: #a9c77a;
+  --warning: #f0a23c;
+  --danger: #e0766b;
+  --shadow: rgba(0, 0, 0, 0.55);
+}

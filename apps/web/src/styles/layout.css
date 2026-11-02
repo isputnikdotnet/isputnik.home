@@ -66,6 +66,8 @@
 :root[data-theme="plain-light"] .scene-page::after,
 :root[data-theme="plain-dark"] .scene-page::before,
 :root[data-theme="plain-dark"] .scene-page::after,
+:root[data-theme="thanksgiving"] .scene-page::before,
+:root[data-theme="thanksgiving"] .scene-page::after,
 :root[data-theme="orbit"] .scene-page::before,
 :root[data-theme="orbit"] .scene-page::after,
 :root[data-theme="minimalist"] .scene-page::before,

@@ -338,6 +338,15 @@ export function OrbitHome({
   const heroVideo = started[0]?.video ?? null;
   const inProgress: Tile[] = started.slice(1).map((entry) => (entry.book ? bookTile(entry.book, resumeBook) : videoTile(entry.video!)));
 
+  // Books and video, turn about: each list is newest first, but the engine's titles
+  // carry no date to sort the two together by.
+  const bookTiles = recent.map((item) => bookTile(item));
+  const recentlyAdded: Tile[] = [];
+  for (let i = 0; i < Math.max(bookTiles.length, newVideo.length); i += 1) {
+    if (bookTiles[i]) recentlyAdded.push(bookTiles[i]);
+    if (newVideo[i]) recentlyAdded.push(newVideo[i]);
+  }
+
   const hasContinue = Boolean(heroBook || heroVideo);
   const topClass = hasContinue && memory ? "orbit-top" : "orbit-top is-single";
 
@@ -389,16 +398,15 @@ export function OrbitHome({
         <LibraryCards />
       </section>
 
-      <TileRow title={t("orbit.inProgress")} viewAll={books.length > 1 ? "/continue" : undefined} tiles={inProgress} />
-      <TileRow title={t("orbit.recentlyAdded")} viewAll="/recent" tiles={recent.map((item) => bookTile(item))} />
-      <TileRow title={t("orbit.newVideo")} viewAll={videoHref("movies")} tiles={newVideo} />
-
       {(photos || quote) && (
         <div className={`orbit-split${photos && quote ? "" : " is-single"}`}>
           {photos && <NewPhotos card={photos} onOpen={(itemId) => onOpenRecentPhoto(itemId, photos.days)} />}
           {quote && renderCard(quote)}
         </div>
       )}
+
+      <TileRow title={t("orbit.inProgress")} viewAll={books.length > 1 ? "/continue" : undefined} tiles={inProgress} />
+      <TileRow title={t("orbit.recentlyAdded")} viewAll="/recent" tiles={recentlyAdded} />
 
       {feed.length > 0 && (
         <section className="orbit-section">

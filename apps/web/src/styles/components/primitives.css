@@ -334,6 +334,11 @@ a.icon-button svg {
   background: var(--mint);
 }
 
+:root[data-theme="thanksgiving"] .primary-button:not(.danger) {
+  color: #2a1405;
+  background: var(--mint);
+}
+
 :root[data-theme="plain-light"] .primary-button:not(.danger) {
   color: #ffffff;
   background: #7c3aed;
