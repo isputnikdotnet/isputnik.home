@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, Check, CheckCircle2, CheckSquare, Download, Heart, Layers, ListMusic, RotateCcw, Square } from "lucide-react";
 import { navigate } from "../../../router";
 import { cx } from "../../../shared/cx";
-import { coverBackdrop } from "../../../shared/coverBackdrop";
 import { formatBytes } from "../../../shared/utils";
 import { DEFAULT_COVERS } from "../covers";
 import type { AudiobookBook } from "../types";
@@ -62,8 +61,7 @@ export function EbookCatalogCard({
   return (
     <article className={cx("audiobook-catalog-card", "grid", selectionMode && "selectable", selected && "selected")}>
       <div
-        className="audiobook-catalog-cover cover-backdrop"
-        style={coverBackdrop(book.coverUrl ?? DEFAULT_COVERS.ebook)}
+        className="audiobook-catalog-cover"
         role="button"
         tabIndex={0}
         aria-pressed={selectionMode ? selected : undefined}

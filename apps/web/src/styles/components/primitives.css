@@ -1060,28 +1060,3 @@ a.icon-button svg {
   white-space: nowrap;
 }
 
-/* A cover box that fills the space its cover leaves with a blur of the same
-   picture (shared/coverBackdrop.ts sets --cover): a cover of another shape than
-   its box is shown whole, without black bars. Clipped to the box, so it works
-   where the box itself lets its contents overflow. */
-.cover-backdrop {
-  isolation: isolate;
-}
-
-.cover-backdrop::before {
-  position: absolute;
-  z-index: -1;
-  inset: -24px;
-  border-radius: inherit;
-  content: "";
-  background: var(--cover) center / cover no-repeat;
-  filter: blur(16px) brightness(0.72) saturate(1.1);
-  clip-path: inset(24px round 10px);
-  pointer-events: none;
-}
-
-/* Doubled to outrank each card's own img rule (black bars, crop to fill). */
-.cover-backdrop.cover-backdrop > img {
-  object-fit: contain;
-  background: transparent;
-}

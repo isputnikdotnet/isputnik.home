@@ -536,7 +536,7 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
                 {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyMessage}</p>}
               </div>
             ) : (
-              <div className={cx("audiobook-catalog", "grid", isMobile ? "phone-covers" : density)}>
+              <div className={cx("audiobook-catalog", "grid", `is-${kind}`, isMobile ? "phone-covers" : density)}>
                 {cat.books.map((book) => {
                   const lib = libraryFor(book.libraryId);
                   const tile = {

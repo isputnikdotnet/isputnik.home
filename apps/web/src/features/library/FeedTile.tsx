@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { Play } from "lucide-react";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { followRoute } from "../../router";
-import { coverBackdrop } from "../../shared/coverBackdrop";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import { relativeTime } from "../../shared/relativeTime";
 import { authorLine, feedHref, type FeedItem } from "./feed";
@@ -21,7 +20,7 @@ export function FeedTile({ item, progress, added, kindLabel }: { item: FeedItem;
 
   return (
     <a className="audiobook-catalog-card grid home-feed-tile" href={href} onClick={(event) => followRoute(event, href)}>
-      <div className={"audiobook-catalog-cover cover-backdrop"} style={coverBackdrop(item.coverUrl ?? DEFAULT_COVERS[item.kind])}>
+      <div className="audiobook-catalog-cover">
         <img src={item.coverUrl ?? DEFAULT_COVERS[item.kind]} alt="" loading="lazy" />
         <MediaKindBadge kind={item.kind} overlay showLabel={kindLabel} />
         {progress && percent > 0 && (

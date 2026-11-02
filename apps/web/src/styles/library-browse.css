@@ -38,6 +38,13 @@ input.library-filter {
 
 /* ── Audiobook landing page ─────────────────────────────────────── */
 
+/* How wide a page in the middle of the screen is: four fifths of the window, as
+   in the owner's mock-up, and never squeezed below 1100px on a smaller one.
+   Shared by the browse pages, Video and the top layout's Home. */
+:root {
+  --browse-page-width: min(100%, max(80vw, 1100px));
+}
+
 .audiobook-main-page {
   --audiobook-soft-shadow: 0 8px 18px var(--shadow);
   --audiobook-strong-shadow: 0 18px 36px var(--shadow);
@@ -58,11 +65,11 @@ input.library-filter {
   min-width: 0;
 }
 
-/* Browse pages sit in the middle of a wide screen at Home's and Video's width,
-   so a row of covers stays one glance wide. The family map is the exception: a
+/* Browse pages sit in the middle of a wide screen — about four fifths of it, the
+   owner's mock-up — like Home and Video, so a row of covers stays one glance wide. The family map is the exception: a
    map is better the more of it there is. */
 .audiobook-main-page:not(.ft-map-page) {
-  width: min(100%, 1680px);
+  width: var(--browse-page-width);
   margin-inline: auto;
 }
 
@@ -963,7 +970,7 @@ input.library-filter {
 }
 
 /* The View menu's cover sizes, one width for every kind so audiobooks and ebooks
-   line up column for column: at the 1680px page comfortable holds seven covers a
+   line up column for column: at a 1920px window comfortable holds seven covers a
    row, compact nine, large five; narrower windows simply hold fewer. */
 .audiobook-catalog.grid {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -976,7 +983,7 @@ input.library-filter {
 }
 
 .audiobook-catalog.grid.compact {
-  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 26px 20px;
 }
 
@@ -1048,12 +1055,55 @@ input.library-filter {
     var(--active);
 }
 
-/* One square shape for every kind — audiobooks, ebooks, video — so covers line
-   up across the libraries. A cover of another shape is shown whole over a blur
-   of itself (.cover-backdrop). No frame. */
+/* The cover is the picture itself — no box, frame or fill around it, like books
+   on a shelf. The picture is as large as fits a slot (--cover-slot, measured in
+   the card's own width — a container query, so it can only size what is INSIDE
+   the card) and sits on the floor of the card's first row at its left edge; the
+   grid stretches every card in a row to the tallest, so the titles under a row
+   stay on one line. Tall covers get a
+   slot a fifth taller than the column is wide, so a book cover fills most of its
+   column; the Audiobooks page, all square art, keeps a square slot. Covers come
+   from the server larger than any slot, so capping them never blurs them. */
+.audiobook-catalog-card.grid {
+  --cover-slot: 120cqw;
+  container-type: inline-size;
+  grid-template-rows: 1fr auto;
+}
+
+.audiobook-catalog.is-audiobook .audiobook-catalog-card.grid {
+  --cover-slot: 100cqw;
+}
+
 .audiobook-catalog-card.grid .audiobook-catalog-cover {
-  aspect-ratio: 1 / 1;
+  align-self: end;
+  justify-self: start;
+  display: block;
+  width: fit-content;
+  height: auto;
   border: 0;
+  background: transparent;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-cover img {
+  position: static;
+  display: block;
+  width: auto;
+  height: auto;
+  min-width: 40cqw;
+  max-width: 100cqw;
+  max-height: var(--cover-slot);
+  background: transparent;
+}
+
+/* A narrow cover still gets the whole row of actions under it on hover. */
+.audiobook-catalog-card.grid .audiobook-catalog-actions {
+  right: auto;
+  width: max(calc(100% + 2px), 100cqw);
+}
+
+/* Nothing under the cover any more, so the lift on hover is all the shadow. */
+.audiobook-catalog-card.grid .audiobook-catalog-cover {
+  box-shadow: 0 10px 22px var(--shadow);
 }
 
 

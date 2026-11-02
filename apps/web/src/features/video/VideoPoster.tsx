@@ -3,7 +3,6 @@ import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { followRoute } from "../../router";
-import { coverBackdrop } from "../../shared/coverBackdrop";
 
 export interface PosterItem {
   key: string;
@@ -26,7 +25,7 @@ export function PosterCard({ item }: { item: PosterItem }) {
   const Icon = item.icon;
   return (
     <a className="video-card" href={item.href} onClick={(event) => followRoute(event, item.href)}>
-      <span className={`video-card-cover${item.poster ? " has-poster cover-backdrop" : ""}`} style={coverBackdrop(item.poster)} aria-hidden="true">
+      <span className={`video-card-cover${item.poster ? " has-poster" : ""}`} aria-hidden="true">
         {item.poster ? (
           <img src={item.poster} alt="" loading="lazy" />
         ) : (

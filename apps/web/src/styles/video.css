@@ -8,7 +8,7 @@
 .audiobook-main-page.video-page {
   position: relative;
   gap: 30px;
-  width: min(100%, 1680px);
+  width: var(--browse-page-width);
   margin-inline: auto;
 }
 
@@ -23,7 +23,10 @@
 }
 
 .video-card {
+  --cover-slot: 120cqw;
+  container-type: inline-size;
   display: grid;
+  grid-template-rows: 1fr auto;
   gap: 8px;
   min-width: 0;
   color: var(--ink);
@@ -49,6 +52,33 @@
   outline-offset: 0;
 }
 
+/* With a poster the cover is the picture alone, as tall as the column is wide,
+   like the book covers; without one it stays a square of the title. */
+.video-card-cover.has-poster {
+  align-self: end;
+  justify-self: start;
+  display: block;
+  width: fit-content;
+  height: auto;
+  aspect-ratio: auto;
+  background: transparent;
+}
+
+.video-card-cover.has-poster > img {
+  position: static;
+  display: block;
+  width: auto;
+  height: auto;
+  min-width: 40cqw;
+  max-width: 100cqw;
+  max-height: var(--cover-slot);
+}
+
+/* A title with no poster yet fills the slot as a square of its name. */
+.video-card-cover:not(.has-poster) {
+  align-self: end;
+}
+
 .video-card:hover .video-card-cover,
 .video-card:focus-visible .video-card-cover {
   outline-color: var(--mint);
@@ -64,9 +94,6 @@
   letter-spacing: 0.04em;
 }
 
-.video-card-cover.has-poster {
-  background: var(--surface-raised);
-}
 
 .video-card-cover > img {
   position: absolute;

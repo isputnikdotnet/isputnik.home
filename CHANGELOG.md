@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.56.0 — Covers like books on a shelf
+
+- **Covers are just the picture.** No box, frame or blurred fill around them any more: every cover in a row is the same height and keeps its own shape, so a shelf of books, audiobooks or films reads like the real thing, with the titles lined up underneath.
+- **Pages take four fifths of a wide screen**, for the libraries, Video and Home alike, with the room either side kept clear.
+- **Home's rows are evenly spaced**: each tile is as wide as its cover.
+
 ## 4.55.0 — A tidier bookshelf
 
 - **Library pages sit in the middle of the screen**, like Home and Video, and on a wide window the title, search and every tool share one line.

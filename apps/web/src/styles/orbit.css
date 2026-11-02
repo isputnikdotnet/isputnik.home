@@ -560,7 +560,7 @@
   position: relative;
   display: grid;
   gap: 30px;
-  width: min(100%, 1680px);
+  width: var(--browse-page-width);
   margin: 0 auto;
   padding: 0 0 48px;
 }
@@ -891,9 +891,21 @@
   text-decoration: none;
 }
 
-/* Every tile is the same square, whatever its kind. */
+/* Every tile is as tall as the square; a tile is as wide as its cover, so the gaps
+   along a row stay even, and its words take that width without widening it. */
 .orbit-tile {
+  width: fit-content;
+  min-width: calc(var(--orbit-cover) * 0.5);
+  max-width: var(--orbit-cover);
+}
+
+.orbit-tile:has(> .orbit-tile-cover:not(:has(> img))) {
   width: var(--orbit-cover);
+}
+
+.orbit-tile > :not(.orbit-tile-cover) {
+  width: 0;
+  min-width: 100%;
 }
 
 .orbit-tile-cover {
@@ -922,8 +934,19 @@
   object-fit: cover;
 }
 
-/* A book cover or poster is taller than the square: shown whole, not cropped, so
-   its title survives, with a blur of it either side (cover-backdrop). */
+/* A cover is the picture alone, as tall as the tile's square and as wide as it
+   needs: no box or fill around a tall book cover or poster. */
+.orbit-tile-cover:has(> img) {
+  width: fit-content;
+  max-width: 100%;
+  background: transparent;
+}
+
+.orbit-tile-cover > img {
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
 
 .orbit-tile-empty {
   display: grid;

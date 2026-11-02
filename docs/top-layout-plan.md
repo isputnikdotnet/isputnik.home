@@ -18,8 +18,11 @@ Why the sidebar gave way to a top bar, what it is now, and what is left. Accepte
   plain links (icon, name, count) hanging from the button — since 4.55, at the owner's
   request; it used to open onto the big picture cards. The picture cards stay on Home,
   on screens of at least 1400 × 820, so the rows below are not pushed down.
-- **Covers:** one square shape for audiobooks, ebooks and video (4.55, the owner liked
-  the audiobooks' look best); other shapes show whole over a blur of themselves.
+- **Covers:** the picture alone, no box, frame or blurred fill (4.56, from the owner's
+  mock-up): every cover in a row is as tall as its slot and as wide as its shape, set on
+  the slot's floor at its left edge, so the titles line up. The slot is square on
+  Audiobooks and a fifth taller for books and films. Pages sit at four fifths of the
+  window (`--browse-page-width`, at least 1100px).
 - **Tabs:** each section's existing `sideNav` component, flattened by CSS into one row
   under the bar. A long row scrolls, keeping the current page in view.
 - **Home:** Continue (the most recent book or video) and On this day, what is waiting on
