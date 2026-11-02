@@ -112,8 +112,38 @@ export function LibraryCards({ onPick }: { onPick?: () => void }) {
   );
 }
 
-// The bar's Media button: it reads as the library you are in, and opens onto the
-// same big cards. The panel asks for its counts only once somebody opens it.
+// The Media menu's list: one plain link per library, its icon, name and count.
+// The big picture cards stay on Home; a menu is for getting somewhere quickly.
+function LibraryLinks({ current, onPick }: { current: LibraryKey | null; onPick: () => void }) {
+  const cards = useLibraryCards();
+  return (
+    <nav className="orbit-media-links">
+      {cards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <a
+            key={card.key}
+            className={`orbit-media-link${card.key === current ? " is-active" : ""}`}
+            href={card.href}
+            aria-current={card.key === current ? "page" : undefined}
+            onClick={(event) => {
+              onPick();
+              if (!card.external) followRoute(event, card.href);
+            }}
+          >
+            <Icon size={18} aria-hidden="true" />
+            <span className="orbit-media-link-label">{card.label}</span>
+            {card.badge > 0 && <span className="home-nav-badge">{card.badge}</span>}
+            {card.sub && <small>{card.sub}</small>}
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
+// The bar's Media button: it reads as the library you are in, and opens a short
+// list of the libraries. The list asks for its counts only once somebody opens it.
 export function OrbitMediaMenu({ current }: { current: { key: LibraryKey; label: string } | null }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -150,7 +180,7 @@ export function OrbitMediaMenu({ current }: { current: { key: LibraryKey; label:
       </Button>
       {open && (
         <div className="orbit-media-panel">
-          <LibraryCards onPick={() => setOpen(false)} />
+          <LibraryLinks current={current?.key ?? null} onPick={() => setOpen(false)} />
         </div>
       )}
     </div>

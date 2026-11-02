@@ -14,9 +14,12 @@ Why the sidebar gave way to a top bar, what it is now, and what is left. Accepte
 
 - **Bar:** logo, Home, Media, Family; Control panel and the person's menu on the right.
   Tags and About/Help moved to that menu.
-- **Media:** a button that reads as the library you are in, opening onto big picture
-  cards with counts. The cards also appear on Home on screens of at least 1400 × 820;
-  smaller screens reach them through Media, so the rows are not pushed down.
+- **Media:** a button that reads as the library you are in, opening a short menu of
+  plain links (icon, name, count) hanging from the button — since 4.55, at the owner's
+  request; it used to open onto the big picture cards. The picture cards stay on Home,
+  on screens of at least 1400 × 820, so the rows below are not pushed down.
+- **Covers:** one square shape for audiobooks, ebooks and video (4.55, the owner liked
+  the audiobooks' look best); other shapes show whole over a blur of themselves.
 - **Tabs:** each section's existing `sideNav` component, flattened by CSS into one row
   under the bar. A long row scrolls, keeping the current page in view.
 - **Home:** Continue (the most recent book or video) and On this day, what is waiting on

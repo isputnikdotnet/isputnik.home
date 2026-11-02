@@ -21,7 +21,7 @@ export function FeedTile({ item, progress, added, kindLabel }: { item: FeedItem;
 
   return (
     <a className="audiobook-catalog-card grid home-feed-tile" href={href} onClick={(event) => followRoute(event, href)}>
-      <div className={`audiobook-catalog-cover cover-backdrop${item.kind === "ebook" ? " is-tall" : ""}`} style={coverBackdrop(item.coverUrl ?? DEFAULT_COVERS[item.kind])}>
+      <div className={"audiobook-catalog-cover cover-backdrop"} style={coverBackdrop(item.coverUrl ?? DEFAULT_COVERS[item.kind])}>
         <img src={item.coverUrl ?? DEFAULT_COVERS[item.kind]} alt="" loading="lazy" />
         <MediaKindBadge kind={item.kind} overlay showLabel={kindLabel} />
         {progress && percent > 0 && (

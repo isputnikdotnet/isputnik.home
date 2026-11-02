@@ -62,7 +62,7 @@ export function EbookCatalogCard({
   return (
     <article className={cx("audiobook-catalog-card", "grid", selectionMode && "selectable", selected && "selected")}>
       <div
-        className="audiobook-catalog-cover cover-backdrop is-tall"
+        className="audiobook-catalog-cover cover-backdrop"
         style={coverBackdrop(book.coverUrl ?? DEFAULT_COVERS.ebook)}
         role="button"
         tabIndex={0}

@@ -4,7 +4,6 @@ import { BookOpen, Headphones, LibraryBig, UserPlus, UserRound } from "lucide-re
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate, queryParam, replaceQuery } from "../../router";
-import { AlphabetBar } from "../../shared/AlphabetBar";
 import { Button } from "../../shared/Button";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryMenu } from "../../shared/LibraryMenu";
@@ -238,14 +237,7 @@ export function AuthorListPage() {
                 ]}
               />
             }
-            strip={
-              <AlphabetBar
-                available={availableLetters}
-                value={letter}
-                onChange={setLetter}
-                ariaLabel={nameOrder === "last" ? t("book:people.filterByLastLetter") : t("book:people.filterByFirstLetter")}
-              />
-            }
+            alphabet={{ available: availableLetters, value: letter, onChange: setLetter, ariaLabel: nameOrder === "last" ? t("book:people.filterByLastLetter") : t("book:people.filterByFirstLetter") }}
           />
         )}
 

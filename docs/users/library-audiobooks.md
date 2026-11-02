@@ -92,21 +92,26 @@ you can stop on a phone and continue on a laptop. It also offers:
 
 ## Finding things
 
-![The Audiobooks page: cover grid, toolbar and the A-Z strip](images/30-audiobooks.png)
+![The Audiobooks page: cover grid and toolbar](images/30-audiobooks.png)
 
 **Authors**, **Narrators**, **Series** and **Categories** browse the library
-different ways; search covers titles, authors and series. The filter button
+different ways; search covers titles, authors and series. **View** sets how
+big the covers are — **Compact**, **Comfortable** or **Large** — and this browser
+remembers the choice. The filter button
 narrows by library, category, tag, narrator, length and whether you've finished
 it — pick one library to browse just that shelf, or several to combine them.
 Whatever you choose shows as a chip under the toolbar, with **Clear all** beside
 it.
 
-The **A–Z strip** under the toolbar jumps to titles starting with one letter —
-**#** collects the ones starting with a number or a symbol. Libraries holding
-both Latin and Cyrillic titles get an **English / Русский** switch beside it;
-letters with nothing behind them are greyed out. The letter you pick is part of
-the page address, so the link can be bookmarked or shared, and reloading keeps
-it. The same strip files authors and narrators by first or last name — whichever
+**A–Z** in the toolbar opens the alphabet and jumps to titles starting with one
+letter — **#** collects the ones starting with a number or a symbol. Libraries
+holding both Latin and Cyrillic titles get an **EN / RU** switch at its top;
+letters with nothing behind them are greyed out. The button then shows the
+letter you picked, and the letter is part of the page address, so the link can
+be bookmarked or shared, and reloading keeps it. **Show the letter strip** at
+the foot of the menu lays the whole alphabet out in a row under the toolbar
+instead, for every page in this browser; on a phone the strip is always there.
+The same alphabet files authors and narrators by first or last name — whichever
 that page is sorted by.
 
 ## Offline

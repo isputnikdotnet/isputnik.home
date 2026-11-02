@@ -4,7 +4,6 @@ import { BookOpen, LibraryBig, Plus } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate, queryParam, replaceQuery } from "../../router";
-import { AlphabetBar } from "../../shared/AlphabetBar";
 import { LibraryMenu } from "../../shared/LibraryMenu";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
@@ -154,14 +153,7 @@ export function SeriesListPage({
                 ]}
               />
             }
-            strip={
-              <AlphabetBar
-                available={availableLetters}
-                value={letter}
-                onChange={setLetter}
-                ariaLabel={t("book:series.filterByLetterAria")}
-              />
-            }
+            alphabet={{ available: availableLetters, value: letter, onChange: setLetter, ariaLabel: t("book:series.filterByLetterAria") }}
           />
         )}
 

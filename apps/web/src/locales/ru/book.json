@@ -589,6 +589,7 @@
     "view": "Вид",
     "densityComfortable": "Просторно",
     "densityCompact": "Компактно",
+    "densityLarge": "Крупно",
     "combobox": {
       "removeAria": "Убрать «{{name}}»",
       "addNew": "Добавить «{{name}}»"

@@ -164,7 +164,10 @@
     "label": "Filter by letter",
     "scripts": "Alphabet",
     "all": "All",
-    "other": "Starting with a number or symbol"
+    "other": "Starting with a number or symbol",
+    "short": "A–Z",
+    "showStrip": "Show the letter strip",
+    "hideStrip": "Hide the letter strip"
   },
   "sort": {
     "label": "Sort",

@@ -4,8 +4,8 @@ import i18n from "../../i18n";
 // How the gallery's photo grids look. Both settings sit behind one View control
 // in the browse toolbar, next to Filter and Sort — see GalleryPage.
 //
-// Unlike the book pages' density (an in-session choice, see readCatalogView),
-// these persist in localStorage: how big your photos are and whether they come
+// Like the book pages' cover size (see readCatalogView), these persist in
+// localStorage: how big your photos are and whether they come
 // in dated sections is a standing preference, the way the ebook reader remembers
 // its font size, not something to re-pick on every visit.
 

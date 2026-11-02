@@ -7,7 +7,6 @@ import { DashboardShell } from "../../../app/DashboardShell";
 import { useSession } from "../../../app/SessionContext";
 import { listDownloads, listEbookDownloads } from "../../../offline/downloads";
 import { followRoute, navigate } from "../../../router";
-import { AlphabetBar } from "../../../shared/AlphabetBar";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { cx } from "../../../shared/cx";
 import { LibraryPageHeader } from "../../../shared/LibraryPageHeader";
@@ -482,12 +481,11 @@ export function CatalogPage({ kind }: { kind: CatalogKind }) {
                   </>
                 )
               } : null}
-              // On a phone the strip scrolls sideways instead of wrapping into
+              // A menu on a wide screen, a strip on a phone (and wherever this
+              // browser asked for one). On a phone the strip scrolls sideways instead of wrapping into
               // three rows of tiny targets (library-browse.css): on a screen that
               // shows six books at a time it is the fastest way down a long shelf.
-              strip={
-                <AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel={t(K.letterAria)} />
-              }
+              alphabet={{ available: cat.facets.letters, value: cat.letter, onChange: cat.setLetter, ariaLabel: t(K.letterAria) }}
             />
 
             <FilterChips value={cat.filters} onChange={cat.setFilters} libraries={libraries} />

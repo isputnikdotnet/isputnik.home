@@ -26,14 +26,17 @@ export interface CatalogView {
 // What the toolbar's View menu offers today: how many covers a row holds. A
 // grid/list switch belongs here too, but a list needs a row-shaped card that
 // doesn't exist yet — one column of full-size covers isn't a list view.
-export type CatalogDensity = "comfortable" | "compact";
+// Comfortable is seven covers a row on a wide screen, compact nine, large five.
+export type CatalogDensity = "compact" | "comfortable" | "large";
+const DENSITIES: CatalogDensity[] = ["compact", "comfortable", "large"];
 
 // Built fresh on every call (not a module-level const) so the labels stay
 // reactive to a language switch — same approach as control/nav.ts.
 export function getDensityOptions(): { value: CatalogDensity; label: string }[] {
   return [
+    { value: "compact", label: i18n.t("book:catalog.densityCompact") },
     { value: "comfortable", label: i18n.t("book:catalog.densityComfortable") },
-    { value: "compact", label: i18n.t("book:catalog.densityCompact") }
+    { value: "large", label: i18n.t("book:catalog.densityLarge") }
   ];
 }
 
@@ -44,12 +47,32 @@ const DEFAULT_VIEW: CatalogView = {
 };
 const viewStore = new Map<string, CatalogView>();
 
+// The cover size outlives the session, like the gallery's tile size: it is how
+// this screen is best read, not a passing narrowing of the list.
+const densityKey = (key: string) => `isputnik.coverSize.${key}`;
+
+function storedDensity(key: string): CatalogDensity {
+  try {
+    const value = localStorage.getItem(densityKey(key));
+    return DENSITIES.includes(value as CatalogDensity) ? value as CatalogDensity : DEFAULT_VIEW.density;
+  } catch {
+    return DEFAULT_VIEW.density;
+  }
+}
+
 export function readCatalogView(key: string): CatalogView {
-  return viewStore.get(key) ?? DEFAULT_VIEW;
+  return viewStore.get(key) ?? { ...DEFAULT_VIEW, density: storedDensity(key) };
 }
 
 export function writeCatalogView(key: string, patch: Partial<CatalogView>) {
   viewStore.set(key, { ...readCatalogView(key), ...patch });
+  if (patch.density) {
+    try {
+      localStorage.setItem(densityKey(key), patch.density);
+    } catch {
+      // Private mode: the size lasts for the session, as it used to.
+    }
+  }
 }
 
 export type CatalogScope =

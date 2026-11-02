@@ -101,7 +101,8 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   libraries is a filter facet everywhere, including Gallery (`BookFilters.libraries` /
   `GalleryFilters.libraries`), not a picker in `scope`. Selection
   replaces the tools inside that card — never add a second bar under it. The A–Z
-  strip is `shared/AlphabetBar` over the server's `letters` facet; bucketing
+  index goes in the toolbar's `alphabet` slot (a menu on desktop, the
+  `shared/AlphabetBar` strip on phones or on request) over the server's `letters` facet; bucketing
   lives in `modules/library/shared/alphabet.ts` only.
 - New UI pattern needed? Extend the shared component (prop/variant) in
   `apps/web/src/shared/` first — never inline a one-off.

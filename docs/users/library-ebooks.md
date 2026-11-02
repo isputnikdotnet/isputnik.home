@@ -82,7 +82,7 @@ read the EPUB.
 
 ## Finding things
 
-![The Ebooks page: cover grid, toolbar and the A-Z strip](images/31-ebooks.png)
+![The Ebooks page: cover grid and toolbar](images/31-ebooks.png)
 
 - **Search** covers titles, authors and series.
 - **Filter** (the sliders icon) narrows by author, category, tag, language and
@@ -90,10 +90,13 @@ read the EPUB.
 - **Authors**, **Series** and **Categories** tabs browse the same library other
   ways. Categories are a fixed shelf-like taxonomy the scanner assigns; tags are
   free-form and yours.
-- **A–Z** under the toolbar jumps to titles starting with one letter, with **#**
-  for numbers and symbols and an **English / Русский** switch when the library
-  holds both alphabets. The letter is part of the address, so it survives a
-  reload and can be shared.
+- **A–Z** in the toolbar jumps to titles starting with one letter, with **#**
+  for numbers and symbols and an **EN / RU** switch when the library holds both
+  alphabets. The letter is part of the address, so it survives a reload and can
+  be shared. **Show the letter strip** in that menu keeps the whole alphabet in
+  a row under the toolbar instead (always the case on a phone).
+- **View** sets the cover size — **Compact**, **Comfortable** or **Large** — and
+  this browser remembers it.
 
 ## Taking books with you
 

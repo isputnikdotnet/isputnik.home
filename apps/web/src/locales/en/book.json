@@ -510,6 +510,7 @@
     "view": "View",
     "densityComfortable": "Comfortable",
     "densityCompact": "Compact",
+    "densityLarge": "Large",
     "combobox": {
       "removeAria": "Remove {{name}}",
       "addNew": "Add \"{{name}}\""

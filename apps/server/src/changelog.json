@@ -1,5 +1,16 @@
 [
   {
+    "version": "4.55.0",
+    "label": "A tidier bookshelf",
+    "changes": [
+      "**Library pages sit in the middle of the screen**, like Home and Video, and on a wide window the title, search and every tool share one line.",
+      "**Choose how big the covers are.** View now offers **Compact**, **Comfortable** and **Large** on Audiobooks and Ebooks, and your browser remembers the choice.",
+      "**Every cover is the same square**, for audiobooks, ebooks and video alike, so the libraries line up. A cover of another shape is shown whole over a soft blur of itself.",
+      "**A–Z is a button now.** It opens the alphabet as a small grid, with empty letters greyed out, and shows the letter you picked. **Show the letter strip** at its foot brings the full row back; phones keep the strip as before.",
+      "**The Media menu is a short list of links** with each library's count. The big picture cards stay on Home."
+    ]
+  },
+  {
     "version": "4.54.0",
     "label": "Video like the TV app, and one look for every card",
     "changes": [

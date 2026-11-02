@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.55.0 — A tidier bookshelf
+
+- **Library pages sit in the middle of the screen**, like Home and Video, and on a wide window the title, search and every tool share one line.
+- **Choose how big the covers are.** View now offers **Compact**, **Comfortable** and **Large** on Audiobooks and Ebooks, and your browser remembers the choice.
+- **Every cover is the same square**, for audiobooks, ebooks and video alike, so the libraries line up. A cover of another shape is shown whole over a soft blur of itself.
+- **A–Z is a button now.** It opens the alphabet as a small grid, with empty letters greyed out, and shows the letter you picked. **Show the letter strip** at its foot brings the full row back; phones keep the strip as before.
+- **The Media menu is a short list of links** with each library's count. The big picture cards stay on Home.
+
 ## 4.54.0 — Video like the TV app, and one look for every card
 
 - **Video is laid out like the TV app.** A new **Overview** page leads with a big banner of what you were watching, or else the newest title, with Continue and Episodes or More, over rows of what you left halfway and what's newest in movies and shows. **Shows** and **Movies** open on the same banner, then the sets, then every poster. A title's page has its picture behind the words, and a show has a tab per season over its episodes as picture cards. The video pages sit in the middle of a wide screen, like Home.

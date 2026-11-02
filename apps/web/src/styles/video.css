@@ -15,8 +15,8 @@
 /* The TV app's card: a poster and its name, no frame, a ring when you point at it. */
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 26px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 34px 28px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -38,7 +38,7 @@
   align-content: center;
   gap: 6px;
   width: 100%;
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 10px;
   color: var(--mint);
@@ -153,9 +153,9 @@
 
 .video-row-list {
   display: grid;
-  grid-auto-columns: 170px;
+  grid-auto-columns: 190px;
   grid-auto-flow: column;
-  gap: 18px;
+  gap: 28px;
   margin: 0;
   /* Room for the ring and lift, which the scrolling would otherwise clip. */
   padding: 5px 4px 10px;

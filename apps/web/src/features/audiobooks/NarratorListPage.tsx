@@ -4,7 +4,6 @@ import { LibraryBig, UserPlus, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate, queryParam, replaceQuery } from "../../router";
-import { AlphabetBar } from "../../shared/AlphabetBar";
 import { Button } from "../../shared/Button";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryMenu } from "../../shared/LibraryMenu";
@@ -177,14 +176,7 @@ export function NarratorListPage() {
                 ]}
               />
             }
-            strip={
-              <AlphabetBar
-                available={availableLetters}
-                value={letter}
-                onChange={setLetter}
-                ariaLabel={nameOrder === "last" ? t("book:people.filterByLastLetter") : t("book:people.filterByFirstLetter")}
-              />
-            }
+            alphabet={{ available: availableLetters, value: letter, onChange: setLetter, ariaLabel: nameOrder === "last" ? t("book:people.filterByLastLetter") : t("book:people.filterByFirstLetter") }}
           />
         )}
 

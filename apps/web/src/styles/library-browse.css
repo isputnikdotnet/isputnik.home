@@ -58,6 +58,79 @@ input.library-filter {
   min-width: 0;
 }
 
+/* Browse pages sit in the middle of a wide screen at Home's and Video's width,
+   so a row of covers stays one glance wide. The family map is the exception: a
+   map is better the more of it there is. */
+.audiobook-main-page:not(.ft-map-page) {
+  width: min(100%, 1680px);
+  margin-inline: auto;
+}
+
+/* Title · search · tools on ONE line when the window has room for all three
+   (below that the header and toolbar stack, as they always did). Done here, over
+   LibraryPageHeader and LibraryPageToolbar as siblings, so no page arranges it:
+   the header takes the first column with its search pushed to the far end, so
+   the search sits beside the tools in the second, and
+   everything else spans both. The toolbar drops its card while it is just a row
+   of tools, and gets the card and a line of its own back when it carries a
+   second row; while selecting it keeps the card so it can pin. */
+@media (min-width: 1500px) {
+  .audiobook-main-page:has(> .audiobook-page-header + .library-toolbar:not(.has-strip)) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 10px;
+  }
+
+  .audiobook-main-page:has(> .audiobook-page-header + .library-toolbar:not(.has-strip)) > * {
+    grid-column: 1 / -1;
+  }
+
+  .audiobook-main-page > .audiobook-page-header:has(+ .library-toolbar:not(.has-strip)) {
+    display: flex;
+    grid-column: 1;
+    align-items: center;
+    align-self: center;
+    gap: 24px;
+  }
+
+  .audiobook-page-header:has(+ .library-toolbar:not(.has-strip)) .audiobook-page-title {
+    min-width: 0;
+  }
+
+  .audiobook-page-header:has(+ .library-toolbar:not(.has-strip)) .audiobook-page-actions {
+    width: auto;
+    margin-left: auto;
+    gap: 10px;
+  }
+
+  .audiobook-page-header:has(+ .library-toolbar:not(.has-strip)) .audiobook-page-search {
+    width: clamp(220px, 18vw, 340px);
+  }
+
+  .audiobook-main-page > .audiobook-page-header + .library-toolbar:not(.has-strip) {
+    grid-column: 2;
+    align-self: center;
+  }
+
+  .audiobook-main-page > .audiobook-page-header + .library-toolbar:not(.has-strip, .is-selecting) {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .audiobook-main-page > .audiobook-page-header + .library-toolbar:not(.has-strip) .library-toolbar-row {
+    justify-content: flex-end;
+  }
+
+  .audiobook-main-page > .audiobook-page-header + .library-toolbar:not(.has-strip) .library-toolbar-scope:empty {
+    display: none;
+  }
+
+  .audiobook-main-page:has(> .audiobook-page-header + .library-toolbar:not(.has-strip)) > .audiobook-back-button {
+    justify-self: start;
+  }
+}
+
 .audiobook-page-header {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(540px, auto);
@@ -630,6 +703,91 @@ input.library-filter {
   color: var(--canvas);
 }
 
+/* The A–Z menu (shared/AlphabetBar's AlphabetMenu): the toolbar control, then
+   the same letters laid out as a grid in a popover. A chosen letter is printed
+   on the control in the accent, the way the filter prints its count. */
+.library-toolbar-tools .alphabet-menu-trigger {
+  gap: 4px;
+}
+
+.alphabet-menu-glyph {
+  min-width: 1.6em;
+  text-align: center;
+  font-weight: 700;
+}
+
+.alphabet-menu-trigger.is-filtered {
+  border-color: color-mix(in srgb, var(--mint) 55%, transparent);
+  color: var(--mint);
+}
+
+.alphabet-menu {
+  z-index: var(--z-dropdown);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 14px 38px var(--shadow);
+}
+
+.alphabet-bar.is-grid {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.alphabet-bar.is-grid .alphabet-letters {
+  display: grid;
+  grid-template-columns: repeat(7, 36px);
+  gap: 4px;
+}
+
+.alphabet-bar.is-grid .alphabet-letters button {
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.alphabet-bar.is-grid .alphabet-letters button.is-active {
+  color: var(--canvas);
+}
+
+.alphabet-bar.is-grid .alphabet-all {
+  grid-column: span 2;
+}
+
+.alphabet-menu-strip {
+  padding: 9px 4px 2px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.alphabet-menu-strip:hover {
+  color: var(--ink);
+}
+
+@media (min-width: 741px) {
+  .library-toolbar-strip.is-folded {
+    display: none;
+  }
+}
+
+@media (max-width: 740px) {
+  .library-toolbar-az {
+    display: none;
+  }
+}
+
 /* The script toggle is a mode, not a filter, so it reads as an outlined pair
    rather than another letter. */
 .alphabet-scripts button {
@@ -804,8 +962,12 @@ input.library-filter {
   padding: 10px 0 4px;
 }
 
+/* The View menu's cover sizes, one width for every kind so audiobooks and ebooks
+   line up column for column: at the 1680px page comfortable holds seven covers a
+   row, compact nine, large five; narrower windows simply hold fewer. */
 .audiobook-catalog.grid {
-  grid-template-columns: repeat(auto-fill, minmax(241px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 34px 28px;
 }
 
 .audiobook-catalog.list {
@@ -813,11 +975,14 @@ input.library-filter {
   gap: 12px;
 }
 
-/* The toolbar's View choice: same grid, smaller tiles, so a wide window shows
-   more of the library at once. */
 .audiobook-catalog.grid.compact {
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 26px 20px;
+}
+
+.audiobook-catalog.grid.large {
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 40px 36px;
 }
 
 /* Transparent card: only the cover is a boxed/shadowed tile; the title/author
@@ -883,24 +1048,15 @@ input.library-filter {
     var(--active);
 }
 
-/* Each kind in its own shape: square audiobook art, tall book covers. No frame. */
+/* One square shape for every kind — audiobooks, ebooks, video — so covers line
+   up across the libraries. A cover of another shape is shown whole over a blur
+   of itself (.cover-backdrop). No frame. */
 .audiobook-catalog-card.grid .audiobook-catalog-cover {
   aspect-ratio: 1 / 1;
   border: 0;
 }
 
-.audiobook-catalog-card.grid .audiobook-catalog-cover.is-tall {
-  aspect-ratio: 2 / 3;
-}
 
-/* Tall covers in narrower columns, so a grid of them isn't twice as tall. */
-.audiobook-catalog.grid:has(.audiobook-catalog-cover.is-tall) {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-}
-
-.audiobook-catalog.grid.compact:has(.audiobook-catalog-cover.is-tall) {
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-}
 
 .audiobook-catalog-cover:focus-visible {
   outline: 2px solid var(--mint);
@@ -1346,10 +1502,6 @@ input.library-filter {
   .audiobook-page-search {
     width: 100%;
     min-width: 0;
-  }
-
-  .audiobook-catalog.grid {
-    grid-template-columns: repeat(auto-fill, minmax(207px, 1fr));
   }
 
   .audiobook-catalog-action-row {

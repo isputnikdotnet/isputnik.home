@@ -73,6 +73,65 @@ describe("LibraryPageToolbar", () => {
     expect(container.querySelector(".library-toolbar-strip")).toBeNull();
   });
 
+  describe("with an alphabet", () => {
+    afterEach(() => {
+      localStorage.removeItem("isputnik.alphabetStrip");
+    });
+
+    it("puts the A–Z menu first in the tools, and folds the strip away", () => {
+      const { container } = render(
+        <LibraryPageToolbar tools={tools()} alphabet={{ available: ["A", "D"], value: null, onChange: vi.fn() }} />
+      );
+      const slot = container.querySelector(".library-toolbar-tools") as HTMLElement;
+      expect(within(slot).getAllByRole("button").map((button) => button.textContent)).toEqual(["A–Z", "Filter", "Select"]);
+      // Still rendered for the phone, which always has the strip; folded on a wide screen.
+      expect(container.querySelector(".library-toolbar-strip")).toHaveClass("is-alphabet", "is-folded");
+      expect(card(container)).not.toHaveClass("has-strip");
+    });
+
+    it("picks a letter from the menu and prints it on the button", async () => {
+      const user = userEvent.setup();
+      function Page() {
+        const [letter, setLetter] = useState<string | null>(null);
+        return <LibraryPageToolbar alphabet={{ available: ["A", "D"], value: letter, onChange: setLetter }} />;
+      }
+      const { container } = render(<Page />);
+      const trigger = container.querySelector(".alphabet-menu-trigger") as HTMLElement;
+      await user.click(trigger);
+      const menu = screen.getByRole("dialog", { name: "Filter by letter" });
+      // Letters with nothing behind them stay in place, disabled.
+      expect(within(menu).getByRole("button", { name: "B" })).toBeDisabled();
+      await user.click(within(menu).getByRole("button", { name: "D" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveTextContent("D");
+      expect(trigger).toHaveClass("is-filtered");
+    });
+
+    it("shows the strip when asked, and remembers it", async () => {
+      const user = userEvent.setup();
+      const { container, unmount } = render(
+        <LibraryPageToolbar alphabet={{ available: ["A"], value: null, onChange: vi.fn() }} />
+      );
+      await user.click(container.querySelector(".alphabet-menu-trigger") as HTMLElement);
+      await user.click(screen.getByRole("button", { name: "Show the letter strip" }));
+      expect(card(container)).toHaveClass("has-strip");
+      expect(container.querySelector(".library-toolbar-strip")).not.toHaveClass("is-folded");
+      unmount();
+
+      const again = render(<LibraryPageToolbar alphabet={{ available: ["A"], value: null, onChange: vi.fn() }} />);
+      expect(card(again.container)).toHaveClass("has-strip");
+      await user.click(again.container.querySelector(".alphabet-menu-trigger") as HTMLElement);
+      await user.click(screen.getByRole("button", { name: "Hide the letter strip" }));
+      expect(card(again.container)).not.toHaveClass("has-strip");
+    });
+
+    it("draws no menu while the library has no letters yet", () => {
+      const { container } = render(<LibraryPageToolbar tools={tools()} alphabet={{ available: [], value: null, onChange: vi.fn() }} />);
+      expect(container.querySelector(".alphabet-menu-trigger")).toBeNull();
+      expect(container.querySelector(".library-toolbar-strip")).toBeNull();
+    });
+  });
+
   describe("while selecting", () => {
     it("replaces the tools with the count and the selection's actions, inside the same row", () => {
       const { container } = render(

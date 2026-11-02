@@ -357,17 +357,27 @@ this order:
 
 1. **`shared/LibraryPageHeader`** — title + count, the search box, and the page's
    one primary action. Nothing that filters by facet belongs here.
-2. **`shared/LibraryPageToolbar`** — the card below it, with four slots:
+2. **`shared/LibraryPageToolbar`** — the tools, with five slots:
 
    | Slot | What goes in it |
    |---|---|
    | `scope` | What the page is scoped by, where that isn't a filter: the media-kind toggle on Authors, an album's breadcrumb. Audiobooks leaves it empty — choosing libraries is a filter facet there, not a picker |
    | `tools` | Filter · Sort · View, then `.library-toolbar-divider`, then the acting controls — page-specific actions, Select, and the page's one primary action |
    | `selection` | `{ count, actions }` while multi-selecting |
-   | `strip` | A second row inside the same card; the A–Z index today |
+   | `alphabet` | `{ available, value, onChange, ariaLabel }` — the A–Z index (see below) |
+   | `strip` | A page's own second row (the Inbox's deliveries, Family's tags) |
+
+- **One line from 1500px up.** Where the toolbar directly follows the header,
+  `library-browse.css` lays them out as title · search · tools on one line and
+  the toolbar drops its card; it gets the card and a line of its own back when it
+  has a second row. Pages do nothing for this — keep the header and toolbar
+  adjacent siblings and it happens.
+- **Browse pages are centred at 1680px** (`.audiobook-main-page`, the family map
+  excepted), the width of Home and Video.
 
 - **Controls are labelled, and the label carries state where state is invisible.**
   Sort prints the order it is in (`Recently added`), Filter prints a count badge,
+  A–Z prints the chosen letter,
   View prints its name because the layout is already on screen. Every control is
   a `.library-toolbar-button` (or the filter/sort equivalents), 44px tall, icon +
   `.toolbar-label` + optional chevron; chevrons mean "opens a menu", so Select and
@@ -395,7 +405,11 @@ this order:
 - **Menu contents change per page, the look doesn't.** A page picks which slots
   it fills; it does not arrange its own row. New shared control? Add it to the
   toolbar's CSS block in `styles/library-browse.css`, not to one page.
-- **The A–Z strip is `shared/AlphabetBar`**, fed by the server's `letters` facet.
+- **The A–Z index is `shared/AlphabetBar`**, fed by the server's `letters` facet,
+  and the page hands it to the toolbar's `alphabet` slot rather than drawing
+  it: above the phone breakpoint it is the **A–Z menu** at the head of the tools
+  (`AlphabetMenu`), and the strip under them only when this browser asked for
+  it (`useAlphabetStrip`, from the menu's foot); phones always get the strip.
   Which bucket a title or name falls in is decided once, on the server
   (`modules/library/shared/alphabet.ts` — SQLite's `UPPER()` is ASCII-only, so
   Cyrillic can't be bucketed in SQL); the web only knows which letters each
