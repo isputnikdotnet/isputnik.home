@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.57.2",
+    "label": "Bigger covers on Home",
+    "changes": [
+      "**Home's covers are bigger.** In progress and Recently added grow with the screen — about the size of a cover on the Ebooks page on a wide one — with a little more room between them."
+    ]
+  },
+  {
     "version": "4.57.1",
     "label": "Movies and shows as posters",
     "changes": [

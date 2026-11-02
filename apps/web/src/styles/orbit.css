@@ -953,13 +953,15 @@
   color: var(--mint);
 }
 
-/* One line of whole tiles; the ones that do not fit wrap below the clipped height. */
+/* One line of whole tiles; the ones that do not fit wrap below the clipped height.
+   The covers grow with the screen — about 270px tall on a 1920 window, the size
+   of a cover on the Ebooks page — and never shrink below 190px. */
 .orbit-row {
-  --orbit-cover: 190px;
+  --orbit-cover: clamp(190px, 14vw, 270px);
   display: flex;
   flex-wrap: wrap;
-  gap: 40px 16px;
-  height: calc(var(--orbit-cover) + 52px);
+  gap: 40px 24px;
+  height: calc(var(--orbit-cover) + 56px);
   overflow: hidden;
 }
 
@@ -1022,6 +1024,7 @@
   width: fit-content;
   max-width: 100%;
   background: transparent;
+  box-shadow: 0 10px 22px var(--shadow);
 }
 
 .orbit-tile-cover > img {
@@ -1061,13 +1064,13 @@
 }
 
 .orbit-tile strong {
-  font-size: 0.92rem;
+  font-size: 0.98rem;
   font-weight: 600;
 }
 
 .orbit-tile small {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.84rem;
 }
 
 .orbit-split {

@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.57.2 — Bigger covers on Home
+
+- **Home's covers are bigger.** In progress and Recently added grow with the screen — about the size of a cover on the Ebooks page on a wide one — with a little more room between them.
+
 ## 4.57.1 — Movies and shows as posters
 
 - **Every movie and show is a full poster**, the standard tall shape filling its column, on the Overview, Movies, Shows and a film set's page, so a row of them is even. A title with no poster yet gets a poster-shaped card with its initials instead of a square.
