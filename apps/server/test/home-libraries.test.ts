@@ -83,13 +83,13 @@ describe("the Orbit theme", () => {
     expect(THEME_PREFERENCES).toContain("thanksgiving");
   });
 
-  it("reaches the apps as the nearest theme they know", () => {
+  it("reaches the apps by its own name", () => {
     const headers = identityHeaders(
       { id: "dad", display_name: "Dad", role: "member", language: "en", theme: "orbit" } as never,
       "secret",
       { ip: "127.0.0.1", requestId: "r" }
     );
-    expect(headers["x-isputnik-user-theme"]).toBe("plain-dark");
+    expect(headers["x-isputnik-user-theme"]).toBe("orbit");
   });
 
   it("sends Thanksgiving to the apps the same way", () => {
@@ -98,6 +98,6 @@ describe("the Orbit theme", () => {
       "secret",
       { ip: "127.0.0.1", requestId: "r" }
     );
-    expect(headers["x-isputnik-user-theme"]).toBe("plain-dark");
+    expect(headers["x-isputnik-user-theme"]).toBe("thanksgiving");
   });
 });

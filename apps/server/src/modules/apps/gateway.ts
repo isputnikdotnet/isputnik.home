@@ -45,9 +45,8 @@ export function identityHeaders(user: User, secret: string, forwarded: Forwarded
     "x-isputnik-user-name": encodeURIComponent(user.display_name),
     "x-isputnik-user-role": user.role,
     "x-isputnik-user-lang": user.language,
-    // Games has no Orbit or Thanksgiving of its own yet, and an unknown name would leave it
-    // uncoloured: it gets the nearest one it knows.
-    "x-isputnik-user-theme": user.theme === "orbit" || user.theme === "thanksgiving" ? "plain-dark" : user.theme,
+    // Every theme by its own name: the games wear all of home's, Orbit and Thanksgiving too.
+    "x-isputnik-user-theme": user.theme,
     "x-isputnik-client-ip": forwarded.ip,
     "x-isputnik-request-id": forwarded.requestId
   };

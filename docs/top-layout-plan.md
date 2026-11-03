@@ -52,7 +52,15 @@ change, so existing accounts keep what they chose.
 **Thanksgiving** is an eighth: warm browns, an amber accent, serif headings and an autumn
 lake at sunset, on the same terms as Earth.
 
-Games has neither of its own yet, so the gateway tells it `plain-dark` for now.
+## Games
+
+The games (isputnik.games, behind `/games`) wear this bar too, as their own copy of it
+(`shared/TopBar.tsx` there): Home · **Games ▾** · Family, the control panel, a sound
+switch and the person's menu, over a row of tabs — Overview (the lobby) │ each game. It
+asks home's `/api/setup/status`, `/api/video/status` and `/api/home/libraries` for the
+Media list. A change to this bar wants the same change there. Games carries the Orbit
+and Thanksgiving palettes (not their pictures), so the gateway sends every theme by its
+own name; release a games version with them before a home that sends them.
 
 ## Classic
 
@@ -71,4 +79,3 @@ needs the sidebar itself.
 - Global search in the bar (the shell has none; pages keep their own boxes).
 - Decide whether "Gallery" becomes "Photos" everywhere; the bar says Photos, its page
   title and the phone sheet still say Gallery.
-- Give games these themes and drop the gateway's mapping.

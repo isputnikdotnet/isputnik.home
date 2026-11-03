@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.62.1 — Games in the new look
+
+- **The games wear the new top bar.** Opening Games no longer drops you into a different-looking app: the same bar as everywhere else — Home, **Games** (opening the list of libraries), Family, the control panel and your menu — sits over a row of tabs, the overview first and then every game. Needs **isputnik.games 0.23.0**.
+- **Orbit and Thanksgiving reach the games.** Until now the games showed Plain Dark to anyone on those two themes; they now wear the same colours as the rest of iSputnik.
+
 ## 4.62.0 — Video on one page
 
 - **Films and shows are on one Video page.** The separate Movies and Shows pages are gone: an **All · Movies · Shows** switch at the top narrows everything on the page instead — the banner, Continue watching and the rows of what is new. Movies and Shows were the same list with one filter fixed, and as two pages they could never show the two together.
