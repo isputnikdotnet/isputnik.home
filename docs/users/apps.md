@@ -5,7 +5,7 @@ Some parts of iSputnik run in containers of their own, beside the main app:
 install each one like any other container, then connect it to iSputnik in
 **Control panel → Apps**. This guide is for whoever runs the server.
 
-> **Video is in alpha.** Video libraries, the Shows and Movies pages and the
+> **Video is in alpha.** Video libraries, the Video page and the
 > player are here. MP4 and WebM files a browser plays as they are are sent as
 > they are; the rest are converted while they play — usually just the sound
 > (AC3, DTS and the like become AAC), the picture too when a browser can't show
@@ -223,7 +223,7 @@ building it:
   collection, with its description, poster and order. A set named in an `.nfo`
   always wins over TMDB's.
 
-On **Movies**, a **Sets** row shows every set you can see two or more films of, and
+On the **Video** page, a **Sets** row shows every set you can see two or more films of, and
 **View → Sets** lists them on their own.
 A set's page shows its films in order — by release date, else by year — and one
 **Play** that starts the first film you haven't watched yet. A film's own page

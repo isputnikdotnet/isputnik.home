@@ -9,7 +9,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { SelectMenu } from "../../shared/SelectMenu";
 import { VideoMarksPanel } from "./VideoMarksPanel";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoSubtitleTrack } from "./types";
+import { VIDEO_API, VIDEO_OVERVIEW_HREF, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoSubtitleTrack } from "./types";
 import "../../styles/video.css";
 
 type HlsInstance = import("hls.js").default;
@@ -417,7 +417,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
     return () => window.removeEventListener("keydown", keys);
   }, [skipping, skip, canFullscreen, toggleFullscreen]);
 
-  const back = info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : videoHref("shows");
+  const back = info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : VIDEO_OVERVIEW_HREF;
   const code = info && info.season !== null && info.episode !== null ? t("video.episodeCode", episodeCodeValues(info.season!, info.episode!)) : null;
   const heading = info ? (info.show ? info.show.title : info.title) : "";
   const subheading = info?.show ? [code, info.title].filter(Boolean).join(" · ") : null;

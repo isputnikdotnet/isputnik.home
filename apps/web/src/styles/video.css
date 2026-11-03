@@ -1241,3 +1241,37 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+
+/* All · Movies · Shows on the video page: one switch, the size of the toolbar's
+   other controls, the chosen one filled. */
+.video-kind-tabs {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.video-kind-tabs > button {
+  min-height: 32px;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.video-kind-tabs > button:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.video-kind-tabs > button.active {
+  background: var(--mint);
+  color: var(--canvas);
+}

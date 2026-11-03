@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.62.0 — Video on one page
+
+- **Films and shows are on one Video page.** The separate Movies and Shows pages are gone: an **All · Movies · Shows** switch at the top narrows everything on the page instead — the banner, Continue watching and the rows of what is new. Movies and Shows were the same list with one filter fixed, and as two pages they could never show the two together.
+- **Rows or Grid.** Rows is the page as it was: what you were watching and what is newest. Grid lists every title that matches, films and shows together, sorted by title, year or when it was added. **View all** on a row opens the grid for it, and film sets are a third view.
+- **Filter by library and genre**, several of each. Choosing a filter or searching shows the grid on its own; Rows clears them. The address keeps the switch, view and filters, so a link opens on the same view, and old links to Movies and Shows still land on them.
+- **Recently added means when it arrived**, for films and shows alike, rather than the order the video app happened to store them; titles from before take their files' date.
+- Needs the video engine 0.19.0.
+
 ## 4.61.1 — Chosen backdrops show
 
 - **A backdrop chosen in Fix match now appears.** The video app kept showing the old picture: it never fetched the new one, and the new one would have had the old one's address, which browsers keep for a day. Any picture TMDB changed was stuck the same way.

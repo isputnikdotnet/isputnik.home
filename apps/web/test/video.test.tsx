@@ -31,8 +31,7 @@ vi.mock("../src/api", async (importOriginal) => {
 });
 
 const { api } = await import("../src/api");
-const { VideoHomePage } = await import("../src/features/video/VideoHomePage");
-const { VideoBrowsePage } = await import("../src/features/video/VideoBrowsePage");
+const { VideoHomePage, VideoBrowseRedirect } = await import("../src/features/video/VideoHomePage");
 const { VideoTitlePage } = await import("../src/features/video/VideoTitlePage");
 const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage");
 const { VideoSetPage } = await import("../src/features/video/VideoSetPage");
@@ -201,34 +200,83 @@ describe("a show's seasons", () => {
   });
 });
 
-describe("Shows", () => {
-  it("lists the shows the engine answers with, and offers its libraries as a filter", async () => {
-    mockApi.mockImplementation((async (path: string) => {
-      if (path === "/video/api/libraries") return { libraries: [{ id: "lib_tv", name: "TV", kind: "shows" }, { id: "lib_kids", name: "Kids", kind: "shows" }, { id: "lib_mov", name: "Films", kind: "movies" }] };
-      if (path.startsWith("/video/api/shows")) return shows;
-      throw new Error(`unexpected ${path}`);
-    }) as never);
-    renderSignedIn(<VideoBrowsePage kind="shows" />);
-    expect(await screen.findByText("Counterpart")).toBeInTheDocument();
-    expect(screen.getByText("2017 · 2 seasons · 20 episodes")).toBeInTheDocument();
-    expect(screen.getByText("2 shows")).toBeInTheDocument();
-    expect(mockApi).toHaveBeenCalledWith("/video/api/shows?sort=title&pageSize=200");
+describe("one page for films and shows", () => {
+  const libraries = { libraries: [{ id: "lib_tv", name: "TV", kind: "shows" }, { id: "lib_kids", name: "Kids", kind: "shows" }, { id: "lib_mov", name: "Films", kind: "movies" }] };
+  const titles = {
+    items: [{ kind: "shows", ...shows.items[0] }, { kind: "movies", ...movie, seasons: undefined }],
+    total: 2,
+    page: 1,
+    pageSize: 200
+  };
+  const answer = (over: Record<string, unknown> = {}) => mockApi.mockImplementation((async (path: string) => {
+    if (path in over) return over[path];
+    if (path === "/video/api/libraries") return libraries;
+    if (path.startsWith("/video/api/genres")) return { genres: ["Comedy", "Драма"] };
+    if (path.startsWith("/video/api/titles?")) return titles;
+    if (path === "/video/api/continue") return { items: [] };
+    if (path.startsWith("/video/api/movies?")) return { items: [{ ...movie, seasons: undefined }], total: 1, page: 1, pageSize: 30 };
+    if (path.startsWith("/video/api/shows?")) return shows;
+    if (path.startsWith("/video/api/sets?")) return { items: [], total: 0, page: 1, pageSize: 200 };
+    if (path === "/video/api/movies/m1") return movie;
+    throw new Error(`unexpected ${path}`);
+  }) as never);
+
+  it("narrows its rows to shows with the switch, and keeps it in the address", async () => {
+    answer();
+    renderSignedIn(<VideoHomePage />);
+    expect(await screen.findByRole("heading", { name: "Recently added movies" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Shows" }));
+    expect(screen.queryByRole("heading", { name: "Recently added movies" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Recently added shows" })).toBeInTheDocument();
+    expect(window.location.search).toBe("?kind=shows");
+  });
+
+  it("lists films and shows together in the grid, each linking to its own page", async () => {
+    at("/videos?view=grid");
+    answer();
+    renderSignedIn(<VideoHomePage />);
+    expect(await screen.findByText("2017 · 2 seasons · 20 episodes")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Counterpart/ })).toHaveAttribute("href", "/shows/s1");
+    expect(screen.getByRole("link", { name: /The General/ })).toHaveAttribute("href", "/movies/m1");
+    expect(screen.getByText("2 titles")).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/video/api/titles?pageSize=200&sort=title");
+  });
+
+  it("opens on the kind and genres in the address, and asks the engine for just those", async () => {
+    at("/videos?kind=shows&genres=Comedy,%D0%94%D1%80%D0%B0%D0%BC%D0%B0");
+    answer();
+    renderSignedIn(<VideoHomePage />);
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith(`/video/api/titles?${new URLSearchParams({ pageSize: "200", sort: "title", kind: "shows", genres: "Comedy,Драма" })}`));
+    // A filter shows the grid on its own, with a chip to take it off.
+    fireEvent.click(await screen.findByRole("button", { name: "Comedy" }));
+    expect(window.location.search).toBe(`?kind=shows&genres=${encodeURIComponent("Драма")}`);
+  });
+
+  it("searches the whole catalog when the search settles", async () => {
+    answer();
+    renderSignedIn(<VideoHomePage />);
+    await userEvent.type(await screen.findByPlaceholderText("Search movies and shows"), "rad");
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/video/api/titles?pageSize=200&q=rad&sort=title"));
   });
 
   it("says plainly when the engine cannot answer", async () => {
+    at("/videos?view=grid");
+    answer({ "/video/api/libraries": { libraries: [] } });
     mockApi.mockImplementation((async (path: string) => {
       if (path === "/video/api/libraries") return { libraries: [] };
       throw new Error("The video app did not answer.");
     }) as never);
-    renderSignedIn(<VideoBrowsePage kind="shows" />);
+    renderSignedIn(<VideoHomePage />);
     expect(await screen.findByText("Video is not available right now")).toBeInTheDocument();
   });
 
-  it("asks again when the search settles", async () => {
-    mockApi.mockImplementation((async (path: string) => (path === "/video/api/libraries" ? { libraries: [] } : shows)) as never);
-    renderSignedIn(<VideoBrowsePage kind="shows" />);
-    await userEvent.type(await screen.findByPlaceholderText("Search shows"), "rad");
-    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/video/api/shows?sort=title&pageSize=200&q=rad"));
+  it("sends the old Movies and Shows addresses to the same view on the one page", async () => {
+    at("/movies?view=sets");
+    render(<VideoBrowseRedirect kind="movies" />);
+    await waitFor(() => expect(window.location.pathname + window.location.search).toBe("/videos?kind=movies&view=sets"));
+    at("/shows");
+    render(<VideoBrowseRedirect kind="shows" />);
+    await waitFor(() => expect(window.location.pathname + window.location.search).toBe("/videos?kind=shows&view=grid"));
   });
 });
 
@@ -514,39 +562,46 @@ describe("film sets", () => {
     expect(getRoute()).toEqual({ name: "videoSet", id: "set1" });
   });
 
-  it("switches Movies to its Sets and keeps the choice in the address", async () => {
+  it("switches the films grid to its Sets and keeps the choice in the address", async () => {
+    const film = { kind: "movies", id: "m1", libraryId: "lib", title: "The Matrix", year: 1999, imdbId: null, genres: [], runtimeMinutes: 136 };
     mockApi.mockImplementation((async (path: string) => {
       if (path === "/video/api/libraries") return { libraries: [] };
-      if (path === "/video/api/continue?limit=12" || path.startsWith("/video/api/continue")) return { items: [] };
+      if (path.startsWith("/video/api/genres")) return { genres: [] };
+      if (path.startsWith("/video/api/continue")) return { items: [] };
       if (path.startsWith("/video/api/sets")) return page([summary]);
-      if (path.startsWith("/video/api/movies")) return page([{ id: "m1", libraryId: "lib", title: "The Matrix", year: 1999, imdbId: null, genres: [], runtimeMinutes: 136 }]);
+      if (path.startsWith("/video/api/titles")) return page([film]);
+      if (path.startsWith("/video/api/movies") || path.startsWith("/video/api/shows")) return page([film]);
       throw new Error(`unexpected ${path}`);
     }) as never);
-    at("/movies");
-    renderSignedIn(<VideoBrowsePage kind="movies" />);
+    at("/videos?kind=movies&view=grid");
+    renderSignedIn(<VideoHomePage />);
     expect(await screen.findByText("The Matrix")).toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("button", { name: "View: Films" }));
+    await userEvent.click(await screen.findByRole("button", { name: "View: Grid" }));
     await userEvent.click(screen.getByRole("menuitemradio", { name: "Sets" }));
     expect(await screen.findByText("The Matrix Collection")).toBeInTheDocument();
     expect(screen.getByText("3 films · 1999–2003")).toBeInTheDocument();
     expect(screen.getByText("1 set")).toBeInTheDocument();
-    expect(window.location.search).toBe("?view=sets");
+    expect(window.location.search).toBe("?kind=movies&view=sets");
     expect(mockApi).toHaveBeenCalledWith("/video/api/sets?pageSize=200");
     // Sets are by name: no Sort while they show.
     expect(screen.queryByRole("button", { name: /^Sort:/ })).not.toBeInTheDocument();
   });
 
-  it("offers no View where there are no sets, as with an engine from before them", async () => {
+  it("offers no Sets view where there are none, as with an engine from before them", async () => {
     mockApi.mockImplementation((async (path: string) => {
       if (path === "/video/api/libraries") return { libraries: [] };
+      if (path.startsWith("/video/api/genres")) return { genres: [] };
       if (path.startsWith("/video/api/continue")) return { items: [] };
       if (path.startsWith("/video/api/sets")) throw new Error("Not Found");
-      if (path.startsWith("/video/api/movies")) return page([]);
+      if (path.startsWith("/video/api/movies") || path.startsWith("/video/api/shows")) return page([]);
       throw new Error(`unexpected ${path}`);
     }) as never);
-    renderSignedIn(<VideoBrowsePage kind="movies" />);
+    at("/videos?kind=movies");
+    renderSignedIn(<VideoHomePage />);
     expect(await screen.findByText("Nothing here yet")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^View:/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "View: Rows" }));
+    expect(screen.getByRole("menuitemradio", { name: "Grid" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitemradio", { name: "Sets" })).not.toBeInTheDocument();
   });
 
   it("plays on from the first film not yet watched, and lists the films in order", async () => {
@@ -559,7 +614,7 @@ describe("film sets", () => {
     // A card with no picture says its name inside itself rather than under it.
     expect(screen.getAllByRole("listitem").map((item) => item.querySelector(".video-card-body strong, .video-card-blank strong")?.textContent)).toEqual(["The Matrix", "The Matrix Reloaded", "The Matrix Revolutions"]);
     expect(screen.getByRole("link", { name: /The Matrix Revolutions/ })).toHaveAttribute("href", "/movies/m3");
-    expect(screen.getByRole("link", { name: "Sets" })).toHaveAttribute("href", "/movies?view=sets");
+    expect(screen.getByRole("link", { name: "Sets" })).toHaveAttribute("href", "/videos?kind=movies&view=sets");
   });
 
   it("says so when every film of the set is watched", async () => {

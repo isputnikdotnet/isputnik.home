@@ -11,7 +11,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatDate } from "../../shared/dates";
 import { FixMatchModal } from "./FixMatchModal";
 import { VideoSectionNav } from "./VideoSectionNav";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
+import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoBrowseHref, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
 
 // One show — its seasons and episodes — or one movie, as the video engine
@@ -26,7 +26,7 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const [error, setError] = useState("");
   const [fixing, setFixing] = useState(false);
   const { user } = useSession();
-  const back = videoHref(kind);
+  const back = videoBrowseHref(kind);
 
   useEffect(() => {
     let live = true;
@@ -58,7 +58,7 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
     : "";
 
   return (
-    <DashboardShell active="video" sideNav={<VideoSectionNav activeKey={kind} />}>
+    <DashboardShell active="video" sideNav={<VideoSectionNav />}>
       <section className="audiobook-main-page video-page video-title-page">
         {title?.backdrop && (
           <div className="video-title-backdrop" aria-hidden="true">

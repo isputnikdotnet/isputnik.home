@@ -119,7 +119,7 @@ An administrator can revoke anyone's link — for a lost or given-away device �
   the rule refuses it — set the rule to *Trusted networks only* or *Anywhere*.
 - **Who may use Stremio** is who may use Video (**Security → App access**), and
   which libraries each person sees is each library's own access, as for the
-  Shows and Movies pages.
+  Video page.
 - **Converted streams** count towards **Settings → Video → Converting video**,
   like the browser player's.
 - **Every install is its own add-on**, named and numbered after this server, so

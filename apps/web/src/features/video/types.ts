@@ -48,6 +48,11 @@ export interface VideoMovieSummary extends VideoArt {
   runtimeMinutes: number | null;
 }
 
+/** A card of the one list of films and shows (engine 0.19.0+), saying which it is. */
+export type VideoTitleSummary =
+  | (VideoMovieSummary & { kind: "movies" })
+  | (VideoShowSummary & { kind: "shows" });
+
 export interface VideoPage<T> {
   items: T[];
   total: number;
@@ -281,9 +286,15 @@ export const VIDEO_API = "/video/api";
 /** Video's front page. Not under /video: that address belongs to the engine. */
 export const VIDEO_OVERVIEW_HREF = "/videos";
 
-export function videoHref(kind: VideoKind, id?: string): string {
-  const base = kind === "shows" ? "/shows" : "/movies";
-  return id ? `${base}/${encodeURIComponent(id)}` : base;
+/** A show's or film's page. */
+export function videoHref(kind: VideoKind, id: string): string {
+  return `${kind === "shows" ? "/shows" : "/movies"}/${encodeURIComponent(id)}`;
+}
+
+/** The video page narrowed to one kind, as a grid or (films) as sets: what the
+ *  Movies and Shows pages were before there was one page. */
+export function videoBrowseHref(kind: VideoKind, view: "grid" | "sets" = "grid"): string {
+  return `${VIDEO_OVERVIEW_HREF}?kind=${kind}&view=${view}`;
 }
 
 /** A film set's page: under /movies, two segments so it never reads as a film. */

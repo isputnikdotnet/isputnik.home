@@ -413,6 +413,7 @@ export type Route =
   /** Video (docs/video-architecture.md): pages of this app over the video
    *  engine's catalog. Never under /video — that prefix is the engine's. */
   | { name: "videoHome" }
+  /** /shows and /movies: the video page narrowed to one kind, at its own address. */
   | { name: "videoBrowse"; kind: "shows" | "movies" }
   | { name: "videoTitle"; kind: "shows" | "movies"; id: string }
   | { name: "videoSet"; id: string }

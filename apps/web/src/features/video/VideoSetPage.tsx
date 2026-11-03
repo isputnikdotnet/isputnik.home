@@ -7,11 +7,11 @@ import { followBack, followRoute } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { PosterGrid } from "./VideoPoster";
 import { VideoSectionNav } from "./VideoSectionNav";
-import { VIDEO_API, formatPlayTime, progressFraction, videoHref, watchHref, yearSpan, type VideoSet } from "./types";
+import { VIDEO_API, formatPlayTime, progressFraction, videoBrowseHref, videoHref, watchHref, yearSpan, type VideoSet } from "./types";
 import "../../styles/video.css";
 
 /** Where Back goes: the Movies page on its Sets view. */
-const SETS_HREF = `${videoHref("movies")}?view=sets`;
+const SETS_HREF = videoBrowseHref("movies", "sets");
 
 // One film set (docs/video-sets-plan.md): films that belong together, in order —
 // TMDB's release dates, else the years — with one Play that starts the first
@@ -49,7 +49,7 @@ export function VideoSetPage({ id }: { id: string }) {
     : "";
 
   return (
-    <DashboardShell active="video" sideNav={<VideoSectionNav activeKey="movies" />}>
+    <DashboardShell active="video" sideNav={<VideoSectionNav />}>
       <section className="audiobook-main-page video-page video-title-page">
         {set?.backdrop && (
           <div className="video-title-backdrop" aria-hidden="true">
