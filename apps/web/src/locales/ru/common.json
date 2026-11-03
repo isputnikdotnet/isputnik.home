@@ -925,6 +925,7 @@
     "continueLeft": "Осталось {{time}}",
     "upNextShort": "следующая",
     "skipIntro": "Пропустить заставку",
+    "skipRecap": "Пропустить «Ранее»",
     "fullscreen": "Во весь экран",
     "fullscreenLeave": "Выйти из полноэкранного режима",
     "marks": {
@@ -935,6 +936,9 @@
       "scopeSeason": "Весь {{season}}-й сезон",
       "scopeEpisode": "Только эта серия",
       "intro": "Заставка",
+      "recap": "«Ранее в сериале»",
+      "recapNone": "Не отмечено · всегда только для этой серии",
+      "saveRecap": "Сохранить «Ранее»",
       "credits": "Титры",
       "starts": "Начало",
       "ends": "Конец",

@@ -948,6 +948,10 @@
   background: var(--gold);
 }
 
+.video-marks-band.is-recap {
+  background: var(--rose);
+}
+
 .video-marks-band.is-credits {
   background: var(--accent);
 }

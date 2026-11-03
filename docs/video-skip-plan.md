@@ -234,6 +234,65 @@ too**.
   intros and correctly no credits, Ералаш S1 22/25 intros (two with another opening
   and one more left unmarked) and 21/25 closing tunes.
 
+## Recaps ("Previously on") — spike 2026-11-02
+
+Counterpart has one in every episode after the first: the rating card, "Starz
+Originals presents", a **Previously on** card (~0:18), then about a minute of clips,
+a cut to black, the cold open. Scripts `k3/recap.mts` (sound) and `k3/recap-pic.mjs`,
+`k3/recap-season.mjs` (picture) in the session scratchpad.
+
+- **By sound: no.** The start of each season 2 episode against the whole sound of
+  the episodes before it: no clip matches better than chance. The recap is re-cut
+  and its music laid anew, so its sound is not the scenes' sound.
+- **By picture: mostly.** Frames at 4 fps, 32×18 grey, each minus its own mean;
+  a run of 4+ frames matching consecutive frames of an earlier episode is a piece
+  of it. Season 2, each episode against the two before it:
+
+  | Episode | Found | Notes |
+  |---|---|---|
+  | E03, E04, E05, E07, E09, E10 | 0:19–0:24 → 1:12–1:59, 24–42 pieces | E05 checked frame by frame: 0:29–1:19, end on the cut to black |
+  | E01 | broken off at 0:28 | its clips are from season 1 episodes not compared with; a 22 s gap ended the span |
+  | E02 | 0:22 → 0:36, more from 0:50 | gap too strict again |
+  | E06, E08 | starts 0:31 / 0:36 | likely late: their first clips are from older episodes |
+
+  The shared opening (everything matching an earlier episode's own first 30 s)
+  must be left out, or the rating card is "the recap". Pieces later on (2:39, 2:47)
+  are a cold open picking up the last episode's final scene, not a recap.
+- **What it would need to be reliable:** the recap starting where the shared
+  "Previously on" card ends (the start is then never late), comparing with every
+  earlier episode of the season (and the last of the season before, for a
+  premiere), and gaps up to ~25 s inside it.
+- **Cost:** decoding a whole episode's picture is ~65 s off the NAS, once per
+  episode; its frames then keep small (a 64-bit hash each, ~100 KB an episode).
+  About as much again as the intro pass.
+
+Marking a recap by hand works whatever is decided: a third kind next to intro and
+credits, **Skip recap** in the player, chapters named *Recap / Previously on / Ранее
+/ В предыдущих сериях*. A season mark makes no sense for it (each recap is its own
+length), so it is per episode only.
+
+### As built (2026-11-02, engine 0.17.0, home 4.60.0)
+
+- **By hand**: `markers.kind` takes `'recap'` (episode scope only; a season scope is
+  refused). An older `markers` table can't have its CHECK widened in place, so
+  `db.ts` renames it, lets `schema.sql` make the new one and copies the rows, in one
+  transaction. Chapters named as above count; an `.edl` gives no recap (a stretch
+  there can't be told from an intro). The panel has a Recap row above the
+  season/episode tabs; the player's Skip button says Skip recap or Skip intro, and
+  **S** does either.
+- **Found**: `picture_prints` keeps each episode's picture as 64-bit dHashes (9×8
+  grey, 4 fps, ~100 KB an episode), decoded once with two threads and B frames
+  skipped (~80 s an episode off the NAS; with all frames it was ~150 s). An
+  episode's first 4 minutes are matched against every earlier episode of its season
+  (a premiere: the last two of the season before); a piece is 4+ frames within 6
+  bits of consecutive frames there. Pieces matching an earlier episode's own first
+  30 s are the shared opening; the recap runs from where that ends through pieces
+  ≤ 25 s apart, at least 5 of them, never into the intro. Columns `recap_start`,
+  `recap_end`, `recap_checked` on `detected_markers`: a season from 0.16 is looked
+  at once more for its recaps.
+- Closing the engine now waits for its own ffprobe runs (`MediaProbe.idle()`):
+  one left reading a file kept Windows from deleting it.
+
 ## Phases
 
 | Phase | Where | What |

@@ -655,7 +655,8 @@ describe("skipping the intro and the credits", () => {
     expect(screen.getByRole("tab", { name: "Whole season 1" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "Save credits" })).toBeDisabled();
     playerAt(2250.54);
-    await userEvent.click(screen.getAllByRole("button", { name: "Here" })[2]);
+    // Recap start, recap end, intro start, intro end, credits start.
+    await userEvent.click(screen.getAllByRole("button", { name: "Here" })[4]);
     await userEvent.click(screen.getByRole("button", { name: "Save credits" }));
     expect(await screen.findByText("Marked for season 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear mark" })).toBeInTheDocument();
@@ -676,6 +677,40 @@ describe("skipping the intro and the credits", () => {
     expect(await screen.findByText("Looking again")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledWith("/video/api/admin/markers/e2/detect", { method: "POST" });
     expect(screen.getByRole("button", { name: "Find again" })).toBeDisabled();
+  });
+
+  it("offers Skip recap while the recap plays, then Skip intro, each going to its own end", async () => {
+    mockApi.mockResolvedValue({ ...info, markers: { ...info.markers, recap: { start: 20, end: 55, source: "detected" } } });
+    renderSignedIn(<VideoPlayerPage id="e2" />);
+    await screen.findByRole("heading", { name: "Counterpart" });
+    const element = playerAt(25);
+    await userEvent.click(screen.getByRole("button", { name: "Skip recap" }));
+    expect(element.currentTime).toBe(55);
+    playerAt(70);
+    expect(screen.getByRole("button", { name: "Skip intro" })).toBeInTheDocument();
+    playerAt(30);
+    fireEvent.keyDown(window, { code: "KeyS", key: "s" });
+    expect(element.currentTime).toBe(55);
+  });
+
+  it("marks a recap for this episode only, whatever the tabs say", async () => {
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === "/video/api/admin/markers/e2") {
+        expect(JSON.parse(String(init?.body))).toEqual({ kind: "recap", scope: "episode", start: 20, end: 61.5 });
+        return { markers: { ...info.markers, recap: { start: 20, end: 61.5, source: "manual", scope: "episode" } } };
+      }
+      return info;
+    });
+    renderSignedIn(<VideoPlayerPage id="e2" />, { user: { id: "a1", role: "admin" } as never });
+    await screen.findByRole("heading", { name: "Counterpart" });
+    await userEvent.click(screen.getByRole("button", { name: "Mark intro" }));
+    expect(screen.getByRole("tab", { name: "Whole season 1" })).toHaveAttribute("aria-selected", "true");
+    playerAt(20);
+    await userEvent.click(screen.getAllByRole("button", { name: "Here" })[0]);
+    playerAt(61.5);
+    await userEvent.click(screen.getAllByRole("button", { name: "Here" })[1]);
+    await userEvent.click(screen.getByRole("button", { name: "Save recap" }));
+    expect(await screen.findByText("Marked for this episode")).toBeInTheDocument();
   });
 
   it("offers marking to admins only", async () => {

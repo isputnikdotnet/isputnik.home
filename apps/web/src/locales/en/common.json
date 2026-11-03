@@ -847,6 +847,7 @@
     "continueLeft": "{{time}} left",
     "upNextShort": "next",
     "skipIntro": "Skip intro",
+    "skipRecap": "Skip recap",
     "fullscreen": "Full screen",
     "fullscreenLeave": "Leave full screen",
     "marks": {
@@ -857,6 +858,9 @@
       "scopeSeason": "Whole season {{season}}",
       "scopeEpisode": "This episode only",
       "intro": "Intro",
+      "recap": "Recap",
+      "recapNone": "Not marked · always this episode only",
+      "saveRecap": "Save recap",
       "credits": "Credits",
       "starts": "Starts",
       "ends": "Ends",

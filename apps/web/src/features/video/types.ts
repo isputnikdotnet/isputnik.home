@@ -148,6 +148,8 @@ export type VideoMarkScope = "episode" | "season";
 export type VideoMarkerSource = "manual" | "edl" | "chapter" | "detected";
 
 export interface VideoMarkers {
+  /** "Previously on" (engine 0.17.0+): always an episode's own. */
+  recap?: { start: number; end: number; source: VideoMarkerSource; scope?: VideoMarkScope } | null;
   intro: { start: number; end: number; source: VideoMarkerSource; scope?: VideoMarkScope } | null;
   credits: { start: number; source: VideoMarkerSource; scope?: VideoMarkScope } | null;
 }

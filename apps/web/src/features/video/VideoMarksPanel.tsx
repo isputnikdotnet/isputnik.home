@@ -6,7 +6,8 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { VIDEO_API, formatPlayTime, type VideoMarkScope, type VideoMarkers, type VideoPlayInfo } from "./types";
 
-type Kind = "intro" | "credits";
+type Kind = "recap" | "intro" | "credits";
+type Range = { start: number | null; end: number | null };
 
 /** Tenths of a second are as close as anyone marks by eye. */
 const tenths = (seconds: number) => Math.round(seconds * 10) / 10;
@@ -24,13 +25,13 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const markers = info.markers ?? { intro: null, credits: null };
+  const markers: VideoMarkers = { recap: null, intro: null, credits: null, ...info.markers };
   const isEpisode = info.type === "episode" && info.show !== null && info.season !== null;
   const [scope, setScope] = useState<VideoMarkScope>(
     isEpisode && markers.intro?.scope !== "episode" && markers.credits?.scope !== "episode" ? "season" : "episode"
   );
-  const [introStart, setIntroStart] = useState<number | null>(markers.intro?.start ?? null);
-  const [introEnd, setIntroEnd] = useState<number | null>(markers.intro?.end ?? null);
+  const [recap, setRecap] = useState<Range>({ start: markers.recap?.start ?? null, end: markers.recap?.end ?? null });
+  const [intro, setIntro] = useState<Range>({ start: markers.intro?.start ?? null, end: markers.intro?.end ?? null });
   const [creditsStart, setCreditsStart] = useState<number | null>(markers.credits?.start ?? null);
   const [saving, setSaving] = useState<Kind | "detect" | null>(null);
   const [error, setError] = useState("");
@@ -90,7 +91,6 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
     }
   };
 
-  const introReady =introStart !== null && introEnd !== null && introEnd > introStart;
   const band = (from: number, to: number) => duration > 0
     ? { left: `${(from / duration) * 100}%`, width: `${(Math.max(0, Math.min(to, duration) - from) / duration) * 100}%` }
     : undefined;
@@ -102,6 +102,42 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
     return marker.scope === "season" ? t("video.marks.bySeason", { season: info.season ?? 0 }) : t(isEpisode ? "video.marks.byEpisode" : "video.marks.byFilm");
   };
   const time = (at: number | null) => (at === null ? "—" : formatPlayTime(at));
+
+  /** A stretch with a start and an end: the recap or the intro. */
+  const rangeRow = (kind: "recap" | "intro", draft: Range, setDraft: (next: Range) => void, saveScope: VideoMarkScope) => {
+    const marker = markers[kind];
+    const ready = draft.start !== null && draft.end !== null && draft.end > draft.start;
+    return (
+      <div className="video-marks-row">
+        <div className="video-marks-label">
+          <strong>{t(kind === "recap" ? "video.marks.recap" : "video.marks.intro")}</strong>
+          <small className="muted">{marker ? sourceLabel(marker) : t(kind === "recap" ? "video.marks.recapNone" : "video.marks.none")}</small>
+        </div>
+        <div className="video-marks-times">
+          <span>
+            {t("video.marks.starts")}{" "}
+            <Button variant="text" disabled={draft.start === null} title={t("video.marks.goTo")} onClick={() => seek(draft.start)}>{time(draft.start)}</Button>
+            <Button variant="secondary" compact onClick={() => setDraft({ ...draft, start: here() })}>{t("video.marks.here")}</Button>
+          </span>
+          <span>
+            {t("video.marks.ends")}{" "}
+            <Button variant="text" disabled={draft.end === null} title={t("video.marks.goTo")} onClick={() => seek(draft.end)}>{time(draft.end)}</Button>
+            <Button variant="secondary" compact onClick={() => setDraft({ ...draft, end: here() })}>{t("video.marks.here")}</Button>
+          </span>
+        </div>
+        <div className="video-marks-actions">
+          {marker?.source === "manual" && (
+            <Button variant="text" disabled={saving !== null} onClick={() => void send(kind, { scope: marker.scope ?? "episode", start: null })}>
+              {t("video.marks.clear")}
+            </Button>
+          )}
+          <Button variant="primary" compact disabled={!ready || saving !== null} onClick={() => void send(kind, { scope: saveScope, start: draft.start, end: draft.end })}>
+            {saving === kind ? t("video.marks.saving") : t(kind === "recap" ? "video.marks.saveRecap" : "video.marks.saveIntro")}
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <section className="video-marks" aria-label={t("video.marks.title")}>
@@ -115,10 +151,14 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
 
       {/* The marks as they now stand, over the length of the film. */}
       <div className="video-marks-timeline" aria-hidden="true">
+        {markers.recap && <span className="video-marks-band is-recap" style={band(markers.recap.start, markers.recap.end)} />}
         {markers.intro && <span className="video-marks-band is-intro" style={band(markers.intro.start, markers.intro.end)} />}
         {markers.credits && <span className="video-marks-band is-credits" style={band(markers.credits.start, duration)} />}
         {duration > 0 && <span className="video-marks-now" style={{ left: `${(position / duration) * 100}%` }} />}
       </div>
+
+      {/* A recap is each episode's own length: never a season's mark. */}
+      {isEpisode && rangeRow("recap", recap, setRecap, "episode")}
 
       {isEpisode && (
         <div className="video-marks-scope" role="tablist" aria-label={t("video.marks.scopeLabel")}>
@@ -131,34 +171,7 @@ export function VideoMarksPanel({ info, video, onSeek, onMarkers, onClose }: {
         </div>
       )}
 
-      <div className="video-marks-row">
-        <div className="video-marks-label">
-          <strong>{t("video.marks.intro")}</strong>
-          <small className="muted">{sourceLabel(markers.intro)}</small>
-        </div>
-        <div className="video-marks-times">
-          <span>
-            {t("video.marks.starts")}{" "}
-            <Button variant="text" disabled={introStart === null} title={t("video.marks.goTo")} onClick={() => seek(introStart)}>{time(introStart)}</Button>
-            <Button variant="secondary" compact onClick={() => setIntroStart(here())}>{t("video.marks.here")}</Button>
-          </span>
-          <span>
-            {t("video.marks.ends")}{" "}
-            <Button variant="text" disabled={introEnd === null} title={t("video.marks.goTo")} onClick={() => seek(introEnd)}>{time(introEnd)}</Button>
-            <Button variant="secondary" compact onClick={() => setIntroEnd(here())}>{t("video.marks.here")}</Button>
-          </span>
-        </div>
-        <div className="video-marks-actions">
-          {markers.intro?.source === "manual" && (
-            <Button variant="text" disabled={saving !== null} onClick={() => void send("intro", { scope: markers.intro!.scope ?? "episode", start: null })}>
-              {t("video.marks.clear")}
-            </Button>
-          )}
-          <Button variant="primary" compact disabled={!introReady || saving !== null} onClick={() => void send("intro", { scope, start: introStart, end: introEnd })}>
-            {saving === "intro" ? t("video.marks.saving") : t("video.marks.saveIntro")}
-          </Button>
-        </div>
-      </div>
+      {rangeRow("intro", intro, setIntro, scope)}
 
       <div className="video-marks-row">
         <div className="video-marks-label">

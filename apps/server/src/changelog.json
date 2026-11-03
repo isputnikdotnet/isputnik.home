@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.60.0",
+    "label": "Skip the recap",
+    "changes": [
+      "**Skip recap.** While a show's \"Previously on\" plays, the player offers **Skip recap**, as it offers Skip intro after it; **S** skips either. The video app finds recaps by picture — their clips are the earlier episodes' own frames — comparing the start of each episode with the episodes before it. That reads each episode's picture once, so a season takes about 15 minutes the first time. Chapters named Recap or Previously on count too, and an admin can mark one in the marking panel's new **Recap** row, always for that episode alone. Needs the video engine 0.17.0."
+    ]
+  },
+  {
     "version": "4.59.0",
     "label": "Intros and credits found by themselves",
     "changes": [

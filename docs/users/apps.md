@@ -231,7 +231,8 @@ on the next metadata pass, which follows every scan.
 
 ## Skipping intros and credits
 
-While a show's intro plays, the player offers **Skip intro** (or press **S**). When
+While a show's "Previously on" recap plays, the player offers **Skip recap**, and
+while its intro plays, **Skip intro** (**S** does either). When
 the credits start, the card for the next episode, or the next film of a set, comes
 up with its countdown; **Cancel** lets the credits play on, and pausing stops the
 countdown too. A film with nothing after it shows no card, and counts as watched
@@ -247,9 +248,12 @@ The player knows where they are from, in this order:
   open that moves it. An episode's own mark wins over its season's. The coloured
   bar shows the marks as they stand, and **Clear mark** puts back what the files
   say, or what the video app found. Mark only where what it found is wrong.
+  A **Recap** is marked the same way, but always for that episode alone: every
+  recap is its own length.
 - **Chapters inside the file**, by name: *Intro, Opening, OP, Opening Credits,
-  Вступление, Заставка, Начальные титры* and *Credits, End Credits, Ending, ED,
-  Outro, Титры, Финальные титры*. Unnamed chapters say nothing.
+  Вступление, Заставка, Начальные титры*; *Credits, End Credits, Ending, ED,
+  Outro, Титры, Финальные титры*; and *Recap, Previously on, Ранее, В предыдущих
+  сериях*. Unnamed chapters say nothing.
 - **An `.edl` file beside the video**, named like it (`Episode.edl`), which Kodi
   reads too and intro-skipper tools can write. Each line is `start end action`, in
   seconds or `h:mm:ss`, with action `0` or `3`. A stretch starting in the first
@@ -267,11 +271,14 @@ The player knows where they are from, in this order:
   share, wherever each episode puts it after its cold open; it needs three or more
   episodes, and an episode whose opening differs from the rest is left unmarked
   rather than marked wrong. The **credits** are where the picture turns to text on
-  black near the end (films too), or a closing tune the episodes share. The panel
-  says **Found automatically** for these; **Find again** looks at the season (or
-  film) afresh, which takes a few minutes. A season takes about four minutes the
-  first time, so a large library is a while being covered; it is looked at once,
-  and again only when its files change.
+  black near the end (films too), or a closing tune the episodes share. A
+  **recap** is found by picture: its clips are the earlier episodes' own frames,
+  so the start of each episode is compared with every episode before it that
+  season (a premiere with the end of the season before). The panel says **Found
+  automatically** for these; **Find again** looks at the season (or film) afresh.
+  A season takes about 15 minutes the first time, most of it reading each
+  episode's picture once, so a large library is a while being covered; it is
+  looked at once, and again only when its files change.
 
 An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
 Files where nothing is known play as before.

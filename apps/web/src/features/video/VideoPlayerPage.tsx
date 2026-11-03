@@ -133,7 +133,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
   const [resumedAt, setResumedAt] = useState(0);
   const [nextIn, setNextIn] = useState<number | null>(null);
   const [preparing, setPreparing] = useState(false);
-  const [inIntro, setInIntro] = useState(false);
+  /** The recap or intro playing now, which Skip passes over. */
+  const [skipping, setSkipping] = useState<"recap" | "intro" | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   /** The subtitle shown: a track id, or "off". */
   const [subtitle, setSubtitle] = useState<string>(SUBTITLES_OFF);
@@ -158,7 +159,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
     setNextIn(null);
     setPreparing(false);
     setSubtitle(SUBTITLES_OFF);
-    setInIntro(false);
+    setSkipping(null);
     creditsOffered.current = false;
     lastSaved.current = 0;
     const playUrl = `${VIDEO_API}/play/${encodeURIComponent(id)}`;
@@ -365,11 +366,12 @@ export function VideoPlayerPage({ id }: { id: string }) {
     return () => window.clearTimeout(timer);
   }, [nextIn, info]);
 
-  /** Skip intro while it plays; the end card once the credits start, unless paused there. */
+  /** Skip recap or Skip intro while one plays; the end card once the credits start, unless paused there. */
   const followMarkers = (element: HTMLVideoElement) => {
     const at = element.currentTime;
+    const recap = info?.markers?.recap;
     const intro = info?.markers?.intro;
-    setInIntro(Boolean(intro && at >= intro.start && at < intro.end));
+    setSkipping(recap && at >= recap.start && at < recap.end ? "recap" : intro && at >= intro.start && at < intro.end ? "intro" : null);
     const credits = info?.markers?.credits;
     if (!credits || !info?.next) return;
     if (at < credits.start) {
@@ -385,11 +387,12 @@ export function VideoPlayerPage({ id }: { id: string }) {
     }
   };
 
-  const introEnd = info?.markers?.intro?.end ?? null;
-  const skipIntro = useCallback(() => {
-    if (video.current && introEnd !== null) video.current.currentTime = introEnd;
-    setInIntro(false);
-  }, [introEnd]);
+  /** Where Skip lands: the end of the recap or intro playing. */
+  const skipTo = skipping === null ? null : info?.markers?.[skipping]?.end ?? null;
+  const skip = useCallback(() => {
+    if (video.current && skipTo !== null) video.current.currentTime = skipTo;
+    setSkipping(null);
+  }, [skipTo]);
 
   const canFullscreen = document.fullscreenEnabled === true;
   const toggleFullscreen = useCallback(() => {
@@ -403,16 +406,16 @@ export function VideoPlayerPage({ id }: { id: string }) {
     return () => document.removeEventListener("fullscreenchange", changed);
   }, []);
 
-  // S skips the intro, F is full screen; by the key's place, so a Russian layout's "ы" counts.
+  // S skips the recap or intro, F is full screen; by the key's place, so a Russian layout's "ы" counts.
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
-      if (event.code === "KeyS" && inIntro) skipIntro();
+      if (event.code === "KeyS" && skipping) skip();
       else if (event.code === "KeyF" && canFullscreen) toggleFullscreen();
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [inIntro, skipIntro, canFullscreen, toggleFullscreen]);
+  }, [skipping, skip, canFullscreen, toggleFullscreen]);
 
   const back = info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : videoHref("shows");
   const code = info && info.season !== null && info.episode !== null ? t("video.episodeCode", episodeCodeValues(info.season!, info.episode!)) : null;
@@ -581,10 +584,10 @@ export function VideoPlayerPage({ id }: { id: string }) {
             </Button>
           )}
 
-          {inIntro && nextIn === null && (
-            <Button variant="secondary" className="video-player-skip" onClick={skipIntro}>
+          {skipping && nextIn === null && (
+            <Button variant="secondary" className="video-player-skip" onClick={skip}>
               <SkipForward size={16} aria-hidden="true" />
-              <span>{t("video.skipIntro")}</span>
+              <span>{t(skipping === "recap" ? "video.skipRecap" : "video.skipIntro")}</span>
             </Button>
           )}
 

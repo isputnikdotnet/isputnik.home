@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.60.0 — Skip the recap
+
+- **Skip recap.** While a show's "Previously on" plays, the player offers **Skip recap**, as it offers Skip intro after it; **S** skips either. The video app finds recaps by picture — their clips are the earlier episodes' own frames — comparing the start of each episode with the episodes before it. That reads each episode's picture once, so a season takes about 15 minutes the first time. Chapters named Recap or Previously on count too, and an admin can mark one in the marking panel's new **Recap** row, always for that episode alone. Needs the video engine 0.17.0.
+
 ## 4.59.0 — Intros and credits found by themselves
 
 - **Shows no longer need marking a season at a time.** The video app now finds a show's intro by the stretch of sound its season's episodes share, wherever each episode puts it after its cold open, and the credits where the picture turns to text on black (films too). It looks in the background after each scan, about four minutes a season the first time. An episode whose opening differs from the rest is left alone rather than marked wrong, and your own marks still win. The marking panel says **Found automatically** for these, and **Find again** looks at the season afresh. Needs the video engine 0.16.0.
