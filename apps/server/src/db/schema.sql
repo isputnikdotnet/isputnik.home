@@ -2435,3 +2435,13 @@ CREATE TABLE IF NOT EXISTS story_audio (
 );
 
 CREATE INDEX IF NOT EXISTS idx_story_audio_story ON story_audio(story_id);
+
+-- The video page's rows (docs/video-home-rows-plan.md): what each row asks the
+-- video engine for, as JSON, never the titles themselves. owner '' is the
+-- household's layout; none stored means the default rows.
+CREATE TABLE IF NOT EXISTS video_home_layouts (
+  owner      TEXT PRIMARY KEY,
+  rows       TEXT NOT NULL,
+  updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);

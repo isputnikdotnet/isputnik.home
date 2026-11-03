@@ -130,7 +130,7 @@ engine's id. Their hydrator is async (the batch lookup) where books/photos are s
 | Phase | What | Where |
 |---|---|---|
 | **R1** | One page: kind switch, Filter/Sort/View, Grid over engine `/titles`, redirects from Movies/Shows, single nav entry. *Built 2026-11-03, not yet released: engine `added_at` + `/titles` + `/genres` (next engine 0.19.0); Filter has Libraries and Genres — Year and Watched wait for the engine to filter on them.* | home + engine |
-| **R2** | Row model, `/api/video/home`, household layout, row types Continue / Recently added / Library / Genre, Customize editor, Save as row | home |
+| **R2** | Row model, `/api/video/home`, household layout, row types Continue / Recently added / Library / Genre, Customize editor, Save as row. *Built 2026-11-03. Recently added, Library and Genre are one row type, `titles` (kind, libraries, genres, sort), named from what it asks for; `/api/video/home` returns the rows' questions, not their titles — each screen asks the engine per row through the gateway, as the viewer, so access stays the gateway's (point 5 above, changed).* | home |
 | **R3** | Personal layouts, *Just me / Everyone*, Reset to household | home |
 | **R4** | Video in Collections (async hydrator, engine batch lookup), Collection row, My list | home + engine |
 | **R5** | TV app Home from `/api/video/home` | isputnik.tv |

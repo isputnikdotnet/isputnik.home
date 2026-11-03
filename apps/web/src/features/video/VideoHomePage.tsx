@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Clapperboard, Film, LayoutGrid, Layers, Tv } from "lucide-react";
+import { ChevronRight, Clapperboard, Film, LayoutGrid, LayoutList, Layers, Plus, Tv } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { queryParam, replaceNavigate, replaceQuery } from "../../router";
@@ -10,18 +10,18 @@ import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { SortMenu } from "../../shared/SortMenu";
-import { ContinueWatching } from "./ContinueWatching";
 import { VideoBanner } from "./VideoBanner";
-import { PosterGrid, PosterRow, type PosterItem } from "./VideoPoster";
+import { PosterGrid, type PosterItem } from "./VideoPoster";
+import { VideoRows, setPoster } from "./VideoRows";
+import { VideoRowsEditor } from "./VideoRowsEditor";
 import { VideoSectionNav } from "./VideoSectionNav";
+import { VIDEO_HOME_API, VIDEO_ROWS_MAX, newRowId, rowName, type VideoLayout, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
 import {
-  VIDEO_API, videoBrowseHref, videoHref, videoSetHref, yearSpan,
+  VIDEO_API, videoBrowseHref, videoHref,
   type VideoKind, type VideoLibraryRef, type VideoMovieSummary, type VideoPage, type VideoSetSummary, type VideoShowSummary, type VideoTitleSummary
 } from "./types";
 import "../../styles/video.css";
 
-/** About what a row can show before it has to scroll a long way. */
-const ROW_SIZE = 30;
 /** One page covers a family's whole library; paging comes when one does not. */
 const PAGE_SIZE = 200;
 /** How long typing rests before the search is asked of the engine. */
@@ -44,8 +44,8 @@ const oneOf = <T extends string>(value: string | null, options: readonly T[], fa
 
 // Video's one page (docs/video-home-rows-plan.md): films and shows together, an
 // All · Movies · Shows switch that narrows everything on it, and two views — the
-// rows (banner, Continue watching, what's new) and a grid of every title that
-// matches. A filter or a search is a question about the whole catalog, so it
+// rows the household chose (rows.ts; an admin's Customize and Save as row) under
+// the banner, and a grid of every title that matches. A filter or a search is a question about the whole catalog, so it
 // shows the grid; Rows clears them. All of it lives in the address, so a link
 // opens on the same view (/videos?kind=movies&genres=Comedy).
 export function VideoHomePage() {
@@ -58,8 +58,11 @@ export function VideoHomePage() {
   const [query, setQuery] = useState("");
   const [libraries, setLibraries] = useState<VideoLibraryRef[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
-  const [movies, setMovies] = useState<VideoMovieSummary[] | null>(null);
-  const [shows, setShows] = useState<VideoShowSummary[] | null>(null);
+  const [layout, setLayout] = useState<VideoLayout | null>(null);
+  /** How many titles this person can see at all: none is "Nothing here yet". */
+  const [catalogTotal, setCatalogTotal] = useState<number | null>(null);
+  const [customizing, setCustomizing] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; title: string; body?: string } | null>(null);
   /** The sets this person can see, for their row; Sets in View waits until there is one. */
   const [setRow, setSetRow] = useState<VideoSetSummary[]>([]);
   const [titles, setTitles] = useState<VideoTitleSummary[] | null>(null);
@@ -105,20 +108,18 @@ export function VideoHomePage() {
     return () => { live = false; };
   }, [kind]);
 
-  // The rows: what is newest in each kind. Asked once; the switch only hides them.
+  // The rows the household chose, and whether there is anything to show at all.
+  // Each row then asks the engine for its own titles (VideoRows).
   useEffect(() => {
     let live = true;
-    const newest = <T,>(of: VideoKind) => api<VideoPage<T>>(`${VIDEO_API}/${of}?sort=added&pageSize=${ROW_SIZE}`).then((page) => page.items);
-    Promise.all([newest<VideoMovieSummary>("movies"), newest<VideoShowSummary>("shows")])
-      .then(([nextMovies, nextShows]) => {
-        if (!live) return;
-        setMovies(nextMovies);
-        setShows(nextShows);
-      })
+    api<VideoLayout>(VIDEO_HOME_API)
+      .then((next) => { if (live) setLayout(next); })
+      .catch(() => { if (live) setLayout({ rows: [], custom: false, editable: false }); });
+    api<VideoPage<VideoTitleSummary>>(`${VIDEO_API}/titles?pageSize=1`)
+      .then((page) => { if (live) setCatalogTotal(page.total); })
       .catch((err: unknown) => {
         if (!live) return;
-        setMovies([]);
-        setShows([]);
+        setCatalogTotal(0);
         setError(err instanceof Error ? err.message : t("video.loadFailed"));
       });
     return () => { live = false; };
@@ -178,11 +179,32 @@ export function VideoHomePage() {
     }
     setView(next);
   };
-  const openGrid = (of: Kind) => {
-    setKind(of);
-    setSort("added");
-    setView("grid");
+  /** A row's View all: the grid, asking what the row asks. */
+  const openRow = (row: VideoRow, under: VideoRowKind) => {
+    if (row.type === "sets") setView("sets");
+    else if (row.type === "titles") {
+      setKind(under);
+      setSort(row.sort);
+      setFilters({ libraries: row.libraries, genres: row.genres });
+      setView("grid");
+    }
     window.scrollTo({ top: 0 });
+  };
+  /** Save as row: the grid's question, as a row at the end of everyone's page. */
+  const saveAsRow = async () => {
+    if (!layout) return;
+    const row: VideoTitlesRow = { id: newRowId(), type: "titles", kind, libraries: libraryFilter, genres: filters.genres, sort };
+    const name = rowName(row, t, libraryNames);
+    if (layout.rows.length >= VIDEO_ROWS_MAX) {
+      setNotice({ tone: "error", title: t("video.rows.saveFailed"), body: t("video.rows.full", { max: VIDEO_ROWS_MAX }) });
+      return;
+    }
+    try {
+      setLayout(await api<VideoLayout>(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows: [...layout.rows, row] }) }));
+      setNotice({ tone: "success", title: t("video.rows.savedAsRow", { name }) });
+    } catch (err) {
+      setNotice({ tone: "error", title: t("video.rows.saveFailed"), body: err instanceof Error ? err.message : undefined });
+    }
   };
 
   const meta = (item: VideoShowSummary | VideoMovieSummary) => {
@@ -204,21 +226,17 @@ export function VideoHomePage() {
     poster: item.poster,
     icon: of === "shows" ? Tv : Film
   });
-  const year = (item: { year: number | null }) => (item.year ? String(item.year) : null);
-  const setItem = (set: VideoSetSummary): PosterItem => ({
-    key: set.id,
-    href: videoSetHref(set.id),
-    title: set.name,
-    sub: [t("video.films", { count: set.films }), yearSpan(set.firstYear, set.lastYear)].filter(Boolean).join(" · "),
-    poster: set.poster,
-    icon: Layers
-  });
-  const viewAll = (onClick: () => void, href: string) => (
-    <a className="video-row-more" href={href} onClick={(event) => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey) { event.preventDefault(); onClick(); } }}>
-      <span>{t("common.viewAll")}</span>
-      <ChevronRight size={16} aria-hidden="true" />
-    </a>
-  );
+  const setItem = (set: VideoSetSummary) => setPoster(set, t);
+  const viewAll = (row: VideoRow, under: VideoRowKind) => {
+    if (row.type === "continue") return null;
+    const href = row.type === "sets" ? videoBrowseHref("movies", "sets") : rowHref(row, under);
+    return (
+      <a className="video-row-more" href={href} onClick={(event) => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey) { event.preventDefault(); openRow(row, under); } }}>
+        <span>{t("common.viewAll")}</span>
+        <ChevronRight size={16} aria-hidden="true" />
+      </a>
+    );
+  };
 
   const facetOrder: FacetDef<keyof VideoFilters>[] = [
     // A filter that can only mean "everything" isn't one.
@@ -233,7 +251,8 @@ export function VideoHomePage() {
     : kind === "movies" ? t("video.searchMovies") : kind === "shows" ? t("video.searchShows") : t("video.searchTitles");
   const subtitle = shown === "sets" ? t("video.countSets", { count: total })
     : shown === "grid" && titles ? t("video.countTitles", { count: total }) : undefined;
-  const empty = movies !== null && shows !== null && movies.length === 0 && shows.length === 0 && !error;
+  const empty = catalogTotal === 0 && !error;
+  const editable = layout?.editable === true;
 
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav />}>
@@ -292,9 +311,25 @@ export function VideoHomePage() {
                   ...(setsOffered ? [{ value: "sets" as const, label: t("video.viewSets") }] : [])
                 ]}
               />
+              {editable && shown === "grid" && !query && (
+                <Button variant="toolbar" onClick={() => void saveAsRow()}>
+                  <Plus size={18} aria-hidden="true" />
+                  <span>{t("video.rows.saveAsRow")}</span>
+                </Button>
+              )}
+              {editable && shown === "rows" && (
+                <Button variant="toolbar" onClick={() => setCustomizing(true)}>
+                  <LayoutList size={18} aria-hidden="true" />
+                  <span>{t("video.rows.customize")}</span>
+                </Button>
+              )}
             </>
           }
         />
+
+        {notice && (
+          <MessageBox tone={notice.tone} title={notice.title} action={<Button variant="text" onClick={() => setNotice(null)}>{t("common.close")}</Button>}>{notice.body}</MessageBox>
+        )}
 
         <FacetFilterChips
           value={{ libraries: libraryFilter, genres: filters.genres }}
@@ -312,29 +347,7 @@ export function VideoHomePage() {
         ) : (
           <>
             <VideoBanner kinds={kind === "all" ? ["movies", "shows"] : [kind]} />
-            <ContinueWatching only={kind === "shows" ? "episode" : kind === "movies" ? "movie" : undefined} />
-            {kind !== "shows" && (
-              <PosterRow
-                title={t("video.recentMovies")}
-                items={(movies ?? []).map((item) => titleItem("movies", item, year(item)))}
-                action={viewAll(() => openGrid("movies"), videoBrowseHref("movies"))}
-              />
-            )}
-            {kind !== "movies" && (
-              <PosterRow
-                shape="box"
-                title={t("video.recentShows")}
-                items={(shows ?? []).map((item) => titleItem("shows", item, year(item)))}
-                action={viewAll(() => openGrid("shows"), videoBrowseHref("shows"))}
-              />
-            )}
-            {kind !== "shows" && (
-              <PosterRow
-                title={t("video.viewSets")}
-                items={setRow.map(setItem)}
-                action={viewAll(() => { setView("sets"); window.scrollTo({ top: 0 }); }, videoBrowseHref("movies", "sets"))}
-              />
-            )}
+            {layout && <VideoRows rows={layout.rows} kind={kind} libraryNames={libraryNames} sets={setRow} viewAll={viewAll} />}
           </>
         ))}
 
@@ -358,8 +371,29 @@ export function VideoHomePage() {
           <PosterGrid items={(sets ?? []).map(setItem)} />
         ))}
       </section>
+      {customizing && layout && (
+        <VideoRowsEditor
+          layout={layout}
+          libraries={libraries}
+          onClose={() => setCustomizing(false)}
+          onSaved={(next) => {
+            setLayout(next);
+            setCustomizing(false);
+          }}
+        />
+      )}
     </DashboardShell>
   );
+}
+
+/** A row's View all as an address, for a new tab: the grid with the row's question. */
+function rowHref(row: VideoTitlesRow, under: VideoRowKind): string {
+  const params = new URLSearchParams({ view: "grid" });
+  if (under !== "all") params.set("kind", under);
+  if (row.sort !== "title") params.set("sort", row.sort);
+  if (row.libraries.length > 0) params.set("libraries", row.libraries.join(","));
+  if (row.genres.length > 0) params.set("genres", row.genres.join(","));
+  return `/videos?${params}`;
 }
 
 /** /movies and /shows, the pages before there was one: the same view, at its new address. */

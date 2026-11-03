@@ -1275,3 +1275,79 @@
   background: var(--mint);
   color: var(--canvas);
 }
+
+/* Customize on the video page (VideoRowsEditor): the rows in order, each with
+   its move, show/hide, change and remove; then one row's settings in its place. */
+.video-rows-list {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-rows-list > li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.video-rows-list > li.is-hidden .video-rows-text {
+  opacity: 0.6;
+}
+
+.video-rows-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.video-rows-text > span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-row-form {
+  display: grid;
+  gap: 14px;
+}
+
+.video-row-form h3 {
+  margin: 0;
+}
+
+.video-row-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.video-row-checks > legend {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.video-row-checks > p {
+  flex-basis: 100%;
+  margin: 0 0 4px;
+  font-size: 0.86rem;
+}
+
+.video-row-checks > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+}
+

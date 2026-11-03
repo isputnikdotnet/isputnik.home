@@ -12,6 +12,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { getSections } from "../../../core/sections.js";
+import { logActivity } from "../../../db.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
 import { appRole } from "../../apps/access.js";
 import { onAppRestored } from "../../apps/backup.js";
@@ -20,6 +21,7 @@ import { resolveAppSecret } from "../../apps/pairing.js";
 import { appConfigured, appDefinition } from "../../apps/registry.js";
 import { accessibleLibraryIds, canUserAccessLibrary } from "../shared/library-access.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
+import { getVideoLayout, resetVideoLayout, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
 import { notePlayResponse } from "./play-log.js";
 import { registerStremioRoutes, stremioHeaders, stremioTokenUser } from "./stremio.js";
 import {
@@ -98,6 +100,28 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   app.get("/api/video/status", { preHandler: app.authenticate }, async (request) => ({
     enabled: available() && appRole("video", request.user!) !== null
   }));
+
+  // The video page's rows (home-layout.ts): the household's, set by an admin.
+  // Each row's titles are asked of the engine by the screen, as the viewer.
+  app.get("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
+    if (!available() || appRole("video", request.user!) === null) return reply.code(404).send({ error: "Video is not available" });
+    return { ...getVideoLayout(), editable: request.user!.role === "admin" };
+  });
+
+  app.put("/api/video/home", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(videoLayoutSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid video rows", details: parsed.error });
+    const { rows } = videoLayoutSchema.parse(parsed.data);
+    saveVideoLayout(rows, request.user!.id);
+    logActivity({ event: "library.video.rows_saved", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: `Saved the video page's rows for everyone (${rows.length}).`, ipAddress: request.ip });
+    return { ...getVideoLayout(), editable: true };
+  });
+
+  app.delete("/api/video/home", { preHandler: app.requireAdmin }, async (request) => {
+    resetVideoLayout();
+    logActivity({ event: "library.video.rows_reset", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: "Put the video page's rows back to the default.", ipAddress: request.ip });
+    return { ...getVideoLayout(), editable: true };
+  });
 
   // Profile → Security › Stremio, and the administrator's list of links.
   registerStremioRoutes(app, (user) => available() && appRole("video", user) !== null);

@@ -1432,6 +1432,14 @@ export interface UserRow {
   deleted_at: string | null;
 }
 
+/** `video_home_layouts` */
+export interface VideoHomeLayoutRow {
+  owner: string;
+  rows: string;
+  updated_by: string | null;
+  updated_at: string;
+}
+
 /** `webauthn_challenges` */
 export interface WebauthnChallengeRow {
   id: string;
@@ -1587,6 +1595,7 @@ export interface TableRows {
   user_groups: UserGroupRow;
   user_seen_versions: UserSeenVersionRow;
   users: UserRow;
+  video_home_layouts: VideoHomeLayoutRow;
   webauthn_challenges: WebauthnChallengeRow;
   webauthn_credentials: WebauthnCredentialRow;
   work_items: WorkItemRow;

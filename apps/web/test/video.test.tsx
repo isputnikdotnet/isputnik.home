@@ -76,10 +76,34 @@ const shows = {
 
 const movie = { id: "m1", libraryId: "lib_mov", title: "The General", originalTitle: null, year: 1926, plot: "A train.", genres: [], runtimeMinutes: 67, imdbId: null, tmdbId: null, source: "nfo", direct: "yes", progress: null, backdrop: "/video/api/art/m1/backdrop", poster: "/video/api/art/m1/poster" };
 
+/** The rows nobody has changed: what home answers until an admin does. */
+const DEFAULT_ROWS = [
+  { id: "continue", type: "continue" },
+  { id: "new-movies", type: "titles", kind: "movies", libraries: [], genres: [], sort: "added" },
+  { id: "new-shows", type: "titles", kind: "shows", libraries: [], genres: [], sort: "added" },
+  { id: "sets", type: "sets" }
+];
+const homeLayout = (over: Record<string, unknown> = {}) => ({ rows: DEFAULT_ROWS, custom: false, editable: false, ...over });
+
+/** The page's rows: home's layout, and each row's titles from the engine, by the
+ *  kind it asks for. Undefined for anything else. */
+function rowsAnswer(path: string, films: object[], series: object[]) {
+  if (path === "/api/video/home") return homeLayout();
+  if (!path.startsWith("/video/api/titles?")) return undefined;
+  const kind = new URLSearchParams(path.split("?")[1]).get("kind");
+  const items = [
+    ...(kind === "shows" ? [] : films.map((film) => ({ kind: "movies", ...film }))),
+    ...(kind === "movies" ? [] : series.map((show) => ({ kind: "shows", ...show })))
+  ];
+  return { items, total: items.length, page: 1, pageSize: 30 };
+}
+
 describe("the overview", () => {
   const answer = (over: Record<string, unknown> = {}) => mockApi.mockImplementation((async (path: string) => {
     if (path in over) return over[path];
     if (path === "/video/api/continue") return { items: [] };
+    const rows = rowsAnswer(path, [{ ...movie, seasons: undefined }], shows.items);
+    if (rows) return rows;
     if (path.startsWith("/video/api/movies?")) return { items: [{ ...movie, seasons: undefined }], total: 1, page: 1, pageSize: 30 };
     if (path.startsWith("/video/api/shows?")) return shows;
     if (path === "/video/api/movies/m1") return movie;
@@ -136,8 +160,8 @@ describe("the overview", () => {
   it("keeps its rows when the banner cannot be read", async () => {
     mockApi.mockImplementation((async (path: string) => {
       if (path === "/video/api/continue") return { items: [] };
-      if (path.startsWith("/video/api/movies?")) return { items: [{ id: "m1", title: "The General", year: 1926 }], total: 1, page: 1, pageSize: 30 };
-      if (path.startsWith("/video/api/shows?")) return { items: [], total: 0, page: 1, pageSize: 30 };
+      const rows = rowsAnswer(path, [{ id: "m1", title: "The General", year: 1926 }], []);
+      if (rows) return rows;
       throw new Error("The video app did not answer.");
     }) as never);
     renderSignedIn(<VideoHomePage />);
@@ -210,6 +234,7 @@ describe("one page for films and shows", () => {
   };
   const answer = (over: Record<string, unknown> = {}) => mockApi.mockImplementation((async (path: string) => {
     if (path in over) return over[path];
+    if (path === "/api/video/home") return homeLayout();
     if (path === "/video/api/libraries") return libraries;
     if (path.startsWith("/video/api/genres")) return { genres: ["Comedy", "Драма"] };
     if (path.startsWith("/video/api/titles?")) return titles;
@@ -277,6 +302,72 @@ describe("one page for films and shows", () => {
     at("/shows");
     render(<VideoBrowseRedirect kind="shows" />);
     await waitFor(() => expect(window.location.pathname + window.location.search).toBe("/videos?kind=shows&view=grid"));
+  });
+});
+
+describe("the household's rows", () => {
+  const libraries = { libraries: [{ id: "lib_mov", name: "Films", kind: "movies" }, { id: "lib_kids", name: "Kids", kind: "movies" }] };
+  const answer = (layout: object) => mockApi.mockImplementation((async (path: string, options?: RequestInit) => {
+    if (path === "/api/video/home" && options?.method === "PUT") return { ...JSON.parse(String(options.body)), custom: true, editable: true };
+    if (path === "/api/video/home" && options?.method === "DELETE") return homeLayout({ editable: true });
+    if (path === "/api/video/home") return layout;
+    if (path === "/video/api/libraries") return libraries;
+    if (path.startsWith("/video/api/genres")) return { genres: ["Comedy", "Drama"] };
+    if (path === "/video/api/continue") return { items: [] };
+    if (path.startsWith("/video/api/sets")) return { items: [], total: 0, page: 1, pageSize: 200 };
+    if (path.startsWith("/video/api/titles?")) return { items: [{ kind: "movies", ...movie }], total: 1, page: 1, pageSize: 30 };
+    if (path === "/video/api/movies/m1") return movie;
+    throw new Error(`unexpected ${path}`);
+  }) as never);
+  const saved = () => {
+    const put = mockApi.mock.calls.find(([path, options]) => path === "/api/video/home" && (options as RequestInit | undefined)?.method === "PUT");
+    return put ? JSON.parse(String((put[1] as RequestInit).body)).rows : null;
+  };
+
+  it("draws each row the household chose, asking the engine what the row asks", async () => {
+    answer(homeLayout({ rows: [{ id: "c", type: "titles", kind: "all", libraries: ["lib_kids"], genres: ["Comedy"], sort: "title", title: "Funny cartoons" }], custom: true }));
+    renderSignedIn(<VideoHomePage />);
+    expect(await screen.findByRole("heading", { name: "Funny cartoons" })).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith(`/video/api/titles?${new URLSearchParams({ pageSize: "30", sort: "title", libraries: "lib_kids", genres: "Comedy" })}`);
+    // Only an admin's page offers to change them.
+    expect(screen.queryByRole("button", { name: "Customize" })).toBeNull();
+  });
+
+  it("names a row from what it asks for when nobody named it", async () => {
+    answer(homeLayout({ rows: [{ id: "g", type: "titles", kind: "movies", libraries: [], genres: ["Drama"], sort: "added" }, { id: "x", type: "sets", hidden: true }], custom: true }));
+    renderSignedIn(<VideoHomePage />);
+    expect(await screen.findByRole("heading", { name: "Drama · Movies" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sets" })).toBeNull();
+  });
+
+  it("lets an admin hide, move and add rows, and saves them for everyone", async () => {
+    answer(homeLayout({ editable: true }));
+    renderSignedIn(<VideoHomePage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Customize" }));
+    const dialog = await screen.findByRole("dialog", { name: "Video page rows" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Hide Sets" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Move Recently added shows up" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add row" }));
+    await userEvent.click(await within(dialog).findByRole("checkbox", { name: "Comedy" }));
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "Kids" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add row" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save rows" }));
+    await waitFor(() => expect(saved()).not.toBeNull());
+    const rows = saved() as { id: string; type: string; hidden?: boolean; genres?: string[]; libraries?: string[] }[];
+    expect(rows.map((row) => row.id).slice(0, 4)).toEqual(["continue", "new-shows", "new-movies", "sets"]);
+    expect(rows[3].hidden).toBe(true);
+    expect(rows[4]).toMatchObject({ type: "titles", kind: "all", genres: ["Comedy"], libraries: ["lib_kids"], sort: "added" });
+    expect(await screen.findByRole("heading", { name: "Comedy" })).toBeInTheDocument();
+  });
+
+  it("saves what the grid shows as a row at the end of the page", async () => {
+    at("/videos?kind=movies&genres=Comedy&sort=year");
+    answer(homeLayout({ editable: true }));
+    renderSignedIn(<VideoHomePage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Save as row" }));
+    await waitFor(() => expect(saved()).not.toBeNull());
+    expect(saved().at(-1)).toMatchObject({ type: "titles", kind: "movies", genres: ["Comedy"], libraries: [], sort: "year" });
+    expect(await screen.findByText('"Comedy · Movies" is now a row on the video page.')).toBeInTheDocument();
   });
 });
 
@@ -569,6 +660,7 @@ describe("film sets", () => {
       if (path.startsWith("/video/api/genres")) return { genres: [] };
       if (path.startsWith("/video/api/continue")) return { items: [] };
       if (path.startsWith("/video/api/sets")) return page([summary]);
+      if (path === "/api/video/home") return homeLayout();
       if (path.startsWith("/video/api/titles")) return page([film]);
       if (path.startsWith("/video/api/movies") || path.startsWith("/video/api/shows")) return page([film]);
       throw new Error(`unexpected ${path}`);
@@ -593,7 +685,8 @@ describe("film sets", () => {
       if (path.startsWith("/video/api/genres")) return { genres: [] };
       if (path.startsWith("/video/api/continue")) return { items: [] };
       if (path.startsWith("/video/api/sets")) throw new Error("Not Found");
-      if (path.startsWith("/video/api/movies") || path.startsWith("/video/api/shows")) return page([]);
+      if (path === "/api/video/home") return homeLayout();
+      if (path.startsWith("/video/api/titles") || path.startsWith("/video/api/movies") || path.startsWith("/video/api/shows")) return page([]);
       throw new Error(`unexpected ${path}`);
     }) as never);
     at("/videos?kind=movies");

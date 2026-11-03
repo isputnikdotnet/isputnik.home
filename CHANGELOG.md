@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.63.0 — Choose the video page's rows
+
+- **An admin chooses the rows on everyone's video page.** **Customize** on the Video page lists the rows in order: move them, hide them, change them, remove them, or **Add row** — the newest movies or shows, a library, some genres, Continue watching or film sets. A row is named after what it shows ("Comedy · Movies") unless you give it a name. Until someone changes them, the page has the rows it had.
+- **Save as row**: filter the grid the way you like and keep it as a row at the end of the page.
+- A row is a question, not a list: new titles appear in it by themselves, and each person sees only what they may watch in it. The **All · Movies · Shows** switch still narrows every row, and **View all** opens the grid with the row's own filters.
+
 ## 4.62.1 — Games in the new look
 
 - **The games wear the new top bar.** Opening Games no longer drops you into a different-looking app: the same bar as everywhere else — Home, **Games** (opening the list of libraries), Family, the control panel and your menu — sits over a row of tabs, the overview first and then every game. Needs **isputnik.games 0.23.0**.

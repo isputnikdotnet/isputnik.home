@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.63.0",
+    "label": "Choose the video page's rows",
+    "changes": [
+      "**An admin chooses the rows on everyone's video page.** **Customize** on the Video page lists the rows in order: move them, hide them, change them, remove them, or **Add row** — the newest movies or shows, a library, some genres, Continue watching or film sets. A row is named after what it shows (\"Comedy · Movies\") unless you give it a name. Until someone changes them, the page has the rows it had.",
+      "**Save as row**: filter the grid the way you like and keep it as a row at the end of the page.",
+      "A row is a question, not a list: new titles appear in it by themselves, and each person sees only what they may watch in it. The **All · Movies · Shows** switch still narrows every row, and **View all** opens the grid with the row's own filters."
+    ]
+  },
+  {
     "version": "4.62.1",
     "label": "Games in the new look",
     "changes": [

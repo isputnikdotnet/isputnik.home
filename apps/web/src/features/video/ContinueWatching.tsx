@@ -16,7 +16,7 @@ const POSTERS_ASKED = 8;
 // (GET /video/api/continue). On the overview, Shows (episodes only), Movies (films
 // only) and For you (both). Nothing at all, not even a heading, when there is
 // nothing to continue or no video here.
-export function ContinueWatching({ only }: { only?: "episode" | "movie" }) {
+export function ContinueWatching({ only, title }: { only?: "episode" | "movie"; /** The row's own name, when the household gave it one. */ title?: string }) {
   const { t } = useTranslation();
   const available = useVideoAvailable();
   const [items, setItems] = useState<VideoContinueItem[] | null>(null);
@@ -54,7 +54,7 @@ export function ContinueWatching({ only }: { only?: "episode" | "movie" }) {
   return (
     <PosterRow
       shape="wide"
-      title={t("video.continueWatching")}
+      title={title ?? t("video.continueWatching")}
       items={shown.map((item) => {
         const code = item.season !== null && item.episode !== null ? t("video.episodeCode", episodeCodeValues(item.season, item.episode)) : null;
         const left = item.resume && item.duration ? t("video.continueLeft", { time: formatPlayTime(item.duration - item.position) }) : null;
