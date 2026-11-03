@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.61.1 — Chosen backdrops show
+
+- **A backdrop chosen in Fix match now appears.** The video app kept showing the old picture: it never fetched the new one, and the new one would have had the old one's address, which browsers keep for a day. Any picture TMDB changed was stuck the same way.
+- **Finding intros, recaps and credits looks at what you are watching first**, across every library, instead of one library after another by name — a big kids' library could keep the show on now waiting for hours. **Find again** goes ahead of the rest, and Settings → Video says what it is looking at now.
+- Needs the video engine 0.18.1.
+
 ## 4.61.0 — A better-looking video overview
 
 - **Continue watching shows frames of what you were watching**, wide cards with the episode's own still or the film's backdrop instead of tall posters, and says where you are: "S01E01 · 1:07:06 left". The overview's other rows are resized: movie posters a little smaller so more fit, shows as nearly square cards. A title with no picture yet says its name inside its card instead of two letters.

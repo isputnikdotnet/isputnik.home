@@ -354,6 +354,8 @@
       "intro": "The video app finds them by itself so the player can offer Skip intro, Skip recap and the next episode at the credits: an intro by the sound a season's episodes share, a recap by the earlier episodes' pictures it reuses, the credits by the black they sit on. It reads every episode once after each scan, about 15 minutes a season the first time. Marks set by hand, .edl files and chapters count either way.",
       "label": "Find them automatically",
       "offHint": "Off: what was found before still counts; nothing new is looked for.",
+      "working": "Looking at {{title}} now. What is being watched goes first; Find again on an episode goes ahead of the rest.",
+      "idle": "Nothing waiting: everything has been looked at.",
       "unavailableTitle": "Not available",
       "unavailable": "The video app can't find anything by itself here: its ffmpeg is missing.",
       "loadFailed": "Unable to load this setting.",

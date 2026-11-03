@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.61.1",
+    "label": "Chosen backdrops show",
+    "changes": [
+      "**A backdrop chosen in Fix match now appears.** The video app kept showing the old picture: it never fetched the new one, and the new one would have had the old one's address, which browsers keep for a day. Any picture TMDB changed was stuck the same way.",
+      "**Finding intros, recaps and credits looks at what you are watching first**, across every library, instead of one library after another by name — a big kids' library could keep the show on now waiting for hours. **Find again** goes ahead of the rest, and Settings → Video says what it is looking at now.",
+      "Needs the video engine 0.18.1."
+    ]
+  },
+  {
     "version": "4.61.0",
     "label": "A better-looking video overview",
     "changes": [

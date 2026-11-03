@@ -565,6 +565,8 @@ interface DetectionState {
   enabled: boolean;
   /** false where the engine has no ffmpeg, so nothing can be found. */
   available: boolean;
+  /** What it is looking at now, "Counterpart · season 2" (engine 0.18.1+); null when idle. */
+  working?: string | null;
 }
 
 // Finding intros, recaps and credits by itself (engine 0.18.0+): the engine reads
@@ -612,6 +614,9 @@ export function VideoDetection({ prefix }: { prefix: string }) {
           />
           {!state.available && <MessageBox tone="info" title={t("controlAdmin:apps.detection.unavailableTitle")}>{t("controlAdmin:apps.detection.unavailable")}</MessageBox>}
           {state.available && !state.enabled && <p className="muted">{t("controlAdmin:apps.detection.offHint")}</p>}
+          {state.available && state.enabled && (
+            <p className="muted">{state.working ? t("controlAdmin:apps.detection.working", { title: state.working }) : t("controlAdmin:apps.detection.idle")}</p>
+          )}
           {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
         </>
       )}
