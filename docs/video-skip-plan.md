@@ -228,7 +228,8 @@ too**.
 - A queue of its own after each scan and on start (everything not yet looked at),
   outside the catalog work a restore waits for; `POST /admin/markers/:id/detect`
   (the panel's **Find again**) re-runs that episode's season or that film.
-  `DETECT_MARKERS=false` turns it off.
+  Turned off on home's Settings → Video (`GET/PUT /admin/detection`, engine
+  0.18.0; it was the container variable `DETECT_MARKERS` in 0.16–0.17).
 - On the owner's library through the engine's own code: Counterpart 20/20 intros
   and 20/20 credits (~4 minutes a season off the NAS), Долгая дорога в дюнах 7/7
   intros and correctly no credits, Ералаш S1 22/25 intros (two with another opening
@@ -284,7 +285,8 @@ length), so it is per episode only.
   grey, 4 fps, ~100 KB an episode), decoded once with two threads and B frames
   skipped (~80 s an episode off the NAS; with all frames it was ~150 s). An
   episode's first 4 minutes are matched against every earlier episode of its season
-  (a premiere: the last two of the season before); a piece is 4+ frames within 6
+  and the last two of the season before (0.18.0; in 0.17.0 only a premiere looked
+  back, which missed S2E02, whose recap is all season 1); a piece is 4+ frames within 6
   bits of consecutive frames there. Pieces matching an earlier episode's own first
   30 s are the shared opening; the recap runs from where that ends through pieces
   ≤ 25 s apart, at least 5 of them, never into the intro. Columns `recap_start`,
@@ -292,6 +294,10 @@ length), so it is per episode only.
   at once more for its recaps.
 - Closing the engine now waits for its own ffprobe runs (`MediaProbe.idle()`):
   one left reading a file kept Windows from deleting it.
+
+- Checked on Counterpart S2 with these settings (engine's numbers): 10/10, every
+  start at the end of the "Previously on" card (0:18–0:19), recaps 35–90 s; E01 and
+  E07 end exactly on the cut to black before the cold open.
 
 ## Phases
 

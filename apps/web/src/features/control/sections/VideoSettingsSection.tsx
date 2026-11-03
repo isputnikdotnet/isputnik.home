@@ -3,10 +3,11 @@ import { Clapperboard } from "lucide-react";
 import { controlHref } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { isRunning, useAppsStatus, VideoConversion, VideoMetadata } from "./AppsSection";
+import { isRunning, useAppsStatus, VideoConversion, VideoDetection, VideoMetadata } from "./AppsSection";
 
 // Settings › Video: the video engine's own settings — how it converts films a
-// browser cannot play, and where posters and descriptions come from. Both live
+// browser cannot play, where posters and descriptions come from, and whether it
+// finds intros, recaps and credits by itself. All live
 // in the engine and are read and saved through the gateway, so the page needs
 // the engine answering; it says so instead of drawing empty forms when it isn't.
 // They were cards under Apps › Installed until the Apps group was folded in.
@@ -29,6 +30,7 @@ export function VideoSettingsSection() {
         <>
           <VideoConversion prefix={video.prefix} />
           <VideoMetadata prefix={video.prefix} />
+          <VideoDetection prefix={video.prefix} />
         </>
       )}
       {apps && (!video || !isRunning(video)) && (

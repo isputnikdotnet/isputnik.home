@@ -18,33 +18,40 @@ export interface PosterItem {
   watched?: boolean;
 }
 
+/** A card's cut: a tall poster, a wide frame of the film (Continue watching), or
+ *  a poster cropped nearly square (the overview's shows). */
+export type PosterShape = "poster" | "wide" | "box";
+
 // A poster and its name, the TV app's card: no frame, a ring when you point at it.
-// A link, so it opens in a new tab like any address.
-export function PosterCard({ item }: { item: PosterItem }) {
+// A link, so it opens in a new tab like any address. With no picture yet, the
+// card says what it is inside itself, under the kind's icon.
+export function PosterCard({ item, shape = "poster" }: { item: PosterItem; shape?: PosterShape }) {
   const { t } = useTranslation();
   const Icon = item.icon;
+  const watched = item.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />;
   return (
-    <a className="video-card" href={item.href} onClick={(event) => followRoute(event, item.href)}>
-      <span className={`video-card-cover${item.poster ? " has-poster" : ""}`} aria-hidden="true">
+    <a className={`video-card is-${shape}`} href={item.href} onClick={(event) => followRoute(event, item.href)}>
+      <span className={`video-card-cover${item.poster ? " has-poster" : ""}`}>
         {item.poster ? (
           <img src={item.poster} alt="" loading="lazy" />
         ) : (
-          <>
-            <Icon size={22} />
-            <strong>{item.title.slice(0, 2).toUpperCase()}</strong>
-          </>
+          <span className="video-card-blank">
+            <Icon size={34} aria-hidden="true" />
+            <strong>{item.title}</strong>
+            {item.sub && <span>{item.sub}</span>}
+          </span>
         )}
         {item.fraction !== undefined && item.fraction > 0 && item.fraction < 1 && (
-          <span className="video-card-progress"><span style={{ width: `${Math.round(item.fraction * 100)}%` }} /></span>
+          <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(item.fraction * 100)}%` }} /></span>
         )}
       </span>
-      <span className="video-card-body">
-        <strong>
-          {item.title}
-          {item.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
-        </strong>
-        {item.sub && <span>{item.sub}</span>}
-      </span>
+      {/* A blank card already says its name; one with a picture says it underneath. */}
+      {item.poster ? (
+        <span className="video-card-body">
+          <strong>{item.title}{watched}</strong>
+          {item.sub && <span>{item.sub}</span>}
+        </span>
+      ) : watched}
     </a>
   );
 }
@@ -59,7 +66,7 @@ export function PosterGrid({ items }: { items: PosterItem[] }) {
 }
 
 /** One titled row, scrolled sideways inside itself, as on the TV. */
-export function PosterRow({ title, items, action }: { title: ReactNode; items: PosterItem[]; action?: ReactNode }) {
+export function PosterRow({ title, items, action, shape = "poster" }: { title: ReactNode; items: PosterItem[]; action?: ReactNode; shape?: PosterShape }) {
   if (items.length === 0) return null;
   return (
     <section className="video-row">
@@ -67,8 +74,8 @@ export function PosterRow({ title, items, action }: { title: ReactNode; items: P
         <h2>{title}</h2>
         {action}
       </div>
-      <ul className="video-row-list">
-        {items.map((item) => <li key={item.key}><PosterCard item={item} /></li>)}
+      <ul className={`video-row-list is-${shape}`}>
+        {items.map((item) => <li key={item.key}><PosterCard item={item} shape={shape} /></li>)}
       </ul>
     </section>
   );

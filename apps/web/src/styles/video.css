@@ -68,9 +68,48 @@
   outline: 0;
 }
 
-.video-card-cover strong {
-  font-size: 1.4rem;
-  letter-spacing: 0.04em;
+/* The other cuts of a card: a wide frame of the film (Continue watching) and a
+   poster cropped nearly square (the overview's shows), its top kept. */
+.video-card.is-wide .video-card-cover {
+  aspect-ratio: 16 / 9;
+}
+
+.video-card.is-box .video-card-cover {
+  aspect-ratio: 5 / 4;
+}
+
+.video-card.is-box .video-card-cover > img {
+  object-position: 50% 20%;
+}
+
+/* No picture yet: the kind's icon and the name, inside the card. */
+.video-card-blank {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 12px;
+  color: var(--ink);
+  text-align: center;
+}
+
+.video-card-blank > svg {
+  color: var(--mint);
+  opacity: 0.85;
+}
+
+.video-card-blank strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-weight: 600;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.video-card-blank span {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 
@@ -160,7 +199,7 @@
 
 .video-row-list {
   display: grid;
-  grid-auto-columns: 190px;
+  grid-auto-columns: 170px;
   grid-auto-flow: column;
   gap: 28px;
   margin: 0;
@@ -169,6 +208,16 @@
   overflow-x: auto;
   list-style: none;
   scrollbar-width: thin;
+}
+
+.video-row-list.is-wide {
+  grid-auto-columns: 240px;
+  gap: 18px;
+}
+
+.video-row-list.is-box {
+  grid-auto-columns: 200px;
+  gap: 22px;
 }
 
 /* The big banner: always on a dark picture, so its text is light in every theme. */
@@ -224,17 +273,20 @@
   padding: 28px clamp(22px, 3vw, 40px);
 }
 
+/* The whole name, on two lines if it needs them, rather than cut off. */
 .video-banner h2 {
+  display: -webkit-box;
   max-width: 100%;
   margin: 0;
   overflow: hidden;
   color: var(--ink);
   font-size: clamp(1.7rem, 3vw, 2.6rem);
   font-weight: 300;
-  letter-spacing: 0.16em;
-  text-overflow: ellipsis;
+  letter-spacing: 0.12em;
+  line-height: 1.15;
   text-transform: uppercase;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .video-banner-line {
@@ -247,18 +299,21 @@
   -webkit-line-clamp: 2;
 }
 
+/* Where you are over how far you got, the bar as wide as the words. */
 .video-banner-progress {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  color: rgba(243, 247, 250, 0.78);
-  font-size: 0.88rem;
+  flex-direction: column-reverse;
+  align-items: stretch;
+  gap: 8px;
+  width: min(100%, 400px);
+  color: rgba(243, 247, 250, 0.85);
+  font-size: 0.92rem;
 }
 
 .video-banner-bar {
   display: block;
-  width: 190px;
-  height: 4px;
+  width: 100%;
+  height: 5px;
   overflow: hidden;
   border-radius: 2px;
   background: rgba(243, 247, 250, 0.24);
@@ -678,6 +733,14 @@
     grid-auto-columns: 130px;
   }
 
+  .video-row-list.is-wide {
+    grid-auto-columns: 210px;
+  }
+
+  .video-row-list.is-box {
+    grid-auto-columns: 160px;
+  }
+
   .video-banner h2 {
     letter-spacing: 0.08em;
     white-space: normal;
@@ -1012,6 +1075,87 @@
   .video-marks-actions {
     justify-content: flex-start;
   }
+}
+
+/* Fix match → Backdrop: TMDB's pictures to choose from, the one in use ringed. */
+.video-backdrops {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.video-backdrops p {
+  margin: 0;
+}
+
+.video-backdrops-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.video-backdrops-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.video-backdrops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  max-height: 340px;
+  margin: 0;
+  padding: 3px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.video-backdrop {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  outline: 3px solid transparent;
+  background: var(--active);
+}
+
+.video-backdrop > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-backdrop:hover,
+.video-backdrop:focus-visible,
+.video-backdrop.is-current {
+  outline-color: var(--mint);
+}
+
+.video-backdrop > svg {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px;
+  border-radius: 50%;
+  color: #0b1725;
+  background: var(--mint);
+}
+
+.video-backdrop-lang,
+.video-backdrop-saving {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #f3f7fa;
+  background: rgba(5, 12, 23, 0.75);
+  font-size: 0.75rem;
 }
 
 /* Fix match */

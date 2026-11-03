@@ -203,6 +203,12 @@ A title matched to the wrong film or show: open it and press **Fix match**
 (admins only), search TMDB by name and year, and pick the right one. Rescans keep
 that choice until **Match automatically again**.
 
+The **backdrop**, the picture behind a title at the top of the overview and on its
+page, is TMDB's best-voted one with no words on it. When it is still a poor
+picture, **Fix match → Backdrop → Choose another** shows the rest of TMDB's (those
+with words on them marked with their language); pick one, or **Pick automatically
+again**. A picture saved beside the files (`fanart.jpg`) wins over both.
+
 ## Sets of films
 
 Films that belong together — a trilogy, a series of films, a family's own
@@ -278,7 +284,9 @@ The player knows where they are from, in this order:
   automatically** for these; **Find again** looks at the season (or film) afresh.
   A season takes about 15 minutes the first time, most of it reading each
   episode's picture once, so a large library is a while being covered; it is
-  looked at once, and again only when its files change.
+  looked at once, and again only when its files change. **Control panel →
+  Settings → Video → Intros, recaps and credits** turns this off for a server
+  that would rather not spend the time; what was found before still counts.
 
 An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
 Files where nothing is known play as before.

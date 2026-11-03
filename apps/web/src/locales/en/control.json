@@ -113,6 +113,7 @@
       "gamesGuestLinks": "Guest links to the games",
       "videoConversion": "Converting video while watching",
       "videoMetadata": "Posters and descriptions (TMDB)",
+      "videoDetection": "Intros, recaps and credits",
       "sections": "Sections of the app"
     }
   },

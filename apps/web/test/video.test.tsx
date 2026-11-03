@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getRoute } from "../src/router";
@@ -37,6 +37,8 @@ const { VideoTitlePage } = await import("../src/features/video/VideoTitlePage");
 const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage");
 const { VideoSetPage } = await import("../src/features/video/VideoSetPage");
 const { LibraryWizard } = await import("../src/features/control/libraries/LibraryWizard");
+const { resetVideoAvailable } = await import("../src/app/useVideoAvailable");
+const { FixMatchModal } = await import("../src/features/video/FixMatchModal");
 const mockApi = vi.mocked(api);
 
 const at = (url: string) => window.history.replaceState({}, "", url);
@@ -107,6 +109,31 @@ describe("the overview", () => {
     expect(screen.getByText("20:00 left")).toBeInTheDocument();
   });
 
+  it("shows what you were watching as wide frames: an episode's own still, a film's backdrop", async () => {
+    resetVideoAvailable();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ enabled: true }), { status: 200 }));
+    try {
+      answer({
+        "/video/api/continue": { items: [
+          { id: "e2", type: "episode", title: "Birds of a Feather", show: { id: "s1", title: "Counterpart" }, season: 1, episode: 2, position: 600, duration: 3600, resume: true, updatedAt: "2026-11-01T00:00:00.000Z" },
+          { id: "m1", type: "movie", title: "The General", show: null, season: null, episode: null, position: 600, duration: 1800, resume: true, updatedAt: "2026-10-31T00:00:00.000Z" }
+        ] },
+        "/video/api/shows/s1": {
+          id: "s1", title: "Counterpart", plot: null, poster: "/video/api/art/s1/poster", backdrop: "/video/api/art/s1/backdrop", nextUp: null,
+          seasons: [{ number: 1, episodes: [{ id: "e2", season: 1, episode: 2, still: "/video/api/art/e2/still" }] }]
+        }
+      });
+      renderSignedIn(<VideoHomePage />);
+      const row = (await screen.findByRole("heading", { name: "Continue watching" })).closest("section")!;
+      await waitFor(() => expect([...row.querySelectorAll("img")].map((img) => img.getAttribute("src"))).toEqual(["/video/api/art/e2/still", "/video/api/art/m1/backdrop"]));
+      expect(row.querySelector(".video-row-list")).toHaveClass("is-wide");
+      expect(within(row).getByText("S01E02 · 50:00 left")).toBeInTheDocument();
+    } finally {
+      fetchSpy.mockRestore();
+      resetVideoAvailable();
+    }
+  });
+
   it("keeps its rows when the banner cannot be read", async () => {
     mockApi.mockImplementation((async (path: string) => {
       if (path === "/video/api/continue") return { items: [] };
@@ -117,6 +144,40 @@ describe("the overview", () => {
     renderSignedIn(<VideoHomePage />);
     expect(await screen.findByRole("link", { name: /The General/ })).toHaveAttribute("href", "/movies/m1");
     expect(screen.queryByRole("region", { name: "The General" })).toBeNull();
+  });
+});
+
+describe("choosing a backdrop", () => {
+  it("lists TMDB's backdrops, rings the one in use, and saves another, which can go back to the votes", async () => {
+    const matched = { ...movie, tmdbMatch: { id: "961", state: "matched", locked: false, error: null } };
+    let chosen: string | null = null;
+    mockApi.mockImplementation((async (path: string, init?: RequestInit) => {
+      if (path === "/video/api/admin/metadata/items/m1/backdrops") {
+        return {
+          backdrops: [
+            { path: "/smoke.jpg", preview: "/video/api/admin/metadata/image/smoke.jpg?wide", language: null, width: 1920, height: 1080, votes: 5.1 },
+            { path: "/portrait.jpg", preview: "/video/api/admin/metadata/image/portrait.jpg?wide", language: null, width: 1920, height: 1080, votes: 4.9 }
+          ],
+          current: chosen ?? "/smoke.jpg",
+          chosen: chosen !== null
+        };
+      }
+      if (path === "/video/api/admin/metadata/items/m1/backdrop" && init?.method === "PUT") {
+        chosen = (JSON.parse(String(init.body)) as { path: string | null }).path;
+        return { movie: matched };
+      }
+      throw new Error(`unexpected ${path}`);
+    }) as never);
+    const onMatched = vi.fn();
+    renderSignedIn(<FixMatchModal kind="movies" title={matched as never} onClose={() => undefined} onMatched={onMatched} />);
+    await userEvent.click(screen.getByRole("button", { name: "Choose another" }));
+    const pictures = await screen.findAllByRole("button", { name: /words on it/ });
+    expect(pictures[0]).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(pictures[1]);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /words on it/ })[1]).toHaveAttribute("aria-pressed", "true"));
+    expect(onMatched).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Pick automatically again" }));
+    await waitFor(() => expect(chosen).toBeNull());
   });
 });
 
@@ -495,7 +556,8 @@ describe("film sets", () => {
     expect(mockApi).toHaveBeenCalledWith("/video/api/sets/set1");
     expect(screen.getByText("3 films · 1999–2003 · 1 of 3 watched")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Resume The Matrix Reloaded from 12:34" })).toHaveAttribute("href", "/watch/m2");
-    expect(screen.getAllByRole("listitem").map((item) => item.querySelector(".video-card-body strong")?.textContent)).toEqual(["The Matrix", "The Matrix Reloaded", "The Matrix Revolutions"]);
+    // A card with no picture says its name inside itself rather than under it.
+    expect(screen.getAllByRole("listitem").map((item) => item.querySelector(".video-card-body strong, .video-card-blank strong")?.textContent)).toEqual(["The Matrix", "The Matrix Reloaded", "The Matrix Revolutions"]);
     expect(screen.getByRole("link", { name: /The Matrix Revolutions/ })).toHaveAttribute("href", "/movies/m3");
     expect(screen.getByRole("link", { name: "Sets" })).toHaveAttribute("href", "/movies?view=sets");
   });

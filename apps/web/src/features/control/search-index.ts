@@ -129,7 +129,7 @@ type SettingKey =
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "containerBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
-  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoMetadata" | "sections";
+  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoMetadata" | "videoDetection" | "sections";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab. `anchor` is the id of the card the setting sits in, where the
@@ -182,6 +182,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "gamesEvents", section: "logs", keywords: "games events log refused gateway rejected invitations matches errors audit container record игры события журнал отклонённые шлюз приглашения партии ошибки запись контейнер" },
   { titleKey: "gamesLog", section: "logs", keywords: "games server log docker logs lines tail container output игры журнал сервера строки контейнер вывод" },
   { titleKey: "videoConversion", section: "videoSettings", anchor: "video-conversion", keywords: "video transcode transcoding remux convert memory ram disk viewers watching at once limit busy ffmpeg видео перекодирование преобразование память диск зрители одновременно лимит" },
+  { titleKey: "videoDetection", section: "videoSettings", anchor: "video-detection", keywords: "skip intro recap previously on credits next episode detect find automatically fingerprint пропустить заставку ранее титры следующая серия найти автоматически" },
   { titleKey: "videoMetadata", section: "videoSettings", anchor: "video-metadata", keywords: "tmdb themoviedb api key token posters backdrops artwork descriptions plot episode names metadata match постеры обложки фон описания сюжет названия серий метаданные ключ" },
   { titleKey: "gamesGuestLinks", section: "invites", anchor: "games-guest-links", keywords: "games guest link invite outsider friend no account play online match revoke expire игры гость гостевая ссылка пригласить друг без учётной записи партия отозвать" },
   { titleKey: "smtpServer", section: "email", keywords: "host port username password tls outgoing mail сервер порт имя пользователя пароль исходящая почта" },

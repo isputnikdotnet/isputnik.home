@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.61.0 — A better-looking video overview
+
+- **Continue watching shows frames of what you were watching**, wide cards with the episode's own still or the film's backdrop instead of tall posters, and says where you are: "S01E01 · 1:07:06 left". The overview's other rows are resized: movie posters a little smaller so more fit, shows as nearly square cards. A title with no picture yet says its name inside its card instead of two letters.
+- **The banner shows the whole title**, on two lines if it needs them, with a wider progress bar under where you are.
+- **Better backdrops.** The picture behind a title is now TMDB's best-voted one with no words on it rather than TMDB's default, which for some shows was a poor picture; every title is checked once for this. When it is still wrong, an admin picks another of TMDB's in **Fix match → Backdrop**.
+- **Finding intros, recaps and credits is a switch on Control panel → Settings → Video** instead of a container variable; the DETECT_MARKERS variable is gone. Recaps reach back to the season before for every episode now, which finds those made of the previous season's clips.
+- Needs the video engine 0.18.0.
+
 ## 4.60.0 — Skip the recap
 
 - **Skip recap.** While a show's "Previously on" plays, the player offers **Skip recap**, as it offers Skip intro after it; **S** skips either. The video app finds recaps by picture — their clips are the earlier episodes' own frames — comparing the start of each episode with the episodes before it. That reads each episode's picture once, so a season takes about 15 minutes the first time. Chapters named Recap or Previously on count too, and an admin can mark one in the marking panel's new **Recap** row, always for that episode alone. Needs the video engine 0.17.0.

@@ -1,12 +1,105 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Film, Search, Tv } from "lucide-react";
+import { Check, Film, Image as ImageIcon, Search, Tv } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { Field } from "../../shared/Field";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { VIDEO_API, type VideoKind, type VideoMovie, type VideoShow, type VideoTmdbCandidate } from "./types";
+
+interface BackdropChoice {
+  path: string;
+  preview: string;
+  /** Null for a picture with no words on it. */
+  language: string | null;
+}
+
+// The backdrop behind a title (the banner, its page, a wide card): the engine
+// takes TMDB's best-voted one with no words on it; when that is a poor picture
+// the admin picks another of TMDB's here, or hands it back to the votes.
+function BackdropChooser({ kind, title, onChosen }: { kind: VideoKind; title: VideoShow | VideoMovie; onChosen: (title: VideoShow | VideoMovie) => void }) {
+  const { t } = useTranslation();
+  const [list, setList] = useState<{ backdrops: BackdropChoice[]; current: string | null; chosen: boolean } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const url = `${VIDEO_API}/admin/metadata/items/${encodeURIComponent(title.id)}`;
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setList(await api<{ backdrops: BackdropChoice[]; current: string | null; chosen: boolean }>(`${url}/backdrops`));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("video.match.backdropsFailed"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const choose = async (imagePath: string | null) => {
+    setSaving(imagePath ?? "auto");
+    setError("");
+    try {
+      const answer = await api<{ show?: VideoShow; movie?: VideoMovie }>(`${url}/backdrop`, { method: "PUT", body: JSON.stringify({ path: imagePath }) });
+      const updated = answer.show ?? answer.movie;
+      if (updated) onChosen(updated);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("video.match.saveFailed"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <section className="video-backdrops">
+      <div className="video-backdrops-head">
+        <h3>{t("video.match.backdropTitle")}</h3>
+        {!list && (
+          <Button variant="secondary" compact disabled={loading} onClick={() => void load()}>
+            <ImageIcon size={16} aria-hidden="true" />
+            {loading ? t("video.match.backdropsLoading") : t("video.match.backdropsShow")}
+          </Button>
+        )}
+        {list?.chosen && (
+          <Button variant="text" disabled={saving !== null} onClick={() => void choose(null)}>
+            {saving === "auto" ? t("video.match.saving") : t("video.match.backdropAutomatic")}
+          </Button>
+        )}
+      </div>
+      <p className="muted">{t(kind === "shows" ? "video.match.backdropHintShow" : "video.match.backdropHintMovie")}</p>
+      {error && <MessageBox tone="error" title={t("video.match.failedTitle")}>{error}</MessageBox>}
+      {list && list.backdrops.length === 0 && <p className="muted">{t("video.match.backdropsNone")}</p>}
+      {list && list.backdrops.length > 0 && (
+        <ul className="video-backdrops-grid">
+          {list.backdrops.map((backdrop) => {
+            const current = backdrop.path === list.current;
+            return (
+              <li key={backdrop.path}>
+                <Button
+                  variant="bare"
+                  className={`video-backdrop${current ? " is-current" : ""}`}
+                  disabled={saving !== null}
+                  aria-pressed={current}
+                  aria-label={backdrop.language ? t("video.match.backdropWithText") : t("video.match.backdropNoText")}
+                  title={current ? t("video.match.current") : undefined}
+                  onClick={() => void choose(backdrop.path)}
+                >
+                  <img src={backdrop.preview} alt="" loading="lazy" />
+                  {current && <Check size={18} aria-hidden="true" />}
+                  {backdrop.language && <span className="video-backdrop-lang">{backdrop.language.toUpperCase()}</span>}
+                  {saving === backdrop.path && <span className="video-backdrop-saving">{t("video.match.saving")}</span>}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 // Fix match (admins): the engine matched a title to the wrong film or show on
 // TMDB, or to none. Search TMDB by name and year, pick the right one; the engine
@@ -124,6 +217,8 @@ export function FixMatchModal({ kind, title, onClose, onMatched }: {
             })}
           </ul>
         )}
+
+        {match?.state === "matched" && <BackdropChooser kind={kind} title={title} onChosen={onMatched} />}
 
         <div className="modal-actions">
           {match?.locked && (

@@ -11,6 +11,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectField } from "../../../shared/SelectField";
+import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 
@@ -555,6 +556,64 @@ export function VideoMetadata({ prefix }: { prefix: string }) {
             </Button>
           </div>
         </form>
+      )}
+    </section>
+  );
+}
+
+interface DetectionState {
+  enabled: boolean;
+  /** false where the engine has no ffmpeg, so nothing can be found. */
+  available: boolean;
+}
+
+// Finding intros, recaps and credits by itself (engine 0.18.0+): the engine reads
+// every episode's sound and picture once, after each scan. On unless turned off
+// here; marks set by hand, .edl files and chapters count either way.
+export function VideoDetection({ prefix }: { prefix: string }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const [state, setState] = useState<DetectionState | null>(null);
+  const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const url = `${prefix}/api/admin/detection`;
+
+  useEffect(() => {
+    api<DetectionState>(url)
+      .then((payload) => { setState(payload); setError(""); })
+      // An engine from before 0.18.0 has no such setting: no card.
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("controlAdmin:apps.detection.loadFailed")));
+  }, [t, url]);
+
+  const change = async (enabled: boolean) => {
+    setBusy(true);
+    setSaveError("");
+    try {
+      setState(await api<DetectionState>(url, { method: "PUT", body: JSON.stringify({ enabled }) }));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.detection.saveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (error) return null;
+  return (
+    <section className="config-block" id="video-detection">
+      <h3>{t("controlAdmin:apps.detection.title")}</h3>
+      <p className="muted">{t("controlAdmin:apps.detection.intro")}</p>
+      {state && (
+        <>
+          <ToggleSwitch
+            checked={state.enabled && state.available}
+            disabled={busy || !state.available}
+            onChange={(enabled) => void change(enabled)}
+            label={t("controlAdmin:apps.detection.label")}
+          />
+          {!state.available && <MessageBox tone="info" title={t("controlAdmin:apps.detection.unavailableTitle")}>{t("controlAdmin:apps.detection.unavailable")}</MessageBox>}
+          {state.available && !state.enabled && <p className="muted">{t("controlAdmin:apps.detection.offHint")}</p>}
+          {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
+        </>
       )}
     </section>
   );

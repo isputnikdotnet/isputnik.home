@@ -73,7 +73,7 @@ export function VideoHomePage() {
             <VideoBanner kinds={["movies", "shows"]} />
             <ContinueWatching />
             <PosterRow title={t("video.recentMovies")} items={(movies ?? []).map((item) => toItem("movies", item))} action={viewAll(videoHref("movies"))} />
-            <PosterRow title={t("video.recentShows")} items={(shows ?? []).map((item) => toItem("shows", item))} action={viewAll(videoHref("shows"))} />
+            <PosterRow shape="box" title={t("video.recentShows")} items={(shows ?? []).map((item) => toItem("shows", item))} action={viewAll(videoHref("shows"))} />
           </>
         )}
       </section>
