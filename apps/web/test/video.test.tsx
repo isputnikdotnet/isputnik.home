@@ -32,6 +32,7 @@ vi.mock("../src/api", async (importOriginal) => {
 
 const { api } = await import("../src/api");
 const { VideoHomePage, VideoBrowseRedirect } = await import("../src/features/video/VideoHomePage");
+const { MyListButton, VideoMyListPage } = await import("../src/features/video/VideoMyList");
 const { VideoTitlePage } = await import("../src/features/video/VideoTitlePage");
 const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage");
 const { VideoSetPage } = await import("../src/features/video/VideoSetPage");
@@ -83,7 +84,7 @@ const DEFAULT_ROWS = [
   { id: "new-shows", type: "titles", kind: "shows", libraries: [], genres: [], sort: "added" },
   { id: "sets", type: "sets" }
 ];
-const homeLayout = (over: Record<string, unknown> = {}) => ({ rows: DEFAULT_ROWS, custom: false, editable: false, ...over });
+const homeLayout = (over: Record<string, unknown> = {}) => ({ rows: DEFAULT_ROWS, custom: false, mine: false, editable: false, ...over });
 
 /** The page's rows: home's layout, and each row's titles from the engine, by the
  *  kind it asks for. Undefined for anything else. */
@@ -308,7 +309,10 @@ describe("one page for films and shows", () => {
 describe("the household's rows", () => {
   const libraries = { libraries: [{ id: "lib_mov", name: "Films", kind: "movies" }, { id: "lib_kids", name: "Kids", kind: "movies" }] };
   const answer = (layout: object) => mockApi.mockImplementation((async (path: string, options?: RequestInit) => {
-    if (path === "/api/video/home" && options?.method === "PUT") return { ...JSON.parse(String(options.body)), custom: true, editable: true };
+    if (path === "/api/video/home" && options?.method === "PUT") {
+      const body = JSON.parse(String(options.body));
+      return { rows: body.rows, custom: true, mine: body.scope === "mine", editable: true };
+    }
     if (path === "/api/video/home" && options?.method === "DELETE") return homeLayout({ editable: true });
     if (path === "/api/video/home") return layout;
     if (path === "/video/api/libraries") return libraries;
@@ -329,8 +333,31 @@ describe("the household's rows", () => {
     renderSignedIn(<VideoHomePage />);
     expect(await screen.findByRole("heading", { name: "Funny cartoons" })).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledWith(`/video/api/titles?${new URLSearchParams({ pageSize: "30", sort: "title", libraries: "lib_kids", genres: "Comedy" })}`);
-    // Only an admin's page offers to change them.
-    expect(screen.queryByRole("button", { name: "Customize" })).toBeNull();
+  });
+
+  it("lets a member make the rows their own, and only their own", async () => {
+    answer(homeLayout());
+    renderSignedIn(<VideoHomePage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Customize" }));
+    const dialog = await screen.findByRole("dialog", { name: "Video page rows" });
+    expect(within(dialog).queryByRole("tab", { name: "Everyone" })).toBeNull();
+    expect(within(dialog).getByText(/Your own video page/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Hide Sets" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save rows" }));
+    await waitFor(() => expect(saved()).not.toBeNull());
+    const put = mockApi.mock.calls.find(([path, options]) => path === "/api/video/home" && (options as RequestInit | undefined)?.method === "PUT")!;
+    expect(JSON.parse(String((put[1] as RequestInit).body)).scope).toBe("mine");
+  });
+
+  it("lets an admin with rows of their own still change everyone's", async () => {
+    answer(homeLayout({ editable: true, mine: true, rows: [{ id: "c", type: "continue" }] }));
+    renderSignedIn(<VideoHomePage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Customize" }));
+    const dialog = await screen.findByRole("dialog", { name: "Video page rows" });
+    expect(within(dialog).getByRole("tab", { name: "Just me" })).toHaveAttribute("aria-selected", "true");
+    expect(within(dialog).getByRole("button", { name: "Use the household's rows" })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("tab", { name: "Everyone" }));
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/api/video/home?scope=everyone"));
   });
 
   it("names a row from what it asks for when nobody named it", async () => {
@@ -368,6 +395,55 @@ describe("the household's rows", () => {
     await waitFor(() => expect(saved()).not.toBeNull());
     expect(saved().at(-1)).toMatchObject({ type: "titles", kind: "movies", genres: ["Comedy"], libraries: [], sort: "year" });
     expect(await screen.findByText('"Comedy · Movies" is now a row on the video page.')).toBeInTheDocument();
+  });
+});
+
+describe("My list and Collection rows", () => {
+  const items = [
+    { kind: "shows", id: "s1", title: "Counterpart", year: 2017, poster: null },
+    { kind: "movies", id: "m1", title: "The General", year: 1926, poster: null }
+  ];
+
+  it("puts a title on My list and takes it off again", async () => {
+    let inList = false;
+    mockApi.mockImplementation((async (path: string, options?: RequestInit) => {
+      if (path !== "/api/video/my-list/movies/m1") throw new Error(`unexpected ${path}`);
+      if (options?.method === "PUT") inList = true;
+      if (options?.method === "DELETE") inList = false;
+      return { inList };
+    }) as never);
+    render(<MyListButton kind="movies" id="m1" />);
+    await userEvent.click(await screen.findByRole("button", { name: "My list" }));
+    expect(await screen.findByRole("button", { name: "On my list" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "On my list" }));
+    expect(await screen.findByRole("button", { name: "My list" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("lists My list as a page, each title linking to its own", async () => {
+    mockApi.mockImplementation((async (path: string) => (path === "/api/video/my-list" ? { items } : (() => { throw new Error(path); })())) as never);
+    renderSignedIn(<VideoMyListPage />);
+    expect(await screen.findByRole("link", { name: /Counterpart/ })).toHaveAttribute("href", "/shows/s1");
+    expect(screen.getByText("2 titles")).toBeInTheDocument();
+  });
+
+  it("draws a Collection row under the collection's name, and My list, both narrowed by the switch", async () => {
+    mockApi.mockImplementation((async (path: string) => {
+      if (path === "/api/video/home") return homeLayout({ rows: [{ id: "c", type: "collection", collectionId: "col1" }, { id: "l", type: "mylist" }], custom: true });
+      if (path === "/api/video/home/collections/col1") return { name: "Family movie night", items };
+      if (path === "/api/video/my-list") return { items: [items[1]] };
+      if (path.startsWith("/video/api/titles")) return { items: [{ kind: "movies", ...movie }], total: 1, page: 1, pageSize: 1 };
+      if (path === "/video/api/continue") return { items: [] };
+      if (path === "/video/api/movies/m1") return movie;
+      throw new Error(`unexpected ${path}`);
+    }) as never);
+    renderSignedIn(<VideoHomePage />);
+    const row = (await screen.findByRole("heading", { name: "Family movie night" })).closest("section")!;
+    await waitFor(() => expect(within(row).getAllByRole("link")).toHaveLength(2));
+    expect(screen.getByRole("heading", { name: "My list" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Shows" }));
+    await waitFor(() => expect(within(screen.getByRole("heading", { name: "Family movie night" }).closest("section")!).getAllByRole("link")).toHaveLength(1));
+    // My list has no show on it: the row goes.
+    expect(screen.queryByRole("heading", { name: "My list" })).toBeNull();
   });
 });
 

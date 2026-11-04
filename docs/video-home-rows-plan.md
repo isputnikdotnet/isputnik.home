@@ -52,7 +52,7 @@ does not change anyone's rows.
    everyone gets, and what a new member starts with). Anyone may then make it their
    own — hide, reorder, add rows — and "Reset to household" drops their copy. A person
    who never customised follows household changes automatically.
-3. **Hand-picked rows are Collections.** Video titles join home's existing Collections
+3. **Hand-picked rows are Collections** (as built, see R4). Video titles join home's existing Collections
    (the open "part A" in `docs/apps-platform-plan.md`). A Collection can mix films and
    shows (and books or photos — a video row shows only its video members). A row of type
    *Collection* shows it in its own order.
@@ -131,9 +131,9 @@ engine's id. Their hydrator is async (the batch lookup) where books/photos are s
 |---|---|---|
 | **R1** | One page: kind switch, Filter/Sort/View, Grid over engine `/titles`, redirects from Movies/Shows, single nav entry. *Built 2026-11-03, not yet released: engine `added_at` + `/titles` + `/genres` (next engine 0.19.0); Filter has Libraries and Genres — Year and Watched wait for the engine to filter on them.* | home + engine |
 | **R2** | Row model, `/api/video/home`, household layout, row types Continue / Recently added / Library / Genre, Customize editor, Save as row. *Built 2026-11-03. Recently added, Library and Genre are one row type, `titles` (kind, libraries, genres, sort), named from what it asks for; `/api/video/home` returns the rows' questions, not their titles — each screen asks the engine per row through the gateway, as the viewer, so access stays the gateway's (point 5 above, changed).* | home |
-| **R3** | Personal layouts, *Just me / Everyone*, Reset to household | home |
-| **R4** | Video in Collections (async hydrator, engine batch lookup), Collection row, My list | home + engine |
-| **R5** | TV app Home from `/api/video/home` | isputnik.tv |
+| **R3** | Personal layouts, *Just me / Everyone*, Reset to household. *Built 2026-11-03: anyone may customise their own rows (`video_home_user_layouts`); only admins edit Everyone's. Save as row adds to your own rows, or (an admin with none) to everyone's.* | home |
+| **R4** | Video in Collections, Collection row, My list. *Built 2026-11-03, differently from above: no async hydrator and no engine change. Home keeps a copy of what a card needs (`video_refs`: title, year, poster, library), taken from the engine when a title is added anywhere, and answers access from the title's library, so Collections' hydrator stays synchronous. My list is its own table (`video_my_list`), not a Collection, so it doesn't crowd the Collections page. A Collection row shows the saver's own collection; one an admin puts on everyone's page is readable by everyone, each seeing only their libraries' titles.* | home |
+| **R5** | TV app Home from `/api/video/home`. *Built 2026-11-03 in TV 0.6.0: Home draws the person's rows in order (unknown types skipped); a home before 4.63 gets the old Home.* | isputnik.tv |
 | later | Not watched yet, Film sets row, random sort, banner source | engine + home |
 
 ## Open questions

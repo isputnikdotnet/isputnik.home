@@ -16,6 +16,7 @@ import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
 import { canSeeTree, earliestChildBirthOf, isLiving, showLivingDetailsFor } from "../familytree/tree-access.js";
 import { canEditPerson } from "../familytree/access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
+import { visibleVideoRefs, videoTitleHref, type VideoRefKind } from "../library/video/refs.js";
 import type {
   FamilyTreePersonRow,
   GalleryAlbumRow,
@@ -565,6 +566,26 @@ const hydrateStories: Hydrator = (entityIds, user) => {
   return result;
 };
 
+// Films and shows: the engine's, described from home's copy of what a card
+// needs (library/video/refs.ts), filtered by the title's video library.
+const videoHydrator = (kind: VideoRefKind): Hydrator => (entityIds, user) => {
+  const result = new Map<string, HydratedEntity>();
+  for (const [id, ref] of visibleVideoRefs(kind, entityIds, user)) {
+    result.set(id, {
+      available: true,
+      title: ref.title,
+      subtitle: ref.year ? String(ref.year) : null,
+      coverUrl: ref.poster,
+      durationSeconds: null,
+      fileCount: 0,
+      href: videoTitleHref(kind, id),
+      // Played on the title's own page, not by a collection's player.
+      playable: false
+    });
+  }
+  return result;
+};
+
 const SUBJECTS: Record<string, SubjectType> = {
   audiobook: { hydrate: hydrateAudiobooks, collectable: true },
   ebook: { hydrate: hydrateEbooks, collectable: true },
@@ -573,8 +594,24 @@ const SUBJECTS: Record<string, SubjectType> = {
   family_tree_person: { hydrate: hydrateFamilyPersons, collectable: false },
   gallery_album: { hydrate: makeAlbumHydrator(), collectable: false },
   gallery_slideshow: { hydrate: hydrateSlideshows, collectable: false },
-  story: { hydrate: hydrateStories, collectable: false }
+  story: { hydrate: hydrateStories, collectable: false },
+  video_movie: { hydrate: videoHydrator("movies"), collectable: true },
+  video_show: { hydrate: videoHydrator("shows"), collectable: true }
 };
+
+/** Fetches what a type's hydrator reads before ids of it are added somewhere,
+ *  for a type whose data lives elsewhere (video, in its engine). Set by the
+ *  module that can reach it; a type without one needs nothing. */
+type Preparer = (entityIds: string[]) => Promise<void>;
+const preparers = new Map<string, Preparer>();
+
+export function setSubjectPreparer(entityType: string, prepare: Preparer): void {
+  preparers.set(entityType, prepare);
+}
+
+export async function prepareEntities(entityType: string, entityIds: string[]): Promise<void> {
+  await preparers.get(entityType)?.(entityIds);
+}
 
 /** The subset a Collection accepts. Narrower than the above; see SubjectType. */
 export const COLLECTABLE_ENTITY_TYPES = Object.entries(SUBJECTS)

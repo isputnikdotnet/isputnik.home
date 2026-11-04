@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Film, Layers, Tv } from "lucide-react";
 import { api } from "../../api";
 import { ContinueWatching } from "./ContinueWatching";
+import { MY_LIST_API, listPoster, type VideoListItem } from "./VideoMyList";
 import { PosterRow, type PosterItem } from "./VideoPoster";
-import { rowKindUnder, rowName, titlesRowPath, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
+import { rowKindUnder, rowName, titlesRowPath, type VideoCollectionRow, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
 import { videoHref, videoSetHref, yearSpan, type VideoPage, type VideoSetSummary, type VideoTitleSummary } from "./types";
 
 // The video page's rows as the household set them, under the page's
@@ -31,6 +32,12 @@ export function VideoRows({ rows, kind, libraryNames, sets, viewAll }: {
         }
         if (row.type === "sets") {
           return <PosterRow key={row.id} title={title} items={sets.map((set) => setPoster(set, t))} action={viewAll(row, under)} />;
+        }
+        if (row.type === "mylist") {
+          return <ListRow key={row.id} url={MY_LIST_API} kind={under} title={title} action={viewAll(row, under)} />;
+        }
+        if (row.type === "collection") {
+          return <ListRow key={row.id} url={collectionRowUrl(row)} kind={under} title={row.title} action={viewAll(row, under)} />;
         }
         return <TitlesRow key={`${row.id}:${under}`} row={row} kind={under} title={title} action={viewAll(row, under)} />;
       })}
@@ -64,6 +71,31 @@ function TitlesRow({ row, kind, title, action }: { row: VideoTitlesRow; kind: Vi
         poster: item.poster,
         icon: item.kind === "shows" ? Tv : Film
       }))}
+      action={action}
+    />
+  );
+}
+
+const collectionRowUrl = (row: VideoCollectionRow) => `/api/video/home/collections/${encodeURIComponent(row.collectionId)}`;
+
+/** A home list as a row — My list, a Collection — narrowed to the kind shown.
+ *  Without a name of its own, a Collection row wears the collection's. */
+function ListRow({ url, kind, title, action }: { url: string; kind: VideoRowKind; title?: string; action: ReactNode }) {
+  const [list, setList] = useState<{ name?: string; items: VideoListItem[] }>({ items: [] });
+
+  useEffect(() => {
+    let live = true;
+    api<{ name?: string; items: VideoListItem[] }>(url)
+      .then((answer) => { if (live) setList(answer); })
+      // A collection deleted since, or not readable: no row.
+      .catch(() => { if (live) setList({ items: [] }); });
+    return () => { live = false; };
+  }, [url]);
+
+  return (
+    <PosterRow
+      title={title ?? list.name ?? ""}
+      items={list.items.filter((item) => kind === "all" || item.kind === kind).map(listPoster)}
       action={action}
     />
   );

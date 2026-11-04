@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.64.0 — Your own video rows, My list, films in Collections
+
+- **Everyone can make the video page their own.** **Customize** is no longer for admins only: under **Just me** anyone moves, hides and adds rows for themselves, and **Use the household's rows** goes back to everyone's. An admin switches to **Everyone** to change the household's rows, which everyone without rows of their own sees.
+- **My list.** A film's or show's page has a **My list** button; what you put there is on the new **My list** tab next to Video, and can be a row on your video page.
+- **Films and shows in Collections.** **Add to collection** on a film's or show's page, and a **Collection** row shows one of your collections on the video page in its own order. A collection an admin puts on everyone's page is seen by everyone, each person seeing only the films of libraries they may watch.
+- **Save as row** adds the row to your own rows, or for an admin who has none, to everyone's.
+- The TV app 0.6.0 shows these rows on its Home.
+
 ## 4.63.0 — Choose the video page's rows
 
 - **An admin chooses the rows on everyone's video page.** **Customize** on the Video page lists the rows in order: move them, hide them, change them, remove them, or **Add row** — the newest movies or shows, a library, some genres, Continue watching or film sets. A row is named after what it shows ("Comedy · Movies") unless you give it a name. Until someone changes them, the page has the rows it had.

@@ -2445,3 +2445,36 @@ CREATE TABLE IF NOT EXISTS video_home_layouts (
   updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
+
+-- A person's own video page rows: a copy of the household's they changed. None
+-- means they follow the household's (video_home_layouts) as it changes.
+CREATE TABLE IF NOT EXISTS video_home_user_layouts (
+  user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  rows       TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- A film or show home points at (Collections, My list), with what a card needs:
+-- the catalog is the video engine's, but home answers "what is this, may this
+-- person see it" from its own database, by the title's library. Taken from the
+-- engine whenever the title is added somewhere (modules/library/video/refs.ts).
+CREATE TABLE IF NOT EXISTS video_refs (
+  kind       TEXT NOT NULL CHECK (kind IN ('movies', 'shows')),
+  entity_id  TEXT NOT NULL,
+  library_id TEXT NOT NULL,
+  title      TEXT NOT NULL,
+  year       INTEGER,
+  poster     TEXT,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (kind, entity_id)
+);
+CREATE INDEX IF NOT EXISTS idx_video_refs_library ON video_refs(library_id);
+
+-- My list: films and shows a person means to watch, newest first. Theirs alone.
+CREATE TABLE IF NOT EXISTS video_my_list (
+  user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind      TEXT NOT NULL CHECK (kind IN ('movies', 'shows')),
+  entity_id TEXT NOT NULL,
+  added_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (user_id, kind, entity_id)
+);

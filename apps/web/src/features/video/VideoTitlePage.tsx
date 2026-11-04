@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Check, Film, Layers, Play, Search, Tv } from "lucide-react";
+import { ArrowLeft, Check, Film, FolderPlus, Layers, Play, Search, Tv } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { useSession } from "../../app/SessionContext";
@@ -9,9 +9,11 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 // A date the .nfo gives without a time: read as a calendar date, so it never rolls back west of Greenwich.
 import { formatDate } from "../../shared/dates";
+import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { FixMatchModal } from "./FixMatchModal";
+import { MyListButton } from "./VideoMyList";
 import { VideoSectionNav } from "./VideoSectionNav";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, progressFraction, videoBrowseHref, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
+import { VIDEO_API, VIDEO_ENTITY_TYPE, episodeCodeValues, formatPlayTime, progressFraction, videoBrowseHref, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
 
 // One show — its seasons and episodes — or one movie, as the video engine
@@ -25,8 +27,11 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState("");
   const [fixing, setFixing] = useState(false);
+  const [collecting, setCollecting] = useState(false);
   const { user } = useSession();
   const back = videoBrowseHref(kind);
+  /** What Collections calls a film or a show. */
+  const collectAs = VIDEO_ENTITY_TYPE[kind];
 
   useEffect(() => {
     let live = true;
@@ -88,6 +93,11 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                 {title.plot && <p className="video-plot">{title.plot}</p>}
                 <div className="video-title-actions">
                   <PlayAction title={title} />
+                  <MyListButton kind={kind} id={title.id} />
+                  <Button variant="text" onClick={() => setCollecting(true)}>
+                    <FolderPlus size={15} aria-hidden="true" />
+                    <span>{t("video.addToCollection")}</span>
+                  </Button>
                   {user.role === "admin" && (
                     <Button variant="text" className="video-fix-match" onClick={() => setFixing(true)}>
                       <Search size={15} aria-hidden="true" />
@@ -98,6 +108,9 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
               </div>
             </header>
             {fixing && <FixMatchModal kind={kind} title={title} onClose={() => setFixing(false)} onMatched={setTitle} />}
+            {collecting && (
+              <AddToCollectionModal entityType={collectAs} entityId={title.id} title={title.title} onClose={() => setCollecting(false)} />
+            )}
 
             {!show && ((title as VideoMovie).parts?.length ?? 0) > 0 && <PartList parts={(title as VideoMovie).parts!} />}
 

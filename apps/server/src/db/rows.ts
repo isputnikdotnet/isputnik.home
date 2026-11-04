@@ -1440,6 +1440,32 @@ export interface VideoHomeLayoutRow {
   updated_at: string;
 }
 
+/** `video_home_user_layouts` */
+export interface VideoHomeUserLayoutRow {
+  user_id: string;
+  rows: string;
+  updated_at: string;
+}
+
+/** `video_my_list` */
+export interface VideoMyListRow {
+  user_id: string;
+  kind: "movies" | "shows";
+  entity_id: string;
+  added_at: string;
+}
+
+/** `video_refs` */
+export interface VideoRefRow {
+  kind: "movies" | "shows";
+  entity_id: string;
+  library_id: string;
+  title: string;
+  year: number | null;
+  poster: string | null;
+  updated_at: string;
+}
+
 /** `webauthn_challenges` */
 export interface WebauthnChallengeRow {
   id: string;
@@ -1596,6 +1622,9 @@ export interface TableRows {
   user_seen_versions: UserSeenVersionRow;
   users: UserRow;
   video_home_layouts: VideoHomeLayoutRow;
+  video_home_user_layouts: VideoHomeUserLayoutRow;
+  video_my_list: VideoMyListRow;
+  video_refs: VideoRefRow;
   webauthn_challenges: WebauthnChallengeRow;
   webauthn_credentials: WebauthnCredentialRow;
   work_items: WorkItemRow;

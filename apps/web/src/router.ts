@@ -413,6 +413,7 @@ export type Route =
   /** Video (docs/video-architecture.md): pages of this app over the video
    *  engine's catalog. Never under /video — that prefix is the engine's. */
   | { name: "videoHome" }
+  | { name: "videoMyList" }
   /** /shows and /movies: the video page narrowed to one kind, at its own address. */
   | { name: "videoBrowse"; kind: "shows" | "movies" }
   | { name: "videoTitle"; kind: "shows" | "movies"; id: string }
@@ -585,6 +586,9 @@ export function getRoute(): Route {
   // Video: Shows and Movies, and one title of either.
   if (path === "/videos") {
     return { name: "videoHome" };
+  }
+  if (path === "/videos/my-list") {
+    return { name: "videoMyList" };
   }
   if (path === "/shows" || path === "/movies") {
     return { name: "videoBrowse", kind: path === "/shows" ? "shows" : "movies" };

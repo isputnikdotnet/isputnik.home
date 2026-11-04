@@ -4,8 +4,12 @@
 // looking, so a row can never show what that person may not see. Home keeps
 // only which rows there are, in what order, and what each asks for.
 //
-// One layout for the household today (owner ''); a person's own copy joins it
-// keyed by their id.
+// A Collection row is the one kind that points at something hand-picked: a
+// Collection of the person saving it (lists.ts says who may read it after).
+//
+// Two layers: the household's rows (an admin's), and a person's own copy, which
+// they make by customising and drop with "Use the household's rows". Someone
+// with no copy follows the household's as it changes.
 import { z } from "zod";
 import { db } from "../../../db.js";
 
@@ -32,14 +36,22 @@ export const videoRowSchema = z.discriminatedUnion("type", [
     genres: z.array(z.string().trim().min(1).max(100)).max(50).default([]),
     sort: z.enum(["added", "title", "year"]).default("added")
   }),
-  z.object({ ...common, type: z.literal("sets") })
+  z.object({ ...common, type: z.literal("sets") }),
+  /** A Collection's films and shows, in its order (lists.ts). */
+  z.object({ ...common, type: z.literal("collection"), collectionId: z.string().min(1).max(64) }),
+  /** The viewer's own My list. */
+  z.object({ ...common, type: z.literal("mylist") })
 ]);
 export type VideoRow = z.infer<typeof videoRowSchema>;
 
 export const videoLayoutSchema = z.object({
   rows: z.array(videoRowSchema).max(VIDEO_ROWS_MAX)
-    .refine((rows) => new Set(rows.map((row) => row.id)).size === rows.length, "Two rows have the same id")
+    .refine((rows) => new Set(rows.map((row) => row.id)).size === rows.length, "Two rows have the same id"),
+  /** Whose rows: the person's own, or (admins) the household's. Left out is the
+   *  household's, as 4.63 sent it. */
+  scope: z.enum(["mine", "everyone"]).default("everyone")
 });
+export type VideoLayoutScope = "mine" | "everyone";
 
 /** The page as it was before rows could be chosen: what nobody has changed shows. */
 export const DEFAULT_VIDEO_ROWS: VideoRow[] = [
@@ -49,32 +61,57 @@ export const DEFAULT_VIDEO_ROWS: VideoRow[] = [
   { id: "sets", type: "sets" }
 ];
 
-/** The household's rows, and whether anyone has changed them. A row this version
- *  cannot read (a later one wrote it) is left out rather than failing the page. */
-export function getVideoLayout(): { rows: VideoRow[]; custom: boolean } {
-  const stored = db.prepare("SELECT rows FROM video_home_layouts WHERE owner = ?").get(HOUSEHOLD) as { rows: string } | undefined;
-  if (!stored) return { rows: DEFAULT_VIDEO_ROWS, custom: false };
+/** Stored rows, minus any this version cannot read (a later one wrote them):
+ *  left out rather than failing the page. */
+function readRows(json: string): VideoRow[] | null {
   let raw: unknown;
   try {
-    raw = JSON.parse(stored.rows);
+    raw = JSON.parse(json);
   } catch {
-    return { rows: DEFAULT_VIDEO_ROWS, custom: false };
+    return null;
   }
-  const rows = (Array.isArray(raw) ? raw : []).flatMap((row) => {
+  return (Array.isArray(raw) ? raw : []).flatMap((row) => {
     const parsed = videoRowSchema.safeParse(row);
     return parsed.success ? [parsed.data] : [];
   });
-  return { rows, custom: true };
 }
 
-export function saveVideoLayout(rows: VideoRow[], userId: string): void {
+/** The household's rows, and whether anyone has changed them. */
+export function getHouseholdLayout(): { rows: VideoRow[]; custom: boolean } {
+  const stored = db.prepare("SELECT rows FROM video_home_layouts WHERE owner = ?").get(HOUSEHOLD) as { rows: string } | undefined;
+  const rows = stored ? readRows(stored.rows) : null;
+  return rows ? { rows, custom: true } : { rows: DEFAULT_VIDEO_ROWS, custom: false };
+}
+
+/** A person's own rows, or null when they follow the household's. */
+export function getPersonalRows(userId: string): VideoRow[] | null {
+  const stored = db.prepare("SELECT rows FROM video_home_user_layouts WHERE user_id = ?").get(userId) as { rows: string } | undefined;
+  return stored ? readRows(stored.rows) : null;
+}
+
+/** What a person's page shows: their own rows, else the household's. */
+export function getVideoLayout(userId: string): { rows: VideoRow[]; custom: boolean; mine: boolean } {
+  const household = getHouseholdLayout();
+  const own = getPersonalRows(userId);
+  return own ? { rows: own, custom: household.custom, mine: true } : { ...household, mine: false };
+}
+
+export function saveVideoLayout(scope: VideoLayoutScope, rows: VideoRow[], userId: string): void {
+  if (scope === "mine") {
+    db.prepare(`
+      INSERT INTO video_home_user_layouts (user_id, rows, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ON CONFLICT (user_id) DO UPDATE SET rows = excluded.rows, updated_at = excluded.updated_at
+    `).run(userId, JSON.stringify(rows));
+    return;
+  }
   db.prepare(`
     INSERT INTO video_home_layouts (owner, rows, updated_by, updated_at) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     ON CONFLICT (owner) DO UPDATE SET rows = excluded.rows, updated_by = excluded.updated_by, updated_at = excluded.updated_at
   `).run(HOUSEHOLD, JSON.stringify(rows), userId);
 }
 
-/** Back to the default rows. */
-export function resetVideoLayout(): void {
-  db.prepare("DELETE FROM video_home_layouts WHERE owner = ?").run(HOUSEHOLD);
+/** Mine: back to following the household's rows. Everyone: back to the default rows. */
+export function resetVideoLayout(scope: VideoLayoutScope, userId: string): void {
+  if (scope === "mine") db.prepare("DELETE FROM video_home_user_layouts WHERE user_id = ?").run(userId);
+  else db.prepare("DELETE FROM video_home_layouts WHERE owner = ?").run(HOUSEHOLD);
 }

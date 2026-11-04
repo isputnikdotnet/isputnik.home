@@ -20,7 +20,7 @@ const mockApi = vi.mocked(api);
 // into an unavailable row. What this dialog sends as entityType is therefore
 // the whole contract, and these tests read it off every request.
 
-type EntityType = "audiobook" | "ebook" | "gallery" | "quote";
+type EntityType = "audiobook" | "ebook" | "gallery" | "quote" | "video_movie" | "video_show";
 type Call = { path: string; method: string; body: unknown };
 
 const collection = (id: string, name: string, over: Partial<CollectionSummary> = {}): CollectionSummary => ({
@@ -265,7 +265,9 @@ const EXPECTED: Record<string, string[]> = {
   "features/audiobooks/catalog/CatalogPage.tsx": ["{kind}"],
   "features/gallery/GalleryLightbox.tsx": ['"gallery"'],
   "features/gallery/GalleryPage.tsx": ['"gallery"'],
-  "features/library/QuotesPage.tsx": ['"quote"']
+  "features/library/QuotesPage.tsx": ['"quote"'],
+  // A film's or show's page: the engine's titles, collectable since 4.64.
+  "features/video/VideoTitlePage.tsx": ["{collectAs}"]
 };
 
 describe("AddToCollectionModal call sites", () => {
@@ -292,7 +294,7 @@ describe("AddToCollectionModal call sites", () => {
   });
 
   it("only ever passes a type the server can collect", () => {
-    const collectable = new Set(["audiobook", "ebook", "gallery", "quote"]);
+    const collectable = new Set(["audiobook", "ebook", "gallery", "quote", "video_movie", "video_show"]);
     for (const site of sites) {
       for (const element of site.elements) {
         for (const literal of (entityTypeProp(element) ?? "").match(/"([^"]+)"/g) ?? []) {

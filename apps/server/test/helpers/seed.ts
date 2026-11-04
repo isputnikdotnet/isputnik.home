@@ -43,6 +43,7 @@ export function resetDb(): void {
     "duplicate_job_result_members", "duplicate_job_result_folders", "duplicate_job_results",
     "duplicate_job_libraries", "duplicate_jobs",
     "notes", "recommendations", "taggables", "tags", "collection_items", "collections", "work_items", "works",
+    "video_refs", "video_my_list", "video_home_layouts", "video_home_user_layouts",
     "story_block_items", "story_block_points", "story_blocks", "story_chapters", "story_audio", "story_saves", "stories", "story_collections",
     "family_tree_photos", "family_tree_event_photos", "family_tree_children", "family_tree_unions", "family_tree_person_names", "family_tree_persons",
     "family_tree_events", "family_tree_citations", "family_tree_sources",

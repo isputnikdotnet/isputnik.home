@@ -285,6 +285,11 @@ export const VIDEO_API = "/video/api";
 
 /** Video's front page. Not under /video: that address belongs to the engine. */
 export const VIDEO_OVERVIEW_HREF = "/videos";
+/** What Collections calls a film and a show (home 4.64+). */
+export const VIDEO_ENTITY_TYPE = { movies: "video_movie", shows: "video_show" } as const;
+
+/** My list: the films and shows this person means to watch (home's own list). */
+export const MY_LIST_HREF = "/videos/my-list";
 
 /** A show's or film's page. */
 export function videoHref(kind: VideoKind, id: string): string {

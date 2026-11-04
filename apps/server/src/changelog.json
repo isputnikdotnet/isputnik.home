@@ -1,5 +1,16 @@
 [
   {
+    "version": "4.64.0",
+    "label": "Your own video rows, My list, films in Collections",
+    "changes": [
+      "**Everyone can make the video page their own.** **Customize** is no longer for admins only: under **Just me** anyone moves, hides and adds rows for themselves, and **Use the household's rows** goes back to everyone's. An admin switches to **Everyone** to change the household's rows, which everyone without rows of their own sees.",
+      "**My list.** A film's or show's page has a **My list** button; what you put there is on the new **My list** tab next to Video, and can be a row on your video page.",
+      "**Films and shows in Collections.** **Add to collection** on a film's or show's page, and a **Collection** row shows one of your collections on the video page in its own order. A collection an admin puts on everyone's page is seen by everyone, each person seeing only the films of libraries they may watch.",
+      "**Save as row** adds the row to your own rows, or for an admin who has none, to everyone's.",
+      "The TV app 0.6.0 shows these rows on its Home."
+    ]
+  },
+  {
     "version": "4.63.0",
     "label": "Choose the video page's rows",
     "changes": [

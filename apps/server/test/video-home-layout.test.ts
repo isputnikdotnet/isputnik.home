@@ -22,8 +22,8 @@ afterEach(async () => {
   await booted.app.close();
 });
 
-const as = async (who: string, method: "GET" | "PUT" | "DELETE", payload?: unknown) =>
-  booted.app.inject({ method, url: "/api/video/home", payload: payload as never, headers: { cookie: await booted.signIn(who) } });
+const as = async (who: string, method: "GET" | "PUT" | "DELETE", payload?: unknown, query = "") =>
+  booted.app.inject({ method, url: `/api/video/home${query}`, payload: payload as never, headers: { cookie: await booted.signIn(who) } });
 
 const rows = [
   { id: "c", type: "continue" },
@@ -76,6 +76,31 @@ describe("the video page's rows", () => {
   it("skip a row a later version wrote, rather than failing the page", async () => {
     db.prepare("INSERT INTO video_home_layouts (owner, rows) VALUES ('', ?)").run(JSON.stringify([{ id: "c", type: "continue" }, { id: "n", type: "nextYear" }]));
     expect((await as("mum", "GET")).json().rows).toEqual([{ id: "c", type: "continue" }]);
+  });
+
+  it("can be anyone's own, made from the household's and dropped to follow it again", async () => {
+    await as("admin", "PUT", { rows });
+    const mine = [{ id: "c", type: "continue" }];
+    const saved = await as("mum", "PUT", { rows: mine, scope: "mine" });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json()).toMatchObject({ mine: true, custom: true, editable: false, rows: mine });
+    // Hers alone: the admin's page, and the household's, are as they were.
+    expect((await as("admin", "GET")).json()).toMatchObject({ mine: false });
+    expect((await as("mum", "GET", undefined, "?scope=everyone")).json().rows).toHaveLength(3);
+    // The household changing does not reach her copy…
+    await as("admin", "PUT", { rows: [{ id: "s", type: "sets" }] });
+    expect((await as("mum", "GET")).json().rows).toEqual(mine);
+    // …until she drops it.
+    const back = await as("mum", "DELETE", undefined, "?scope=mine");
+    expect(back.json()).toMatchObject({ mine: false, rows: [{ id: "s", type: "sets" }] });
+    // Nobody's own rows reach the log.
+    expect(db.prepare("SELECT COUNT(*) AS n FROM activity_logs WHERE actor_user_id = 'mum'").get()).toEqual({ n: 0 });
+  });
+
+  it("go when the person does", async () => {
+    await as("mum", "PUT", { rows: [{ id: "c", type: "continue" }], scope: "mine" });
+    db.prepare("DELETE FROM users WHERE id = 'mum'").run();
+    expect(db.prepare("SELECT COUNT(*) AS n FROM video_home_user_layouts").get()).toEqual({ n: 0 });
   });
 
   it("are not there when Video is switched off", async () => {

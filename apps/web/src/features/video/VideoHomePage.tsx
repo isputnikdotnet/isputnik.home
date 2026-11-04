@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronRight, Clapperboard, Film, LayoutGrid, LayoutList, Layers, Plus, Tv } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { queryParam, replaceNavigate, replaceQuery } from "../../router";
+import { followRoute, queryParam, replaceNavigate, replaceQuery } from "../../router";
 import { Button } from "../../shared/Button";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
@@ -17,7 +17,7 @@ import { VideoRowsEditor } from "./VideoRowsEditor";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_HOME_API, VIDEO_ROWS_MAX, newRowId, rowName, type VideoLayout, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
 import {
-  VIDEO_API, videoBrowseHref, videoHref,
+  MY_LIST_HREF, VIDEO_API, videoBrowseHref, videoHref,
   type VideoKind, type VideoLibraryRef, type VideoMovieSummary, type VideoPage, type VideoSetSummary, type VideoShowSummary, type VideoTitleSummary
 } from "./types";
 import "../../styles/video.css";
@@ -114,7 +114,7 @@ export function VideoHomePage() {
     let live = true;
     api<VideoLayout>(VIDEO_HOME_API)
       .then((next) => { if (live) setLayout(next); })
-      .catch(() => { if (live) setLayout({ rows: [], custom: false, editable: false }); });
+      .catch(() => { if (live) setLayout({ rows: [], custom: false, mine: false, editable: false }); });
     api<VideoPage<VideoTitleSummary>>(`${VIDEO_API}/titles?pageSize=1`)
       .then((page) => { if (live) setCatalogTotal(page.total); })
       .catch((err: unknown) => {
@@ -190,7 +190,8 @@ export function VideoHomePage() {
     }
     window.scrollTo({ top: 0 });
   };
-  /** Save as row: the grid's question, as a row at the end of everyone's page. */
+  /** Save as row: the grid's question, as a row at the end of the rows this
+   *  person sees — their own; or, for an admin who has none, everyone's. */
   const saveAsRow = async () => {
     if (!layout) return;
     const row: VideoTitlesRow = { id: newRowId(), type: "titles", kind, libraries: libraryFilter, genres: filters.genres, sort };
@@ -200,8 +201,9 @@ export function VideoHomePage() {
       return;
     }
     try {
-      setLayout(await api<VideoLayout>(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows: [...layout.rows, row] }) }));
-      setNotice({ tone: "success", title: t("video.rows.savedAsRow", { name }) });
+      const scope = layout.mine || !layout.editable ? "mine" : "everyone";
+      setLayout(await api<VideoLayout>(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows: [...layout.rows, row], scope }) }));
+      setNotice({ tone: "success", title: scope === "mine" ? t("video.rows.savedAsRowMine", { name }) : t("video.rows.savedAsRow", { name }) });
     } catch (err) {
       setNotice({ tone: "error", title: t("video.rows.saveFailed"), body: err instanceof Error ? err.message : undefined });
     }
@@ -228,7 +230,15 @@ export function VideoHomePage() {
   });
   const setItem = (set: VideoSetSummary) => setPoster(set, t);
   const viewAll = (row: VideoRow, under: VideoRowKind) => {
-    if (row.type === "continue") return null;
+    if (row.type === "continue" || row.type === "collection") return null;
+    if (row.type === "mylist") {
+      return (
+        <a className="video-row-more" href={MY_LIST_HREF} onClick={(event) => followRoute(event, MY_LIST_HREF)}>
+          <span>{t("common.viewAll")}</span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </a>
+      );
+    }
     const href = row.type === "sets" ? videoBrowseHref("movies", "sets") : rowHref(row, under);
     return (
       <a className="video-row-more" href={href} onClick={(event) => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey) { event.preventDefault(); openRow(row, under); } }}>
@@ -252,7 +262,8 @@ export function VideoHomePage() {
   const subtitle = shown === "sets" ? t("video.countSets", { count: total })
     : shown === "grid" && titles ? t("video.countTitles", { count: total }) : undefined;
   const empty = catalogTotal === 0 && !error;
-  const editable = layout?.editable === true;
+  /** Anyone may make the rows their own; the page waits until it knows them. */
+  const editable = layout !== null && catalogTotal !== 0;
 
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav />}>

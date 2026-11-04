@@ -21,7 +21,10 @@ import { resolveAppSecret } from "../../apps/pairing.js";
 import { appConfigured, appDefinition } from "../../apps/registry.js";
 import { accessibleLibraryIds, canUserAccessLibrary } from "../shared/library-access.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
-import { getVideoLayout, resetVideoLayout, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
+import { getHouseholdLayout, getVideoLayout, resetVideoLayout, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
+import { canReadCollectionRow, registerVideoListRoutes } from "./lists.js";
+import { VIDEO_ENTITY_TYPES, forgetVideoLibrary, refreshVideoRefs } from "./refs.js";
+import { setSubjectPreparer } from "../../social/subjects.js";
 import { notePlayResponse } from "./play-log.js";
 import { registerStremioRoutes, stremioHeaders, stremioTokenUser } from "./stremio.js";
 import {
@@ -48,6 +51,8 @@ const VIDEO = appDefinition("video");
 const SYNC_EVERY_MS = 6 * 60 * 60 * 1000;
 
 const listQuerySchema = z.object({ manage: z.string().optional() });
+/** Whose rows: the page's (left out), the person's own, or the household's. */
+const layoutScopeSchema = z.object({ scope: z.enum(["mine", "everyone"]).optional() });
 const foldersQuerySchema = z.object({ path: z.string().max(1000).default("") });
 
 export interface VideoPluginOptions {
@@ -101,27 +106,58 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     enabled: available() && appRole("video", request.user!) !== null
   }));
 
-  // The video page's rows (home-layout.ts): the household's, set by an admin.
-  // Each row's titles are asked of the engine by the screen, as the viewer.
+  // The video page's rows (home-layout.ts): the household's, set by an admin,
+  // and anyone's own copy. Each row's titles are asked of the engine by the
+  // screen, as the viewer. `editable` is whether this person may change the
+  // household's; their own they always may.
+  const pageLayout = (user: { id: string; role: string }) => ({ ...getVideoLayout(user.id), editable: user.role === "admin" });
+  const videoGate = (request: FastifyRequest, reply: FastifyReply) =>
+    !available() || appRole("video", request.user!) === null ? reply.code(404).send({ error: "Video is not available" }) : null;
+
   app.get("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
-    if (!available() || appRole("video", request.user!) === null) return reply.code(404).send({ error: "Video is not available" });
-    return { ...getVideoLayout(), editable: request.user!.role === "admin" };
+    const refused = videoGate(request, reply);
+    if (refused) return refused;
+    const { scope } = layoutScopeSchema.parse(request.query ?? {});
+    if (scope === "everyone") return { ...getHouseholdLayout(), mine: false, editable: request.user!.role === "admin" };
+    return pageLayout(request.user!);
   });
 
-  app.put("/api/video/home", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.put("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
+    const refused = videoGate(request, reply);
+    if (refused) return refused;
     const parsed = parseBody(videoLayoutSchema, request.body);
     if (parsed.error) return reply.code(400).send({ error: "Invalid video rows", details: parsed.error });
-    const { rows } = videoLayoutSchema.parse(parsed.data);
-    saveVideoLayout(rows, request.user!.id);
-    logActivity({ event: "library.video.rows_saved", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: `Saved the video page's rows for everyone (${rows.length}).`, ipAddress: request.ip });
-    return { ...getVideoLayout(), editable: true };
+    const { rows, scope } = videoLayoutSchema.parse(parsed.data);
+    if (scope === "everyone" && request.user!.role !== "admin") return reply.code(403).send({ error: "Only an admin changes everyone's rows" });
+    // A Collection row shows a collection of the person saving it (or one already
+    // on everyone's page): never a way into someone else's.
+    const foreign = rows.find((row) => row.type === "collection" && !canReadCollectionRow(row.collectionId, request.user!.id));
+    if (foreign) return reply.code(400).send({ error: "A row shows a collection that is not yours" });
+    saveVideoLayout(scope, rows, request.user!.id);
+    if (scope === "everyone") {
+      logActivity({ event: "library.video.rows_saved", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: `Saved the video page's rows for everyone (${rows.length}).`, ipAddress: request.ip });
+    }
+    return pageLayout(request.user!);
   });
 
-  app.delete("/api/video/home", { preHandler: app.requireAdmin }, async (request) => {
-    resetVideoLayout();
-    logActivity({ event: "library.video.rows_reset", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: "Put the video page's rows back to the default.", ipAddress: request.ip });
-    return { ...getVideoLayout(), editable: true };
+  app.delete("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
+    const refused = videoGate(request, reply);
+    if (refused) return refused;
+    const scope = layoutScopeSchema.parse(request.query ?? {}).scope ?? "everyone";
+    if (scope === "everyone" && request.user!.role !== "admin") return reply.code(403).send({ error: "Only an admin changes everyone's rows" });
+    resetVideoLayout(scope, request.user!.id);
+    if (scope === "everyone") {
+      logActivity({ event: "library.video.rows_reset", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: "Put the video page's rows back to the default.", ipAddress: request.ip });
+    }
+    return pageLayout(request.user!);
   });
+
+  // My list and Collection rows (lists.ts); Collections learn films and shows
+  // from the engine as they are added (refs.ts).
+  registerVideoListRoutes(app, engine, videoGate);
+  for (const [kind, entityType] of Object.entries(VIDEO_ENTITY_TYPES) as ["movies" | "shows", string][]) {
+    setSubjectPreparer(entityType, (ids) => (configured() ? refreshVideoRefs(engine, kind, ids) : Promise.resolve()));
+  }
 
   // Profile → Security › Stremio, and the administrator's list of links.
   registerStremioRoutes(app, (user) => available() && appRole("video", user) !== null);
@@ -211,6 +247,7 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     const row = getVideoLibrary(id);
     if (!row) return reply.code(404).send({ error: "Video library not found" });
     deleteVideoLibraryRow(id);
+    forgetVideoLibrary(id);
     // The engine drops its catalog too. If it is down now, the next sync
     // detaches the library there, and it goes after 30 days.
     let engineNote = "the video app removed its catalog";

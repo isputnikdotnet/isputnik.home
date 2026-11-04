@@ -33,14 +33,14 @@ export interface EngineTarget {
 }
 
 export interface EngineClient {
-  call<T>(method: "GET" | "PUT" | "POST" | "DELETE", path: string, options?: { body?: unknown; actor?: User | null; requestId?: string }): Promise<T>;
+  call<T>(method: "GET" | "PUT" | "POST" | "DELETE", path: string, options?: { body?: unknown; actor?: User | null; requestId?: string; libraries?: string[] }): Promise<T>;
 }
 
 /** A client for whichever engine `target` names when a call is made, so a
  *  secret paired on Settings › Apps is used at once. `path` is under /video/api. */
 export function engineClient(target: () => EngineTarget): EngineClient {
   return {
-    async call<T>(method: "GET" | "PUT" | "POST" | "DELETE", path: string, options: { body?: unknown; actor?: User | null; requestId?: string } = {}): Promise<T> {
+    async call<T>(method: "GET" | "PUT" | "POST" | "DELETE", path: string, options: { body?: unknown; actor?: User | null; requestId?: string; libraries?: string[] } = {}): Promise<T> {
       const { upstream, secret } = target();
       const configured = appConfigured(VIDEO, upstream, secret);
       if (!configured.enabled) throw new EngineError(configured.reason ?? "The video app is not set up.", 503);
@@ -51,6 +51,8 @@ export function engineClient(target: () => EngineTarget): EngineClient {
           method,
           headers: {
             ...identityHeaders(actor, secret, { ip: "127.0.0.1", requestId: options.requestId ?? `home-${Date.now().toString(36)}` }),
+            // A catalog read names the libraries it may read, as the gateway does for a person.
+            ...(options.libraries ? { "x-isputnik-libraries": options.libraries.join(",") } : {}),
             ...(options.body === undefined ? {} : { "content-type": "application/json" })
           },
           body: options.body === undefined ? undefined : JSON.stringify(options.body),

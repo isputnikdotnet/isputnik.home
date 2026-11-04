@@ -16,10 +16,13 @@ import {
 import { VIDEO_API, type VideoLibraryRef } from "./types";
 
 type RowType = VideoRow["type"];
+/** Whose rows: the person's own, or (admins) the household's. */
+type Scope = "mine" | "everyone";
 
-// Customize on the video page (docs/video-home-rows-plan.md): the household's
-// rows, in order, each shown or hidden, and Add row. Admins only; what is saved
-// is everyone's page. Nothing is saved until Save rows.
+// Customize on the video page (docs/video-home-rows-plan.md): the rows, in order,
+// each shown or hidden, and Add row. Everyone may make the page their own (Just
+// me); an admin also edits the household's (Everyone), which is what everyone
+// without rows of their own sees. Nothing is saved until Save rows.
 export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
   layout: VideoLayout;
   libraries: VideoLibraryRef[];
@@ -27,14 +30,46 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
   onSaved: (layout: VideoLayout) => void;
 }) {
   const { t } = useTranslation();
-  const [rows, setRows] = useState<VideoRow[]>(layout.rows);
+  const [scope, setScope] = useState<Scope>(layout.mine || !layout.editable ? "mine" : "everyone");
+  // Each side as it is being edited. Someone with no rows of their own starts
+  // "Just me" from the household's; an admin with their own asks for the
+  // household's when they turn to Everyone.
+  const [drafts, setDrafts] = useState<Partial<Record<Scope, VideoRow[]>>>(() => (layout.mine ? { mine: layout.rows } : { mine: layout.rows, everyone: layout.rows }));
+  const [householdCustom, setHouseholdCustom] = useState(layout.custom);
   /** The row being added or changed; its index, or -1 for a new one. */
   const [editing, setEditing] = useState<{ index: number; row: VideoRow } | null>(null);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState<"ask" | "busy" | null>(null);
   const [error, setError] = useState("");
   const libraryNames = Object.fromEntries(libraries.map((entry) => [entry.id, entry.name]));
+  /** This person's own collections: what a Collection row may show. */
+  const [collections, setCollections] = useState<{ id: string; name: string }[]>([]);
+  const collectionNames = Object.fromEntries(collections.map((entry) => [entry.id, entry.name]));
+  const rows = drafts[scope] ?? [];
 
+  useEffect(() => {
+    let live = true;
+    api<{ collections: { id: string; name: string }[] }>("/api/collections")
+      .then((payload) => { if (live) setCollections(payload.collections); })
+      .catch(() => { if (live) setCollections([]); });
+    return () => { live = false; };
+  }, []);
+  const loaded = drafts[scope] !== undefined;
+
+  useEffect(() => {
+    if (scope !== "everyone" || drafts.everyone) return;
+    let live = true;
+    api<VideoLayout>(`${VIDEO_HOME_API}?scope=everyone`)
+      .then((household) => {
+        if (!live) return;
+        setDrafts((current) => ({ ...current, everyone: household.rows }));
+        setHouseholdCustom(household.custom);
+      })
+      .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.loadFailed")); });
+    return () => { live = false; };
+  }, [scope, drafts.everyone, t]);
+
+  const setRows = (next: VideoRow[]) => setDrafts((current) => ({ ...current, [scope]: next }));
   const move = (index: number, by: number) => {
     const to = index + by;
     if (to < 0 || to >= rows.length) return;
@@ -56,19 +91,24 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
   };
   const save = async () => {
     setSaving(true);
-    await send(api<VideoLayout>(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows }) }));
+    await send(api<VideoLayout>(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows, scope }) }));
     setSaving(false);
   };
   const reset = async () => {
     setResetting("busy");
-    const done = await send(api<VideoLayout>(VIDEO_HOME_API, { method: "DELETE" }));
+    const done = await send(api<VideoLayout>(`${VIDEO_HOME_API}?scope=${scope}`, { method: "DELETE" }));
     setResetting(done ? null : "ask");
   };
 
   const busy = saving || resetting === "busy";
+  // Mine: back to the household's, when there are rows of one's own to drop.
+  // Everyone: back to the default rows, when someone changed them.
+  const canReset = scope === "mine" ? layout.mine : householdCustom;
   const describe = (row: VideoRow) => {
     if (row.type === "continue") return t("video.rows.typeContinueHint");
     if (row.type === "sets") return t("video.rows.typeSetsHint");
+    if (row.type === "mylist") return t("video.rows.typeMyListHint");
+    if (row.type === "collection") return t("video.rows.typeCollectionHint");
     const sort = row.sort === "added" ? t("video.sortAdded") : row.sort === "year" ? t("video.sortYear") : t("video.sortTitle");
     const where = row.libraries.length > 0 ? row.libraries.map((id) => libraryNames[id] ?? id).join(", ") : t("video.rows.everyLibrary");
     return [kindWord(row.kind, t), where, sort].join(" · ");
@@ -83,6 +123,7 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
             isNew={editing.index < 0}
             libraries={libraries}
             libraryNames={libraryNames}
+            collections={collections}
             onCancel={() => setEditing(null)}
             onDone={(row) => {
               if (editing.index < 0) setRows([...rows, row]);
@@ -92,11 +133,19 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
           />
         ) : (
           <>
-            <p className="muted">{t("video.rows.hint")}</p>
+            {layout.editable && (
+              <div className="video-kind-tabs video-rows-scope" role="tablist" aria-label={t("video.rows.scopeAria")}>
+                <Button variant="tab" selected={scope === "mine"} disabled={busy} onClick={() => setScope("mine")}>{t("video.rows.scopeMine")}</Button>
+                <Button variant="tab" selected={scope === "everyone"} disabled={busy} onClick={() => setScope("everyone")}>{t("video.rows.scopeEveryone")}</Button>
+              </div>
+            )}
+            <p className="muted">
+              {scope === "mine" ? t("video.rows.hintMine") : layout.mine ? t("video.rows.hintEveryoneButMine") : t("video.rows.hint")}
+            </p>
             {error && <MessageBox tone="error" title={t("video.rows.saveFailed")}>{error}</MessageBox>}
             <ol className="video-rows-list">
               {rows.map((row, index) => {
-                const name = rowName(row, t, libraryNames);
+                const name = rowName(row, t, libraryNames, collectionNames);
                 return (
                   <li key={row.id} className={row.hidden ? "is-hidden" : undefined}>
                     <span className="video-rows-text">
@@ -125,10 +174,10 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
                 );
               })}
             </ol>
-            {rows.length === 0 && <p className="muted">{t("video.rows.none")}</p>}
+            {loaded && rows.length === 0 && <p className="muted">{t("video.rows.none")}</p>}
             <Button
               variant="secondary"
-              disabled={rows.length >= VIDEO_ROWS_MAX}
+              disabled={!loaded || rows.length >= VIDEO_ROWS_MAX}
               title={rows.length >= VIDEO_ROWS_MAX ? t("video.rows.full", { max: VIDEO_ROWS_MAX }) : undefined}
               onClick={() => setEditing({ index: -1, row: { id: newRowId(), type: "titles", kind: "all", libraries: [], genres: [], sort: "added" } })}
             >
@@ -136,25 +185,27 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
               {t("video.rows.add")}
             </Button>
             <div className="modal-actions">
-              {layout.custom && (
-                <Button variant="text" disabled={busy} onClick={() => setResetting("ask")}>{t("video.rows.reset")}</Button>
+              {canReset && (
+                <Button variant="text" disabled={busy} onClick={() => setResetting("ask")}>
+                  {scope === "mine" ? t("video.rows.resetMine") : t("video.rows.reset")}
+                </Button>
               )}
               <Button variant="secondary" disabled={busy} onClick={onClose}>{t("common.cancel")}</Button>
-              <Button variant="primary" disabled={busy} onClick={() => void save()}>{saving ? t("video.rows.saving") : t("video.rows.save")}</Button>
+              <Button variant="primary" disabled={busy || !loaded} onClick={() => void save()}>{saving ? t("video.rows.saving") : t("video.rows.save")}</Button>
             </div>
           </>
         )}
       </div>
       {resetting && (
         <ConfirmDialog
-          title={t("video.rows.resetTitle")}
-          confirmLabel={t("video.rows.resetConfirm")}
+          title={scope === "mine" ? t("video.rows.resetMineTitle") : t("video.rows.resetTitle")}
+          confirmLabel={scope === "mine" ? t("video.rows.resetMineConfirm") : t("video.rows.resetConfirm")}
           busyLabel={t("video.rows.resetting")}
           busy={resetting === "busy"}
           onConfirm={() => void reset()}
           onCancel={() => setResetting(null)}
         >
-          {t("video.rows.resetBody")}
+          {scope === "mine" ? t("video.rows.resetMineBody") : t("video.rows.resetBody")}
         </ConfirmDialog>
       )}
     </Modal>
@@ -162,11 +213,12 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
 }
 
 /** One row's settings: what it is, and for a list of titles what it asks for. */
-function RowForm({ row, isNew, libraries, libraryNames, onCancel, onDone }: {
+function RowForm({ row, isNew, libraries, libraryNames, collections, onCancel, onDone }: {
   row: VideoRow;
   isNew: boolean;
   libraries: VideoLibraryRef[];
   libraryNames: Record<string, string>;
+  collections: { id: string; name: string }[];
   onCancel: () => void;
   onDone: (row: VideoRow) => void;
 }) {
@@ -185,8 +237,13 @@ function RowForm({ row, isNew, libraries, libraryNames, onCancel, onDone }: {
 
   const setType = (type: RowType) => {
     const common = { id: draft.id, title: draft.title, hidden: draft.hidden };
-    setDraft(type === "titles" ? { ...titles, ...common } : { ...common, type });
+    if (type === "titles") setDraft({ ...titles, ...common });
+    else if (type === "collection") setDraft({ ...common, type, collectionId: collections[0]?.id ?? "" });
+    else setDraft({ ...common, type });
   };
+  const collectionNames = Object.fromEntries(collections.map((entry) => [entry.id, entry.name]));
+  // A Collection row with no collection to show is not one yet.
+  const ready = draft.type !== "collection" || Boolean(draft.collectionId);
   const setTitles = (patch: Partial<VideoTitlesRow>) => setDraft({ ...titles, title: draft.title, hidden: draft.hidden, ...patch });
   const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((each) => each !== value) : [...list, value]);
   // Libraries of the other kind say nothing in a row of one kind.
@@ -205,10 +262,22 @@ function RowForm({ row, isNew, libraries, libraryNames, onCancel, onDone }: {
           options={[
             { value: "titles", label: t("video.rows.typeTitles"), description: t("video.rows.typeTitlesHint") },
             { value: "continue", label: t("video.continueWatching"), description: t("video.rows.typeContinueHint") },
-            { value: "sets", label: t("video.viewSets"), description: t("video.rows.typeSetsHint") }
+            { value: "sets", label: t("video.viewSets"), description: t("video.rows.typeSetsHint") },
+            { value: "mylist", label: t("video.myList.title"), description: t("video.rows.typeMyListHint") },
+            { value: "collection", label: t("video.rows.typeCollection"), description: t("video.rows.typeCollectionHint") }
           ]}
         />
       )}
+      {draft.type === "collection" && (collections.length > 0 ? (
+        <SelectField<string>
+          label={t("video.rows.fieldCollection")}
+          value={draft.collectionId}
+          onChange={(collectionId) => setDraft({ ...draft, collectionId })}
+          options={collections.map((entry) => ({ value: entry.id, label: entry.name }))}
+        />
+      ) : (
+        <MessageBox tone="info" title={t("video.rows.noCollectionsTitle")}>{t("video.rows.noCollectionsBody")}</MessageBox>
+      ))}
       {draft.type === "titles" && (
         <>
           <SelectField<VideoRowKind>
@@ -261,12 +330,12 @@ function RowForm({ row, isNew, libraries, libraryNames, onCancel, onDone }: {
         label={t("video.rows.fieldTitle")}
         value={draft.title ?? ""}
         required={false}
-        placeholder={rowName({ ...draft, title: undefined }, t, libraryNames)}
+        placeholder={rowName({ ...draft, title: undefined }, t, libraryNames, collectionNames)}
         onChange={(value) => setDraft({ ...draft, title: value.trim() ? value.slice(0, 80) : undefined })}
       />
       <div className="modal-actions">
         <Button variant="secondary" onClick={onCancel}>{t("common.cancel")}</Button>
-        <Button variant="primary" onClick={() => onDone(draft)}>{isNew ? t("video.rows.addDone") : t("common.done")}</Button>
+        <Button variant="primary" disabled={!ready} onClick={() => onDone(draft)}>{isNew ? t("video.rows.addDone") : t("common.done")}</Button>
       </div>
     </div>
   );

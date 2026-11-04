@@ -26,13 +26,25 @@ export interface VideoTitlesRow extends RowCommon {
   genres: string[];
   sort: VideoRowSort;
 }
-export type VideoRow = (RowCommon & { type: "continue" }) | VideoTitlesRow | (RowCommon & { type: "sets" });
+/** A Collection's films and shows, in its order. */
+export interface VideoCollectionRow extends RowCommon {
+  type: "collection";
+  collectionId: string;
+}
+export type VideoRow =
+  | (RowCommon & { type: "continue" })
+  | VideoTitlesRow
+  | (RowCommon & { type: "sets" })
+  | VideoCollectionRow
+  | (RowCommon & { type: "mylist" });
 
 export interface VideoLayout {
   rows: VideoRow[];
-  /** Someone has changed them: false is the default rows. */
+  /** Someone has changed the household's: false is the default rows. */
   custom: boolean;
-  /** This person may change them (an admin). */
+  /** These are the person's own rows, not the household's. */
+  mine: boolean;
+  /** This person may change the household's (an admin); their own anyone may. */
   editable: boolean;
 }
 
@@ -45,7 +57,7 @@ export function newRowId(): string {
  *  there at all. */
 export function rowKindUnder(row: VideoRow, switchKind: VideoRowKind): VideoRowKind | null {
   if (row.type === "sets") return switchKind === "shows" ? null : "movies";
-  if (row.type === "continue") return switchKind;
+  if (row.type !== "titles") return switchKind;
   if (row.kind === "all") return switchKind;
   return switchKind === "all" || switchKind === row.kind ? row.kind : null;
 }
@@ -64,10 +76,12 @@ export const kindWord = (kind: VideoRowKind, t: TFunction) =>
   kind === "movies" ? t("video.movies") : kind === "shows" ? t("video.shows") : t("video.rows.kindBoth");
 
 /** A row's name: its own, else one made from what it asks for. */
-export function rowName(row: VideoRow, t: TFunction, libraryNames: Record<string, string>): string {
+export function rowName(row: VideoRow, t: TFunction, libraryNames: Record<string, string>, collectionNames: Record<string, string> = {}): string {
   if (row.title) return row.title;
   if (row.type === "continue") return t("video.continueWatching");
   if (row.type === "sets") return t("video.viewSets");
+  if (row.type === "mylist") return t("video.myList.title");
+  if (row.type === "collection") return collectionNames[row.collectionId] ?? t("video.rows.typeCollection");
   const what = row.genres.length > 0 ? row.genres.join(", ")
     : row.libraries.length > 0 ? row.libraries.map((id) => libraryNames[id] ?? id).join(", ")
     : null;

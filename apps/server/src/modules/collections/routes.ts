@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 import { parseBody, parseQuery } from "../../core/shared.js";
-import { COLLECTABLE_ENTITY_TYPES, hydrateEntities, type HydratedEntity } from "../social/subjects.js";
+import { COLLECTABLE_ENTITY_TYPES, hydrateEntities, prepareEntities, type HydratedEntity } from "../social/subjects.js";
 import type { CollectionItemRow, CollectionRow as DbCollectionRow } from "../../db/rows.js";
 
 const createSchema = z.object({
@@ -279,6 +279,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
     }
     const { entityType, entityId } = parsed.data;
 
+    await prepareEntities(entityType, [entityId]);
     const hydrated = hydrateEntities([{ entityType, entityId }], user);
     if (!hydrated.get(`${entityType}:${entityId}`)?.available) {
       return reply.code(404).send({ error: "Item not found" });
@@ -316,6 +317,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
+    await prepareEntities(parsed.data.entityType, parsed.data.entityIds);
     return reply.send(appendCollectionItems(id, user, parsed.data.entityType, parsed.data.entityIds));
   });
 
