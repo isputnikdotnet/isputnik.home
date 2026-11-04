@@ -572,6 +572,52 @@ describe("a show's page", () => {
     expect(await screen.findByText("Pop acts of the year.")).toBeInTheDocument();
   });
 
+  it("names a miniseries' parts as TMDB's episodes, and plain parts by their number", async () => {
+    const part = (n: number, over: Record<string, unknown> = {}) => ({ id: n === 1 ? "m1" : `p${n}`, part: n, direct: "yes", progress: null, ...over });
+    mockApi.mockResolvedValue({
+      id: "m1", libraryId: "lib_mov", title: "Д'Артаньян и три мушкетёра", originalTitle: null, year: 1979, plot: null, genres: [], runtimeMinutes: null,
+      imdbId: null, tmdbId: "76829", source: "folder", direct: "yes", progress: null,
+      parts: [
+        part(1, { title: "Атос, Портос, Арамис и Д'Артаньян", plot: "Гасконец едет в Париж.", aired: "1979-12-25", still: "/video/api/art/m1-part1/still?v=1" }),
+        part(2)
+      ]
+    });
+    renderSignedIn(<VideoTitlePage kind="movies" id="m1" />);
+    const first = await screen.findByRole("link", { name: "Play Атос, Портос, Арамис и Д'Артаньян" });
+    expect(first.querySelector("img")).toHaveAttribute("src", "/video/api/art/m1-part1/still?v=1");
+    expect(screen.getByText("Гасконец едет в Париж.")).toBeInTheDocument();
+    expect(screen.getByText(/^Part 1 · /)).toBeInTheDocument();
+    // A part TMDB says nothing of keeps its number.
+    expect(screen.getByRole("link", { name: "Play Part 2" })).toHaveAttribute("href", "/watch/p2");
+  });
+
+  it("puts a film into a set by hand from the Edit dialog's Set tab", async () => {
+    const film = {
+      id: "m1", libraryId: "lib_mov", title: "Loose Film", originalTitle: null, year: 1999, plot: null, genres: [], runtimeMinutes: null,
+      imdbId: null, tmdbId: null, source: "folder", direct: "yes", progress: null
+    };
+    mockApi.mockImplementation((async (path: string, init?: RequestInit) => {
+      if (path === "/video/api/movies/m1") return film;
+      if (path === "/video/api/admin/titles/m1/edit" && init?.method === "PUT") return { movie: film };
+      if (path === "/video/api/admin/titles/m1/edit") return { ...editState(film), set: { edited: null, automatic: "Old Set" } };
+      if (path === "/video/api/admin/genres") return { genres: [], words: [] };
+      if (path === "/video/api/admin/sets/names") return { sets: [{ id: "s1", name: "Our Films", films: 2 }] };
+      throw new Error(`unexpected ${path}`);
+    }) as never);
+    renderSignedIn(<VideoTitlePage kind="movies" id="m1" />, { user: { id: "a1", role: "admin" } as never });
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Set" }));
+    expect(screen.getByText("Found: Old Set")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /In this set/ }));
+    await userEvent.type(screen.getByRole("combobox", { name: "Set" }), "Our Films");
+    await userEvent.type(screen.getByRole("textbox", { name: "Place in the set" }), "2");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(mockApi).toHaveBeenCalledWith("/video/api/admin/titles/m1/edit", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({ title: null, originalTitle: null, sortTitle: null, year: null, plot: null, genres: null, set: { mode: "named", name: "Our Films", order: 2 } })
+    }));
+  });
+
   it("offers Edit to admins only", async () => {
     mockApi.mockResolvedValue({
       id: "m1", libraryId: "lib_mov", title: "Loose Film", originalTitle: null, year: 1999, plot: null, genres: [], runtimeMinutes: null,

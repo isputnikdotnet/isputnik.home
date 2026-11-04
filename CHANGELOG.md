@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.68.0 — Film sets by hand, and miniseries found on TMDB
+
+- **Edit on a film now has a Set tab.** A film can be put into a set by hand (pick one that is there, or type a new name to make one) at the place you give it, or kept out of every set, even TMDB's collection. Before, sets came only from the `.nfo` files and TMDB, so a family's own series, or a film TMDB put in the wrong collection, could not be fixed. The choice stays through every rescan, and **As found** hands it back.
+- **TMDB matching no longer takes the first result.** Each answer is weighed by its name (case, ё and apostrophes aside) and its year, so «Д'Артаньян и три мушкетёра» now finds the 1979 TV show rather than the 2007 French film of exactly the same Russian name, and a film whose folder year is a few years off still finds itself by name. A film in several files is looked up among TMDB's TV shows first, since it is most often a miniseries.
+- **A miniseries' parts show its episodes.** When a film in parts is matched to a TV show on TMDB, by itself or by hand in Lookup, Part 1, 2 and 3 take the names, pictures, dates and descriptions of that show's episodes. A title matched by hand earlier picks them up on the next **Refresh** of its library.
+- **The Video genres page explains itself.** What were *unsorted words* and *hidden words* are now **Found genres not in your list** and **Hidden genres**, a **How it works** panel shows with an example what happens to each genre a film arrives with, and the buttons say what they do (**Add to genre…**, **Make it a genre**, **Hide**).
+- Needs the video engine 0.24.0.
+
 ## 4.67.0 — Video genres and editing a title
 
 - **Video genres of your own, kept the way book categories are.** Films and shows came with whatever genres their `.nfo` files and TMDB gave them, so one genre turned up in two languages and several spellings (*Comedy*, *Комедия*), TMDB's TV genres came in pairs (*Sci-Fi & Fantasy*), and *TV Movie* sat in the filters. **Control panel → Library → Video genres** now keeps one list: each genre's **keywords** are the words that lead to it (one word can lead to two genres), **unsorted words** wait to be added to a genre, made one, or **hidden**, and genres can be renamed, merged and deleted. **Add TMDB's genres** starts the list in English or Russian with the other language's names as keywords. Changes show at once on every screen, the TV app's too, with no rescan; rows that asked for an old name keep finding the same films.

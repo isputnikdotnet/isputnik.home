@@ -222,7 +222,8 @@ function PlayAction({ title }: { title: VideoShow | VideoMovie }) {
 }
 
 /** A film in several files: each part, with how far this person got in it. Looks
- *  like a season's episodes, because it behaves like them. */
+ *  like a season's episodes, because it behaves like them — and a miniseries
+ *  matched on TMDB as a show has its episodes' names, stills and descriptions. */
 function PartList({ parts }: { parts: NonNullable<VideoMovie["parts"]> }) {
   const { t } = useTranslation();
   return (
@@ -230,13 +231,13 @@ function PartList({ parts }: { parts: NonNullable<VideoMovie["parts"]> }) {
       <h2 id="video-parts-title">{t("video.parts")}</h2>
       <ol className="video-episodes">
         {parts.map((part) => {
-          const name = t("video.part", { number: part.part });
+          const name = part.title ?? t("video.part", { number: part.part });
           const fraction = progressFraction(part.progress);
           const href = watchHref(part.id);
           return (
             <li key={part.id} className={`video-episode${part.progress?.watched ? " is-watched" : ""}`}>
               <a className="video-episode-play" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("video.playEpisode", { name })}>
-                <span className="video-episode-number">{part.part}</span>
+                {part.still ? <img src={part.still} alt="" loading="lazy" /> : <span className="video-episode-number">{part.part}</span>}
                 <Play className="video-episode-icon" size={30} fill="currentColor" aria-hidden="true" />
                 {fraction > 0 && fraction < 1 && (
                   <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(fraction * 100)}%` }} /></span>
@@ -247,6 +248,15 @@ function PartList({ parts }: { parts: NonNullable<VideoMovie["parts"]> }) {
                   {name}
                   {part.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
                 </strong>
+                {part.title && (
+                  <small className="muted">
+                    {[
+                      t("video.part", { number: part.part }),
+                      part.aired ? t("video.aired", { date: formatDate(part.aired, "medium", { utc: true }) }) : null
+                    ].filter(Boolean).join(" · ")}
+                  </small>
+                )}
+                {part.plot && <p>{part.plot}</p>}
               </div>
             </li>
           );

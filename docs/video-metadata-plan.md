@@ -74,7 +74,26 @@ Fix match and its backdrop picker became two tabs of the Edit dialog;
     choice. Uploads are kept in the art folder, which isn't in the backup, so a
     restore onto a new box loses them.
 
+## S — Sets by hand, better matching, a miniseries' parts (built 2026-11-04, engine 0.24.0 + home 4.68.0)
+
+- **Set tab** (films): `title_edits` gained `set_name`, `set_order` and `no_set`, plus
+  `auto_set_*`. A set named by hand is written into `movies.set_name` with
+  `set_tmdb_id` cleared, so it is a set by name and joins TMDB's of that name.
+  `no_set` makes `rebuildSets` skip the film, TMDB's collection too. Saving a set
+  rebuilds the sets at once. Edits saved under 0.23.0 get `auto_set_*` filled from
+  the film on upgrade (`db.ts`). `GET /admin/sets/names` gives the choices.
+- **Matching** weighs every TMDB answer instead of taking the first. A result with
+  the same name (case, ё, apostrophes and punctuation aside; `nameKey`) within a
+  year is taken at once. Otherwise the same name with the year further off,
+  then another name within a year, then (no year at all) the first. A film in
+  several files asks TMDB's TV shows first.
+- **A miniseries' parts**: a film in parts matched to a TV show stores season 1's
+  episodes under `<movieId>-part<n>` metadata keys (part 1's id is the film's own).
+  The film page shows their names, stills and descriptions. They are dropped when
+  the film is matched to a film again.
+
 ## Next
 
-1. **Set** tab for films. Episode title and plot editing only if a real library
-   needs it: Plex and Jellyfin both offer it, but it is rarely used.
+1. Uploaded posters in the engine's backups (the art folder is left out today).
+2. Episode title and plot editing only if a real library needs it: Plex and
+   Jellyfin both offer it, but it is rarely used.

@@ -1574,3 +1574,37 @@
 .video-lookup-value {
   overflow-wrap: anywhere;
 }
+
+/* Set (EditTitleModal): as found, in a set by hand, or in none. */
+.video-edit-set {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.video-edit-set > p {
+  margin: 0;
+}
+
+.video-edit-set-choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.video-edit-set-choice > input {
+  margin-top: 4px;
+}
+
+.video-edit-set-choice > span {
+  display: grid;
+  gap: 2px;
+}
+
+.video-edit-set-fields {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
+  margin-left: 26px;
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Drama, EyeOff, GitMerge, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Drama, EyeOff, GitMerge, List, Pencil, Plus, Trash2, X } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -113,6 +113,8 @@ function GenresBody({ prefix }: { prefix: string }) {
           <Plus size={16} aria-hidden="true" /> {t("control:genres.createGenre")}
         </Button>
       </div>
+
+      <GenresHelp open={data.genres.length === 0} />
 
       {error && !creating && !editing && <MessageBox tone="error" title={t("control:genres.errorTitle")}>{error}</MessageBox>}
 
@@ -251,6 +253,36 @@ function GenresBody({ prefix }: { prefix: string }) {
         />
       )}
     </>
+  );
+}
+
+/** The four ways a genre a film arrives with can end up, with an example each
+ *  — the same panel Categories has. Open until the list has genres. */
+function GenresHelp({ open }: { open?: boolean }) {
+  const { t } = useTranslation(["common", "control"]);
+  const cases = [
+    ["helpKeywordTitle", "helpKeywordBody"],
+    ["helpNameTitle", "helpNameBody"],
+    ["helpFoundTitle", "helpFoundBody"],
+    ["helpHiddenTitle", "helpHiddenBody"]
+  ] as const;
+  return (
+    <details className="category-help-panel category-help-disclosure" open={open}>
+      <summary className="category-help-summary">
+        <List size={18} aria-hidden="true" />
+        <span>{t("control:genres.helpSummary")}</span>
+      </summary>
+      <p className="category-help-note">{t("control:genres.helpIntro")}</p>
+      <div className="category-help-grid">
+        {cases.map(([title, body]) => (
+          <div className="category-help-item" key={title}>
+            <strong>{t(`control:genres.${title}`)}</strong>
+            <span>{t(`control:genres.${body}`)}</span>
+          </div>
+        ))}
+      </div>
+      <p className="category-help-note">{t("control:genres.helpNote")}</p>
+    </details>
   );
 }
 

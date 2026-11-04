@@ -224,7 +224,7 @@ always stay.
 
 ### Editing a title
 
-Admins have **Edit** on every film's and show's page. It has four tabs:
+Admins have **Edit** on every film's and show's page. Its tabs:
 
 - **Details**: the title, original title, year, the name it sorts by, and the
   description. Each field shows what the `.nfo` file, the folder name or TMDB
@@ -232,11 +232,17 @@ Admins have **Edit** on every film's and show's page. It has four tabs:
   Edits stay through every rescan; **Use what was found** hands a field back.
 - **Genres**: pick the title's genres from the list kept on **Control panel →
   Library → Video genres**. With none picked it keeps the genres that were found.
+- **Set** (films): which set the film is in. **As found** keeps the `.nfo`
+  file's set, else TMDB's collection; **In this set** puts it into one by name
+  (pick one that is there, or type a new name to make a set) at the place you
+  give it; **Not in any set** keeps it out, even of TMDB's collection.
 - **Lookup**: a title matched to the wrong film or show (or to none) is put
   right here. Search TMDB by name and year and pick the right one; TMDB's words
   are shown beside the title's, and the ones you tick go into Details and
   Genres. **Save** keeps them, with the match: rescans keep that match until
-  **Match automatically again**.
+  **Match automatically again**. A film in several parts that TMDB has as a TV
+  show (a Soviet miniseries) shows that show's episodes on its parts: their
+  names, pictures and descriptions.
 - **Pictures**: the **poster** is a `poster.jpg` beside the files first, then
   TMDB's. **Choose from TMDB** shows the rest of TMDB's posters, and **Upload a
   poster** puts your own over both. The **backdrop**, the picture behind a title
@@ -248,22 +254,34 @@ Admins have **Edit** on every film's and show's page. It has four tabs:
 
 ### Video genres
 
-Films and shows come with genres in their `.nfo` files and from TMDB, often in
-more than one language and spelling ("Comedy", "Комедия", "Sci-Fi & Fantasy").
+Films and shows arrive with genres from their `.nfo` files and from TMDB, often
+in two languages and several spellings ("Comedy", "Комедия", "Sci-Fi & Fantasy").
 **Control panel → Library → Video genres** keeps one list of your own, the way
-Categories does for books:
+Categories does for books, and decides what each genre a film arrives with
+becomes. There are four cases:
+
+| A film arrives with | Because | The film shows |
+|---|---|---|
+| Comedy | it is a **keyword** of your genre Комедия | Комедия |
+| Драма | it is the **name** of one of your genres | Драма |
+| Biography | it is not in your list yet | Biography, as it came |
+| TV Movie | it is **hidden** | nothing |
 
 - **Add TMDB's genres** starts the list from TMDB's own, named in English or
   Russian, with the other language's names and common spellings as keywords.
-- A genre's **keywords** are the words that lead to it; one word can lead to two
-  genres ("Sci-Fi & Fantasy" to both).
-- **Unsorted words** are the ones that lead nowhere yet: add each to a genre,
-  make it a genre of its own, or **Hide** it ("TV Movie").
+- A genre's **keywords** are its other names. One keyword can belong to two
+  genres: "Sci-Fi & Fantasy" leads to both Фантастика and Фэнтези.
+- **Found genres not in your list** still show on films as they came, so nothing
+  disappears before you look. For each: **Add to genre…**, **Make it a genre**,
+  or **Hide**.
+- **Hidden genres** show nowhere: not on films, not in the filters, not on the
+  TV. Nothing is removed from your files, and **×** shows one again.
 - **Rename**, **Merge** and **Delete** a genre in its Edit dialog. A renamed or
   merged genre's old name stays as a keyword, so rows on Video that asked for it
-  keep finding the same films.
+  keep finding the same films. A deleted genre's name and keywords become hidden.
 
-Changes show at once on every screen, the TV app's too, with no rescan.
+Nothing here changes your files, and changes show at once on every screen, the
+TV app's too, with no rescan.
 
 ## Sets of films
 

@@ -15,7 +15,7 @@ import { VIDEO_API, type VideoKind, type VideoMovie, type VideoShow } from "./ty
 // (its edits.ts) and every screen reads them, the TV's too. A field left empty
 // is automatic again; the dialog says what that would be.
 //
-// Four tabs, as a book's editor has: Details and Genres are saved by Save;
+// Tabs, as a book's editor has: Details, Genres and (films) Set are saved by Save;
 // Lookup (what Fix match was) fills them from a TMDB title and saves that match
 // with them; Pictures changes the poster and backdrop at once.
 
@@ -32,10 +32,15 @@ interface EditState {
   year: Field<number>;
   plot: Field<string>;
   genres: Field<string[]>;
+  /** Films only (engine 0.24.0+): the set by hand, and the one found. */
+  set?: { edited: SetEdit | null; automatic: string | null };
 }
 
+type SetEdit = { mode: "none" } | { mode: "named"; name: string; order: number | null };
+type SetMode = "auto" | "none" | "named";
+
 type TextField = "title" | "originalTitle" | "sortTitle" | "year" | "plot";
-type Tab = "details" | "genres" | "lookup" | "pictures";
+type Tab = "details" | "genres" | "set" | "lookup" | "pictures";
 /** A match to save with the details: a TMDB title, or back to the automatic one (null id). */
 type PendingMatch = { tmdbId: string; tmdbKind: "movie" | "tv"; title: string } | { tmdbId: null };
 
@@ -56,6 +61,10 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
   const [genres, setGenres] = useState<string[] | null>(null);
   const [allGenres, setAllGenres] = useState<string[] | null>(null);
   const [pendingMatch, setPendingMatch] = useState<PendingMatch | null>(null);
+  const [setMode, setSetMode] = useState<SetMode>("auto");
+  const [setName, setSetName] = useState("");
+  const [setOrder, setSetOrder] = useState("");
+  const [setNames, setSetNames] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>("details");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -65,9 +74,10 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
     let live = true;
     Promise.all([
       api<EditState>(url),
-      api<{ genres: { name: string }[] }>(`${VIDEO_API}/admin/genres`).catch(() => ({ genres: [] }))
+      api<{ genres: { name: string }[] }>(`${VIDEO_API}/admin/genres`).catch(() => ({ genres: [] })),
+      kind === "movies" ? api<{ sets: { name: string }[] }>(`${VIDEO_API}/admin/sets/names`).catch(() => ({ sets: [] })) : Promise.resolve({ sets: [] })
     ])
-      .then(([loaded, list]) => {
+      .then(([loaded, list, sets]) => {
         if (!live) return;
         setState(loaded);
         setDraft({
@@ -79,10 +89,15 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
         });
         setGenres(loaded.genres.edited);
         setAllGenres(list.genres.map((genre) => genre.name));
+        const setEdit = loaded.set?.edited ?? null;
+        setSetMode(setEdit ? setEdit.mode : "auto");
+        setSetName(setEdit?.mode === "named" ? setEdit.name : "");
+        setSetOrder(setEdit?.mode === "named" && setEdit.order !== null ? String(setEdit.order) : "");
+        setSetNames(sets.sets.map((set) => set.name));
       })
       .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.edit.loadFailed")); });
     return () => { live = false; };
-  }, [url, t]);
+  }, [url, t, kind]);
 
   const yearValue = (value: string) => (/^\d{4}$/.test(value.trim()) ? Number(value.trim()) : null);
   const edits = {
@@ -93,7 +108,14 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
     plot: draft.plot.trim() || null,
     genres: genres && genres.length > 0 ? genres : null
   };
+  const setEditNow: SetEdit | null = setMode === "none"
+    ? { mode: "none" }
+    : setMode === "named" && setName.trim()
+      ? { mode: "named", name: setName.trim().replace(/\s+/g, " "), order: /^\d{1,3}$/.test(setOrder.trim()) ? Number(setOrder.trim()) : null }
+      : null;
+  const setDirty = state?.set !== undefined && JSON.stringify(setEditNow) !== JSON.stringify(state.set.edited);
   const dirty = state !== null && (
+    setDirty ||
     edits.title !== state.title.edited ||
     edits.originalTitle !== state.originalTitle.edited ||
     edits.sortTitle !== state.sortTitle.edited ||
@@ -118,7 +140,11 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
         updated = answer.show ?? answer.movie;
       }
       if (dirty) {
-        const answer = await api<{ show?: VideoShow; movie?: VideoMovie }>(url, { method: "PUT", body: JSON.stringify(edits) });
+        const answer = await api<{ show?: VideoShow; movie?: VideoMovie }>(url, {
+          method: "PUT",
+          // The set only when it changed: saving it works every set out again.
+          body: JSON.stringify(setDirty ? { ...edits, set: setEditNow } : edits)
+        });
         updated = answer.show ?? answer.movie ?? updated;
       }
       if (updated) onSaved(updated);
@@ -210,6 +236,9 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
       <div className="modal-tabs" role="tablist">
         <Button variant="tab" className="modal-tab" selected={tab === "details"} onClick={() => setTab("details")}>{t("video.edit.tabDetails")}</Button>
         <Button variant="tab" className="modal-tab" selected={tab === "genres"} onClick={() => setTab("genres")}>{t("video.edit.tabGenres")}</Button>
+        {kind === "movies" && (
+          <Button variant="tab" className="modal-tab" selected={tab === "set"} onClick={() => setTab("set")}>{t("video.edit.tabSet")}</Button>
+        )}
         <Button variant="tab" className="modal-tab" selected={tab === "lookup"} onClick={() => setTab("lookup")}>{t("video.edit.tabLookup")}</Button>
         <Button variant="tab" className="modal-tab" selected={tab === "pictures"} onClick={() => setTab("pictures")}>{t("video.edit.tabPictures")}</Button>
       </div>
@@ -278,6 +307,51 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
           </div>
         )}
 
+        {state && tab === "set" && (
+          <fieldset className="video-edit-set">
+            <legend className="sr-only">{t("video.edit.tabSet")}</legend>
+            <p className="muted">{t("video.edit.setHint")}</p>
+            <label className="video-edit-set-choice">
+              <input type="radio" name="video-set" checked={setMode === "auto"} onChange={() => setSetMode("auto")} />
+              <span>
+                <strong>{t("video.edit.setAutomatic")}</strong>
+                <small className="muted">
+                  {state.set?.automatic ? t("video.edit.setFound", { name: state.set.automatic }) : t("video.edit.setFoundNone")}
+                </small>
+              </span>
+            </label>
+            <label className="video-edit-set-choice">
+              <input type="radio" name="video-set" checked={setMode === "named"} onChange={() => setSetMode("named")} />
+              <span>
+                <strong>{t("video.edit.setNamed")}</strong>
+                <small className="muted">{t("video.edit.setNamedHint")}</small>
+              </span>
+            </label>
+            {setMode === "named" && (
+              <div className="video-edit-pair video-edit-set-fields">
+                <label className="field">
+                  <span>{t("video.edit.setName")}</span>
+                  <input value={setName} list="video-set-names" maxLength={200} onChange={(event) => setSetName(event.target.value)} />
+                  <datalist id="video-set-names">
+                    {setNames.map((name) => <option key={name} value={name} />)}
+                  </datalist>
+                </label>
+                <label className="field">
+                  <span>{t("video.edit.setOrder")}</span>
+                  <input value={setOrder} inputMode="numeric" maxLength={3} onChange={(event) => setSetOrder(event.target.value.replace(/\D/g, ""))} />
+                </label>
+              </div>
+            )}
+            <label className="video-edit-set-choice">
+              <input type="radio" name="video-set" checked={setMode === "none"} onChange={() => setSetMode("none")} />
+              <span>
+                <strong>{t("video.edit.setNone")}</strong>
+                <small className="muted">{t("video.edit.setNoneHint")}</small>
+              </span>
+            </label>
+          </fieldset>
+        )}
+
         {state && tab === "lookup" && (
           <TitleLookup
             kind={kind}
@@ -302,7 +376,7 @@ export function EditTitleModal({ kind, title, onClose, onSaved }: {
             <Button variant="secondary" disabled={saving} onClick={onClose}>
               {dirty || pendingMatch ? t("common.cancel") : t("common.close")}
             </Button>
-            <Button variant="primary" disabled={saving || !state || (!dirty && !pendingMatch)} onClick={() => void save()}>
+            <Button variant="primary" disabled={saving || !state || (!dirty && !pendingMatch) || (setMode === "named" && !setName.trim())} onClick={() => void save()}>
               {saving ? t("video.edit.saving") : t("video.edit.save")}
             </Button>
           </div>

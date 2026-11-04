@@ -1070,7 +1070,18 @@
       "postersNone": "TMDB has no posters for this title.",
       "postersFailed": "TMDB's posters could not be loaded.",
       "posterAutomatic": "Use TMDB's own",
-      "posterInLanguage": "Poster in {{language}}"
+      "posterInLanguage": "Poster in {{language}}",
+      "tabSet": "Set",
+      "setHint": "Films that belong together, such as the parts of a saga or a family's own series. A set comes from the .nfo file's set, else from TMDB's collection.",
+      "setAutomatic": "As found",
+      "setFound": "Found: {{name}}",
+      "setFoundNone": "Not in a set",
+      "setNamed": "In this set",
+      "setNamedHint": "Type a set's name, or pick one that is there. A new name makes a new set.",
+      "setName": "Set",
+      "setOrder": "Place in the set",
+      "setNone": "Not in any set",
+      "setNoneHint": "Not even TMDB's collection puts it in one."
     }
   }
 }
