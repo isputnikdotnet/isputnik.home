@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.68.2",
+    "label": "HDR films in normal colours",
+    "changes": [
+      "**HDR films no longer play grey and washed out when converted.** The video engine 0.25.0 tone-maps HDR10 and HLG films to normal colours as it converts them, on the GPU where a test at start-up shows it can, else on the CPU. Picture subtitles (Blu-ray, DVD) are drawn on the GPU where it can, too, so such a film is converted there entirely.",
+      "**Settings → Video → Converting video says which**: whether HDR is tone-mapped and subtitles drawn on the GPU or the CPU, and the list of who is watching marks each HDR film. Press **Check again** after updating the video container to find out what your GPU does.",
+      "Needs the video engine 0.25.0 for the new lines; with an older one the card is as before."
+    ]
+  },
+  {
     "version": "4.68.1",
     "label": "Converting video on the GPU, in Settings",
     "changes": [

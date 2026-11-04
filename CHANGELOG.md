@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.68.2 — HDR films in normal colours
+
+- **HDR films no longer play grey and washed out when converted.** The video engine 0.25.0 tone-maps HDR10 and HLG films to normal colours as it converts them, on the GPU where a test at start-up shows it can, else on the CPU. Picture subtitles (Blu-ray, DVD) are drawn on the GPU where it can, too, so such a film is converted there entirely.
+- **Settings → Video → Converting video says which**: whether HDR is tone-mapped and subtitles drawn on the GPU or the CPU, and the list of who is watching marks each HDR film. Press **Check again** after updating the video container to find out what your GPU does.
+- Needs the video engine 0.25.0 for the new lines; with an older one the card is as before.
+
 ## 4.68.1 — Converting video on the GPU, in Settings
 
 - **Settings → Video → Converting video shows the GPU.** The video engine converts on an Intel CPU's graphics (Quick Sync) since its 0.20.0, but nothing here said whether it was found or used. The card now says what the engine found (the graphics, the driver and which kinds of video they decode), or why it converts on the CPU, with **Check again** after adding `/dev/dri` to the container.

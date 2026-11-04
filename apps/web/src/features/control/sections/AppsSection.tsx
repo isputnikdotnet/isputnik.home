@@ -318,6 +318,9 @@ interface HardwareState {
   driver: string | null;
   encode: boolean;
   decode: string[];
+  /** Engine 0.25+: HDR tone-mapped on the GPU, and subtitles drawn there. */
+  tonemap?: boolean;
+  overlay?: boolean;
   error: string | null;
   checking: boolean;
   /** Automatic gave up on the GPU after failures, until Check again. */
@@ -328,7 +331,7 @@ interface ConversionState {
   available: boolean;
   settings: ConversionSettings;
   usage: {
-    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; converting: boolean; memoryBytes: number; diskBytes: number }[];
+    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; hdr?: boolean; converting: boolean; memoryBytes: number; diskBytes: number }[];
     memoryBytes: number;
     diskBytes: number;
   };
@@ -371,6 +374,19 @@ function HardwareStatus({ hardware, checking, onCheck }: { hardware: HardwareSta
       {where}
       <br />
       {codecs ? t("controlAdmin:apps.conversion.gpuDecodes", { codecs }) : t("controlAdmin:apps.conversion.gpuDecodesNone")}
+      {/* An engine before 0.25 says nothing of either: no line. */}
+      {hardware.tonemap !== undefined && (
+        <>
+          <br />
+          {hardware.tonemap ? t("controlAdmin:apps.conversion.gpuTonemap") : t("controlAdmin:apps.conversion.gpuTonemapCpu")}
+        </>
+      )}
+      {hardware.overlay !== undefined && (
+        <>
+          <br />
+          {hardware.overlay ? t("controlAdmin:apps.conversion.gpuOverlay") : t("controlAdmin:apps.conversion.gpuOverlayCpu")}
+        </>
+      )}
     </MessageBox>
   );
 }
@@ -494,6 +510,7 @@ export function VideoConversion({ prefix }: { prefix: string }) {
                       <td className="datagrid-muted">
                         {viewer.mode === "transcode" ? t("controlAdmin:apps.conversion.modeTranscode") : t("controlAdmin:apps.conversion.modeRemux")}
                         {viewer.converter && ` · ${viewer.converter === "gpu" ? t("controlAdmin:apps.conversion.onGpu") : t("controlAdmin:apps.conversion.onCpu")}`}
+                        {viewer.hdr && ` · ${t("controlAdmin:apps.conversion.hdr")}`}
                         {!viewer.converting && ` · ${t("controlAdmin:apps.conversion.paused")}`}
                       </td>
                       <td>{formatBytes(viewer.memoryBytes)}</td>

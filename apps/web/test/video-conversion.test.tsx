@@ -35,6 +35,15 @@ describe("converting on the GPU", () => {
     expect(screen.getByText(/· GPU/)).toBeInTheDocument();
   });
 
+  it("says whether HDR is tone-mapped and subtitles drawn on the GPU, and marks HDR films (engine 0.25+)", async () => {
+    const hdrUsage = { ...usage, viewers: [{ ...usage.viewers[0], title: "Bright Night", hdr: true }] };
+    mockApi.mockResolvedValue({ ...state({ ...kabyLake, tonemap: false, overlay: true }), usage: hdrUsage } as never);
+    render(<VideoConversion prefix="/video" />);
+    expect(await screen.findByText(/HDR films are tone-mapped to normal colours on the CPU/)).toBeInTheDocument();
+    expect(screen.getByText(/Draws picture subtitles \(Blu-ray, DVD\) on the GPU/)).toBeInTheDocument();
+    expect(screen.getByText(/· GPU · HDR/)).toBeInTheDocument();
+  });
+
   it("checks again on asking, and saves where to convert", async () => {
     const calls: { path: string; method: string; body?: string }[] = [];
     mockApi.mockImplementation((async (path: string, options?: RequestInit) => {

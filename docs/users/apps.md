@@ -223,7 +223,12 @@ they can't decode are decoded on the CPU and still converted on the GPU.
   hour sets the GPU aside until you press **Check again**. *On the CPU only*
   never tries the GPU; *On the GPU only* fails rather than falling back, to test
   it.
-- The list of who is watching says **GPU** or **CPU** beside each conversion.
+- **HDR films** (HDR10, HLG) are converted to normal colours, so they don't play
+  grey and washed out on an ordinary screen: on the GPU where it can, else on
+  the CPU. Picture subtitles (Blu-ray, DVD) are drawn on the GPU where it can,
+  too. The card says which.
+- The list of who is watching says **GPU** or **CPU** beside each conversion,
+  and **HDR** for an HDR film.
 - Without the field, or without Intel graphics, everything is converted on the
   CPU as before, and the card says so.
 

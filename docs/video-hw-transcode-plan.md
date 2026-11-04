@@ -1,6 +1,7 @@
 # Video — converting on the Intel GPU (plan)
 
-Status: plan for review, 2026-11-03. Nothing built. Work is in the engine
+Status: H1 released (engine 0.20.0, home 4.68.1); H2 and H3's subtitles built
+2026-11-04 (engine 0.25.0); H3's HEVC output dropped (see Phases). Work is in the engine
 (`isputnik.video`), its image and Unraid template, and home's Settings → Video.
 
 ## Why
@@ -143,8 +144,8 @@ decode: string[], tonemap, error }`; `PUT /admin/conversion` takes `hardware.mod
 | Phase | What | Where |
 |---|---|---|
 | **H1** | Image with Debian ffmpeg + Intel non-free driver; `/dev/dri` in the template; entrypoint group fix; detection; GPU encode with GPU/CPU decode; fallback; *Where to convert* setting and status *Engine released 2026-11-03 as 0.20.0, tried on the owner's i5-7500 (iHD 25.2.3, MPEG-2 decoded and H.264 encoded on the GPU); VC-1 taken from vainfo, as ffmpeg can't sample it. Home's card waits for its release: engine `src/hardware.ts`, `hls.ts`, Dockerfile, entrypoint, template; home's Converting video card. GPU encode is VBR 8 Mbit/s capped at 10; the image's `latest` tag now skips pre-release tags (v0.20.0-rc.1) so a test image can be published.* | engine + home |
-| **H2** | HDR tone mapping, on the GPU and (no GPU) on the CPU | engine |
-| **H3** | Image subtitles drawn on the GPU (`overlay_vaapi`); HEVC output for the TV app where it plays it, to halve the bitrate | engine (+ TV app) |
+| **H2** | HDR tone mapping, on the GPU and (no GPU) on the CPU. *Built 2026-11-04 (engine 0.25.0): the probe keeps `color_transfer`/`color_primaries` (older probes are read again); PQ and HLG are tone-mapped on the CPU with `zscale`+`tonemap` (Hable, after scaling, before a subtitle is drawn), checked by a real HDR10 sample in the tests; on the GPU with `tonemap_vaapi` only where a start-up test passes (a 10-bit HDR10 sample decoded and tone-mapped there), and then the picture is decoded on the GPU; else the CPU decodes and tone-maps and the GPU encodes. The image build fails without `zscale`. Not yet seen on the owner's Kaby Lake.* | engine |
+| **H3** | Image subtitles drawn on the GPU (`overlay_vaapi`) *(built 2026-11-04, engine 0.25.0: the subtitle's canvas is fitted on the CPU, uploaded as BGRA and laid over a picture decoded, tone-mapped and scaled on the GPU, where a start-up test passes; else as before)*. ~~HEVC output for the TV app~~ *dropped: the TV app plays the original file first and decodes HEVC itself, falling back to the converted copy only when it can't play the original, which is exactly when HEVC output wouldn't help.* | engine |
 | later | QSV path; NVIDIA (NVENC) and AMD (VAAPI already covers most AMD) | engine |
 
 ## Open questions

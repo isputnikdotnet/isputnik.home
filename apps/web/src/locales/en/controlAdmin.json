@@ -269,7 +269,12 @@
       "gpuOffTitle": "Converting on the CPU only",
       "gpuOffBody": "Chosen below. The GPU isn't tried.",
       "onGpu": "GPU",
-      "onCpu": "CPU"
+      "onCpu": "CPU",
+      "gpuTonemap": "Tone-maps HDR films to normal colours on the GPU.",
+      "gpuTonemapCpu": "HDR films are tone-mapped to normal colours on the CPU (this GPU can't), then converted on the GPU.",
+      "gpuOverlay": "Draws picture subtitles (Blu-ray, DVD) on the GPU.",
+      "gpuOverlayCpu": "Picture subtitles (Blu-ray, DVD) are drawn on the CPU.",
+      "hdr": "HDR"
     },
     "card": {
       "introGames": "The family games, in a container of their own, reached through this server at /games, which signs people in for them.",
