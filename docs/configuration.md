@@ -75,11 +75,13 @@ Scheduling and the three kinds of backup are all in the Control panel — see
 
 ## Face recognition and performance
 
-Faces are found by the **isputnik.faces** container when one is paired on
-Settings › Apps (`FACES_URL` / `FACES_GATEWAY_SECRET` below, or the address and
-secret saved there) — the design is [face-engine-plan.md](face-engine-plan.md).
-Until then this server finds them itself with the models it carries, and these
-two variables apply:
+Faces are found by the **isputnik.faces** container, paired on Settings › Apps
+(`FACES_URL` / `FACES_GATEWAY_SECRET` below, or the address and secret saved
+there) — the design is [face-engine-plan.md](face-engine-plan.md). Since 4.65.1
+the image carries neither the ONNX runtime nor the models: without a paired
+container there is no face recognition, and the Face recognition window says so.
+A **source checkout** (`npm run dev`) still finds faces in-process when
+`npm run fetch:face-model` has been run, and these two variables apply to it:
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -121,7 +123,7 @@ wins over Setup, which then shows it as set in the environment.
 | `GAMES_GATEWAY_SECRET` | unset | commented | — | Optional: the secret shared with the games container (its `GATEWAY_SECRET`), instead of pairing on Setup. A long random string (`openssl rand -hex 32`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With an address and no secret either way, the games stay off and the log says why. |
 | `VIDEO_URL` | unset | — | — | Optional: where the video engine answers, instead of the address on Setup — `http://isputnik-video:4300` on a shared network. With no address either way there are no video libraries. |
 | `VIDEO_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the video engine (its `GATEWAY_SECRET`), instead of pairing on Setup. |
-| `FACES_URL` | unset | — | — | Optional: where the face engine answers, instead of the address on Setup — `http://isputnik-faces:4400` on a shared network. With no address either way, faces are found by this server itself. |
+| `FACES_URL` | unset | — | — | Optional: where the face engine answers, instead of the address on Setup — `http://isputnik-faces:4400` on a shared network. With no address either way there is no face recognition (the image has no models of its own since 4.65.1). |
 | `FACES_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the face engine (its `GATEWAY_SECRET`), instead of pairing on Setup. |
 
 Control panel → Overview → Dashboard shows how the two stand (gateway on or off,
@@ -187,9 +189,10 @@ These need no configuration, but they are worth knowing when you run it:
 
 ## Building the image
 
-Two variables affect building, not the running server. `DOCS_REF` is a Docker
-build argument: the git ref the in-app Help links point at (CI passes the tag; a
-local build says `main`). `FACE_MODEL_URL` is read by
-`scripts/fetch-face-model.mjs` (`npm run fetch:face-model`) to fetch the 167 MB
-face recogniser from a mirror instead of the project's release asset; the file is
-checked against a pinned SHA-256 wherever it comes from.
+One variable affects building, not the running server: `DOCS_REF` is a Docker
+build argument, the git ref the in-app Help links point at (CI passes the tag; a
+local build says `main`). The face recogniser is no longer part of this image
+(since 4.65.1 it is in the isputnik.faces container); a source checkout fetches
+it with `npm run fetch:face-model`, where `FACE_MODEL_URL` names a mirror
+instead of the project's release asset, checked against a pinned SHA-256
+wherever it comes from.

@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.65.1 — The face models leave this image
+
+- **Face recognition now lives only in the isputnik.faces container.** This image no longer carries the face models and their runtime — about 450 MB that every update used to ship again. Install the Faces container beside iSputnik and pair it under **Control panel → Settings → Apps → Faces**; it is pulled once and changes about never.
+- **Without a paired container there is no face recognition, and the app says so** rather than quietly failing: the Face recognition window on a photo library shows why, with a link to Settings → Apps; the switches of libraries not yet on, and **Rescan**, stay off until a container answers; turning a library on is refused with the reason; and the nightly scan skips with one line instead of a failed job per library. Everything already found — people, names, faces — is kept and keeps working.
+- Nothing is scanned again once the container is paired: it runs the same recogniser, and photos that waited are taken by the next scan.
+
 ## 4.65.0 — Face recognition in its own container
 
 - **Faces can be found by a container of their own: isputnik.faces.** Install it beside iSputnik, pair it under **Control panel → Settings → Apps → Faces**, and the next face scan sends each photo to it and keeps what comes back — the faces, how each one looks, and the small portraits. Nothing is scanned again: it runs the same recogniser, so the people you have already named stay exactly as they are.

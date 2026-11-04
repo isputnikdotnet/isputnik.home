@@ -544,6 +544,17 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       if (!lib) {
         return reply.code(404).send({ error: "Gallery library not found" });
       }
+      // Switching recognition on with nothing to find faces (no isputnik.faces
+      // container paired) would queue a scan that skips itself: say so here,
+      // where the admin expects faces to start appearing. Switching off always works.
+      if (parsed.data.enabled) {
+        try {
+          await faceDetector().ensure();
+        } catch (err) {
+          if (err instanceof NoDetectorError) return reply.code(503).send({ error: err.message });
+          throw err;
+        }
+      }
       setFaceRecognitionEnabledForLibrary(lib.id, parsed.data.enabled, request.user!.id);
       // Turning a library on kicks off an initial scan of its not-yet-processed photos,
       // pre-queued as numbered batches so the Tasks page shows the whole backlog.

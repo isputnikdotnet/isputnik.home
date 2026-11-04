@@ -17,11 +17,11 @@ a photo goes in, its faces come out, and everything that is remembered — faces
 people, names, crops, clusters, settings — stays in home's database exactly as
 today.
 
-Status: E1 built 2026-11-03 (isputnik.faces 0.1.0, local repository, not yet
-published); H1 built the same day in home (registry entry, gateway, detector
-switch, scanner through it, face settings status, docs, tests) — the image
-still carries the in-process path, as planned. H2 waits for a nightly scan
-through the container on the owner's server.
+Status: E1 released 2026-11-03 (isputnik.faces 0.1.0, image on GHCR); H1
+released the same day as home 4.65.0; H2 followed at once as 4.65.1 — the owner
+chose not to keep a release with both paths: the image dropped the ONNX runtime
+and the models, and without a paired container the face settings say so and
+keep their switches off. A source checkout keeps the in-process path.
 
 ## In one sentence
 

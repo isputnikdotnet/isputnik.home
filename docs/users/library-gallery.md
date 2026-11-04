@@ -304,9 +304,9 @@ usual. Links you have handed out are listed in the same dialog and under
 
 **Off by default, and entirely local** — the models run on your server, nothing is
 sent anywhere. An admin turns it on per library in the library's settings. The
-work itself can run in the main container or in the **isputnik.faces**
-container beside it ([Adding the apps](apps.md#faces)); the Face recognition
-window says which.
+work itself is done by the **isputnik.faces** container beside iSputnik
+([Adding the apps](apps.md#faces)); until one is paired the Face recognition
+window says so and the switches stay off.
 
 ![The People page: named groups first, then unnamed ones, with the single-photo groups collapsed](images/33-gallery-people.png)
 

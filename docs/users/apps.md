@@ -94,10 +94,12 @@ backup. Give its container:
 | `GATEWAY_SECRET` | empty for now — you'll fill it in step 3; until then the container stops as soon as it starts |
 | CPU threads | optional: all cores but one by default, so the box stays responsive during a scan |
 
-Until a face engine is paired, iSputnik finds faces with the models inside its
-own container, as it always has; once it is paired, the next scan uses the
-engine, and nothing is scanned again. The Face recognition window on the
-Photos page says which one is at work.
+Without a paired Faces container there is no face recognition (since 4.65.1
+iSputnik's own image carries no face models): the Face recognition window says
+so, with a link here, and the switches stay off until one is paired. The people,
+names and faces already found are kept and keep working — only finding new
+faces needs the container. Once it is paired, the next scan uses it, and nothing
+is scanned again.
 
 ## 3. Connect them on Settings → Apps
 

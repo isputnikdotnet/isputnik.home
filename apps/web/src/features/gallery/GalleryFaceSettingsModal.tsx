@@ -143,6 +143,10 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   // Where faces are found — the isputnik.faces container, this server, or nowhere
   // (docs/face-engine-plan.md). Probed once when the dialog opens.
   const [engine, setEngine] = useState<GalleryFaceEngineStatus | null>(null);
+  // Nothing can find faces: the switches and the actions that would start a
+  // scan are off (the warning box above them says why). Switching a library
+  // OFF still works — it only stops future scans.
+  const noEngine = engine?.where === "none";
   // Clustering-health diagnostic (loaded lazily — it's an O(people²) pass).
   const [health, setHealth] = useState<ClusterHealth | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
@@ -325,7 +329,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                     <div className="gallery-face-lib-toggle">
                       <ToggleSwitch
                         checked={library.enabled}
-                        disabled={busyId === library.id}
+                        disabled={busyId === library.id || (noEngine && !library.enabled)}
                         onChange={(enabled) => void toggle(library, enabled)}
                         ariaLabel={t("galleryModals:faceSettings.toggleAria", { name: library.name })}
                       />
@@ -347,9 +351,9 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                       <div className="row-actions gallery-face-row-actions">
                         <Button
                           variant="icon"
-                          title={t("galleryModals:faceSettings.rescanTitle")}
+                          title={noEngine ? t("galleryModals:faceSettings.engineNoneTitle") : t("galleryModals:faceSettings.rescanTitle")}
                           aria-label={t("galleryModals:faceSettings.rescanAria", { name: library.name })}
-                          disabled={busyId === library.id}
+                          disabled={busyId === library.id || noEngine}
                           onClick={() => setConfirmRescan(library)}
                         >
                           {busyId === library.id ? (

@@ -64,9 +64,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        # No LFS: the face recogniser is fetched from a release asset during the
-        # build (see scripts/fetch-face-model.mjs). Pulling it through LFS here is
-        # what exhausted the repo's LFS budget and failed every build at checkout.
+        # No LFS: nothing in the image needs it. (The face recogniser once lived in
+        # LFS and exhausted its budget; since 4.65.1 the isputnik.faces container
+        # carries it, and a source checkout fetches it with scripts/fetch-face-model.mjs.)
 
       - name: Is this a release?
         id: release

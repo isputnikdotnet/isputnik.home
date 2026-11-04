@@ -105,7 +105,7 @@ async function scanLibraryFaces(
   force: boolean,
   onProgress?: (processed: number, total: number) => void,
   deadline: number = Number.POSITIVE_INFINITY
-): Promise<{ items: number; faces: number; changed?: boolean; skipped?: boolean; failed?: number; adopted?: number; remaining?: number; timeLimited?: boolean }> {
+): Promise<{ items: number; faces: number; changed?: boolean; skipped?: boolean; reason?: string; failed?: number; adopted?: number; remaining?: number; timeLimited?: boolean }> {
   if (!faceRecognitionEnabledForLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
   // Faces wait until a photo is kept out of a Photo Inbox (inbox-flag.ts). The
   // queue never enqueues one, but a job written before the flag was set would.
@@ -137,7 +137,19 @@ async function scanLibraryFaces(
   // (and burning each one's retry budget on a container that is simply down). An
   // empty backlog asks nothing, so no runtime is loaded for nothing.
   const detector = faceDetector();
-  const where = photos.length > 0 ? await detector.ensure() : null;
+  let where: Awaited<ReturnType<typeof detector.ensure>> | null = null;
+  if (photos.length > 0) {
+    try {
+      where = await detector.ensure();
+    } catch (err) {
+      // No engine (none paired, or it is down): the batch is skipped, not failed —
+      // the photos keep no marker and the next run, with the engine back, takes
+      // them. One line in the log and on the job, not one per photo.
+      if (!(err instanceof NoDetectorError)) throw err;
+      log.warn(`face scan: skipped — ${err.message}`);
+      return { items: 0, faces: 0, skipped: true, reason: err.message };
+    }
+  }
 
   const insertFace = db.prepare(`
     INSERT INTO gallery_faces

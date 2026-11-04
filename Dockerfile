@@ -50,22 +50,21 @@ RUN node scripts/docker-prune-runtime-deps.mjs \
 # to hoist. When the lockfile hoists everything — as it does since 4.0.0 — npm never
 # creates that folder, and COPY --from of a missing path fails the whole build.
 # An empty folder copies as nothing.)
-# ffprobe-static and onnxruntime-node ship binaries for every OS/arch in one
-# package (~330 MB and ~220 MB of foreign-platform dead weight). Keep only this
-# image's platform. Must happen HERE, not in the final stage — a later RUN rm
-# can't shrink an earlier COPY layer.
+# ffprobe-static ships binaries for every OS/arch in one package (~330 MB of
+# foreign-platform dead weight). Keep only this image's platform. Must happen
+# HERE, not in the final stage — a later RUN rm can't shrink an earlier COPY layer.
+# (onnxruntime-node used to be pruned the same way; since 4.65.1 it is a dev
+# dependency — faces are found by the isputnik.faces container — so --omit=dev
+# leaves it out altogether.)
 RUN rm -rf node_modules/ffprobe-static/bin/darwin \
            node_modules/ffprobe-static/bin/win32 \
-           node_modules/onnxruntime-node/bin/napi-v6/darwin \
-           node_modules/onnxruntime-node/bin/napi-v6/win32 \
     && find node_modules/ffprobe-static/bin/linux \
-            node_modules/onnxruntime-node/bin/napi-v6/linux \
             -mindepth 1 -maxdepth 1 -type d ! -name "$(node -p 'process.arch')" \
             -exec rm -rf {} +
 
 # Import smoke test: every production dependency of the server must load from
 # the pruned tree, so a bad prune fails THIS build instead of the container at
-# startup (native modules included — sharp, better-sqlite3, onnxruntime-node).
+# startup (native modules included — sharp, better-sqlite3).
 # Runs from apps/server so resolution matches the server code's own view
 # (non-hoisted packages like otplib live in apps/server/node_modules).
 RUN cd apps/server && node -e 'const deps=Object.keys(require("./package.json").dependencies);\
@@ -73,20 +72,10 @@ RUN cd apps/server && node -e 'const deps=Object.keys(require("./package.json").
   console.error("runtime dep failed to load:",d,"-",e.message);process.exit(1)}}\
 console.log(deps.length+" runtime deps load OK")})()'
 
-# ── Stage 5: face recogniser model ────────────────────────────────
-# The 167 MB ArcFace model is fetched from a GitHub release rather than carried
-# in git-LFS: every image build pulled it through the LFS quota, and once that
-# budget ran out checkout failed before a single file compiled, so no image was
-# published at all. Its own stage keeps the download out of the code layers —
-# a server change doesn't refetch it — and the script verifies a pinned SHA-256,
-# so a replaced or truncated asset fails the build instead of shipping an image
-# whose face clustering is quietly wrong.
-FROM node:26-slim AS face-model
-WORKDIR /build
-COPY scripts/fetch-face-model.mjs ./scripts/
-RUN node scripts/fetch-face-model.mjs --dest /build/models/face
-
-# ── Stage 6: production image ─────────────────────────────────────
+# ── Stage 5: production image ─────────────────────────────────────
+# (Until 4.65.0 a stage here fetched the 167 MB face recogniser and the image
+# carried it with the ONNX runtime. Faces are now found by the isputnik.faces
+# container — docs/face-engine-plan.md — so neither is in this image.)
 FROM node:26-slim
 WORKDIR /app
 
@@ -117,13 +106,6 @@ COPY --from=prod-deps /build/apps/server/node_modules ./apps/server/node_modules
 # Compiled server — with the data files its build copies in beside the .js
 # (db/schema.sql, changelog.json, assets/); the server will not boot without them.
 COPY --from=server-build /build/apps/server/dist ./apps/server/dist
-
-# ONNX face-recognition models (InsightFace: SCRFD-500MF detector + ArcFace
-# ResNet50 recogniser). Resolved at runtime from apps/server/models/face/ (cwd is
-# /app). The 2.5 MB detector rides along in git; the 167 MB recogniser is fetched
-# in the face-model stage above and lands in the same directory.
-COPY apps/server/models ./apps/server/models
-COPY --from=face-model /build/models/face/w600k_r50.onnx ./apps/server/models/face/
 
 # Built frontend (served as static files by Fastify)
 COPY --from=web-build /build/apps/web/dist ./web

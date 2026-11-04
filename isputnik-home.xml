@@ -20,7 +20,7 @@
   <Project>https://github.com/isputnikdotnet/isputnik.home</Project>
 
   <Overview>
-Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobooks with a built-in player, ebooks with an in-browser reader, and a photo and video gallery with on-device face recognition, albums, slideshows rendered to MP4, and a Photo Inbox for scans and photos from relatives. The family writes its own stories and recipes around what the house holds, and keeps a family tree linked to the people found in the photos. Multiple accounts with per-person progress and permissions, sharing and guest links, passkeys and two-factor sign-in, an installable PWA with offline listening, and an English or Russian interface.
+Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobooks with a built-in player, ebooks with an in-browser reader, and a photo and video gallery with face recognition (the isputnik-faces container beside it, nothing leaves your server), albums, slideshows rendered to MP4, and a Photo Inbox for scans and photos from relatives. The family writes its own stories and recipes around what the house holds, and keeps a family tree linked to the people found in the photos. Multiple accounts with per-person progress and permissions, sharing and guest links, passkeys and two-factor sign-in, an installable PWA with offline listening, and an English or Russian interface.
 
 Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>

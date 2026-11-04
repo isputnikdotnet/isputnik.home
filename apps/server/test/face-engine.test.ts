@@ -148,6 +148,22 @@ describe("face scan through the faces container", () => {
     expect(db.prepare("SELECT count(*) AS n FROM gallery_face_scans").get()).toEqual({ n: 1 });
   });
 
+  it("skips a batch, completed with the reason, when no engine can be reached", async () => {
+    await photo("waiting.jpg");
+    const [jobId] = enqueueFaceScanBatches("GAL");
+    await engine.close();
+
+    await processFaceScanQueue();
+
+    const job = db.prepare("SELECT status, payload FROM jobs WHERE id = ?").get(jobId) as { status: string; payload: string };
+    expect(job.status).toBe("completed");
+    const result = JSON.parse(job.payload).result as { skipped?: boolean; reason?: string };
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toContain("did not answer");
+    // The photo keeps no marker: the next run, engine back, takes it.
+    expect(db.prepare("SELECT count(*) AS n FROM gallery_face_scans").get()).toEqual({ n: 0 });
+  });
+
   it("says where faces are found, and that nothing can when no engine is set and no runtime is here", async () => {
     const container = await createFaceDetector({ target: () => ({ upstream, secret: SECRET }), inProcess: null }).status();
     expect(container).toEqual({ where: "container", version: "0.1.0", model: FACE_EMBEDDING_MODEL, gpu: false, reason: null });

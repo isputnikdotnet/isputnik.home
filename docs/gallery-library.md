@@ -241,11 +241,13 @@ a privacy-conscious deployment can self-host tiles.
 
 On-device face detection + grouping, nothing leaves the machine. Code lives under
 `modules/library/gallery/faces/`. Since 4.65 the detection itself (decode →
-detect → embed → crop) can run in the **isputnik.faces** container
+detect → embed → crop) runs in the **isputnik.faces** container
 (`docs/face-engine-plan.md`): `detector.ts` picks the container when one is
-paired on Settings › Apps, else the in-process path below, and the scanner asks
-it one photo at a time and gets faces with their crops back. The model id is the
-same either way, so nothing is re-embedded when an install switches.
+paired on Settings › Apps, else the in-process path below — which exists only in
+a source checkout since 4.65.1, when `onnxruntime-node` became a dev dependency
+and the image stopped carrying the models. The scanner asks it one photo at a
+time and gets faces with their crops back. The model id is the same either way,
+so nothing is re-embedded when an install switches.
 
 **Pipeline** (`arcface.ts`): InsightFace SCRFD-500MF detector → 5-point similarity-warp
 alignment to 112×112 → ArcFace **ResNet50** recogniser (`w600k_r50`) → 512-d L2-normalised

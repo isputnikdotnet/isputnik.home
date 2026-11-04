@@ -93,15 +93,18 @@ To choose when you upgrade, use an exact version tag (`:4.0.0`) instead of
   decision rather than oversight: an arm64 image would be built under emulation, several
   times slower per release, and never run by anything but "it built". Unraid servers
   and ordinary home servers are x86.
-* **Disk:** the image carries its own ffmpeg and the 167 MB face-recognition model.
+* **Disk:** the image carries its own ffmpeg. Face recognition runs in the
+  [isputnik.faces](https://github.com/isputnikdotnet/isputnik.faces) container
+  beside it (about 300 MB, pulled once — it changes about never).
   Thumbnails and backups grow with your libraries; a full backup includes every
   cover image, so keep an eye on the size of the `backups` folder.
 * **CPU and memory:** browsing and streaming are light. Two jobs are not. The
   first face scan of a large photo library is CPU-heavy and runs for a long time —
-  by default it uses every core but one, so the app stays responsive
-  (`FACE_ORT_THREADS` caps it further). Rendering a slideshow to MP4 is the other;
-  in the project's own measurements a render peaks at around 600 MB of memory.
-  There is no measured memory figure for face recognition yet.
+  in the faces container, which by default uses every core but one so the app
+  stays responsive (a CPU limit on that container works too). Rendering a
+  slideshow to MP4 is the other; in the project's own measurements a render peaks
+  at around 600 MB of memory. The faces container holds about 200 MB of models in
+  memory once it has loaded them.
 * **A browser** — any current one. Installing it as an app (PWA) works on Android
   and iPhone. Two things depend on the address you use: passkeys need HTTPS at a
   domain name, and recording voice notes needs HTTPS (or the server itself), because
@@ -159,8 +162,8 @@ The server side has matured alongside: a full control panel, scheduled jobs, a r
   a map
 * EXIF metadata, video playback, and web-playable copies of videos the browser
   can't decode
-* Face recognition that groups faces into people — on the server, nothing leaves
-  the machine
+* Face recognition that groups faces into people — on your server (in the
+  isputnik.faces container beside it), nothing leaves the machine
 * Voice recordings kept on a photo, played back with a waveform
 * **Photo Inbox** — a holding library for scans and photos from relatives: a copy
   check against what you already have, Keep / Replace / Discard one delivery at a
