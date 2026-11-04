@@ -57,6 +57,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "жанры жанр ключевые слова сопоставление значки изображения таксономия",
   tags: "labels rename merge taxonomy " +
     "метки переименовать объединить таксономия",
+  genres: "video film movie show series genres genre keywords mapping merge hide unsorted tmdb nfo " +
+    "видео фильм кино сериал жанры жанр ключевые слова сопоставление объединить скрыть неразобранные",
 
   users: "accounts people roles admin member password reset disable remove remote device link window allow outside away travel " +
     "аккаунты люди роли администратор участник пароль сброс отключить удалить удалённо привязка устройства окно разрешить снаружи вдали путешествие",

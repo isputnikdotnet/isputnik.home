@@ -6,7 +6,7 @@ export type ControlSection =
   // Overview
   | "dashboard" | "activity" | "libraryStats" | "logs"
   // Library
-  | "libraries" | "storage" | "storageContents" | "categories" | "tags"
+  | "libraries" | "storage" | "storageContents" | "categories" | "tags" | "genres"
   // Members
   | "users" | "groups" | "invites"
   // Security
@@ -34,6 +34,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   storageContents: "/control/libraries/storage/contents",
   categories: "/control/libraries/categories",
   tags: "/control/libraries/tags",
+  genres: "/control/libraries/genres",
 
   users: "/control/members",
   groups: "/control/members/groups",

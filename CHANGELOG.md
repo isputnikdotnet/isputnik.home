@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.67.0 — Video genres and editing a title
+
+- **Video genres of your own, kept the way book categories are.** Films and shows came with whatever genres their `.nfo` files and TMDB gave them, so one genre turned up in two languages and several spellings (*Comedy*, *Комедия*), TMDB's TV genres came in pairs (*Sci-Fi & Fantasy*), and *TV Movie* sat in the filters. **Control panel → Library → Video genres** now keeps one list: each genre's **keywords** are the words that lead to it (one word can lead to two genres), **unsorted words** wait to be added to a genre, made one, or **hidden**, and genres can be renamed, merged and deleted. **Add TMDB's genres** starts the list in English or Russian with the other language's names as keywords. Changes show at once on every screen, the TV app's too, with no rescan; rows that asked for an old name keep finding the same films.
+- **Edit on every film's and show's page (admins).** Its **Details** tab changes the title, original title, year, the name it sorts by and the description over what the `.nfo` file, the folder name or TMDB said; each field shows what was found, edits stay through every rescan, and **Use what was found** hands a field back. **Genres** picks the title's genres from the list.
+- **Fix match is now the Edit dialog's Lookup tab, and it compares before it changes anything.** TMDB's words for the title you pick are shown beside the title's own, field by field; the ones you tick go into Details and Genres, and **Save** keeps them together with the match. Before, picking a result changed the match at once and nothing else.
+- **Choose a film's poster, or upload your own.** The **Pictures** tab lists TMDB's posters (the library's language first) and takes an upload of your own, which wins over a `poster.jpg` beside the files and over TMDB's; the backdrop picker moved here too. Uploaded posters are kept with the video engine's pictures, which its backups leave out.
+- Needs the video engine 0.23.0.
+
 ## 4.66.0 — Films that TMDB calls TV shows
 
 - **Fix match now offers TMDB's TV shows for a film, and its films for a show.** TMDB files a Soviet miniseries or a concert as a TV show, so a film kept in a movies library could never be matched by hand; the search now lists the title's own kind first and the other after it, each such result marked (**A TV show on TMDB**), and the choice holds. Needs the video engine 0.22.0.

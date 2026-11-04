@@ -222,15 +222,48 @@ then fetches posters, backdrops and episode pictures, and fills in descriptions
 and episode names where the `.nfo` files have none — an `.nfo`'s own words
 always stay.
 
-A title matched to the wrong film or show: open it and press **Fix match**
-(admins only), search TMDB by name and year, and pick the right one. Rescans keep
-that choice until **Match automatically again**.
+### Editing a title
 
-The **backdrop**, the picture behind a title at the top of the overview and on its
-page, is TMDB's best-voted one with no words on it. When it is still a poor
-picture, **Fix match → Backdrop → Choose another** shows the rest of TMDB's (those
-with words on them marked with their language); pick one, or **Pick automatically
-again**. A picture saved beside the files (`fanart.jpg`) wins over both.
+Admins have **Edit** on every film's and show's page. It has four tabs:
+
+- **Details**: the title, original title, year, the name it sorts by, and the
+  description. Each field shows what the `.nfo` file, the folder name or TMDB
+  gave it; type over it to change it, or leave it empty to keep what was found.
+  Edits stay through every rescan; **Use what was found** hands a field back.
+- **Genres**: pick the title's genres from the list kept on **Control panel →
+  Library → Video genres**. With none picked it keeps the genres that were found.
+- **Lookup**: a title matched to the wrong film or show (or to none) is put
+  right here. Search TMDB by name and year and pick the right one; TMDB's words
+  are shown beside the title's, and the ones you tick go into Details and
+  Genres. **Save** keeps them, with the match: rescans keep that match until
+  **Match automatically again**.
+- **Pictures**: the **poster** is a `poster.jpg` beside the files first, then
+  TMDB's. **Choose from TMDB** shows the rest of TMDB's posters, and **Upload a
+  poster** puts your own over both. The **backdrop**, the picture behind a title
+  at the top of the overview and on its page, is TMDB's best-voted one with no
+  words on it; **Choose another** shows the rest (those with words on them marked
+  with their language), or **Pick automatically again**. A picture saved beside
+  the files (`fanart.jpg`) wins over TMDB's. Pictures change as soon as you
+  choose them.
+
+### Video genres
+
+Films and shows come with genres in their `.nfo` files and from TMDB, often in
+more than one language and spelling ("Comedy", "Комедия", "Sci-Fi & Fantasy").
+**Control panel → Library → Video genres** keeps one list of your own, the way
+Categories does for books:
+
+- **Add TMDB's genres** starts the list from TMDB's own, named in English or
+  Russian, with the other language's names and common spellings as keywords.
+- A genre's **keywords** are the words that lead to it; one word can lead to two
+  genres ("Sci-Fi & Fantasy" to both).
+- **Unsorted words** are the ones that lead nowhere yet: add each to a genre,
+  make it a genre of its own, or **Hide** it ("TV Movie").
+- **Rename**, **Merge** and **Delete** a genre in its Edit dialog. A renamed or
+  merged genre's old name stays as a keyword, so rows on Video that asked for it
+  keep finding the same films.
+
+Changes show at once on every screen, the TV app's too, with no rescan.
 
 ## Sets of films
 

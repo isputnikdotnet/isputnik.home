@@ -82,7 +82,9 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "storage" },
       { section: "storageContents" },
       { section: "categories" },
-      { section: "tags" }
+      { section: "tags" },
+      // The video engine's own genres: films and shows, beside the books' categories.
+      { section: "genres" }
     ]
   },
   {

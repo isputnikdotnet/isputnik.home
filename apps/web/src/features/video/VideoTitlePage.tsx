@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Check, FolderPlus, Layers, Play, Search } from "lucide-react";
+import { ArrowLeft, Check, FolderPlus, Layers, Pencil, Play } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { useSession } from "../../app/SessionContext";
@@ -10,7 +10,7 @@ import { MessageBox } from "../../shared/MessageBox";
 // A date the .nfo gives without a time: read as a calendar date, so it never rolls back west of Greenwich.
 import { formatDate } from "../../shared/dates";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
-import { FixMatchModal } from "./FixMatchModal";
+import { EditTitleModal } from "./EditTitleModal";
 import { MyListButton } from "./VideoMyList";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_API, VIDEO_ENTITY_TYPE, episodeCodeValues, formatPlayTime, progressFraction, videoBrowseHref, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
@@ -21,13 +21,13 @@ import { DEFAULT_COVERS } from "../audiobooks/covers";
 // catalogued it (.nfo files first, then the folder's own name, TMDB filling the
 // gaps), laid out as on the TV: the title over its backdrop, Play — resumed where
 // this person stopped — and the season's episodes as picture cards, with each
-// one's progress. An admin can fix which TMDB title it was matched to.
+// one's progress. An admin edits its details, genres, TMDB match and pictures.
 export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState<VideoShow | VideoMovie | null>(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState("");
-  const [fixing, setFixing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const { user } = useSession();
   const back = videoBrowseHref(kind);
@@ -99,15 +99,15 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                     <span>{t("video.addToCollection")}</span>
                   </Button>
                   {user.role === "admin" && (
-                    <Button variant="text" className="video-fix-match" onClick={() => setFixing(true)}>
-                      <Search size={15} aria-hidden="true" />
-                      <span>{t("video.match.open")}</span>
+                    <Button variant="text" className="video-fix-match" onClick={() => setEditing(true)}>
+                      <Pencil size={15} aria-hidden="true" />
+                      <span>{t("video.edit.open")}</span>
                     </Button>
                   )}
                 </div>
               </div>
             </header>
-            {fixing && <FixMatchModal kind={kind} title={title} onClose={() => setFixing(false)} onMatched={setTitle} />}
+            {editing && <EditTitleModal kind={kind} title={title} onClose={() => setEditing(false)} onSaved={setTitle} />}
             {collecting && (
               <AddToCollectionModal entityType={collectAs} entityId={title.id} title={title.title} onClose={() => setCollecting(false)} />
             )}

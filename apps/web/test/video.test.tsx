@@ -38,10 +38,21 @@ const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage"
 const { VideoSetPage } = await import("../src/features/video/VideoSetPage");
 const { LibraryWizard } = await import("../src/features/control/libraries/LibraryWizard");
 const { resetVideoAvailable } = await import("../src/app/useVideoAvailable");
-const { FixMatchModal } = await import("../src/features/video/FixMatchModal");
+const { BackdropChooser } = await import("../src/features/video/TitlePictures");
 const mockApi = vi.mocked(api);
 
 const at = (url: string) => window.history.replaceState({}, "", url);
+
+/** The Edit dialog's answer for a title with no edits: every field as found. */
+const editState = (title: { title: string; originalTitle: string | null; year: number | null; plot: string | null; genres: string[] }) => ({
+  kind: "movies",
+  title: { edited: null, automatic: title.title },
+  originalTitle: { edited: null, automatic: title.originalTitle },
+  sortTitle: { edited: null, automatic: title.title.toLowerCase() },
+  year: { edited: null, automatic: title.year },
+  plot: { edited: null, automatic: title.plot },
+  genres: { edited: null, automatic: title.genres }
+});
 
 beforeEach(() => {
   mockApi.mockReset();
@@ -193,7 +204,7 @@ describe("choosing a backdrop", () => {
       throw new Error(`unexpected ${path}`);
     }) as never);
     const onMatched = vi.fn();
-    renderSignedIn(<FixMatchModal kind="movies" title={matched as never} onClose={() => undefined} onMatched={onMatched} />);
+    renderSignedIn(<BackdropChooser kind="movies" title={matched as never} onChosen={onMatched} />);
     await userEvent.click(screen.getByRole("button", { name: "Choose another" }));
     const pictures = await screen.findAllByRole("button", { name: /words on it/ });
     expect(pictures[0]).toHaveAttribute("aria-pressed", "true");
@@ -487,6 +498,12 @@ describe("a show's page", () => {
         return { results: [{ tmdbId: "404", title: "The Right Film", originalTitle: null, year: 1999, overview: "The one.", poster: "/video/api/admin/metadata/image/p404.jpg" }] };
       }
       if (path === "/video/api/admin/metadata/items/m1" && init?.method === "PUT") return { movie: fixed };
+      if (path === "/video/api/admin/titles/m1/edit" && init?.method === "PUT") return { movie: { ...fixed, plot: "The one." } };
+      if (path === "/video/api/admin/titles/m1/edit") return editState(movie);
+      if (path === "/video/api/admin/genres") return { genres: [], words: [] };
+      if (path.startsWith("/video/api/admin/metadata/details?")) {
+        return { tmdbId: "404", kind: "movie", title: "The Right Film", originalTitle: null, year: 1999, plot: "The one.", genres: [], poster: null };
+      }
       throw new Error(`unexpected ${path}`);
     }) as never);
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />, { user: { id: "a1", role: "admin" } as never });
@@ -494,11 +511,22 @@ describe("a show's page", () => {
     expect(document.querySelector(".video-title-cover img")).toHaveAttribute("src", "/video/api/art/m1/poster?v=1");
     expect(document.querySelector(".video-title-backdrop img")).toHaveAttribute("src", "/video/api/art/m1/backdrop?v=1");
 
-    await userEvent.click(screen.getByRole("button", { name: "Fix match" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Lookup" }));
     await userEvent.click(screen.getByRole("button", { name: "Search TMDB" }));
     expect(mockApi).toHaveBeenCalledWith("/video/api/admin/metadata/search?kind=movie&q=Loose+Film&language=en&year=1999");
     await userEvent.click(await screen.findByRole("button", { name: /The Right Film \(1999\)/ }));
+    // TMDB's description is ticked to begin with, since the film has none; its title is not.
+    expect(await screen.findByRole("checkbox", { name: "Take the Description from TMDB" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Take the Title from TMDB" })).not.toBeChecked();
+    await userEvent.click(screen.getByRole("button", { name: "Use this title" }));
+    expect(screen.getByText(/Save matches this title to "The Right Film" on TMDB \(404\)/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(mockApi).toHaveBeenCalledWith("/video/api/admin/metadata/items/m1", expect.objectContaining({ method: "PUT", body: JSON.stringify({ tmdbId: "404" }) }));
+    expect(mockApi).toHaveBeenCalledWith("/video/api/admin/titles/m1/edit", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({ title: null, originalTitle: null, sortTitle: null, year: null, plot: "The one.", genres: null })
+    }));
     expect(await screen.findByText("The one.")).toBeInTheDocument();
     expect(screen.getByText(/★ 6\.0/)).toBeInTheDocument();
   });
@@ -519,29 +547,39 @@ describe("a show's page", () => {
         ] };
       }
       if (path === "/video/api/admin/metadata/items/m1" && init?.method === "PUT") return { movie: fixed };
+      if (path === "/video/api/admin/titles/m1/edit") return editState(movie);
+      if (path === "/video/api/admin/genres") return { genres: [], words: [] };
+      if (path.startsWith("/video/api/admin/metadata/details?kind=tv&id=505")) {
+        return { tmdbId: "505", kind: "tv", title: "Peter's Pop Show", originalTitle: null, year: 1985, plot: null, genres: [], poster: null };
+      }
       throw new Error(`unexpected ${path}`);
     }) as never);
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />, { user: { id: "a1", role: "admin" } as never });
     await screen.findByRole("heading", { name: "Concert Peter's Pop Show" });
-    await userEvent.click(screen.getByRole("button", { name: "Fix match" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Lookup" }));
     await userEvent.click(screen.getByRole("button", { name: "Search TMDB" }));
     // Both have TMDB id 505: a film and a show are different counts there, so both are offered and the show says so.
     const show = await screen.findByRole("button", { name: /Peter's Pop Show \(1985\)/ });
     expect(show).toHaveTextContent("A TV show on TMDB");
     expect(screen.getByRole("button", { name: /Pop Show, the film/ })).not.toHaveTextContent("on TMDB");
     await userEvent.click(show);
+    await userEvent.click(await screen.findByRole("button", { name: "Use this title" }));
+    // Nothing ticked: only the match is saved, with where on TMDB it is.
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(mockApi).toHaveBeenCalledWith("/video/api/admin/metadata/items/m1", expect.objectContaining({ method: "PUT", body: JSON.stringify({ tmdbId: "505", tmdbKind: "tv" }) }));
+    expect(mockApi).not.toHaveBeenCalledWith("/video/api/admin/titles/m1/edit", expect.objectContaining({ method: "PUT" }));
     expect(await screen.findByText("Pop acts of the year.")).toBeInTheDocument();
   });
 
-  it("offers Fix match to admins only", async () => {
+  it("offers Edit to admins only", async () => {
     mockApi.mockResolvedValue({
       id: "m1", libraryId: "lib_mov", title: "Loose Film", originalTitle: null, year: 1999, plot: null, genres: [], runtimeMinutes: null,
       imdbId: null, tmdbId: null, source: "folder", direct: "yes", progress: null
     });
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />);
     expect(await screen.findByRole("heading", { name: "Loose Film" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Fix match" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     // An engine older than 0.6.0 sends no poster: the kind's placeholder art stands in.
     expect(document.querySelector(".video-title-cover img")).toHaveAttribute("src", "/Assets/covers/movie.svg");
   });

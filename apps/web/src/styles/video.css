@@ -1370,3 +1370,207 @@
 .video-rows-scope {
   margin-bottom: 10px;
 }
+
+/* Edit details (EditTitleModal): each field over what the scan found. */
+.video-edit-details,
+.video-edit-genres {
+  display: grid;
+  gap: 12px;
+}
+
+.video-edit-details > p,
+.video-edit-genres > p {
+  margin: 0;
+}
+
+.video-edit-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.video-edit-field textarea {
+  resize: vertical;
+}
+
+.video-edit-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.video-edit-badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--active);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.video-edit-found {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  min-height: 24px;
+}
+
+.video-edit-genre-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-edit-genre {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.video-edit-genre.is-on {
+  border-color: var(--accent);
+  background: var(--active);
+}
+
+/* Found, not picked: shown as on, but lighter. */
+.video-edit-genre.is-found {
+  border-style: dashed;
+}
+
+@media (max-width: 740px) {
+  .video-edit-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Pictures (TitlePictures): the poster now, its choices, and the backdrop's. */
+.video-pictures {
+  display: grid;
+  gap: 18px;
+}
+
+.video-poster-now {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.video-poster-now > img {
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--active);
+}
+
+.video-poster-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.video-poster-actions > p {
+  margin: 0;
+}
+
+.video-poster-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-poster-buttons .is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.video-posters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  max-height: 360px;
+  margin: 12px 0 0;
+  padding: 3px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.video-backdrop.video-poster-choice {
+  aspect-ratio: 2 / 3;
+}
+
+.video-edit-pictures-note {
+  margin-right: auto;
+}
+
+/* Lookup (TitleLookup): a TMDB title beside this one, field by field. */
+.video-lookup {
+  display: grid;
+  gap: 12px;
+}
+
+.video-lookup > p {
+  margin: 0;
+}
+
+.video-lookup-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.video-lookup-head > img {
+  width: 64px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.video-lookup-head p {
+  margin: 4px 0 0;
+}
+
+.video-lookup-compare {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.video-lookup-compare th,
+.video-lookup-compare td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.video-lookup-compare thead th:first-child {
+  width: 36px;
+}
+
+.video-lookup-compare thead th:nth-child(2) {
+  width: 22%;
+}
+
+.video-lookup-compare tr.is-same .video-lookup-value {
+  color: var(--muted);
+}
+
+.video-lookup-value {
+  overflow-wrap: anywhere;
+}

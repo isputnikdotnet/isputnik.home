@@ -29,6 +29,7 @@ import { useIsMobile } from "../../shared/useIsMobile";
 // any one tab. The page itself is now just the nav and the tab row.
 const UsersSection = lazy(() => import("./sections/UsersSection").then((m) => ({ default: m.UsersSection })));
 const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) => ({ default: m.InvitesSection })));
+const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
 const AboutSection = lazy(() => import("./sections/AboutSection").then((m) => ({ default: m.AboutSection })));
 const StorageSection = lazy(() => import("./sections/StorageSection").then((m) => ({ default: m.StorageSection })));
@@ -191,6 +192,7 @@ function ControlSectionBody({
     case "storageContents": return <StorageContentsSection />;
     case "categories":      return categoryId !== undefined ? <CategoryEditorPage categoryId={categoryId} /> : <CategoriesSection />;
     case "tags":            return <TagsSection />;
+    case "genres":          return <GenresSection />;
 
     case "users":           return member
       ? <MemberPage userId={member.userId} tab={member.tab} currentUser={currentUser} />
