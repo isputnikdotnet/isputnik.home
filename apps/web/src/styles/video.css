@@ -258,6 +258,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* The strip is far wider than a 16:9 backdrop, so a centred crop keeps only the
+     middle band (bodies). Faces sit in the top third of nearly every backdrop. */
+  object-position: center 18%;
 }
 
 .video-banner::after {
