@@ -3093,6 +3093,16 @@ button.gallery-face-box:focus-visible { border-color: #fff; box-shadow: 0 0 0 1p
 .gallery-face-experimental strong { color: var(--amber); font-weight: 700; }
 .gallery-face-experimental svg { flex-shrink: 0; margin-top: 1px; color: var(--amber); }
 
+/* Where faces are found: the isputnik.faces container or this server. */
+.gallery-face-engine {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: -6px 0 12px;
+  font-size: 0.78rem;
+}
+.gallery-face-engine svg { flex-shrink: 0; }
+
 .gallery-face-row-actions { flex-shrink: 0; gap: 6px; }
 
 /* Error/"scan started" notices need breathing room before the tabs below them.

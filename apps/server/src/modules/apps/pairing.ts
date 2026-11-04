@@ -30,6 +30,7 @@ function environmentFor(id: AppId): { upstream: string; secret: string } {
   switch (id) {
     case "games": return { upstream: config.gamesUrl, secret: config.gamesGatewaySecret };
     case "video": return { upstream: config.videoUrl, secret: config.videoGatewaySecret };
+    case "faces": return { upstream: config.facesUrl, secret: config.facesGatewaySecret };
   }
 }
 

@@ -1,7 +1,8 @@
-# Adding the games and video apps
+# Adding the games, video and faces apps
 
 Some parts of iSputnik run in containers of their own, beside the main app:
-**Games** (family board and arcade games) and **Video** (TV shows and movies). You
+**Games** (family board and arcade games), **Video** (TV shows and movies) and
+**Faces** (the face recognition behind People in the gallery). You
 install each one like any other container, then connect it to iSputnik in
 **Control panel → Apps**. This guide is for whoever runs the server.
 
@@ -79,6 +80,25 @@ Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
 01/Show (Year) S01E01.mkv` for shows, `Movie (Year)/Movie (Year).mkv` for films.
 `.nfo` files beside them are read first.
 
+### Faces
+
+The face engine finds the faces in your photos so iSputnik can group them into
+people. It keeps nothing: iSputnik sends it a photo and stores every face,
+name and person itself, so there is no folder to mount and nothing of it in a
+backup. Give its container:
+
+| Setting | Value |
+|---|---|
+| Image | `ghcr.io/isputnikdotnet/isputnik.faces` (on Unraid, the template `isputnik-faces.xml` in the [isputnik.faces repository](https://github.com/isputnikdotnet/isputnik.faces)) |
+| Network | the same network as iSputnik, or a fixed IP; **no port published** |
+| `GATEWAY_SECRET` | empty for now — you'll fill it in step 3; until then the container stops as soon as it starts |
+| CPU threads | optional: all cores but one by default, so the box stays responsive during a scan |
+
+Until a face engine is paired, iSputnik finds faces with the models inside its
+own container, as it always has; once it is paired, the next scan uses the
+engine, and nothing is scanned again. The Face recognition window on the
+Photos page says which one is at work.
+
 ## 3. Connect them on Settings → Apps
 
 Everything on iSputnik's side is done here: nothing to change on the iSputnik
@@ -86,8 +106,9 @@ container, and no restart. Open **Control panel → Settings → Apps** and choo
 the app.
 
 1. Under **Where the container is**, type the app's **Address** and press **Save
-   address**: `http://isputnik-games:4200` or `http://isputnik-video:4300` on a
-   shared network, or `http://<its IP>:4200` / `:4300` with fixed IPs. It is how
+   address**: `http://isputnik-games:4200`, `http://isputnik-video:4300` or
+   `http://isputnik-faces:4400` on a shared network, or `http://<its IP>:4200` /
+   `:4300` / `:4400` with fixed IPs. It is how
    iSputnik reaches the app, not how your browser does. The **Container** line
    then says whether it answers; *Not answering* means check the address and
    that both containers are on the same network.

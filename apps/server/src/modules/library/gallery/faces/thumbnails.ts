@@ -14,6 +14,25 @@ import type { GalleryDetailRow, GalleryFaceRow, LibraryItemRow, LibraryRow, NonN
 const FACE_THUMB = 160;
 const MARGIN = 1.4; // crop a bit wider than the box so the whole face/hair shows
 
+// The storage key a face's crop is kept under, and the file behind it.
+export function faceCropKey(libraryId: string, faceId: string): string {
+  return thumbnailStorageKey(libraryId, faceId, `${faceId}-face.webp`);
+}
+
+// Keep a crop the face engine made (docs/face-engine-plan.md) — or one made here —
+// under the face's key. Returns the key, or null when it could not be written.
+export function storeFaceCrop(libraryId: string, faceId: string, webp: Buffer): string | null {
+  try {
+    const key = faceCropKey(libraryId, faceId);
+    const out = thumbnailAbsolutePath(key);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, webp);
+    return key;
+  } catch {
+    return null;
+  }
+}
+
 // Crop one face (box = normalised [x,y,w,h] on the same upright image as `image`) and
 // write a square webp. Returns the storage key, or null on failure.
 export async function cropFaceFromRaw(
@@ -22,6 +41,16 @@ export async function cropFaceFromRaw(
   faceId: string,
   box: [number, number, number, number]
 ): Promise<string | null> {
+  const webp = await cropFaceToBuffer(image, box);
+  return webp ? storeFaceCrop(libraryId, faceId, webp) : null;
+}
+
+// The same crop as a buffer, for the in-process detector to hand back beside
+// the face, as the container does.
+export async function cropFaceToBuffer(
+  image: DecodedImage,
+  box: [number, number, number, number]
+): Promise<Buffer | null> {
   try {
     const { rgb, width, height } = image;
     if (!width || !height) return null;
@@ -38,13 +67,9 @@ export async function cropFaceFromRaw(
     w = Math.max(1, Math.min(w, width - left));
     h = Math.max(1, Math.min(h, height - top));
 
-    const key = thumbnailStorageKey(libraryId, faceId, `${faceId}-face.webp`);
-    const out = thumbnailAbsolutePath(key);
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    await sharp(rgb, { raw: { width, height, channels: 3 } })
+    return await sharp(rgb, { raw: { width, height, channels: 3 } })
       .extract({ left, top, width: w, height: h })
-      .resize(FACE_THUMB, FACE_THUMB, { fit: "cover" }).webp({ quality: 80 }).toFile(out);
-    return key;
+      .resize(FACE_THUMB, FACE_THUMB, { fit: "cover" }).webp({ quality: 80 }).toBuffer();
   } catch {
     return null;
   }

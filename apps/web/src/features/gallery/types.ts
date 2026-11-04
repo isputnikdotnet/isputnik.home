@@ -344,6 +344,16 @@ export interface GalleryFaceScan {
   etaSeconds: number | null;
 }
 
+// How faces are found (modules/library/gallery/faces/detector.ts): the
+// isputnik.faces container, the models in this server, or nothing — with why.
+export interface GalleryFaceEngineStatus {
+  where: "container" | "in-process" | "none";
+  version: string | null;
+  model: string | null;
+  gpu: boolean | null;
+  reason: string | null;
+}
+
 export interface GalleryFaceSettings {
   threshold: number;
   groupingStrength: number; // 2..8: lower = purer/more groups, higher = more consolidated

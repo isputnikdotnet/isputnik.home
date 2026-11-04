@@ -90,6 +90,8 @@ async function snapshotOne(
   actor: User,
   settings: SnapshotSettings
 ): Promise<AppSnapshot> {
+  // Nothing to ask for: the container keeps no data (docs/face-engine-plan.md).
+  if (app.stateless) return { id: app.id, included: false, reason: "keeps no data" };
   const { upstream, secret } = settings(app.id);
   const configured = appConfigured(app, upstream, secret);
   if (!configured.enabled) return { id: app.id, included: false, reason: configured.reason ?? "not set up" };
@@ -129,7 +131,8 @@ export async function snapshotApps(
   for (const app of APPS) {
     // A container with no address is not installed: nothing to say about it. One
     // switched out of Full and Minimal on the Backup page was left out on purpose.
-    if (!settings(app.id).upstream || !appBackupSettings(app.id).include) continue;
+    // One with nothing to hand over (faces) is not asked, nor named as missing.
+    if (app.stateless || !settings(app.id).upstream || !appBackupSettings(app.id).include) continue;
     snapshots.push(await snapshotOne(app, dir, actor, settings));
   }
   return snapshots;

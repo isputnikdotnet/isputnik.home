@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { ScanFace, RefreshCw, Trash2, FlaskConical, UserRound, Combine, Stethoscope } from "lucide-react";
+import { ScanFace, RefreshCw, Trash2, FlaskConical, UserRound, Combine, Stethoscope, Container } from "lucide-react";
 import i18n from "../../i18n";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
@@ -8,8 +8,9 @@ import { Button } from "../../shared/Button";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import type { ClusterHealth, ClusterHealthPair, ClusterHealthPerson, GalleryFaceLibrary, GalleryFaceSettings } from "./types";
+import type { ClusterHealth, ClusterHealthPair, ClusterHealthPerson, GalleryFaceEngineStatus, GalleryFaceLibrary, GalleryFaceSettings } from "./types";
 import { formatNumber } from "../../shared/dates";
+import { appPageHref } from "../control/links";
 
 // Module-level helper (not a component) — imports i18n directly since it can't call a hook.
 function personLabel(p: ClusterHealthPerson): string {
@@ -139,6 +140,9 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
   const [confirmClear, setConfirmClear] = useState<GalleryFaceLibrary | null>(null);
   const [tab, setTab] = useState<"libraries" | "grouping" | "health">("libraries");
+  // Where faces are found — the isputnik.faces container, this server, or nowhere
+  // (docs/face-engine-plan.md). Probed once when the dialog opens.
+  const [engine, setEngine] = useState<GalleryFaceEngineStatus | null>(null);
   // Clustering-health diagnostic (loaded lazily — it's an O(people²) pass).
   const [health, setHealth] = useState<ClusterHealth | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
@@ -204,6 +208,9 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   };
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    api<GalleryFaceEngineStatus>("/api/library/gallery/faces/engine").then(setEngine).catch(() => undefined);
+  }, []);
 
   // Run the health check the first time the tab is opened (it's too heavy for eager
   // load). Keyed on the tab alone on purpose: the flags in the condition are the
@@ -278,6 +285,22 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         <span><Trans i18nKey="faceSettings.experimental" ns="galleryModals" components={{ bold: <strong /> }} /></span>
       </p>
 
+      {engine?.where === "none" && (
+        <MessageBox tone="warning" title={t("galleryModals:faceSettings.engineNoneTitle")}>
+          {engine.reason}{" "}
+          <a href={appPageHref("appsSetup", "faces")}>{t("galleryModals:faceSettings.engineSetupLink")}</a>
+        </MessageBox>
+      )}
+      {engine && engine.where !== "none" && (
+        <p className="muted gallery-face-engine">
+          <Container size={14} aria-hidden="true" />
+          <span>
+            {engine.where === "container"
+              ? t("galleryModals:faceSettings.engineContainer", { version: engine.version ?? "?", where: engine.gpu ? "GPU" : "CPU" })
+              : t("galleryModals:faceSettings.engineInProcess")}
+          </span>
+        </p>
+      )}
       {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
       {notice && <MessageBox tone="success" title={t("galleryModals:faceSettings.startedTitle")}>{notice}</MessageBox>}
 

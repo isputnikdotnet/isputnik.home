@@ -272,7 +272,8 @@ export function registerAppBackupRoutes(app: FastifyInstance): void {
 
     scope.get("/api/backups/apps", { preHandler: app.requireAdmin }, async (request) => {
       const zipped = await filesInZips();
-      const apps = await Promise.all(APPS.map(async (definition): Promise<AppBackupView> => {
+      // One that keeps no data (faces) has no card: nothing to back up or put back.
+      const apps = await Promise.all(APPS.filter((definition) => !definition.stateless).map(async (definition): Promise<AppBackupView> => {
         const { upstream, secret } = resolveAppSecret(definition.id);
         const configured = appConfigured(definition, upstream, secret);
         const files = [...ownFiles(definition.id), ...(zipped.get(definition.id) ?? [])]

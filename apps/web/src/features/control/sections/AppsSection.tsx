@@ -29,6 +29,8 @@ import { ControlSectionHead } from "../ControlSectionHead";
 export interface AppStatus {
   id: string;
   kind: "app" | "engine";
+  /** Keeps no data: no backup card, nothing in a backup. */
+  stateless: boolean;
   /** Where it answers on this origin: its admin events and log are under it. */
   prefix: string;
   configured: boolean;
@@ -172,7 +174,7 @@ export function useAppsStatus() {
 export function useAppName() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   // One name per container this release knows; the registry (modules/apps) has the same list.
-  return (id: string) => (id === "games" ? t("common:nav.games") : id === "video" ? t("common:nav.video") : id);
+  return (id: string) => (id === "games" ? t("common:nav.games") : id === "video" ? t("common:nav.video") : id === "faces" ? t("common:nav.faces") : id);
 }
 
 // Every outstanding guest link (docs/games-platform-plan.md → Guests): who
@@ -1071,13 +1073,18 @@ export function AppsSetupSection() {
           <section className="config-block" id="app-setup-address">
             <h2>{t("controlAdmin:apps.setup.addressTitle")}</h2>
             <p className="muted">
-              {t("controlAdmin:apps.setup.addressIntro")}{" "}
-              <a
-                href={`${controlHref("backup")}#container-backup-${current.id}`}
-                onClick={(event) => followRoute(event, `${controlHref("backup")}#container-backup-${current.id}`)}
-              >
-                {t("controlAdmin:apps.setup.backupsLink")}
-              </a>
+              {t("controlAdmin:apps.setup.addressIntro")}
+              {!current.stateless && (
+                <>
+                  {" "}
+                  <a
+                    href={`${controlHref("backup")}#container-backup-${current.id}`}
+                    onClick={(event) => followRoute(event, `${controlHref("backup")}#container-backup-${current.id}`)}
+                  >
+                    {t("controlAdmin:apps.setup.backupsLink")}
+                  </a>
+                </>
+              )}
             </p>
 
             {current.urlSource === "environment" ? (

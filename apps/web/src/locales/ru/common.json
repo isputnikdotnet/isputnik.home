@@ -124,6 +124,7 @@
     "tags": "Теги",
     "games": "Игры",
     "video": "Видео",
+    "faces": "Лица",
     "gamesWaiting_one": "{{count}} игра ждёт вас",
     "gamesWaiting_few": "{{count}} игры ждут вас",
     "gamesWaiting_many": "{{count}} игр ждут вас",

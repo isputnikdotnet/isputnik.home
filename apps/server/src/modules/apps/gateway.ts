@@ -223,7 +223,14 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
         // Restoring goes through the Backup page (backups/app-backups.ts), which
         // calls the container itself and applies this server's rule on destructive
         // actions. Nobody's browser gets to it round the side, through here.
-        if (request.url.split("?")[0].startsWith(`${prefix}/api/admin/restore`)) {
+        const requestPath = request.url.split("?")[0];
+        if (requestPath.startsWith(`${prefix}/api/admin/restore`)) {
+          void reply.code(404).send({ error: "Not found" });
+          return;
+        }
+        // A container that works for this server, not for browsers (faces),
+        // opens only the paths its definition names.
+        if (definition.browserPaths && !definition.browserPaths.some((allowed) => requestPath.startsWith(allowed))) {
           void reply.code(404).send({ error: "Not found" });
           return;
         }

@@ -21,6 +21,8 @@ export interface ServerProbe {
 export interface AppStatus {
   id: string;
   kind: AppDefinition["kind"];
+  /** Keeps no data: no backup card, nothing in a backup. */
+  stateless: boolean;
   /** Where the container answers on this origin — its admin events and log are under it. */
   prefix: string;
   configured: boolean;
@@ -88,6 +90,7 @@ export async function appStatus(
   return {
     id: app.id,
     kind: app.kind,
+    stateless: app.stateless === true,
     prefix: app.prefix,
     configured: configured.enabled,
     reason: configured.reason ?? null,

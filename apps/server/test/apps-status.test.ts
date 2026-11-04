@@ -46,13 +46,14 @@ describe("GET /api/apps/admin/status", () => {
     expect(res.statusCode).toBe(200);
     const apps = res.json().apps as { id: string }[];
     // Every container this release knows, installed or not.
-    expect(apps.map((entry) => entry.id)).toEqual(["games", "video"]);
+    expect(apps.map((entry) => entry.id)).toEqual(["games", "video", "faces"]);
     expect(apps[0]).toEqual({
-      id: "games", kind: "app", prefix: "/games", configured: false, reason: null, url: null, urlSource: "none", exampleUrl: "http://isputnik-games:4200", secretSet: false,
+      id: "games", kind: "app", stateless: false, prefix: "/games", configured: false, reason: null, url: null, urlSource: "none", exampleUrl: "http://isputnik-games:4200", secretSet: false,
       secretSource: "none", pairing: null, variables: { url: "GAMES_URL", secret: "GAMES_GATEWAY_SECRET", container: "GATEWAY_SECRET" },
       secretAccepted: null, server: null
     });
     expect(apps[1]).toMatchObject({ id: "video", kind: "engine", prefix: "/video", configured: false, variables: { url: "VIDEO_URL" } });
+    expect(apps[2]).toMatchObject({ id: "faces", kind: "engine", stateless: true, prefix: "/faces", configured: false, variables: { url: "FACES_URL" } });
     expect((await app.app.inject({ method: "GET", url: "/api/apps/admin/status", headers: { cookie: await app.signIn("mum") } })).statusCode).toBe(403);
   });
 

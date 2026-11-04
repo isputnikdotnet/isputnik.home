@@ -21,6 +21,7 @@ import { galleryStreamPlugin } from "./stream.js";
 import { galleryBackSideRoutesPlugin } from "./back-routes.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
+import { facesGatewayPlugin } from "./faces/gateway-plugin.js";
 import { registerGalleryStats } from "./stats.js";
 import { registerGalleryMediaType } from "./media-type.js";
 import { startPhotoPlaceNaming } from "./places.js";
@@ -31,6 +32,7 @@ export async function galleryPlugin(app: FastifyInstance) {
 
   await app.register(galleryRoutesPlugin);
   await app.register(galleryPeopleRoutesPlugin);
+  await app.register(facesGatewayPlugin);
   await app.register(galleryAlbumRoutesPlugin);
   await app.register(gallerySlideshowRoutesPlugin);
   await app.register(galleryMusicRoutesPlugin);

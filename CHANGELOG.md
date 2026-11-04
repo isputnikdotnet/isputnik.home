@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.65.0 — Face recognition in its own container
+
+- **Faces can be found by a container of their own: isputnik.faces.** Install it beside iSputnik, pair it under **Control panel → Settings → Apps → Faces**, and the next face scan sends each photo to it and keeps what comes back — the faces, how each one looks, and the small portraits. Nothing is scanned again: it runs the same recogniser, so the people you have already named stay exactly as they are.
+- **Why a container.** The face models and their runtime are the heaviest part of iSputnik and the part that never changes, yet every update shipped them again. In the container they are pulled once; a later release of iSputnik will leave them out of its own image and get smaller. Until a Faces container is paired, nothing changes: iSputnik keeps finding faces itself, as it always has.
+- **It keeps nothing.** The container has no database and no folder to mount: iSputnik stores every face, name and person, so there is nothing of it in a backup and no Backup card for it. The Dashboard shows it like the other apps; its events and log are under **Overview → Logs**.
+- The **Face recognition** window on a photo library says which is at work — the container, with its version, or this server — and, when neither can, why, with a link to Settings → Apps. A scan started against a container that is down, or one running a different recogniser, is refused with the reason instead of failing photo by photo; one that loses the container halfway keeps what it has and continues next time.
+
 ## 4.64.0 — Your own video rows, My list, films in Collections
 
 - **Everyone can make the video page their own.** **Customize** is no longer for admins only: under **Just me** anyone moves, hides and adds rows for themselves, and **Use the household's rows** goes back to everyone's. An admin switches to **Everyone** to change the household's rows, which everyone without rows of their own sees.

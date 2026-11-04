@@ -59,10 +59,13 @@ Background: `docs/architecture.md` (Backend structure). The rule:
   A new media type goes in `modules/library/<type>/` and must join the
   cross-type systems (categories, tags, collections, bookmarks) by filtering on
   `libraries.type` and passing the correct `entityType`.
-- **Containers beside home** (games, later video) are reached only through the
+- **Containers beside home** (games, video, faces) are reached only through the
   shared gateway in `modules/apps/` (`registry.ts`, `gateway.ts`); a container's own
   module registers it with its hooks (games: guests, its log lines). Never add a
   second proxy or a container-specific copy of the gateway — `docs/apps-platform-plan.md`.
+  Faces (`docs/face-engine-plan.md`) is a stateless engine: home's scanner calls it
+  directly (`gallery/faces/detector.ts`), browsers reach only its admin window
+  (`browserPaths` in the registry), and backups never ask it for anything.
 - Each module exposes a Fastify plugin from its `index.ts`; register it in
   `apps/server/src/index.ts` as a sibling of `corePlugin`. Auth decorators
   (`authenticate`/`requireAdmin`) are added on the root app, so they propagate

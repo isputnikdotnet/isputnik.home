@@ -1,5 +1,6 @@
-// Face-detection job: walks a gallery library's photos, runs the in-process detector,
-// and writes one gallery_faces row per detected face (box + embedding). Clustering runs
+// Face-detection job: walks a gallery library's photos, asks the face detector
+// (detector.ts: the isputnik.faces container, or the models in this process) for
+// each one, and writes one gallery_faces row per detected face (box + embedding). Clustering runs
 // once per worker cycle, when the queue drains and only if face rows actually changed —
 // never per batch. Mirrors the gallery scan queue (jobs table, 2s poller). Resumable and
 // model-aware: an item is skipped only once it has an 'ok' gallery_face_scans row for
@@ -15,11 +16,12 @@ import { validateLibrarySource, LibrarySourceError } from "../../shared/library-
 import { libraryJobRunning } from "../../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../../shared/job-recovery.js";
 import { jobProgressWriter } from "../../shared/job-progress.js";
-import { decodeUpright, detectFacesFromRaw, FACE_EMBEDDING_MODEL, type DecodedImage } from "./arcface.js";
+import { FACE_EMBEDDING_MODEL } from "./model-id.js";
+import { NoDetectorError, UndecodableError, faceDetector, type FoundFace } from "./detector.js";
 import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { adoptWholePhotoTag, adoptWholePhotoTags } from "./adopt.js";
-import { cropFaceFromRaw, backfillFaceThumbnails } from "./thumbnails.js";
+import { storeFaceCrop, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
 import { isPhotoInboxLibrary } from "../system-libraries.js";
 import { removeFaceCropFiles, sweepOrphanFaceCrops } from "./crop-files.js";
@@ -131,6 +133,12 @@ async function scanLibraryFaces(
         ORDER BY (s.item_id IS NOT NULL), li.id
       `).all(FACE_EMBEDDING_MODEL, libraryId)) as PhotoRow[];
 
+  // Nothing to find faces with: say so once, here, instead of failing every photo
+  // (and burning each one's retry budget on a container that is simply down). An
+  // empty backlog asks nothing, so no runtime is loaded for nothing.
+  const detector = faceDetector();
+  const where = photos.length > 0 ? await detector.ensure() : null;
+
   const insertFace = db.prepare(`
     INSERT INTO gallery_faces
       (id, item_id, person_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, thumb_storage_key, assignment, source)
@@ -156,6 +164,8 @@ async function scanLibraryFaces(
   const batchTarget = force ? photos.length : Math.min(photos.length, SCAN_BATCH_SIZE);
   let stoppedAt = batchTarget;
   let timeLimited = false;
+  // The face engine stopped answering: the batch ends early, like the time limit.
+  let engineLost = false;
   // Report progress at the top of each iteration (idx photos finished so far) plus a
   // final full count; the caller throttles the actual writes. `continue` paths are fine —
   // the next iteration's call (or the post-loop call) advances the count.
@@ -165,13 +175,19 @@ async function scanLibraryFaces(
     const photo = photos[idx];
     const absolutePath = path.join(root, ...photo.relative_path.split("/"));
     if (!fs.existsSync(absolutePath)) continue; // gone on disk; the gallery scanner reconciles it
-    // Decode the photo ONCE and reuse it for detection + every face crop.
-    let image: DecodedImage;
-    let faces: Awaited<ReturnType<typeof detectFacesFromRaw>>;
+    // One call per photo: the faces and a crop for each, wherever they were found.
+    let faces: FoundFace[];
     try {
-      image = await decodeUpright(absolutePath);
-      faces = await detectFacesFromRaw(image);
+      faces = await detector.detect(absolutePath);
     } catch (err) {
+      // The container went away mid-scan: stop here, with the photos so far
+      // kept. The rest keep no marker and the next run picks them up.
+      if (err instanceof NoDetectorError || (!(err instanceof UndecodableError) && where === "container")) {
+        log.warn(`face scan: the face engine stopped answering (${err instanceof Error ? err.message : String(err)}); ${photos.length - idx} photos wait for the next run.`);
+        stoppedAt = idx;
+        engineLost = true;
+        break;
+      }
       // A real decode/detect failure must NOT be recorded as a 0-face photo — existing
       // faces are left untouched. It IS recorded as a failed attempt: retried on later
       // scans (after every fresh photo) until the cap, then skipped so a corrupt file
@@ -182,11 +198,11 @@ async function scanLibraryFaces(
       continue;
     }
     const usable = faces.filter((face) => Math.min(face.box[2], face.box[3]) >= MIN_FACE_SIDE);
-    // Crop a face thumbnail per detected face from the shared decode (before the write).
+    // Keep each face's crop under its new id (before the write).
     const prepared: { faceId: string; face: (typeof usable)[number]; thumbKey: string | null }[] = [];
     for (const face of usable) {
       const faceId = nanoid(16);
-      const thumbKey = await cropFaceFromRaw(image, libraryId, faceId, face.box);
+      const thumbKey = face.crop ? storeFaceCrop(libraryId, faceId, face.crop) : null;
       prepared.push({ faceId, face, thumbKey });
     }
     // The rescan replaces this item's auto faces with fresh rows (fresh ids, fresh crop
@@ -229,7 +245,8 @@ async function scanLibraryFaces(
 
   if (failed > 0) log.warn(`face scan: ${failed} of ${stoppedAt} photos failed to process (retried up to ${MAX_FACE_SCAN_ATTEMPTS} times, then skipped until a full rescan).`);
   const remaining = photos.length - stoppedAt;
-  if (timeLimited) log.warn(`face scan: paused at the ${SCAN_TIME_LIMIT_MS / 3_600_000}-hour limit — ${remaining} photos continue next run.`);
+  if (engineLost) timeLimited = true;
+  if (timeLimited && !engineLost) log.warn(`face scan: paused at the ${SCAN_TIME_LIMIT_MS / 3_600_000}-hour limit — ${remaining} photos continue next run.`);
   return {
     items: stoppedAt,
     faces: totalFaces,

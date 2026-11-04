@@ -4,10 +4,11 @@
 // knows how to talk to. What an install sets is where it is and its secret.
 //
 // An "app" draws its own pages (games); an "engine" has none and this app draws
-// them (video, later). Both are reached, probed and logged the same way.
+// them (video; faces, which keeps no data at all). All are reached, probed and
+// logged the same way.
 import type { SectionKey } from "../../core/sections.js";
 
-export type AppId = "games" | "video";
+export type AppId = "games" | "video" | "faces";
 export type AppKind = "app" | "engine";
 
 /** From where a capability may be used (docs/apps-platform-plan.md → Network rules). */
@@ -32,8 +33,17 @@ export interface AppDefinition {
   kind: AppKind;
   /** Everything under this path on the home origin belongs to the container. */
   prefix: string;
-  /** The menu section the admin switches it on and off with (core/sections.ts). */
-  section: SectionKey;
+  /** The menu section the admin switches it on and off with (core/sections.ts).
+   *  An engine the family never sees (faces) has none. */
+  section?: SectionKey;
+  /** True for a container that keeps no data of its own: backups never ask it
+   *  for a database, and the Backup page shows no card for it. */
+  stateless?: boolean;
+  /** The paths a browser may reach through the gateway; everything else under
+   *  the prefix answers 404. Left out, the whole prefix is forwarded. An engine
+   *  whose work is called by this server itself (faces) opens only its admin
+   *  window. */
+  browserPaths?: string[];
   /** The environment variables an install may set instead of Settings › Apps;
    *  either one, set, wins over what Setup saved. */
   urlVariable: string;
@@ -96,6 +106,29 @@ export const APPS: readonly AppDefinition[] = [
       { id: "watch", paths: ["/video/api/stream/", "/video/api/hls/", "/video/api/subtitles/"], defaultRule: "anywhere" },
       // Everything else: browsing shows and movies.
       { id: "browse", paths: [], defaultRule: "anywhere" }
+    ]
+  },
+  {
+    // An engine with no screens and no data: this server sends it photos and
+    // keeps every face itself (docs/face-engine-plan.md). Nobody's browser has
+    // business with it beyond the admin's window, and nothing of it is backed up.
+    id: "faces",
+    kind: "engine",
+    prefix: "/faces",
+    urlVariable: "FACES_URL",
+    secretVariable: "FACES_GATEWAY_SECRET",
+    exampleUrl: "http://isputnik-faces:4400",
+    containerSecretVariable: "GATEWAY_SECRET",
+    signedProbePath: "/faces/api/me",
+    docsAnchor: "faces",
+    stateless: true,
+    browserPaths: ["/faces/api/admin/", "/faces/api/health"],
+    capabilities: [
+      // Events and the log — the engine itself answers only an admin.
+      { id: "manage", paths: ["/faces/api/admin/"], defaultRule: "anywhere" },
+      // Detection: this server's scanner calls it directly; through the
+      // gateway it is not there (browserPaths above).
+      { id: "detect", paths: [], defaultRule: "anywhere" }
     ]
   }
 ];

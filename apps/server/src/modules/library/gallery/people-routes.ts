@@ -5,6 +5,7 @@ import { parseBody, parseQuery } from "../../../core/shared.js";
 import { canUserWriteAsset, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { resolveGalleryScopeLibraryIds, parseLibraryIds, resolveGalleryBrowseLibraryIds } from "./catalog-scope.js";
 import { getGalleryAsset, getGalleryAssetUnscoped } from "./catalog-asset.js";
+import { NoDetectorError, faceDetector } from "./faces/detector.js";
 import { placeLanguage } from "./places.js";
 import {
   listGalleryPeople,
@@ -612,6 +613,14 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     const running = activeFaceScan();
     if (running) {
       return reply.code(409).send({ error: "A face scan is already in progress. Wait for it to finish before starting another.", scan: running });
+    }
+    // Nothing to find faces with (no container paired, no runtime here): say so
+    // now, not as a failed job on the Tasks page.
+    try {
+      await faceDetector().ensure();
+    } catch (err) {
+      if (err instanceof NoDetectorError) return reply.code(503).send({ error: err.message });
+      throw err;
     }
     const ids = parsed.data.libraryId ? [parsed.data.libraryId] : enabledFaceLibraryIds();
     // Both paths pre-queue numbered batches. A forced rescan first drops the scan

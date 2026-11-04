@@ -75,10 +75,16 @@ Scheduling and the three kinds of backup are all in the Control panel — see
 
 ## Face recognition and performance
 
+Faces are found by the **isputnik.faces** container when one is paired on
+Settings › Apps (`FACES_URL` / `FACES_GATEWAY_SECRET` below, or the address and
+secret saved there) — the design is [face-engine-plan.md](face-engine-plan.md).
+Until then this server finds them itself with the models it carries, and these
+two variables apply:
+
 | Variable | Default | What it does |
 |---|---|---|
-| `FACE_ORT_THREADS` | CPU cores − 1 (at least 1) | How many CPU threads a face scan may use. The default leaves one core free so the web app stays responsive while a scan runs; set `1` to throttle hardest on a small box, or higher to finish sooner. |
-| `FACE_ORT_PROVIDERS` | unset (CPU) | Comma-separated onnxruntime execution providers to try first, e.g. `cuda,cpu`. CPU is always added as the last resort, and a provider that fails to load — or fails mid-scan — falls back to CPU on its own. It only helps with an onnxruntime build and a machine that actually have that accelerator; the Docker image is set up for CPU. |
+| `FACE_ORT_THREADS` | CPU cores − 1 (at least 1) | How many CPU threads a face scan may use. The default leaves one core free so the web app stays responsive while a scan runs; set `1` to throttle hardest on a small box, or higher to finish sooner. With the container, its `ORT_THREADS` does this instead. |
+| `FACE_ORT_PROVIDERS` | unset (CPU) | Comma-separated onnxruntime execution providers to try first, e.g. `cuda,cpu`. CPU is always added as the last resort, and a provider that fails to load — or fails mid-scan — falls back to CPU on its own. It only helps with an onnxruntime build and a machine that actually have that accelerator; the Docker image is set up for CPU. With the container, its `ORT_PROVIDERS`. |
 
 Neither is in the image, compose or the Unraid template; add them as extra
 variables if you need them. Background:
@@ -93,10 +99,11 @@ variables if you need them. Background:
 
 ## Apps
 
-Games ([isputnik.games](https://github.com/isputnikdotnet/isputnik.games)) and
-Video ([isputnik.video](https://github.com/isputnikdotnet/isputnik.video)) run in
-containers of their own and are reached only through this server, at `/games` and
-`/video`, which signs people in for them. The step-by-step guide is
+Games ([isputnik.games](https://github.com/isputnikdotnet/isputnik.games)),
+Video ([isputnik.video](https://github.com/isputnikdotnet/isputnik.video)) and
+Faces ([isputnik.faces](https://github.com/isputnikdotnet/isputnik.faces)) run in
+containers of their own and are reached only through this server, at `/games`,
+`/video` and `/faces`, which signs people in for them. The step-by-step guide is
 [Adding the games and video apps](users/apps.md); the design and the contract are
 in [apps-platform-plan.md](apps-platform-plan.md) and
 [video-architecture.md](video-architecture.md).
@@ -114,6 +121,8 @@ wins over Setup, which then shows it as set in the environment.
 | `GAMES_GATEWAY_SECRET` | unset | commented | — | Optional: the secret shared with the games container (its `GATEWAY_SECRET`), instead of pairing on Setup. A long random string (`openssl rand -hex 32`). Every request this server forwards carries it, which is how the games server knows the identity headers came from here and not from a visitor. With an address and no secret either way, the games stay off and the log says why. |
 | `VIDEO_URL` | unset | — | — | Optional: where the video engine answers, instead of the address on Setup — `http://isputnik-video:4300` on a shared network. With no address either way there are no video libraries. |
 | `VIDEO_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the video engine (its `GATEWAY_SECRET`), instead of pairing on Setup. |
+| `FACES_URL` | unset | — | — | Optional: where the face engine answers, instead of the address on Setup — `http://isputnik-faces:4400` on a shared network. With no address either way, faces are found by this server itself. |
+| `FACES_GATEWAY_SECRET` | unset | — | — | Optional: the secret shared with the face engine (its `GATEWAY_SECRET`), instead of pairing on Setup. |
 
 Control panel → Overview → Dashboard shows how the two stand (gateway on or off,
 the URL, whether a secret is set, whether the games server answers and its

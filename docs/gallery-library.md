@@ -239,8 +239,13 @@ a privacy-conscious deployment can self-host tiles.
 
 ## Face recognition
 
-On-device face detection + grouping, entirely in-process (no external service, nothing
-leaves the machine). Code lives under `modules/library/gallery/faces/`.
+On-device face detection + grouping, nothing leaves the machine. Code lives under
+`modules/library/gallery/faces/`. Since 4.65 the detection itself (decode →
+detect → embed → crop) can run in the **isputnik.faces** container
+(`docs/face-engine-plan.md`): `detector.ts` picks the container when one is
+paired on Settings › Apps, else the in-process path below, and the scanner asks
+it one photo at a time and gets faces with their crops back. The model id is the
+same either way, so nothing is re-embedded when an install switches.
 
 **Pipeline** (`arcface.ts`): InsightFace SCRFD-500MF detector → 5-point similarity-warp
 alignment to 112×112 → ArcFace **ResNet50** recogniser (`w600k_r50`) → 512-d L2-normalised
@@ -270,7 +275,10 @@ finish faster at the cost of responsiveness). The cap is set on the onnxruntime 
 options and via `sharp.concurrency()`.
 
 **Module layout:**
-- `arcface.ts` — detection + embedding engine (native ORT).
+- `detector.ts` — which finds faces: the container (`engine-client.ts`) or `arcface.ts`; one shape back.
+- `engine-client.ts` — the calls to isputnik.faces (`POST /faces/api/detect`, health).
+- `gateway-plugin.ts` — the container's gateway (admin window only) and the status route.
+- `arcface.ts` — detection + embedding engine (native ORT), the in-process path.
 - `queue.ts` — job-enqueue helpers + payload types; dependency-light (db + nanoid only) so
   callers like the maintenance scheduler don't pull in the ML import chain.
 - `scanner.ts` — the scan worker (own `SCAN_GALLERY_FACES` queue, 2s poller, single-flight

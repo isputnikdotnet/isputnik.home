@@ -87,6 +87,11 @@ export const config = {
   // set here, it wins.
   videoUrl: (process.env.VIDEO_URL ?? "").trim().replace(/\/+$/, ""),
   videoGatewaySecret: (process.env.VIDEO_GATEWAY_SECRET ?? "").trim(),
+  // The face engine (isputnik.faces) behind /faces — docs/face-engine-plan.md.
+  // Unset = faces are found in this process, while the image still carries the
+  // models. Its secret is usually paired on Settings › Apps; set here, it wins.
+  facesUrl: (process.env.FACES_URL ?? "").trim().replace(/\/+$/, ""),
+  facesGatewaySecret: (process.env.FACES_GATEWAY_SECRET ?? "").trim(),
   version: packageInfo.version,
   stage: packageInfo.stage ?? null,
   description: packageInfo.description

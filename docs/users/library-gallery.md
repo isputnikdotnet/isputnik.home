@@ -302,8 +302,11 @@ usual. Links you have handed out are listed in the same dialog and under
 
 ## Face recognition
 
-**Off by default, and entirely local** — the models ship with the app, nothing is
-sent anywhere. An admin turns it on per library in the library's settings.
+**Off by default, and entirely local** — the models run on your server, nothing is
+sent anywhere. An admin turns it on per library in the library's settings. The
+work itself can run in the main container or in the **isputnik.faces**
+container beside it ([Adding the apps](apps.md#faces)); the Face recognition
+window says which.
 
 ![The People page: named groups first, then unnamed ones, with the single-photo groups collapsed](images/33-gallery-people.png)
 

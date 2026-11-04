@@ -9,6 +9,7 @@ import {
   House,
   KeyRound,
   MemoryStick,
+  ScanFace,
   ScrollText,
   ShieldCheck,
   Tv,
@@ -69,10 +70,10 @@ function portOf(url: string | null): string | null {
 
 function useAppName() {
   const { t } = useTranslation("common");
-  return (id: string) => (id === "games" ? t("nav.games") : id === "video" ? t("nav.video") : id);
+  return (id: string) => (id === "games" ? t("nav.games") : id === "video" ? t("nav.video") : id === "faces" ? t("nav.faces") : id);
 }
 
-const APP_ICONS: Record<string, LucideIcon> = { games: Gamepad2, video: Tv };
+const APP_ICONS: Record<string, LucideIcon> = { games: Gamepad2, video: Tv, faces: ScanFace };
 
 const containerBackupHref = (id: string) => `${controlHref("backup")}#container-backup-${id}`;
 
@@ -425,7 +426,7 @@ function AppBranch({ app }: { app: AppStatus }) {
           {app.id === "video" && state === "running" && <a href={controlHref("videoSettings")}>{t("controlDash:overview.linkVideoSettings")}</a>}
           <a href={appPageHref("appsAccess", app.id)}>{t("controlDash:overview.linkAccess")}</a>
           <a href={appPageHref("appsSetup", app.id)}>{t("controlDash:overview.linkSetup")}</a>
-          <a href={containerBackupHref(app.id)}>{t("controlDash:overview.linkBackups")}</a>
+          {!app.stateless && <a href={containerBackupHref(app.id)}>{t("controlDash:overview.linkBackups")}</a>}
         </nav>
       </article>
     </div>
