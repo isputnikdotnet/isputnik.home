@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.65.2 — Faces in the video banner
+
+- **The big picture at the top of the video pages shows faces again.** The banner is much wider than a film backdrop, so it was cropped around the middle of the picture and usually showed only bodies; it now keeps the top of the picture, where the faces are.
+
 ## 4.65.1 — The face models leave this image
 
 - **Face recognition now lives only in the isputnik.faces container.** This image no longer carries the face models and their runtime — about 450 MB that every update used to ship again. Install the Faces container beside iSputnik and pair it under **Control panel → Settings → Apps → Faces**; it is pulled once and changes about never.
