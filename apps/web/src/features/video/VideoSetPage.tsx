@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Film, Layers, Play } from "lucide-react";
+import { ArrowLeft, Play } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followBack, followRoute } from "../../router";
@@ -9,6 +9,7 @@ import { PosterGrid } from "./VideoPoster";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_API, formatPlayTime, progressFraction, videoBrowseHref, videoHref, watchHref, yearSpan, type VideoSet } from "./types";
 import "../../styles/video.css";
+import { DEFAULT_COVERS } from "../audiobooks/covers";
 
 /** Where Back goes: the Movies page on its Sets view. */
 const SETS_HREF = videoBrowseHref("movies", "sets");
@@ -69,8 +70,8 @@ export function VideoSetPage({ id }: { id: string }) {
         {set && (
           <>
             <header className="video-title-head">
-              <div className={`video-title-cover${set.poster ? " has-poster" : ""}`} aria-hidden="true">
-                {set.poster ? <img src={set.poster} alt="" /> : <Layers size={34} />}
+              <div className="video-title-cover" aria-hidden="true">
+                <img src={set.poster ?? DEFAULT_COVERS.movie} alt="" />
               </div>
               <div className="video-title-copy">
                 <h1>{set.name}</h1>
@@ -103,7 +104,7 @@ export function VideoSetPage({ id }: { id: string }) {
                 title: film.title,
                 sub: [film.year ? String(film.year) : null, film.runtimeMinutes ? t("video.minutes", { count: film.runtimeMinutes }) : null].filter(Boolean).join(" · "),
                 poster: film.poster,
-                icon: Film,
+                kind: "movie",
                 fraction: progressFraction(film.progress),
                 watched: film.progress?.watched
               }))}

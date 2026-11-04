@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Bookmark, BookmarkCheck, Film, Tv } from "lucide-react";
+import { Bookmark, BookmarkCheck } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { Button } from "../../shared/Button";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { MessageBox } from "../../shared/MessageBox";
-import { PosterGrid } from "./VideoPoster";
+import { PosterGrid, type PosterItem } from "./VideoPoster";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { videoHref, type VideoKind } from "./types";
 import "../../styles/video.css";
@@ -23,13 +23,13 @@ export interface VideoListItem {
 }
 
 /** A card of a home list (My list, a Collection row). */
-export const listPoster = (item: VideoListItem) => ({
+export const listPoster = (item: VideoListItem): PosterItem => ({
   key: `${item.kind}:${item.id}`,
   href: videoHref(item.kind, item.id),
   title: item.title,
   sub: item.year ? String(item.year) : null,
   poster: item.poster,
-  icon: item.kind === "shows" ? Tv : Film
+  kind: item.kind === "shows" ? "show" : "movie"
 });
 
 // My list on a title's page: on it or not, one press either way.

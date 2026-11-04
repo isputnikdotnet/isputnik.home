@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Film, Layers, Tv } from "lucide-react";
 import { api } from "../../api";
 import { ContinueWatching } from "./ContinueWatching";
 import { MY_LIST_API, listPoster, type VideoListItem } from "./VideoMyList";
@@ -63,13 +62,13 @@ function TitlesRow({ row, kind, title, action }: { row: VideoTitlesRow; kind: Vi
       title={title}
       // Shows alone keep the overview's nearly square cards.
       shape={kind === "shows" ? "box" : "poster"}
-      items={items.map((item) => ({
+      items={items.map((item): PosterItem => ({
         key: item.id,
         href: videoHref(item.kind, item.id),
         title: item.title,
         sub: item.year ? String(item.year) : null,
         poster: item.poster,
-        icon: item.kind === "shows" ? Tv : Film
+        kind: item.kind === "shows" ? "show" : "movie"
       }))}
       action={action}
     />
@@ -108,6 +107,6 @@ export function setPoster(set: VideoSetSummary, t: (key: "video.films", options:
     title: set.name,
     sub: [t("video.films", { count: set.films }), yearSpan(set.firstYear, set.lastYear)].filter(Boolean).join(" · "),
     poster: set.poster,
-    icon: Layers
+    kind: "movie"
   };
 }

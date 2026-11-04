@@ -511,8 +511,8 @@ describe("a show's page", () => {
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />);
     expect(await screen.findByRole("heading", { name: "Loose Film" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Fix match" })).not.toBeInTheDocument();
-    // An engine older than 0.6.0 sends no poster: the kind's icon stays.
-    expect(document.querySelector(".video-title-cover img")).toBeNull();
+    // An engine older than 0.6.0 sends no poster: the kind's placeholder art stands in.
+    expect(document.querySelector(".video-title-cover img")).toHaveAttribute("src", "/Assets/covers/movie.svg");
   });
 
   it("says so when the title is gone or not this person's", async () => {

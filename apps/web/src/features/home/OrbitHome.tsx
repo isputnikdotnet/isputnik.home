@@ -292,11 +292,11 @@ export function OrbitHome({
         const show = shows[i];
         if (movie) {
           const href = videoHref("movies", movie.id);
-          tiles.push({ key: `m-${movie.id}`, href, title: movie.title, sub: movie.year ? String(movie.year) : t("video.movies"), cover: movie.poster ?? null, shape: "tall", fallback: Film });
+          tiles.push({ key: `m-${movie.id}`, href, title: movie.title, sub: movie.year ? String(movie.year) : t("video.movies"), cover: movie.poster ?? DEFAULT_COVERS.movie ?? null, shape: "tall", fallback: Film });
         }
         if (show) {
           const href = videoHref("shows", show.id);
-          tiles.push({ key: `s-${show.id}`, href, title: show.title, sub: show.year ? String(show.year) : t("video.shows"), cover: show.poster ?? null, shape: "tall", fallback: Tv });
+          tiles.push({ key: `s-${show.id}`, href, title: show.title, sub: show.year ? String(show.year) : t("video.shows"), cover: show.poster ?? DEFAULT_COVERS.show ?? null, shape: "tall", fallback: Tv });
         }
       }
       setNewVideo(tiles);
@@ -323,7 +323,7 @@ export function OrbitHome({
     href: watchHref(item.id),
     title: item.show ? item.show.title : item.title,
     sub: videoLine(item),
-    cover: posters[item.id] ?? null,
+    cover: posters[item.id] ?? DEFAULT_COVERS[item.type === "episode" ? "show" : "movie"] ?? null,
     shape: "tall",
     percent: item.resume && item.duration ? Math.round(Math.min(1, item.position / item.duration) * 100) : undefined,
     fallback: item.type === "episode" ? Tv : Film
@@ -378,7 +378,7 @@ export function OrbitHome({
               eyebrow={t("video.continueWatching")}
               title={heroVideo.show ? heroVideo.show.title : heroVideo.title}
               byline={videoLine(heroVideo)}
-              cover={posters[heroVideo.id] ?? null}
+              cover={posters[heroVideo.id] ?? DEFAULT_COVERS[heroVideo.type === "episode" ? "show" : "movie"] ?? null}
               percent={heroVideo.resume && heroVideo.duration ? Math.round(Math.min(1, heroVideo.position / heroVideo.duration) * 100) : 0}
               busy={false}
               icon={<Clapperboard size={18} aria-hidden="true" />}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Audiobook without a cover">
+  <rect width="400" height="600" fill="#1c3d4a"/>
+  <ellipse cx="200" cy="240" rx="172" ry="60" fill="none" stroke="#f1f3ee" stroke-opacity="0.13" stroke-width="10" transform="rotate(-24 200 240)"/><circle cx="314.7" cy="151.3" r="13" fill="#e9a95f"/>
+  <g transform="translate(115 151) scale(0.85)"><path d="M30 116V98a70 70 0 0 1 140 0v18" fill="none" stroke="#f1f3ee" stroke-width="16" stroke-linecap="round"/><rect x="16" y="104" width="44" height="74" rx="18" fill="#f1f3ee"/><rect x="140" y="104" width="44" height="74" rx="18" fill="#f1f3ee"/></g>
+</svg>

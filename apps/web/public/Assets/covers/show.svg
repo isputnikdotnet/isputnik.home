@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Show without a poster">
+  <rect width="400" height="600" fill="#2b2442"/>
+  <ellipse cx="200" cy="240" rx="172" ry="60" fill="none" stroke="#f1f3ee" stroke-opacity="0.13" stroke-width="10" transform="rotate(-24 200 240)"/><circle cx="314.7" cy="151.3" r="13" fill="#e9a95f"/>
+  <g transform="translate(115 151) scale(0.85)"><rect x="44" y="20" width="146" height="100" rx="16" fill="#f1f3ee" opacity="0.42"/><rect x="10" y="54" width="164" height="112" rx="18" fill="#f1f3ee"/><path d="M80 88v44l38-22Z" fill="#2b2442" stroke="#2b2442" stroke-width="8" stroke-linejoin="round"/></g>
+</svg>

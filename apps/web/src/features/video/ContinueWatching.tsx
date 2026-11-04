@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Film, Tv } from "lucide-react";
 import { api } from "../../api";
 import { useVideoAvailable } from "../../app/useVideoAvailable";
 import { VIDEO_API, episodeCodeValues, formatPlayTime, watchHref, type VideoArt, type VideoContinueItem, type VideoShow } from "./types";
@@ -66,7 +65,7 @@ export function ContinueWatching({ only, title }: { only?: "episode" | "movie"; 
           title: item.show ? item.show.title : item.title,
           sub,
           poster: posters[item.id] ?? null,
-          icon: item.type === "episode" ? Tv : Film,
+          kind: item.type === "episode" ? "show" : "movie",
           fraction: item.resume && item.duration ? Math.min(1, item.position / item.duration) : undefined
         };
       })}

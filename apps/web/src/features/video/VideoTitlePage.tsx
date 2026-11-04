@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Check, Film, FolderPlus, Layers, Play, Search, Tv } from "lucide-react";
+import { ArrowLeft, Check, FolderPlus, Layers, Play, Search } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { useSession } from "../../app/SessionContext";
@@ -15,6 +15,7 @@ import { MyListButton } from "./VideoMyList";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_API, VIDEO_ENTITY_TYPE, episodeCodeValues, formatPlayTime, progressFraction, videoBrowseHref, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
+import { DEFAULT_COVERS } from "../audiobooks/covers";
 
 // One show — its seasons and episodes — or one movie, as the video engine
 // catalogued it (.nfo files first, then the folder's own name, TMDB filling the
@@ -50,7 +51,6 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   }, [kind, id, t]);
 
   const show = title && "seasons" in title ? title : null;
-  const KindIcon = kind === "shows" ? Tv : Film;
   const facts = title
     ? [
         title.year ? String(title.year) : null,
@@ -83,8 +83,8 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
         {title && (
           <>
             <header className="video-title-head">
-              <div className={`video-title-cover${title.poster ? " has-poster" : ""}`} aria-hidden="true">
-                {title.poster ? <img src={title.poster} alt="" /> : <KindIcon size={34} />}
+              <div className="video-title-cover" aria-hidden="true">
+                <img src={title.poster ?? DEFAULT_COVERS[kind === "shows" ? "show" : "movie"]} alt="" />
               </div>
               <div className="video-title-copy">
                 <h1>{title.title}</h1>
@@ -272,7 +272,7 @@ function SetStrip({ movieId, set }: { movieId: string; set: NonNullable<VideoMov
           {set.films.map((film) => {
             const current = film.id === movieId;
             const href = videoHref("movies", film.id);
-            const cover = film.poster ? <img src={film.poster} alt="" loading="lazy" /> : <Film size={20} aria-hidden="true" />;
+            const cover = <img src={film.poster ?? DEFAULT_COVERS.movie} alt="" loading="lazy" />;
             return (
               <li key={film.id} className={current ? "is-current" : undefined}>
                 {current ? (

@@ -10,6 +10,7 @@ import { formatDuration } from "../../shared/utils";
 import { UserAreaNav } from "../library/UserAreaNav";
 import type { CollectionDetail, CollectionItem } from "./types";
 import { Button } from "../../shared/Button";
+import { placeholderForEntity } from "../audiobooks/covers";
 
 const PLAYER_FEATURES = "width=500,height=700,resizable=yes,scrollbars=yes";
 
@@ -180,7 +181,9 @@ export function CollectionDetailPage({
               </div>
             ) : (
               <div className="collection-item-list">
-                {items.map((item, index) => (
+                {items.map((item, index) => {
+                  const cover = item.coverUrl ?? placeholderForEntity(item.entityType);
+                  return (
                   <article className={`collection-item-row${item.available ? "" : " unavailable"}`} key={item.id}>
                     <span className="collection-item-pos">{index + 1}</span>
                     <Button
@@ -189,9 +192,9 @@ export function CollectionDetailPage({
                       disabled={!item.available}
                       onClick={() => item.available && navigate(item.href)}
                     >
-                      {item.coverUrl && (
+                      {cover && (
                         <span className="collection-item-cover" aria-hidden="true">
-                          <img src={item.coverUrl} alt="" />
+                          <img src={cover} alt="" />
                         </span>
                       )}
                       <span className="collection-item-text">
@@ -224,7 +227,8 @@ export function CollectionDetailPage({
                       </Button>
                     </div>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>

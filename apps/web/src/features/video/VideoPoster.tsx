@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { followRoute } from "../../router";
+import { DEFAULT_COVERS, DEFAULT_WIDE_COVERS } from "../audiobooks/covers";
 
 export interface PosterItem {
   key: string;
@@ -11,8 +11,8 @@ export interface PosterItem {
   /** The line under the name: a year, an episode, how many films. */
   sub?: string | null;
   poster?: string | null;
-  /** For the corner of a cover with no picture. */
-  icon: LucideIcon;
+  /** Which placeholder art stands in while there is no poster. */
+  kind: "movie" | "show";
   /** 0–1: how far this person got; left out when they haven't started. */
   fraction?: number;
   watched?: boolean;
@@ -24,19 +24,17 @@ export type PosterShape = "poster" | "wide" | "box";
 
 // A poster and its name, the TV app's card: no frame, a ring when you point at it.
 // A link, so it opens in a new tab like any address. With no picture yet, the
-// card says what it is inside itself, under the kind's icon.
+// card says what it is inside itself, over the kind's placeholder art.
 export function PosterCard({ item, shape = "poster" }: { item: PosterItem; shape?: PosterShape }) {
   const { t } = useTranslation();
-  const Icon = item.icon;
+  const placeholder = shape === "wide" ? DEFAULT_WIDE_COVERS[item.kind] : DEFAULT_COVERS[item.kind];
   const watched = item.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />;
   return (
     <a className={`video-card is-${shape}`} href={item.href} onClick={(event) => followRoute(event, item.href)}>
-      <span className={`video-card-cover${item.poster ? " has-poster" : ""}`}>
-        {item.poster ? (
-          <img src={item.poster} alt="" loading="lazy" />
-        ) : (
+      <span className={`video-card-cover${item.poster ? " has-poster" : " is-placeholder"}`}>
+        <img src={item.poster ?? placeholder} alt="" loading="lazy" />
+        {!item.poster && (
           <span className="video-card-blank">
-            <Icon size={34} aria-hidden="true" />
             <strong>{item.title}</strong>
             {item.sub && <span>{item.sub}</span>}
           </span>

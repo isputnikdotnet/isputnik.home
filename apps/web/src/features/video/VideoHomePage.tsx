@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Clapperboard, Film, LayoutGrid, LayoutList, Layers, Plus, Tv } from "lucide-react";
+import { ChevronRight, Clapperboard, LayoutGrid, LayoutList, Layers, Plus } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, queryParam, replaceNavigate, replaceQuery } from "../../router";
@@ -226,7 +226,7 @@ export function VideoHomePage() {
     title: item.title,
     sub,
     poster: item.poster,
-    icon: of === "shows" ? Tv : Film
+    kind: of === "shows" ? "show" : "movie"
   });
   const setItem = (set: VideoSetSummary) => setPoster(set, t);
   const viewAll = (row: VideoRow, under: VideoRowKind) => {

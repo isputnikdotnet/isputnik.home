@@ -53,7 +53,7 @@
 /* Every movie and show is a poster: the standard tall 2:3 sheet filling its
    column, as on a cinema wall or the TV app, so a row of them is even. A poster
    of a slightly different cut is trimmed at its edges to fit; a title with no
-   poster yet gets a poster-shaped card with its initials. */
+   poster yet gets its kind's placeholder art with the name on it. */
 .video-card-cover.has-poster {
   background: transparent;
 }
@@ -82,20 +82,24 @@
   object-position: 50% 20%;
 }
 
-/* No picture yet: the kind's icon and the name, inside the card. */
+/* No picture yet: the kind's placeholder art (Assets/covers) with the name over its
+   plain lower part. The art is dark in every theme, so the name is always light. */
 .video-card-blank {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
   display: grid;
-  justify-items: center;
-  gap: 8px;
-  max-width: 100%;
-  padding: 12px;
-  color: var(--ink);
-  text-align: center;
+  gap: 4px;
+  padding: 12px 14px 14px;
+  color: #f1f3ee;
+  text-align: left;
 }
 
-.video-card-blank > svg {
-  color: var(--mint);
-  opacity: 0.85;
+/* A box keeps the art's glyph clear of the name. */
+.video-card.is-box .video-card-cover.is-placeholder > img {
+  object-position: 50% 36%;
 }
 
 .video-card-blank strong {
@@ -108,7 +112,7 @@
 }
 
 .video-card-blank span {
-  color: var(--muted);
+  color: rgba(241, 243, 238, 0.72);
   font-size: 0.85rem;
 }
 
@@ -412,13 +416,8 @@
   aspect-ratio: 2 / 3;
   overflow: hidden;
   border-radius: 12px;
-  color: var(--mint);
-  background: var(--active);
-  box-shadow: 0 16px 34px var(--shadow);
-}
-
-.video-title-cover.has-poster {
   background: var(--surface-raised);
+  box-shadow: 0 16px 34px var(--shadow);
 }
 
 .video-title-cover > img {
