@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.65.3 — Whole heads in the video banner
+
+- **The video banner no longer clips the tops of heads.** 4.65.2 moved its crop up, but not far enough for a face near the top of a backdrop; the banner now keeps the very top of the picture and stands a little taller, so more of it shows.
+
 ## 4.65.2 — Faces in the video banner
 
 - **The big picture at the top of the video pages shows faces again.** The banner is much wider than a film backdrop, so it was cropped around the middle of the picture and usually showed only bodies; it now keeps the top of the picture, where the faces are.

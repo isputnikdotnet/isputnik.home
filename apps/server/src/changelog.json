@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.65.3",
+    "label": "Whole heads in the video banner",
+    "changes": [
+      "**The video banner no longer clips the tops of heads.** 4.65.2 moved its crop up, but not far enough for a face near the top of a backdrop; the banner now keeps the very top of the picture and stands a little taller, so more of it shows."
+    ]
+  },
+  {
     "version": "4.65.2",
     "label": "Faces in the video banner",
     "changes": [

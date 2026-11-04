@@ -231,7 +231,7 @@
   position: relative;
   display: grid;
   align-items: center;
-  min-height: clamp(280px, 26vw, 400px);
+  min-height: clamp(280px, 28vw, 460px);
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -258,9 +258,10 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* The strip is far wider than a 16:9 backdrop, so a centred crop keeps only the
-     middle band (bodies). Faces sit in the top third of nearly every backdrop. */
-  object-position: center 18%;
+  /* The strip is far wider than a 16:9 backdrop, so only a band of it shows. Faces sit in
+     the top third of nearly every backdrop: keep the band at the top, with a sliver of
+     headroom so a head at the very edge is not clipped. */
+  object-position: center 4%;
 }
 
 .video-banner::after {
