@@ -12,6 +12,7 @@ import { formatDate } from "../../shared/dates";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditTitleModal } from "./EditTitleModal";
 import { MyListButton } from "./VideoMyList";
+import { CastRow, CrewLine } from "./VideoPeople";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_API, VIDEO_ENTITY_TYPE, episodeCodeValues, formatPlayTime, progressFraction, videoBrowseHref, videoHref, videoSetHref, watchHref, type VideoEpisode, type VideoKind, type VideoMovie, type VideoShow } from "./types";
 import "../../styles/video.css";
@@ -91,6 +92,7 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                 {title.originalTitle && title.originalTitle !== title.title && <p className="muted">{title.originalTitle}</p>}
                 {facts && <p className="video-title-facts">{facts}</p>}
                 {title.plot && <p className="video-plot">{title.plot}</p>}
+                {title.crew && <CrewLine crew={title.crew} />}
                 <div className="video-title-actions">
                   <PlayAction title={title} />
                   <MyListButton kind={kind} id={title.id} />
@@ -111,6 +113,8 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
             {collecting && (
               <AddToCollectionModal entityType={collectAs} entityId={title.id} title={title.title} onClose={() => setCollecting(false)} />
             )}
+
+            {title.cast && <CastRow cast={title.cast} />}
 
             {!show && ((title as VideoMovie).parts?.length ?? 0) > 0 && <PartList parts={(title as VideoMovie).parts!} />}
 

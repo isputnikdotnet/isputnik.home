@@ -1082,6 +1082,25 @@
       "setOrder": "Place in the set",
       "setNone": "Not in any set",
       "setNoneHint": "Not even TMDB's collection puts it in one."
+    },
+    "people": {
+      "cast": "Cast",
+      "found": "People",
+      "as": "as {{character}}",
+      "actor": "Actor",
+      "notFound": "This person isn't in anything you can watch here.",
+      "titleCount_one": "{{count}} film or show",
+      "titleCount_other": "{{count}} films and shows",
+      "job": {
+        "director_one": "Director",
+        "director_other": "Directors",
+        "writer_one": "Writer",
+        "writer_other": "Writers",
+        "composer_one": "Music",
+        "composer_other": "Music",
+        "creator_one": "Created by",
+        "creator_other": "Created by"
+      }
     }
   }
 }

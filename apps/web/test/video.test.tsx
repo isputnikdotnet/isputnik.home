@@ -296,6 +296,16 @@ describe("one page for films and shows", () => {
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/video/api/titles?pageSize=200&q=rad&sort=title"));
   });
 
+  it("finds people too, above the titles, each linking to their page", async () => {
+    answer({ "/video/api/people?q=rad&limit=12": { people: [{ id: "t8", name: "Rad Actor", photo: "/video/api/people/t8/photo?v=1", titles: 3 }] } });
+    renderSignedIn(<VideoHomePage />);
+    await userEvent.type(await screen.findByPlaceholderText("Search movies and shows"), "rad");
+    const person = await screen.findByRole("link", { name: /Rad Actor/ });
+    expect(person).toHaveAttribute("href", "/videos/people/t8");
+    expect(person).toHaveTextContent("3 films and shows");
+    expect(screen.getByRole("heading", { name: "People" })).toBeInTheDocument();
+  });
+
   it("says plainly when the engine cannot answer", async () => {
     at("/videos?view=grid");
     answer({ "/video/api/libraries": { libraries: [] } });
@@ -1181,5 +1191,66 @@ describe("Add library → Video", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     const post = mockApi.mock.calls.find(([path, init]) => path === "/api/library/video-libraries" && (init as RequestInit | undefined)?.method === "POST");
     expect(JSON.parse(String((post![1] as RequestInit).body))).toMatchObject({ name: "TV Shows", kind: "shows", folder: "Shows", visibility: "public" });
+  });
+});
+
+describe("cast and crew", () => {
+  const VideoPersonPage = async () => (await import("../src/features/video/VideoPersonPage")).VideoPersonPage;
+
+  it("shows a title's cast as faces linking to each person, and its crew by job", async () => {
+    mockApi.mockResolvedValue({
+      id: "m1", libraryId: "lib_mov", title: "Д'Артаньян и три мушкетёра", originalTitle: null, year: 1979, plot: "Мушкетёры.", genres: [], runtimeMinutes: null,
+      imdbId: null, tmdbId: null, source: "nfo", direct: "yes", progress: null,
+      cast: [
+        { id: "t8", name: "Михаил Боярский", role: "Д'Артаньян", photo: "/video/api/people/t8/photo?v=1" },
+        { id: "nabc", name: "Someone Unknown", role: null, photo: null }
+      ],
+      crew: [
+        { id: "t5", name: "Георгий Юнгвальд-Хилькевич", role: "director", photo: null },
+        { id: "t6", name: "Writer One", role: "writer", photo: null },
+        { id: "t7", name: "Writer Two", role: "writer", photo: null }
+      ]
+    });
+    renderSignedIn(<VideoTitlePage kind="movies" id="m1" />);
+    const cast = (await screen.findByRole("heading", { name: "Cast" })).closest("section")!;
+    const boyarsky = within(cast).getByRole("link", { name: /Михаил Боярский/ });
+    expect(boyarsky).toHaveAttribute("href", "/videos/people/t8");
+    expect(boyarsky).toHaveTextContent("Д'Артаньян");
+    expect(boyarsky.querySelector("img")).toHaveAttribute("src", "/video/api/people/t8/photo?v=1");
+    // No picture: a placeholder face, still a link.
+    expect(within(cast).getByRole("link", { name: /Someone Unknown/ }).querySelector("img")).toBeNull();
+    const crew = document.querySelector(".video-crew")!;
+    expect(crew).toHaveTextContent("Director: Георгий Юнгвальд-Хилькевич · Writers: Writer One, Writer Two");
+    expect(within(crew as HTMLElement).getByRole("link", { name: "Writer Two" })).toHaveAttribute("href", "/videos/people/t7");
+  });
+
+  it("shows a person with their films and shows, the part played or the job done in each", async () => {
+    mockApi.mockResolvedValue({
+      id: "t8", name: "Михаил Боярский", tmdbId: "8", photo: "/video/api/people/t8/photo?v=1",
+      titles: [
+        { kind: "movies", id: "m1", title: "Д'Артаньян и три мушкетёра", year: 1979, poster: "/p.jpg", characters: ["Д'Артаньян"], jobs: [], actor: true },
+        { kind: "shows", id: "s1", title: "A Show", year: 1990, poster: "/q.jpg", characters: [], jobs: ["director"], actor: false }
+      ]
+    });
+    const Page = await VideoPersonPage();
+    renderSignedIn(<Page id="t8" />);
+    expect(await screen.findByRole("heading", { name: "Михаил Боярский" })).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/video/api/people/t8");
+    expect(screen.getByText("2 films and shows")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Д'Артаньян и три мушкетёра/ })).toHaveAttribute("href", "/movies/m1");
+    expect(screen.getByText("1979 · as Д'Артаньян")).toBeInTheDocument();
+    expect(screen.getByText("1990 · Director")).toBeInTheDocument();
+  });
+
+  it("says so when the person isn't in anything this person can watch", async () => {
+    mockApi.mockRejectedValue(new Error("No such person"));
+    const Page = await VideoPersonPage();
+    renderSignedIn(<Page id="t99" />);
+    expect(await screen.findByText("This person isn't in anything you can watch here.")).toBeInTheDocument();
+  });
+
+  it("reads the person's address", () => {
+    at("/videos/people/t8");
+    expect(getRoute()).toEqual({ name: "videoPerson", id: "t8" });
   });
 });

@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.69.0 — Cast and crew
+
+- **Films and shows show who is in them.** A title's page has a **Cast** row of faces, each with the part played, and a line under the description with the director, writers and composer (a show's creators). They come from the `.nfo` file's `<actor>` and `<director>` first, as everything else does, and from TMDB's credits where it names none.
+- **Every person has a page**: click a face or a name to see everything of theirs in the library that you can watch, with the part they played or what they did in each. Someone is one person across the library, so an actor in three films is on one page.
+- **Search on Video finds people too**: their faces come above the titles. Titles already matched on TMDB get their cast on the video engine's next look at them, with no rescan needed. Needs the video engine 0.26.0.
+
 ## 4.68.2 — HDR films in normal colours
 
 - **HDR films no longer play grey and washed out when converted.** The video engine 0.25.0 tone-maps HDR10 and HLG films to normal colours as it converts them, on the GPU where a test at start-up shows it can, else on the CPU. Picture subtitles (Blu-ray, DVD) are drawn on the GPU where it can, too, so such a film is converted there entirely.

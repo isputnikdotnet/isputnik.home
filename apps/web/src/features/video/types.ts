@@ -220,6 +220,10 @@ export interface VideoShow extends VideoArt {
   nextUp: VideoNextUp | null;
   backdrop?: string | null;
   tmdbMatch?: VideoTmdbMatch | null;
+  /** In billing order (engine 0.26.0+). */
+  cast?: VideoCredit[];
+  /** director, writer, composer, creator (engine 0.26.0+). */
+  crew?: VideoCredit[];
 }
 
 export interface VideoMovie extends VideoArt {
@@ -255,6 +259,10 @@ export interface VideoMovie extends VideoArt {
   tmdbMatch?: VideoTmdbMatch | null;
   /** The set it is in, with the films of it this person may see (engine 0.10.0+). */
   set?: { id: string; name: string; films: { id: string; title: string; year: number | null; poster: string | null }[] } | null;
+  /** In billing order (engine 0.26.0+). */
+  cast?: VideoCredit[];
+  /** director, writer, composer, creator (engine 0.26.0+). */
+  crew?: VideoCredit[];
 }
 
 /** GET /video/api/sets — film sets (docs/video-sets-plan.md): those this person
@@ -352,4 +360,46 @@ export function progressFraction(progress: VideoProgress | null | undefined): nu
   if (!progress) return 0;
   if (progress.watched) return 1;
   return progress.duration ? Math.min(1, progress.position / progress.duration) : 0;
+}
+
+/** What people do in a title, besides acting (the engine's credits.ts). */
+export type VideoCrewJob = "director" | "writer" | "composer" | "creator";
+
+/** Someone in a title: the character they play, or their job. */
+export interface VideoCredit {
+  id: string;
+  name: string;
+  role: string | null;
+  photo: string | null;
+}
+
+/** GET /video/api/people?q= — someone a search found. */
+export interface VideoPersonSummary {
+  id: string;
+  name: string;
+  photo: string | null;
+  titles: number;
+}
+
+/** GET /video/api/people/:id — someone, and what of theirs this person may see. */
+export interface VideoPerson {
+  id: string;
+  name: string;
+  tmdbId: string | null;
+  photo: string | null;
+  titles: {
+    kind: VideoKind;
+    id: string;
+    title: string;
+    year: number | null;
+    poster: string | null;
+    characters: string[];
+    jobs: VideoCrewJob[];
+    actor: boolean;
+  }[];
+}
+
+/** A person's page. */
+export function personHref(id: string): string {
+  return `/videos/people/${encodeURIComponent(id)}`;
 }

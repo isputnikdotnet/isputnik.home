@@ -419,6 +419,7 @@ export type Route =
   | { name: "videoBrowse"; kind: "shows" | "movies" }
   | { name: "videoTitle"; kind: "shows" | "movies"; id: string }
   | { name: "videoSet"; id: string }
+  | { name: "videoPerson"; id: string }
   /** The player, for one episode or movie (its id in the engine). */
   | { name: "videoWatch"; id: string }
   | { name: "familyTree"; focusId?: string }
@@ -590,6 +591,10 @@ export function getRoute(): Route {
   }
   if (path === "/videos/my-list") {
     return { name: "videoMyList" };
+  }
+  const videoPersonMatch = path.match(/^\/videos\/people\/([^/]+)$/);
+  if (videoPersonMatch) {
+    return { name: "videoPerson", id: decodeURIComponent(videoPersonMatch[1]) };
   }
   if (path === "/shows" || path === "/movies") {
     return { name: "videoBrowse", kind: path === "/shows" ? "shows" : "movies" };

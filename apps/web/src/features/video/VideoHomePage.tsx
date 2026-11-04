@@ -12,6 +12,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { SortMenu } from "../../shared/SortMenu";
 import { VideoBanner } from "./VideoBanner";
 import { PosterGrid, type PosterItem } from "./VideoPoster";
+import { PeopleResults } from "./VideoPeople";
 import { VideoRows, setPoster } from "./VideoRows";
 import { VideoRowsEditor } from "./VideoRowsEditor";
 import { VideoSectionNav } from "./VideoSectionNav";
@@ -19,7 +20,7 @@ import { VIDEO_HOME_API, VIDEO_ROWS_MAX, newRowId, rowName, type VideoLayout, ty
 import {
   MY_LIST_HREF, VIDEO_API, videoBrowseHref, videoHref,
   type VideoKind, type VideoLibraryRef, type VideoMovieSummary, type VideoPage, type VideoSetSummary, type VideoShowSummary, type VideoTitleSummary
-} from "./types";
+, type VideoPersonSummary } from "./types";
 import "../../styles/video.css";
 
 /** One page covers a family's whole library; paging comes when one does not. */
@@ -56,6 +57,7 @@ export function VideoHomePage() {
   const [filters, setFilters] = useState<VideoFilters>(() => ({ libraries: listParam("libraries"), genres: listParam("genres") }));
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const [people, setPeople] = useState<VideoPersonSummary[]>([]);
   const [libraries, setLibraries] = useState<VideoLibraryRef[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [layout, setLayout] = useState<VideoLayout | null>(null);
@@ -165,6 +167,20 @@ export function VideoHomePage() {
     }
     return () => { live = false; };
   }, [shown, kind, sort, query, librariesKey, genresKey, t]);
+
+  // People whose name has the words, shown above the titles a search finds.
+  useEffect(() => {
+    if (!query) {
+      setPeople([]);
+      return;
+    }
+    let live = true;
+    api<{ people: VideoPersonSummary[] }>(`${VIDEO_API}/people?${new URLSearchParams({ q: query, limit: "12" })}`)
+      .then((payload) => { if (live) setPeople(payload.people); })
+      // An engine before 0.26 has no people: the search is titles only.
+      .catch(() => { if (live) setPeople([]); });
+    return () => { live = false; };
+  }, [query]);
 
   const chooseKind = (next: Kind) => {
     setKind(next);
@@ -341,6 +357,8 @@ export function VideoHomePage() {
         {notice && (
           <MessageBox tone={notice.tone} title={notice.title} action={<Button variant="text" onClick={() => setNotice(null)}>{t("common.close")}</Button>}>{notice.body}</MessageBox>
         )}
+
+        {query && shown !== "sets" && <PeopleResults people={people} />}
 
         <FacetFilterChips
           value={{ libraries: libraryFilter, genres: filters.genres }}

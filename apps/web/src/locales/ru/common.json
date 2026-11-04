@@ -1166,6 +1166,35 @@
       "setOrder": "Место в цикле",
       "setNone": "Ни в каком цикле",
       "setNoneHint": "Даже коллекция TMDB не добавит его в цикл."
+    },
+    "people": {
+      "cast": "В ролях",
+      "found": "Люди",
+      "as": "{{character}}",
+      "actor": "Актёр",
+      "notFound": "Этого человека нет ни в одном фильме или сериале, доступном вам здесь.",
+      "titleCount_one": "{{count}} фильм или сериал",
+      "titleCount_few": "{{count}} фильма или сериала",
+      "titleCount_many": "{{count}} фильмов или сериалов",
+      "titleCount_other": "{{count}} фильма или сериала",
+      "job": {
+        "director_one": "Режиссёр",
+        "director_few": "Режиссёры",
+        "director_many": "Режиссёры",
+        "director_other": "Режиссёры",
+        "writer_one": "Сценарист",
+        "writer_few": "Сценаристы",
+        "writer_many": "Сценаристы",
+        "writer_other": "Сценаристы",
+        "composer_one": "Композитор",
+        "composer_few": "Композиторы",
+        "composer_many": "Композиторы",
+        "composer_other": "Композиторы",
+        "creator_one": "Создатель",
+        "creator_few": "Создатели",
+        "creator_many": "Создатели",
+        "creator_other": "Создатели"
+      }
     }
   }
 }

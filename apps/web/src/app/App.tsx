@@ -61,6 +61,7 @@ const VideoHomePage = lazy(() => import("../features/video/VideoHomePage").then(
 const VideoMyListPage = lazy(() => import("../features/video/VideoMyList").then((m) => ({ default: m.VideoMyListPage })));
 const VideoBrowseRedirect = lazy(() => import("../features/video/VideoHomePage").then((m) => ({ default: m.VideoBrowseRedirect })));
 const VideoTitlePage = lazy(() => import("../features/video/VideoTitlePage").then((m) => ({ default: m.VideoTitlePage })));
+const VideoPersonPage = lazy(() => import("../features/video/VideoPersonPage").then((m) => ({ default: m.VideoPersonPage })));
 const VideoSetPage = lazy(() => import("../features/video/VideoSetPage").then((m) => ({ default: m.VideoSetPage })));
 const VideoPlayerPage = lazy(() => import("../features/video/VideoPlayerPage").then((m) => ({ default: m.VideoPlayerPage })));
 const StoryDetailPage = lazy(() => import("../features/stories/StoryDetailPage").then((m) => ({ default: m.StoryDetailPage })));
@@ -609,6 +610,10 @@ export function App() {
 
     if (route.name === "videoSet") {
       return <VideoSetPage id={route.id} />;
+    }
+
+    if (route.name === "videoPerson") {
+      return <VideoPersonPage id={route.id} />;
     }
 
     if (route.name === "videoWatch") {

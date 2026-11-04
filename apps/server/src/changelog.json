@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.69.0",
+    "label": "Cast and crew",
+    "changes": [
+      "**Films and shows show who is in them.** A title's page has a **Cast** row of faces, each with the part played, and a line under the description with the director, writers and composer (a show's creators). They come from the `.nfo` file's `<actor>` and `<director>` first, as everything else does, and from TMDB's credits where it names none.",
+      "**Every person has a page**: click a face or a name to see everything of theirs in the library that you can watch, with the part they played or what they did in each. Someone is one person across the library, so an actor in three films is on one page.",
+      "**Search on Video finds people too**: their faces come above the titles. Titles already matched on TMDB get their cast on the video engine's next look at them, with no rescan needed. Needs the video engine 0.26.0."
+    ]
+  },
+  {
     "version": "4.68.2",
     "label": "HDR films in normal colours",
     "changes": [
