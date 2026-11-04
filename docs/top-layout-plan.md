@@ -56,7 +56,7 @@ lake at sunset, on the same terms as Earth.
 
 The games (isputnik.games, behind `/games`) wear this bar too, as their own copy of it
 (`shared/TopBar.tsx` there): Home · **Games ▾** · Family, the control panel, a sound
-switch and the person's menu, over a row of tabs — Overview (the lobby) │ each game. It
+switch and the person's menu, with no row of tabs (the owner dropped a tab per game). It
 asks home's `/api/setup/status`, `/api/video/status` and `/api/home/libraries` for the
 Media list. A change to this bar wants the same change there. Games carries the Orbit
 and Thanksgiving palettes (not their pictures), so the gateway sends every theme by its
