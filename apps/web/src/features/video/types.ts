@@ -21,6 +21,8 @@ export interface VideoArt {
  *  engine has looked. */
 export interface VideoTmdbMatch {
   id: string | null;
+  /** Where on TMDB the match is: a film here may be a TV show there. Missing or null: the title's own kind. */
+  kind?: "movie" | "tv" | null;
   state: "none" | "matched" | "unmatched" | "error";
   /** Fixed by hand: no rescan changes it. */
   locked: boolean;
@@ -271,6 +273,8 @@ export interface VideoSet {
 /** GET /video/api/admin/metadata/search — TMDB's candidates for Fix match. */
 export interface VideoTmdbCandidate {
   tmdbId: string;
+  /** Film or TV show on TMDB (engine 0.22+); the title's own kind when missing. */
+  kind?: "movie" | "tv";
   title: string;
   originalTitle: string | null;
   year: number | null;

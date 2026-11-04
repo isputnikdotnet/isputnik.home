@@ -119,7 +119,7 @@ export function FixMatchModal({ kind, title, onClose, onMatched }: {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
   const match = title.tmdbMatch ?? null;
-  const KindIcon = kind === "shows" ? Tv : Film;
+  const ownKind = kind === "shows" ? "tv" : "movie";
 
   const search = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -137,13 +137,13 @@ export function FixMatchModal({ kind, title, onClose, onMatched }: {
     }
   };
 
-  const choose = async (tmdbId: string | null) => {
+  const choose = async (tmdbId: string | null, tmdbKind?: "movie" | "tv") => {
     setSaving(tmdbId ?? "auto");
     setError("");
     try {
       const answer = await api<{ show?: VideoShow; movie?: VideoMovie }>(`${VIDEO_API}/admin/metadata/items/${encodeURIComponent(title.id)}`, {
         method: "PUT",
-        body: JSON.stringify({ tmdbId })
+        body: JSON.stringify({ tmdbId, ...(tmdbKind ? { tmdbKind } : {}) })
       });
       const updated = answer.show ?? answer.movie;
       if (updated) onMatched(updated);
@@ -189,14 +189,17 @@ export function FixMatchModal({ kind, title, onClose, onMatched }: {
         {results && results.length > 0 && (
           <ul className="video-match-results">
             {results.map((result) => {
-              const current = match?.id === result.tmdbId;
+              // TMDB counts films and shows apart, so an id names a title only with its kind.
+              const resultKind = result.kind ?? ownKind;
+              const current = match?.id === result.tmdbId && (match.kind ?? ownKind) === resultKind;
+              const KindIcon = resultKind === "tv" ? Tv : Film;
               return (
-                <li key={result.tmdbId}>
+                <li key={`${resultKind}-${result.tmdbId}`}>
                   <Button
                     variant="bare"
                     className={`video-match-result${current ? " is-current" : ""}`}
                     disabled={saving !== null}
-                    onClick={() => void choose(result.tmdbId)}
+                    onClick={() => void choose(result.tmdbId, result.kind)}
                   >
                     <span className="video-match-poster" aria-hidden="true">
                       {result.poster ? <img src={result.poster} alt="" loading="lazy" /> : <KindIcon size={20} />}
@@ -207,6 +210,12 @@ export function FixMatchModal({ kind, title, onClose, onMatched }: {
                         {result.year ? ` (${result.year})` : ""}
                         {current && <Check size={15} aria-label={t("video.match.current")} />}
                       </strong>
+                      {resultKind !== ownKind && (
+                        <small className="video-match-kind">
+                          <KindIcon size={13} aria-hidden="true" />
+                          {t(resultKind === "tv" ? "video.match.kindTv" : "video.match.kindMovie")}
+                        </small>
+                      )}
                       {result.originalTitle && result.originalTitle !== result.title && <small className="muted">{result.originalTitle}</small>}
                       {result.overview && <span className="video-match-overview">{result.overview}</span>}
                       {saving === result.tmdbId && <small>{t("video.match.saving")}</small>}

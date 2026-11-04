@@ -1012,6 +1012,8 @@
       "search": "Search TMDB",
       "searching": "Searching…",
       "noResults": "Nothing on TMDB by that name. Try the original title, or leave the year out.",
+      "kindTv": "A TV show on TMDB",
+      "kindMovie": "A film on TMDB",
       "current": "The match now",
       "saving": "Saving…",
       "automatic": "Match automatically again",

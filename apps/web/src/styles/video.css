@@ -1206,6 +1206,18 @@
   border-color: var(--gold);
 }
 
+/* A result of TMDB's other kind: a film kept here that TMDB files as a show. */
+.video-match-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--chip-bg, rgba(127, 127, 127, 0.18));
+  font-size: 0.78rem;
+}
+
 .video-match-poster {
   display: grid;
   place-items: center;

@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.66.0 — Films that TMDB calls TV shows
+
+- **Fix match now offers TMDB's TV shows for a film, and its films for a show.** TMDB files a Soviet miniseries or a concert as a TV show, so a film kept in a movies library could never be matched by hand; the search now lists the title's own kind first and the other after it, each such result marked (**A TV show on TMDB**), and the choice holds. Needs the video engine 0.22.0.
+- **The video engine (0.21.0) finds such films on its own too**, and tries a name once more without its first word (*Concert Peter's Pop Show* → *Peter's Pop Show*), so most of the titles marked *not found* match on the next refresh.
+
 ## 4.65.3 — Whole heads in the video banner
 
 - **The video banner no longer clips the tops of heads.** 4.65.2 moved its crop up, but not far enough for a face near the top of a backdrop; the banner now keeps the very top of the picture and stands a little taller, so more of it shows.

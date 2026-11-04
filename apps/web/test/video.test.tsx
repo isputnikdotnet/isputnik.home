@@ -503,6 +503,37 @@ describe("a show's page", () => {
     expect(screen.getByText(/★ 6\.0/)).toBeInTheDocument();
   });
 
+  it("says when a Fix match candidate is a TV show on TMDB, and sends that kind with the choice", async () => {
+    const movie = {
+      id: "m1", libraryId: "lib_mov", title: "Concert Peter's Pop Show", originalTitle: null, year: 1985, plot: null, genres: [], runtimeMinutes: 90,
+      imdbId: null, tmdbId: null, source: "folder", direct: "yes", progress: null, poster: null, backdrop: null, rating: null,
+      tmdbMatch: { id: null, state: "unmatched", locked: false, error: null }
+    };
+    const fixed = { ...movie, plot: "Pop acts of the year.", tmdbId: "505", tmdbMatch: { id: "505", kind: "tv", state: "matched", locked: true, error: null } };
+    mockApi.mockImplementation((async (path: string, init?: RequestInit) => {
+      if (path === "/video/api/movies/m1") return movie;
+      if (path.startsWith("/video/api/admin/metadata/search?")) {
+        return { results: [
+          { tmdbId: "505", kind: "movie", title: "Pop Show, the film", originalTitle: null, year: 1985, overview: null, poster: null },
+          { tmdbId: "505", kind: "tv", title: "Peter's Pop Show", originalTitle: null, year: 1985, overview: null, poster: null }
+        ] };
+      }
+      if (path === "/video/api/admin/metadata/items/m1" && init?.method === "PUT") return { movie: fixed };
+      throw new Error(`unexpected ${path}`);
+    }) as never);
+    renderSignedIn(<VideoTitlePage kind="movies" id="m1" />, { user: { id: "a1", role: "admin" } as never });
+    await screen.findByRole("heading", { name: "Concert Peter's Pop Show" });
+    await userEvent.click(screen.getByRole("button", { name: "Fix match" }));
+    await userEvent.click(screen.getByRole("button", { name: "Search TMDB" }));
+    // Both have TMDB id 505: a film and a show are different counts there, so both are offered and the show says so.
+    const show = await screen.findByRole("button", { name: /Peter's Pop Show \(1985\)/ });
+    expect(show).toHaveTextContent("A TV show on TMDB");
+    expect(screen.getByRole("button", { name: /Pop Show, the film/ })).not.toHaveTextContent("on TMDB");
+    await userEvent.click(show);
+    expect(mockApi).toHaveBeenCalledWith("/video/api/admin/metadata/items/m1", expect.objectContaining({ method: "PUT", body: JSON.stringify({ tmdbId: "505", tmdbKind: "tv" }) }));
+    expect(await screen.findByText("Pop acts of the year.")).toBeInTheDocument();
+  });
+
   it("offers Fix match to admins only", async () => {
     mockApi.mockResolvedValue({
       id: "m1", libraryId: "lib_mov", title: "Loose Film", originalTitle: null, year: 1999, plot: null, genres: [], runtimeMinutes: null,
