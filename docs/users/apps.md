@@ -209,6 +209,24 @@ memory and on the disk. Most films need well under the 300 MB; a Blu-ray rip
 whose sound is converted carries its picture unchanged, so it is the one that
 fills a share. Changes apply at once; anyone already watching carries on.
 
+### Converting on the GPU
+
+An Intel CPU's graphics (Quick Sync) convert several films at once for little
+CPU. To use them, fill in the video container's optional **Intel GPU** field
+with `/dev/dri` on Unraid (or pass `/dev/dri` to the container elsewhere). The
+engine tries the GPU when it starts, and the **Converting video** card says what
+it found: the graphics and driver, and which kinds of video they decode. Videos
+they can't decode are decoded on the CPU and still converted on the GPU.
+
+- **Where to convert**: *On the GPU where it can (automatic)* is the default; it
+  moves a film to the CPU if the GPU fails it, and after three failures in an
+  hour sets the GPU aside until you press **Check again**. *On the CPU only*
+  never tries the GPU; *On the GPU only* fails rather than falling back, to test
+  it.
+- The list of who is watching says **GPU** or **CPU** beside each conversion.
+- Without the field, or without Intel graphics, everything is converted on the
+  CPU as before, and the card says so.
+
 ## Posters and descriptions
 
 Pictures saved beside the video files are always shown: `poster.jpg` and

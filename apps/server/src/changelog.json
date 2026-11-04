@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.68.1",
+    "label": "Converting video on the GPU, in Settings",
+    "changes": [
+      "**Settings → Video → Converting video shows the GPU.** The video engine converts on an Intel CPU's graphics (Quick Sync) since its 0.20.0, but nothing here said whether it was found or used. The card now says what the engine found (the graphics, the driver and which kinds of video they decode), or why it converts on the CPU, with **Check again** after adding `/dev/dri` to the container.",
+      "**Where to convert**: on the GPU where it can (automatic, the default), on the CPU only, or on the GPU only to test it. Automatic sets the GPU aside after three failures in an hour, and the card says so until **Check again**.",
+      "**Who is watching** marks each conversion **GPU** or **CPU**. Needs the video engine 0.20.0 or later; with an older one the card is as before."
+    ]
+  },
+  {
     "version": "4.68.0",
     "label": "Film sets by hand, and miniseries found on TMDB",
     "changes": [

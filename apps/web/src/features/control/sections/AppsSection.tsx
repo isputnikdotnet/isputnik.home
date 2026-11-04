@@ -305,16 +305,74 @@ interface ConversionSettings {
   memoryPerViewerMb: number;
   maxViewers: number;
   whenFull: "disk" | "wait";
+  /** Engine 0.20+: where a picture is re-encoded (isputnik.video hardware.ts). */
+  hardware?: HardwareMode;
+}
+
+type HardwareMode = "auto" | "cpu" | "gpu";
+
+/** What the engine found the GPU does (engine 0.20+). */
+interface HardwareState {
+  mode: HardwareMode;
+  device: string | null;
+  driver: string | null;
+  encode: boolean;
+  decode: string[];
+  error: string | null;
+  checking: boolean;
+  /** Automatic gave up on the GPU after failures, until Check again. */
+  setAside: boolean;
 }
 
 interface ConversionState {
   available: boolean;
   settings: ConversionSettings;
   usage: {
-    viewers: { user: string; title: string; mode: string; converting: boolean; memoryBytes: number; diskBytes: number }[];
+    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; converting: boolean; memoryBytes: number; diskBytes: number }[];
     memoryBytes: number;
     diskBytes: number;
   };
+  hardware?: HardwareState | null;
+}
+
+/** The decode test's codec names as people know them; not words to translate. */
+const CODEC_NAMES: Record<string, string> = {
+  h264: "H.264", hevc: "HEVC", hevc10: "HEVC 10-bit", vp9: "VP9", vp9_10: "VP9 10-bit", av1: "AV1", mpeg2video: "MPEG-2", vc1: "VC-1"
+};
+
+/** What the GPU does here, in a line: found and used, set aside, or not there. */
+function HardwareStatus({ hardware, checking, onCheck }: { hardware: HardwareState; checking: boolean; onCheck: () => void }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const action = (
+    <Button variant="secondary" disabled={checking || hardware.checking} onClick={onCheck}>
+      {checking || hardware.checking ? t("controlAdmin:apps.conversion.checking") : t("controlAdmin:apps.conversion.checkAgain")}
+    </Button>
+  );
+  if (hardware.mode === "cpu") {
+    return <MessageBox tone="info" title={t("controlAdmin:apps.conversion.gpuOffTitle")} action={action}>{t("controlAdmin:apps.conversion.gpuOffBody")}</MessageBox>;
+  }
+  if (hardware.checking && !hardware.encode && !hardware.error) {
+    return <MessageBox tone="info" title={t("controlAdmin:apps.conversion.checking")}>{t("controlAdmin:apps.conversion.gpuCheckingBody")}</MessageBox>;
+  }
+  if (!hardware.encode) {
+    return (
+      <MessageBox tone={hardware.mode === "gpu" ? "warning" : "info"} title={t("controlAdmin:apps.conversion.gpuNoneTitle")} action={action}>
+        {hardware.error ?? t("controlAdmin:apps.conversion.gpuNoneBody")}
+      </MessageBox>
+    );
+  }
+  const codecs = hardware.decode.map((codec) => CODEC_NAMES[codec] ?? codec).join(", ");
+  const where = [hardware.device, hardware.driver].filter(Boolean).join(" · ");
+  if (hardware.setAside) {
+    return <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.gpuSetAsideTitle")} action={action}>{t("controlAdmin:apps.conversion.gpuSetAsideBody", { where })}</MessageBox>;
+  }
+  return (
+    <MessageBox tone="success" title={t("controlAdmin:apps.conversion.gpuFoundTitle")} action={action}>
+      {where}
+      <br />
+      {codecs ? t("controlAdmin:apps.conversion.gpuDecodes", { codecs }) : t("controlAdmin:apps.conversion.gpuDecodesNone")}
+    </MessageBox>
+  );
 }
 
 // Films a browser can't play as they are get converted as they play. Each
@@ -324,7 +382,8 @@ interface ConversionState {
 export function VideoConversion({ prefix }: { prefix: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [state, setState] = useState<ConversionState | null>(null);
-  const [form, setForm] = useState<{ memory: string; viewers: string; whenFull: ConversionSettings["whenFull"] } | null>(null);
+  const [form, setForm] = useState<{ memory: string; viewers: string; whenFull: ConversionSettings["whenFull"]; hardware: HardwareMode | null } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -341,7 +400,13 @@ export function VideoConversion({ prefix }: { prefix: string }) {
 
   useEffect(() => {
     load()
-      .then((payload) => setForm({ memory: String(payload.settings.memoryPerViewerMb), viewers: String(payload.settings.maxViewers), whenFull: payload.settings.whenFull }))
+      .then((payload) => setForm({
+        memory: String(payload.settings.memoryPerViewerMb),
+        viewers: String(payload.settings.maxViewers),
+        whenFull: payload.settings.whenFull,
+        // An engine from before 0.20 has no GPU setting: none is offered.
+        hardware: payload.settings.hardware ?? null
+      }))
       .catch(() => undefined);
   }, [load]);
 
@@ -352,13 +417,28 @@ export function VideoConversion({ prefix }: { prefix: string }) {
     setSaved(false);
     setSaveError("");
     try {
-      const body: ConversionSettings = { memoryPerViewerMb: Number(form.memory), maxViewers: Number(form.viewers), whenFull: form.whenFull };
+      const body: ConversionSettings = {
+        memoryPerViewerMb: Number(form.memory), maxViewers: Number(form.viewers), whenFull: form.whenFull,
+        ...(form.hardware ? { hardware: form.hardware } : {})
+      };
       setState(await api<ConversionState>(url, { method: "PUT", body: JSON.stringify(body) }));
       setSaved(true);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.saveFailed"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Check again: the engine tries the GPU afresh (and forgets its failures).
+  const check = async () => {
+    setChecking(true);
+    try {
+      setState(await api<ConversionState>(`${url}/check`, { method: "POST" }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.loadFailed"));
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -375,6 +455,8 @@ export function VideoConversion({ prefix }: { prefix: string }) {
       {state && !state.available && (
         <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
       )}
+
+      {state?.hardware && <HardwareStatus hardware={state.hardware} checking={checking} onCheck={() => void check()} />}
 
       {usage && (
         <>
@@ -411,6 +493,7 @@ export function VideoConversion({ prefix }: { prefix: string }) {
                       <td>{viewer.title}</td>
                       <td className="datagrid-muted">
                         {viewer.mode === "transcode" ? t("controlAdmin:apps.conversion.modeTranscode") : t("controlAdmin:apps.conversion.modeRemux")}
+                        {viewer.converter && ` · ${viewer.converter === "gpu" ? t("controlAdmin:apps.conversion.onGpu") : t("controlAdmin:apps.conversion.onCpu")}`}
                         {!viewer.converting && ` · ${t("controlAdmin:apps.conversion.paused")}`}
                       </td>
                       <td>{formatBytes(viewer.memoryBytes)}</td>
@@ -429,6 +512,25 @@ export function VideoConversion({ prefix }: { prefix: string }) {
 
       {form && (
         <form className="security-policy-form" onSubmit={(event) => void save(event)}>
+          {form.hardware && (
+            <div className="security-setting-row">
+              <span className="security-setting-copy">
+                <span className="security-setting-label">{t("controlAdmin:apps.conversion.hardwareLabel")}</span>
+                <span className="security-setting-help">{t("controlAdmin:apps.conversion.hardwareHelp")}</span>
+              </span>
+              <SelectField<HardwareMode>
+                label={t("controlAdmin:apps.conversion.hardwareLabel")}
+                hideLabel
+                value={form.hardware}
+                options={[
+                  { value: "auto", label: t("controlAdmin:apps.conversion.hardwareAuto") },
+                  { value: "cpu", label: t("controlAdmin:apps.conversion.hardwareCpu") },
+                  { value: "gpu", label: t("controlAdmin:apps.conversion.hardwareGpu") }
+                ]}
+                onChange={(value) => setForm({ ...form, hardware: value })}
+              />
+            </div>
+          )}
           <label className="security-setting-row">
             <span className="security-setting-copy">
               <span className="security-setting-label">{t("controlAdmin:apps.conversion.viewersLabel")}</span>

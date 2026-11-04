@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.68.1 — Converting video on the GPU, in Settings
+
+- **Settings → Video → Converting video shows the GPU.** The video engine converts on an Intel CPU's graphics (Quick Sync) since its 0.20.0, but nothing here said whether it was found or used. The card now says what the engine found (the graphics, the driver and which kinds of video they decode), or why it converts on the CPU, with **Check again** after adding `/dev/dri` to the container.
+- **Where to convert**: on the GPU where it can (automatic, the default), on the CPU only, or on the GPU only to test it. Automatic sets the GPU aside after three failures in an hour, and the card says so until **Check again**.
+- **Who is watching** marks each conversion **GPU** or **CPU**. Needs the video engine 0.20.0 or later; with an older one the card is as before.
+
 ## 4.68.0 — Film sets by hand, and miniseries found on TMDB
 
 - **Edit on a film now has a Set tab.** A film can be put into a set by hand (pick one that is there, or type a new name to make one) at the place you give it, or kept out of every set, even TMDB's collection. Before, sets came only from the `.nfo` files and TMDB, so a family's own series, or a film TMDB put in the wrong collection, could not be fixed. The choice stays through every rescan, and **As found** hands it back.
