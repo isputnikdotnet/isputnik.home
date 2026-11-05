@@ -8,9 +8,10 @@ import { MessageBox } from "../../shared/MessageBox";
 import { VIDEO_API, type VideoKind, type VideoMovie, type VideoShow, type VideoTmdbCandidate } from "./types";
 
 // Lookup (the Edit dialog's tab): what Fix match was. Search TMDB by name and
-// year, pick the right title, and compare its words with the title's, field by
-// field: the ticked ones go into the Details and Genres tabs, and the match
-// itself is saved with them, by the dialog's one Save. A match chosen here is
+// year — or by an IMDb or TMDB link, for a title its name doesn't find — pick
+// the right title, and compare its words with the title's, field by field: the
+// ticked ones go into the Details and Genres tabs, and the match itself is saved
+// with them, by the dialog's one Save. A match chosen here is
 // kept through every rescan until it is handed back to the automatic one.
 
 export interface LookupDetails {
@@ -182,6 +183,8 @@ export function TitleLookup({ kind, title, current, onUse, onAutomatic }: {
           {searching ? t("video.match.searching") : t("video.match.search")}
         </Button>
       </form>
+
+      <p className="muted video-match-hint">{t("video.match.queryHint")}</p>
 
       {error && <MessageBox tone="error" title={t("video.match.failedTitle")}>{error}</MessageBox>}
 

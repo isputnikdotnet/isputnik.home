@@ -1017,7 +1017,8 @@
       "automatic": "Match automatically again",
       "failedTitle": "Unable to search TMDB",
       "searchFailed": "TMDB did not answer.",
-      "saveFailed": "The match could not be saved."
+      "saveFailed": "The match could not be saved.",
+      "queryHint": "Not found by name? Paste its IMDb link (imdb.com/title/tt…) or TMDB link instead."
     },
     "addToCollection": "Add to collection",
     "edit": {

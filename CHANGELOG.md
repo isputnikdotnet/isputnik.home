@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.69.1 — Find a title by its IMDb link
+
+- **Lookup finds a title by its IMDb or TMDB link.** A film or show whose name TMDB doesn't find (it calls it something else) can now be found by pasting its IMDb link (`imdb.com/title/tt…`) or just its `tt…` number, or its TMDB link, into the search on **Edit → Lookup**. The search box says so. Needs the video engine 0.27.0.
+- **Episodes with no picture get one from their own video.** The video engine 0.27.0 takes a frame a few minutes into an episode (past its opening titles) when there is no picture beside its file and TMDB has none, as old series often don't. A picture saved beside the file, or TMDB's, still comes first.
+
 ## 4.69.0 — Cast and crew
 
 - **Films and shows show who is in them.** A title's page has a **Cast** row of faces, each with the part played, and a line under the description with the director, writers and composer (a show's creators). They come from the `.nfo` file's `<actor>` and `<director>` first, as everything else does, and from TMDB's credits where it names none.

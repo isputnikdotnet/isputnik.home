@@ -1,7 +1,7 @@
 # Video: cast and crew (plan)
 
-Status: steps 1 (engine) and 2 (home) built 2026-11-04, not released. Step 3 (TV
-app) to come.
+Status: engine 0.26.0 and home 4.69.0 released 2026-11-04. Step 3 (TV app) built
+the same day, not released.
 
 Films and shows had no people: the engine ignored the `.nfo`'s `<actor>` and
 didn't ask TMDB for credits. A family wants to see who is in a film, and to go
@@ -64,7 +64,14 @@ see: someone in nothing they may see is "not found".
    - Person page (`/people/:id` in Video): photo, name, their films and shows
      with the role in each.
    - People in Video's search.
-3. **TV app**: a Cast row on its title screen. A separate repo and release.
+3. **TV app** (built 2026-11-04 in isputnik.tv, unreleased: `People.kt`):
+   - A Cast & crew row of round faces on a film's and a show's screen: cast with
+     characters, then crew by job. One row, since a remote reaches only what it can
+     focus.
+   - A person screen with their films and shows.
+   - People first in search.
+   - A film in parts gets a Parts row (TMDB episode names and stills for a
+     miniseries), and Play resumes the part this person got to (`playId`).
 
 ## Left out for now
 
