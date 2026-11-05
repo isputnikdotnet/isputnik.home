@@ -143,13 +143,14 @@ function mainNavItems(active: DashboardActive, t: TFunction, sections: Sections,
 }
 
 // The top layout's sections (app/layoutChoice.ts): the digital libraries live
-// behind Media, Family gathers the Tree and Stories; Tags and About move to the
-// person's menu.
+// behind Media; Family (the tree), Stories and Tags each have a place in the bar
+// — under Family and the person's menu they went unfound; About stays in the menu.
 function orbitNavItems(active: DashboardActive, t: TFunction, sections: Sections): OrbitNavItem[] {
-  const familyHref = sections.familyTree ? "/family" : "/stories";
   return [
     { label: t("nav.home"), href: "/", icon: Home, active: active === "home" },
-    ...(sections.familyTree || sections.stories ? [{ label: t("nav.family"), href: familyHref, icon: Network, active: active === "family" || active === "stories" }] : [])
+    ...(sections.familyTree ? [{ label: t("nav.family"), href: "/family", icon: Network, active: active === "family" }] : []),
+    ...(sections.stories ? [{ label: t("nav.stories"), href: "/stories", icon: BookText, active: active === "stories" }] : []),
+    { label: t("nav.tags"), href: "/tags", icon: Tag, active: active === "tags" }
   ];
 }
 
@@ -166,7 +167,6 @@ function orbitMenuLinks(t: TFunction): OrbitMenuLink[] {
   return [
     { label: t("nav.profile"), href: "/profile", icon: UserRound },
     ...userMenuLinks(t),
-    { label: t("nav.tags"), href: "/tags", icon: Tag },
     ...aboutMenuLinks(t).map(({ href, icon, label, external }) => ({ href, icon, label, external }))
   ];
 }
@@ -532,22 +532,8 @@ export function DashboardShell({
           onLogout={() => void logout()}
         />
       )}
-      {orbit && (sideNav != null || active === "family" || active === "stories") && (
+      {orbit && sideNav != null && (
         <div className="orbit-tabs" ref={tabsRef}>
-          {/* Family is two sections under one name, so its tabs start with the choice. */}
-          {(active === "family" || active === "stories") && sections.familyTree && sections.stories && (
-            <>
-              <a className={`home-nav-link${active === "family" ? " is-active" : ""}`} href="/family" onClick={(event) => followRoute(event, "/family")}>
-                <Network size={16} aria-hidden="true" />
-                <span>{t("nav.familyTreeTab")}</span>
-              </a>
-              <a className={`home-nav-link${active === "stories" ? " is-active" : ""}`} href="/stories" onClick={(event) => followRoute(event, "/stories")}>
-                <BookText size={16} aria-hidden="true" />
-                <span>{t("nav.stories")}</span>
-              </a>
-              {sideNav != null && <span className="orbit-tabs-divider" aria-hidden="true" />}
-            </>
-          )}
           {sideNav}
         </div>
       )}

@@ -12,8 +12,9 @@ Why the sidebar gave way to a top bar, what it is now, and what is left. Accepte
 
 ## What it is
 
-- **Bar:** logo, Home, Media, Family; Control panel and the person's menu on the right.
-  Tags and About/Help moved to that menu.
+- **Bar:** logo, Home, Media, Family, Stories, Tags; Control panel and the person's menu
+  on the right, About/Help in that menu. Until 4.70 Family also held Stories and Tags sat
+  in the menu, and the owner found neither; Family is now the tree alone.
 - **Media:** a button that reads as the library you are in, opening a short menu of
   plain links (icon, name, count) hanging from the button — since 4.55, at the owner's
   request; it used to open onto the big picture cards. The picture cards stay on Home,

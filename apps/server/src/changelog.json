@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.70.0",
+    "label": "Stories and Tags in the top bar",
+    "changes": [
+      "**Stories and Tags have their own places in the top bar**: Home · Media · Family · Stories · Tags. Stories used to hide inside Family, and Tags in the menu under your name. **Family** is now the family tree alone, its tabs starting at Chart."
+    ]
+  },
+  {
     "version": "4.69.1",
     "label": "Find a title by its IMDb link",
     "changes": [

@@ -498,14 +498,6 @@
   display: none;
 }
 
-.orbit-tabs-divider {
-  flex: 0 0 auto;
-  width: 1px;
-  height: 20px;
-  margin: 0 8px;
-  background: var(--line);
-}
-
 .orbit-shell > .home-main {
   min-height: 0;
   grid-column: 1;

@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.70.0 — Stories and Tags in the top bar
+
+- **Stories and Tags have their own places in the top bar**: Home · Media · Family · Stories · Tags. Stories used to hide inside Family, and Tags in the menu under your name. **Family** is now the family tree alone, its tabs starting at Chart.
+
 ## 4.69.1 — Find a title by its IMDb link
 
 - **Lookup finds a title by its IMDb or TMDB link.** A film or show whose name TMDB doesn't find (it calls it something else) can now be found by pasting its IMDb link (`imdb.com/title/tt…`) or just its `tt…` number, or its TMDB link, into the search on **Edit → Lookup**. The search box says so. Needs the video engine 0.27.0.

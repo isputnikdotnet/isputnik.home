@@ -117,7 +117,7 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   sweep is complete (2026-08-27; the record is `docs/i18n-plan.md`), so every file
   counts as swept: new user-facing strings must be keys, not literals.
 - **Top layout**: above the phone breakpoint the app wears a top bar (Home · Media ·
-  Family) over a row of section tabs (`app/OrbitTopBar.tsx`, `styles/orbit.css`,
+  Family · Stories · Tags) over a row of section tabs (`app/OrbitTopBar.tsx`, `styles/orbit.css`,
   `docs/top-layout-plan.md`); the sections' `sideNav` components are flattened into those
   tabs, so a new section nav needs no layout code. The digital libraries live behind
   Media (`app/OrbitLibraries.tsx`); don't add them back to the bar. The control panel and
