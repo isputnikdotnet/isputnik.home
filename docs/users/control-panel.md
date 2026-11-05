@@ -411,6 +411,17 @@ internet](exposing-to-the-internet.md).
   household devices don't trip the protection meant for strangers. The **In use**
   column counts the live sessions inside each range — a range with none is
   either a spare or a typo.
+
+  Below them, **Phone-sync networks** is a separate list: the ranges members'
+  phones may back up photos from (into their personal library). It relaxes
+  nothing about signing in, so a VPN range can go here without skipping
+  two-factor sign-in or lockout for it. **Copy trusted networks** adds the
+  trusted ones in one go; after that the two lists are kept apart. While it is
+  empty, phone backup is off. **Address phones use** is this server's address
+  on your home network with its port (`http://192.168.2.10:4000`), typed once;
+  the phone setup card in Profile › My library shows it to members. Until you
+  set it, that card says it isn't set yet. A warning appears if the address is
+  outside the networks on the list.
 - **Blocked IPs** — what's been blocked, and where you unblock it, add a block by
   hand, or make a temporary automatic block permanent (the ∞ button on rows that
   would otherwise expire). The chips above the list count and filter running,

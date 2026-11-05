@@ -19,6 +19,7 @@ import {
 } from "../../core/device-link.js";
 import { alertNewAdmin, alertMfaDisabled, alertPasswordChanged } from "../../core/security-alerts.js";
 import { orphanPersonalLibraryOf } from "../library/gallery/personal/service.js";
+import { revokePhonesOfUser } from "../library/gallery/sync/devices.js";
 import type { UserRow } from "../../db/rows.js";
 
 const roleSchema = z.object({
@@ -417,6 +418,8 @@ export async function usersPlugin(app: FastifyInstance) {
       // decision 11). An account re-issued under this email keeps the user id, so the
       // library is marked orphaned rather than left pointing at it.
       orphanPersonalLibraryOf(id, request.user!.id, request.ip);
+      // …and their phones stop at once (phase 2).
+      revokePhonesOfUser(id);
     })();
 
     logActivity({

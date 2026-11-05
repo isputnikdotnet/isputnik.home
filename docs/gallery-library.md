@@ -425,7 +425,8 @@ feature works in it on day one; only access changes.
 - **Member removed:** `DELETE /api/users/:id` orphans their personal library and revokes its item
   shares; nothing is deleted. An admin may **hand it over** to a member with none
   (`POST /api/storage/personal-libraries/:id/hand-over`) or delete it through the normal library
-  delete. It never becomes an ordinary library again.
+  delete. It never becomes an ordinary library again. Its phones are revoked with it.
+- **Phones** (phase 2, `gallery/sync/`): see [photo-sync-plan.md › Phase 2 › As built](photo-sync-plan.md#phase-2--phone-sync-networks-and-devices-no-endpoint-yet).
 
 ## Not yet (future phases)
 

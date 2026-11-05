@@ -48,6 +48,7 @@ export interface ApiTokenRow {
   expires_at: string | null;
   revoked_at: string | null;
   origin: string | null;
+  library_id: string | null;
 }
 
 /** `app_pairings` */
@@ -1323,6 +1324,15 @@ export interface StoryUpdateRow {
   created_at: string;
 }
 
+/** `sync_networks` */
+export interface SyncNetworkRow {
+  id: string;
+  cidr: string;
+  label: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
 /** `taggables` */
 export interface TaggableRow {
   tag_id: string;
@@ -1614,6 +1624,7 @@ export interface TableRows {
   story_collections: StoryCollectionRow;
   story_saves: StorySaveRow;
   story_updates: StoryUpdateRow;
+  sync_networks: SyncNetworkRow;
   taggables: TaggableRow;
   tags: TagRow;
   track_progress: TrackProgressRow;

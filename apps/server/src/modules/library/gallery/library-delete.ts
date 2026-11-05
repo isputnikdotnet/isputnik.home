@@ -7,6 +7,7 @@ import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { deleteStoryBlocksForLibrary } from "../../stories/cleanup.js";
 import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
+import { revokePhonesOfLibrary } from "./sync/devices.js";
 
 export function deleteGalleryLibraryRecord(id: string): void {
   db.transaction(() => {
@@ -15,6 +16,8 @@ export function deleteGalleryLibraryRecord(id: string): void {
     deleteCollectionItemsForLibrary("gallery", id);
     deleteStoryBlocksForLibrary("gallery", id);
     deleteLibraryAccess(id);
+    // A personal library's phones (docs/photo-sync-plan.md, phase 2).
+    revokePhonesOfLibrary(id);
     db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
   })();
   removeThumbnailsForLibrary(id);

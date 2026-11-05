@@ -92,6 +92,7 @@
       "ipReputation": "Репутация IP (AbuseIPDB)",
       "deletionProtection": "Защита от удаления",
       "addTrustedNetwork": "Добавление доверенной сети",
+      "phoneSyncNetworks": "Сети синхронизации телефонов",
       "scheduledBackups": "Резервное копирование по расписанию",
       "containerBackups": "Резервные копии контейнеров",
       "defaultTheme": "Тема по умолчанию",

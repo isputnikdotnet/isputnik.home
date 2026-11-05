@@ -1310,6 +1310,24 @@
   gap: 22px;
 }
 
+/* Security › Trusted networks › Phone-sync networks: the address phones are told. */
+.phone-sync-address {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.phone-sync-address h3,
+.phone-sync-address .section-description {
+  margin: 0;
+}
+
+.phone-sync-address-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 420px);
+}
+
 .security-network-head {
   display: grid;
   gap: 12px;
@@ -1657,6 +1675,19 @@
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* Profile › My library › Phones: a sub-section under the library facts. */
+.my-library-phones {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.my-library-phones h3 {
+  margin: 0;
 }
 
 /* Comfortably fit the long catalog URL / QR inside the card modal. The doubled

@@ -92,6 +92,7 @@
       "ipReputation": "IP reputation (AbuseIPDB)",
       "deletionProtection": "Deletion protection",
       "addTrustedNetwork": "Add a trusted network",
+      "phoneSyncNetworks": "Phone-sync networks",
       "scheduledBackups": "Scheduled backups",
       "containerBackups": "Container backups",
       "defaultTheme": "Default theme",

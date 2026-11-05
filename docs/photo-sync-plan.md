@@ -1,7 +1,8 @@
 # Photo Sync — project plan
 
 Status: architecture agreed with the owner (2026-11-05); phase 0 (spike) done and run against
-PhotoSync for Android; **phase 1 (personal libraries) built 2026-11-05, not yet released**; phase 2 next. Each phase below is carried out in its own
+PhotoSync for Android; **phase 1 (personal libraries) built 2026-11-05, not yet released**; **phase 2
+(phone-sync networks and devices) built 2026-11-05, not yet released**; phase 3 next. Each phase below is carried out in its own
 session, in order, and ends in something shippable. Written from the "iSputnik Home – Photo
 Sync" brief. Companion to [gallery-library.md](gallery-library.md),
 [photo-inbox-proposal.md](photo-inbox-proposal.md), [uploads.md](uploads.md), [auth.md](auth.md),
@@ -51,6 +52,15 @@ so that a retry or a reinstall never makes a second copy.
    - The address is believed only when it can be (the same rule as `isTrustedRequest` in
      `core/security.ts`): behind a proxy with proxy trust unconfigured, every sync request is
      refused.
+   - **The address on the setup card** (Profile › My library › Phones) is typed once by an admin
+     *(owner, 2026-11-05; open question 9)*: **Address phones use**, an http(s) URL such as
+     `http://192.168.2.10:4000`, beside the phone-sync networks list. Home **never guesses** it —
+     not from `APP_URL`, not from the request's Host header, not from its network interfaces
+     (inside Docker home can't see the host's LAN address or the mapped port) — and never shows a
+     public address. While it is empty the setup card says the admin hasn't set it yet; adding a
+     phone still works and its token is still shown once. The admin is warned (never blocked)
+     when its host is an IP outside every listed network. The security rule is unchanged: a
+     request is refused unless it comes from a listed network **and** carries a live token.
    - The network decides **where from**; it is never authentication. Every request also needs a
      live device token (decision 6). A guest on the home Wi-Fi gets nothing.
    - Away from home, a member uses a VPN into the house (WireGuard, Tailscale) and the admin adds
@@ -260,6 +270,50 @@ orphaned and intact.
 **Done when:** an admin lists a network, a member adds a phone and sees its setup details once,
 revoking works, and the gate's tests cover allowed / not listed / proxy-unconfigured.
 
+**As built (2026-11-05).**
+
+- `sync_networks` in `schema.sql` (new table, no migration). Migration 88 adds
+  `api_tokens.library_id` — plain TEXT, no foreign key, so a revoked phone keeps naming the
+  library it wrote into (phase 3's `photo_sync_files` hang off the token) and deleting the
+  library revokes its phones rather than being blocked.
+- Code in `modules/library/gallery/sync/` (nothing in `core/` but the new scope name):
+  - `networks.ts` — the list, **Copy trusted networks** (a one-off copy of what is missing, with
+    labels), the gate (`syncGateVerdict` / `isSyncRequestAllowed`: off when empty, `proxy` when a
+    forwarding header arrives with proxy trust unconfigured, else the address must be inside a
+    listed network), and the admin's **Address phones use** (`parseSyncAddress`: an http(s)
+    origin only; `phoneSyncAddress` splits it into the setup card's server, port and SSL;
+    `syncAddressOutsideNetworks` for the warning — decision 2). Nothing is guessed.
+  - `devices.ts` — `addPhone` (needs a live personal library; a name per phone, unique per
+    member; at most 20), `revokePhone`, `revokePhonesOfUser` / `revokePhonesOfLibrary`, and
+    `authenticatePhone(request)` for phase 3: network first (a token is resolved only inside a
+    listed network), then the Basic password as a `photo-sync` token whose member is active and
+    whose `library_id` is still that member's live personal library — re-checked on every
+    request, so orphaning, handing over or a deactivated account stops a phone even without a
+    revoke. Bumps `last_seen_at` / `last_ip`. A token matching nothing is flagged as abuse (from
+    inside or outside the list); a revoked one and a missing `Authorization` are not.
+  - `routes.ts` — admin `GET/POST /api/photo-sync/networks`, `POST …/copy-trusted`,
+    `DELETE …/:id`, `PUT /api/photo-sync/address`; member `GET/POST /api/profile/phones`,
+    `DELETE /api/profile/phones/:id`. Adding a phone while the list is empty is refused
+    (`sync_off`); a missing address is not refused. The token and the setup details (server,
+    port and SSL from the admin's address, `/dav/`, the member's email as user name) are in the
+    `POST` answer only.
+- Revoked: member removed (`DELETE /api/users/:id`), personal library orphaned, handed over
+  (anyone else's phones on it), or deleted (`deleteGalleryLibraryRecord`).
+- Admin UI: a **Phone-sync networks** card under Trusted networks on Security › Trusted
+  networks (`PhoneSyncNetworksCard.tsx`) — list, add, remove, Copy trusted networks, the
+  **Address phones use** field (warns when outside the listed networks); search entry
+  `phoneSyncNetworks`.
+- Member UI: **Phones** under Profile › My library (`PhonesSection.tsx`) — add (name, then the
+  setup details and token once, with copy buttons), list with last seen, revoke through a
+  `ConfirmDialog`; "Phone sync is unavailable: no phone-sync network is set" while the list is
+  empty. The guide link points at `your-account.md#phones` until phase 4's guide exists.
+- Tests: `apps/server/test/photo-sync-devices.test.ts` (gate: off, allowed, not listed, apart
+  from trusted networks, unconfigured proxy, IPv6 and IPv4-mapped; copy; address; phones and
+  every revoke path; abuse flagging; the HTTP routes).
+- Docs: `docs/users/your-account.md` (Phones), `docs/users/control-panel.md` (the card),
+  `docs/database.md`.
+- Not built: an admin view of members' phones (phase 4), the endpoint itself (phase 3).
+
 ### Phase 3 — The sync endpoint
 
 **Goal:** a phone backs up into its owner's personal library.
@@ -359,6 +413,11 @@ owner's personal library — and nowhere else.
    other grant goes; it takes effect at once, and the member's My library tab says the library was
    adopted. No pending-offer state. [immich-migration-plan.md](immich-migration-plan.md) step 2
    should adopt the second member's phone library as their personal library.
+9. ~~How does home know the LAN address to show on the setup card in Profile › My library ›
+   Phones?~~ **The admin types it once, nothing is guessed** *(owner, 2026-11-05)* — see
+   decision 2. (An earlier answer in this session, "admin field plus a guess", was given while
+   the question read as being about the phone; the owner's considered answer replaced it the
+   same day.)
 
 ---
 

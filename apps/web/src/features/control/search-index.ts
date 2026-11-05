@@ -128,7 +128,7 @@ type SettingKey =
   | "logRetention" | "systemData" | "appStorage" | "thumbnailStorage" | "backupFolder" | "libraryContainers" | "personalLibraries" | "scanSources" | "backSides"
   | "libraryAccessMembers" | "accountLockout" | "ipAutoBlock" | "passwordPolicy"
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
-  | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "containerBackups" | "defaultTheme"
+  | "deletionProtection" | "addTrustedNetwork" | "phoneSyncNetworks" | "scheduledBackups" | "containerBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
   | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoMetadata" | "videoDetection" | "sections";
@@ -177,6 +177,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     keywords: "allow deletions only trusted networks read only readonly refuse delete away from home stolen credentials защита удалений только доверенные сети только чтение отклонить удаление"
   },
   { titleKey: "addTrustedNetwork", section: "securityTrusted", keywords: "cidr range lan skip lockout добавить доверенную сеть подсеть диапазон" },
+  { titleKey: "phoneSyncNetworks", section: "securityTrusted", anchor: "phone-sync-networks", keywords: "phone sync backup photosync webdav dav mobile android iphone vpn wireguard tailscale network cidr range lan where from address port copy trusted networks off синхронизация телефонов резервная копия телефона фото сеть подсеть диапазон впн адрес порт скопировать доверенные сети выключена" },
   { titleKey: "scheduledBackups", section: "backup", anchor: "scheduled-backups", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
   { titleKey: "containerBackups", section: "backup", anchor: "container-backups", keywords: "container games video restore download upload undo database back up one apart individually контейнер игры видео восстановить скачать загрузить отменить отдельно копия базы" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },

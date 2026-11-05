@@ -8,6 +8,7 @@ import { deleteAssignmentsForObject } from "../../../../core/permissions.js";
 import { createLibraryRecord } from "../../shared/library-crud.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "../scanner.js";
 import { personalLibraryIdOf } from "./personal-libraries.js";
+import { revokePhonesOfLibrary } from "../sync/devices.js";
 import { getPersonalSettings, isAllowedPersonalLibrary, personalParentFolder, sizeLimitBytes } from "./settings.js";
 import type { LibraryRow, UserRow } from "../../../../db/rows.js";
 
@@ -68,8 +69,10 @@ function revokeItemSharesExcept(libraryId: string, keep: string | null): void {
 }
 
 /** Make a library someone's: the marker, the logical owner, nobody's grants, no face
- *  scanning (decision 5), and no item shares but their own. */
+ *  scanning (decision 5), no item shares but their own, and no phones but theirs (a
+ *  handed-over library's were revoked when it was orphaned; this makes sure). */
 function markPersonal(libraryId: string, userId: string, adopted: boolean): void {
+  db.prepare("UPDATE api_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE library_id = ? AND user_id != ? AND revoked_at IS NULL").run(libraryId, userId);
   db.prepare(`
     UPDATE libraries SET personal_user_id = ?, personal_orphaned_at = NULL,
       personal_adopted_at = ${adopted ? NOW : "NULL"},
@@ -159,13 +162,14 @@ export function adoptPersonalLibrary(libraryId: string, userId: string, actorId:
 // ── Orphan (member removed) and hand over ────────────────────────────────────
 
 /** Decision 11: the member was removed, so their personal library is kept, belongs to
- *  nobody, and its item shares end. Nothing is deleted. */
+ *  nobody, and its item shares and phones end. Nothing is deleted. */
 export function orphanPersonalLibraryOf(userId: string, actorId: string | null, ip: string | null): string | null {
   const libraryId = personalLibraryIdOf(userId);
   if (!libraryId) return null;
   db.transaction(() => {
     db.prepare(`UPDATE libraries SET personal_orphaned_at = ${NOW}, updated_at = ${NOW} WHERE id = ?`).run(libraryId);
     revokeItemSharesExcept(libraryId, null);
+    revokePhonesOfLibrary(libraryId);
   })();
   logActivity({
     event: "library.personal.orphaned",

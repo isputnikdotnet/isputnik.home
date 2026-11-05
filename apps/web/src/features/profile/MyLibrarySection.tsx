@@ -8,6 +8,7 @@ import { Button } from "../../shared/Button";
 import { formatDate } from "../../shared/dates";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
+import { PhonesSection } from "./PhonesSection";
 
 interface MyLibraryView {
   library: { id: string; name: string; adoptedAt: string | null; sizeBytes: number; items: number } | null;
@@ -18,7 +19,8 @@ interface MyLibraryView {
 
 // Profile › My library: a private gallery library only this member can open —
 // not other members, not admins (docs/photo-sync-plan.md, phase 1). Turn it on,
-// see how much it holds against any limit, open it. Phones join it in phase 2.
+// see how much it holds against any limit, open it, and back phones up into it
+// (PhonesSection, phase 2).
 export function MyLibrarySection() {
   const { t } = useTranslation();
   const { user } = useSession();
@@ -91,6 +93,7 @@ export function MyLibrarySection() {
               {t("profile.myLibrary.open")}
             </Button>
           </div>
+          <PhonesSection />
         </>
       )}
 

@@ -24,6 +24,7 @@ import { startFaceScanWorker } from "./faces/scanner.js";
 import { facesGatewayPlugin } from "./faces/gateway-plugin.js";
 import { registerGalleryStats } from "./stats.js";
 import { personalLibraryRoutesPlugin } from "./personal/routes.js";
+import { photoSyncRoutesPlugin } from "./sync/routes.js";
 import { registerGalleryMediaType } from "./media-type.js";
 import { startPhotoPlaceNaming } from "./places.js";
 
@@ -46,6 +47,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryStreamPlugin);
   await app.register(galleryBackSideRoutesPlugin);
   await app.register(personalLibraryRoutesPlugin);
+  await app.register(photoSyncRoutesPlugin);
 
   // Slideshows use only user-uploaded music now; purge any built-in beds a prior
   // version seeded (idempotent, best-effort — safe when the store isn't configured).

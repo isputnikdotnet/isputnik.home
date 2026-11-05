@@ -248,6 +248,17 @@ CREATE TABLE IF NOT EXISTS trusted_networks (
   created_by  TEXT REFERENCES users(id)
 );
 
+-- Phone-sync networks (docs/photo-sync-plan.md, decision 2): where a phone may back up
+-- from. Its own list, apart from trusted_networks, which also skip MFA, lockout and rate
+-- limits — adding a VPN range for phones must not relax sign-in for it. Empty = sync off.
+CREATE TABLE IF NOT EXISTS sync_networks (
+  id          TEXT PRIMARY KEY,
+  cidr        TEXT NOT NULL UNIQUE,
+  label       TEXT,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  created_by  TEXT REFERENCES users(id)
+);
+
 -- Networks an account has already signed in from, keyed on the coarse /24 (IPv4)
 -- or /64 (IPv6) so a rotating home or mobile address doesn't look new every time.
 -- Recorded on every sign-in regardless of policy; the optional "new network"
@@ -1724,7 +1735,8 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   last_ip      TEXT,
   expires_at   TEXT,                            -- NULL = no expiry
   revoked_at   TEXT,
-  origin       TEXT                             -- the address a Stremio link was made on; NULL = APP_URL
+  origin       TEXT,                            -- the address a Stremio link was made on; NULL = APP_URL
+  library_id   TEXT                             -- photo-sync: the personal library the phone backs up into
 );
 
 -- A guest link into one online match of the games (modules/games/guest-invites.ts,

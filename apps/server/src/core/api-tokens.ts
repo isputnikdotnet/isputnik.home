@@ -16,8 +16,10 @@ const TOKEN_PREFIX = "isp_";
 const tokenBody = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 32);
 
 // "opds": reading apps. "video-stremio": a member's Stremio add-on link
-// (modules/library/video/stremio.ts, docs/stremio-plan.md).
-export type ApiTokenScope = "opds" | "video-stremio";
+// (modules/library/video/stremio.ts, docs/stremio-plan.md). "photo-sync": one phone
+// backing up into its owner's personal library (modules/library/gallery/sync/,
+// docs/photo-sync-plan.md, decision 6) — the only scope bound to a library.
+export type ApiTokenScope = "opds" | "video-stremio" | "photo-sync";
 
 export interface ApiTokenRow {
   id: string;
@@ -38,12 +40,18 @@ export function generateApiToken(scope: ApiTokenScope = "opds"): { raw: string; 
 
 // Mint a token for a user. Returns the row id and the RAW token (caller surfaces
 // it once, then it's unrecoverable — only the hash is stored).
-export function createApiToken(userId: string, label: string | null, scope: ApiTokenScope = "opds", origin: string | null = null): { id: string; raw: string } {
+export function createApiToken(
+  userId: string,
+  label: string | null,
+  scope: ApiTokenScope = "opds",
+  origin: string | null = null,
+  libraryId: string | null = null
+): { id: string; raw: string } {
   const id = nanoid(16);
   const { raw, hash } = generateApiToken(scope);
   db.prepare(
-    "INSERT INTO api_tokens (id, user_id, token_hash, scope, label, origin) VALUES (?, ?, ?, ?, ?, ?)"
-  ).run(id, userId, hash, scope, label, origin);
+    "INSERT INTO api_tokens (id, user_id, token_hash, scope, label, origin, library_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, userId, hash, scope, label, origin, libraryId);
   return { id, raw };
 }
 

@@ -26,6 +26,7 @@ import { controlHref, followRoute, navigate, type ControlSection } from "../../.
 import { Pager } from "../../../shared/Pager";
 import { signInsHref } from "./dashboard/SignInsView";
 import { ProtectionCard, gradePolicies, type Exposure } from "./SecurityProtection";
+import { PhoneSyncNetworksCard } from "./PhoneSyncNetworksCard";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -1193,6 +1194,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   </div>
                 )}
               </section>
+
+              <PhoneSyncNetworksCard />
             </div>
 
             <div

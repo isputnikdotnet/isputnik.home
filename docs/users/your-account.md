@@ -112,6 +112,22 @@ an album and share it, or download them. Face recognition does not run in a pers
 If an administrator made an existing library yours — for example, photos brought over from your
 phone — the tab says so.
 
+### Phones
+
+Under your library, **Phones** is where you let a phone back up its photos into it, with the
+PhotoSync app. Your administrator first has to say which networks phones may back up from
+(your home Wi-Fi, a VPN); until then the section says phone sync is unavailable.
+
+1. Press **Add a phone** and give it a name ("My Galaxy").
+2. The next screen shows what to type into PhotoSync's WebDAV target: server, port, path
+   (`/dav/`), SSL, your user name, and a password made for this phone alone. If your
+   administrator hasn't set the server address yet, the screen says so — ask them for it. **The
+   password is shown only this once** — copy it now.
+3. The phone appears in the list, with when it last connected.
+
+Backups only work from the networks your administrator listed, never over the internet. If a
+phone is lost or replaced, **Revoke** it: it stops at once, and the photos it already sent stay.
+
 > Your personal library is one copy of your photos, not a backup. Keep another copy somewhere
 > else.
 
