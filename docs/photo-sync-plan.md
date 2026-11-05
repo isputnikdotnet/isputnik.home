@@ -2,7 +2,8 @@
 
 Status: architecture agreed with the owner (2026-11-05); phase 0 (spike) done and run against
 PhotoSync for Android; **phase 1 (personal libraries) built 2026-11-05, not yet released**; **phase 2
-(phone-sync networks and devices) built 2026-11-05, not yet released**; phase 3 next. Each phase below is carried out in its own
+(phone-sync networks and devices) built 2026-11-05, not yet released**; **phase 3 (the sync endpoint)
+built 2026-11-05 and live-checked with PhotoSync for Android, not yet released**; phase 4 next. Each phase below is carried out in its own
 session, in order, and ends in something shippable. Written from the "iSputnik Home – Photo
 Sync" brief. Companion to [gallery-library.md](gallery-library.md),
 [photo-inbox-proposal.md](photo-inbox-proposal.md), [uploads.md](uploads.md), [auth.md](auth.md),
@@ -333,6 +334,69 @@ revoking works, and the gate's tests cover allowed / not listed / proxy-unconfig
 **Done when:** the live check passes and the photos appear, dated and filed per device, in the
 owner's personal library — and nowhere else.
 
+**As built (2026-11-05).**
+
+- Tables in `schema.sql` (new tables, no migration): `photo_sync_files` as decision 8 drew it
+  (`device_id` → `api_tokens` cascade, `item_id` → `library_items` SET NULL, `UNIQUE(device_id,
+  client_path)`), plus **`photo_sync_folders`** for what `MKCOL` made — the plan had not said
+  where folders live. Nothing is made on disk for a phone's folder.
+- Code in `modules/library/gallery/sync/`:
+  - `namespace.ts` — the phone's namespace: `davPathOf` (decoded segments; `.`, `..`, `/`, `\`,
+    controls and over-long paths refused → `400`), folder existence (made, or implied by
+    something beneath it), listings (direct children by a key range, no `LIKE`), `MOVE` of
+    records. No client path reaches the filesystem.
+  - `put.ts` — decision 9. Streams into `.upload-sync-<id>/` in the library root, sha256 as it
+    writes; refuses before a byte when `Content-Length` is over the library's upload cap
+    (`413`), the member's size limit or the free space (`507`), and cuts the stream off when an
+    unannounced body passes them. Free space keeps a 256 MB reserve; `ENOSPC` is `507` too.
+    Then the length, `OC-Checksum` (MD5/SHA1/SHA256) and `Content-MD5`. Outcomes: same path +
+    same sha → `204`; same bytes already in the library (a phone's record, or an item of the same
+    size whose digest matches — hashed then, and kept the way the duplicate scan keeps it) →
+    recorded against it, `201`; else filed into `<phone name>/YYYY/YYYY-MM-DD/`,
+    `uniqueGalleryFileName`, `scanSingleGalleryFile`, recorded, `201`. The date chain is the
+    gallery's — EXIF, then the file name (`filename-date.ts` already read Samsung
+    `20261105_100150` and Pixel `PXL_20261102_160025120`), then `X-OC-Mtime` / `X-RecordTime`,
+    then now — and the phone's date is also written as the file's mtime, the scanner's last
+    resort. A `PROPPATCH` that brings the first date re-dates the item. The finishing step runs
+    one file at a time per library (two phones sending one photo make one item); renders stay in
+    `renderInTurn()` inside the scanner. Unfinished `.upload-sync-*` folders in personal libraries
+    are swept when the plugin starts.
+  - `dav.ts` — the verbs of decision 7, behind `authenticatePhone()` (network: `403` without a
+    challenge; credentials: `401` with one). `OPTIONS` is open and says `DAV: 1, 2` (`LOCK` is
+    answered, as the spike did for PhotoSync). `GET` is `403`, `DELETE` `403`, `COPY` `501`.
+    Depth infinity is answered as 1. Rate limit **1200 requests a minute per token** (keyed on
+    the token's hash; per address when no token is sent), never waived for a trusted network.
+    Registered from `gallery/index.ts` as its own encapsulated plugin, so its raw-body parsers
+    stay in it.
+- The spike is gone: `spike.ts`, its block in `src/index.ts`, `test/photo-sync-spike.test.ts` and
+  `scripts/photo-sync-spike-report.mjs` (it only read the spike's log). The `/dav` exemptions in
+  `core/csrf.ts` and `core/probes.ts` stay.
+- Tests: `apps/server/test/photo-sync-dav.test.ts` — paths and dates; OPTIONS; no, unknown
+  (abuse), revoked token and the account password; outside the networks, a network removed, the
+  misconfigured proxy, an orphaned library, path escapes; a PhotoSync-shaped run (Samsung, Pixel
+  and WhatsApp names, filed and dated), repeated `MKCOL`, `204` on a repeat, the same bytes from a
+  second phone and from a hand upload, no overwrite, a purged item still listed, `PROPPATCH`
+  re-dating, one phone never seeing another's, `HEAD`/`GET`/`DELETE`/`COPY`/`MOVE`; `415`, `413`,
+  the size limit and disk full (`507`), checksums; a 64 MB upload streamed over a real socket and
+  one cut off part-way (nothing left behind).
+- Docs: `docs/users/your-account.md` (where a phone's photos go), `docs/database.md`.
+- **Live check (2026-11-05, passed)** — PhotoSync 4.3.7 for Android on the Galaxy Tab S10+
+  (192.168.1.36) against the dev server (192.168.2.137, another subnet; phone-sync network
+  `192.168.1.0/24`), Demo Admin's personal library, phone "Galaxy Tab":
+  - **Manual transfer** of the `PhoneRoll` set: 44 files, 228 MB, all `201`, none refused. 43
+    items under `Galaxy Tab/YYYY/YYYY-MM-DD/`, dated by EXIF or by Samsung, Pixel, screenshot and
+    WhatsApp names, with previews; the roll's deliberate copy (`…~2.jpg`) recorded against its
+    twin. Nothing in any other library. Per file: `MKCOL` ×2 → `PUT` → `PROPPATCH` — no
+    `PROPFIND` of a folder `MKCOL` had just made.
+  - **Second manual run**: PhotoSync re-sent all 44 (`MKCOL` 405 ×88, `PUT` **204** ×44,
+    `PROPPATCH` ×44, 26 s) — nothing written, still 44 files. A manual transfer of an album does
+    not list the server first, so the bytes cross the LAN again; nothing is stored twice.
+  - **Autotransfer** with one new photo: sent about 1½ minutes after it was taken, and only that
+    one (`MKCOL` 405 ×2, `PUT` 201, `PROPPATCH`), filed under `Galaxy Tab/2026/2026-11-05/`.
+- Left for later: a client that uploads to a temporary name of a type the library doesn't take
+  (`x.jpg.part`) and then `MOVE`s it is refused `415` at the `PUT` — PhotoSync doesn't; check
+  FolderSync in phase 5. Status per phone (last error, counts) is phase 4.
+
 ### Phase 4 — Status, admin view and guides
 
 **Goal:** a member can see that backup is working; an admin can see that it is used.
@@ -541,7 +605,8 @@ dedupe beyond the app's memory, no network gate and no status — but it works t
 
 ## Running the phase 0 spike
 
-Built 2026-11-05: `apps/server/src/modules/library/gallery/sync/spike.ts`, tested in
+*Removed in phase 3 (2026-11-05); kept as the record of how the results below were gathered —
+the commands no longer work.* Built 2026-11-05: `apps/server/src/modules/library/gallery/sync/spike.ts`, tested in
 `apps/server/test/photo-sync-spike.test.ts`. It is a plain WebDAV server over a scratch folder
 that logs every request, so the phone apps behave as they would against the real thing. It
 touches no library, no database row and no account. It is **off** unless the environment asks

@@ -1,6 +1,6 @@
 // Phone sync, phase 2 (docs/photo-sync-plan.md): the admin's phone-sync networks card
 // (Security › Networks, beside Trusted networks) and the member's Profile › My library ›
-// Phones. No /dav endpoint here — phase 3 builds it on authenticatePhone().
+// Phones. The /dav endpoint itself is dav.ts (phase 3), built on authenticatePhone().
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { logActivity } from "../../../../db.js";
@@ -12,7 +12,7 @@ import {
 } from "./networks.js";
 import { addPhone, listPhones, MAX_PHONES, PhoneError, revokePhone, type Phone } from "./devices.js";
 
-/** Where phones send to. Phase 3 serves it. */
+/** Where phones send to (dav.ts serves it). */
 export const DAV_PATH = "/dav/";
 
 const networkSchema = z.object({

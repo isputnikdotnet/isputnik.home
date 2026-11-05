@@ -40,7 +40,7 @@ const PROBE_PATTERNS: RegExp[] = [
 export function isApiSurface(url: string): boolean {
   const pathname = (url.split("?")[0] || "/").toLowerCase();
   return pathname.startsWith("/api/") || pathname === "/opds" || pathname.startsWith("/opds/")
-    // WebDAV for phone backup (the Photo Sync spike today): file names are the
+    // WebDAV for phone backup (Photo Sync, gallery/sync/dav.ts): file names are the
     // phone's, and a miss there is a missing file, not a page.
     || pathname === "/dav" || pathname.startsWith("/dav/");
 }

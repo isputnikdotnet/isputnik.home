@@ -125,6 +125,12 @@ PhotoSync app. Your administrator first has to say which networks phones may bac
    password is shown only this once** — copy it now.
 3. The phone appears in the list, with when it last connected.
 
+Each phone's photos go into a folder of their own in your library, named after the phone, and
+then by the day they were taken (`My Galaxy/2026/2026-11-05`). A photo the phone already sent is
+not sent again, and one already in your library is not stored twice. Deleting a photo on the
+phone never deletes it here. Files your library doesn't take (RAW photos such as `.dng`) are
+turned away.
+
 Backups only work from the networks your administrator listed, never over the internet. If a
 phone is lost or replaced, **Revoke** it: it stops at once, and the photos it already sent stay.
 

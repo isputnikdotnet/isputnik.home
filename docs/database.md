@@ -458,7 +458,7 @@ correct password and a session, also carrying emailed codes);
 `webauthn_credentials` + `webauthn_challenges` (passkeys: public keys only);
 `device_link_requests` (a TV waiting for a phone to approve it) +
 `device_link_windows` (an admin's one-person, one-device permission to link from
-outside the house); `api_tokens` (personal access tokens for OPDS readers, Stremio links and phones, hashed; a `photo-sync` token carries `library_id`, the personal library it backs up into); `sync_networks` (where phones may back up from — its own list, apart from `trusted_networks`).
+outside the house); `api_tokens` (personal access tokens for OPDS readers, Stremio links and phones, hashed; a `photo-sync` token carries `library_id`, the personal library it backs up into); `sync_networks` (where phones may back up from — its own list, apart from `trusted_networks`); `photo_sync_files` and `photo_sync_folders` (what each phone sent over `/dav`, under the paths it used, and the folders it made — the phone's own namespace; a file row keeps its sha256 and points at the item it became, NULL once that is purged).
 See [`auth.md`](auth.md).
 
 **Sign-in defence** — `login_attempts` (every attempt, plus anonymous probe and

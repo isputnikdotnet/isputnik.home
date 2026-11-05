@@ -259,6 +259,35 @@ CREATE TABLE IF NOT EXISTS sync_networks (
   created_by  TEXT REFERENCES users(id)
 );
 
+-- What each phone sent over /dav (docs/photo-sync-plan.md, decisions 8 and 9). The
+-- phone sees its own namespace — the paths it used (`/Samsung SM-X820/Camera/x.jpg`) —
+-- while the library files every photo by date under the phone's folder; PROPFIND
+-- answers from these rows, so PhotoSync (which lists a folder before each file and
+-- skips names already there) never sends a photo twice. device_id is the phone's
+-- photo-sync token. item_id goes NULL when the item is purged at home, and the row
+-- stays, so the phone is not asked for it again. Folders the phone made with MKCOL
+-- are in photo_sync_folders; nothing is made on disk for them.
+CREATE TABLE IF NOT EXISTS photo_sync_files (
+  id           TEXT PRIMARY KEY,
+  device_id    TEXT NOT NULL REFERENCES api_tokens(id) ON DELETE CASCADE,
+  client_path  TEXT NOT NULL,
+  size         INTEGER NOT NULL,
+  client_mtime TEXT,
+  sha256       TEXT NOT NULL,
+  item_id      TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  received_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE(device_id, client_path)
+);
+CREATE INDEX IF NOT EXISTS idx_photo_sync_files_sha ON photo_sync_files(sha256);
+CREATE INDEX IF NOT EXISTS idx_photo_sync_files_item ON photo_sync_files(item_id) WHERE item_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS photo_sync_folders (
+  device_id    TEXT NOT NULL REFERENCES api_tokens(id) ON DELETE CASCADE,
+  client_path  TEXT NOT NULL,
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (device_id, client_path)
+);
+
 -- Networks an account has already signed in from, keyed on the coarse /24 (IPv4)
 -- or /64 (IPv6) so a rotating home or mobile address doesn't look new every time.
 -- Recorded on every sign-in regardless of policy; the optional "new network"

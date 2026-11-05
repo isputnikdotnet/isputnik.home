@@ -999,6 +999,25 @@ export interface PersonAliasRow {
   created_at: string;
 }
 
+/** `photo_sync_files` */
+export interface PhotoSyncFileRow {
+  id: string;
+  device_id: string;
+  client_path: string;
+  size: number;
+  client_mtime: string | null;
+  sha256: string;
+  item_id: string | null;
+  received_at: string;
+}
+
+/** `photo_sync_folders` */
+export interface PhotoSyncFolderRow {
+  device_id: string;
+  client_path: string;
+  created_at: string;
+}
+
 /** `playback_progress` */
 export interface PlaybackProgressRow {
   id: string;
@@ -1599,6 +1618,8 @@ export interface TableRows {
   notes: NoteRow;
   people: PersonRow;
   person_aliases: PersonAliasRow;
+  photo_sync_files: PhotoSyncFileRow;
+  photo_sync_folders: PhotoSyncFolderRow;
   playback_progress: PlaybackProgressRow;
   quote_imports: QuoteImportRow;
   quotes: QuoteRow;

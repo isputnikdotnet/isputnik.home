@@ -25,6 +25,7 @@ import { facesGatewayPlugin } from "./faces/gateway-plugin.js";
 import { registerGalleryStats } from "./stats.js";
 import { personalLibraryRoutesPlugin } from "./personal/routes.js";
 import { photoSyncRoutesPlugin } from "./sync/routes.js";
+import { photoSyncDavPlugin } from "./sync/dav.js";
 import { registerGalleryMediaType } from "./media-type.js";
 import { startPhotoPlaceNaming } from "./places.js";
 
@@ -48,6 +49,8 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryBackSideRoutesPlugin);
   await app.register(personalLibraryRoutesPlugin);
   await app.register(photoSyncRoutesPlugin);
+  // /dav — the phones' WebDAV endpoint; its own plugin, so its raw-body parsers stay in it.
+  await app.register(photoSyncDavPlugin);
 
   // Slideshows use only user-uploaded music now; purge any built-in beds a prior
   // version seeded (idempotent, best-effort — safe when the store isn't configured).
