@@ -1,6 +1,6 @@
 import {
   BookOpen, BookText, Boxes, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Mail, MonitorSmartphone,
-  Quote, Rocket, Send, Settings, ShieldCheck, Trash2, Tv, UserRound, Wifi, type LucideIcon
+  Quote, Rocket, Send, Settings, ShieldCheck, Smartphone, Trash2, Tv, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 
 // Every user guide the app can open, and how the Help pages arrange them.
@@ -68,6 +68,12 @@ export const GUIDES = {
     icon: Inbox,
     title: "Photo Inbox",
     description: "Re-scanning prints and taking photos from relatives: the holding library, the copy check, Keep and Replace, and drop links."
+  },
+  phoneBackup: {
+    slug: guide("phone-backup.md"),
+    icon: Smartphone,
+    title: "Backing up your phone",
+    description: "Your phone's photos into your own private library with PhotoSync: adding a phone, automatic backups on Android and iPhone, battery settings, and whether it is working."
   },
   duplicateCleanup: {
     slug: guide("duplicate-cleanup.md"),
@@ -208,8 +214,8 @@ export function helpTopics(isAdmin: boolean): HelpTopic[] {
       id: "gallery",
       icon: Images,
       title: "Gallery",
-      summary: isAdmin ? "Photos, albums, faces, the Photo Inbox and duplicates" : "Photos, albums, faces and the Photo Inbox",
-      guides: ["gallery", "photoInbox", "duplicateCleanup"]
+      summary: isAdmin ? "Photos, albums, faces, phone backup, the Photo Inbox and duplicates" : "Photos, albums, faces, phone backup and the Photo Inbox",
+      guides: ["gallery", "phoneBackup", "photoInbox", "duplicateCleanup"]
     },
     { id: "family-tree", icon: FolderTree, title: "Family tree", summary: "People, events, photos and the map", guides: ["familyTree"] },
     {

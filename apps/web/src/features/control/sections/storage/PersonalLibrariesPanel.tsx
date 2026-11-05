@@ -34,6 +34,8 @@ interface PersonalLibraryRow {
   adoptedAt: string | null;
   createdAt: string;
   sizeBytes: number;
+  /** Phones backing up into it — a count only. */
+  phones: number;
 }
 
 interface AdminView {
@@ -252,6 +254,15 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
 
       <h3>{t("controlAdmin:personalLibraries.listTitle")}</h3>
       <p className="muted">{t("controlAdmin:personalLibraries.listNote")}</p>
+      {view.libraries.length > 0 && (
+        <p className="personal-libraries-totals">
+          {t("controlAdmin:personalLibraries.totals", {
+            libraries: t("controlAdmin:personalLibraries.librariesCount", { count: view.libraries.length }),
+            size: formatBytes(view.libraries.reduce((sum, library) => sum + library.sizeBytes, 0)),
+            phones: t("controlAdmin:personalLibraries.phonesCount", { count: view.libraries.reduce((sum, library) => sum + library.phones, 0) })
+          })}
+        </p>
+      )}
       {view.libraries.length === 0 ? (
         <p className="management-empty">{t("controlAdmin:personalLibraries.none")}</p>
       ) : (
@@ -261,6 +272,7 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
               <tr>
                 <th>{t("controlAdmin:personalLibraries.thWhose")}</th>
                 <th className="col-num">{t("controlAdmin:personalLibraries.thSize")}</th>
+                <th className="col-num">{t("controlAdmin:personalLibraries.thPhones")}</th>
                 <th>{t("controlAdmin:personalLibraries.thState")}</th>
                 <th className="col-actions"></th>
               </tr>
@@ -270,6 +282,7 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
                 <tr key={library.id}>
                   <td><strong>{t("controlAdmin:personalLibraries.whose", { name: library.ownerName })}</strong></td>
                   <td className="col-num" data-label={t("controlAdmin:personalLibraries.thSize")}>{formatBytes(library.sizeBytes)}</td>
+                  <td className="col-num" data-label={t("controlAdmin:personalLibraries.thPhones")}>{library.phones}</td>
                   <td data-label={t("controlAdmin:personalLibraries.thState")}>
                     {library.orphanedAt
                       ? t("controlAdmin:personalLibraries.orphanedOn", { date: formatDate(library.orphanedAt) })

@@ -1585,7 +1585,13 @@
     "confirmDeleteBody": "The library and its catalogue ({{size}}) are removed from the app. The files on disk are not deleted.",
     "confirmDelete": "Delete library",
     "deleting": "Deleting…",
-    "actionFailed": "Unable to do that."
+    "actionFailed": "Unable to do that.",
+    "totals": "{{libraries}} · {{size}} in all · {{phones}}",
+    "librariesCount_one": "{{count}} personal library",
+    "librariesCount_other": "{{count}} personal libraries",
+    "phonesCount_one": "{{count}} phone",
+    "phonesCount_other": "{{count}} phones",
+    "thPhones": "Phones"
   },
   "phoneSync": {
     "heading": "Phone-sync networks",
@@ -1951,7 +1957,33 @@
     },
     "dangerTitle": "Danger zone",
     "dangerBody": "Deleting the account signs them out everywhere and cannot be undone from here.",
-    "deleteAccount": "Delete account"
+    "deleteAccount": "Delete account",
+    "phones": {
+      "title": "Personal library and phones",
+      "hint": "Their own library is private: you see its size and the phones that back up into it, never what is in it.",
+      "none": "No personal library.",
+      "size": "Personal library: {{size}}",
+      "noPhones": "No phones.",
+      "added": "Added {{date}}",
+      "lastContact": "last contact {{date}}",
+      "noContact": "not connected yet",
+      "revoke": "Revoke phone",
+      "revokeAria": "Revoke {{name}}",
+      "revoking": "Revoking…",
+      "revokeTitle": "Revoke \"{{name}}\" for {{member}}?",
+      "revokeBody": "The phone stops backing up at once. Photos it already sent stay in {{member}}'s library. They can add the phone again from their profile.",
+      "revokeFailed": "Unable to revoke the phone",
+      "loadFailed": "Unable to load their phones.",
+      "problem": {
+        "not_listed": "Refused: not from a phone-sync network ({{detail}})",
+        "proxy": "Refused: the server is behind a proxy it does not trust",
+        "quota": "Their library has reached its size limit",
+        "disk_full": "The server's disk is full",
+        "library_unavailable": "Their library's folder is unavailable"
+      },
+      "problemAt": "{{problem}} — {{date}}",
+      "unnamed": "Phone"
+    }
   },
   "access": {
     "saved": "Saved",

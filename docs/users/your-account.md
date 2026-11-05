@@ -134,6 +134,11 @@ turned away.
 Backups only work from the networks your administrator listed, never over the internet. If a
 phone is lost or replaced, **Revoke** it: it stops at once, and the photos it already sent stay.
 
+Each phone in the list shows how its backup is going: last contact, the last file received,
+what arrived in the last 24 hours and in all, and the last problem ("File type not allowed:
+.dng", "Refused: not from a phone-sync network"). Setting up PhotoSync step by step, automatic
+backups and battery settings are in [Backing up your phone](phone-backup.md).
+
 > Your personal library is one copy of your photos, not a backup. Keep another copy somewhere
 > else.
 

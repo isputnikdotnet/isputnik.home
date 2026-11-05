@@ -3,7 +3,8 @@
 Status: architecture agreed with the owner (2026-11-05); phase 0 (spike) done and run against
 PhotoSync for Android; **phase 1 (personal libraries) built 2026-11-05, not yet released**; **phase 2
 (phone-sync networks and devices) built 2026-11-05, not yet released**; **phase 3 (the sync endpoint)
-built 2026-11-05 and live-checked with PhotoSync for Android, not yet released**; phase 4 next. Each phase below is carried out in its own
+built 2026-11-05 and live-checked with PhotoSync for Android, not yet released**; **phase 4
+(status, admin view and guide) built 2026-11-05, not yet released**; phase 5 next. Each phase below is carried out in its own
 session, in order, and ends in something shippable. Written from the "iSputnik Home – Photo
 Sync" brief. Companion to [gallery-library.md](gallery-library.md),
 [photo-inbox-proposal.md](photo-inbox-proposal.md), [uploads.md](uploads.md), [auth.md](auth.md),
@@ -411,6 +412,58 @@ owner's personal library — and nowhere else.
   Screenshots from the demo site only (no personal photos — use `PhoneRoll`).
 
 **Done when:** status reflects a real run, the guide is on the Help page in both languages.
+
+**As built (2026-11-05).**
+
+- **Per-phone status** (`sync/status.ts`): last contact is the token's `last_seen_at`; the last
+  file received and files/bytes in the last 24 h and in all are read from `photo_sync_files` when
+  someone looks — nothing is written for a request that went well, and `MKCOL` 405s and `204`
+  repeats never count. Only a problem is written, to **`photo_sync_device_status`** (one row per
+  phone, new table in `schema.sql`): a code and a detail that is never a file name (the type,
+  `.dng`; or the address a refused request came from), at most once a minute per phone and
+  problem (in-memory throttle). Codes: `not_listed`, `proxy`, `type`, `too_large`, `quota`,
+  `disk_full`, `incomplete`, `checksum`, `library_unavailable`, `server_error`; `PutRefused`
+  now carries one. A request refused by network still gets the same `403`, but if its token is a
+  live phone the refusal is noted against that phone (without bumping last contact) — so "Refused:
+  not from a phone-sync network (10.6.0.3)" reaches the owner; sync turned off altogether is not
+  noted (the Phones list says so already).
+- **Activity log** (the plan's "entries with the device id"): `photo_sync.refused` /
+  `photo_sync.failed` with `target_type = photo_sync_device` and the phone's id, only for
+  device-level problems (`not_listed`, `proxy`, `quota`, `disk_full`, `library_unavailable`),
+  at most once an hour per phone and problem, never a file name. A refused file type is the
+  owner's business and is not logged. `registerActivityGate` (phase 1) was checked: it drops
+  every entry about a personal library or its items (the scanner's "photos missing" included) and
+  lets these through, since their target is the phone.
+- **Privacy line** (decision 3): the owner sees everything above; an admin sees, per phone, its
+  name, when it was added, last contact and a device-level problem — **no counts of what was sent,
+  no file names, no file-type problems** — and the library's size.
+- **Member** (Profile › My library › Phones): each phone shows last contact and last file, the
+  24 h and all-time lines, and the last problem — a warning notice while nothing has arrived since,
+  a quiet "Earlier problem" line once photos arrive again. The setup card links the new guide.
+- **Admin**: a **Personal library and phones** card on a member's page › Account
+  (`MemberPhonesCard.tsx`, `GET /api/photo-sync/members/:userId`, admin revoke at
+  `DELETE …/phones/:id`, logged as revoked "for a member"); hidden for someone with neither.
+  **Library › Storage › Personal libraries** gained totals (libraries · size · phones) and a
+  Phones column. No new group; the personal-libraries search entry gained phone terms.
+- **Guide** `docs/users/phone-backup.md`, on the Help page under Gallery: My library, adding a
+  phone, PhotoSync on Android and iPhone, Wi-Fi-only Autotransfer (Instant on Android; charging,
+  location and Shortcuts on iPhone, ~3 minutes a run), the foreground first backup, Samsung
+  battery (Unrestricted, not in Sleeping apps), the status and its problems, re-sends storing
+  nothing twice, Live Photos, the VPN note, "one copy, not a backup", and a section for the
+  administrator. **Both languages**: the guides are English-only by design (no guide has a
+  Russian counterpart, and `features/help/catalog.ts` keeps guide text English); the in-app
+  strings are in `en` and `ru`. **No screenshots**: the demo site would need a rebuild with
+  phases 1–3 and a phone run against it; the guide reads without them. Also updated:
+  `your-account.md` (Phones), `storage.md`, `control-panel.md`, `docs/users/README.md`,
+  `docs/database.md`.
+- Tests: `apps/server/test/photo-sync-status.test.ts` (counts, repeats not counted, the type
+  without the name, disk full logged once, a network refusal against the phone, the once-a-minute
+  throttle, the owner's and the admin's views, admin revoke); `apps/web/test/PhonesSection.test.tsx`.
+- **Status from a real run**: the dev server's Profile shows the tablet run of phase 3 — "Galaxy
+  Tab … Last 24 hours: 45 files, 219.7 MB" — and a test phone refused from 127.0.0.1 showed the
+  refusal on Profile, on the member page and in the log, then was revoked from the member page.
+- Not done: the iPhone steps in the guide follow PhotoSync's documentation and are untested
+  (phase 5).
 
 ### Phase 5 — Hardening and other clients
 

@@ -219,6 +219,25 @@
 .member-activity-when { color: var(--muted); white-space: nowrap; font-size: 0.82rem; }
 .member-activity-what { min-width: 0; overflow-wrap: anywhere; }
 
+/* Personal library and phones: each phone, then its revoke button. */
+.member-phones {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.member-phones li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.member-phones li:first-child { border-top: 0; padding-top: 0; }
+.member-phones-meta { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.member-phones-problem { color: var(--warning); }
+
 /* The page's tables: a heading row in small caps, then one row per thing.
    Effective permissions (source, then what it gives) and Libraries (library,
    the access they have, the direct choice) share it. */

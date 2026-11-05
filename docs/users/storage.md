@@ -264,8 +264,10 @@ can open it — administrators included. The card at the bottom of **Library ›
 
 Members turn their own library on from **Profile › My library**.
 
-Below the settings is the list of personal libraries on the server — whose each one is and how
-much it holds. You never see what is in one; on the **Libraries** page it shows as "Personal —
+Below the settings is the list of personal libraries on the server — whose each one is, how
+much it holds and how many phones back up into it, with the totals above it. You never see what
+is in one (a member's own page shows their phones and when each last made contact — see
+[Backing up your phone](phone-backup.md#for-the-administrator)); on the **Libraries** page it shows as "Personal —
 <name>" with its size and no actions.
 
 **Make a library personal** turns an existing gallery library into a member's personal library —

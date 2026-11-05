@@ -5,10 +5,22 @@ import { api } from "../../api";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
-import { formatDate } from "../../shared/dates";
+import { formatDate, formatDateTime } from "../../shared/dates";
 import { Field } from "../../shared/Field";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { formatBytes } from "../../shared/utils";
+
+/** What went wrong last (server: sync/status.ts). The detail is never a file name. */
+type ProblemCode = "not_listed" | "proxy" | "type" | "too_large" | "quota" | "disk_full" | "incomplete" | "checksum" | "library_unavailable" | "server_error";
+
+interface PhoneStatus {
+  lastContact: string | null;
+  lastReceived: string | null;
+  day: { files: number; bytes: number };
+  total: { files: number; bytes: number };
+  problem: { code: ProblemCode; detail: string | null; at: string } | null;
+}
 
 interface Phone {
   id: string;
@@ -16,6 +28,7 @@ interface Phone {
   createdAt: string;
   lastSeen: string | null;
   lastIp: string | null;
+  status: PhoneStatus | null;
 }
 
 interface PhonesView {
@@ -41,8 +54,53 @@ interface AddedPhone {
   setup: SetupDetails;
 }
 
-/** The Phones section of the account guide; phase 4's phone-backup guide replaces it. */
-const GUIDE_HREF = "/help/your-account#phones";
+const GUIDE_HREF = "/help/phone-backup";
+
+/** One phone's backup at a glance: last contact and file, today and in all, and the
+ *  last problem — as a notice while nothing has arrived since, as a line once it has. */
+function PhoneStatusLines({ status }: { status: PhoneStatus }) {
+  const { t } = useTranslation();
+  const PROBLEM_TEXT: Record<ProblemCode, string> = {
+    not_listed: t("profile.phones.problem.not_listed", { detail: status.problem?.detail ?? "" }),
+    proxy: t("profile.phones.problem.proxy"),
+    type: t("profile.phones.problem.type", { detail: status.problem?.detail ?? "" }),
+    too_large: t("profile.phones.problem.too_large"),
+    quota: t("profile.phones.problem.quota"),
+    disk_full: t("profile.phones.problem.disk_full"),
+    incomplete: t("profile.phones.problem.incomplete"),
+    checksum: t("profile.phones.problem.checksum"),
+    library_unavailable: t("profile.phones.problem.library_unavailable"),
+    server_error: t("profile.phones.problem.server_error")
+  };
+  const problem = status.problem;
+  const current = problem && (!status.lastReceived || problem.at > status.lastReceived);
+  return (
+    <>
+      <span className="opds-intro">
+        {status.lastContact ? t("profile.phones.lastContact", { date: formatDateTime(status.lastContact) }) : t("profile.phones.noContact")}
+        {" · "}
+        {status.lastReceived ? t("profile.phones.lastFile", { date: formatDateTime(status.lastReceived) }) : t("profile.phones.noFile")}
+      </span>
+      {status.total.files > 0 && (
+        <span className="opds-intro">
+          {t("profile.phones.day", { files: t("profile.phones.files", { count: status.day.files }), bytes: formatBytes(status.day.bytes) })}
+          {" · "}
+          {t("profile.phones.total", { files: t("profile.phones.files", { count: status.total.files }), bytes: formatBytes(status.total.bytes) })}
+        </span>
+      )}
+      {problem && current && (
+        <MessageBox tone="warning" title={t("profile.phones.problemTitle", { date: formatDateTime(problem.at) })}>
+          {PROBLEM_TEXT[problem.code]}
+        </MessageBox>
+      )}
+      {problem && !current && (
+        <span className="opds-intro">
+          {t("profile.phones.problemEarlier", { date: formatDateTime(problem.at), problem: PROBLEM_TEXT[problem.code] })}
+        </span>
+      )}
+    </>
+  );
+}
 
 function CopyRow({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
   const { t } = useTranslation();
@@ -178,12 +236,8 @@ export function PhonesSection() {
             <div className="opds-token-row" key={phone.id}>
               <div className="opds-token-meta">
                 <strong>{nameOf(phone)}</strong>
-                <span className="opds-intro">
-                  {t("profile.phones.added", { date: formatDate(phone.createdAt) })}
-                  {phone.lastSeen
-                    ? t("profile.phones.lastSeen", { date: formatDate(phone.lastSeen) })
-                    : t("profile.phones.neverSeen")}
-                </span>
+                <span className="opds-intro">{t("profile.phones.added", { date: formatDate(phone.createdAt) })}</span>
+                {phone.status && <PhoneStatusLines status={phone.status} />}
               </div>
               <Button
                 variant="icon"

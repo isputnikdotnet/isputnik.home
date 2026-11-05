@@ -18,6 +18,7 @@ import { createApiToken, isUnknownApiToken } from "../../../../core/api-tokens.j
 import { flagAbusiveRequest } from "../../../../core/security-alerts.js";
 import { personalLibraryIdOf } from "../personal/personal-libraries.js";
 import { syncGateVerdict } from "./networks.js";
+import { phoneOfRawToken, recordPhoneProblem } from "./status.js";
 import type { ApiTokenRow } from "../../../../db/rows.js";
 
 export const PHONE_SCOPE = "photo-sync";
@@ -68,18 +69,19 @@ export function addPhone(user: { id: string }, label: string, ip: string | null)
   return { id, raw, libraryId };
 }
 
-/** The member revokes one of their phones. Always allowed — revoking protects. */
-export function revokePhone(userId: string, id: string, ip: string | null): boolean {
+/** The member revokes one of their phones, or an admin does from the member's page
+ *  (actorId). Always allowed — revoking protects. */
+export function revokePhone(userId: string, id: string, ip: string | null, actorId: string = userId): boolean {
   const row = db.prepare("SELECT label FROM api_tokens WHERE id = ? AND user_id = ? AND scope = ? AND revoked_at IS NULL")
     .get(id, userId, PHONE_SCOPE) as Pick<ApiTokenRow, "label"> | undefined;
   if (!row) return false;
   db.prepare(`UPDATE api_tokens SET revoked_at = ${NOW} WHERE id = ?`).run(id);
   logActivity({
     event: "photo_sync.phone_revoked",
-    actorUserId: userId,
+    actorUserId: actorId,
     targetType: "user",
     targetId: userId,
-    detail: `Revoked a phone${row.label ? ` ("${row.label}")` : ""}.`,
+    detail: `Revoked a phone${row.label ? ` ("${row.label}")` : ""}${actorId === userId ? "" : " for a member"}.`,
     ipAddress: ip
   });
   return true;
@@ -152,9 +154,17 @@ export function resolvePhoneToken(raw: string, ip: string | null): PhoneIdentity
  *  is not). */
 export function authenticatePhone(request: FastifyRequest): PhoneAuthResult {
   const raw = basicPassword(request.headers.authorization);
-  if (!syncGateVerdict(request).allowed) {
+  const verdict = syncGateVerdict(request);
+  if (!verdict.allowed) {
     // Refused either way; a guessed token from outside still counts as abuse.
     if (raw && isUnknownApiToken(raw)) flagAbusiveRequest(request, "token");
+    // A live phone refused for where it is: its owner sees why on the Phones list
+    // (the answer to the request is the same 403 either way). Sync turned off
+    // altogether is said on that page already.
+    if (raw && verdict.reason !== "off") {
+      const phone = phoneOfRawToken(raw);
+      if (phone) recordPhoneProblem(phone, verdict.reason === "proxy" ? "proxy" : "not_listed", request.ip ?? null, request.ip ?? null);
+    }
     return { ok: false, reason: "network" };
   }
   if (!raw) return { ok: false, reason: "credentials" };

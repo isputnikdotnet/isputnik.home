@@ -999,6 +999,14 @@ export interface PersonAliasRow {
   created_at: string;
 }
 
+/** `photo_sync_device_status` */
+export interface PhotoSyncDeviceStatusRow {
+  device_id: string;
+  last_error_code: string;
+  last_error_detail: string | null;
+  last_error_at: string;
+}
+
 /** `photo_sync_files` */
 export interface PhotoSyncFileRow {
   id: string;
@@ -1618,6 +1626,7 @@ export interface TableRows {
   notes: NoteRow;
   people: PersonRow;
   person_aliases: PersonAliasRow;
+  photo_sync_device_status: PhotoSyncDeviceStatusRow;
   photo_sync_files: PhotoSyncFileRow;
   photo_sync_folders: PhotoSyncFolderRow;
   playback_progress: PlaybackProgressRow;

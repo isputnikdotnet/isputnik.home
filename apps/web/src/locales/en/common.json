@@ -467,8 +467,6 @@
       "none": "No phones yet.",
       "unnamed": "Phone",
       "added": "Added {{date}}",
-      "lastSeen": " · last seen {{date}}",
-      "neverSeen": " · not connected yet",
       "revoke": "Revoke phone",
       "revoking": "Revoking…",
       "revokeAria": "Revoke {{name}}",
@@ -489,7 +487,29 @@
       "noAddressBody": "Your administrator hasn't set the address phones use yet. Keep this password safe and ask them for the address.",
       "homeOnly": "Backups only work from your home network or a VPN your administrator has listed.",
       "guide": "Step-by-step setup is in the <guide>guide</guide>.",
-      "sslOn": "On"
+      "sslOn": "On",
+      "lastContact": "Last contact {{date}}",
+      "noContact": "Not connected yet",
+      "lastFile": "last file received {{date}}",
+      "noFile": "nothing received yet",
+      "files_one": "{{count}} file",
+      "files_other": "{{count}} files",
+      "day": "Last 24 hours: {{files}}, {{bytes}}",
+      "total": "In all: {{files}}, {{bytes}}",
+      "problemTitle": "Problem on {{date}}",
+      "problemEarlier": "Earlier problem ({{date}}): {{problem}}",
+      "problem": {
+        "not_listed": "Refused: not from a phone-sync network ({{detail}}). Back up on your home Wi-Fi, or ask your administrator to list your VPN.",
+        "proxy": "Refused: the server can't tell which network the phone is on. Ask your administrator.",
+        "type": "File type not allowed: {{detail}}",
+        "too_large": "A file was larger than this library allows.",
+        "quota": "Your library has reached its size limit.",
+        "disk_full": "The server's disk is full.",
+        "incomplete": "An upload stopped part-way. PhotoSync sends it again next time.",
+        "checksum": "A file arrived damaged and was not kept. PhotoSync sends it again next time.",
+        "library_unavailable": "Your library's folder is unavailable on the server.",
+        "server_error": "The server could not store a file."
+      }
     }
   },
   "languageNames": {

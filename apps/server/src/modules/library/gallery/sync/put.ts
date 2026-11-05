@@ -40,6 +40,7 @@ import { uniqueGalleryFileName } from "../files.js";
 import { personalQuota } from "../personal/service.js";
 import { baseNameOf, ensureParents, fileAt, recordFile } from "./namespace.js";
 import type { PhoneIdentity } from "./devices.js";
+import type { PhoneProblem } from "./status.js";
 import type { LibraryRow } from "../../../../db/rows.js";
 
 export const STAGING_PREFIX = ".upload-sync-";
@@ -47,7 +48,8 @@ export const STAGING_PREFIX = ".upload-sync-";
 export const FREE_SPACE_RESERVE = 256 * 1024 * 1024;
 
 export class PutRefused extends Error {
-  constructor(readonly statusCode: number, message: string) {
+  /** problem: how the phone's status words it (status.ts); detail is never a file name. */
+  constructor(readonly statusCode: number, message: string, readonly problem: PhoneProblem, readonly detail: string | null = null) {
     super(message);
   }
 }
@@ -139,12 +141,12 @@ export interface SyncTarget {
 export function syncTargetOf(phone: PhoneIdentity): SyncTarget {
   const library = db.prepare("SELECT id, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'gallery' AND personal_user_id = ?")
     .get(phone.libraryId, phone.user.id) as Pick<LibraryRow, "id" | "source_path" | "settings_json" | "policy_json"> | undefined;
-  if (!library) throw new PutRefused(403, "This phone's library is unavailable.");
+  if (!library) throw new PutRefused(403, "This phone's library is unavailable.", "library_unavailable");
   let root: string;
   try {
     root = validateLibrarySource(library.source_path);
   } catch {
-    throw new PutRefused(503, "The library's folder is unavailable.");
+    throw new PutRefused(503, "The library's folder is unavailable.", "library_unavailable");
   }
   const settings = normalizeLibrarySettings("gallery", library.settings_json);
   return {
@@ -250,22 +252,22 @@ export async function receivePut(request: FastifyRequest, phone: PhoneIdentity, 
   const target = syncTargetOf(phone);
   const name = baseNameOf(davPath);
   const extension = path.extname(name).slice(1).toLowerCase();
-  if (!extension || !target.accept.has(extension)) throw new PutRefused(415, `File type not allowed: .${extension || "?"}`);
+  if (!extension || !target.accept.has(extension)) throw new PutRefused(415, `File type not allowed: .${extension || "?"}`, "type", `.${(extension || "?").slice(0, 12)}`);
 
   // Limits known before a byte arrives. Content-Length is a promise, checked again below.
   const declaredHeader = request.headers["content-length"];
   const declared = declaredHeader !== undefined ? Number(declaredHeader) : null;
-  if (declared !== null && (!Number.isFinite(declared) || declared < 0)) throw new PutRefused(400, "Bad Content-Length.");
+  if (declared !== null && (!Number.isFinite(declared) || declared < 0)) throw new PutRefused(400, "Bad Content-Length.", "incomplete");
   const quota = personalQuota(target.libraryId);
   const quotaLeft = quota ? quota.limitBytes - quota.usedBytes : Infinity;
   const free = freeBytesProbe(target.root);
   const spaceLeft = free === null ? Infinity : free - FREE_SPACE_RESERVE;
-  if (quotaLeft <= 0) throw new PutRefused(507, "The personal library has reached its size limit.");
-  if (spaceLeft <= 0) throw new PutRefused(507, "The server's disk is full.");
+  if (quotaLeft <= 0) throw new PutRefused(507, "The personal library has reached its size limit.", "quota");
+  if (spaceLeft <= 0) throw new PutRefused(507, "The server's disk is full.", "disk_full");
   if (declared !== null) {
-    if (declared > target.maxBytes) throw new PutRefused(413, "The file is larger than this library allows.");
-    if (declared > quotaLeft) throw new PutRefused(507, "The file would take the personal library past its size limit.");
-    if (declared > spaceLeft) throw new PutRefused(507, "The server's disk is full.");
+    if (declared > target.maxBytes) throw new PutRefused(413, "The file is larger than this library allows.", "too_large");
+    if (declared > quotaLeft) throw new PutRefused(507, "The file would take the personal library past its size limit.", "quota");
+    if (declared > spaceLeft) throw new PutRefused(507, "The server's disk is full.", "disk_full");
   }
 
   const stagingDir = path.join(target.root, `${STAGING_PREFIX}${nanoid(10)}`);
@@ -280,9 +282,9 @@ export async function receivePut(request: FastifyRequest, phone: PhoneIdentity, 
     const counter = new Transform({
       transform(chunk: Buffer, _encoding, callback) {
         bytes += chunk.length;
-        if (bytes > target.maxBytes) cut.over = new PutRefused(413, "The file is larger than this library allows.");
-        else if (bytes > quotaLeft) cut.over = new PutRefused(507, "The file would take the personal library past its size limit.");
-        else if (bytes > spaceLeft) cut.over = new PutRefused(507, "The server's disk is full.");
+        if (bytes > target.maxBytes) cut.over = new PutRefused(413, "The file is larger than this library allows.", "too_large");
+        else if (bytes > quotaLeft) cut.over = new PutRefused(507, "The file would take the personal library past its size limit.", "quota");
+        else if (bytes > spaceLeft) cut.over = new PutRefused(507, "The server's disk is full.", "disk_full");
         if (cut.over) { callback(cut.over); return; }
         sha.update(chunk);
         for (const check of checks) check.hash.update(chunk);
@@ -293,14 +295,14 @@ export async function receivePut(request: FastifyRequest, phone: PhoneIdentity, 
       await pipeline(request.raw, counter, fs.createWriteStream(tmpPath));
     } catch (err) {
       if (cut.over) throw cut.over;
-      if ((err as NodeJS.ErrnoException).code === "ENOSPC") throw new PutRefused(507, "The server's disk is full.");
-      throw new PutRefused(400, "The upload did not complete.");
+      if ((err as NodeJS.ErrnoException).code === "ENOSPC") throw new PutRefused(507, "The server's disk is full.", "disk_full");
+      throw new PutRefused(400, "The upload did not complete.", "incomplete");
     }
-    if (declared !== null && declared !== bytes) throw new PutRefused(400, `Expected ${declared} bytes, received ${bytes}.`);
-    if (bytes === 0) throw new PutRefused(400, "The file is empty.");
+    if (declared !== null && declared !== bytes) throw new PutRefused(400, `Expected ${declared} bytes, received ${bytes}.`, "incomplete");
+    if (bytes === 0) throw new PutRefused(400, "The file is empty.", "incomplete");
     for (const check of checks) {
       if (check.hash.digest(check.encoding).toLowerCase() !== check.expected.toLowerCase()) {
-        throw new PutRefused(400, "The file's checksum does not match.");
+        throw new PutRefused(400, "The file's checksum does not match.", "checksum");
       }
     }
     const digest = sha.digest("hex");
@@ -327,10 +329,10 @@ export async function receivePut(request: FastifyRequest, phone: PhoneIdentity, 
 
       const dated = await syncDateFolder(tmpPath, name, clientDate);
       const targetDir = path.join(target.root, deviceFolderName(phone.label), ...dated.split("/"));
-      if (!pathIsInside(targetDir, target.root)) throw new PutRefused(400, "Bad path.");
+      if (!pathIsInside(targetDir, target.root)) throw new PutRefused(400, "Bad path.", "server_error");
       fs.mkdirSync(targetDir, { recursive: true });
       const finalName = uniqueGalleryFileName(targetDir, name);
-      if (!finalName) throw new PutRefused(400, "The file name is unusable.");
+      if (!finalName) throw new PutRefused(400, "The file name is unusable.", "server_error");
       if (clientDate) fs.utimesSync(tmpPath, clientDate, clientDate);
       const finalPath = path.join(targetDir, finalName);
       fs.renameSync(tmpPath, finalPath);

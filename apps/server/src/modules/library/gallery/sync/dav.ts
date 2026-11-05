@@ -23,6 +23,7 @@ import {
   moveInNamespace, parentOf, setClientMtime, type ListedEntry, type SyncFile
 } from "./namespace.js";
 import { parseClientDate, PutRefused, receivePut, redateFromClient, sweepStaleSyncStaging } from "./put.js";
+import { recordPhoneProblem } from "./status.js";
 
 const DAV_METHODS = ["PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK"] as const;
 const ALL_METHODS = ["OPTIONS", "GET", "HEAD", "PUT", "DELETE", ...DAV_METHODS];
@@ -134,7 +135,12 @@ async function handle(request: FastifyRequest, reply: FastifyReply, phone: Phone
         if (request.headers["x-oc-mtime"] !== undefined) reply.header("X-OC-MTime", "accepted");
         return reply.code(outcome.status).send();
       } catch (err) {
-        if (!(err instanceof PutRefused)) throw err;
+        const problemOf = { deviceId: phone.deviceId, userId: phone.user.id, label: phone.label };
+        if (!(err instanceof PutRefused)) {
+          recordPhoneProblem(problemOf, "server_error", null, request.ip ?? null);
+          throw err;
+        }
+        recordPhoneProblem(problemOf, err.problem, err.detail, request.ip ?? null);
         drain(request);
         // A refused body may still be on its way; don't keep the connection for it.
         reply.header("Connection", "close");

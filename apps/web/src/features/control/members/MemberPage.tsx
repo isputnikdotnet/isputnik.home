@@ -19,6 +19,7 @@ import { MemberLibrariesTab } from "./MemberLibrariesTab";
 import { MemberPhotosTab } from "./MemberPhotosTab";
 import { MemberFamilyTab } from "./MemberFamilyTab";
 import { MemberSharedTab } from "./MemberSharedTab";
+import { MemberPhonesCard } from "./MemberPhonesCard";
 
 // One member, one page: Members › Users › <name>. The header carries who they
 // are and the things done to the account (Preview as, the ⋮ menu); the
@@ -277,6 +278,7 @@ export function MemberPage({ userId, tab, currentUser }: { userId: string; tab: 
 
           <div className="member-page-column">
             <RecentActivity userId={userId} />
+            <MemberPhonesCard userId={userId} name={name} />
             <EffectivePermissions state={state} />
 
             <section className="member-card member-card-danger" aria-labelledby="member-danger-title">

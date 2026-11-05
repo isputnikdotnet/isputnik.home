@@ -83,6 +83,9 @@ library.
   come in more than one format.
 - [Gallery](library-gallery.md) — photos and videos, the timeline, albums,
   slideshows, and face recognition.
+- [Backing up your phone](phone-backup.md) — your phone's photos into your own
+  private library with PhotoSync: adding a phone, automatic backups on Android and
+  iPhone, battery settings, and checking that it works.
 - [The Photo Inbox](photo-inbox.md) — re-scanning prints and taking photos from
   relatives: the holding library, the copy check, Keep and Replace, drop links,
   and asking someone what they remember.

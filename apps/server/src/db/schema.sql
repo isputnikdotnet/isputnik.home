@@ -288,6 +288,19 @@ CREATE TABLE IF NOT EXISTS photo_sync_folders (
   PRIMARY KEY (device_id, client_path)
 );
 
+-- The last thing that went wrong for each phone (docs/photo-sync-plan.md, phase 4), for
+-- its status on Profile › My library › Phones: a refused file ("type", detail ".dng"),
+-- a full disk, a request from outside the phone-sync networks (detail: the address).
+-- One row per phone, rewritten at most once a minute per problem (sync/status.ts).
+-- Counts and the last photo come from photo_sync_files; last contact is
+-- api_tokens.last_seen_at. Never a file name.
+CREATE TABLE IF NOT EXISTS photo_sync_device_status (
+  device_id         TEXT PRIMARY KEY REFERENCES api_tokens(id) ON DELETE CASCADE,
+  last_error_code   TEXT NOT NULL,
+  last_error_detail TEXT,
+  last_error_at     TEXT NOT NULL
+);
+
 -- Networks an account has already signed in from, keyed on the coarse /24 (IPv4)
 -- or /64 (IPv6) so a rotating home or mobile address doesn't look new every time.
 -- Recorded on every sign-in regardless of policy; the optional "new network"

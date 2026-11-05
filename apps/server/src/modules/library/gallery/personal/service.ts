@@ -241,16 +241,18 @@ export function myLibraryView(user: { id: string }) {
   return { library, canTurnOn: !library && unavailable === null, unavailable, sizeLimitBytes: sizeLimitBytes(settings) };
 }
 
-/** Library › Storage: every personal library, whose it is and its size — nothing else. */
+/** Library › Storage: every personal library, whose it is, its size and how many phones
+ *  back up into it — nothing else. */
 export function personalLibrariesForAdmin() {
   const rows = db.prepare(`
     SELECT l.id, l.name, l.personal_user_id, l.personal_orphaned_at, l.personal_adopted_at, l.created_at,
-      u.display_name AS owner_name
+      u.display_name AS owner_name,
+      (SELECT COUNT(*) FROM api_tokens t WHERE t.library_id = l.id AND t.scope = 'photo-sync' AND t.revoked_at IS NULL) AS phones
     FROM libraries l LEFT JOIN users u ON u.id = l.personal_user_id
     WHERE l.personal_user_id IS NOT NULL
     ORDER BY l.personal_orphaned_at IS NOT NULL, u.display_name COLLATE NOCASE
   `).all() as (Pick<LibraryRow, "id" | "name" | "personal_orphaned_at" | "personal_adopted_at" | "created_at">
-    & { personal_user_id: string; owner_name: string | null })[];
+    & { personal_user_id: string; owner_name: string | null; phones: number })[];
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -259,6 +261,7 @@ export function personalLibrariesForAdmin() {
     orphanedAt: row.personal_orphaned_at,
     adoptedAt: row.personal_adopted_at,
     createdAt: row.created_at,
-    sizeBytes: librarySize(row.id).bytes
+    sizeBytes: librarySize(row.id).bytes,
+    phones: row.phones
   }));
 }

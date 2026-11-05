@@ -11,6 +11,8 @@ import {
   phoneSyncAddress, removeSyncNetwork, saveSyncAddress, syncAddressOutsideNetworks, SyncNetworkError
 } from "./networks.js";
 import { addPhone, listPhones, MAX_PHONES, PhoneError, revokePhone, type Phone } from "./devices.js";
+import { phoneStatuses, type PhoneStatus } from "./status.js";
+import { librarySize } from "../personal/service.js";
 
 /** Where phones send to (dav.ts serves it). */
 export const DAV_PATH = "/dav/";
@@ -38,8 +40,34 @@ function adminView() {
   };
 }
 
-function serializePhone(phone: Phone) {
-  return { id: phone.id, label: phone.label, createdAt: phone.created_at, lastSeen: phone.last_seen_at, lastIp: phone.last_ip };
+function serializePhone(phone: Phone, status: PhoneStatus | undefined) {
+  return { id: phone.id, label: phone.label, createdAt: phone.created_at, lastSeen: phone.last_seen_at, lastIp: phone.last_ip, status: status ?? null };
+}
+
+/** The member's own phones, with how each one's backup is going. */
+function ownPhones(userId: string) {
+  const phones = listPhones(userId);
+  const statuses = phoneStatuses(phones);
+  return phones.map((phone) => serializePhone(phone, statuses.get(phone.id)));
+}
+
+/** A member's page, for an admin: their personal library's size and their phones —
+ *  name, added, last contact, and a problem only when it is about the phone or the
+ *  server (not reached, disk full). Never counts of what was sent, never a file. */
+function memberView(userId: string) {
+  const libraryId = personalLibraryIdOf(userId);
+  const phones = listPhones(userId);
+  const statuses = phoneStatuses(phones, true);
+  return {
+    library: libraryId ? { id: libraryId, sizeBytes: librarySize(libraryId).bytes } : null,
+    phones: phones.map((phone) => ({
+      id: phone.id,
+      label: phone.label,
+      createdAt: phone.created_at,
+      lastSeen: phone.last_seen_at,
+      problem: statuses.get(phone.id)?.problem ?? null
+    }))
+  };
 }
 
 type PhonesUnavailable = "off" | "no_library";
@@ -51,7 +79,7 @@ function phonesView(request: FastifyRequest) {
   return {
     unavailable,
     maxPhones: MAX_PHONES,
-    phones: listPhones(user.id).map(serializePhone)
+    phones: ownPhones(user.id)
   };
 }
 
@@ -133,6 +161,17 @@ export async function photoSyncRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     return reply.send(adminView());
+  });
+
+  // ── The admin: a member's page ──
+  app.get("/api/photo-sync/members/:userId", { preHandler: app.requireAdmin }, async (request) =>
+    memberView((request.params as { userId: string }).userId));
+
+  // untrustedAllow: revoking a phone only ever closes the door.
+  app.delete("/api/photo-sync/members/:userId/phones/:id", { preHandler: app.requireAdmin, config: { untrustedAllow: true } }, async (request, reply) => {
+    const { userId, id } = request.params as { userId: string; id: string };
+    if (!revokePhone(userId, id, request.ip, request.user!.id)) return reply.code(404).send({ error: "Phone not found" });
+    return reply.send(memberView(userId));
   });
 
   // ── The member: Profile › My library › Phones ──
