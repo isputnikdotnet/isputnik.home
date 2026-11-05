@@ -39,7 +39,10 @@ const PROBE_PATTERNS: RegExp[] = [
 // patterns nor the SPA fallback apply there.
 export function isApiSurface(url: string): boolean {
   const pathname = (url.split("?")[0] || "/").toLowerCase();
-  return pathname.startsWith("/api/") || pathname === "/opds" || pathname.startsWith("/opds/");
+  return pathname.startsWith("/api/") || pathname === "/opds" || pathname.startsWith("/opds/")
+    // WebDAV for phone backup (the Photo Sync spike today): file names are the
+    // phone's, and a miss there is a missing file, not a page.
+    || pathname === "/dav" || pathname.startsWith("/dav/");
 }
 
 // True when the URL can only be a scan. The API and OPDS trees are excluded: they

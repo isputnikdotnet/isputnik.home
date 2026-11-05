@@ -1,3 +1,4 @@
+import path from "node:path";
 import fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
@@ -305,6 +306,16 @@ await app.register(appsPlugin);
 await app.register(gamesPlugin);
 // Before the static fallback too: /video/* belongs to the video engine.
 await app.register(videoPlugin);
+// Photo Sync phase 0: a logging WebDAV spike at /dav, dev-only and off unless
+// asked for (modules/library/gallery/sync/spike.ts, docs/photo-sync-plan.md).
+if (process.env.PHOTO_SYNC_SPIKE === "1") {
+  const { photoSyncSpikePlugin } = await import("./modules/library/gallery/sync/spike.js");
+  await app.register(photoSyncSpikePlugin, {
+    dir: process.env.PHOTO_SYNC_SPIKE_DIR ?? path.join(path.dirname(path.dirname(config.dbPath)), "photo-sync-spike"),
+    password: process.env.PHOTO_SYNC_SPIKE_PASSWORD || "spike",
+    allowDelete: process.env.PHOTO_SYNC_SPIKE_DELETE === "1"
+  });
+}
 
 if (config.staticPath) {
   await app.register(staticFiles, {

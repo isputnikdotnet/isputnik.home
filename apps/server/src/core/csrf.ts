@@ -22,9 +22,16 @@ export function csrfCookieName(secure: boolean): string {
 const CSRF_COOKIE = csrfCookieName(config.cookieSecure);
 const CSRF_HEADER = "x-csrf-token";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+// WebDAV (phone backup apps) carries no cookies and signs every request in with
+// Basic auth, so a double-submit token means nothing there. What CSRF would guard
+// against still can't happen: those routes never read the session cookie, accept
+// no POST, and a cross-site page can only send PUT/PROPFIND/DELETE after a CORS
+// preflight the locked-down origin refuses.
+const isDavPath = (url: string): boolean => url === "/dav" || url.startsWith("/dav/") || url.startsWith("/dav?");
 
 export function registerCsrf(app: FastifyInstance): void {
   app.addHook("onRequest", async (request, reply) => {
+    if (isDavPath(request.url)) return;
     // Issue the token on first contact (and re-issue if missing). Not httpOnly —
     // the SPA must read it to echo it back. A safe GET (index.html, the startup
     // /api/auth/me) establishes it before any mutation is attempted.
