@@ -34,6 +34,7 @@ import { lockCovering } from "../shared/folder-locks.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { log } from "../../../core/logger.js";
+import { personalLibrariesHiddenFromViewer } from "./personal/personal-libraries.js";
 import { registerJobHandler } from "../../../core/job-poller.js";
 import type { GalleryDetailRow, JobRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
@@ -148,8 +149,11 @@ export function listFaststartCandidates(): FaststartCandidate[] {
     JOIN libraries lib ON lib.id = li.library_id
     LEFT JOIN item_metadata im ON im.item_id = gd.item_id
     WHERE ${CANDIDATE_WHERE}
+      -- Someone else's personal library is not the admin's to look into or rewrite
+      -- (docs/photo-sync-plan.md). Outside a request every personal library is left out.
+      AND li.library_id NOT IN (SELECT value FROM json_each(?))
     ORDER BY gd.size DESC
-  `).all() as CandidateRow[];
+  `).all(JSON.stringify([...personalLibrariesHiddenFromViewer()])) as CandidateRow[];
   const queued = queuedItemIds();
   // The policy gate is per-library, so it is answered once per library, not per row.
   const allowed = new Map<string, boolean>();

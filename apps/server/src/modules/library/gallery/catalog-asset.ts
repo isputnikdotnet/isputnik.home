@@ -8,6 +8,7 @@ import { isShareExcluded, peopleOnlyViewOf } from "./people-access.js";
 import { currentViewer } from "../../../core/viewer-context.js";
 import { canUserManageLibraryMembers } from "../shared/library-access.js";
 import { galleryLibrariesLeftOutOfScope } from "./system-libraries.js";
+import { isPersonalLibrary } from "./personal/personal-libraries.js";
 import { describePlace, namePhotoPlacesNow } from "./places.js";
 import type { GalleryDetailRow, GalleryPersonRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable, TagRow } from "../../../db/rows.js";
 
@@ -312,7 +313,8 @@ function detailOf(row: AssetRow, language: string, reread: () => AssetRow | unde
 
 function shareControlFor(itemId: string, libraryId: string): { excluded: boolean } | null {
   const viewer = currentViewer();
-  if (!viewer || galleryLibrariesLeftOutOfScope().has(libraryId)) return null;
+  // Never shared by person: the system libraries and personal libraries.
+  if (!viewer || galleryLibrariesLeftOutOfScope().has(libraryId) || isPersonalLibrary(libraryId)) return null;
   if (!canUserManageLibraryMembers({ id: libraryId }, viewer.id, viewer.role)) return null;
   return { excluded: isShareExcluded(itemId) };
 }

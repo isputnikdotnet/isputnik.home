@@ -273,6 +273,11 @@ export function galleryHref(view: GalleryView): string {
   return GALLERY_VIEW_PATHS[view];
 }
 
+/** One library's folder tree in the Gallery (the Folders view narrowed to it). */
+export function galleryLibraryHref(libraryId: string): string {
+  return `${GALLERY_VIEW_PATHS.folder}?library=${encodeURIComponent(libraryId)}`;
+}
+
 /** The Timeline newest-upload-first: the side nav's "Recently added", and where
  *  the Home page's "New photos" card leads. A sort of the one view, not a view
  *  of its own, so it is the Timeline's address with the sort in the query. */
@@ -312,11 +317,13 @@ export function galleryReviewAlbumHref(albumId: string, recommendationId: string
 
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
-export type ProfileTab = "account" | "security" | "shares" | "appearance";
+export type ProfileTab = "account" | "security" | "library" | "shares" | "appearance";
 
 export const PROFILE_PATHS: Record<ProfileTab, string> = {
   account: "/profile",
   security: "/profile/security",
+  // A member's personal library (docs/photo-sync-plan.md, phase 1).
+  library: "/profile/library",
   shares: "/profile/shares",
   appearance: "/profile/appearance"
 };

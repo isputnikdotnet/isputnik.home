@@ -355,6 +355,12 @@ CREATE TABLE IF NOT EXISTS libraries (
   -- Inbox, 'app-files' = App files. At most one of each (unique index made by
   -- migration 75, not here: this file runs before the migration on old databases).
   role            TEXT CHECK (role IN ('inbox', 'app-files')),
+  -- A member's personal library (docs/photo-sync-plan.md, decision 3): only they can
+  -- open it. Orphaned when they are removed; adopted when an admin made an existing
+  -- library theirs. One live one per member (unique index made by migration 87).
+  personal_user_id     TEXT REFERENCES users(id),
+  personal_orphaned_at TEXT,
+  personal_adopted_at  TEXT,
   created_by      TEXT NOT NULL REFERENCES users(id),
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

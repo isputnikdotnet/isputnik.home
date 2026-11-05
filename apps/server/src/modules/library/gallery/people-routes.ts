@@ -46,7 +46,10 @@ import type { LibraryRow } from "../../../db/rows.js";
 // on the Inbox photos in front of them.
 function canWriteAnyGallery(user: { id: string; role: string }): boolean {
   if (user.role === "admin") return true;
-  const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery' AND role IS NULL").all() as LibraryRow[];
+  // Nor does a personal library (docs/photo-sync-plan.md): its owner tags people on
+  // their own photos, but renaming the family's people is for whoever curates a
+  // family library.
+  const rows = db.prepare("SELECT * FROM libraries WHERE type = 'gallery' AND role IS NULL AND personal_user_id IS NULL").all() as LibraryRow[];
   return rows.some((row) => canUserWriteLibrary(row, user.id, user.role));
 }
 
@@ -500,7 +503,9 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
       LEFT JOIN gallery_details ON gallery_details.item_id = library_items.id
       LEFT JOIN gallery_face_scans ON gallery_face_scans.item_id = library_items.id AND gallery_face_scans.model = ?
-      WHERE libraries.type = 'gallery'
+      -- Personal libraries are never scanned for faces in phase 1 of
+      -- docs/photo-sync-plan.md, and their names are not the admin's to see here.
+      WHERE libraries.type = 'gallery' AND libraries.personal_user_id IS NULL
       GROUP BY libraries.id, libraries.name
       ORDER BY libraries.name COLLATE NOCASE
     `).all(FACE_EMBEDDING_MODEL) as FaceLibraryRow[];
@@ -539,7 +544,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     if (parsed.data.groupingStrength != null) setFaceGroupingK(parsed.data.groupingStrength, request.user!.id);
 
     if (parsed.data.libraryId != null && parsed.data.enabled != null) {
-      const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
+      const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery' AND personal_user_id IS NULL")
         .get(parsed.data.libraryId) as Pick<LibraryRow, "id" | "name"> | undefined;
       if (!lib) {
         return reply.code(404).send({ error: "Gallery library not found" });

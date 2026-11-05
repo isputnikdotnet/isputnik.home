@@ -19,6 +19,7 @@ import { db } from "../../../db.js";
 import { EVERYONE_GROUP_ID, resolveObjectRole, type AuthUser } from "../../../core/permissions.js";
 import { currentViewer, viewerMemo } from "../../../core/viewer-context.js";
 import { galleryLibrariesLeftOutOfScope } from "./system-libraries.js";
+import { personalLibraryIds } from "./personal/personal-libraries.js";
 import { familyBranchMemberIds } from "../../familytree/access.js";
 import type { AccessSettingRow, AssignmentRow, GroupMemberRow, UserGalleryPersonRow } from "../../../db/rows.js";
 
@@ -253,8 +254,15 @@ const PEOPLE_SHARED_ITEMS_SQL = `
     AND ps_li.library_id NOT IN (SELECT value FROM json_each(?))
     AND ps_f.item_id NOT IN (SELECT item_id FROM gallery_share_exclusions)`;
 
+// The system libraries, and every personal library (docs/photo-sync-plan.md,
+// decision 3): a photo in one leaves it only by its owner's hand, never through a
+// person someone else was granted.
+function neverSharedLibraryIds(): Set<string> {
+  return new Set([...galleryLibrariesLeftOutOfScope(), ...personalLibraryIds()]);
+}
+
 function neverSharedLibraries(): string {
-  return JSON.stringify([...galleryLibrariesLeftOutOfScope()]);
+  return JSON.stringify([...neverSharedLibraryIds()]);
 }
 
 export interface PeopleSqlOptions {
@@ -301,7 +309,7 @@ export function peopleOnlyViewOf(itemId: string, libraryId: string): PeopleOnlyV
   if (!rule) return null;
   const reachable = viewerMemo(`gallery.people:reach:${viewer.id}:${libraryId}`,
     () => resolveObjectRole("library", libraryId, viewer) !== null);
-  if (reachable || galleryLibrariesLeftOutOfScope().has(libraryId)) return null;
+  if (reachable || neverSharedLibraryIds().has(libraryId)) return null;
   const sharedOtherwise = viewerMemo(`gallery.people:othershare:${viewer.id}:${itemId}`, () => db.prepare(`
     SELECT 1 AS ok FROM shares
     WHERE user_id = ? AND revoked_at IS NULL

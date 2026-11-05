@@ -13,6 +13,7 @@ import path from "node:path";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { getTrashRootSetting } from "../shared/trash-settings.js";
+import { personalLibrariesHiddenFromViewer } from "./personal/personal-libraries.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 const LIBRARY_TRASH_DIR = ".trash";
@@ -84,11 +85,14 @@ export function listReplacedOriginals(): ReplacedOriginal[] {
     FROM library_items i LEFT JOIN item_metadata m ON m.item_id = i.id
     WHERE i.id = ? AND i.deleted_at IS NULL
   `);
+  // Someone else's personal library is not the admin's to look into (docs/photo-sync-plan.md).
+  const hidden = personalLibrariesHiddenFromViewer();
   const out: ReplacedOriginal[] = [];
   for (const root of replacedRoots()) {
     let libraryIds: string[];
     try { libraryIds = fs.readdirSync(root.dir); } catch { continue; }
     for (const libraryId of libraryIds) {
+      if (hidden.has(libraryId)) continue;
       let itemIds: string[];
       try { itemIds = fs.readdirSync(path.join(root.dir, libraryId)); } catch { continue; }
       for (const itemId of itemIds) {
@@ -132,6 +136,7 @@ export function listReplacedOriginals(): ReplacedOriginal[] {
 export function deleteReplacedOriginal(key: string): { fileName: string; size: number } | null {
   const decoded = decodeKey(key);
   if (!decoded) return null;
+  if (personalLibrariesHiddenFromViewer().has(decoded.relative.split("/")[0])) return null;
   const dir = rootDir(decoded.kind);
   if (!dir) return null;
   const abs = path.resolve(dir, ...decoded.relative.split("/"));

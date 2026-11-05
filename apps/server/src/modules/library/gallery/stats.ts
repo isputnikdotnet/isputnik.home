@@ -6,6 +6,7 @@
 import { db } from "../../../db.js";
 import { registerStatusContributor } from "../../../core/status-contributors.js";
 import { anyFaceLibraryEnabled } from "./faces/settings.js";
+import { personalLibrariesHiddenFromViewer } from "./personal/personal-libraries.js";
 import type { GalleryDetailRow, LibraryItemRow, LibraryRow } from "../../../db/rows.js";
 
 interface GalleryLibraryStatsRow extends Pick<LibraryRow, "id" | "name"> {
@@ -32,6 +33,9 @@ interface FullestFolderRow {
 }
 
 function galleryLibraryStats() {
+  // Other members' personal libraries are not counted here (docs/photo-sync-plan.md):
+  // the admin sees whose they are and their size on the Libraries page, nothing more.
+  const hidden = JSON.stringify([...personalLibrariesHiddenFromViewer()]);
   const libraries = db.prepare(`
     SELECT
       libraries.id,
@@ -45,10 +49,10 @@ function galleryLibraryStats() {
     FROM libraries
     LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
     LEFT JOIN gallery_details ON gallery_details.item_id = library_items.id
-    WHERE libraries.type = 'gallery'
+    WHERE libraries.type = 'gallery' AND libraries.id NOT IN (SELECT value FROM json_each(?))
     GROUP BY libraries.id, libraries.name
     ORDER BY libraries.name COLLATE NOCASE
-  `).all() as GalleryLibraryStatsRow[];
+  `).all(hidden) as GalleryLibraryStatsRow[];
 
   const largestItems = db.prepare(`
     SELECT
@@ -62,10 +66,10 @@ function galleryLibraryStats() {
     JOIN libraries ON libraries.id = library_items.library_id AND libraries.type = 'gallery'
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
-    WHERE library_items.deleted_at IS NULL
+    WHERE library_items.deleted_at IS NULL AND libraries.id NOT IN (SELECT value FROM json_each(?))
     ORDER BY total_size_bytes DESC, title COLLATE NOCASE
     LIMIT 10
-  `).all() as LargestGalleryRow[];
+  `).all(hidden) as LargestGalleryRow[];
 
   // Where the photos actually pile up. A gallery item's folder_path is the
   // FILE's relative path, so the folder is everything before its last slash —
@@ -95,12 +99,12 @@ function galleryLibraryStats() {
     FROM library_items
     JOIN libraries ON libraries.id = library_items.library_id AND libraries.type = 'gallery'
     JOIN gallery_details ON gallery_details.item_id = library_items.id
-    WHERE library_items.deleted_at IS NULL
+    WHERE library_items.deleted_at IS NULL AND libraries.id NOT IN (SELECT value FROM json_each(?))
     GROUP BY libraries.id, folder
     HAVING photo_count > 0
     ORDER BY photo_count DESC, folder COLLATE NOCASE
     LIMIT 10
-  `).all() as FullestFolderRow[];
+  `).all(hidden) as FullestFolderRow[];
 
   const totalSizeBytes = libraries.reduce((sum, library) => sum + library.total_size_bytes, 0);
   const totalDurationSeconds = libraries.reduce((sum, library) => sum + library.total_duration_seconds, 0);

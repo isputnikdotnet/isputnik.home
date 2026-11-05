@@ -9,6 +9,7 @@
 import { db, logActivity } from "../../../db.js";
 import { purgeCataloguedItem } from "../shared/trash.js";
 import type { AppSettingRow, ItemMetadataRow, LibraryItemRow, LibraryRow, NonNull } from "../../../db/rows.js";
+import { personalLibrariesHiddenFromViewer } from "./personal/personal-libraries.js";
 
 const RETENTION_KEY = "gallery_missing_retention_days";
 const DEFAULT_MISSING_RETENTION_DAYS = 30;
@@ -79,7 +80,9 @@ function purgesAt(detectedAt: string, days: number): string | null {
 // thumbnail and the date it's due to be auto-purged.
 export function listMissingGalleryPhotos(): { items: MissingPhoto[]; retentionDays: number } {
   const days = getMissingRetentionDays();
-  const rows = db.prepare(`${MISSING_SELECT} ORDER BY li.deleted_at DESC, li.id`).all() as MissingRow[];
+  // Someone else's personal library is not the admin's to look into (docs/photo-sync-plan.md).
+  const rows = db.prepare(`${MISSING_SELECT} AND li.library_id NOT IN (SELECT value FROM json_each(?)) ORDER BY li.deleted_at DESC, li.id`)
+    .all(JSON.stringify([...personalLibrariesHiddenFromViewer()])) as MissingRow[];
   const items = rows.map((row) => ({
     id: row.id,
     libraryId: row.library_id,
@@ -104,7 +107,7 @@ function samplePaths(paths: string[], keep = 8): string {
 // false if the id isn't a current gallery tombstone.
 export function purgeMissingGalleryPhoto(itemId: string, actorUserId: string | null): boolean {
   const row = db.prepare(`${MISSING_SELECT} AND li.id = ?`).get(itemId) as MissingRow | undefined;
-  if (!row) return false;
+  if (!row || personalLibrariesHiddenFromViewer().has(row.library_id)) return false;
   if (!purgeCataloguedItem(itemId)) return false;
   logActivity({
     event: "library.gallery.photos_purged",

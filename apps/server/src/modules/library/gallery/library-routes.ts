@@ -5,7 +5,8 @@ import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody, parseQuery } from "../../../core/shared.js";
 import { canUserAccessLibrary, libraryCapabilities } from "../shared/library-access.js";
-import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
+import { publicLibrary, redactedPersonalLibrary, type LibraryListRow } from "../shared/library-serializer.js";
+import { personalLibrariesHiddenFrom } from "./personal/personal-libraries.js";
 import { deleteGalleryLibraryRecord } from "./library-delete.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
@@ -66,8 +67,13 @@ export function registerGalleryLibraryRoutes(app: FastifyInstance) {
     const sharedPeople = user.role === "admin" ? [] : sharedPeopleFor(user)
       .map((id) => db.prepare("SELECT id, name FROM gallery_people WHERE id = ?").get(id) as { id: string; name: string } | undefined)
       .filter((person): person is { id: string; name: string } => person != null);
+    // Someone else's personal library shows in the admin's list only as whose it is
+    // and how big (docs/photo-sync-plan.md, decision 3).
+    const hidden = personalLibrariesHiddenFrom(user.id);
     return {
-      libraries: visible.map((row) => publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))),
+      libraries: visible.map((row) => hidden.has(row.id)
+        ? redactedPersonalLibrary(row, libraryCapabilities(row, user.id, user.role))
+        : publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))),
       sharedPeople
     };
   });

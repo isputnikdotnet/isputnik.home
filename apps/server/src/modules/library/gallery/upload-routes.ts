@@ -19,6 +19,7 @@ import { kindForExtension, readAssetMetadata } from "./media.js";
 import { dateFolderForCapture } from "./date-folder.js";
 import { friendlyStorageError, placeBackSideBeside, uniqueGalleryFileName, pairUploadedBackSides } from "./files.js";
 import { backRuleOf } from "./back-sides.js";
+import { personalQuota } from "./personal/service.js";
 import type { LibraryRow } from "../../../db/rows.js";
 
 // Each uploaded file becomes its own asset (one photo/video = one item), so this
@@ -89,6 +90,14 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
       }
     }
 
+    // A personal library's size limit (docs/photo-sync-plan.md, decision 4): refused
+    // before anything is received when it is already reached, and after receiving
+    // when this batch would pass it.
+    const quota = personalQuota(library.id);
+    if (quota && quota.usedBytes >= quota.limitBytes) {
+      return reply.code(507).send({ error: "Your personal library has reached its size limit.", code: "size_limit" });
+    }
+
     const settings = normalizeLibrarySettings("gallery", library.settings_json);
     const maxBytes = resolveUploadMaxBytes(policy.maxUploadMB);
     const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
@@ -105,6 +114,10 @@ export function registerGalleryUploadRoutes(app: FastifyInstance) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const status = err instanceof UploadError ? err.statusCode : 400;
       return reply.code(status).send({ error: friendlyStorageError(err, "Upload failed") });
+    }
+    if (quota && quota.usedBytes + received.reduce((sum, file) => sum + file.sizeBytes, 0) > quota.limitBytes) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      return reply.code(507).send({ error: "These files would take your personal library past its size limit.", code: "size_limit" });
     }
 
     // Each file moves into a dated subfolder (YYYY/YYYY-MM-DD by capture date) under the

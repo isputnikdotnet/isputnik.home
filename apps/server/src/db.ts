@@ -153,10 +153,23 @@ export function hasUsers() {
   return row.count > 0;
 }
 
+/** A module's say over what the shared activity log records: return false to keep an
+ *  entry out of it. The log is read by admins and by the dashboards' counts, so an
+ *  entry about something only one member may see (a personal library's photos —
+ *  gallery/personal/activity-gate.ts) is not written at all. No product knowledge
+ *  here: the gate decides. */
+export type ActivityGate = (input: ActivityInput) => boolean;
+const activityGates: ActivityGate[] = [];
+
+export function registerActivityGate(gate: ActivityGate): void {
+  activityGates.push(gate);
+}
+
 export function logActivity(input: ActivityInput) {
   // A preview (core/preview.ts) is an admin looking, not the member doing: it
   // leaves nothing in the log under the member's name.
   if (isPreviewing()) return;
+  if (activityGates.some((gate) => !gate(input))) return;
   db.prepare(`
     INSERT INTO activity_logs (id, event, actor_user_id, target_type, target_id, detail, ip_address)
     VALUES (?, ?, ?, ?, ?, ?, ?)

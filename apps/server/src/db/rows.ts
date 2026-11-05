@@ -884,6 +884,9 @@ export interface LibraryRow {
   scan_status: "idle" | "scanning" | "error";
   last_scanned_at: string | null;
   role: "inbox" | "app-files" | null;
+  personal_user_id: string | null;
+  personal_orphaned_at: string | null;
+  personal_adopted_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

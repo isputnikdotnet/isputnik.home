@@ -1,7 +1,7 @@
 # Photo Sync — project plan
 
 Status: architecture agreed with the owner (2026-11-05); phase 0 (spike) done and run against
-PhotoSync for Android; **phase 1 not started**. Each phase below is carried out in its own
+PhotoSync for Android; **phase 1 (personal libraries) built 2026-11-05, not yet released**; phase 2 next. Each phase below is carried out in its own
 session, in order, and ends in something shippable. Written from the "iSputnik Home – Photo
 Sync" brief. Companion to [gallery-library.md](gallery-library.md),
 [photo-inbox-proposal.md](photo-inbox-proposal.md), [uploads.md](uploads.md), [auth.md](auth.md),
@@ -92,7 +92,9 @@ so that a retry or a reinstall never makes a second copy.
      (phase 2).
 
 5. **Face recognition is off in a personal library until its owner turns it on.** *(Owner,
-   2026-11-05.)* Faces are the most sensitive data the app derives. When the owner turns it on,
+   2026-11-05.)* Phase 1 builds no switch at all *(owner, 2026-11-05)*: clustering and the People
+   list are global, so "visible to the owner only" needs private people of their own — a later
+   phase. Until then a personal library is never scanned. Faces are the most sensitive data the app derives. When the owner turns it on,
    people found there are visible to the owner only; a face never links a personal photo into a
    family member's People page.
 
@@ -199,8 +201,8 @@ for iOS (Live Photos, iOS background triggers), FolderSync, and one backup over 
   On an existing control-panel tab, with search terms.
 - Profile › **My library**: Turn on, size used, link to open it. Uses `shared/` components only.
 - Member removal keeps the library, marked orphaned (decision 11).
-- **Adopt an existing gallery library as a member's personal library** (admin action, confirmed,
-  with that member's agreement): the Immich migration imports each member's phone history as a
+- **Adopt an existing gallery library as a member's personal library** (admin action, confirmed;
+  the admin's confirmation is enough — open question 8): the Immich migration imports each member's phone history as a
   gallery library, and that history and the phone's future uploads belong in one place. On
   adoption, grants to anyone else are removed — say so in the confirmation. (Open question 8.)
 - Docs: `docs/gallery-library.md` (personal libraries section), a user guide section.
@@ -208,6 +210,37 @@ for iOS (Live Photos, iOS background triggers), FolderSync, and one backup over 
 **Done when:** a member turns it on, uploads, sees their photos; another member and an admin see
 nothing of it in any view or API; the admin sees name and size; removing the member leaves it
 orphaned and intact.
+
+**As built (2026-11-05).** Details in [gallery-library.md › Personal libraries](gallery-library.md#personal-libraries).
+
+- Migration 87: `libraries.personal_user_id`, `personal_orphaned_at`, `personal_adopted_at`; one
+  live personal library per member (unique partial index on non-orphaned rows). Orphaning is its own
+  column because a deleted account re-issued under the same email keeps its user id and must not
+  inherit the library.
+- Access: one override in `gallery/system-library-access.ts` (owner `manager`, everyone else
+  nothing — including an admin *previewing as* the owner, which the plan had not named).
+- Code in `modules/library/gallery/personal/`: `personal-libraries.ts` (which are personal, whose),
+  `route-guard.ts` (one `onRoute` hook over every `/api/library/(libraries|gallery-libraries)/:id`
+  route rather than a check in each), `activity-gate.ts` (a new generic `registerActivityGate` in
+  `db.ts`: entries about a personal library's photos are not written), `settings.ts`,
+  `service.ts`, `routes.ts`.
+- Leaks closed beyond the scopes: person grants and "photos of yourself" (`people-access.ts`),
+  missing photos, video streaming, replaced originals, duplicate cleanup (incl. the Inbox check),
+  statistics, the Recycle Bin (list and "empty all"), the Access dialog, face settings, the
+  activity log, and item shares / guest links made by others (revoked on adoption and orphaning).
+- Face recognition: off, no switch (decision 5 as amended above).
+- Admin UI: **Library › Storage › Personal libraries** (open question 6): settings, the list
+  (whose + size), Make a library personal, Hand over / Delete for orphaned ones. The Libraries page
+  shows someone else's as "Personal — <name>" with size and no actions. Search terms added.
+- Member UI: **Profile › My library** (`/profile/library`): turn on, size against the limit,
+  open in the Gallery, the "one copy, not a backup" line, and a notice when it was adopted.
+- Size limit enforced on gallery uploads (`507`).
+- Tests: `apps/server/test/personal-libraries.test.ts` (another member and an admin through the
+  scopes, map, facets, folders, memories, People, person grants, housekeeping lists, the activity
+  log and the HTTP routes; adopt / orphan / hand over; turning one on).
+- Guides: `docs/users/your-account.md` (My library) and `docs/users/storage.md` (the admin card).
+- Not done here: [immich-migration-plan.md](immich-migration-plan.md) step 2 still describes an
+  ordinary granted library; it should use **Make a library personal** when that plan resumes.
 
 ### Phase 2 — Phone-sync networks and devices (no endpoint yet)
 
@@ -313,15 +346,19 @@ owner's personal library — and nowhere else.
    card** (phase 4).
 5. Should a relative **without an account** be able to back up through a standing drop link into
    an Inbox? Defer until someone asks.
-6. Which existing control-panel tab hosts the personal-library settings (phase 1) — Library ›
-   Libraries, or Settings? Decide in phase 1 by where the storage root is already chosen.
-7. When a personal library is orphaned, may an admin hand it to another member, or only delete
-   it? Decide in phase 1.
-8. Adopting an existing library as personal (phase 1) turns an admin-visible library into one the
-   admin can no longer open. Is the admin's confirmation enough, or must the member accept it
-   from their Profile first? [immich-migration-plan.md](immich-migration-plan.md) step 2 currently
-   creates the second member's phone library as an ordinary granted library; it should become
-   their personal library once phase 1 can do that.
+6. ~~Which existing control-panel tab hosts the personal-library settings?~~ **Library › Storage**
+   *(owner, 2026-11-05)*: a *Personal libraries* card beside the storage containers and the system
+   libraries' folders, which is where storage roots are already chosen.
+7. ~~When a personal library is orphaned, may an admin hand it to another member, or only delete
+   it?~~ **Hand over or delete** *(owner, 2026-11-05)*. An admin may hand an orphaned personal
+   library to another member who has none (it becomes theirs and stays private), or delete it
+   through the normal confirmed delete. The admin never opens it, and it never becomes an ordinary
+   library again.
+8. ~~Is the admin's confirmation enough to adopt a library as personal?~~ **Yes** *(owner,
+   2026-11-05)*: the admin confirms through a `ConfirmDialog` that names the member and says every
+   other grant goes; it takes effect at once, and the member's My library tab says the library was
+   adopted. No pending-offer state. [immich-migration-plan.md](immich-migration-plan.md) step 2
+   should adopt the second member's phone library as their personal library.
 
 ---
 

@@ -78,6 +78,7 @@
       "thumbnailStorage": "Thumbnail storage",
       "systemData": "System data",
       "backupFolder": "Backup folder",
+      "personalLibraries": "Personal libraries",
       "libraryContainers": "Library containers",
       "scanSources": "Scan sources",
       "backSides": "Back sides of scanned prints",
@@ -738,7 +739,10 @@
     "systemBadgeTitle": "A system library the app keeps for itself. It can't be renamed or deleted here.",
     "systemNoteTitle": "A system library",
     "systemNoteBody": "The app made this library and keeps its name. Who can see and change it is still yours to set.",
-    "followOnTasks": "Follow on Tasks"
+    "followOnTasks": "Follow on Tasks",
+    "personalBadge": "Personal — {{name}}",
+    "personalOrphaned": "Personal — {{name}} (member removed)",
+    "personalNote": "Only its owner can open it. Manage it on Library › Storage."
   },
   "libraryMembers": {
     "viewerTagline": "View only",

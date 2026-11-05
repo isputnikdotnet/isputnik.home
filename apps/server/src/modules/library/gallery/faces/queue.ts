@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { FACE_EMBEDDING_MODEL } from "./model-id.js";
 import { isPhotoInboxLibrary } from "../system-libraries.js";
+import { isPersonalLibrary } from "../personal/personal-libraries.js";
 
 export const faceJobType = "SCAN_GALLERY_FACES";
 
@@ -115,6 +116,8 @@ export function enqueueFaceScanBatches(
   // A Photo Inbox is never scanned for faces: they wait until a photo is kept
   // (see inbox-flag.ts). Nothing queued, so nothing runs and nothing is recorded.
   if (isPhotoInboxLibrary(libraryId)) return [];
+  // Nor a personal library (docs/photo-sync-plan.md, decision 5).
+  if (isPersonalLibrary(libraryId)) return [];
   const batchSize = opts.batchSize ?? SCAN_BATCH_SIZE;
   const batches = Math.max(1, Math.ceil(unscannedPhotoCount(libraryId) / batchSize));
   const groupId = nanoid(10);

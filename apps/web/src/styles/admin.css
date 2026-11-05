@@ -137,6 +137,27 @@
   color: var(--muted);
 }
 
+/* Library › Storage › Personal libraries: the settings form, and the members and
+   groups who may have one, when the admin chose them. */
+.personal-libraries-form {
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.personal-libraries-form > * {
+  min-width: 0;
+}
+
+.personal-libraries-subjects {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .storage-path-cell {
   max-width: 420px;
   overflow: hidden;

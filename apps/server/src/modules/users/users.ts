@@ -18,6 +18,7 @@ import {
   MIN_WINDOW_MINUTES
 } from "../../core/device-link.js";
 import { alertNewAdmin, alertMfaDisabled, alertPasswordChanged } from "../../core/security-alerts.js";
+import { orphanPersonalLibraryOf } from "../library/gallery/personal/service.js";
 import type { UserRow } from "../../db/rows.js";
 
 const roleSchema = z.object({
@@ -412,6 +413,10 @@ export async function usersPlugin(app: FastifyInstance) {
       // Failed sign-ins are keyed on the email, so they outlive the account and would
       // meet whoever is given that address next.
       clearAccountLockout(user.email);
+      // Their personal library is kept, belonging to nobody (docs/photo-sync-plan.md,
+      // decision 11). An account re-issued under this email keeps the user id, so the
+      // library is marked orphaned rather than left pointing at it.
+      orphanPersonalLibraryOf(id, request.user!.id, request.ip);
     })();
 
     logActivity({

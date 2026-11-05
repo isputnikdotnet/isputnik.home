@@ -376,6 +376,7 @@
     "tabs": {
       "account": "Account",
       "security": "Security",
+      "library": "My library",
       "shares": "Shared links",
       "appearance": "Appearance",
       "readerAccess": "Reader access",
@@ -417,6 +418,35 @@
     "install": {
       "title": "Install the mobile app",
       "subtitle": "Add iSputnik to your phone's home screen to listen offline and download books for the road."
+    },
+    "myLibrary": {
+      "heading": "My library",
+      "intro": "A private photo library of your own. Only you can open it — not other members, and not the administrators. Nothing in it shows anywhere else unless you move or share it.",
+      "loadFailed": "Unable to load your library.",
+      "errorTitle": "Unable to turn on your library",
+      "turnOnFailed": "Unable to turn on your library.",
+      "defaultName": "{{name}}'s library",
+      "turnOnIntro": "Turn it on to get a library only you can see. You can upload to it by hand now; backing up your phone to it comes later.",
+      "limitNote": "It can hold up to {{limit}}.",
+      "turnOn": "Turn on my library",
+      "turningOn": "Turning on…",
+      "nameLabel": "Library",
+      "sizeLabel": "Size",
+      "sizeOfLimit": "{{used}} of {{limit}}",
+      "items_one": "{{count}} file",
+      "items_other": "{{count}} files",
+      "fullTitle": "Your library is full",
+      "fullBody": "It has reached the size limit your administrator set. Nothing more can be added until you move or delete something.",
+      "notBackup": "This is one copy of your photos, not a backup: keep another copy somewhere else.",
+      "open": "Open my library",
+      "adoptedTitle": "This library was made yours",
+      "adoptedBody": "An administrator made \"{{name}}\" your personal library on {{date}}. Only you can open it now.",
+      "unavailableTitle": "Personal libraries are not available",
+      "unavailable": {
+        "off": "Your administrator has not turned on personal libraries.",
+        "not_allowed": "Your administrator has not made a personal library available to you.",
+        "no_folder": "Your administrator has not chosen where personal libraries are kept yet."
+      }
     }
   },
   "languageNames": {

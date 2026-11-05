@@ -379,6 +379,54 @@ Two earlier pages, Duplicate photos and Duplicate folders, were views of one
 install-wide scan rebuilt on every visit; they were retired in 3.0.0 once the
 cleanup could answer everything they could. Full detail:
 [`duplicate-detection.md`](duplicate-detection.md).
+## Personal libraries
+
+Photo Sync phase 1 ([photo-sync-plan.md](photo-sync-plan.md), decisions 3–5 and 11). A
+**personal library** is an ordinary gallery library marked as one member's, so every gallery
+feature works in it on day one; only access changes.
+
+- **Marker:** `libraries.personal_user_id` (migration 87), with `personal_orphaned_at` and
+  `personal_adopted_at`. A unique partial index allows one *live* (not orphaned) personal library
+  per member. Not `libraries.role`, which is CHECK-limited to the two system libraries.
+- **Access:** the library override in `gallery/system-library-access.ts` answers for it: the owner
+  is `manager`; everyone else — other members, admins, and an admin *previewing as* the owner —
+  gets `null`. Orphaned: nobody. Old grants on the row are ignored and are deleted when a library
+  becomes personal. Every scope, stream, viewer and upload check goes through this override, so
+  the scope resolvers in `catalog-scope.ts` need no rule of their own.
+- **Never shared by person:** `people-access.ts` treats personal libraries like the system
+  libraries — no person grant or "photos of yourself" link ever reaches a photo in one.
+- **No faces (phase 1):** `faces/settings.ts` reports recognition off for a personal library
+  whatever a setting row says, and `faces/queue.ts` never queues one. Private people (seen by the
+  owner only) are a later phase; until then nothing in one is scanned.
+- **Admin pages:** someone else's personal library appears on admin lists only as "Personal —
+  <name>" with its size (`redactedPersonalLibrary` in `shared/library-serializer.ts`). Missing
+  photos, video streaming, replaced originals, duplicate cleanup, statistics, the Recycle Bin and
+  the Access dialog all leave other members' personal libraries out
+  (`personal/personal-libraries.ts` → `personalLibrariesHiddenFrom*`).
+- **Library-id routes:** `personal/route-guard.ts` adds one `onRoute` hook (first thing in
+  `libraryPlugin`) to every `/api/library/(libraries|gallery-libraries)/:id…` route. Someone
+  else's personal library answers 404 — except deleting an *orphaned* one, which an admin may. The
+  owner cannot give access (members writes, take-ownership: 409; an edit is forced private), and a
+  folder move may not land in someone else's personal library.
+- **Activity log:** `personal/activity-gate.ts` registers a gate with `db.ts` so entries about a
+  personal library's photos (uploads, views, edits, rescans) are not written at all; only its own
+  life (`library.personal.*`, and deletion) is logged.
+- **Settings** (`personal/settings.ts`, one `app_settings` row `personal_libraries`): allowed
+  (off by default), everyone or chosen members/groups, a storage container plus a folder inside it,
+  an optional size limit per member. Edited on **Library › Storage › Personal libraries**.
+- **Turning one on** (`POST /api/profile/personal-library`): creates `<container>/<folder>/<display
+  name>` and a private gallery library named "<Name>'s library", marks it, queues a scan.
+- **Size limit:** the gallery upload route refuses with `507` when a personal library is at its
+  limit, or when the batch would pass it.
+- **Adopt** (`POST /api/storage/personal-libraries/adopt`): an admin makes an existing gallery
+  library a member's personal library; takes effect at once (open question 8). Every grant goes,
+  item shares and guest links made by anyone else are revoked, the face setting is cleared. The
+  Immich migration uses this for a member's imported phone history.
+- **Member removed:** `DELETE /api/users/:id` orphans their personal library and revokes its item
+  shares; nothing is deleted. An admin may **hand it over** to a member with none
+  (`POST /api/storage/personal-libraries/:id/hand-over`) or delete it through the normal library
+  delete. It never becomes an ordinary library again.
+
 ## Not yet (future phases)
 
 - **Best-of-burst picker** — the one thing duplicate detection deliberately does *not*

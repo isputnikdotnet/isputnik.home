@@ -250,6 +250,33 @@ uploaded music or kept maps without one has it on, in system data, with each of
 those left where it was and offering **Move in**. An install that used none of
 them has it off.
 
+## Personal libraries
+
+A **personal library** is a private photo library that belongs to one member. Only that member
+can open it — administrators included. The card at the bottom of **Library › Storage** decides:
+
+| Setting | What it does |
+|---|---|
+| **Members may have a personal library** | Off by default. While off, nobody can turn one on |
+| **Storage container** and **Folder inside it** | Where new personal libraries are made: one folder per member, named after them. The folder may not sit inside another library |
+| **Who may have one** | Every member, or only the members and groups you tick |
+| **Size limit per member (GB)** | Optional. Uploads that would pass it are refused |
+
+Members turn their own library on from **Profile › My library**.
+
+Below the settings is the list of personal libraries on the server — whose each one is and how
+much it holds. You never see what is in one; on the **Libraries** page it shows as "Personal —
+<name>" with its size and no actions.
+
+**Make a library personal** turns an existing gallery library into a member's personal library —
+for example, the photos imported from their phone. You confirm it, and it takes effect at once:
+every other grant to it is removed, yours too, and photos in it shared by anyone else stop being
+shared. The files stay where they are.
+
+**When a member is removed**, their personal library is kept and marked *member removed*. You can
+**Hand over** it to another member who has no personal library (it becomes theirs, still
+private), or **Delete** it — the library leaves the app; the files on disk stay.
+
 ## How to organise the folder underneath
 
 One container with a folder per library and App storage beside them is the

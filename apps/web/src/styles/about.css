@@ -1641,6 +1641,24 @@
   display: flex;
 }
 
+/* Profile › My library: the library's name and size as two label/value rows. */
+.my-library-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.my-library-facts dt {
+  color: var(--muted);
+}
+
+.my-library-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Comfortably fit the long catalog URL / QR inside the card modal. The doubled
    class beats the bare `.confirm-modal` width (same specificity, later file). */
 .confirm-modal.opds-token-modal {

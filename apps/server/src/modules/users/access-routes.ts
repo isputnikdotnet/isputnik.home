@@ -109,7 +109,7 @@ export async function accessRoutesPlugin(app: FastifyInstance) {
 
     // Every library (D20), system ones aside — the Inbox is its own row below and
     // App files follows what owns each file.
-    const libraries = (db.prepare("SELECT id, name, type FROM libraries WHERE role IS NULL ORDER BY type, name COLLATE NOCASE").all() as { id: string; name: string; type: string }[])
+    const libraries = (db.prepare("SELECT id, name, type FROM libraries WHERE role IS NULL AND personal_user_id IS NULL ORDER BY type, name COLLATE NOCASE").all() as { id: string; name: string; type: string }[])
       .map((library) => ({ ...library, ...grantView("library", library.id, subject, groups, user) }));
 
     const branches = listFamilyTags()

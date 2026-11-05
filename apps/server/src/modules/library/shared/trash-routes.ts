@@ -8,6 +8,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { can, parsePolicy, type AuthUser } from "../../../core/permissions.js";
 import { getLibraryForBook } from "./library-access.js";
+import { isPersonalLibrary, personalLibrariesHiddenFrom } from "../gallery/personal/personal-libraries.js";
 import { trashBook, restoreTrashedItem, scanForRestored, purgeTrashedItem } from "./trash.js";
 import { emptyTrash } from "./trash-retention.js";
 import {
@@ -27,7 +28,9 @@ function isServerAdmin(user: AuthUser): boolean {
 // Manage rights over a trashed item resolve through its (still-existing) library; admins
 // manage everything so orphaned items (library since deleted) can still be cleaned up.
 function canManageTrashItem(user: AuthUser, item: Pick<TrashedItemRow, "library_id">): boolean {
-  if (isServerAdmin(user)) return true;
+  // A personal library's bin is its owner's alone, admins included
+  // (docs/photo-sync-plan.md, decision 3): the library check below answers for it.
+  if (isServerAdmin(user) && !isPersonalLibrary(item.library_id)) return true;
   const lib = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ?").get(item.library_id) as Pick<LibraryRow, "id" | "policy_json"> | undefined;
   if (!lib) return false;
   return can(user, { objectType: "library", objectId: lib.id, policy: parsePolicy(lib.policy_json) }, "manage");
@@ -381,7 +384,8 @@ export function registerTrashRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Only an administrator can empty the entire Recycle Bin." });
     }
 
-    const purged = emptyTrash(libraryId);
+    // Emptying the whole bin leaves other members' personal libraries alone.
+    const purged = emptyTrash(libraryId, libraryId ? undefined : personalLibrariesHiddenFrom(user.id));
     logActivity({
       event: "library.item_purged",
       actorUserId: user.id,

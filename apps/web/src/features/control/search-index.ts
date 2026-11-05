@@ -125,7 +125,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 // that names it — a literal union so the template-literal t() call below
 // type-checks (docs/i18n-plan.md's namespace-key typing pitfall #4).
 type SettingKey =
-  | "logRetention" | "systemData" | "appStorage" | "thumbnailStorage" | "backupFolder" | "libraryContainers" | "scanSources" | "backSides"
+  | "logRetention" | "systemData" | "appStorage" | "thumbnailStorage" | "backupFolder" | "libraryContainers" | "personalLibraries" | "scanSources" | "backSides"
   | "libraryAccessMembers" | "accountLockout" | "ipAutoBlock" | "passwordPolicy"
   | "newSignInAlerts" | "twoFactorSignIn" | "linkingDevices" | "ipReputation"
   | "deletionProtection" | "addTrustedNetwork" | "scheduledBackups" | "containerBackups" | "defaultTheme"
@@ -144,6 +144,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "thumbnailStorage", section: "storage", anchor: "system-data", keywords: "thumbnails cache folder path move own folder system data миниатюры кэш папка путь отдельная папка системные данные" },
   { titleKey: "backupFolder", section: "storage", anchor: "system-data", keywords: "backups backup folder path another disk same disk move резервные копии папка путь другой диск тот же диск перенос" },
   { titleKey: "libraryContainers", section: "storage", anchor: "storage-containers", keywords: "approved allowed root folders mount разрешённые корневые папки" },
+  { titleKey: "personalLibraries", section: "storage", anchor: "personal-libraries", keywords: "personal library private my library own photos phone backup photo sync size limit quota who may adopt orphaned hand over личная библиотека личные фото моя библиотека резервная копия телефона лимит размера кто может передать сироты" },
   { titleKey: "scanSources", section: "libraries", keywords: "folder path watch include exclude extensions папка путь включить исключить расширения" },
   { titleKey: "backSides", section: "libraries", keywords: "back side two-sided print scanned both sides flip epson fastfoto _b _back pattern pairing verso оборот обратная сторона двусторонний отпечаток перевернуть эпсон правило" },
   { titleKey: "libraryAccessMembers", section: "libraries", keywords: "who can see private share group user кто видит приватная поделиться группа доступ" },

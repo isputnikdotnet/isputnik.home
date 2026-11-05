@@ -29,12 +29,13 @@ export function purgeExpiredTrash(): { purged: number; eligible: number } {
 }
 
 // Empty the bin — every item, or just one library's. Returns the count purged.
-export function emptyTrash(libraryId?: string): number {
+export function emptyTrash(libraryId?: string, skipLibraryIds?: ReadonlySet<string>): number {
   const rows = (libraryId
-    ? db.prepare("SELECT id FROM trashed_items WHERE library_id = ?").all(libraryId)
-    : db.prepare("SELECT id FROM trashed_items").all()) as Pick<TrashedItemRow, "id">[];
+    ? db.prepare("SELECT id, library_id FROM trashed_items WHERE library_id = ?").all(libraryId)
+    : db.prepare("SELECT id, library_id FROM trashed_items").all()) as Pick<TrashedItemRow, "id" | "library_id">[];
   let purged = 0;
   for (const row of rows) {
+    if (skipLibraryIds?.has(row.library_id)) continue;
     if (purgeTrashedItem(row.id)) purged += 1;
   }
   return purged;

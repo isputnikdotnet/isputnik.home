@@ -142,7 +142,10 @@ export interface GalleryLibraryOption {
 export function galleryLibraryOptions(): GalleryLibraryOption[] {
   const rows = db.prepare(`
     SELECT id, name, source_path, policy_json, role FROM libraries
-    WHERE type = 'gallery' ORDER BY name COLLATE NOCASE
+    -- Never a personal library (docs/photo-sync-plan.md, decision 3): a cleanup is an
+    -- admin's tool, and its results would show the admin what is inside. Nor may an
+    -- Inbox check tell a reviewer that a twin sits in someone's personal library.
+    WHERE type = 'gallery' AND personal_user_id IS NULL ORDER BY name COLLATE NOCASE
   `).all() as Pick<LibraryRow, "id" | "name" | "source_path" | "policy_json" | "role">[];
   return rows.map((row) => ({
     id: row.id,
@@ -183,7 +186,7 @@ export function jobFolderOptions(libraryIds: string[]): JobFolderOption[] {
     FROM gallery_details gd
     JOIN library_items li ON li.id = gd.item_id
     JOIN libraries lib ON lib.id = li.library_id
-    WHERE li.library_id IN (${placeholders}) AND li.deleted_at IS NULL
+    WHERE li.library_id IN (${placeholders}) AND li.deleted_at IS NULL AND lib.personal_user_id IS NULL
   `).all(...libraryIds) as (Pick<LibraryItemRow, "library_id"> & { library_name: LibraryRow["name"] }
     & Pick<LibraryRow, "policy_json"> & Pick<GalleryDetailRow, "relative_path">)[];
 

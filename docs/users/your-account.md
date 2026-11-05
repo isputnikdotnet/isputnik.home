@@ -10,8 +10,8 @@ which is your account settings, and the list of things you've saved.
 
 ## Profile — your account settings
 
-**Profile** opens a page with four tabs: Account, Security, Shared links and
-Appearance. Each has its own address, so you can
+**Profile** opens a page with five tabs: Account, Security, My library, Shared
+links and Appearance. Each has its own address, so you can
 bookmark the one you use and the back button returns you to it rather than
 leaving the page.
 
@@ -89,6 +89,31 @@ theme follows you to your phone.
 **Layout**, below the themes, brings back the classic sidebar on the computer you are
 using, if you would rather have it for now. The classic layout will be retired in a
 later release. Phones have one layout, so they don't show this.
+
+## My library
+
+**Profile › My library** is a private photo library of your own. Only you can open it — not
+the other members of your household, and not the administrators. Its photos don't show up on
+anyone else's Home page, timeline, map, memories or People, and they are never shared through a
+person someone was given access to.
+
+Your administrator decides whether personal libraries are available and to whom. If they are
+not, the tab says why. If they are:
+
+1. Press **Turn on my library**. A library named after you is made, empty.
+2. Press **Open my library** to go to it in the Gallery, and upload photos there as you would
+   in any library.
+3. The tab shows how much it holds, and the size limit if your administrator set one. When it
+   is full, nothing more can be added until you move or delete something.
+
+Photos leave it only when you take them out: move a folder into a family library, add photos to
+an album and share it, or download them. Face recognition does not run in a personal library.
+
+If an administrator made an existing library yours — for example, photos brought over from your
+phone — the tab says so.
+
+> Your personal library is one copy of your photos, not a backup. Keep another copy somewhere
+> else.
 
 ## Reader access
 

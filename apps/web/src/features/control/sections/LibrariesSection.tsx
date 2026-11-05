@@ -66,6 +66,9 @@ interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCount"> {
   /** A video library's folder on the video app, and the language its titles are looked up in. */
   folder?: string;
   defaultLanguage?: string;
+  /** A member's personal library (docs/photo-sync-plan.md): only they can open it.
+   *  Someone else's comes to an admin as whose it is and its size, nothing more. */
+  personal?: { ownerId: string; ownerName: string; orphaned: boolean; orphanedAt: string | null; adoptedAt: string | null } | null;
 }
 
 /** Languages a video library's titles can be described in (TMDB); one it was
@@ -587,6 +590,8 @@ export function LibrariesSection() {
               {visibleLibraries.map((library) => {
                 const TypeIcon = TYPE_ICON[library.type];
                 const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
+                // Someone else's personal library: whose it is and its size, no actions.
+                const othersPersonal = library.personal != null && !library.canManageLibrary;
                 return (
                   <tr key={library.id} id={`library-${library.id}`}>
                     <td>
@@ -596,8 +601,12 @@ export function LibrariesSection() {
                         </span>
                         <div className="library-name-copy">
                           <span className="library-name-line">
-                            <strong>{library.name}</strong>
-                            <Button
+                            <strong>
+                              {othersPersonal
+                                ? t(library.personal!.orphaned ? "control:libraries.personalOrphaned" : "control:libraries.personalBadge", { name: library.personal!.ownerName })
+                                : library.name}
+                            </strong>
+                            {!othersPersonal && <Button
                               variant="icon"
                               compact
                               className="library-info-button"
@@ -606,9 +615,9 @@ export function LibrariesSection() {
                               onClick={() => setInfoLibrary(library)}
                             >
                               <Info size={14} />
-                            </Button>
+                            </Button>}
                           </span>
-                          <small>{libraryOwnerLabel(library)}</small>
+                          <small>{othersPersonal ? t("control:libraries.personalNote") : libraryOwnerLabel(library)}</small>
                         </div>
                       </div>
                     </td>
@@ -633,7 +642,7 @@ export function LibrariesSection() {
                     <td className="col-num datagrid-muted">{formatLibrarySize(library.totalSizeBytes)}</td>
                     <td className="col-actions">
                       <div className="row-actions">
-                        {library.canManageLibrary ? (
+                        {othersPersonal ? null : library.canManageLibrary ? (
                           <>
                             {/* Leading type-specific slot — always reserved so the shared
                                 icons below line up in the same columns across every library
@@ -647,7 +656,7 @@ export function LibrariesSection() {
                               >
                                 <Wand2 size={15} />
                               </Button>
-                            ) : library.type === "gallery" ? (
+                            ) : library.type === "gallery" && !library.personal ? (
                               <Button
                                 variant="icon"
                                 title={t("control:libraries.faceRecognitionTitle")}
@@ -659,14 +668,20 @@ export function LibrariesSection() {
                             ) : (
                               <span className="library-action-spacer" aria-hidden="true" />
                             )}
-                            <Button
-                              variant="icon"
-                              title={t("control:libraries.manageMembersTitle")}
-                              aria-label={t("control:libraries.manageMembersAria", { name: library.name })}
-                              onClick={() => setMembersLibrary(library)}
-                            >
-                              <Users size={15} />
-                            </Button>
+                            {/* A personal library has no grants to give, and is never scanned
+                                for faces in phase 1 (docs/photo-sync-plan.md). */}
+                            {library.personal ? (
+                              <span className="library-action-spacer" aria-hidden="true" />
+                            ) : (
+                              <Button
+                                variant="icon"
+                                title={t("control:libraries.manageMembersTitle")}
+                                aria-label={t("control:libraries.manageMembersAria", { name: library.name })}
+                                onClick={() => setMembersLibrary(library)}
+                              >
+                                <Users size={15} />
+                              </Button>
+                            )}
                             <Button
                               variant="icon"
                               title={t("control:libraries.editTitle")}

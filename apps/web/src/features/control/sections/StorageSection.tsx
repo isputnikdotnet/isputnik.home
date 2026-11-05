@@ -11,6 +11,7 @@ import type { StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { SystemDataPanel } from "./storage/SystemDataPanel";
 import { AppStoragePanel } from "./storage/AppStoragePanel";
+import { PersonalLibrariesPanel } from "./storage/PersonalLibrariesPanel";
 
 // The Storage page — docs/system-data-plan.md.
 //
@@ -164,6 +165,8 @@ export function StorageSection() {
       <SystemDataPanel refreshKey={refreshKey} onChanged={() => setRefreshKey((key) => key + 1)} />
 
       <AppStoragePanel refreshKey={refreshKey} />
+
+      <PersonalLibrariesPanel storageRoots={storageRoots} />
 
       {createStorageRootOpen && (
         <Modal

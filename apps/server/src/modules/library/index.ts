@@ -26,8 +26,11 @@ import { registerQuoteRoutes } from "./quotes.js";
 import { registerQuoteImportRoutes } from "./quotes-import.js";
 import { registerDailyQuoteRoutes } from "./quotes-daily.js";
 import { librarySharesPlugin } from "./shared/shares/index.js";
+import { registerPersonalLibraryRouteGuard } from "./gallery/personal/route-guard.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
+  // First, so it sees every library route registered below (personal/route-guard.ts).
+  registerPersonalLibraryRouteGuard(app);
   // The A–Z strip reads item_metadata.alpha_key, which migration 34 adds empty
   // (the values need JS — SQLite's UPPER is ASCII-only). Fill them before the
   // first browse request rather than on a timer, or the strip comes up blank on

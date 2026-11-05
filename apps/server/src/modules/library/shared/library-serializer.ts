@@ -5,7 +5,8 @@ import type { LibraryCapabilities } from "./library-access.js";
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
 import { serializeLibrarySettingsForAdmin } from "./library-crud.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "./library-settings.js";
-import type { LibraryRow } from "../../../db/rows.js";
+import { db } from "../../../db.js";
+import type { LibraryRow, UserRow } from "../../../db/rows.js";
 
 // A libraries row (the list queries select libraries.*) plus its counts.
 export interface LibraryListRow extends Pick<
@@ -13,10 +14,35 @@ export interface LibraryListRow extends Pick<
   | "id" | "name" | "type" | "source_path" | "settings_json" | "scan_status" | "last_scanned_at"
   | "owner_id" | "owner_type" | "policy_json" | "role" | "created_at" | "updated_at"
 > {
+  // Personal libraries (docs/photo-sync-plan.md); the list queries select libraries.*,
+  // so these are there, but a row built by hand may leave them out.
+  personal_user_id?: LibraryRow["personal_user_id"];
+  personal_orphaned_at?: LibraryRow["personal_orphaned_at"];
+  personal_adopted_at?: LibraryRow["personal_adopted_at"];
   book_count: number;
   // Audiobooks count audio files; ebooks count available documents.
   file_count?: number;
   total_size_bytes?: number | null;
+}
+
+/** Whose personal library this is, or null for an ordinary library. */
+function personalOf(row: LibraryListRow) {
+  if (!row.personal_user_id) return null;
+  const owner = db.prepare("SELECT display_name FROM users WHERE id = ?").get(row.personal_user_id) as Pick<UserRow, "display_name"> | undefined;
+  return {
+    ownerId: row.personal_user_id,
+    ownerName: owner?.display_name ?? "",
+    orphaned: row.personal_orphaned_at != null,
+    orphanedAt: row.personal_orphaned_at ?? null,
+    adoptedAt: row.personal_adopted_at ?? null
+  };
+}
+
+/** Someone else's personal library, as an admin's list shows it: whose it is and its
+ *  size, nothing more (docs/photo-sync-plan.md, decision 3) — no folder, no settings,
+ *  no counts. The caller has already found that the viewer cannot open it. */
+export function redactedPersonalLibrary(row: LibraryListRow, caps: LibraryCapabilities) {
+  return { ...publicLibrary(row, false, caps), bookCount: 0, fileCount: null };
 }
 
 export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
@@ -57,6 +83,7 @@ export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, c
     // leaves them out of its implicit scope, and routes the review page on the Inbox.
     role: row.role ?? null,
     inbox: row.role === "inbox",
+    personal: personalOf(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,

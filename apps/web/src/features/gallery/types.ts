@@ -494,6 +494,9 @@ export interface GalleryLibrary {
   /** A system library (docs/system-data-plan.md): 'inbox' = the Photo Inbox, 'app-files' =
    *  App files. Both are left out of the gallery's implicit scope and labelled in the filter. */
   role: "inbox" | "app-files" | null;
+  /** A member's personal library (docs/photo-sync-plan.md): only they can open it.
+   *  Someone else's comes to an admin as whose it is and its size, nothing more. */
+  personal?: { ownerId: string; ownerName: string; orphaned: boolean; orphanedAt: string | null; adoptedAt: string | null } | null;
   scanStatus: "idle" | "scanning" | "error";
   canWrite: boolean;
   canDelete: boolean;

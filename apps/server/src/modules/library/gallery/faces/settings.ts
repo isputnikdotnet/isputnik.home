@@ -1,5 +1,6 @@
 import { db } from "../../../../db.js";
 import { photoInboxLibraryIds } from "../system-libraries.js";
+import { isPersonalLibrary, personalLibraryIds } from "../personal/personal-libraries.js";
 import type { AppSettingRow } from "../../../../db/rows.js";
 
 // Face recognition is enabled per gallery library (key per library id), so a household
@@ -34,7 +35,12 @@ function writeSetting(key: string, value: string, userId: string): void {
   `).run(key, value, userId);
 }
 
+// A personal library is never scanned (docs/photo-sync-plan.md, decision 5): faces
+// are the most sensitive thing the app derives, and People is shared by the family.
+// Private people, seen by the owner only, are a later phase; until then there is
+// no switch, and a stray setting row is ignored.
 export function faceRecognitionEnabledForLibrary(libraryId: string): boolean {
+  if (isPersonalLibrary(libraryId)) return false;
   return readSetting(LIB_PREFIX + libraryId) === "true";
 }
 
@@ -46,7 +52,7 @@ export function setFaceRecognitionEnabledForLibrary(libraryId: string, enabled: 
 // them, whatever its setting says: faces wait until a photo is kept, so a box of
 // someone else's prints cannot seed People before anyone decided it stays.
 export function enabledFaceLibraryIds(): string[] {
-  const inboxes = photoInboxLibraryIds();
+  const inboxes = new Set([...photoInboxLibraryIds(), ...personalLibraryIds()]);
   return (db.prepare("SELECT key FROM app_settings WHERE key LIKE ? AND value = 'true'").all(`${LIB_PREFIX}%`) as Pick<AppSettingRow, "key">[])
     .map((r) => r.key.slice(LIB_PREFIX.length))
     .filter((id) => !inboxes.has(id));
