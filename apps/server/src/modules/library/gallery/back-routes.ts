@@ -14,7 +14,7 @@ import { canUserAccessBook, canUserWriteLibrary, getLibraryForBook } from "../sh
 import { resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { normalizeLibrarySettings, normalizeBackSides, uploadAcceptExtensions } from "../shared/library-settings.js";
-import { pipeFileToReply } from "../shared/document-stream.js";
+import { clientHasCurrentCopy, fileValidators, pipeFileToReply } from "../shared/document-stream.js";
 import { receiveUpload, UploadError } from "../../uploads/index.js";
 import { getGalleryAsset } from "./catalog-asset.js";
 import { placeLanguage } from "./places.js";
@@ -57,12 +57,19 @@ export async function galleryBackSideRoutesPlugin(app: FastifyInstance) {
     if (!file) { reply.code(404).send({ error: "This photo has no back side." }); return; }
     const wantsDownload = typeof (request.query as { download?: string }).download === "string";
     const stat = fs.statSync(file.path);
+    // Turning the back rewrites its file, which moves the ETag.
+    const validators = fileValidators(stat);
+    if (clientHasCurrentCopy(request, stat)) {
+      reply.code(304).headers({ ...validators, "Cache-Control": "private, no-cache" }).send();
+      return;
+    }
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": file.mime,
       "Content-Length": stat.size,
       "Content-Disposition": `${wantsDownload ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
-      "Cache-Control": "private, no-cache"
+      "Cache-Control": "private, no-cache",
+      ...validators
     });
     pipeFileToReply(reply, file.path);
   });

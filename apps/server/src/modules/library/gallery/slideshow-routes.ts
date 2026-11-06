@@ -40,7 +40,7 @@ import {
   foreignItemAt
 } from "./slideshow-movie-files.js";
 import { presentRenderItems, slideshowTitleCardPreview, slideshowClosingCardPreview } from "./slideshow-segments.js";
-import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
+import { negotiateFileRequest, pipeFileToReply } from "../shared/document-stream.js";
 import { sourceIsWritable } from "../shared/library-source.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
 import { canSeeThroughPeople } from "./people-access.js";
@@ -412,18 +412,17 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     try { filePath = thumbnailAbsolutePath(slideshow.output_storage_key); } catch { reply.code(404).send({ error: "No movie available" }); return; }
     if (!fs.existsSync(filePath)) { reply.code(404).send({ error: "No movie available" }); return; }
 
-    const totalSize = fs.statSync(filePath).size;
-    const rangeHeader = request.headers["range"];
-    const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
-    if (rangeHeader && !range) {
-      reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
-      return;
-    }
     const query = parseQuery(movieQuerySchema, request.query);
     if (query.error) {
       reply.code(400).send({ error: "Invalid query", details: query.error });
       return;
     }
+    const stat = fs.statSync(filePath);
+    const totalSize = stat.size;
+    // A re-render swaps a new file into place, so its mtime moves the ETag.
+    const negotiated = negotiateFileRequest(request, reply, stat);
+    if (!negotiated) return;
+    const { range, validators } = negotiated;
     const download = typeof query.data.download === "string";
     if (download && (!range || range.start === 0)) {
       logActivity({
@@ -448,7 +447,8 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         "Content-Length": range.size,
         "Accept-Ranges": "bytes",
         "Content-Disposition": disposition,
-        "Cache-Control": "private, no-cache"
+        "Cache-Control": "private, no-cache",
+        ...validators
       });
       pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
     } else {
@@ -457,7 +457,8 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         "Content-Length": totalSize,
         "Accept-Ranges": "bytes",
         "Content-Disposition": disposition,
-        "Cache-Control": "private, no-cache"
+        "Cache-Control": "private, no-cache",
+        ...validators
       });
       pipeFileToReply(reply, filePath);
     }

@@ -7,7 +7,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseQuery } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
-import { parseRangeHeader, pipeFileToReply, streamDocumentFile } from "../shared/document-stream.js";
+import { negotiateFileRequest, pipeFileToReply, streamDocumentFile } from "../shared/document-stream.js";
 import type { AudioFileRow, ItemMetadataRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 // `download` is a presence flag: any value, even empty, asks for an attachment.
@@ -52,14 +52,9 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const stat = fs.statSync(filePath);
     const totalSize = stat.size;
     const mimeType = row.mime_type ?? "application/octet-stream";
-    const rangeHeader = request.headers["range"];
-
-    const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
-
-    if (rangeHeader && !range) {
-      reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
-      return;
-    }
+    const negotiated = negotiateFileRequest(request, reply, stat);
+    if (!negotiated) return;
+    const { range, validators } = negotiated;
 
     reply.hijack();
     if (range) {
@@ -68,7 +63,8 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`,
         "Content-Length": range.size,
         "Accept-Ranges": "bytes",
-        "Cache-Control": "private, no-cache"
+        "Cache-Control": "private, no-cache",
+        ...validators
       });
       pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
     } else {
@@ -76,7 +72,8 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         "Content-Type": mimeType,
         "Content-Length": totalSize,
         "Accept-Ranges": "bytes",
-        "Cache-Control": "private, no-cache"
+        "Cache-Control": "private, no-cache",
+        ...validators
       });
       pipeFileToReply(reply, filePath);
     }

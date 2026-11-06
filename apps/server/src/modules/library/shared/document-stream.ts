@@ -50,6 +50,90 @@ export function parseRangeHeader(header: string, totalSize: number) {
   return { start, end, size: end - start + 1 };
 }
 
+export type ByteRange = NonNullable<ReturnType<typeof parseRangeHeader>>;
+
+/**
+ * Validators for a file on disk, so a browser can revalidate its cached copy
+ * instead of downloading it again. The file routes send `private, no-cache`,
+ * which already means "ask before reusing" — but without a validator there was
+ * nothing to ask with, so every reopen of a photo, a PDF or a seek back in a
+ * video was a full transfer.
+ *
+ * Size + mtime identify the content well enough for a library that edits by
+ * rewriting files (rotate, replace, remux all bump mtime), and are free: the
+ * routes stat the file anyway. Treated as a strong ETag, since If-Range needs one.
+ */
+export function fileValidators(stat: fs.Stats): { ETag: string; "Last-Modified": string } {
+  return {
+    ETag: `"${stat.size.toString(36)}-${Math.floor(stat.mtimeMs).toString(36)}"`,
+    "Last-Modified": stat.mtime.toUTCString()
+  };
+}
+
+/**
+ * True when the request's If-None-Match (or, failing that, If-Modified-Since)
+ * says the client already holds this exact file. Call it only AFTER the route's
+ * access check: a 304 is still an answer, and a revoked share or a lost library
+ * grant must get its 404 instead.
+ */
+export function clientHasCurrentCopy(request: FastifyRequest, stat: fs.Stats): boolean {
+  const { ETag } = fileValidators(stat);
+  const ifNoneMatch = request.headers["if-none-match"];
+  if (ifNoneMatch) {
+    // Weak comparison is right for If-None-Match (RFC 9110 §13.1.2).
+    return ifNoneMatch.split(",").some((tag) => {
+      const t = tag.trim();
+      return t === "*" || t.replace(/^W\//, "") === ETag;
+    });
+  }
+  const ifModifiedSince = request.headers["if-modified-since"];
+  if (ifModifiedSince) {
+    const since = Date.parse(ifModifiedSince);
+    // HTTP dates have whole seconds; the file's mtime has milliseconds.
+    return !Number.isNaN(since) && Math.floor(stat.mtimeMs / 1000) * 1000 <= since;
+  }
+  return false;
+}
+
+/**
+ * Settle the conditional and range parts of a GET for a file: answers 304 when
+ * the client's copy is current and 416 for an unsatisfiable range (both sent
+ * here — the caller returns on null), otherwise returns the range to serve (null
+ * = whole file) and the validator headers to send with it.
+ *
+ * An If-Range whose validator no longer matches drops the range, so a player
+ * resuming a file that changed underneath it gets the new file whole instead of
+ * a splice of old and new bytes.
+ */
+export function negotiateFileRequest(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  stat: fs.Stats,
+  cacheControl = "private, no-cache"
+): { range: ByteRange | null; validators: ReturnType<typeof fileValidators> } | null {
+  const validators = fileValidators(stat);
+  if (clientHasCurrentCopy(request, stat)) {
+    reply.code(304).headers({ ...validators, "Cache-Control": cacheControl }).send();
+    return null;
+  }
+
+  let rangeHeader = request.headers["range"];
+  const ifRange = request.headers["if-range"];
+  if (rangeHeader && typeof ifRange === "string") {
+    const stillSame = ifRange.startsWith("\"")
+      ? ifRange === validators.ETag // strong comparison, as If-Range requires
+      : Date.parse(ifRange) === Date.parse(validators["Last-Modified"]);
+    if (!stillSame) rangeHeader = undefined;
+  }
+
+  const range = rangeHeader ? parseRangeHeader(rangeHeader, stat.size) : null;
+  if (rangeHeader && !range) {
+    reply.code(416).header("Content-Range", `bytes */${stat.size}`).send({ error: "Range not satisfiable" });
+    return null;
+  }
+  return { range, validators };
+}
+
 type DocumentRow = Pick<DocumentFileRow, "relative_path" | "mime_type" | "status"> &
   Pick<LibraryRow, "source_path"> & {
     id: LibraryRow["id"]; // library id (aliased for canUserAccessBook)
@@ -119,13 +203,9 @@ export function streamDocumentFile(request: FastifyRequest, reply: FastifyReply,
   const fileName = row.relative_path.split("/").pop() ?? "document";
   const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_");
   const disposition = download ? "attachment" : "inline";
-  const rangeHeader = request.headers["range"];
-  const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
-
-  if (rangeHeader && !range) {
-    reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
-    return;
-  }
+  const negotiated = negotiateFileRequest(request, reply, stat);
+  if (!negotiated) return;
+  const { range, validators } = negotiated;
 
   // Audit only real downloads (attachment), and only at the start of the transfer
   // so a ranged client fetching the file in chunks logs once, not per chunk.
@@ -148,7 +228,8 @@ export function streamDocumentFile(request: FastifyRequest, reply: FastifyReply,
     "Content-Type": mimeType,
     "Content-Disposition": `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
     "Accept-Ranges": "bytes",
-    "Cache-Control": "private, no-cache"
+    "Cache-Control": "private, no-cache",
+    ...validators
   };
   if (range) {
     reply.raw.writeHead(206, { ...baseHeaders, "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`, "Content-Length": range.size });

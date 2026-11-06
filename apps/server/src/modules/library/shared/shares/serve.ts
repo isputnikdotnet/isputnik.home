@@ -4,7 +4,7 @@ import path from "node:path";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { renderInTurn, thumbnailAbsolutePath } from "../thumbnail.js";
-import { parseRangeHeader, pipeFileToReply } from "../document-stream.js";
+import { negotiateFileRequest, pipeFileToReply } from "../document-stream.js";
 import { decodePhotoToJpeg } from "../../gallery/media.js";
 
 export const coverMimeByExt: Record<string, string> = {
@@ -41,20 +41,18 @@ export function sendFile(
   const totalSize = stat.size;
   const asciiName = opts.fileName.replace(/[^\x20-\x7E]/g, "_");
   const disposition = opts.download ? "attachment" : "inline";
-  const rangeHeader = request.headers["range"];
-  const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
-
-  if (rangeHeader && !range) {
-    reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
-    return;
-  }
+  // The caller has checked the token by now, so a revoked link still gets its 404.
+  const negotiated = negotiateFileRequest(request, reply, stat);
+  if (!negotiated) return;
+  const { range, validators } = negotiated;
 
   reply.hijack();
   const baseHeaders = {
     "Content-Type": opts.mimeType,
     "Content-Disposition": `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(opts.fileName)}`,
     "Accept-Ranges": "bytes",
-    "Cache-Control": "private, no-cache"
+    "Cache-Control": "private, no-cache",
+    ...validators
   };
   if (range) {
     reply.raw.writeHead(206, { ...baseHeaders, "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`, "Content-Length": range.size });

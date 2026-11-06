@@ -10,7 +10,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseQuery } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook } from "../shared/library-access.js";
-import { parseRangeHeader, pipeFileToReply } from "../shared/document-stream.js";
+import { negotiateFileRequest, pipeFileToReply } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import type { GalleryDetailRow, ItemMetadataRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
@@ -99,13 +99,10 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
 
     const stat = fs.statSync(filePath);
     const totalSize = stat.size;
-    const rangeHeader = request.headers["range"];
-    const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
-
-    if (rangeHeader && !range) {
-      reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
-      return;
-    }
+    // 304 / If-Range / 416 — after the access check, before the download audit.
+    const negotiated = negotiateFileRequest(request, reply, stat);
+    if (!negotiated) return;
+    const { range, validators } = negotiated;
 
     // This endpoint also serves inline views/playback, so only audit an explicit
     // download (client appends ?download=1) — and only at the start of the transfer
@@ -138,7 +135,8 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
         "Content-Length": range.size,
         "Accept-Ranges": "bytes",
         "Content-Disposition": disposition,
-        "Cache-Control": "private, no-cache"
+        "Cache-Control": "private, no-cache",
+        ...validators
       });
       pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
     } else {
@@ -147,7 +145,8 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
         "Content-Length": totalSize,
         "Accept-Ranges": "bytes",
         "Content-Disposition": disposition,
-        "Cache-Control": "private, no-cache"
+        "Cache-Control": "private, no-cache",
+        ...validators
       });
       pipeFileToReply(reply, filePath);
     }
