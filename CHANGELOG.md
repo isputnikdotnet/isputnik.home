@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.72.0 — Help handbook
+
+- **Help is now a handbook.** The Help page opens with the newest guide worth setting up, then the **common questions** as short answer cards, then every guide on shelves grouped like the app: Photos, Books, Family, You & sign-in, On the TV and, for administrators, Running the server. The page sits in the middle of the window like Home.
+- **A guide starts with how the thing works.** Guides open with a diagram drawn in your theme's colours, then cards such as **Who sees what** and **What happens when…**, before the numbered steps. All the guides are listed on the left and **On this page** on the right follows you down. Parts meant only for administrators are hidden from members and from their search; an administrator can narrow a guide to **Using it** or **Setting it up**.
+- **Phone backup has three guides.** *Backing up your phone* for members, *Linking a phone to a library* for photos already on the server, and *Setting up phone backups* for administrators, with new screenshots and three new common questions: who can see your phone's photos, what deleting on the phone does, and backing up away from home.
+
 ## 4.71.1 — Phone sync table fits
 
 - **The Phones table on Security › Phone sync fits its card again.** A phone refused from an unlisted network stretched the table past the edge, cutting off **See in Logs** and squeezing its state into a narrow column a word per line. The state now wraps as a short paragraph, **Add** for the range sits above **See in Logs**, and the table scrolls sideways inside its card only on a narrow window.
