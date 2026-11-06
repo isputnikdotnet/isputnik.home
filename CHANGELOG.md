@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.71.1 — Phone sync table fits
+
+- **The Phones table on Security › Phone sync fits its card again.** A phone refused from an unlisted network stretched the table past the edge, cutting off **See in Logs** and squeezing its state into a narrow column a word per line. The state now wraps as a short paragraph, **Add** for the range sits above **See in Logs**, and the table scrolls sideways inside its card only on a narrow window.
+
 ## 4.71.0 — Phone backup
 
 - **Back up your phone's photos to the server.** Each member can now have a **personal library** of their own — only they can open it, admins see its size and never its contents. Turn it on under **Profile › My library**, add a phone there, and point the free **PhotoSync** app at the server: photos and videos arrive on their own whenever the phone is on the home Wi-Fi (or a VPN into the house), filed by date under the phone's name. Nothing is ever stored twice, a photo you delete at home is not sent again, and the phone never deletes anything on the server. The new guide *Backing up your phone* walks through Android and iPhone.

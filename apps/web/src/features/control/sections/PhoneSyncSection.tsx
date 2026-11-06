@@ -169,8 +169,8 @@ export function PhoneSyncSection() {
               <tbody>
                 {phones.map((phone) => (
                   <tr key={phone.id}>
-                    <td><a href={memberHref(phone.member.id)} onClick={(event) => followRoute(event, memberHref(phone.member.id))}>{phone.member.name}</a></td>
-                    <td>
+                    <td className="phone-sync-member"><a href={memberHref(phone.member.id)} onClick={(event) => followRoute(event, memberHref(phone.member.id))}>{phone.member.name}</a></td>
+                    <td className="phone-sync-phone">
                       {phoneName(phone)}
                       {phone.links.map((link) => (
                         <div key={link.libraryId} className={link.counts ? "datagrid-muted" : "member-phones-problem"}>
@@ -178,7 +178,7 @@ export function PhoneSyncSection() {
                         </div>
                       ))}
                     </td>
-                    <td className="datagrid-muted">
+                    <td className="datagrid-muted phone-sync-contact">
                       {phone.lastSeen ? formatManagedDate(phone.lastSeen) : t("controlAdmin:phoneSyncPage.never")}
                     </td>
                     <td className="datagrid-muted">
@@ -190,32 +190,34 @@ export function PhoneSyncSection() {
                         </>
                       ) : "—"}
                     </td>
-                    <td>
+                    <td className="phone-sync-state">
                       {states(phone).map((state) => (
                         <div key={state.text} className={state.warn ? "member-phones-problem" : "datagrid-muted"}>{state.text}</div>
                       ))}
                     </td>
                     <td className="col-actions phone-sync-actions">
-                      {phone.suggestedRange && (
-                        <Button
-                          variant="secondary"
-                          title={t("controlAdmin:phoneSyncPage.addRangeTitle", { range: phone.suggestedRange })}
-                          disabled={adding !== null}
-                          onClick={() => void addRange(phone)}
+                      <div className="phone-sync-actions-stack">
+                        {phone.suggestedRange && (
+                          <Button
+                            variant="secondary"
+                            title={t("controlAdmin:phoneSyncPage.addRangeTitle", { range: phone.suggestedRange })}
+                            disabled={adding !== null}
+                            onClick={() => void addRange(phone)}
+                          >
+                            <Plus size={15} aria-hidden="true" />
+                            {adding === phone.id
+                              ? t("controlAdmin:phoneSyncPage.addingRange")
+                              : t("controlAdmin:phoneSyncPage.addRange", { range: phone.suggestedRange })}
+                          </Button>
+                        )}
+                        <a
+                          href={logsHref({ event: "photo_sync", q: phoneName(phone) })}
+                          onClick={(event) => followRoute(event, logsHref({ event: "photo_sync", q: phoneName(phone) }))}
+                          aria-label={t("controlAdmin:phoneSyncPage.seeInLogsAria", { phone: phoneName(phone) })}
                         >
-                          <Plus size={15} aria-hidden="true" />
-                          {adding === phone.id
-                            ? t("controlAdmin:phoneSyncPage.addingRange")
-                            : t("controlAdmin:phoneSyncPage.addRange", { range: phone.suggestedRange })}
-                        </Button>
-                      )}
-                      <a
-                        href={logsHref({ event: "photo_sync", q: phoneName(phone) })}
-                        onClick={(event) => followRoute(event, logsHref({ event: "photo_sync", q: phoneName(phone) }))}
-                        aria-label={t("controlAdmin:phoneSyncPage.seeInLogsAria", { phone: phoneName(phone) })}
-                      >
-                        {t("controlAdmin:phoneSyncPage.seeInLogs")}
-                      </a>
+                          {t("controlAdmin:phoneSyncPage.seeInLogs")}
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}

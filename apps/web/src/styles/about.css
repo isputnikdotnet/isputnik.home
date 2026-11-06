@@ -1328,6 +1328,43 @@
   grid-template-columns: minmax(0, 420px);
 }
 
+/* Security › Phone sync › Phones: six columns that must fit the card at desktop
+   widths. The muted facts (the libraries a phone skips, the network it came
+   from, an earlier problem) wrap; the State column keeps a readable floor so a
+   refusal reads as a paragraph, not a narrow stack; and the actions stack (Add
+   range over See in Logs) so they cost one button's width. Only a truly narrow
+   window scrolls the table inside its wrap. */
+.phone-sync-phones td {
+  vertical-align: top;
+}
+
+.phone-sync-phones .datagrid-muted {
+  white-space: normal;
+}
+
+.phone-sync-phones code {
+  white-space: nowrap;
+}
+
+.phone-sync-phones .phone-sync-phone {
+  min-width: 7em;
+}
+
+.phone-sync-phones .phone-sync-state {
+  min-width: 12em;
+}
+
+.phone-sync-phones td.phone-sync-actions {
+  width: 1%;
+}
+
+.phone-sync-actions-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .security-network-head {
   display: grid;
   gap: 12px;
