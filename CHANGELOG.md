@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.71.0 — Phone backup
+
+- **Back up your phone's photos to the server.** Each member can now have a **personal library** of their own — only they can open it, admins see its size and never its contents. Turn it on under **Profile › My library**, add a phone there, and point the free **PhotoSync** app at the server: photos and videos arrive on their own whenever the phone is on the home Wi-Fi (or a VPN into the house), filed by date under the phone's name. Nothing is ever stored twice, a photo you delete at home is not sent again, and the phone never deletes anything on the server. The new guide *Backing up your phone* walks through Android and iPhone.
+- **For the administrator, nothing happens until you set it up**: allow personal libraries (where, for whom, any size limit) under **Library › Storage**, and list the networks phones may back up from on the new **Security › Phone sync** tab — kept apart from Trusted networks, so a VPN range for phones relaxes nothing about signing in. The same tab lists every member's phones with their last contact and anything wrong (refused from an unlisted address — with a one-click **Add** for its range — no contact for a week, a library nearly full), and **Overview › Logs** keeps the history.
+- **Photos already on the server aren't sent again.** If a phone's photos were backed up some other way into a shared photo library (Immich, say), tick that phone on the library's new **Edit › Phone backups** tab before switching PhotoSync on: photos already there are counted as backed up and only new ones go to the personal library.
+- **Live Photos are one photo.** In every photo library, a still and its short `.mov` with the same name become one item with a *LIVE* mark; press **LIVE**, hold the photo on a phone or hover it with the mouse to play the motion. iPhone clips are converted so every browser plays them.
+- **Photos and videos are no longer downloaded again when they haven't changed.** The browser now asks the server whether its copy is still current and reuses it, so galleries and videos you've opened before load faster and use less data.
+- Needs no manual step: the database is upgraded on start (personal libraries, phones and Live Photo columns).
+
 ## 4.70.0 — Stories and Tags in the top bar
 
 - **Stories and Tags have their own places in the top bar**: Home · Media · Family · Stories · Tags. Stories used to hide inside Family, and Tags in the menu under your name. **Family** is now the family tree alone, its tabs starting at Chart.
