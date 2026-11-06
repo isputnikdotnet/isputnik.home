@@ -29,6 +29,8 @@ interface OverviewPhone {
   atLimit: boolean;
   /** Refused from an address on no list: the /24 to offer as the fix. */
   suggestedRange: string | null;
+  /** Phase 6: the libraries whose photos it doesn't send again (set on each library's Phone backups tab). */
+  links: Array<{ libraryId: string; name: string; counts: boolean }>;
 }
 
 const daysSince = (iso: string) => Math.max(1, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
@@ -168,7 +170,14 @@ export function PhoneSyncSection() {
                 {phones.map((phone) => (
                   <tr key={phone.id}>
                     <td><a href={memberHref(phone.member.id)} onClick={(event) => followRoute(event, memberHref(phone.member.id))}>{phone.member.name}</a></td>
-                    <td>{phoneName(phone)}</td>
+                    <td>
+                      {phoneName(phone)}
+                      {phone.links.map((link) => (
+                        <div key={link.libraryId} className={link.counts ? "datagrid-muted" : "member-phones-problem"}>
+                          {t(link.counts ? "controlAdmin:phoneSyncPage.skipsLibrary" : "controlAdmin:phoneSyncPage.skipsLibraryNoAccess", { library: link.name })}
+                        </div>
+                      ))}
+                    </td>
                     <td className="datagrid-muted">
                       {phone.lastSeen ? formatManagedDate(phone.lastSeen) : t("controlAdmin:phoneSyncPage.never")}
                     </td>

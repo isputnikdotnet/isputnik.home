@@ -6,7 +6,8 @@ PhotoSync for Android; **phase 1 (personal libraries) built 2026-11-05, not yet 
 built 2026-11-05 and live-checked with PhotoSync for Android, not yet released**; **phase 4
 (status, admin view and guide) built 2026-11-05, not yet released**; **phase 5 (hardening and
 other clients) built 2026-11-06, not yet released** — a second Android phone and a VPN run live,
-FolderSync **not run** (not needed now — owner) and the iPhone **not run** (no iPhone); see *Spike results*. Each phase below is carried out in its own
+FolderSync **not run** (not needed now — owner) and the iPhone **not run** (no iPhone); see *Spike results*;
+**phase 6 (phones linked to libraries their photos are already in) built 2026-11-06, not yet released**. Each phase below is carried out in its own
 session, in order, and ends in something shippable. Written from the "iSputnik Home – Photo
 Sync" brief. Companion to [gallery-library.md](gallery-library.md),
 [photo-inbox-proposal.md](photo-inbox-proposal.md), [uploads.md](uploads.md), [auth.md](auth.md),
@@ -550,6 +551,49 @@ owner's personal library — and nowhere else.
 - Docs: `docs/users/phone-backup.md` (Live Photos, VPN, the new warnings, the admin's tab and
   Logs), `library-gallery.md` (Live Photos), `control-panel.md` (Phone sync tab),
   `your-account.md`, `docs/database.md`.
+
+### Phase 6 — Photos already on the server
+
+Added 2026-11-06 for the owner's own switch-over: a phone whose 3,000+ photos already sit in a
+Family-owned gallery library ("Current Phone", Immich's `library/admin` folder read as an
+ordinary library) must not send them all again into the personal library. Immich is to be
+stopped and removed once PhotoSync is on; its folder stays, and Current Phone becomes the
+frozen history.
+
+**Agreed with the owner.** Linking is **per phone and per library, set by an admin from the
+library's settings** (owner: "librisye linking need to be setup per devices (user device) and
+liblary, I think it should be done by administrator from liblary control panel") — not a member setting, and not
+"check every library the member can open", which was proposed first.
+
+**As built.**
+
+- `photo_sync_library_links (device_id, library_id, created_by, created_at)`, cascading with
+  the phone's token and the library (schema.sql only — a new table). `sync/links.ts`.
+- **The check** (`put.ts` `sameContentAnywhere`): the personal library first, then each linked
+  library, by the phase 3 rule — something a phone already sent, else same-size items hashed
+  (and the digest kept as the duplicate scan keeps it). Found → `201`, recorded against that
+  item, nothing stored. New in every library checked: a **Live Photo's clip** matches its
+  still's item (`gallery_details.motion_*`), since the clip is no item of its own.
+- **Who can be linked**: a link is made only for a live phone whose owner can open the library,
+  and **counts only while they can** (`linkedTargetsOf` re-checks per upload); one that stops
+  counting is kept and shown as such, and counts again if access returns. Linkable: gallery
+  libraries that are neither personal nor a system library (Inbox, App files).
+- **Deletion**: the record stays when the matched item is deleted, so the phone neither re-sends
+  nor restores it (`204`) — phase 3's rule, now for linked libraries too. A photo deleted from the
+  linked library *before* its phone's first backup has no record and is stored in the personal
+  library; the guide says to tidy up after the first run. (A Recycle Bin check was offered and
+  not taken.)
+- **Admin**: **Library › Libraries › Edit › Phone backups** (shared gallery libraries only) —
+  each member's phone who can open it, ticked or not, saved with the dialog's *Save changes*
+  (`GET/PUT /api/photo-sync/libraries/:id/phones`). Security › Phone sync names each phone's
+  links under it; so does the member's page. `photo_sync.linked` / `unlinked` in Overview › Logs.
+- **Member**: the phone's card on Profile › My library says "Photos already in Current Phone
+  aren't stored again" (links that count only).
+- A phone set up again starts unlinked; copying links from a revoked phone was considered and
+  left out — ticking it on the library's tab is the same one step.
+- Tests: `photo-sync-links.test.ts`.
+- Docs: `users/phone-backup.md` (*Photos you already have*, the admin's step 3),
+  `users/libraries.md`, `users/control-panel.md`.
 
 ### Later (only when asked)
 

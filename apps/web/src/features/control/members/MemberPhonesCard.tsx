@@ -17,6 +17,8 @@ interface MemberPhone {
   lastSeen: string | null;
   problem: { code: AdminProblem; detail: string | null; at: string; current?: boolean } | null;
   stale?: boolean;
+  /** Photo Sync phase 6: libraries linked on their Phone backups tab. */
+  links?: Array<{ libraryId: string; name: string; counts: boolean }>;
 }
 
 interface MemberPhonesView {
@@ -123,6 +125,11 @@ export function MemberPhonesCard({ userId, name }: { userId: string; name: strin
                     {phone.problem && (
                       <small className={phone.problem.current === false ? "access-muted" : "member-phones-problem"}>{problemText(phone.problem)}</small>
                     )}
+                    {phone.links?.map((link) => (
+                      <small key={link.libraryId} className={link.counts ? "access-muted" : "member-phones-problem"}>
+                        {t(link.counts ? "controlAdmin:phoneSyncPage.skipsLibrary" : "controlAdmin:phoneSyncPage.skipsLibraryNoAccess", { library: link.name })}
+                      </small>
+                    ))}
                   </span>
                   <Button
                     variant="icon"

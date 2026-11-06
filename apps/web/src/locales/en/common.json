@@ -512,6 +512,7 @@
         "library_unavailable": "Your library's folder is unavailable on the server.",
         "server_error": "The server could not store a file."
       },
+      "links": "Photos already in {{libraries}} aren't stored again.",
       "staleTitle_one": "No contact for {{count}} day",
       "staleTitle_other": "No contact for {{count}} days",
       "staleBody": "This phone was last in touch on {{date}}. Open PhotoSync on it and check that it is on your home Wi-Fi or the VPN, and that its battery settings let it run.",

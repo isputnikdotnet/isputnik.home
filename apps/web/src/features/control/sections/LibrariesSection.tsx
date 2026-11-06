@@ -34,6 +34,7 @@ import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { DEFAULT_BACK_SIDES, type AudiobookLibrary, type PublicRole, type LibraryMode, type ScanSource, type MetadataSourceInfo, type LibraryTypeDefaults, type BackSidesSettings } from "../../audiobooks/types";
 import { BackSidesEditor } from "../libraries/BackSidesEditor";
+import { PhoneBackupsEditor } from "../libraries/PhoneBackupsEditor";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot } from "../types";
 import { Field } from "../../../shared/Field";
 import { LibraryAccessRows } from "../libraries/access-selects";
@@ -142,6 +143,12 @@ function formatLibrarySize(value: number | null | undefined) {
   return value == null ? "—" : formatBytes(value);
 }
 
+/** A shared photo library: phones may be linked to it (Photo Sync phase 6) — never a
+ *  personal library or a system one (Inbox, App files). */
+function phoneLinkable(library: ManagedLibrary): boolean {
+  return library.type === "gallery" && !library.personal && !library.role;
+}
+
 function roleLabel(role: string | null | undefined) {
   const key = role ? ROLE_KEY[role] : undefined;
   return key ? i18n.t(`control:libraries.role.${key}`) : i18n.t("control:libraries.role.none");
@@ -202,7 +209,9 @@ export function LibrariesSection() {
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
-  const [editTab, setEditTab] = useState<"access" | "upload" | "scanning" | "video">("access");
+  const [editTab, setEditTab] = useState<"access" | "upload" | "scanning" | "video" | "phones">("access");
+  // Phase 6 of Photo Sync: the phones that skip photos already here (null until the tab loads them).
+  const [editPhoneLinks, setEditPhoneLinks] = useState<string[] | null>(null);
   const [editVideoFolder, setEditVideoFolder] = useState("");
   const [editVideoLanguage, setEditVideoLanguage] = useState("en");
   const [saving, setSaving] = useState(false);
@@ -292,6 +301,7 @@ export function LibrariesSection() {
     setEditVideoFolder(library.folder ?? "");
     setEditVideoLanguage(library.defaultLanguage ?? "en");
     setEditTab("access");
+    setEditPhoneLinks(null);
     setError("");
   };
 
@@ -345,6 +355,13 @@ export function LibrariesSection() {
           ...(editingLibrary.type === "gallery" ? { backSides: editBackSides } : {})
         })
       });
+      // Only when the Phone backups tab was opened: otherwise nothing there changed.
+      if (editPhoneLinks !== null && phoneLinkable(editingLibrary)) {
+        await api(`/api/photo-sync/libraries/${encodeURIComponent(editingLibrary.id)}/phones`, {
+          method: "PUT",
+          body: JSON.stringify({ deviceIds: editPhoneLinks })
+        });
+      }
       setEditingLibrary(null);
       await loadLibraries();
     } catch (err) {
@@ -903,6 +920,11 @@ export function LibrariesSection() {
                 <Button variant="tab" className="modal-tab" selected={editTab === "scanning"} onClick={() => setEditTab("scanning")}>
                   {t("control:libraries.tabScanning")}
                 </Button>
+                {phoneLinkable(editingLibrary) && (
+                  <Button variant="tab" className="modal-tab" selected={editTab === "phones"} onClick={() => setEditTab("phones")}>
+                    {t("control:libraries.tabPhoneBackups")}
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -998,6 +1020,9 @@ export function LibrariesSection() {
                   />
                 )}
               </>
+            )}
+            {editTab === "phones" && phoneLinkable(editingLibrary) && (
+              <PhoneBackupsEditor libraryId={editingLibrary.id} value={editPhoneLinks} onChange={setEditPhoneLinks} />
             )}
           </form>
 

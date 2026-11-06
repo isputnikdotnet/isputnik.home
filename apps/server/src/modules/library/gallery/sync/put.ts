@@ -7,7 +7,8 @@
 // filed, and only then does the phone hear `201`:
 //
 //   same path, same content already recorded       → 204, nothing written
-//   same content already in this personal library  → recorded against that item, 201
+//   same content already in this personal library,
+//   or in a library the phone is linked to         → recorded against that item, 201
 //   otherwise                                      → <phone>/YYYY/YYYY-MM-DD/<name>, scanned, 201
 //
 // The date that files it is the gallery's own chain — EXIF, then a date in the file
@@ -40,6 +41,7 @@ import { uniqueGalleryFileName } from "../files.js";
 import { MOTION_EXTENSIONS, STILL_EXTENSIONS } from "../live-photos.js";
 import { personalQuota } from "../personal/service.js";
 import { baseNameOf, ensureParents, fileAt, recordFile } from "./namespace.js";
+import { linkedTargetsOf } from "./links.js";
 import type { PhoneIdentity } from "./devices.js";
 import type { PhoneProblem } from "./status.js";
 import type { LibraryRow } from "../../../../db/rows.js";
@@ -222,9 +224,21 @@ function checksumsOf(request: FastifyRequest): Array<{ algorithm: "md5" | "sha1"
   return wanted;
 }
 
-/** The same bytes already in this library: something a phone sent, or an item whose
- *  file has the same size and digest (hashed now if it never was). */
-async function sameContentIn(target: SyncTarget, sha: string, size: number): Promise<string | null> {
+/** The same bytes already in the phone's personal library, or (phase 6) in a library an
+ *  admin linked the phone to (links.ts) — the photos it backed up some other way before. */
+async function sameContentAnywhere(phone: PhoneIdentity, target: SyncTarget, sha: string, size: number): Promise<string | null> {
+  const own = await sameContentIn(target, sha, size);
+  if (own) return own;
+  for (const linked of linkedTargetsOf(phone.deviceId, phone.user)) {
+    const found = await sameContentIn(linked, sha, size);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** The same bytes already in one library: something a phone sent, an item whose file has
+ *  the same size and digest (hashed now if it never was), or a Live Photo's clip. */
+async function sameContentIn(target: Pick<SyncTarget, "libraryId" | "root">, sha: string, size: number): Promise<string | null> {
   const sent = db.prepare(`
     SELECT f.item_id FROM photo_sync_files f
     JOIN library_items li ON li.id = f.item_id
@@ -232,6 +246,19 @@ async function sameContentIn(target: SyncTarget, sha: string, size: number): Pro
     LIMIT 1
   `).get(sha, target.libraryId) as { item_id: string } | undefined;
   if (sent) return sent.item_id;
+
+  // A Live Photo's clip is no item of its own: it rides on its still (live-photos.ts).
+  const clips = db.prepare(`
+    SELECT gd.item_id, gd.motion_relative_path FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id
+    WHERE li.library_id = ? AND li.deleted_at IS NULL AND gd.motion_size = ? AND gd.motion_relative_path IS NOT NULL
+    LIMIT 20
+  `).all(target.libraryId, size) as Array<{ item_id: string; motion_relative_path: string }>;
+  for (const clip of clips) {
+    const abs = path.resolve(target.root, ...clip.motion_relative_path.split("/"));
+    if (!pathIsInside(abs, target.root)) continue;
+    if (await sha256OfFile(abs) === sha) return clip.item_id;
+  }
 
   // Byte-identical files share a size, so only same-size items are read.
   const candidates = db.prepare(`
@@ -346,7 +373,7 @@ export async function receivePut(request: FastifyRequest, phone: PhoneIdentity, 
         });
       };
 
-      const known = await sameContentIn(target, digest, bytes);
+      const known = await sameContentAnywhere(phone, target, digest, bytes);
       if (known) {
         record(known);
         return { status: 201, sha256: digest, result: "known", itemId: known } as const;

@@ -1032,6 +1032,14 @@ export interface PhotoSyncFolderRow {
   created_at: string;
 }
 
+/** `photo_sync_library_links` */
+export interface PhotoSyncLibraryLinkRow {
+  device_id: string;
+  library_id: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 /** `playback_progress` */
 export interface PlaybackProgressRow {
   id: string;
@@ -1635,6 +1643,7 @@ export interface TableRows {
   photo_sync_device_status: PhotoSyncDeviceStatusRow;
   photo_sync_files: PhotoSyncFileRow;
   photo_sync_folders: PhotoSyncFolderRow;
+  photo_sync_library_links: PhotoSyncLibraryLinkRow;
   playback_progress: PlaybackProgressRow;
   quote_imports: QuoteImportRow;
   quotes: QuoteRow;

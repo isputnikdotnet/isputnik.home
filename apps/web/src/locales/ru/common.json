@@ -548,6 +548,7 @@
         "library_unavailable": "Папка вашей библиотеки на сервере недоступна.",
         "server_error": "Сервер не смог сохранить файл."
       },
+      "links": "Фото, которые уже есть в: {{libraries}}, повторно не сохраняются.",
       "staleTitle_one": "Нет связи {{count}} день",
       "staleTitle_few": "Нет связи {{count}} дня",
       "staleTitle_many": "Нет связи {{count}} дней",

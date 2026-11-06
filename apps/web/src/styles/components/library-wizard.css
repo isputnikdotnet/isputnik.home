@@ -826,3 +826,18 @@
   overflow-y: auto;
 }
 
+
+/* Photo Sync phase 6: Edit › Phone backups — the phones that skip photos already here. */
+.phone-backups-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.phone-backups-editor > p {
+  margin: 0;
+}
+
+.phone-backups-list {
+  display: grid;
+  gap: 10px;
+}

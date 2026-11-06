@@ -43,6 +43,8 @@ interface Phone {
   lastSeen: string | null;
   lastIp: string | null;
   status: PhoneStatus | null;
+  /** Libraries an admin linked it to (Photo Sync phase 6): photos already there aren't stored again. */
+  links?: Array<{ libraryId: string; name: string }>;
 }
 
 interface PhonesView {
@@ -273,6 +275,9 @@ export function PhonesSection() {
                 <strong>{nameOf(phone)}</strong>
                 <span className="opds-intro">{t("profile.phones.added", { date: formatDate(phone.createdAt) })}</span>
                 {phone.status && <PhoneStatusLines status={phone.status} createdAt={phone.createdAt} usage={view?.usage ?? null} />}
+                {phone.links && phone.links.length > 0 && (
+                  <span className="opds-intro">{t("profile.phones.links", { libraries: phone.links.map((link) => link.name).join(", ") })}</span>
+                )}
               </div>
               <Button
                 variant="icon"

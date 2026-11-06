@@ -2192,6 +2192,8 @@
     "addRangeFailed": "Unable to add the network",
     "rangeLabel": "Added for {{phone}}",
     "seeInLogs": "See in Logs",
+    "skipsLibrary": "Skips photos already in {{library}}",
+    "skipsLibraryNoAccess": "Linked to {{library}}, which the member can't open: not used",
     "seeInLogsAria": "See {{phone}} in Logs",
     "allInLogs": "All phone sync history in Logs",
     "movedNote": "Phone-sync networks are on <link>Security › Phone sync</link>."

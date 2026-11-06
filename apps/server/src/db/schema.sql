@@ -302,6 +302,19 @@ CREATE TABLE IF NOT EXISTS photo_sync_device_status (
   resolved_at       TEXT
 );
 
+-- Libraries a phone's photos may already be in (docs/photo-sync-plan.md, phase 6): set by an
+-- admin on the library's Phone backups tab. A photo the phone sends that is already in one
+-- of them (same bytes) is recorded against that item and not stored again. A link counts
+-- only while the phone's owner can open the library (sync/links.ts).
+CREATE TABLE IF NOT EXISTS photo_sync_library_links (
+  device_id   TEXT NOT NULL REFERENCES api_tokens(id) ON DELETE CASCADE,
+  library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  created_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (device_id, library_id)
+);
+CREATE INDEX IF NOT EXISTS idx_photo_sync_library_links_library ON photo_sync_library_links(library_id);
+
 -- Networks an account has already signed in from, keyed on the coarse /24 (IPv4)
 -- or /64 (IPv6) so a rotating home or mobile address doesn't look new every time.
 -- Recorded on every sign-in regardless of policy; the optional "new network"

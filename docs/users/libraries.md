@@ -100,7 +100,10 @@ Two ways:
 Each library row has:
 
 - **⟳ Scan** — re-read the folder.
-- **✎ Edit** — name, visibility, formats, upload rules, scan behaviour.
+- **✎ Edit** — name, visibility, formats, upload rules, scan behaviour. A shared
+  photo library also has a **Phone backups** tab: tick members' phones whose photos
+  are already in it, so switching on [phone backup](phone-backup.md#photos-you-already-have)
+  doesn't store them twice.
 - **Layout** (wand) — for book libraries: how folder and file names are read,
   and rules for folders arranged differently. See the audiobook and ebook guides.
 - **Members** — for a private library, who else may see it and what they may do.

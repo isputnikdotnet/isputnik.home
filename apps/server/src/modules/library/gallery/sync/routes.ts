@@ -14,6 +14,7 @@ import {
 import { addPhone, listAllPhones, listPhones, MAX_PHONES, PhoneError, revokePhone, type Phone } from "./devices.js";
 import { phoneStatuses, type PhoneStatus } from "./status.js";
 import { librarySize, personalQuota } from "../personal/service.js";
+import { linkableLibrary, linksOfPhones, phonesForLibrary, PhoneLinkError, setLibraryPhones, type PhoneLink } from "./links.js";
 
 /** Where phones send to (dav.ts serves it). */
 export const DAV_PATH = "/dav/";
@@ -38,9 +39,10 @@ const networkSchema = z.object({
 });
 const addressSchema = z.object({ address: z.string().trim().max(300).nullable() });
 const phoneSchema = z.object({ label: z.string().trim().min(1).max(60) });
+const linksSchema = z.object({ deviceIds: z.array(z.string().min(1).max(64)).max(500) });
 
 function sendError(reply: FastifyReply, err: unknown) {
-  if (err instanceof SyncNetworkError || err instanceof PhoneError) {
+  if (err instanceof SyncNetworkError || err instanceof PhoneError || err instanceof PhoneLinkError) {
     return reply.code(err.statusCode).send({ error: err.message, code: err.code });
   }
   throw err;
@@ -63,6 +65,7 @@ function adminView() {
 function phonesOverview() {
   const phones = listAllPhones();
   const statuses = phoneStatuses(phones, true);
+  const links = linksOfPhones(phones.map((phone) => phone.id));
   const usage = new Map<string, ReturnType<typeof usageOf>>();
   return phones.map((phone) => {
     const status = statuses.get(phone.id);
@@ -83,21 +86,25 @@ function phonesOverview() {
       stale: status?.stale ?? false,
       nearLimit: libraryUsage?.nearLimit ?? false,
       atLimit: libraryUsage?.atLimit ?? false,
+      // Phase 6: the libraries whose photos it doesn't send again.
+      links: links.get(phone.id) ?? [],
       // Only while the address is still on no list (the fix may already be in).
       suggestedRange: refusedFrom && !syncNetworkOf(refusedFrom) ? suggestedRangeOf(refusedFrom) : null
     };
   });
 }
 
-function serializePhone(phone: Phone, status: PhoneStatus | undefined) {
-  return { id: phone.id, label: phone.label, createdAt: phone.created_at, lastSeen: phone.last_seen_at, lastIp: phone.last_ip, status: status ?? null };
+function serializePhone(phone: Phone, status: PhoneStatus | undefined, links: PhoneLink[]) {
+  return { id: phone.id, label: phone.label, createdAt: phone.created_at, lastSeen: phone.last_seen_at, lastIp: phone.last_ip, status: status ?? null, links };
 }
 
 /** The member's own phones, with how each one's backup is going. */
 function ownPhones(userId: string) {
   const phones = listPhones(userId);
   const statuses = phoneStatuses(phones);
-  return phones.map((phone) => serializePhone(phone, statuses.get(phone.id)));
+  // Only links that count: a library the member can't open is not named to them.
+  const links = linksOfPhones(phones.map((phone) => phone.id));
+  return phones.map((phone) => serializePhone(phone, statuses.get(phone.id), (links.get(phone.id) ?? []).filter((link) => link.counts)));
 }
 
 /** A member's page, for an admin: their personal library's size and their phones —
@@ -107,6 +114,7 @@ function memberView(userId: string) {
   const libraryId = personalLibraryIdOf(userId);
   const phones = listPhones(userId);
   const statuses = phoneStatuses(phones, true);
+  const links = linksOfPhones(phones.map((phone) => phone.id));
   return {
     library: libraryId ? { id: libraryId, sizeBytes: librarySize(libraryId).bytes } : null,
     usage: usageOf(libraryId),
@@ -116,7 +124,8 @@ function memberView(userId: string) {
       createdAt: phone.created_at,
       lastSeen: phone.last_seen_at,
       problem: statuses.get(phone.id)?.problem ?? null,
-      stale: statuses.get(phone.id)?.stale ?? false
+      stale: statuses.get(phone.id)?.stale ?? false,
+      links: links.get(phone.id) ?? []
     }))
   };
 }
@@ -218,6 +227,24 @@ export async function photoSyncRoutesPlugin(app: FastifyInstance) {
 
   // ── The admin: Security › Phone sync ──
   app.get("/api/photo-sync/phones", { preHandler: app.requireAdmin }, async () => ({ ...adminView(), phones: phonesOverview() }));
+
+  // ── The admin: a library's Phone backups tab (phase 6) ──
+  app.get("/api/photo-sync/libraries/:id/phones", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    if (!linkableLibrary(id)) return reply.code(404).send({ error: "Phones can be linked only to a shared photo library.", code: "not_linkable" });
+    return { syncOn: isPhoneSyncOn(), phones: phonesForLibrary(id) };
+  });
+
+  app.put("/api/photo-sync/libraries/:id/phones", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const parsed = parseBody(linksSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid phones", details: parsed.error });
+    try {
+      return { syncOn: isPhoneSyncOn(), phones: setLibraryPhones(id, parsed.data.deviceIds, request.user!, request.ip) };
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
 
   // ── The admin: a member's page ──
   app.get("/api/photo-sync/members/:userId", { preHandler: app.requireAdmin }, async (request) =>

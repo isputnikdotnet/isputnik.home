@@ -428,7 +428,9 @@ internet](exposing-to-the-internet.md).
   network each last came from, and its state — backing up, refused, no contact
   for a week, or a library nearly full. A phone refused from an address on no
   list offers **Add** for that address's /24; **See in Logs** opens the phone's
-  history in Overview › Logs (the *photo_sync* event). What a phone sent — files,
+  history in Overview › Logs (the *photo_sync* event). Under each phone are the
+  libraries it is linked to — set on that library's **Edit › Phone backups** tab, so
+  photos already there aren't backed up twice. What a phone sent — files,
   counts, types — stays with its owner.
 - **Blocked IPs** — what's been blocked, and where you unblock it, add a block by
   hand, or make a temporary automatic block permanent (the ∞ button on rows that

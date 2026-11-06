@@ -173,7 +173,7 @@ describe("who sees it", () => {
 
     let view = (await admin.get("/api/photo-sync/members/mia")).json();
     expect(view.library.sizeBytes).toBe(photo.length);
-    expect(view.phones).toEqual([{ id: deviceId, label: "Mia's tablet", createdAt: expect.any(String), lastSeen: expect.any(String), problem: null, stale: false }]);
+    expect(view.phones).toEqual([{ id: deviceId, label: "Mia's tablet", createdAt: expect.any(String), lastSeen: expect.any(String), problem: null, stale: false, links: [] }]);
     expect(JSON.stringify(view)).not.toMatch(/a\.jpg|Tab\/|files/);
 
     await dav("PROPFIND", "/dav/", { ip: "10.9.9.9", headers: { depth: "0" } });

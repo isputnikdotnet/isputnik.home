@@ -118,6 +118,25 @@ finishes; on Android it is simply quicker. After that, Autotransfer keeps up.
 If the transfer stops part-way, start it again: nothing half-sent is ever kept, and what
 arrived is not stored twice.
 
+### Photos you already have
+
+If your phone's photos already reach the server some other way — another backup app such as
+Immich, whose folder the family reads as a photo library — the first backup would send every
+one of them again. Ask your administrator to **link your phone** to that library first. Then a
+photo that is already there is counted as backed up and nothing is stored twice; only photos
+that aren't there yet go to My library. Your phone's card says so: *Photos already in Current
+Phone aren't stored again.*
+
+- **Link before the first backup.** A link counts from then on; what was already stored in My
+  library stays.
+- **Stop the old app's backup on the phone** when you switch PhotoSync on. Otherwise every new
+  photo arrives twice: once in My library, once through the old app.
+- **Deleting is safe.** A photo deleted from that library after your phone has sent it is not
+  sent again, and not brought back. A photo you delete there *before* the first backup is still
+  on your phone and nothing remembers it, so it is backed up into My library — delete it on
+  the phone too, or tidy up after the first backup.
+- A photo edited on the phone is new to the server and is backed up again.
+
 ## Is it working?
 
 Each phone on **Profile › My library › Phones** shows:
@@ -176,7 +195,13 @@ Nothing works until you set it up, on purpose:
    that network reach the server at, such as `http://192.168.2.10:4000`. The list is separate
    from Trusted networks, so adding a VPN range for phones does not relax sign-in for it. See
    [The control panel](control-panel.md).
-3. For backups away from home, add the **VPN's own range** (the addresses phones get on the VPN,
+3. **Photos already on the server?** If a member's phone was backed up some other way into a
+   shared photo library (Immich, say), open **Library › Libraries**, **Edit** that library,
+   and tick the member's phone on its **Phone backups** tab before they switch PhotoSync on.
+   Only members who can open that library are offered, and a link stops counting if they lose
+   access. Each phone is linked on its own: a phone set up again (a new entry on Profile › My
+   library) starts unlinked. See [Photos you already have](#photos-you-already-have).
+4. For backups away from home, add the **VPN's own range** (the addresses phones get on the VPN,
    not your home network's) with its size: `192.168.12.0/24`, not `192.168.12.0`, which is one
    address. On a UniFi gateway it is under *UniFi Network › Settings › VPN › VPN Server*; for
    WireGuard it is often `10.6.0.0/24`, for Tailscale `100.64.0.0/10`. The VPN must route to
@@ -188,7 +213,7 @@ in it:
 
 - **Security › Phone sync** lists every member's phones on one page: whose, last contact, the
   address and network it last came from, and what is wrong now — refused, no contact for a
-  week, or a library nearly full. A phone refused from an address on no list gets an
+  week, or a library nearly full — and under each phone the libraries it is linked to. A phone refused from an address on no list gets an
   **Add 192.168.12.0/24** button (the /24 it came from), and **See in Logs** opens that phone's
   history.
 - **A member's page › Account** has a *Personal library and phones* card: the library's size
