@@ -15,6 +15,7 @@
 // No cookies and no session are read here, so /dav sits outside CSRF and the probe
 // detector (core/csrf.ts, core/probes.ts). It has its own rate limit, per token.
 import crypto from "node:crypto";
+import fs from "node:fs";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { sha256 } from "../../../../crypto.js";
 import { authenticatePhone, basicPassword, type PhoneIdentity } from "./devices.js";
@@ -72,6 +73,30 @@ function propResponse(entry: ListedEntry): string {
     `<d:propstat><d:prop>${props.join("")}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`;
 }
 
+/** A developer's trace of what a client sends (plan › Spike results): with
+ *  PHOTO_SYNC_TRACE=<file>, one JSON line per /dav request — verb, path, status, the
+ *  headers that matter and the start of any XML body. Never the credentials. Off unless
+ *  the environment asks; meant for a dev machine during a live client run. */
+const TRACE_FILE = process.env.PHOTO_SYNC_TRACE || null;
+const TRACE_HEADERS = [
+  "user-agent", "content-length", "content-type", "transfer-encoding", "expect", "depth", "destination", "overwrite",
+  "if", "if-match", "if-none-match", "x-oc-mtime", "x-oc-ctime", "x-recordtime", "oc-checksum", "content-md5",
+  "oc-chunked", "oc-total-length"
+];
+const traceXml = new WeakMap<FastifyRequest, string>();
+
+function traceRequest(request: FastifyRequest, status: number): void {
+  if (!TRACE_FILE) return;
+  const headers: Record<string, unknown> = {};
+  for (const name of TRACE_HEADERS) if (request.headers[name] !== undefined) headers[name] = request.headers[name];
+  const auth = request.headers.authorization;
+  const line = {
+    at: new Date().toISOString(), ip: request.ip, method: request.method, url: request.url, status,
+    auth: auth ? auth.split(" ")[0] : null, headers, xml: traceXml.get(request)?.slice(0, 600)
+  };
+  fs.appendFile(TRACE_FILE, JSON.stringify(line) + "\n", () => undefined);
+}
+
 /** Reads a small XML body. Null when it is too long (the rest is drained). */
 async function readXmlBody(request: FastifyRequest): Promise<string | null> {
   const chunks: Buffer[] = [];
@@ -81,7 +106,10 @@ async function readXmlBody(request: FastifyRequest): Promise<string | null> {
     total += buffer.length;
     if (total <= MAX_XML_BODY) chunks.push(buffer);
   }
-  return total > MAX_XML_BODY ? null : Buffer.concat(chunks).toString("utf8");
+  if (total > MAX_XML_BODY) return null;
+  const text = Buffer.concat(chunks).toString("utf8");
+  if (TRACE_FILE && text) traceXml.set(request, text);
+  return text;
 }
 
 /** Lets an unread body go so the client hears the answer rather than a reset. */
@@ -244,6 +272,11 @@ export async function photoSyncDavPlugin(app: FastifyInstance) {
     if (removed > 0) app.log.info(`Photo sync: removed ${removed} unfinished upload folder(s) left from before.`);
   } catch (err) {
     app.log.warn({ err }, "Photo sync: could not sweep unfinished upload folders");
+  }
+
+  if (TRACE_FILE) {
+    app.log.warn(`Photo sync: tracing every /dav request to ${TRACE_FILE}`);
+    app.addHook("onResponse", async (request, reply) => traceRequest(request, reply.statusCode));
   }
 
   const handler = async (request: FastifyRequest, reply: FastifyReply) => {
