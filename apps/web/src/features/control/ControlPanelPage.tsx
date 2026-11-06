@@ -62,6 +62,7 @@ const AppsSetupSection = lazy(() => import("./sections/AppsSection").then((m) =>
 const VideoSettingsSection = lazy(() => import("./sections/VideoSettingsSection").then((m) => ({ default: m.VideoSettingsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
+const PhoneSyncSection = lazy(() => import("./sections/PhoneSyncSection").then((m) => ({ default: m.PhoneSyncSection })));
 const RecycleBinSection = lazy(() => import("./sections/RecycleBinSection").then((m) => ({ default: m.RecycleBinSection })));
 
 /** One account's page (members/MemberPage), a sub-page of Users the way the
@@ -206,6 +207,7 @@ function ControlSectionBody({
     case "securityPolicies":
     case "securityTrusted":
     case "securityBlocked": return <SecuritySection section={section} />;
+    case "phoneSync":       return <PhoneSyncSection />;
 
     case "tasks":           return <TasksSection />;
     case "scheduledJobs":   return <ScheduledJobsSection />;

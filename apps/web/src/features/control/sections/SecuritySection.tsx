@@ -26,7 +26,6 @@ import { controlHref, followRoute, navigate, type ControlSection } from "../../.
 import { Pager } from "../../../shared/Pager";
 import { signInsHref } from "./dashboard/SignInsView";
 import { ProtectionCard, gradePolicies, type Exposure } from "./SecurityProtection";
-import { PhoneSyncNetworksCard } from "./PhoneSyncNetworksCard";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -1195,7 +1194,15 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 )}
               </section>
 
-              <PhoneSyncNetworksCard />
+              {/* Moved to its own tab in phase 5 (docs/photo-sync-plan.md); said here so
+                  whoever looks for it beside the trusted networks finds the way. */}
+              <p className="section-description">
+                <Trans
+                  i18nKey="phoneSyncPage.movedNote"
+                  ns="controlAdmin"
+                  components={{ link: <a href={controlHref("phoneSync")} onClick={(event) => followRoute(event, controlHref("phoneSync"))} /> }}
+                />
+              </p>
             </div>
 
             <div

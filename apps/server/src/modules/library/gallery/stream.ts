@@ -151,4 +151,47 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
       pipeFileToReply(reply, filePath);
     }
   });
+
+  // A Live Photo's motion (live-photos.ts): the short clip recorded on the still.
+  // ?web=1 serves its H.264 copy (made when the clip is HEVC). Ranged, like the
+  // video route above; never audited as a download — the still is the photo.
+  app.get("/api/library/gallery/assets/:id/motion", { preHandler: app.authenticate }, (request, reply) => {
+    const { id } = request.params as { id: string };
+    const row = db.prepare(`
+      SELECT gallery_details.motion_relative_path, gallery_details.motion_web_key, libraries.source_path, libraries.id AS id
+      FROM gallery_details
+      JOIN library_items ON library_items.id = gallery_details.item_id
+      JOIN libraries ON libraries.id = library_items.library_id
+      WHERE gallery_details.item_id = ? AND library_items.deleted_at IS NULL
+    `).get(id) as (Pick<GalleryDetailRow, "motion_relative_path" | "motion_web_key"> & Pick<LibraryRow, "source_path" | "id">) | undefined;
+    const user = request.user!;
+    if (!row?.motion_relative_path || !canUserAccessBook(id, row, user.id, user.role, "gallery")) {
+      reply.code(404).send({ error: "Asset not found" });
+      return;
+    }
+    const wantWeb = typeof (request.query as { web?: string }).web === "string" && row.motion_web_key;
+    let filePath: string;
+    try {
+      filePath = wantWeb ? thumbnailAbsolutePath(row.motion_web_key!) : path.join(row.source_path, ...row.motion_relative_path.split("/"));
+    } catch { reply.code(404).send({ error: "Asset not found" }); return; }
+    if ((!wantWeb && !pathIsInside(filePath, row.source_path)) || !fs.existsSync(filePath)) {
+      reply.code(404).send({ error: "Asset not found" });
+      return;
+    }
+    const mimeType = wantWeb ? "video/mp4" : "video/quicktime";
+    const stat = fs.statSync(filePath);
+    const negotiated = negotiateFileRequest(request, reply, stat);
+    if (!negotiated) return;
+    const { range, validators } = negotiated;
+    const disposition = assetDisposition(row.motion_relative_path, { attachment: false, webCopy: Boolean(wantWeb) });
+    reply.hijack();
+    const common = { "Content-Type": mimeType, "Accept-Ranges": "bytes", "Content-Disposition": disposition, "Cache-Control": "private, no-cache", ...validators };
+    if (range) {
+      reply.raw.writeHead(206, { ...common, "Content-Range": `bytes ${range.start}-${range.end}/${stat.size}`, "Content-Length": range.size });
+      pipeFileToReply(reply, filePath, { start: range.start, end: range.end });
+    } else {
+      reply.raw.writeHead(200, { ...common, "Content-Length": stat.size });
+      pipeFileToReply(reply, filePath);
+    }
+  });
 }

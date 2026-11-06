@@ -10,6 +10,9 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
 import { PhonesSection } from "./PhonesSection";
 
+/** Warn this full, before phones are refused at the limit (server: sync/routes.ts NEAR_LIMIT). */
+const NEAR_LIMIT = 0.9;
+
 interface MyLibraryView {
   library: { id: string; name: string; adoptedAt: string | null; sizeBytes: number; items: number } | null;
   canTurnOn: boolean;
@@ -85,6 +88,12 @@ export function MyLibrarySection() {
           </dl>
           {limit != null && library.sizeBytes >= limit && (
             <MessageBox tone="warning" title={t("profile.myLibrary.fullTitle")}>{t("profile.myLibrary.fullBody")}</MessageBox>
+          )}
+          {/* Before the limit, not at it (phase 5): phones are refused once it is reached. */}
+          {limit != null && library.sizeBytes < limit && library.sizeBytes >= limit * NEAR_LIMIT && (
+            <MessageBox tone="warning" title={t("profile.myLibrary.nearLimitTitle", { percent: Math.floor((library.sizeBytes / limit) * 100) })}>
+              {t("profile.myLibrary.nearLimitBody", { left: formatBytes(limit - library.sizeBytes) })}
+            </MessageBox>
           )}
           <p className="opds-intro">{t("profile.myLibrary.notBackup")}</p>
           <div className="opds-actions">

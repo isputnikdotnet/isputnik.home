@@ -255,6 +255,23 @@
 
 /* A print scanned on both sides: a small mark in the top-right corner, opposite
    the heart. The grid shows fronts only; the lightbox has the Flip. */
+/* A Live Photo's mark: top right, left of the back's when a print has both. */
+.gallery-tile .gallery-live-dot {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+.gallery-tile .gallery-live-dot.beside-back { right: 30px; }
 .gallery-tile .gallery-back-dot {
   position: absolute;
   right: 6px;
@@ -927,6 +944,9 @@
   backdrop-filter: blur(6px);
 }
 .gallery-lightbox-flip:hover { background: rgba(255, 255, 255, 0.26); }
+/* LIVE sits where the flip would, or above it when a photo has both. */
+.gallery-lightbox-live.is-stacked { bottom: 64px; }
+.gallery-lightbox-motion { pointer-events: auto; }
 .gallery-lightbox-flip.is-on { background: rgba(255, 255, 255, 0.9); color: #111; }
 @media (min-width: 741px) {
   .gallery-lightbox.has-info .gallery-lightbox-flip { left: calc((100% - var(--lb-info-w)) / 2); }
@@ -934,6 +954,8 @@
 @media (max-width: 740px) {
   .gallery-lightbox-flip { bottom: 84px; }
   .gallery-lightbox.is-bare .gallery-lightbox-flip { bottom: 18px; }
+  .gallery-lightbox-live.is-stacked { bottom: 130px; }
+  .gallery-lightbox.is-bare .gallery-lightbox-live.is-stacked { bottom: 64px; }
 }
 
 /* When the details pane is open it overlays the right of the stage. Shrink the

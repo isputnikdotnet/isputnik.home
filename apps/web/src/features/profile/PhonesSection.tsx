@@ -19,8 +19,22 @@ interface PhoneStatus {
   lastReceived: string | null;
   day: { files: number; bytes: number };
   total: { files: number; bytes: number };
-  problem: { code: ProblemCode; detail: string | null; at: string } | null;
+  /** `current` until the phone backs up again (server: resolved_at). */
+  problem: { code: ProblemCode; detail: string | null; at: string; current?: boolean } | null;
+  /** No contact for a week (server: STALE_DAYS). */
+  stale?: boolean;
 }
+
+/** How full the personal library is against the member's limit; null with no limit. */
+interface LibraryUsage {
+  usedBytes: number;
+  limitBytes: number;
+  nearLimit: boolean;
+  atLimit: boolean;
+}
+
+/** Days since a date, for "no contact for N days". */
+const daysSince = (iso: string) => Math.max(1, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
 
 interface Phone {
   id: string;
@@ -34,6 +48,7 @@ interface Phone {
 interface PhonesView {
   unavailable: "off" | "no_library" | null;
   maxPhones: number;
+  usage?: LibraryUsage | null;
   phones: Phone[];
 }
 
@@ -57,8 +72,9 @@ interface AddedPhone {
 const GUIDE_HREF = "/help/phone-backup";
 
 /** One phone's backup at a glance: last contact and file, today and in all, and the
- *  last problem — as a notice while nothing has arrived since, as a line once it has. */
-function PhoneStatusLines({ status }: { status: PhoneStatus }) {
+ *  last problem — as a notice until the phone backs up again, as a line after. A week
+ *  without contact, and a library near its limit, are said here too (phase 5). */
+function PhoneStatusLines({ status, createdAt, usage }: { status: PhoneStatus; createdAt: string; usage: LibraryUsage | null }) {
   const { t } = useTranslation();
   const PROBLEM_TEXT: Record<ProblemCode, string> = {
     not_listed: t("profile.phones.problem.not_listed", { detail: status.problem?.detail ?? "" }),
@@ -73,7 +89,8 @@ function PhoneStatusLines({ status }: { status: PhoneStatus }) {
     server_error: t("profile.phones.problem.server_error")
   };
   const problem = status.problem;
-  const current = problem && (!status.lastReceived || problem.at > status.lastReceived);
+  // The server says when it is over; an older server's answer is read the old way.
+  const current = problem && (problem.current ?? (!status.lastReceived || problem.at > status.lastReceived));
   return (
     <>
       <span className="opds-intro">
@@ -86,6 +103,24 @@ function PhoneStatusLines({ status }: { status: PhoneStatus }) {
           {t("profile.phones.day", { files: t("profile.phones.files", { count: status.day.files }), bytes: formatBytes(status.day.bytes) })}
           {" · "}
           {t("profile.phones.total", { files: t("profile.phones.files", { count: status.total.files }), bytes: formatBytes(status.total.bytes) })}
+        </span>
+      )}
+      {status.stale && (
+        <MessageBox
+          tone="warning"
+          title={t("profile.phones.staleTitle", { count: daysSince(status.lastContact ?? createdAt) })}
+        >
+          {status.lastContact
+            ? t("profile.phones.staleBody", { date: formatDateTime(status.lastContact) })
+            : t("profile.phones.staleNever", { date: formatDate(createdAt) })}
+        </MessageBox>
+      )}
+      {usage?.nearLimit && !usage.atLimit && (
+        <span className="opds-intro phone-near-limit">
+          {t("profile.phones.nearLimit", {
+            percent: Math.floor((usage.usedBytes / usage.limitBytes) * 100),
+            limit: formatBytes(usage.limitBytes)
+          })}
         </span>
       )}
       {problem && current && (
@@ -237,7 +272,7 @@ export function PhonesSection() {
               <div className="opds-token-meta">
                 <strong>{nameOf(phone)}</strong>
                 <span className="opds-intro">{t("profile.phones.added", { date: formatDate(phone.createdAt) })}</span>
-                {phone.status && <PhoneStatusLines status={phone.status} />}
+                {phone.status && <PhoneStatusLines status={phone.status} createdAt={phone.createdAt} usage={view?.usage ?? null} />}
               </div>
               <Button
                 variant="icon"

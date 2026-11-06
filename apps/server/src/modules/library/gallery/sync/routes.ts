@@ -1,5 +1,5 @@
 // Phone sync, phase 2 (docs/photo-sync-plan.md): the admin's phone-sync networks card
-// (Security › Networks, beside Trusted networks) and the member's Profile › My library ›
+// (Security › Phone sync since phase 5, with every member's phones) and the member's Profile › My library ›
 // Phones. The /dav endpoint itself is dav.ts (phase 3), built on authenticatePhone().
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -8,14 +8,29 @@ import { parseBody } from "../../../../core/shared.js";
 import { personalLibraryIdOf } from "../personal/personal-libraries.js";
 import {
   addSyncNetwork, copyTrustedNetworks, getSavedSyncAddress, isPhoneSyncOn, listSyncNetworks, parseSyncAddress,
-  phoneSyncAddress, removeSyncNetwork, saveSyncAddress, syncAddressOutsideNetworks, SyncNetworkError
+  phoneSyncAddress, removeSyncNetwork, saveSyncAddress, suggestedRangeOf, syncAddressOutsideNetworks, SyncNetworkError,
+  syncNetworkOf
 } from "./networks.js";
-import { addPhone, listPhones, MAX_PHONES, PhoneError, revokePhone, type Phone } from "./devices.js";
+import { addPhone, listAllPhones, listPhones, MAX_PHONES, PhoneError, revokePhone, type Phone } from "./devices.js";
 import { phoneStatuses, type PhoneStatus } from "./status.js";
-import { librarySize } from "../personal/service.js";
+import { librarySize, personalQuota } from "../personal/service.js";
 
 /** Where phones send to (dav.ts serves it). */
 export const DAV_PATH = "/dav/";
+/** A personal library this full (of its size limit) warns its owner before phones are refused. */
+export const NEAR_LIMIT = 0.9;
+
+/** How full a personal library is against the member's size limit; null with no limit. */
+function usageOf(libraryId: string | null) {
+  const quota = libraryId ? personalQuota(libraryId) : null;
+  if (!quota) return null;
+  return {
+    usedBytes: quota.usedBytes,
+    limitBytes: quota.limitBytes,
+    nearLimit: quota.usedBytes >= quota.limitBytes * NEAR_LIMIT,
+    atLimit: quota.usedBytes >= quota.limitBytes
+  };
+}
 
 const networkSchema = z.object({
   cidr: z.string().trim().min(1).max(64),
@@ -40,6 +55,40 @@ function adminView() {
   };
 }
 
+/** Security › Phone sync: every member's phones on one page — whose, last contact, the
+ *  address and phone-sync network it last came from, and its state: a device-level
+ *  problem (the privacy line of phase 4 holds — never counts, files or file types),
+ *  out of touch, or a library near its limit. A phone refused from an address no
+ *  network holds carries the /24 to offer as the fix. */
+function phonesOverview() {
+  const phones = listAllPhones();
+  const statuses = phoneStatuses(phones, true);
+  const usage = new Map<string, ReturnType<typeof usageOf>>();
+  return phones.map((phone) => {
+    const status = statuses.get(phone.id);
+    const problem = status?.problem ?? null;
+    if (phone.library_id && !usage.has(phone.library_id)) usage.set(phone.library_id, usageOf(phone.library_id));
+    const libraryUsage = phone.library_id ? usage.get(phone.library_id) ?? null : null;
+    const refusedFrom = problem?.current && problem.code === "not_listed" ? problem.detail : null;
+    const network = syncNetworkOf(phone.last_ip);
+    return {
+      id: phone.id,
+      label: phone.label,
+      createdAt: phone.created_at,
+      lastSeen: phone.last_seen_at,
+      lastIp: phone.last_ip,
+      network: network ? (network.label ?? network.cidr) : null,
+      member: { id: phone.user_id, name: phone.user_name },
+      problem,
+      stale: status?.stale ?? false,
+      nearLimit: libraryUsage?.nearLimit ?? false,
+      atLimit: libraryUsage?.atLimit ?? false,
+      // Only while the address is still on no list (the fix may already be in).
+      suggestedRange: refusedFrom && !syncNetworkOf(refusedFrom) ? suggestedRangeOf(refusedFrom) : null
+    };
+  });
+}
+
 function serializePhone(phone: Phone, status: PhoneStatus | undefined) {
   return { id: phone.id, label: phone.label, createdAt: phone.created_at, lastSeen: phone.last_seen_at, lastIp: phone.last_ip, status: status ?? null };
 }
@@ -60,12 +109,14 @@ function memberView(userId: string) {
   const statuses = phoneStatuses(phones, true);
   return {
     library: libraryId ? { id: libraryId, sizeBytes: librarySize(libraryId).bytes } : null,
+    usage: usageOf(libraryId),
     phones: phones.map((phone) => ({
       id: phone.id,
       label: phone.label,
       createdAt: phone.created_at,
       lastSeen: phone.last_seen_at,
-      problem: statuses.get(phone.id)?.problem ?? null
+      problem: statuses.get(phone.id)?.problem ?? null,
+      stale: statuses.get(phone.id)?.stale ?? false
     }))
   };
 }
@@ -79,6 +130,8 @@ function phonesView(request: FastifyRequest) {
   return {
     unavailable,
     maxPhones: MAX_PHONES,
+    // Phase 5: how full the library is, so each phone can warn before the limit.
+    usage: usageOf(personalLibraryIdOf(user.id)),
     phones: ownPhones(user.id)
   };
 }
@@ -162,6 +215,9 @@ export async function photoSyncRoutesPlugin(app: FastifyInstance) {
     });
     return reply.send(adminView());
   });
+
+  // ── The admin: Security › Phone sync ──
+  app.get("/api/photo-sync/phones", { preHandler: app.requireAdmin }, async () => ({ ...adminView(), phones: phonesOverview() }));
 
   // ── The admin: a member's page ──
   app.get("/api/photo-sync/members/:userId", { preHandler: app.requireAdmin }, async (request) =>

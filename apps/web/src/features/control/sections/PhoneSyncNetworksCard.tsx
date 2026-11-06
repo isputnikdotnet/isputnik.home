@@ -22,12 +22,15 @@ interface PhoneSyncView {
   addressOutsideNetworks: boolean;
 }
 
-// Security › Trusted networks, second card: phone-sync networks — where a phone may back
-// up from (docs/photo-sync-plan.md, decision 2). Its own list, deliberately apart from
+// Security › Phone sync, first card (until phase 5 it sat under Trusted networks):
+// phone-sync networks — where a phone may back up from (docs/photo-sync-plan.md, decision 2). Its own list, deliberately apart from
 // the trusted networks above it, which also skip MFA, lockout and rate limits. Empty =
 // phone sync off. Also "Address phones use", which the admin types once: home never
 // guesses it (owner, 2026-11-05; plan open question 9).
-export function PhoneSyncNetworksCard() {
+//
+// `refreshKey` reloads it when the page changed the list elsewhere (the phone list's
+// "Add 192.168.12.0/24"); `onChange` tells the page this card changed it.
+export function PhoneSyncNetworksCard({ refreshKey = 0, onChange }: { refreshKey?: number; onChange?: () => void } = {}) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [view, setView] = useState<PhoneSyncView | null>(null);
   const [error, setError] = useState("");
@@ -47,6 +50,11 @@ export function PhoneSyncNetworksCard() {
     setView(next);
     setAddress(next.address ?? "");
   }, []);
+  /** A change made here: shown, and told to the page. */
+  const applyChange = (next: PhoneSyncView) => {
+    apply(next);
+    onChange?.();
+  };
 
   const load = useCallback(async () => {
     try {
@@ -56,7 +64,7 @@ export function PhoneSyncNetworksCard() {
     }
   }, [apply, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, refreshKey]);
 
   const closeAdd = () => {
     setAddOpen(false);
@@ -70,7 +78,7 @@ export function PhoneSyncNetworksCard() {
     setAdding(true);
     setAddError("");
     try {
-      apply(await api<PhoneSyncView>("/api/photo-sync/networks", {
+      applyChange(await api<PhoneSyncView>("/api/photo-sync/networks", {
         method: "POST",
         body: JSON.stringify({ cidr: cidr.trim(), label: label.trim() || undefined })
       }));
@@ -88,7 +96,7 @@ export function PhoneSyncNetworksCard() {
     setNotice("");
     try {
       const next = await api<PhoneSyncView & { added: number }>("/api/photo-sync/networks/copy-trusted", { method: "POST" });
-      apply(next);
+      applyChange(next);
       setNotice(next.added > 0 ? t("controlAdmin:phoneSync.copied", { count: next.added }) : t("controlAdmin:phoneSync.copiedNone"));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("controlAdmin:phoneSync.updateFailed"));
@@ -101,7 +109,7 @@ export function PhoneSyncNetworksCard() {
     setError("");
     setNotice("");
     try {
-      apply(await api<PhoneSyncView>(`/api/photo-sync/networks/${id}`, { method: "DELETE" }));
+      applyChange(await api<PhoneSyncView>(`/api/photo-sync/networks/${id}`, { method: "DELETE" }));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("controlAdmin:phoneSync.updateFailed"));
     }

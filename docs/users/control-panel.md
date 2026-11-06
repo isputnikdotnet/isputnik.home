@@ -412,16 +412,24 @@ internet](exposing-to-the-internet.md).
   column counts the live sessions inside each range — a range with none is
   either a spare or a typo.
 
-  Below them, **Phone-sync networks** is a separate list: the ranges members'
-  phones may back up photos from (into their personal library). It relaxes
-  nothing about signing in, so a VPN range can go here without skipping
-  two-factor sign-in or lockout for it. **Copy trusted networks** adds the
-  trusted ones in one go; after that the two lists are kept apart. While it is
-  empty, phone backup is off. **Address phones use** is this server's address
-  on your home network with its port (`http://192.168.2.10:4000`), typed once;
-  the phone setup card in Profile › My library shows it to members. Until you
-  set it, that card says it isn't set yet. A warning appears if the address is
+- **Phone sync** — where members' phones may back up photos from (into their
+  personal library), and how every phone is doing. **Phone-sync networks** is a
+  list of its own: it relaxes nothing about signing in, so a VPN range can go here
+  without skipping two-factor sign-in or lockout for it. Type a range with its
+  size (`192.168.12.0/24`); a bare `192.168.12.0` is refused, since it would mean
+  that one address. **Copy trusted networks** adds the trusted ones in one go;
+  after that the two lists are kept apart. While it is empty, phone backup is
+  off. **Address phones use** is this server's address on your home network with
+  its port (`http://192.168.2.10:4000`), typed once; the phone setup card in
+  Profile › My library shows it to members. A warning appears if the address is
   outside the networks on the list.
+
+  Below, **Phones** lists every member's phones: last contact, the address and
+  network each last came from, and its state — backing up, refused, no contact
+  for a week, or a library nearly full. A phone refused from an address on no
+  list offers **Add** for that address's /24; **See in Logs** opens the phone's
+  history in Overview › Logs (the *photo_sync* event). What a phone sent — files,
+  counts, types — stays with its owner.
 - **Blocked IPs** — what's been blocked, and where you unblock it, add a block by
   hand, or make a temporary automatic block permanent (the ∞ button on rows that
   would otherwise expire). The chips above the list count and filter running,

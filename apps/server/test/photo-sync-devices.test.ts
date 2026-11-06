@@ -261,6 +261,11 @@ describe("through the API", () => {
     expect(added.json().networks).toEqual([expect.objectContaining({ cidr: "192.168.1.0/24", label: "Home" })]);
     const bad = await app.inject({ method: "POST", url: "/api/photo-sync/networks", headers: await as("admin"), payload: { cidr: "nope" } });
     expect(bad.json()).toMatchObject({ code: "bad_cidr" });
+    // A range typed without its size (the phase 5 VPN run) is caught, not stored.
+    const bare = await app.inject({ method: "POST", url: "/api/photo-sync/networks", headers: await as("admin"), payload: { cidr: "192.168.12.0" } });
+    expect(bare.statusCode).toBe(400);
+    expect(bare.json()).toMatchObject({ code: "bare_network" });
+    expect(bare.json().error ?? bare.json().message).toContain("192.168.12.0/24");
     const id = added.json().networks[0].id;
     const removed = await app.inject({ method: "DELETE", url: `/api/photo-sync/networks/${id}`, headers: await as("admin") });
     expect(removed.json().networks).toEqual([]);

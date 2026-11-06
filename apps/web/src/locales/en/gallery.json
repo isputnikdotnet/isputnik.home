@@ -65,7 +65,8 @@
     "unlikeAria": "Unlike {{title}}",
     "likeAria": "Like {{title}}",
     "removeAria": "Remove {{title}}",
-    "hasBackTitle": "Scanned on both sides — open it to flip"
+    "hasBackTitle": "Scanned on both sides — open it to flip",
+    "liveTitle": "Live Photo — open it to play the motion"
   },
   "filter": {
     "kindPhotos": "Photos",
@@ -196,7 +197,11 @@
       "tagPerson": "Unable to tag this person"
     },
     "dontShare": "Don't share this photo",
-    "allowSharing": "Let this photo be shared again"
+    "allowSharing": "Let this photo be shared again",
+    "liveLabel": "LIVE",
+    "livePlay": "Play the Live Photo",
+    "liveTitle": "Play the Live Photo — or hold the photo on a phone, hover it with a mouse",
+    "liveAria": "Live Photo: {{title}}"
   },
   "locationPicker": {
     "aria": "Pick a location on the map"

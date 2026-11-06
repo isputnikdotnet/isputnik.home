@@ -458,7 +458,7 @@ correct password and a session, also carrying emailed codes);
 `webauthn_credentials` + `webauthn_challenges` (passkeys: public keys only);
 `device_link_requests` (a TV waiting for a phone to approve it) +
 `device_link_windows` (an admin's one-person, one-device permission to link from
-outside the house); `api_tokens` (personal access tokens for OPDS readers, Stremio links and phones, hashed; a `photo-sync` token carries `library_id`, the personal library it backs up into); `sync_networks` (where phones may back up from — its own list, apart from `trusted_networks`); `photo_sync_files` and `photo_sync_folders` (what each phone sent over `/dav`, under the paths it used, and the folders it made — the phone's own namespace; a file row keeps its sha256 and points at the item it became, NULL once that is purged); `photo_sync_device_status` (each phone's last problem — a code, a detail that is never a file name, and when — for its status on the Phones list).
+outside the house); `api_tokens` (personal access tokens for OPDS readers, Stremio links and phones, hashed; a `photo-sync` token carries `library_id`, the personal library it backs up into); `sync_networks` (where phones may back up from — its own list, apart from `trusted_networks`); `photo_sync_files` and `photo_sync_folders` (what each phone sent over `/dav`, under the paths it used, and the folders it made — the phone's own namespace; a file row keeps its sha256 and points at the item it became, NULL once that is purged); `photo_sync_device_status` (each phone's last problem — a code, a detail that is never a file name, when, and `resolved_at` once it backs up again — for its status on the Phones list).
 See [`auth.md`](auth.md).
 
 **Sign-in defence** — `login_attempts` (every attempt, plus anonymous probe and
@@ -470,7 +470,8 @@ signed in from, for the new-network alert).
 **Libraries & items** — `storage_roots`, `libraries` (owner + `policy_json`
 write gates), `library_items` (the spine), `item_metadata` (1:1 shared),
 `audiobook_details` / `ebook_details` / `gallery_details` (1:1 typed; a gallery
-item is one file, described in its detail row). `works` + `work_items` group
+item is one file, described in its detail row — plus, recorded on it, a print's back
+(`back_*`) or a Live Photo's clip (`motion_*`), which are never items of their own). `works` + `work_items` group
 editions of the same book across libraries and types. `library_scan_rules` +
 `library_scan_rule_paths` are scan layouts (the folders a rule owns);
 `library_folder_locks` are "nothing under here may be deleted" marks.

@@ -67,6 +67,13 @@ const MISSING_SELECT = `
       JOIN library_items lf ON lf.id = gb.item_id
       WHERE lf.library_id = li.library_id AND lf.deleted_at IS NULL AND gb.back_relative_path = li.folder_path
     )
+    -- Nor is a video that became a Live Photo's motion (gallery/live-photos.ts): its
+    -- file is beside its still.
+    AND NOT EXISTS (
+      SELECT 1 FROM gallery_details gm
+      JOIN library_items ls ON ls.id = gm.item_id
+      WHERE ls.library_id = li.library_id AND ls.deleted_at IS NULL AND gm.motion_relative_path = li.folder_path
+    )
 `;
 
 function purgesAt(detectedAt: string, days: number): string | null {

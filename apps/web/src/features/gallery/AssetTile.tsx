@@ -90,6 +90,12 @@ export function AssetTile({
           <FlipHorizontal2 size={12} aria-hidden="true" />
         </span>
       )}
+      {/* A Live Photo: the grid shows the still; the motion plays in the viewer. */}
+      {asset.motion && asset.kind === "photo" && (
+        <span className={`gallery-live-dot${asset.back ? " beside-back" : ""}`} title={t("gallery:assetTile.liveTitle")}>
+          {t("gallery:lightbox.liveLabel")}
+        </span>
+      )}
       {/* Only a selected tile gets the check overlay — unselected tiles stay
           clean rather than all sprouting empty circles in selection mode. */}
       {selectionMode && selected && (

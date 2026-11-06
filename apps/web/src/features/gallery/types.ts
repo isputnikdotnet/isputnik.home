@@ -56,6 +56,8 @@ export interface GalleryAsset {
   // the lightbox, never in a grid. previewUrl is the rendered preview (the file
   // itself until one exists); rotation is the back's own turn, already baked in.
   back: { previewUrl: string; fileUrl: string; rotation: number } | null;
+  /** A Live Photo's motion: a short clip played over the still (press, hold or hover). */
+  motion?: { url: string; durationSeconds: number | null } | null;
   // "Written on the back", as someone typed it. Null when nobody has.
   backText: string | null;
   // Centre of the faces in this photo, in percent, for aiming a cropped tile

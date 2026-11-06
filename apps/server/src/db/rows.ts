@@ -525,6 +525,11 @@ export interface GalleryDetailRow {
   back_modified_at: string | null;
   back_preview_storage_key: string | null;
   back_text: string | null;
+  motion_relative_path: string | null;
+  motion_size: number | null;
+  motion_modified_at: string | null;
+  motion_duration: number | null;
+  motion_web_key: string | null;
   updated_at: string;
 }
 
@@ -1005,6 +1010,7 @@ export interface PhotoSyncDeviceStatusRow {
   last_error_code: string;
   last_error_detail: string | null;
   last_error_at: string;
+  resolved_at: string | null;
 }
 
 /** `photo_sync_files` */

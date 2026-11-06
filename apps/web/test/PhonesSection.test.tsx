@@ -53,4 +53,28 @@ describe("a phone's status", () => {
     expect(await screen.findByText(/Not connected yet · nothing received yet/)).toBeInTheDocument();
     expect(screen.queryByText(/In all/)).not.toBeInTheDocument();
   });
+
+  // Phase 5: the server says when a problem is over, a week without contact is said,
+  // and a library near its size limit warns on every phone.
+  it("follows the server on whether a problem is over", async () => {
+    // Over although no file came after it (a VPN refusal ended by the next contact).
+    mockApi.mockResolvedValueOnce(phone({ ...working, lastReceived: "2026-11-05T10:00:00.000Z", problem: { code: "not_listed", detail: "192.168.12.2", at: "2026-11-05T12:00:00.000Z", current: false } }));
+    render(<PhonesSection />);
+    expect(await screen.findByText(/Earlier problem .*192.168.12.2/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Problem on/)).not.toBeInTheDocument();
+  });
+
+  it("says when a phone has been out of touch for a week", async () => {
+    const lastContact = new Date(Date.now() - 9 * 86_400_000).toISOString();
+    mockApi.mockResolvedValueOnce(phone({ ...working, lastContact, stale: true }));
+    render(<PhonesSection />);
+    expect(await screen.findByText("No contact for 9 days")).toBeInTheDocument();
+    expect(screen.getByText(/Open PhotoSync on it/)).toBeInTheDocument();
+  });
+
+  it("warns on each phone when the library is nearly full", async () => {
+    mockApi.mockResolvedValueOnce({ ...phone(working), usage: { usedBytes: 93 * 1024 ** 3, limitBytes: 100 * 1024 ** 3, nearLimit: true, atLimit: false } });
+    render(<PhonesSection />);
+    expect(await screen.findByText(/Your library is 93% full. Backups stop at 100/)).toBeInTheDocument();
+  });
 });

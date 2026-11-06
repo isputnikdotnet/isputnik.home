@@ -113,7 +113,9 @@ function deleteBookCovers(libraryId: string, bookId: string, coverStorageKey: st
     // Gallery video web-playable copy (transcode.ts); a no-op for non-video items.
     thumbnailStorageKey(libraryId, bookId, `${bookId}-web.mp4`),
     // A photo's back-side preview (gallery/media.ts backPreviewKey); same no-op.
-    thumbnailStorageKey(libraryId, bookId, `${bookId}-back-large.webp`)
+    thumbnailStorageKey(libraryId, bookId, `${bookId}-back-large.webp`),
+    // A Live Photo clip's H.264 copy (gallery/live-photos.ts motionWebKey); same no-op.
+    thumbnailStorageKey(libraryId, bookId, `${bookId}-motion.mp4`)
   ]);
   if (coverStorageKey) keys.add(coverStorageKey);
   if (keep) keys.delete(keep);

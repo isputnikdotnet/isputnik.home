@@ -19,7 +19,8 @@ export type AssetRow = Pick<LibraryItemRow, "id" | "library_id" | "folder_path" 
     | "kind" | "taken_at" | "taken_precision" | "taken_approx" | "place_text" | "reviewed_at"
     | "width" | "height" | "orientation" | "rotation" | "duration_seconds" | "mime_type" | "size"
     | "gps_lat" | "gps_lng" | "camera_make" | "camera_model" | "preview_storage_key" | "playable"
-    | "web_video_key" | "back_relative_path" | "back_rotation" | "back_preview_storage_key" | "back_text" | "updated_at">
+    | "web_video_key" | "back_relative_path" | "back_rotation" | "back_preview_storage_key" | "back_text"
+    | "motion_relative_path" | "motion_duration" | "motion_web_key" | "updated_at">
   & Nullable<Pick<ItemMetadataRow, "title" | "description" | "cover_storage_key">>
   & {
     library_name: LibraryRow["name"] | null;
@@ -94,6 +95,9 @@ export const ASSET_COLUMNS = `
   gallery_details.back_rotation,
   gallery_details.back_preview_storage_key,
   gallery_details.back_text,
+  gallery_details.motion_relative_path,
+  gallery_details.motion_duration,
+  gallery_details.motion_web_key,
   gallery_details.updated_at,
   gallery_places.place_id,
   gallery_places.distance_km AS place_distance_km,
@@ -197,6 +201,14 @@ export function mapAsset(row: AssetRow) {
         }
       : null,
     backText: row.back_text ?? null,
+    // A Live Photo's motion (live-photos.ts): played in the lightbox on press, hold
+    // or hover. The H.264 copy when the clip is HEVC, else the clip itself.
+    motion: row.motion_relative_path
+      ? {
+          url: `/api/library/gallery/assets/${row.id}/motion${row.motion_web_key ? "?web=1" : ""}`,
+          durationSeconds: row.motion_duration ?? null
+        }
+      : null,
     // null when this photo has no detected face — the tile then crops from the
     // centre as before. Percentages, ready for CSS object-position.
     faceFocus: focusOf(row, rotation)

@@ -1982,7 +1982,13 @@
         "library_unavailable": "Their library's folder is unavailable"
       },
       "problemAt": "{{problem}} — {{date}}",
-      "unnamed": "Phone"
+      "unnamed": "Phone",
+      "problemEarlier": "Earlier: {{problem}} — {{date}}",
+      "stale_one": "No contact for {{count}} day",
+      "stale_other": "No contact for {{count}} days",
+      "nearLimit": "Personal library nearly full",
+      "atLimit": "Personal library full",
+      "limitBody": "{{used}} of {{limit}}. Their phones are refused once it is full."
     }
   },
   "access": {
@@ -2160,5 +2166,34 @@
       "saveProfile": "Save profile",
       "savingProfile": "Saving…"
     }
+  },
+  "phoneSyncPage": {
+    "description": "Where phones may back up from, and how each member's phones are doing. What happened, and when, is in Overview › Logs.",
+    "phonesHeading": "Phones",
+    "phonesDesc": "Every member's phones: whose they are, where they last connected from, and anything wrong now. What a phone sent stays with its owner.",
+    "loadFailed": "Unable to load phones",
+    "noPhones": "No member has added a phone yet.",
+    "colMember": "Member",
+    "colPhone": "Phone",
+    "colContact": "Last contact",
+    "colFrom": "From",
+    "colState": "State",
+    "never": "Not connected yet",
+    "stateOk": "Backing up",
+    "stateWaiting": "Waiting for first contact",
+    "stateNearLimit": "Library nearly full",
+    "stateAtLimit": "Library full",
+    "stateStale_one": "No contact for {{count}} day",
+    "stateStale_other": "No contact for {{count}} days",
+    "noNetwork": "not on a list",
+    "addRange": "Add {{range}}",
+    "addRangeTitle": "Add {{range}} to the phone-sync networks",
+    "addingRange": "Adding…",
+    "addRangeFailed": "Unable to add the network",
+    "rangeLabel": "Added for {{phone}}",
+    "seeInLogs": "See in Logs",
+    "seeInLogsAria": "See {{phone}} in Logs",
+    "allInLogs": "All phone sync history in Logs",
+    "movedNote": "Phone-sync networks are on <link>Security › Phone sync</link>."
   }
 }

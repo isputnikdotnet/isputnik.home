@@ -108,6 +108,9 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "securityPolicies" },
       { section: "securityTrusted" },
       { section: "securityBlocked" },
+      // Phone sync (phase 5 of docs/photo-sync-plan.md): where phones may back up from,
+      // and every member's phones — the fix for one refused; the history is in Logs.
+      { section: "phoneSync" },
       { section: "appsAccess" }
     ]
   },

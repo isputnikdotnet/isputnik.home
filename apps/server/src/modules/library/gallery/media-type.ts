@@ -12,6 +12,8 @@ import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "./cleanup.js
 import { enqueueTranscodeBatch, unplayableBacklogCount } from "./transcode.js";
 import { repointMovedFolder } from "./folder-move.js";
 import { backSidesForTrash, seedRestoredBackSide } from "./back-side-files.js";
+import { MOTION_EXTENSIONS, motionForTrash, seedRestoredMotion } from "./live-photos.js";
+import path from "node:path";
 
 // How many videos the weekly "convert unplayable videos" job queues per run — bounded so
 // a big backlog drains over successive weeks instead of hogging the box in one night.
@@ -28,8 +30,16 @@ export function registerGalleryMediaType(): void {
     removeCropFiles: removeFaceCropFiles,
     // A photo's back side goes into the bin with it — or to its Epson twin when
     // one stays behind (docs/back-sides-proposal.md, decision 6).
-    companionsForTrash: backSidesForTrash,
-    seedRestoredCompanion: seedRestoredBackSide,
+    // A Live Photo's clip goes the same way when there is no back (the bin keeps
+    // one companion per item).
+    companionsForTrash: (itemId) => {
+      const backs = backSidesForTrash(itemId);
+      return backs.length > 0 ? backs : motionForTrash(itemId);
+    },
+    seedRestoredCompanion: (libraryId, itemPath, companion) =>
+      MOTION_EXTENSIONS.has(path.extname(companion).toLowerCase())
+        ? seedRestoredMotion(libraryId, itemPath, companion)
+        : seedRestoredBackSide(libraryId, itemPath, companion),
     repointMovedFolder,
     scheduledJobs: [
       {

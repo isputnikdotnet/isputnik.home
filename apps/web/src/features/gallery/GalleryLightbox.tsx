@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, EyeOff, Eye, FlipHorizontal2, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, ScanFace, Scissors, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, CircleDot, Download, EyeOff, Eye, FlipHorizontal2, Heart, ImagePlus, Info, ListMusic, Mic, MoreVertical, Pause, Play, Replace, RotateCcw, RotateCw, ScanFace, Scissors, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -275,6 +275,34 @@ export function GalleryLightbox({
   useEffect(() => { setShowBack(false); }, [viewedAssetId]);
   useEffect(() => { if (!hasBack) setShowBack(false); }, [hasBack]);
   const backShown = hasBack && showBack && !playing;
+
+  // A Live Photo's motion (docs/photo-sync-plan.md, phase 5): the clip plays once in
+  // place of the still — from the LIVE button (with its sound), by holding the photo
+  // on a phone, or by hovering it with a mouse (muted: no click, no sound). Never
+  // during a slideshow or on a print's back; every new photo starts on its still.
+  const [motion, setMotion] = useState<"off" | "sound" | "muted">("off");
+  const holdTimer = useRef<number | null>(null);
+  const liveFromButton = useRef(false);
+  const hasMotion = Boolean(asset?.motion) && asset?.kind === "photo" && !playing && !backShown;
+  const motionShown = hasMotion && motion !== "off";
+  useEffect(() => { setMotion("off"); }, [viewedAssetId]);
+  useEffect(() => { if (motion === "off") liveFromButton.current = false; }, [motion]);
+  const stopHold = useCallback(() => {
+    if (holdTimer.current != null) { window.clearTimeout(holdTimer.current); holdTimer.current = null; }
+  }, []);
+  useEffect(() => stopHold, [stopHold]);
+  const motionHandlers = hasMotion
+    ? {
+        onPointerEnter: (event: ReactPointerEvent) => { if (event.pointerType === "mouse") setMotion((m) => (m === "off" ? "muted" : m)); },
+        onPointerDown: (event: ReactPointerEvent) => {
+          if (event.pointerType === "mouse") return;
+          stopHold();
+          holdTimer.current = window.setTimeout(() => setMotion("sound"), 300);
+        },
+        onPointerUp: stopHold,
+        onPointerCancel: stopHold
+      }
+    : {};
   // Who the photo says is in it, for the face editor to offer (GalleryFaceOverlay).
   const facePeople = sameAsset ? faceState.people : asset?.people ?? [];
 
@@ -950,7 +978,26 @@ export function GalleryLightbox({
           </div>
         ) : (
           <>
+            {motionShown && asset.motion ? (
+              <video
+                key={`${asset.id}:motion`}
+                className="gallery-lightbox-media gallery-lightbox-motion"
+                src={asset.motion.url}
+                poster={asset.previewUrl ?? undefined}
+                autoPlay
+                playsInline
+                muted={motion === "muted"}
+                aria-label={t("gallery:lightbox.liveAria", { title: asset.title })}
+                onEnded={() => setMotion("off")}
+                onError={() => setMotion("off")}
+                onPointerLeave={(event) => { if (event.pointerType === "mouse" && motion === "muted") setMotion("off"); }}
+                onPointerUp={() => { stopHold(); if (motion === "sound" && !liveFromButton.current) setMotion("off"); }}
+                onContextMenu={(event) => event.preventDefault()}
+              />
+            ) : (
             <img
+              {...motionHandlers}
+              onContextMenu={hasMotion ? (event) => event.preventDefault() : undefined}
               key={backShown ? `${asset.id}:back` : asset.id}
               ref={setImageEl}
               className="gallery-lightbox-media"
@@ -960,10 +1007,11 @@ export function GalleryLightbox({
               src={backShown && asset.back ? asset.back.previewUrl : asset.previewUrl ?? asset.fileUrl}
               alt={backShown ? t("gallery:backSide.imageAlt", { title: asset.title }) : asset.title}
             />
+            )}
             {/* Not during a slideshow: boxes would drift under Ken Burns and
                 chatter across every slide. Not on the back either: the faces are
                 on the other side. */}
-            {!playing && !backShown && (
+            {!playing && !backShown && !motionShown && (
               <GalleryFaceOverlay
                 image={imageEl}
                 faces={faces}
@@ -995,6 +1043,24 @@ export function GalleryLightbox({
           >
             <FlipHorizontal2 size={18} aria-hidden="true" />
             <span>{showBack ? t("gallery:lightbox.flipToFront") : t("gallery:lightbox.flipToBack")}</span>
+          </Button>
+        )}
+        {/* LIVE, for a Live Photo: plays the motion once, with its sound. Above the
+            flip when a photo has both. */}
+        {hasMotion && (
+          <Button
+            variant="bare"
+            className={`gallery-lightbox-flip gallery-lightbox-live${motionShown ? " is-on" : ""}${hasBack ? " is-stacked" : ""}`}
+            onClick={() => {
+              liveFromButton.current = true;
+              setMotion((m) => (m === "off" ? "sound" : "off"));
+            }}
+            aria-pressed={motionShown}
+            aria-label={t("gallery:lightbox.livePlay")}
+            title={t("gallery:lightbox.liveTitle")}
+          >
+            <CircleDot size={18} aria-hidden="true" />
+            <span>{t("gallery:lightbox.liveLabel")}</span>
           </Button>
         )}
         {hasNext && (

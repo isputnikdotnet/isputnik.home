@@ -68,8 +68,8 @@ a little between versions.
 2. Type in the same details as above: server, port, path `/dav/`, SSL, user name, password.
 3. Save, then send a few photos by hand to try it.
 
-The iPhone steps follow PhotoSync's own instructions; if something looks different on your
-phone, tell your administrator.
+The iPhone steps follow PhotoSync's own instructions and have not been tried on an iPhone
+yet; if something looks different on your phone, tell your administrator.
 
 ## Backing up automatically
 
@@ -124,8 +124,13 @@ Each phone on **Profile › My library › Phones** shows:
 
 - **Last contact** — when the phone last spoke to the server, and when the last file arrived.
 - **Last 24 hours** and **In all** — how many files it sent, and how big.
-- **A problem**, if there was one, and when. While nothing has arrived since, it shows as a
-  notice; once photos are arriving again, it stays as a line saying it was earlier.
+- **A problem**, if there was one, and when. It shows as a notice until the phone backs up
+  again; after that it stays as a line saying it was earlier.
+- **No contact for N days**, when the phone hasn't been in touch for a week. Open PhotoSync on
+  it: it may be off the home Wi-Fi, swiped away (iPhone), or held back by battery settings
+  (Android, see above).
+- **Your library is 90% full**, when your library is close to the size limit your administrator
+  set. Phones are refused once it is full, so make room before then.
 
 The problems you may see:
 
@@ -146,13 +151,19 @@ The problems you may see:
   and inside it a folder per day the photo was taken (`Anna's iPhone/2026/2026-11-05`). The
   date comes from the photo itself, or its name, or what the phone says.
 - **Deleting on the phone never deletes at home.** Free up the phone as you like.
-- **Live Photos** arrive as two files, a photo and a short video, and show as two items for
-  now. PhotoSync can be set to send the still photo only.
+- **Live Photos** arrive as two files, a photo and a short video with the same name, and
+  become **one photo** with a *LIVE* mark. To see the motion, open the photo and press
+  **LIVE**, hold the photo on a phone, or hover it with the mouse on a computer. Keep both
+  files together: the pair is recognised by name. (This works in every photo library, not only
+  your own.)
 - **A lost or replaced phone**: **Revoke** it on the Phones list. It stops at once, and what it
   sent stays. A new phone is added as a new phone, with its own folder.
-- **Away from home**, backups only work through a VPN into the house (WireGuard, Tailscale and
-  the like), and only once your administrator has added the VPN's addresses to the phone-sync
-  networks. Otherwise the phone simply catches up when you are home again.
+- **Away from home**, backups only work through a VPN into the house (UniFi, WireGuard,
+  Tailscale and the like), and only once your administrator has added the VPN's addresses to
+  the phone-sync networks. Turn the VPN on, then send from PhotoSync. If Autotransfer is set to
+  *Wi-Fi only*, it waits until you are home, so send by hand when you want it now. Without the
+  VPN the phone is refused (the Phones list says from which address) and simply catches up when
+  you are home again.
 
 ## For the administrator
 
@@ -160,23 +171,34 @@ Nothing works until you set it up, on purpose:
 
 1. **Library › Storage › Personal libraries**: allow personal libraries, choose where they are
    made, who may have one and any size limit — see [Storage](storage.md#personal-libraries).
-2. **Security › Trusted networks › Phone-sync networks**: list the networks phones may back up
-   from (**Copy trusted networks** is a starting point), and fill in **Address phones use** —
-   the address phones on that network reach the server at, such as `http://192.168.2.10:4000`.
-   The list is separate from Trusted networks, so adding a VPN range for phones does not relax
-   sign-in for it. See [The control panel](control-panel.md).
-3. For backups away from home, add the VPN's range (for example `10.6.0.0/24` for WireGuard, or
-   `100.64.0.0/10` for Tailscale) to the phone-sync networks. Never publish `/dav` through a
-   public proxy or tunnel.
+2. **Security › Phone sync**: list the networks phones may back up from (**Copy trusted
+   networks** is a starting point), and fill in **Address phones use** — the address phones on
+   that network reach the server at, such as `http://192.168.2.10:4000`. The list is separate
+   from Trusted networks, so adding a VPN range for phones does not relax sign-in for it. See
+   [The control panel](control-panel.md).
+3. For backups away from home, add the **VPN's own range** (the addresses phones get on the VPN,
+   not your home network's) with its size: `192.168.12.0/24`, not `192.168.12.0`, which is one
+   address. On a UniFi gateway it is under *UniFi Network › Settings › VPN › VPN Server*; for
+   WireGuard it is often `10.6.0.0/24`, for Tailscale `100.64.0.0/10`. The VPN must route to
+   the server without hiding the phone's address (UniFi's VPN server does). Never publish
+   `/dav` through a public proxy or tunnel.
 
 What you see of someone's backups is their phones and the size of their library, never what is
 in it:
 
-- **A member's page › Account** has a *Personal library and phones* card: the library's size,
-  each phone with when it was added and last made contact, and a problem when it is about the
-  phone or the server (refused from an unlisted network, disk full, size limit reached). You can
-  **Revoke** a phone there.
+- **Security › Phone sync** lists every member's phones on one page: whose, last contact, the
+  address and network it last came from, and what is wrong now — refused, no contact for a
+  week, or a library nearly full. A phone refused from an address on no list gets an
+  **Add 192.168.12.0/24** button (the /24 it came from), and **See in Logs** opens that phone's
+  history.
+- **A member's page › Account** has a *Personal library and phones* card: the library's size
+  (with a warning near the limit), each phone with when it was added and last made contact, and
+  a problem when it is about the phone or the server (refused from an unlisted network, disk
+  full, size limit reached, no contact for a week). You can **Revoke** a phone there.
 - **Library › Storage › Personal libraries** totals them: how many there are, how much they
   hold, and how many phones back up into each.
-- The activity log notes phones being added and revoked, and refusals and a full disk — at
-  most once an hour per phone — never a file name.
+- **Overview › Logs**, filtered to the *photo_sync* event, is the history: phones added and
+  revoked, a phone's first contact and each move to another network (home Wi-Fi to the VPN),
+  refusals (an unlisted network, a revoked or unknown password), a full disk or library, and
+  "backing up again" afterwards — at most once an hour per phone and problem, never a file
+  name.

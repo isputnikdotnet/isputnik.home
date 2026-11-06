@@ -136,7 +136,9 @@ phone is lost or replaced, **Revoke** it: it stops at once, and the photos it al
 
 Each phone in the list shows how its backup is going: last contact, the last file received,
 what arrived in the last 24 hours and in all, and the last problem ("File type not allowed:
-.dng", "Refused: not from a phone-sync network"). Setting up PhotoSync step by step, automatic
+.dng", "Refused: not from a phone-sync network") until the phone backs up again. A phone out of
+touch for a week says so, and a library close to its size limit warns here and on My library
+before phones are refused. Setting up PhotoSync step by step, automatic
 backups and battery settings are in [Backing up your phone](phone-backup.md).
 
 > Your personal library is one copy of your photos, not a backup. Keep another copy somewhere

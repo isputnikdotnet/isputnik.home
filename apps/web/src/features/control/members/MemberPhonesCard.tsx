@@ -15,13 +15,17 @@ interface MemberPhone {
   label: string | null;
   createdAt: string;
   lastSeen: string | null;
-  problem: { code: AdminProblem; detail: string | null; at: string } | null;
+  problem: { code: AdminProblem; detail: string | null; at: string; current?: boolean } | null;
+  stale?: boolean;
 }
 
 interface MemberPhonesView {
   library: { id: string; sizeBytes: number } | null;
+  usage?: { usedBytes: number; limitBytes: number; nearLimit: boolean; atLimit: boolean } | null;
   phones: MemberPhone[];
 }
+
+const daysSince = (iso: string) => Math.max(1, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
 
 // A member's page › Account (docs/photo-sync-plan.md, phase 4): their personal
 // library's size and the phones that back up into it — name, added, last contact,
@@ -71,7 +75,8 @@ export function MemberPhonesCard({ userId, name }: { userId: string; name: strin
       disk_full: t("controlAdmin:member.phones.problem.disk_full"),
       library_unavailable: t("controlAdmin:member.phones.problem.library_unavailable")
     };
-    return t("controlAdmin:member.phones.problemAt", { problem: words[problem.code], date: formatManagedDate(problem.at) });
+    const key = problem.current === false ? "controlAdmin:member.phones.problemEarlier" : "controlAdmin:member.phones.problemAt";
+    return t(key, { problem: words[problem.code], date: formatManagedDate(problem.at) });
   };
 
   return (
@@ -90,6 +95,11 @@ export function MemberPhonesCard({ userId, name }: { userId: string; name: strin
               ? t("controlAdmin:member.phones.size", { size: formatBytes(view.library.sizeBytes) })
               : t("controlAdmin:member.phones.none")}
           </p>
+          {view.usage?.nearLimit && (
+            <MessageBox tone="warning" title={t(view.usage.atLimit ? "controlAdmin:member.phones.atLimit" : "controlAdmin:member.phones.nearLimit")}>
+              {t("controlAdmin:member.phones.limitBody", { used: formatBytes(view.usage.usedBytes), limit: formatBytes(view.usage.limitBytes) })}
+            </MessageBox>
+          )}
           {view.phones.length === 0 ? (
             <p className="access-muted">{t("controlAdmin:member.phones.noPhones")}</p>
           ) : (
@@ -105,7 +115,14 @@ export function MemberPhonesCard({ userId, name }: { userId: string; name: strin
                         ? t("controlAdmin:member.phones.lastContact", { date: formatManagedDate(phone.lastSeen) })
                         : t("controlAdmin:member.phones.noContact")}
                     </small>
-                    {phone.problem && <small className="member-phones-problem">{problemText(phone.problem)}</small>}
+                    {phone.stale && (
+                      <small className="member-phones-problem">
+                        {t("controlAdmin:member.phones.stale", { count: daysSince(phone.lastSeen ?? phone.createdAt) })}
+                      </small>
+                    )}
+                    {phone.problem && (
+                      <small className={phone.problem.current === false ? "access-muted" : "member-phones-problem"}>{problemText(phone.problem)}</small>
+                    )}
                   </span>
                   <Button
                     variant="icon"

@@ -24,7 +24,7 @@ import {
   moveInNamespace, parentOf, setClientMtime, type ListedEntry, type SyncFile
 } from "./namespace.js";
 import { parseClientDate, PutRefused, receivePut, redateFromClient, sweepStaleSyncStaging } from "./put.js";
-import { recordPhoneProblem } from "./status.js";
+import { recordPhoneProblem, resolvePhoneProblem } from "./status.js";
 
 const DAV_METHODS = ["PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK"] as const;
 const ALL_METHODS = ["OPTIONS", "GET", "HEAD", "PUT", "DELETE", ...DAV_METHODS];
@@ -158,6 +158,8 @@ async function handle(request: FastifyRequest, reply: FastifyReply, phone: Phone
       }
       try {
         const outcome = await receivePut(request, phone, davPath);
+        // Stored, or already held: backing up works — any problem it had is over.
+        resolvePhoneProblem({ deviceId: phone.deviceId, userId: phone.user.id, label: phone.label }, "file", request.ip ?? null);
         reply.header("ETag", `"${outcome.sha256}"`);
         reply.header("OC-ETag", `"${outcome.sha256}"`);
         if (request.headers["x-oc-mtime"] !== undefined) reply.header("X-OC-MTime", "accepted");

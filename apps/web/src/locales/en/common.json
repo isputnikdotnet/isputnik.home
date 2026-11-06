@@ -446,7 +446,9 @@
         "off": "Your administrator has not turned on personal libraries.",
         "not_allowed": "Your administrator has not made a personal library available to you.",
         "no_folder": "Your administrator has not chosen where personal libraries are kept yet."
-      }
+      },
+      "nearLimitTitle": "Your library is {{percent}}% full",
+      "nearLimitBody": "{{left}} left before the size limit your administrator set. Once it is reached, phones can't back up — move or delete something, or ask for more room."
     },
     "phones": {
       "heading": "Phones",
@@ -509,7 +511,12 @@
         "checksum": "A file arrived damaged and was not kept. PhotoSync sends it again next time.",
         "library_unavailable": "Your library's folder is unavailable on the server.",
         "server_error": "The server could not store a file."
-      }
+      },
+      "staleTitle_one": "No contact for {{count}} day",
+      "staleTitle_other": "No contact for {{count}} days",
+      "staleBody": "This phone was last in touch on {{date}}. Open PhotoSync on it and check that it is on your home Wi-Fi or the VPN, and that its battery settings let it run.",
+      "staleNever": "This phone hasn't connected since it was added on {{date}}. Check the server, user name and password in its app.",
+      "nearLimit": "Your library is {{percent}}% full. Backups stop at {{limit}}."
     }
   },
   "languageNames": {

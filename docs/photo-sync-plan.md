@@ -4,7 +4,9 @@ Status: architecture agreed with the owner (2026-11-05); phase 0 (spike) done an
 PhotoSync for Android; **phase 1 (personal libraries) built 2026-11-05, not yet released**; **phase 2
 (phone-sync networks and devices) built 2026-11-05, not yet released**; **phase 3 (the sync endpoint)
 built 2026-11-05 and live-checked with PhotoSync for Android, not yet released**; **phase 4
-(status, admin view and guide) built 2026-11-05, not yet released**; phase 5 next. Each phase below is carried out in its own
+(status, admin view and guide) built 2026-11-05, not yet released**; **phase 5 (hardening and
+other clients) built 2026-11-06, not yet released** — a second Android phone and a VPN run live,
+FolderSync **not run** (not needed now — owner) and the iPhone **not run** (no iPhone); see *Spike results*. Each phase below is carried out in its own
 session, in order, and ends in something shippable. Written from the "iSputnik Home – Photo
 Sync" brief. Companion to [gallery-library.md](gallery-library.md),
 [photo-inbox-proposal.md](photo-inbox-proposal.md), [uploads.md](uploads.md), [auth.md](auth.md),
@@ -472,6 +474,83 @@ owner's personal library — and nowhere else.
 - Live Photo pairing (HEIC + MOV → one item with motion) — see *Gallery gaps*.
 - Stale-device notice ("no contact for 7 days"), size-limit warnings before the limit is hit.
 
+**As built (2026-11-06).**
+
+- **Live runs** (*Spike results*, runs 4–6): PhotoSync 4.3.7 on a second Android phone (a
+  Samsung S24, 192.168.1.43) and over the owner's **UniFi VPN** (phones at 192.168.12.x), plus a
+  re-run on the Galaxy Tab. **FolderSync: not run** — the owner doesn't need it now (see *Spike results*). **PhotoSync for iPhone: not run** — the owner
+  has no iPhone; the guide's iPhone steps stay PhotoSync's own and say they are untried, and
+  open question 1 (does iOS list the server first?) stays open.
+- **What the VPN run taught.** The first try was refused because the range was typed
+  `192.168.12.0` without `/24`, which the list took as one address. Adding a network now refuses
+  a bare IPv4 ending in `.0` (`bare_network`: "Did you mean 192.168.12.0/24?"). Nothing then
+  told the admin, from the admin's side, that a phone was being refused — hence the next two.
+- **History in Overview › Logs** (owner, 2026-11-06: "logs so admin can fix the issue"): new
+  `photo_sync.*` entries — `connected` (a phone's first contact, and each move to another
+  phone-sync network, e.g. Wi-Fi → VPN; nothing per request), `refused` for a password refused
+  inside a network (a revoked phone by name, or one matching no phone, per address; no password
+  at all is a client's normal first request and is not noted), and `recovered` ("backing up
+  again") — each at most once an hour per phone or address. Logs takes `?event=` and `?q=` so
+  a link can open one phone's history.
+- **Security › Phone sync** (new tab in the Security group — a tab, not a group; the six
+  stay): the phone-sync networks card moved here from Trusted networks (which keeps a line
+  linking to it; search's anchor moved too), and a **Phones** table of every member's phones —
+  member, last contact, last address and the network it falls in, and the state: a current
+  device-level problem, "no contact for N days", "library nearly full / full", else "Backing
+  up". A phone refused from an address on no list offers **Add <its /24>** (`suggestedRange`,
+  IPv4 only); **See in Logs** opens its history. `GET /api/photo-sync/phones` (admin). The
+  phase 4 privacy line holds: no counts, files or file types.
+- **A problem ends when the phone backs up again**: `photo_sync_device_status.resolved_at`
+  (migration 89). A network refusal ends with the next contact that gets through; any problem
+  ends with a stored or already-held file (a re-sent photo's `204` counts — the phase 4 rule
+  "a file newer than the problem" missed it, so a phone re-sending only known photos kept its
+  warning). A refusal older than the last contact also reads as over, for rows from before the
+  column. The once-a-minute write memory is forgotten for a phone whose problem ended, so the
+  same problem straight after is news again.
+- **Stale phone**: `STALE_DAYS = 7` from the last contact (or, never seen, from when it was
+  added) — a notice on its card in Profile › My library › Phones, a line on the member's page,
+  a state on Security › Phone sync.
+- **Size-limit warnings** at 90% (`NEAR_LIMIT`): a notice on My library ("Your library is 93%
+  full", what is left), a line on each phone ("Backups stop at …"), a notice on the member's
+  page and a state on Security › Phone sync. The `507` at the limit stays.
+- **Live Photos** (owner, 2026-11-06: a LIVE button plus press-and-hold / hover — chosen as the
+  recommended option, the owner having gone ahead without picking): `gallery/live-photos.ts`.
+  In **every** gallery library, a still (`.heic/.heif/.jpg/.jpeg`) and a `.mov` with the same
+  name in the same folder are one item — the still — when the clip is at most 6 s and 40 MB and,
+  where both carry Apple's content identifier (the still's MakerNote tag 0x0011, read from
+  exifr's raw MakerNote; the clip's `com.apple.quicktime.content.identifier`, from ffprobe),
+  the identifiers match. A HEIC is preferred over an exported JPEG of the same name. Columns
+  `motion_relative_path/size/modified_at/duration/web_key` on `gallery_details` (migration
+  90); a pair on record whose clip is unchanged is not probed again. A clip that isn't H.264
+  (iPhones record HEVC, which only Safari plays) gets an H.264 copy in the thumbnail store at
+  once (`<id>-motion.mp4`; a 3-s encode, not queued). The scanner hands the clip to the still
+  the way a print's back is handed to its front; a clip that was a video item is soft-deleted,
+  not reported missing (Missing photos leaves it out). Single-file ingest (what `/dav` uses)
+  pairs whichever half arrives second; `put.ts` files the second half **beside the first under
+  its name** (`livePartnerOf`, from the phone's own records), since each half is otherwise
+  dated on its own and a clip can fall past midnight. The clip follows its still into the bin
+  and back (one companion per item: a print's back wins when a photo has both — the clip then
+  stays behind and becomes a video), on a move to another library (renamed with the still),
+  and on a folder move. `GET /api/library/gallery/assets/:id/motion` (ranged; `?web=1` the
+  copy). Web: a *LIVE* mark on the tile; in the lightbox a **LIVE** button (with sound), hold on
+  touch, hover with a mouse (muted); plays once, then the still. Duplicates, faces and the
+  Inbox never see the clip (it is not an item). Not carried: guest shares and the family-tree
+  package show the still only; a duplicate Replace from the Inbox doesn't carry a clip.
+  Checked in the browser with a synthetic HEVC pair (a test pattern, not a photo).
+- **Request trace for live runs**: `PHOTO_SYNC_TRACE=<file>` makes `dav.ts` append one JSON line
+  per `/dav` request (verb, path, status, the headers that matter, the start of an XML body;
+  never credentials). Off unless set; for a dev machine. How runs 4–7 were read (and how it
+  showed that no FolderSync request ever arrived).
+- Tests: `photo-sync-status.test.ts` (phase 5 block: a refusal ending, a file problem ending
+  only with a file, connected/moved logs, refused passwords, stale, near-limit usage, the
+  admin's phones view and the fix, a Live Photo filed beside its still across midnight),
+  `photo-sync-devices.test.ts` (bare network), `gallery-live-photos.test.ts` (fixtures built
+  in the test: a JPEG with a hand-made Apple MakerNote, ffmpeg clips with the identifier — no
+  CC0 Live Photo was found), `apps/web/test/PhonesSection.test.tsx`.
+- Docs: `docs/users/phone-backup.md` (Live Photos, VPN, the new warnings, the admin's tab and
+  Logs), `library-gallery.md` (Live Photos), `control-panel.md` (Phone sync tab),
+  `your-account.md`, `docs/database.md`.
+
 ### Later (only when asked)
 
 - **Opt-in deletions**: per-device switch; `DELETE` → Recycle Bin; more than *N* (default 20)
@@ -501,7 +580,7 @@ owner's personal library — and nowhere else.
 
 | Gap | Today | Needed |
 | --- | --- | --- |
-| Live Photos | HEIC + MOV with the same name become **two items** | Pair them (phase 5). Until then the guide offers PhotoSync's "still only" setting. |
+| Live Photos | ~~HEIC + MOV with the same name become **two items**~~ | **Paired (phase 5)**: one item with motion, in every gallery library (`live-photos.ts`). |
 | RAW (`.dng`, `.cr3`, …) | Not in the gallery extension list | Out of scope; refused with `415`, shown on the device's status. |
 | Date fallback | Uploads fall back to "now" | Use the client's date (`X-OC-Mtime`, `X-RecordTime`, `PROPPATCH`) before "now" (phase 3). |
 | Filename dates | — | Samsung (`20261105_100150.jpg`) and Pixel (`PXL_20261102_160025120.jpg`) names both parse (phase 3). |
@@ -509,7 +588,7 @@ owner's personal library — and nowhere else.
 ## Open questions
 
 1. ~~Does PhotoSync skip files already on the server?~~ **Yes (Android, spike run 2)**: it lists
-   the album folder before every file. iOS to confirm in phase 5.
+   the album folder before every file. iOS to confirm — **not run in phase 5** (no iPhone).
 2. ~~Which chunking scheme does "Upload in chunks" use?~~ **Dropped**: LAN/VPN only, no size cap.
 3. ~~One library per member, or a shared one with locked folders?~~ **One personal library per
    member** (decision 3).
@@ -733,7 +812,42 @@ were sent. The first waited until something woke PhotoSync (the second photo or 
 — Samsung's battery management holding the background job. On-device names are Samsung's camera
 names (`20261105_100150.jpg`), not the `PXL_` names of the test roll.
 
-Still to run (phase 5, or before phase 3): PhotoSync for iOS, FolderSync, a backup over a VPN.
+**Run 4 — PhotoSync 4.3.7 on a second Android phone (Samsung S24, `SM-S928U`, 192.168.1.43),
+home Wi-Fi, against the phase 3–5 endpoint (2026-11-06).** Its first request is a `PROPFIND`
+Depth 1 of `/dav/` **without credentials** (401), then the same with Basic (207) — it lists the
+server's root before anything else, which the Galaxy Tab's runs never showed (it went straight
+to `MKCOL`). Then per file, as on the tablet: `MKCOL` of `/<model>/` and `/<model>/<album>/`
+(201, then 405), `PUT` with `X-OC-Mtime` (whole seconds this time, `1793498532`) and
+`X-RecordTime` (`1793498532.00`), `PROPPATCH`. Albums seen: `Camera`, and a security camera
+app's `Eufy` folder (an MP4). A later manual run: `PUT 204` for what was there, `201` for the
+new — nothing stored twice.
+
+**Run 5 — the same phone over the owner's UniFi VPN (mobile data, VPN on), 2026-11-06.** The
+phone arrives as **192.168.12.2** — UniFi's VPN server routes into the LAN without NAT, so the
+phone's VPN address is what the server sees. First try: every request `403` (the range had been
+typed `192.168.12.0`, one address — see phase 5 *As built*); the refusal reached the phone's card
+with the address. With `192.168.12.0/24` listed: `MKCOL 405`, `PUT 204`, `PROPPATCH 207` — through
+the VPN, signed in, the photo already at home (sent over Wi-Fi in run 4), so nothing stored.
+PhotoSync re-sent the pending files on its own once the network was listed (a retry, not a
+listing). Its Autotransfer is restricted to Wi-Fi, so it does not run on the VPN; the send was
+manual. A new photo arriving over the VPN (a `201`) was not seen in this run.
+
+**Run 6 — Galaxy Tab, PhotoSync manual re-run (2026-11-06).** `MKCOL 405` ×90, `PUT 204` ×45,
+`PROPPATCH` ×45: phase 3's run 2 again, nothing stored.
+
+**Run 7 — Galaxy Tab, PhotoSync manual re-run again (19:29).** Same as run 6: 45 × `PUT 204`.
+
+**FolderSync — not run** *(owner, 2026-11-06: "we don't need it right now")*. PhotoSync is the
+supported Android app and the guide names only it; FolderSync was on the list as an alternative
+someone might prefer. Still unchecked for it: a scheduled sync, a second run, and whether it
+uploads to a temporary name and then `MOVE`s it (a `.part`-style temp name would be refused
+`415` at the `PUT`, phase 3 *Left for later*). Its "sync deletions" would get `403`. Run it when a
+member wants it.
+
+**Still to run:** PhotoSync for iOS — **not run** (the owner has no iPhone): Autotransfer
+triggers (charging, Shortcuts), a Live Photo from a real iPhone, a second run. The pairing is
+built and tested on fixtures shaped like an iPhone's (identifier in the MakerNote and in the
+clip), not on an iPhone's own files.
 
 ## Sources
 

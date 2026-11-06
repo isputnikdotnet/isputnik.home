@@ -56,7 +56,8 @@
       "email": "Email",
       "notifications": "Notifications",
       "about": "About",
-      "videoStreaming": "Videos"
+      "videoStreaming": "Videos",
+      "phoneSync": "Phone sync"
     },
     "exit": "Home",
     "aria": "Control panel",

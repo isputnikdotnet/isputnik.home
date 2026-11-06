@@ -24,6 +24,21 @@ function syncCidrs(): string[] {
   return (db.prepare("SELECT cidr FROM sync_networks").all() as Pick<SyncNetworkRow, "cidr">[]).map((row) => row.cidr);
 }
 
+/** The listed network an address falls in (the narrowest when several do), or null. */
+export function syncNetworkOf(ip: string | null | undefined): SyncNetwork | null {
+  if (!ip) return null;
+  const matches = listSyncNetworks().filter((network) => ipInAnyCidr(ip, [network.cidr]));
+  const prefix = (cidr: string) => Number(cidr.split("/")[1] ?? 128);
+  return matches.sort((a, b) => prefix(b.cidr) - prefix(a.cidr))[0] ?? null;
+}
+
+/** The /24 an IPv4 address sits in ("192.168.12.0/24"), offered as the fix for a phone
+ *  refused from it; null for anything else (an IPv6 range is the admin's to word). */
+export function suggestedRangeOf(ip: string | null | undefined): string | null {
+  const v4 = /^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/.exec(ip ?? "");
+  return v4 ? `${v4[1]}.${v4[2]}.${v4[3]}.0/24` : null;
+}
+
 /** Is phone sync on at all? Off until an admin names a network. */
 export function isPhoneSyncOn(): boolean {
   return Boolean(db.prepare("SELECT 1 FROM sync_networks LIMIT 1").get());
@@ -39,6 +54,11 @@ export function addSyncNetwork(cidr: string, label: string | null, userId: strin
   const value = cidr.trim();
   if (!isValidCidr(value)) {
     throw new SyncNetworkError("Enter a valid IP address or CIDR range (e.g. 192.168.1.0/24).", 400, "bad_cidr");
+  }
+  // A bare address ending in .0 is a network typed without its size (live run, phase 5:
+  // "192.168.12.0" for a VPN's range matched no phone and every upload was refused).
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.0$/.test(value)) {
+    throw new SyncNetworkError(`${value} is a single address. Did you mean ${value}/24?`, 400, "bare_network");
   }
   if (db.prepare("SELECT 1 FROM sync_networks WHERE cidr = ?").get(value)) {
     throw new SyncNetworkError("That network is already on the list.", 409, "exists");

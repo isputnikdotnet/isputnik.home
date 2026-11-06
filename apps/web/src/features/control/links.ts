@@ -34,7 +34,7 @@ export function recycleBinHref(filters: { library?: string; source?: string } = 
 /** Overview › Logs, filtered to one address or one person (`user` is an account
  *  id) — or opened on a container (`app`): its events, at one `level`, or its
  *  server log (`log: "server"`). */
-export function logsHref(filters: { ip?: string; user?: string; app?: string; level?: "error" | "warn"; log?: "server" } = {}): string {
+export function logsHref(filters: { ip?: string; user?: string; event?: string; q?: string; app?: string; level?: "error" | "warn"; log?: "server" } = {}): string {
   return withQuery(controlHref("logs"), filters);
 }
 

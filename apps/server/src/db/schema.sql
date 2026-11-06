@@ -298,7 +298,8 @@ CREATE TABLE IF NOT EXISTS photo_sync_device_status (
   device_id         TEXT PRIMARY KEY REFERENCES api_tokens(id) ON DELETE CASCADE,
   last_error_code   TEXT NOT NULL,
   last_error_detail TEXT,
-  last_error_at     TEXT NOT NULL
+  last_error_at     TEXT NOT NULL,
+  resolved_at       TEXT
 );
 
 -- Networks an account has already signed in from, keyed on the coarse /24 (IPv4)
@@ -577,6 +578,16 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   back_modified_at    TEXT,
   back_preview_storage_key TEXT,
   back_text           TEXT,
+  -- A Live Photo's MOTION (docs/photo-sync-plan.md, phase 5; live-photos.ts, migration
+  -- 90): the short .mov beside a still of the same name, recorded here rather than
+  -- catalogued as a video of its own. size/modified_at are change detection (a pair
+  -- on record is not probed again); duration is the clip's; web_key is an H.264
+  -- copy in the thumbnail store when the clip is HEVC, which most browsers can't play.
+  motion_relative_path TEXT,
+  motion_size         INTEGER,
+  motion_modified_at  TEXT,
+  motion_duration     REAL,
+  motion_web_key      TEXT,
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);

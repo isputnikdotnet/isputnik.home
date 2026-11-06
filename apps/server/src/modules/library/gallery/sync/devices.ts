@@ -17,8 +17,8 @@ import { sha256 } from "../../../../crypto.js";
 import { createApiToken, isUnknownApiToken } from "../../../../core/api-tokens.js";
 import { flagAbusiveRequest } from "../../../../core/security-alerts.js";
 import { personalLibraryIdOf } from "../personal/personal-libraries.js";
-import { syncGateVerdict } from "./networks.js";
-import { phoneOfRawToken, recordPhoneProblem } from "./status.js";
+import { syncGateVerdict, syncNetworkOf } from "./networks.js";
+import { notePhonePasswordRefused, phoneOfRawToken, recordPhoneProblem, resolvePhoneProblem } from "./status.js";
 import type { ApiTokenRow } from "../../../../db/rows.js";
 
 export const PHONE_SCOPE = "photo-sync";
@@ -41,6 +41,17 @@ export function listPhones(userId: string): Phone[] {
     WHERE user_id = ? AND scope = ? AND revoked_at IS NULL
     ORDER BY created_at DESC
   `).all(userId, PHONE_SCOPE) as Phone[];
+}
+
+/** Every member's live phones, for the admin's Security › Phone sync — with whose each
+ *  one is and the library it backs up into. Never the secret. */
+export function listAllPhones(): Array<Phone & { user_id: string; user_name: string; library_id: string | null }> {
+  return db.prepare(`
+    SELECT t.id, t.label, t.created_at, t.last_seen_at, t.last_ip, t.user_id, t.library_id, u.display_name AS user_name
+    FROM api_tokens t JOIN users u ON u.id = t.user_id
+    WHERE t.scope = ? AND t.revoked_at IS NULL
+    ORDER BY u.display_name COLLATE NOCASE, t.created_at DESC
+  `).all(PHONE_SCOPE) as Array<Phone & { user_id: string; user_name: string; library_id: string | null }>;
 }
 
 /** Add a phone: a token bound to the member's live personal library. Returns the raw
@@ -123,12 +134,15 @@ export function basicPassword(header: unknown): string | null {
 }
 
 /** Resolve a raw token to a live phone: live token of the scope, active member, bound
- *  to that member's live personal library. Bumps last_seen_at / last_ip on success. */
+ *  to that member's live personal library. Bumps last_seen_at / last_ip on success, and
+ *  logs a first contact, or a contact from another phone-sync network than the last
+ *  (Wi-Fi to the VPN, say) — the history an admin reads in Logs (phase 5). */
 export function resolvePhoneToken(raw: string, ip: string | null): PhoneIdentity | null {
   if (!raw.startsWith(`isp_${PHONE_SCOPE}_`)) return null;
   const hash = sha256(raw);
   const row = db.prepare(`
-    SELECT users.*, api_tokens.id AS token_id, api_tokens.label AS token_label, api_tokens.library_id AS token_library
+    SELECT users.*, api_tokens.id AS token_id, api_tokens.label AS token_label, api_tokens.library_id AS token_library,
+      api_tokens.last_ip AS token_last_ip, api_tokens.last_seen_at AS token_last_seen
     FROM api_tokens
     JOIN users ON users.id = api_tokens.user_id
     JOIN libraries ON libraries.id = api_tokens.library_id
@@ -140,11 +154,31 @@ export function resolvePhoneToken(raw: string, ip: string | null): PhoneIdentity
       AND libraries.personal_user_id = api_tokens.user_id
       AND libraries.personal_orphaned_at IS NULL
       AND libraries.type = 'gallery'
-  `).get(hash, PHONE_SCOPE) as (User & { token_id: string; token_label: string | null; token_library: string }) | undefined;
+  `).get(hash, PHONE_SCOPE) as (User & {
+    token_id: string; token_label: string | null; token_library: string; token_last_ip: string | null; token_last_seen: string | null;
+  }) | undefined;
   if (!row) return null;
   db.prepare(`UPDATE api_tokens SET last_seen_at = ${NOW}, last_ip = ? WHERE id = ?`).run(ip, row.token_id);
-  const { token_id, token_label, token_library, ...user } = row;
+  const { token_id, token_label, token_library, token_last_ip, token_last_seen, ...user } = row;
+  if (!token_last_seen || token_last_ip !== ip) notePhoneNetwork(row.id, token_id, token_label, token_last_seen ? token_last_ip : null, ip);
   return { user: user as User, deviceId: token_id, label: token_label, libraryId: token_library };
+}
+
+function notePhoneNetwork(userId: string, deviceId: string, label: string | null, previousIp: string | null, ip: string | null): void {
+  const now = syncNetworkOf(ip);
+  const before = previousIp ? syncNetworkOf(previousIp) : null;
+  if (previousIp && before?.id === now?.id) return;
+  const where = now ? `${now.label ?? now.cidr} (${ip})` : String(ip);
+  logActivity({
+    event: "photo_sync.connected",
+    actorUserId: userId,
+    targetType: "photo_sync_device",
+    targetId: deviceId,
+    detail: previousIp
+      ? `Phone "${label ?? "Phone"}" now connects from ${where}.`
+      : `Phone "${label ?? "Phone"}" made its first contact, from ${where}.`,
+    ipAddress: ip
+  });
 }
 
 /** The whole check for one sync request: where from, then which phone. The network is
@@ -171,7 +205,10 @@ export function authenticatePhone(request: FastifyRequest): PhoneAuthResult {
   const phone = resolvePhoneToken(raw, request.ip ?? null);
   if (!phone) {
     if (isUnknownApiToken(raw)) flagAbusiveRequest(request, "token");
+    notePhonePasswordRefused(raw, request.ip ?? null);
     return { ok: false, reason: "credentials" };
   }
+  // Got through: a network refusal it had is over.
+  resolvePhoneProblem({ deviceId: phone.deviceId, userId: phone.user.id, label: phone.label }, "contact", request.ip ?? null);
   return { ok: true, phone };
 }

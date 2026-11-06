@@ -150,13 +150,14 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
   }));
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [error, setError] = useState("");
-  const [logSearchInput, setLogSearchInput] = useState("");
-  const [logSearch, setLogSearch] = useState("");
+  // ?q= arrives with ?event= from Security › Phone sync (one phone's history).
+  const [logSearchInput, setLogSearchInput] = useState(() => queryParam("q") ?? "");
+  const [logSearch, setLogSearch] = useState(() => queryParam("q") ?? "");
   // ?ip= or ?user= arrives from a sign-in being looked into (logsHref): everything
-  // that address, or that person, did.
+  // that address, or that person, did. ?event= is an event category (photo_sync).
   const [filters, setFilters] = useState<Record<LogFilterKey, string[]>>(() => {
     const params = new URLSearchParams(window.location.search);
-    return { ...EMPTY_LOG_FILTERS, ip: params.getAll("ip"), user: params.getAll("user") };
+    return { ...EMPTY_LOG_FILTERS, ip: params.getAll("ip"), user: params.getAll("user"), event: params.getAll("event") };
   });
   // The person filter works on account ids (two people can share a name); this is
   // what each id is called, from the server, plus the automated rows' own word.
@@ -183,15 +184,17 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
   // address saying otherwise, and a reload or bookmark shows the same rows.
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
-    for (const key of ["ip", "user"] as const) {
+    for (const key of ["ip", "user", "event"] as const) {
       query.delete(key);
       filters[key].forEach((value) => query.append(key, value));
     }
+    if (logSearch) query.set("q", logSearch);
+    else query.delete("q");
     const next = `${window.location.pathname}${query.size ? `?${query}` : ""}`;
     if (next !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState(window.history.state, "", next);
     }
-  }, [filters]);
+  }, [filters, logSearch]);
   const [facets, setFacets] = useState<Partial<Record<LogFilterKey, string[]>>>({});
   const [range, setRange] = useState<DateRangeValue>(ALL_TIME);
   const [sort, setSort] = useState<LogSort>("time");

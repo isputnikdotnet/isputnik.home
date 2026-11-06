@@ -11,7 +11,7 @@ export type ControlSection =
   | "users" | "groups" | "invites"
   // Security
   | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
-  | "appsAccess"
+  | "phoneSync" | "appsAccess"
   // Maintenance
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   | "videoStreaming"
@@ -46,6 +46,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   securityPolicies: "/control/security/policies",
   securityTrusted: "/control/security/trusted-networks",
   securityBlocked: "/control/security/blocked-ips",
+  phoneSync: "/control/security/phone-sync",
   appsAccess: "/control/security/apps",
 
   tasks: "/control/maintenance/tasks",

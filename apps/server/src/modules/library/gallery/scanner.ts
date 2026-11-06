@@ -34,6 +34,10 @@ import {
   type AssetKind
 } from "./media.js";
 import { backRuleOf, frontStemsFor, pairBackSides, type BackRule } from "./back-sides.js";
+import {
+  isLivePair, liveCandidates, makeMotionWebCopy, MOTION_EXTENSIONS, probeMotion, readStillContentId, STILL_EXTENSIONS,
+  type MotionProbe
+} from "./live-photos.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { readFaststart } from "./faststart.js";
 import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
@@ -167,17 +171,104 @@ async function syncBackSide(libraryId: string, itemId: string, back: GalleryFile
   `).run(back.relativePath, back.size, modifiedIso, rotation, key, itemId);
 }
 
+type PriorMotion = Pick<GalleryDetailRow, "motion_relative_path" | "motion_size" | "motion_modified_at" | "motion_web_key">;
+
+/** A Live Photo's clip found for a still: the file, and what probing it said — null
+ *  when the pair was taken from the record unchanged (nothing to read again). */
+interface MotionFound {
+  file: GalleryFileEntry;
+  probe: MotionProbe | null;
+}
+
+// Bring the still's motion columns in line with the clip beside it (or with there
+// being none) — live-photos.ts. An unchanged clip (same path, size, mtime) costs
+// nothing; a new or changed one is probed and, if HEVC, given an H.264 copy.
+async function syncMotion(libraryId: string, itemId: string, motion: MotionFound | null, prior: PriorMotion | undefined): Promise<void> {
+  const dropWebCopy = (key: string | null | undefined) => {
+    if (!key) return;
+    try { fs.rmSync(thumbnailAbsolutePath(key), { force: true }); } catch { /* ignore */ }
+  };
+  if (!motion) {
+    if (prior?.motion_relative_path) {
+      stmt("UPDATE gallery_details SET motion_relative_path = NULL, motion_size = NULL, motion_modified_at = NULL, motion_duration = NULL, motion_web_key = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
+        .run(itemId);
+      dropWebCopy(prior.motion_web_key);
+    }
+    return;
+  }
+  const file = motion.file;
+  const modifiedIso = new Date(file.modifiedAtMs).toISOString();
+  if (prior?.motion_relative_path === file.relativePath && prior.motion_size === file.size && prior.motion_modified_at === modifiedIso) return;
+  const probe = motion.probe ?? await probeMotion(file.absolutePath);
+  const webKey = await makeMotionWebCopy(libraryId, itemId, file.absolutePath, probe.videoCodec);
+  if (!webKey) dropWebCopy(prior?.motion_web_key);
+  stmt(`
+    UPDATE gallery_details
+    SET motion_relative_path = ?, motion_size = ?, motion_modified_at = ?, motion_duration = ?, motion_web_key = ?,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE item_id = ?
+  `).run(file.relativePath, file.size, modifiedIso, probe.durationSeconds, webKey, itemId);
+}
+
+/** Whether a still and the clip beside it are a Live Photo (live-photos.ts), probing
+ *  the clip and, only when the clip carries an identifier, the still. */
+async function confirmMotion(still: GalleryFileEntry, clip: GalleryFileEntry): Promise<MotionFound | null> {
+  const probe = await probeMotion(clip.absolutePath);
+  const stillId = probe.contentId ? await readStillContentId(still.absolutePath) : null;
+  return isLivePair(stillId, probe) ? { file: clip, probe } : null;
+}
+
+// The clips this library has on record: still path → clip path, size, mtime.
+function recordedMotionPairs(libraryId: string): Map<string, Pick<GalleryDetailRow, "motion_relative_path" | "motion_size" | "motion_modified_at">> {
+  const rows = stmt(`
+    SELECT li.folder_path AS still, gd.motion_relative_path, gd.motion_size, gd.motion_modified_at
+    FROM gallery_details gd JOIN library_items li ON li.id = gd.item_id
+    WHERE li.library_id = ? AND li.deleted_at IS NULL AND gd.motion_relative_path IS NOT NULL
+  `).all(libraryId) as ({ still: string } & Pick<GalleryDetailRow, "motion_relative_path" | "motion_size" | "motion_modified_at">)[];
+  return new Map(rows.map((row) => [row.still, row]));
+}
+
+// Which clips are Live Photo motion, for one walk: a pair on record whose clip has
+// not changed stands; every other candidate the names suggest is probed once.
+async function resolveLivePhotos(libraryId: string, files: GalleryFileEntry[]): Promise<{ motionOf: Map<string, MotionFound>; motions: Set<string> }> {
+  const byPath = new Map(files.map((file) => [file.relativePath, file]));
+  const recorded = recordedMotionPairs(libraryId);
+  const motionOf = new Map<string, MotionFound>();
+  const motions = new Set<string>();
+  for (const [stillPath, clip] of liveCandidates(files)) {
+    const still = byPath.get(stillPath);
+    if (!still || still.kind !== "photo" || clip.kind !== "video") continue;
+    const onRecord = recorded.get(stillPath);
+    const unchanged = onRecord?.motion_relative_path === clip.relativePath && onRecord.motion_size === clip.size
+      && onRecord.motion_modified_at === new Date(clip.modifiedAtMs).toISOString();
+    const found = unchanged ? { file: clip, probe: null } : await confirmMotion(still, clip);
+    if (!found) continue;
+    motionOf.set(stillPath, found);
+    motions.add(clip.relativePath);
+  }
+  return { motionOf, motions };
+}
+
+/** A clip that just became a still's motion leaves the grid if it was a video of its
+ *  own — soft-deleted like a photo that became a back, not reported missing. */
+function retireMotionItem(libraryId: string, clipPath: string): void {
+  stmt("UPDATE library_items SET deleted_at = COALESCE(deleted_at, strftime('%Y-%m-%dT%H:%M:%fZ','now')) WHERE library_id = ? AND folder_path = ?")
+    .run(libraryId, clipPath);
+}
+
 // Catalog one asset (insert/update its item + gallery_details + minimal metadata).
 // Skips all work when the file is unchanged (same size + mtime) and already ready,
 // so a rescan only touches new/modified assets. Returns the item id.
 // `back` is the back side paired with this file (docs/back-sides-proposal.md), or
 // null when it has none — the caller decides, from the library's rule or the
-// record; this only keeps the row in step with it.
+// record; this only keeps the row in step with it. `motion` is the same for a Live
+// Photo's clip; undefined leaves whatever is on record alone.
 export async function ingestGalleryAsset(
   libraryId: string,
   file: GalleryFileEntry,
   metaEnabled: boolean,
-  back: GalleryFileEntry | null = null
+  back: GalleryFileEntry | null = null,
+  motion?: MotionFound | null
 ): Promise<string> {
   const existing = stmt("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
     .get(libraryId, file.relativePath) as Pick<LibraryItemRow, "id"> | undefined;
@@ -196,10 +287,12 @@ export async function ingestGalleryAsset(
   // by the gallery_details UPSERT, which never writes it).
   let existingRotation = 0;
   let priorBack: PriorBack | undefined;
+  let priorMotion: PriorMotion | undefined;
   if (existing) {
-    const prior = stmt("SELECT size, modified_at, preview_storage_key, rotation, playable, faststart, phash, taken_at, taken_at_source, back_relative_path, back_size, back_modified_at, back_preview_storage_key, back_rotation FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as (Pick<GalleryDetailRow, "size" | "modified_at" | "preview_storage_key" | "rotation" | "playable" | "faststart" | "phash" | "taken_at" | "taken_at_source"> & PriorBack) | undefined;
+    const prior = stmt("SELECT size, modified_at, preview_storage_key, rotation, playable, faststart, phash, taken_at, taken_at_source, back_relative_path, back_size, back_modified_at, back_preview_storage_key, back_rotation, motion_relative_path, motion_size, motion_modified_at, motion_web_key FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as (Pick<GalleryDetailRow, "size" | "modified_at" | "preview_storage_key" | "rotation" | "playable" | "faststart" | "phash" | "taken_at" | "taken_at_source"> & PriorBack & PriorMotion) | undefined;
     priorBack = prior;
+    priorMotion = prior;
     existingRotation = prior?.rotation ?? 0;
     // Re-probe an unchanged video whose playable flag was never computed (rows from
     // before this feature) so a single rescan backfills the grid hint.
@@ -243,6 +336,7 @@ export async function ingestGalleryAsset(
       // Revive a previously-missing row without re-reading the file.
       stmt("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
       await syncBackSide(libraryId, itemId, back, priorBack);
+      if (motion !== undefined) await syncMotion(libraryId, itemId, motion, priorMotion);
       return itemId;
     }
   }
@@ -335,6 +429,7 @@ export async function ingestGalleryAsset(
   })();
 
   await syncBackSide(libraryId, itemId, back, priorBack);
+  if (motion !== undefined) await syncMotion(libraryId, itemId, motion, priorMotion);
   return itemId;
 }
 
@@ -488,18 +583,23 @@ export async function scanGalleryLibrary(
   // Backs of scanned prints are not items: they are taken out of the list and
   // handed to their fronts (docs/back-sides-proposal.md).
   const { backOf, backs } = resolveBackSides(libraryId, files, backRuleOf(settings.back_sides));
-  const items = files.filter((file) => !backs.has(file.relativePath));
+  const fronts = files.filter((file) => !backs.has(file.relativePath));
+  // A Live Photo's clip is not an item either: it is handed to its still.
+  const { motionOf, motions } = await resolveLivePhotos(libraryId, fronts);
+  const items = fronts.filter((file) => !motions.has(file.relativePath));
 
   for (let i = 0; i < items.length; i += 1) {
     onProgress?.(i, items.length);
-    await ingestGalleryAsset(libraryId, items[i], metaEnabled, backOf.get(items[i].relativePath) ?? null);
+    const item = items[i]!;
+    await ingestGalleryAsset(libraryId, item, metaEnabled, backOf.get(item.relativePath) ?? null,
+      item.kind === "photo" ? motionOf.get(item.relativePath) ?? null : undefined);
   }
   onProgress?.(items.length, items.length);
   // A photo that has just become a back leaves the catalogue the way a missing
   // file does (its row stays, soft-deleted, with everything it carried — Split
   // brings it back), but it is not missing: nothing to log about it.
   const nowMissing = reconcileGalleryItems(libraryId, new Set(items.map((file) => file.relativePath)), folderScope)
-    .filter((relativePath) => !backs.has(relativePath));
+    .filter((relativePath) => !backs.has(relativePath) && !motions.has(relativePath));
 
   // Record which photos went missing this scan so admins have a trail (the details also
   // stay visible in the "Missing photos" list until they're purged).
@@ -563,8 +663,62 @@ export async function scanSingleGalleryFile(libraryId: string, relativePath: str
     }
   }
 
+  // A Live Photo's clip (live-photos.ts): the STILL is (re-)catalogued with it, and a
+  // video item the clip had become is retired. A still arriving after its clip
+  // takes the clip the same way.
+  if (entry.kind === "video" && MOTION_EXTENSIONS.has(entry.extension)) {
+    const still = stillBeside(rootPath, entry.relativePath, extensions);
+    const found = still ? await confirmMotion(still, entry) : null;
+    if (still && found) {
+      retireMotionItem(libraryId, entry.relativePath);
+      requestPhotoPlaceSweep();
+      return ingestGalleryAsset(libraryId, still, metaEnabled, backFileBeside(libraryId, rootPath, still, rule, extensions), found);
+    }
+  }
+  let motion: MotionFound | null | undefined;
+  if (entry.kind === "photo" && STILL_EXTENSIONS.has(entry.extension)) {
+    const clip = clipBeside(rootPath, entry.relativePath, extensions);
+    motion = clip ? await confirmMotion(entry, clip) : null;
+    if (motion) retireMotionItem(libraryId, motion.file.relativePath);
+  }
+
   requestPhotoPlaceSweep();
-  return ingestGalleryAsset(libraryId, entry, metaEnabled, backFileBeside(libraryId, rootPath, entry, rule, extensions));
+  return ingestGalleryAsset(libraryId, entry, metaEnabled, backFileBeside(libraryId, rootPath, entry, rule, extensions), motion);
+}
+
+// The files in one folder sharing a name (not the extension) with `relativePath`,
+// by name only — one readdir.
+function namesakesOf(rootPath: string, relativePath: string, extensions: Set<string>): GalleryFileEntry[] {
+  const dir = path.posix.dirname(relativePath);
+  const abs = dir === "." ? rootPath : path.join(rootPath, ...dir.split("/"));
+  const base = path.posix.basename(relativePath);
+  const stem = base.slice(0, base.length - path.posix.extname(base).length).toLowerCase();
+  let names: fs.Dirent[];
+  try { names = fs.readdirSync(abs, { withFileTypes: true }); } catch { return []; }
+  const out: GalleryFileEntry[] = [];
+  for (const d of names) {
+    if (!d.isFile() || d.name.startsWith(".")) continue;
+    const ext = path.extname(d.name).toLowerCase();
+    if (!extensions.has(ext) || d.name.slice(0, d.name.length - ext.length).toLowerCase() !== stem) continue;
+    const candidate = dir === "." ? d.name : `${dir}/${d.name}`;
+    if (candidate === relativePath) continue;
+    const entry = fileEntryAt(rootPath, candidate);
+    if (entry) out.push(entry);
+  }
+  return out;
+}
+
+// The still a clip belongs to (a HEIC before a JPEG), and the clip a still has.
+function stillBeside(rootPath: string, clipPath: string, extensions: Set<string>): GalleryFileEntry | null {
+  const stills = namesakesOf(rootPath, clipPath, extensions).filter((entry) => STILL_EXTENSIONS.has(entry.extension));
+  return stills.find((entry) => entry.extension === ".heic" || entry.extension === ".heif") ?? stills[0] ?? null;
+}
+function clipBeside(rootPath: string, stillPath: string, extensions: Set<string>): GalleryFileEntry | null {
+  const own = { relativePath: stillPath, extension: path.extname(stillPath).toLowerCase(), size: 0 };
+  const namesakes = namesakesOf(rootPath, stillPath, extensions);
+  // liveCandidates decides which still a clip goes with when there are two.
+  const pairs = liveCandidates([own, ...namesakes]);
+  return (pairs.get(stillPath) as GalleryFileEntry | undefined) ?? null;
 }
 
 // The photo files in one folder, by name only — no stat, so a folder of

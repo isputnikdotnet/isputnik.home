@@ -56,7 +56,8 @@
       "email": "Почта",
       "notifications": "Уведомления",
       "about": "О программе",
-      "videoStreaming": "Видео"
+      "videoStreaming": "Видео",
+      "phoneSync": "Синхронизация телефонов"
     },
     "exit": "Домой",
     "aria": "Навигация панели управления",

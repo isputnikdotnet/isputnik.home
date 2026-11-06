@@ -37,6 +37,7 @@ import { kindForExtension, readAssetMetadata } from "../media.js";
 import { dateFolderForCapture } from "../date-folder.js";
 import { dateFromFileName } from "../filename-date.js";
 import { uniqueGalleryFileName } from "../files.js";
+import { MOTION_EXTENSIONS, STILL_EXTENSIONS } from "../live-photos.js";
 import { personalQuota } from "../personal/service.js";
 import { baseNameOf, ensureParents, fileAt, recordFile } from "./namespace.js";
 import type { PhoneIdentity } from "./devices.js";
@@ -82,6 +83,30 @@ export async function syncDateFolder(tmpPath: string, fileName: string, clientDa
     try { takenAt = (await readAssetMetadata(kind, tmpPath)).takenAt; } catch { /* no date → fallback */ }
   }
   return dateFolderForCapture(takenAt ?? dateFromFileName(fileName), clientDate ?? now);
+}
+
+/** A Live Photo's other half this phone already sent — the still for a clip, the clip
+ *  for a still: same folder on the phone, same name. Where it was filed and under
+ *  what name, so this half goes beside it under the same name and the scanner makes
+ *  the two one photo (gallery/live-photos.ts). Each half is otherwise dated on its own,
+ *  and a clip's date can fall on the other side of midnight from its still's. */
+export function livePartnerOf(deviceId: string, libraryId: string, davPath: string): { dir: string; stem: string } | null {
+  const ext = path.posix.extname(davPath).toLowerCase();
+  const partnerExts = STILL_EXTENSIONS.has(ext) ? MOTION_EXTENSIONS : MOTION_EXTENSIONS.has(ext) ? STILL_EXTENSIONS : null;
+  if (!partnerExts) return null;
+  // Every name that is this stem plus an extension: a key range, "." up to "/" (the next code point).
+  const prefix = davPath.slice(0, davPath.length - path.posix.extname(davPath).length) + ".";
+  const rows = db.prepare(`
+    SELECT f.client_path, gd.relative_path
+    FROM photo_sync_files f
+    JOIN gallery_details gd ON gd.item_id = f.item_id
+    JOIN library_items li ON li.id = f.item_id AND li.library_id = ?
+    WHERE f.device_id = ? AND f.client_path >= ? AND f.client_path < ?
+  `).all(libraryId, deviceId, prefix, `${prefix.slice(0, -1)}/`) as { client_path: string; relative_path: string }[];
+  const partner = rows.find((row) => partnerExts.has(path.posix.extname(row.client_path).toLowerCase()) && !row.client_path.slice(prefix.length).includes("/"));
+  if (!partner) return null;
+  const file = path.posix.basename(partner.relative_path);
+  return { dir: path.posix.dirname(partner.relative_path), stem: file.slice(0, file.length - path.posix.extname(file).length) };
 }
 
 /** The phone's folder in its owner's library, from its name on the Phones list. */
@@ -327,11 +352,17 @@ export async function receivePut(request: FastifyRequest, phone: PhoneIdentity, 
         return { status: 201, sha256: digest, result: "known", itemId: known } as const;
       }
 
-      const dated = await syncDateFolder(tmpPath, name, clientDate);
-      const targetDir = path.join(target.root, deviceFolderName(phone.label), ...dated.split("/"));
+      // The second half of a Live Photo goes beside the first, under its name.
+      const partner = livePartnerOf(phone.deviceId, target.libraryId, davPath);
+      const partnerDir = partner ? path.join(target.root, ...(partner.dir === "." ? [] : partner.dir.split("/"))) : null;
+      const partnerName = partner ? `${partner.stem}${path.extname(name)}` : null;
+      const besidePartner = partnerDir && partnerName && pathIsInside(partnerDir, target.root)
+        && fs.existsSync(partnerDir) && !fs.existsSync(path.join(partnerDir, partnerName));
+      const dated = besidePartner ? null : await syncDateFolder(tmpPath, name, clientDate);
+      const targetDir = besidePartner ? partnerDir! : path.join(target.root, deviceFolderName(phone.label), ...dated!.split("/"));
       if (!pathIsInside(targetDir, target.root)) throw new PutRefused(400, "Bad path.", "server_error");
       fs.mkdirSync(targetDir, { recursive: true });
-      const finalName = uniqueGalleryFileName(targetDir, name);
+      const finalName = besidePartner ? partnerName : uniqueGalleryFileName(targetDir, name);
       if (!finalName) throw new PutRefused(400, "The file name is unusable.", "server_error");
       if (clientDate) fs.utimesSync(tmpPath, clientDate, clientDate);
       const finalPath = path.join(targetDir, finalName);

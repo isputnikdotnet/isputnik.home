@@ -88,6 +88,17 @@ there.
 Rotation works for videos too — a clip filmed sideways turns upright in the
 viewer and in its thumbnails, and keeps playing while you turn it.
 
+**Live Photos.** An iPhone keeps a short clip with each Live Photo, as a second
+file with the same name (`IMG_1234.HEIC` and `IMG_1234.MOV`). The two stay one
+photo, marked *LIVE* on its tile; the clip is not a video of its own. In the
+viewer, press **LIVE** to play the motion with its sound, hold the photo on a
+phone, or hover it with the mouse (muted). A clip from an iPhone is converted
+once into a format every browser plays. Two files pair when they sit in the same
+folder under the same name, the clip is a few seconds long, and — where both
+carry Apple's identifier — the identifiers match; a longer video that happens to
+share a photo's name stays a video. Moving or deleting the photo takes the clip
+with it.
+
 **Scanned on both sides.** A print with writing on the back stays one photo:
 the back is kept with the front and shown with **Flip** (the pill at the foot
 of the viewer, or `B` on the keyboard), the right way up — the back has its own

@@ -165,8 +165,8 @@ export function repointMovedFolder(libraryId: string, folder: string, targetLibr
   const items = itemsUnder(libraryId, folder);
   const newPath = (old: string) => (old === folder ? targetFolder : `${targetFolder}${old.slice(folder.length)}`);
   const updateItem = db.prepare("UPDATE library_items SET library_id = ?, folder_path = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
-  const updateDetails = db.prepare("UPDATE gallery_details SET relative_path = ?, preview_storage_key = ?, web_video_key = ? WHERE item_id = ?");
-  const readDetails = db.prepare("SELECT preview_storage_key, web_video_key FROM gallery_details WHERE item_id = ?");
+  const updateDetails = db.prepare("UPDATE gallery_details SET relative_path = ?, preview_storage_key = ?, web_video_key = ?, motion_relative_path = ?, motion_web_key = ? WHERE item_id = ?");
+  const readDetails = db.prepare("SELECT preview_storage_key, web_video_key, motion_relative_path, motion_web_key FROM gallery_details WHERE item_id = ?");
   const readCover = db.prepare("SELECT cover_storage_key FROM item_metadata WHERE item_id = ?");
   const updateCover = db.prepare("UPDATE item_metadata SET cover_storage_key = ? WHERE item_id = ?");
   const readFaces = db.prepare("SELECT id, thumb_storage_key FROM gallery_faces WHERE item_id = ? AND thumb_storage_key IS NOT NULL");
@@ -179,12 +179,15 @@ export function repointMovedFolder(libraryId: string, folder: string, targetLibr
   db.transaction(() => {
     for (const item of items) {
       updateItem.run(targetLibraryId, newPath(item.folder_path), item.id);
-      const details = readDetails.get(item.id) as Pick<GalleryDetailRow, "preview_storage_key" | "web_video_key"> | undefined;
+      const details = readDetails.get(item.id) as Pick<GalleryDetailRow, "preview_storage_key" | "web_video_key" | "motion_relative_path" | "motion_web_key"> | undefined;
       if (details) {
         const preview = rekey(details.preview_storage_key, libraryId, targetLibraryId);
         const web = rekey(details.web_video_key, libraryId, targetLibraryId);
-        updateDetails.run(newPath(item.folder_path), preview, web, item.id);
-        fileMoves.push([details.preview_storage_key, preview], [details.web_video_key, web]);
+        // A Live Photo's clip sits beside its still, so it moved with the folder.
+        const motionWeb = rekey(details.motion_web_key, libraryId, targetLibraryId);
+        const motionPath = details.motion_relative_path ? newPath(details.motion_relative_path) : null;
+        updateDetails.run(newPath(item.folder_path), preview, web, motionPath, motionWeb, item.id);
+        fileMoves.push([details.preview_storage_key, preview], [details.web_video_key, web], [details.motion_web_key, motionWeb]);
       }
       const cover = readCover.get(item.id) as Pick<ItemMetadataRow, "cover_storage_key"> | undefined;
       if (cover?.cover_storage_key) {

@@ -78,6 +78,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "блокировка перебор порог попытки пароль минимальная длина сложность оповещения о входе почта репутация угрозы только чтение удаление доверенная сеть защита удалений",
   securityTrusted: "cidr subnet allowlist lan home network exempt whitelist " +
     "подсеть белый список локальная сеть домашняя сеть исключение",
+  phoneSync: "phone sync backup photosync foldersync webdav dav mobile android iphone tablet vpn wireguard tailscale unifi network cidr range refused stale no contact last contact full limit phones members " +
+    "синхронизация телефонов резервная копия телефона фото сеть подсеть диапазон впн отказ нет связи последняя связь заполнена предел телефоны участники",
   securityBlocked:
     "banned ip block unblock auto-block ban permanent never expires forever make permanent reputation abuseipdb abuse score check " +
     "заблокированный ip блокировка разблокировать автоблокировка бан навсегда никогда не истекает сделать постоянным репутация проверка",
@@ -177,7 +179,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
     keywords: "allow deletions only trusted networks read only readonly refuse delete away from home stolen credentials защита удалений только доверенные сети только чтение отклонить удаление"
   },
   { titleKey: "addTrustedNetwork", section: "securityTrusted", keywords: "cidr range lan skip lockout добавить доверенную сеть подсеть диапазон" },
-  { titleKey: "phoneSyncNetworks", section: "securityTrusted", anchor: "phone-sync-networks", keywords: "phone sync backup photosync webdav dav mobile android iphone vpn wireguard tailscale network cidr range lan where from address port copy trusted networks off синхронизация телефонов резервная копия телефона фото сеть подсеть диапазон впн адрес порт скопировать доверенные сети выключена" },
+  { titleKey: "phoneSyncNetworks", section: "phoneSync", anchor: "phone-sync-networks", keywords: "phone sync backup photosync webdav dav mobile android iphone vpn wireguard tailscale network cidr range lan where from address port copy trusted networks off синхронизация телефонов резервная копия телефона фото сеть подсеть диапазон впн адрес порт скопировать доверенные сети выключена" },
   { titleKey: "scheduledBackups", section: "backup", anchor: "scheduled-backups", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
   { titleKey: "containerBackups", section: "backup", anchor: "container-backups", keywords: "container games video restore download upload undo database back up one apart individually контейнер игры видео восстановить скачать загрузить отменить отдельно копия базы" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
