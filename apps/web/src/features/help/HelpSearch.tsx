@@ -25,8 +25,11 @@ export function HelpSearch({ isAdmin }: { isAdmin: boolean }) {
   const slugs = useMemo(() => guides.map((guide) => guide.slug), [guides]);
   const index = useGuideIndex(slugs, wanted);
   const results = useMemo(
-    () => (index.status === "ready" ? searchGuides(index.sections, query) : []),
-    [index, query]
+    () =>
+      index.status === "ready"
+        ? searchGuides(isAdmin ? index.sections : index.sections.filter((section) => !section.adminOnly), query)
+        : [],
+    [index, query, isAdmin]
   );
 
   const trimmed = query.trim();

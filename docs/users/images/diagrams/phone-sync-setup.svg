@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 250" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <!-- Drawn inline by the app in the reader's theme (classes styled in
+       apps/web/src/styles/about.css); this <style> is the fallback GitHub uses. -->
+  <style>
+    .d-box { fill: #f4f6f8; stroke: #c9d2da; }
+    .d-hot { fill: #e4f5f7; stroke: #1a8f9a; }
+    .d-flow { fill: none; stroke: #1a8f9a; stroke-width: 2; }
+    .d-arrow { fill: #1a8f9a; }
+    .d-lbl { fill: #1f2937; font-size: 13px; font-weight: 650; }
+    .d-sub { fill: #5b6775; font-size: 11.5px; }
+    .d-mono { fill: #1a8f9a; font-family: Consolas, monospace; font-size: 11.5px; }
+    .d-admin { fill: #a2742c; font-size: 11.5px; font-weight: 650; }
+  </style>
+  <defs>
+    <marker id="ps-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path class="d-arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <text class="d-admin" x="10" y="22">YOU, ONCE</text>
+  <rect class="d-hot" x="10" y="34" width="270" height="62" rx="12"/>
+  <text class="d-lbl" x="26" y="60">1. Personal libraries</text>
+  <text class="d-sub" x="26" y="80">Library › Storage: where, who, size limit</text>
+  <rect class="d-hot" x="10" y="108" width="270" height="62" rx="12"/>
+  <text class="d-lbl" x="26" y="134">2. Phone-sync networks</text>
+  <text class="d-mono" x="26" y="154">192.168.2.0/24 · 192.168.12.0/24</text>
+  <rect class="d-hot" x="10" y="182" width="270" height="62" rx="12"/>
+  <text class="d-lbl" x="26" y="208">3. Address phones use</text>
+  <text class="d-mono" x="26" y="228">http://192.168.2.10:4000</text>
+
+  <text class="d-admin" x="340" y="22">EACH MEMBER</text>
+  <rect class="d-box" x="340" y="34" width="240" height="62" rx="12"/>
+  <text class="d-lbl" x="356" y="60">Turns on My library</text>
+  <text class="d-sub" x="356" y="80">Profile › My library</text>
+  <rect class="d-box" x="340" y="108" width="240" height="62" rx="12"/>
+  <text class="d-lbl" x="356" y="134">Adds a phone</text>
+  <text class="d-sub" x="356" y="154">gets the address + a password</text>
+  <rect class="d-box" x="340" y="182" width="240" height="62" rx="12"/>
+  <text class="d-lbl" x="356" y="208">Sets up PhotoSync</text>
+  <text class="d-sub" x="356" y="228">WebDAV, path /dav/</text>
+
+  <path class="d-flow" d="M280 65 L338 65" marker-end="url(#ps-arrow)"/>
+  <path class="d-flow" d="M280 213 C310 213, 310 139, 338 139" marker-end="url(#ps-arrow)"/>
+
+  <text class="d-admin" x="640" y="22">WHAT YOU SEE</text>
+  <rect class="d-box" x="640" y="34" width="250" height="210" rx="12"/>
+  <text class="d-lbl" x="656" y="60">Every phone, on one page</text>
+  <text class="d-sub" x="656" y="82">whose it is, last contact,</text>
+  <text class="d-sub" x="656" y="100">the network it came from,</text>
+  <text class="d-sub" x="656" y="118">what is wrong now</text>
+  <text class="d-lbl" x="656" y="150">Each personal library</text>
+  <text class="d-sub" x="656" y="172">its size against the limit</text>
+  <text class="d-lbl" x="656" y="204">Never what is in it</text>
+  <text class="d-sub" x="656" y="226">no photos, counts or file names</text>
+  <path class="d-flow" d="M580 139 L638 139" marker-end="url(#ps-arrow)"/>
+</svg>

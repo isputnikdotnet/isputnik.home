@@ -4,7 +4,7 @@
 // escapes the attributes its custom renderer interpolates. These pin that a
 // hostile guide can't smuggle script, event handlers, or javascript: URLs through.
 import { describe, expect, it } from "vitest";
-import { renderGuideHtml } from "../src/pages/GuidePage";
+import { renderGuide, renderGuideHtml } from "../src/pages/GuidePage";
 
 describe("renderGuideHtml sanitisation", () => {
   it("strips a raw <script> tag", async () => {
@@ -53,5 +53,52 @@ describe("renderGuideHtml sanitisation", () => {
     expect(html).toContain('target="_blank"');
     // In-app guide links keep the data-guide hook the click handler reads.
     expect(html).toContain('data-guide="passkeys"');
+  });
+});
+
+describe("renderGuide: the handbook's shapes", () => {
+  const GUIDE = [
+    "# Phones",
+    "",
+    "What it is.",
+    "",
+    "> [!WARNING]",
+    "> **One copy.** Keep another.",
+    "",
+    "## Using it",
+    "",
+    "1. Open it.",
+    "",
+    "## Setting it up",
+    "<!-- admin -->",
+    "",
+    "Admins only.",
+    "",
+    "### A detail",
+    "",
+    "Still admin."
+  ].join("\n");
+
+  it("turns a GitHub alert into a callout in a MessageBox tone", async () => {
+    const html = await renderGuideHtml(GUIDE);
+    expect(html).toContain('class="guide-callout is-warning"');
+    expect(html).not.toContain("[!WARNING]");
+  });
+
+  it("lifts the title out and wraps each section, marking the administrators' part", async () => {
+    const guide = await renderGuide(GUIDE, "How it works");
+    expect(guide.title).toBe("Phones");
+    expect(guide.html).not.toContain("<h1");
+    expect(guide.hasAdminSections).toBe(true);
+    expect(guide.outline).toEqual([
+      { id: "using-it", text: "Using it", adminOnly: false },
+      { id: "setting-it-up", text: "Setting it up", adminOnly: true }
+    ]);
+    const div = document.createElement("div");
+    div.innerHTML = guide.html;
+    const admin = div.querySelector(".guide-section[data-admin]");
+    expect(admin?.querySelector("h2")?.id).toBe("setting-it-up");
+    expect(admin?.querySelector("h3")?.id).toBe("a-detail");
+    expect(div.querySelector(".guide-intro p")?.textContent).toBe("What it is.");
   });
 });

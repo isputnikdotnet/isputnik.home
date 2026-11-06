@@ -833,11 +833,11 @@
     "hoursCompact_other": "{{count}}h"
   },
   "help": {
-    "eyebrow": "Support",
+    "eyebrow": "Help",
     "heading": "Help & guides",
-    "intro": "Find answers and learn how to use iSputnik. The guides are part of this install, so they work without an internet connection and describe the version you're running.",
+    "intro": "Every guide for this install, grouped like the app. Each one starts with how the thing works, then the steps. They are part of this install, so they work without an internet connection and describe the version you're running.",
     "searchLabel": "Search the guides",
-    "searchPlaceholder": "Search help articles…",
+    "searchPlaceholder": "Search the handbook…",
     "searchShortcut": "Press <kbd>/</kbd> to search",
     "searchLoading": "Searching the guides…",
     "searchUnavailable": "Unable to search the guides right now.",
@@ -845,16 +845,20 @@
     "searchResultCount_one": "{{count}} section",
     "searchResultCount_other": "{{count}} sections",
     "searchKeys": "↑ ↓ to move · Enter to open",
-    "quickStart": "Quick start",
-    "viewAllGuides": "View all guides",
-    "browseByTopic": "Browse by topic",
-    "faqHeading": "Frequently asked questions",
+    "faqHeading": "Common questions",
     "adminBadge": "Admin",
     "stillNeedHelp": "Still need help?",
     "stillNeedHelpBody": "Something broken or confusing? Open an issue on GitHub and describe what happened.",
     "reportBug": "Report a bug",
     "guidesHeading": "All guides",
-    "guidesIntro": "Every guide in this install, grouped by topic."
+    "guidesIntro": "Every guide in this install, grouped by topic.",
+    "handbookTitle": "The iSputnik handbook",
+    "allGuides": "All guides",
+    "newBadge": "New",
+    "openGuide": "Open the guide",
+    "allQuestions_one": "Show all {{count}} question",
+    "allQuestions_other": "Show all {{count}} questions",
+    "fewerQuestions": "Show fewer"
   },
   "map": {
     "unsupported": "This browser can't draw maps: it has no WebGL. A recent Chrome, Edge, Firefox or Safari can.",
@@ -867,7 +871,15 @@
     "unableTitle": "Unable to open this guide",
     "readOnGithub": "<link>Read it on GitHub</link> instead.",
     "loading": "Loading…",
-    "viewOnGithub": "View this guide on GitHub"
+    "viewOnGithub": "View this guide on GitHub",
+    "eyebrow": "{{shelf}} · Guide",
+    "howItWorks": "How it works",
+    "onThisPage": "On this page",
+    "allGuides": "All guides",
+    "audienceLabel": "Show the parts for",
+    "audienceAll": "Everything",
+    "audienceUsing": "Using it",
+    "audienceSetup": "Setting it up"
   },
   "preview": {
     "title": "You're seeing iSputnik as {{name}}",

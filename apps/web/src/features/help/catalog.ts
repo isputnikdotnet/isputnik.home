@@ -1,5 +1,5 @@
 import {
-  BookOpen, BookText, Boxes, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Mail, MonitorSmartphone,
+  BookOpen, BookText, Boxes, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Link2, Mail, MonitorSmartphone,
   Quote, Rocket, Send, Settings, ShieldCheck, Smartphone, Trash2, Tv, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 
@@ -21,6 +21,12 @@ export interface GuideEntry {
   description: string;
   /** Setup and server guides describe the control panel, which members can't open. */
   adminOnly?: boolean;
+  /** Short facts shown as chips under the guide's title ("Android & iPhone"). */
+  meta?: string[];
+  /** The guide's steps in a few words, for the featured card on the Help page. */
+  steps?: string[];
+  /** A diagram from docs/users/images/diagrams/, shown on the featured card. */
+  diagram?: string;
 }
 
 export const GUIDES = {
@@ -73,7 +79,25 @@ export const GUIDES = {
     slug: guide("phone-backup.md"),
     icon: Smartphone,
     title: "Backing up your phone",
-    description: "Your phone's photos into your own private library with PhotoSync: adding a phone, automatic backups on Android and iPhone, battery settings, and whether it is working."
+    description: "Your phone's photos into your own private library with PhotoSync: who can see them, adding a phone, automatic backups on Android and iPhone, and whether it is working.",
+    meta: ["Android & iPhone", "About 10 minutes"],
+    steps: ["Turn on My library", "Add a phone", "Set up PhotoSync", "Let it back up on its own"],
+    diagram: "images/diagrams/phone-backup-mini.svg"
+  },
+  phoneBackupLinking: {
+    slug: guide("phone-backup-linking.md"),
+    icon: Link2,
+    title: "Linking a phone to a library",
+    description: "When a phone's photos already reach the server another way (Immich, say): linking it so nothing is stored twice, and what deleting does.",
+    meta: ["Before the first backup"]
+  },
+  phoneSyncSetup: {
+    slug: guide("phone-sync-setup.md"),
+    icon: Wifi,
+    title: "Setting up phone backups",
+    description: "Allowing personal libraries, the networks phones may back up from, the address phones use, VPNs, and what you see of each member's phones.",
+    adminOnly: true,
+    meta: ["Three settings", "Once per install"]
   },
   duplicateCleanup: {
     slug: guide("duplicate-cleanup.md"),
@@ -177,88 +201,53 @@ export type GuideKey = keyof typeof GUIDES;
 export const guideHref = (key: GuideKey) => `/help/${GUIDES[key].slug}`;
 export const GUIDES_INDEX_PATH = "/help/guides";
 
-// A topic of one guide opens that guide; a topic of several opens its section of
-// the guide list, rather than guessing which of them was meant.
-export const topicHref = (topic: HelpTopic) =>
-  topic.guides.length === 1 ? guideHref(topic.guides[0]) : `${GUIDES_INDEX_PATH}#${topic.id}`;
 export const guideVisible = (key: GuideKey, isAdmin: boolean) => isAdmin || !(GUIDES[key] as GuideEntry).adminOnly;
 
-export interface HelpTopic {
+/** The guide the Help page puts first — the newest thing worth setting up. */
+export const FEATURED_GUIDE: { guide: GuideKey; badge: string } = { guide: "phoneBackup", badge: "New in 4.71" };
+
+export interface HelpShelf {
   /** Also the section anchor on /help/guides. */
   id: string;
   icon: LucideIcon;
   title: string;
-  summary: string;
   guides: GuideKey[];
   /** Marked as admin-only where it's listed. */
   adminOnly?: boolean;
 }
 
-export interface QuickStartTile {
-  guide: GuideKey;
-  icon: LucideIcon;
-  title: string;
-  summary: string;
+// The guides on shelves grouped like the app. Every guide sits on exactly one
+// shelf (pinned by test/helpCatalog.test.ts), so /help/guides and the guide rail
+// list each once; a member's shelves leave out what they can't open.
+const SHELVES: HelpShelf[] = [
+  { id: "photos", icon: Images, title: "Photos", guides: ["gallery", "phoneBackup", "phoneBackupLinking", "photoInbox", "duplicateCleanup"] },
+  { id: "books", icon: BookOpen, title: "Books", guides: ["audiobooks", "ebooks", "quotes"] },
+  { id: "family", icon: FolderTree, title: "Family", guides: ["familyTree", "stories", "familySharing"] },
+  { id: "account", icon: KeyRound, title: "You & sign-in", guides: ["yourAccount", "passkeys", "twoFactor", "linkDevice"] },
+  { id: "watching", icon: Tv, title: "On the TV", guides: ["tvApp", "stremio"] },
+  {
+    id: "server",
+    icon: Settings,
+    title: "Running the server",
+    guides: ["firstRun", "storage", "libraries", "phoneSyncSetup", "controlPanel", "email", "internet", "apps"],
+    adminOnly: true
+  }
+];
+
+export function helpShelves(isAdmin: boolean): HelpShelf[] {
+  return SHELVES.map((shelf) => ({ ...shelf, guides: shelf.guides.filter((key) => guideVisible(key, isAdmin)) })).filter(
+    (shelf) => shelf.guides.length > 0
+  );
 }
 
-// Eight topics, two columns of four, for either audience. An admin's eighth is the
-// server; a member can't open the control panel, so theirs is Quotes — which an
-// admin finds under Stories instead. Every guide belongs to exactly one topic for
-// a given audience (pinned by test/helpCatalog.test.ts), so /help/guides lists
-// each once.
-export function helpTopics(isAdmin: boolean): HelpTopic[] {
-  const topics: HelpTopic[] = [
-    { id: "audiobooks", icon: Headphones, title: "Audiobooks", summary: "Chapters, playback and where your place is kept", guides: ["audiobooks"] },
-    { id: "ebooks", icon: BookOpen, title: "Ebooks", summary: "EPUB, PDF, the reader and multi-format books", guides: ["ebooks"] },
-    {
-      id: "gallery",
-      icon: Images,
-      title: "Gallery",
-      summary: isAdmin ? "Photos, albums, faces, phone backup, the Photo Inbox and duplicates" : "Photos, albums, faces, phone backup and the Photo Inbox",
-      guides: ["gallery", "phoneBackup", "photoInbox", "duplicateCleanup"]
-    },
-    { id: "family-tree", icon: FolderTree, title: "Family tree", summary: "People, events, photos and the map", guides: ["familyTree"] },
-    {
-      id: "stories",
-      icon: BookText,
-      title: "Stories",
-      summary: isAdmin ? "Chapters, narration, quotes and guest links" : "Chapters, narration and guest links",
-      guides: isAdmin ? ["stories", "quotes"] : ["stories"]
-    },
-    { id: "account", icon: UserRound, title: "Your account", summary: "Profile, themes, sharing and your e-reader", guides: ["yourAccount", "familySharing"] },
-    { id: "security", icon: ShieldCheck, title: "Sign-in & security", summary: "Passkeys, two-factor, linked devices, the TV app and Stremio", guides: ["passkeys", "twoFactor", "linkDevice", "tvApp", "stremio"] },
-    isAdmin
-      ? {
-          id: "server",
-          icon: Settings,
-          title: "Control panel",
-          summary: "Storage, libraries, email, apps, and opening up to the internet",
-          guides: ["firstRun", "storage", "libraries", "controlPanel", "email", "internet", "apps"],
-          adminOnly: true
-        }
-      : { id: "quotes", icon: Quote, title: "Quotes", summary: "Highlights, family sayings and the quote of the day", guides: ["quotes"] }
-  ];
-  return topics
-    .map((topic) => ({ ...topic, guides: topic.guides.filter((key) => guideVisible(key, isAdmin)) }))
-    .filter((topic) => topic.guides.length > 0);
+/** The shelf a guide sits on, found by its slug. */
+export function shelfOf(slug: string): HelpShelf | undefined {
+  return SHELVES.find((shelf) => shelf.guides.some((key) => GUIDES[key].slug === slug));
 }
 
-export function quickStart(isAdmin: boolean): QuickStartTile[] {
-  const shared: QuickStartTile[] = [
-    { guide: "familySharing", icon: Send, title: "Sharing with family", summary: "Pass things on, or make a guest link" },
-    { guide: "stories", icon: BookText, title: "Create a story", summary: "Add chapters, photos and places" }
-  ];
-  return isAdmin
-    ? [
-        { guide: "firstRun", icon: Rocket, title: "First run", summary: "Sign in, set up and invite family" },
-        { guide: "libraries", icon: LibraryBig, title: "Setting up libraries", summary: "Add folders and scan media" },
-        ...shared
-      ]
-    : [
-        { guide: "yourAccount", icon: UserRound, title: "Your account", summary: "Profile, themes and sign-in" },
-        { guide: "gallery", icon: Images, title: "The gallery", summary: "Timeline, albums and faces" },
-        ...shared
-      ];
+/** The catalog entry for a slug, if the guide is listed. */
+export function guideBySlug(slug: string): GuideEntry | undefined {
+  return (Object.values(GUIDES) as GuideEntry[]).find((entry) => entry.slug === slug);
 }
 
 /** The guides this person can open, for search. */

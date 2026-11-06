@@ -903,11 +903,11 @@
     "hoursCompact_other": "{{count}} ч"
   },
   "help": {
-    "eyebrow": "Поддержка",
+    "eyebrow": "Справка",
     "heading": "Справка и руководства",
-    "intro": "Ответы на вопросы и руководства по iSputnik. Руководства входят в эту установку, поэтому работают без подключения к интернету и описывают именно вашу версию.",
+    "intro": "Все руководства этой установки, сгруппированные как в приложении. Каждое начинается с того, как всё устроено, а потом — шаги. Они входят в эту установку, поэтому работают без интернета и описывают именно вашу версию.",
     "searchLabel": "Поиск по руководствам",
-    "searchPlaceholder": "Поиск по справке…",
+    "searchPlaceholder": "Поиск по справочнику…",
     "searchShortcut": "Нажмите <kbd>/</kbd> для поиска",
     "searchLoading": "Ищем в руководствах…",
     "searchUnavailable": "Не удалось выполнить поиск по руководствам.",
@@ -917,16 +917,22 @@
     "searchResultCount_many": "{{count}} разделов",
     "searchResultCount_other": "{{count}} раздела",
     "searchKeys": "↑ ↓ — выбор · Enter — открыть",
-    "quickStart": "С чего начать",
-    "viewAllGuides": "Все руководства",
-    "browseByTopic": "Темы",
     "faqHeading": "Частые вопросы",
     "adminBadge": "Админ",
     "stillNeedHelp": "Не нашли ответа?",
     "stillNeedHelpBody": "Что-то сломалось или непонятно? Создайте issue на GitHub и опишите, что произошло.",
     "reportBug": "Сообщить об ошибке",
     "guidesHeading": "Все руководства",
-    "guidesIntro": "Все руководства этой установки, сгруппированные по темам."
+    "guidesIntro": "Все руководства этой установки, сгруппированные по темам.",
+    "handbookTitle": "Справочник iSputnik",
+    "allGuides": "Все руководства",
+    "newBadge": "Новое",
+    "openGuide": "Открыть руководство",
+    "allQuestions_one": "Показать все {{count}} вопрос",
+    "allQuestions_few": "Показать все {{count}} вопроса",
+    "allQuestions_many": "Показать все {{count}} вопросов",
+    "allQuestions_other": "Показать все {{count}} вопроса",
+    "fewerQuestions": "Свернуть"
   },
   "map": {
     "unsupported": "Этот браузер не умеет рисовать карты: в нём нет WebGL. Подойдёт свежий Chrome, Edge, Firefox или Safari.",
@@ -939,7 +945,15 @@
     "unableTitle": "Не удалось открыть руководство",
     "readOnGithub": "Вместо этого <link>прочитайте его на GitHub</link>.",
     "loading": "Загрузка…",
-    "viewOnGithub": "Открыть это руководство на GitHub"
+    "viewOnGithub": "Открыть это руководство на GitHub",
+    "eyebrow": "{{shelf}} · Руководство",
+    "howItWorks": "Как это устроено",
+    "onThisPage": "На этой странице",
+    "allGuides": "Все руководства",
+    "audienceLabel": "Показать части для",
+    "audienceAll": "Всё",
+    "audienceUsing": "Пользование",
+    "audienceSetup": "Настройка"
   },
   "preview": {
     "title": "Вы видите iSputnik глазами: {{name}}",

@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown } from "lucide-react";
 import { Button } from "../../shared/Button";
-import { cx } from "../../shared/cx";
 import { followGuideLink, renderGuideHtml } from "../../pages/GuidePage";
 import { parseFaq, type FaqEntry } from "./faq";
 import { fetchGuideMarkdown } from "./guideSource";
 
-// Frequently asked questions, from docs/users/faq.md. The section is a shortcut
-// into the guides, not the only way to an answer — if the file can't be read the
-// section simply isn't shown, and search and the topics still work.
+// Common questions, from docs/users/faq.md, as answer cards: the question, a few
+// sentences, and the link into the guide section that says it properly. The
+// section is a shortcut into the guides, not the only way to an answer — if the
+// file can't be read the section simply isn't shown, and search and the shelves
+// still work.
+const FIRST_SHOWN = 6;
+
 export function HelpFaq({ isAdmin }: { isAdmin: boolean }) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<FaqEntry[] | null>(null);
+  const [answers, setAnswers] = useState<Map<string, string>>(new Map());
+  const [all, setAll] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -28,54 +32,47 @@ export function HelpFaq({ isAdmin }: { isAdmin: boolean }) {
     };
   }, []);
 
-  const shown = (entries ?? []).filter((entry) => isAdmin || !entry.adminOnly);
-  if (!shown.length) return null;
+  const visible = (entries ?? []).filter((entry) => isAdmin || !entry.adminOnly);
+  const shown = all ? visible : visible.slice(0, FIRST_SHOWN);
 
-  return (
-    <section className="help-block" aria-labelledby="help-faq-heading">
-      <h2 id="help-faq-heading">{t("help.faqHeading")}</h2>
-      <div className="help-faq">
-        {shown.map((entry, position) => (
-          <FaqItem key={entry.question} entry={entry} id={`help-faq-${position}`} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function FaqItem({ entry, id }: { entry: FaqEntry; id: string }) {
-  const [open, setOpen] = useState(false);
-  const [html, setHtml] = useState<string | null>(null);
-
-  // Rendered on first open: marked is loaded on demand, and most answers are
-  // never opened.
+  // marked is loaded on demand; the answers render once the list is known.
   useEffect(() => {
-    if (!open || html !== null) return;
+    const missing = shown.filter((entry) => !answers.has(entry.question));
+    if (!missing.length) return;
     let alive = true;
-    renderGuideHtml(entry.answer).then((rendered) => {
-      if (alive) setHtml(rendered);
+    Promise.all(missing.map(async (entry) => [entry.question, await renderGuideHtml(entry.answer)] as const)).then((rendered) => {
+      if (alive) setAnswers((current) => new Map([...current, ...rendered]));
     });
     return () => {
       alive = false;
     };
-  }, [open, html, entry.answer]);
+  }, [shown, answers]);
+
+  if (!visible.length) return null;
 
   return (
-    <div className={cx("help-faq-item", open && "is-open")}>
-      <h3 className="help-faq-question">
-        <Button variant="bare" className="help-faq-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
-          <span>{entry.question}</span>
-          <ChevronDown size={18} aria-hidden="true" />
-        </Button>
-      </h3>
-      {/* Our own file, shipped inside the image and sanitised by renderGuideHtml. */}
-      <div
-        id={id}
-        className="help-faq-answer guide-body"
-        hidden={!open}
-        onClick={followGuideLink}
-        dangerouslySetInnerHTML={{ __html: html ?? "" }}
-      />
-    </div>
+    <section className="help-block" aria-labelledby="help-faq-heading">
+      <div className="help-block-head">
+        <h2 id="help-faq-heading">{t("help.faqHeading")}</h2>
+        {visible.length > FIRST_SHOWN && (
+          <Button variant="text" onClick={() => setAll(!all)} aria-expanded={all}>
+            {all ? t("help.fewerQuestions") : t("help.allQuestions", { count: visible.length })}
+          </Button>
+        )}
+      </div>
+      <div className="help-faq">
+        {shown.map((entry) => (
+          <div className="help-faq-card" key={entry.question}>
+            <h3>{entry.question}</h3>
+            {/* Our own file, shipped inside the image and sanitised by renderGuideHtml. */}
+            <div
+              className="help-faq-answer guide-body"
+              onClick={followGuideLink}
+              dangerouslySetInnerHTML={{ __html: answers.get(entry.question) ?? "" }}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

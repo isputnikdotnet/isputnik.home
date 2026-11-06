@@ -1,48 +1,74 @@
 # Backing up your phone
 
 Your phone can copy every new photo and video into **your own private library** on iSputnik,
-at full quality, without you doing anything — while it is at home on the Wi-Fi. It uses the
-**PhotoSync** app (Android and iPhone), which talks to iSputnik directly: nothing goes through
-anyone's cloud. A photo you delete on the phone stays at home.
+at full quality, while it is at home on the Wi-Fi. It uses the **PhotoSync** app (Android and
+iPhone), which talks to iSputnik directly: nothing goes through anyone's cloud, and nothing
+comes back the other way. A photo you delete on the phone stays at home.
 
-What you need:
+![The phone sends new photos over the home Wi-Fi or a VPN to the server's /dav/ address, which files them into My library, unless a linked family library already holds them. Mobile data is refused.](images/diagrams/phone-backup.svg)
 
-- **My library** turned on in your profile (below). Only you can open it — not the others in
-  your household, and not the administrators.
-- **PhotoSync** from the Play Store or the App Store. It is a paid app; on an iPhone, automatic
-  backups need PhotoSync's Premium plan, and keeping HEIC photos as they are needs at least Pro
-  (the free version turns them into JPEGs).
-- The phone on a network your administrator listed for phone backups: your home Wi-Fi, or a
-  VPN into the house. Backups never go over the open internet.
+<div class="guide-cards">
+<div class="guide-card">
 
-> Your personal library is **one copy** of your photos, not a backup. If the server's disks
-> fail, it goes with them. Keep another copy somewhere else.
+### Who sees what
+
+| | You | Family | Admins |
+| --- | --- | --- | --- |
+| Photos and videos in My library | Yes | No | No |
+| How full the library is | Yes | No | Yes |
+| Your phones and their last contact | Yes | No | Yes |
+| Photos you move to a family library | Yes | Yes | Yes |
+
+</div>
+<div class="guide-card">
+
+### What happens when…
+
+- **You delete a photo on the phone.** Nothing at home: backup only ever adds.
+- **You lose the phone.** Revoke it on the Phones list. It stops at once; what it sent stays.
+- **You send an album again.** The photos travel again, but none is stored twice.
+- **You edit a photo on the phone.** It is new to the server, so it is backed up again.
+
+</div>
+</div>
+
+> [!NOTE]
+> **What you need.** **PhotoSync** from the Play Store or the App Store: a paid app; on an
+> iPhone, automatic backups need its Premium plan, and keeping HEIC photos as they are needs at
+> least Pro. And the phone on a network your administrator listed for phone backups: your home
+> Wi-Fi, or a VPN into the house. Backups never go over the open internet.
+
+> [!WARNING]
+> **One copy, not a backup.** Your library lives on the server's disks. If they fail, it goes
+> with them. Keep another copy somewhere else.
 
 ## Turning on My library
 
 1. Open **Profile › My library**.
 2. Press **Turn on my library**. A library named after you is made, empty.
 
-If the tab says personal libraries are unavailable, your administrator hasn't allowed them yet
-(or not for you) — ask them. More about the library itself is in
+If the page says personal libraries are not available, your administrator hasn't allowed them
+yet (or not for you): ask them. More about the library itself is in
 [Your account](your-account.md#my-library).
 
 ## Adding a phone
 
 1. On **Profile › My library**, under **Phones**, press **Add a phone**.
-2. Give it a name you will recognise ("Anna's iPhone"). Its photos are filed in a folder of
+2. Give it a name you will recognise ("Anna's Pixel"). Its photos are filed in a folder of
    that name.
 3. The next screen shows what to type into PhotoSync: **server**, **port**, **path** (`/dav/`),
    **SSL**, your **user name** and a **password** made for this phone alone. Each has a copy
    button.
 
-**The password is shown only this once.** Leave the screen open until PhotoSync is set up. If
-you lose it, revoke the phone and add it again — it costs nothing.
+   ![The Set up dialog after adding a phone: server, port, path, SSL, user name and the phone's password, each with a copy button](images/120-phone-add.png)
+
+> [!IMPORTANT]
+> **The password is shown only this once.** Leave the screen open until PhotoSync is set up. If
+> you lose it, revoke the phone and add it again: it costs nothing.
 
 If the screen says the server address isn't set yet, your administrator still has to fill it
-in; keep the password and ask them for the address.
-
-If **Phones** says phone sync is unavailable, no network has been listed for phone backups yet.
+in; keep the password and ask them for the address. If **Phones** says phone sync is
+unavailable, no network has been listed for phone backups yet.
 
 ## Setting up PhotoSync
 
@@ -60,7 +86,7 @@ a little between versions.
    - **Login / user name**: your user name (your sign-in email)
    - **Password**: the phone's password
 3. Save. To try it, select a few photos, press the red transfer button and choose the WebDAV
-   target. They should appear in your library within moments.
+   target. They appear in your library within moments.
 
 ### On iPhone
 
@@ -74,12 +100,10 @@ yet; if something looks different on your phone, tell your administrator.
 ## Backing up automatically
 
 PhotoSync's **Autotransfer** sends new photos on its own. Point it at the WebDAV target, choose
-the albums to back up (usually Camera — and Screenshots or WhatsApp if you want those), and
+the albums to back up (usually Camera, and Screenshots or WhatsApp if you want those), and
 **restrict it to Wi-Fi**, so it never tries from mobile data, where the server can't be reached
-anyway.
-
-PhotoSync remembers what it already sent and asks the server before sending, so Autotransfer
-only ever sends new photos.
+anyway. PhotoSync remembers what it already sent and asks the server before sending, so
+Autotransfer only ever sends new photos.
 
 ### On Android
 
@@ -98,51 +122,46 @@ and a photo can then wait until you next open PhotoSync. To stop that:
 An iPhone does not let any app run whenever it likes, so Autotransfer only starts when
 something wakes it. PhotoSync offers three ways:
 
-- **When charging** — iOS picks the moment and may put it off.
-- **Arriving at a location** — needs location access set to *Always*, and fires when you
-  arrive home from at least 200 m away.
-- **A Shortcuts automation** — for example *when connected to the home Wi-Fi*, or *every night
+- **When charging**: iOS picks the moment and may put it off.
+- **Arriving at a location**: needs location access set to *Always*, and fires when you arrive
+  home from at least 200 m away.
+- **A Shortcuts automation**: for example *when connected to the home Wi-Fi*, or *every night
   at 02:00 while charging*, running PhotoSync's Autotransfer action.
 
 Each background run gets only about **three minutes**, so it carries the day's handful of new
 photos, not a whole camera roll or a long video. And if you swipe PhotoSync away in the app
-switcher, iOS stops waking it — leave it there.
+switcher, iOS stops waking it: leave it there.
 
-### The first backup
+## The first backup
 
 The first backup sends everything, which can be thousands of photos. Do it **with PhotoSync
-open**: plug the phone in, keep it on the home Wi-Fi, open PhotoSync and transfer all the
-albums by hand, and leave it overnight with the screen on. On an iPhone this is the only way it
-finishes; on Android it is simply quicker. After that, Autotransfer keeps up.
+open**:
 
-If the transfer stops part-way, start it again: nothing half-sent is ever kept, and what
-arrived is not stored twice.
+1. Plug the phone in and keep it on the home Wi-Fi.
+2. Open PhotoSync and transfer all the albums by hand.
+3. Leave it overnight with the screen on.
 
-### Photos you already have
+On an iPhone this is the only way it finishes; on Android it is simply quicker. After that,
+Autotransfer keeps up. If the transfer stops part-way, start it again: nothing half-sent is
+ever kept, and what arrived is not stored twice.
 
-If your phone's photos already reach the server some other way — another backup app such as
-Immich, whose folder the family reads as a photo library — the first backup would send every
-one of them again. Ask your administrator to **link your phone** to that library first. Then a
-photo that is already there is counted as backed up and nothing is stored twice; only photos
-that aren't there yet go to My library. Your phone's card says so: *Photos already in Current
-Phone aren't stored again.*
+## Photos you already have
 
-- **Link before the first backup.** A link counts from then on; what was already stored in My
-  library stays.
-- **Stop the old app's backup on the phone** when you switch PhotoSync on. Otherwise every new
-  photo arrives twice: once in My library, once through the old app.
-- **Deleting is safe.** A photo deleted from that library after your phone has sent it is not
-  sent again, and not brought back. A photo you delete there *before* the first backup is still
-  on your phone and nothing remembers it, so it is backed up into My library — delete it on
-  the phone too, or tidy up after the first backup.
-- A photo edited on the phone is new to the server and is backed up again.
+If your phone's photos already reach the server some other way (another backup app such as
+Immich, whose folder the family reads as a photo library), the first backup would send every one
+of them again. Ask your administrator to **link your phone** to that library **before** you
+switch PhotoSync on: then a photo that is already there counts as backed up and is not stored
+twice. How it works, and what deleting does, is in
+[Linking a phone to a library](phone-backup-linking.md).
 
 ## Is it working?
 
-Each phone on **Profile › My library › Phones** shows:
+Each phone on **Profile › My library › Phones** shows how it is doing:
 
-- **Last contact** — when the phone last spoke to the server, and when the last file arrived.
-- **Last 24 hours** and **In all** — how many files it sent, and how big.
+![Profile › My library with the library's size and a phone under Phones: last contact, the last 24 hours and the totals](images/121-phone-my-library.png)
+
+- **Last contact**: when the phone last spoke to the server, and when the last file arrived.
+- **Last 24 hours** and **In all**: how many files it sent, and how big.
 - **A problem**, if there was one, and when. It shows as a notice until the phone backs up
   again; after that it stays as a line saying it was earlier.
 - **No contact for N days**, when the phone hasn't been in touch for a week. Open PhotoSync on
@@ -155,21 +174,30 @@ The problems you may see:
 
 | Problem | What to do |
 | --- | --- |
-| **Refused: not from a phone-sync network** (with an address) | The phone tried from somewhere not listed — mobile data, a friend's Wi-Fi, a VPN the administrator hasn't added. Back up at home, or ask the administrator to list your VPN. |
+| **Refused: not from a phone-sync network** (with an address) | The phone tried from somewhere not listed: mobile data, a friend's Wi-Fi, a VPN the administrator hasn't added. Back up at home, or ask the administrator to list your VPN. |
 | **File type not allowed: .dng** | RAW photos (and other types the library doesn't take) are turned away. Switch RAW off in the camera, or leave those out of Autotransfer. The other photos still go. |
 | **Your library has reached its size limit** | Your administrator set a limit. Move photos into a family library, delete some, or ask for more room. |
 | **The server's disk is full** | Tell your administrator. Nothing is lost; the phone sends again once there is room. |
 | **An upload stopped part-way** / **arrived damaged** | Usually the Wi-Fi dropped. PhotoSync sends the photo again next time; nothing broken is kept. |
 
+## Away from home
+
+Backups away from home only work through a **VPN into the house** (UniFi, WireGuard, Tailscale
+and the like), and only once your administrator has added the VPN's addresses to the
+phone-sync networks.
+
+1. Turn the VPN on.
+2. Send from PhotoSync by hand. If Autotransfer is set to *Wi-Fi only*, it waits until you are
+   home.
+
+Without the VPN the phone is refused (the Phones list says from which address) and simply
+catches up when you are home again.
+
 ## Good to know
 
-- **Sending an album again re-sends the bytes but stores nothing twice.** A manual transfer of
-  an album you already backed up makes PhotoSync send every photo again — it takes as long as
-  the first time — but the server sees they are already there and keeps none of them twice.
 - **Where the photos go.** Each phone has a folder of its own in your library, named after it,
-  and inside it a folder per day the photo was taken (`Anna's iPhone/2026/2026-11-05`). The
+  and inside it a folder per day the photo was taken (`Anna's Pixel/2026/2026-11-05`). The
   date comes from the photo itself, or its name, or what the phone says.
-- **Deleting on the phone never deletes at home.** Free up the phone as you like.
 - **Live Photos** arrive as two files, a photo and a short video with the same name, and
   become **one photo** with a *LIVE* mark. To see the motion, open the photo and press
   **LIVE**, hold the photo on a phone, or hover it with the mouse on a computer. Keep both
@@ -177,53 +205,5 @@ The problems you may see:
   your own.)
 - **A lost or replaced phone**: **Revoke** it on the Phones list. It stops at once, and what it
   sent stays. A new phone is added as a new phone, with its own folder.
-- **Away from home**, backups only work through a VPN into the house (UniFi, WireGuard,
-  Tailscale and the like), and only once your administrator has added the VPN's addresses to
-  the phone-sync networks. Turn the VPN on, then send from PhotoSync. If Autotransfer is set to
-  *Wi-Fi only*, it waits until you are home, so send by hand when you want it now. Without the
-  VPN the phone is refused (the Phones list says from which address) and simply catches up when
-  you are home again.
-
-## For the administrator
-
-Nothing works until you set it up, on purpose:
-
-1. **Library › Storage › Personal libraries**: allow personal libraries, choose where they are
-   made, who may have one and any size limit — see [Storage](storage.md#personal-libraries).
-2. **Security › Phone sync**: list the networks phones may back up from (**Copy trusted
-   networks** is a starting point), and fill in **Address phones use** — the address phones on
-   that network reach the server at, such as `http://192.168.2.10:4000`. The list is separate
-   from Trusted networks, so adding a VPN range for phones does not relax sign-in for it. See
-   [The control panel](control-panel.md).
-3. **Photos already on the server?** If a member's phone was backed up some other way into a
-   shared photo library (Immich, say), open **Library › Libraries**, **Edit** that library,
-   and tick the member's phone on its **Phone backups** tab before they switch PhotoSync on.
-   Only members who can open that library are offered, and a link stops counting if they lose
-   access. Each phone is linked on its own: a phone set up again (a new entry on Profile › My
-   library) starts unlinked. See [Photos you already have](#photos-you-already-have).
-4. For backups away from home, add the **VPN's own range** (the addresses phones get on the VPN,
-   not your home network's) with its size: `192.168.12.0/24`, not `192.168.12.0`, which is one
-   address. On a UniFi gateway it is under *UniFi Network › Settings › VPN › VPN Server*; for
-   WireGuard it is often `10.6.0.0/24`, for Tailscale `100.64.0.0/10`. The VPN must route to
-   the server without hiding the phone's address (UniFi's VPN server does). Never publish
-   `/dav` through a public proxy or tunnel.
-
-What you see of someone's backups is their phones and the size of their library, never what is
-in it:
-
-- **Security › Phone sync** lists every member's phones on one page: whose, last contact, the
-  address and network it last came from, and what is wrong now — refused, no contact for a
-  week, or a library nearly full — and under each phone the libraries it is linked to. A phone refused from an address on no list gets an
-  **Add 192.168.12.0/24** button (the /24 it came from), and **See in Logs** opens that phone's
-  history.
-- **A member's page › Account** has a *Personal library and phones* card: the library's size
-  (with a warning near the limit), each phone with when it was added and last made contact, and
-  a problem when it is about the phone or the server (refused from an unlisted network, disk
-  full, size limit reached, no contact for a week). You can **Revoke** a phone there.
-- **Library › Storage › Personal libraries** totals them: how many there are, how much they
-  hold, and how many phones back up into each.
-- **Overview › Logs**, filtered to the *photo_sync* event, is the history: phones added and
-  revoked, a phone's first contact and each move to another network (home Wi-Fi to the VPN),
-  refusals (an unlisted network, a revoked or unknown password), a full disk or library, and
-  "backing up again" afterwards — at most once an hour per phone and problem, never a file
-  name.
+- **Setting it up for the household** (personal libraries, networks, the address phones use)
+  is in [Setting up phone backups](phone-sync-setup.md).

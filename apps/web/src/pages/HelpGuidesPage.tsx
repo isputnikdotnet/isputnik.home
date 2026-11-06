@@ -4,15 +4,14 @@ import { useTranslation } from "react-i18next";
 import { DashboardShell } from "../app/DashboardShell";
 import { followBack, followRoute } from "../router";
 import { useSession } from "../app/SessionContext";
-import { GUIDES, guideHref, helpTopics } from "../features/help/catalog";
+import { GUIDES, guideHref, helpShelves } from "../features/help/catalog";
 
-// Every guide this person can open, under the same topics as the Help page. A
-// topic row there that covers several guides opens its section here
-// (/help/guides#gallery).
+// Every guide this person can open with its description, on the same shelves as
+// the Help page (/help/guides#photos opens one shelf).
 export function HelpGuidesPage() {
   const { user } = useSession();
   const { t } = useTranslation();
-  const topics = helpTopics(user.role === "admin");
+  const topics = helpShelves(user.role === "admin");
 
   // The sections render with the page, but an in-app navigation doesn't jump to
   // a hash the way a page load does.

@@ -18,6 +18,29 @@ from relatives can go through the Photo Inbox first.
 
 [Gallery › Uploading](library-gallery.md#uploading)
 
+## Who can see the photos my phone backs up?
+
+Only you. They go into your own library, which not even the administrators can
+open: they see how full it is and how your phones are doing, never what is in it.
+Photos you move into a family library are seen by whoever can open that one.
+
+[Backing up your phone](phone-backup.md)
+
+## If I delete a photo on my phone, is it deleted at home too?
+
+No. Phone backup only ever adds: free up the phone as you like. A lost phone is
+revoked on Profile › My library, and what it sent stays.
+
+[Backing up your phone › Good to know](phone-backup.md#good-to-know)
+
+## Can my phone back up when I'm away from home?
+
+Only through a VPN into the house, once your administrator has added its
+addresses to the phone-sync networks. Never over mobile data or the open
+internet; the phone simply catches up when you are home.
+
+[Backing up your phone › Away from home](phone-backup.md#away-from-home)
+
 ## I lost my phone — how do I sign in with two-factor turned on?
 
 Use one of the backup codes you saved when you turned two-factor on — each one

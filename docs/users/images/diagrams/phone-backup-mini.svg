@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 150" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <!-- The Help page's featured card: phone-backup.svg in three boxes. Drawn inline
+       by the app in the reader's theme; this <style> is the fallback GitHub uses. -->
+  <style>
+    .d-box { fill: #f4f6f8; stroke: #c9d2da; }
+    .d-hot { fill: #e4f5f7; stroke: #1a8f9a; }
+    .d-flow { fill: none; stroke: #1a8f9a; stroke-width: 2; }
+    .d-arrow { fill: #1a8f9a; }
+    .d-lbl { fill: #1f2937; font-size: 14px; font-weight: 650; }
+    .d-sub { fill: #5b6775; font-size: 12px; }
+    .d-mono { fill: #1a8f9a; font-family: Consolas, monospace; font-size: 12px; }
+  </style>
+  <defs>
+    <marker id="pm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path class="d-arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+  <rect class="d-box" x="4" y="40" width="112" height="70" rx="12"/>
+  <text class="d-lbl" x="18" y="68">Your phone</text>
+  <text class="d-sub" x="18" y="90">PhotoSync</text>
+  <rect class="d-hot" x="164" y="40" width="112" height="70" rx="12"/>
+  <text class="d-lbl" x="178" y="68">The server</text>
+  <text class="d-mono" x="178" y="90">/dav/</text>
+  <rect class="d-hot" x="324" y="40" width="112" height="70" rx="12"/>
+  <text class="d-lbl" x="338" y="68">My library</text>
+  <text class="d-sub" x="338" y="90">only you</text>
+  <text class="d-sub" x="120" y="30">home Wi-Fi</text>
+  <path class="d-flow" d="M116 75 L162 75" marker-end="url(#pm-arrow)"/>
+  <path class="d-flow" d="M276 75 L322 75" marker-end="url(#pm-arrow)"/>
+  <text class="d-sub" x="4" y="136">Deleting on the phone never deletes at home.</text>
+</svg>

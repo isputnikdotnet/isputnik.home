@@ -643,8 +643,8 @@ const SHOTS = [
   },
 
   // Help & guides (docs/users/README.md). The page as an admin sees it, the
-  // search open on a query, and the FAQ with one answer open.
-  { name: "115-help", url: "help" },
+  // search open on a query, and a guide in the handbook layout.
+  { name: "115-help", url: "help", wait: 2000 },
   {
     name: "116-help-search",
     url: "help",
@@ -654,15 +654,63 @@ const SHOTS = [
       box.focus(); setInput(box, "backup"); await sleep(1500);
       "searching";`
   },
+  { name: "119-help-guide", url: "help/phone-backup", wait: 2000 },
+
+  // Phone backup (docs/users/phone-backup.md, phone-backup-linking.md,
+  // phone-sync-setup.md). The demo needs personal libraries on, a phone-sync
+  // network, the address phones use, Demo Admin's library turned on and a phone
+  // that has sent a few files (D:/Demo/scripts/photo-sync.mjs).
   {
-    name: "117-help-faq",
-    url: "help",
+    // The Set up dialog right after Add a phone: a fresh password, shown once.
+    // The phone it makes is a throwaway — revoke "Anna's Pixel" afterwards.
+    name: "120-phone-add",
+    url: "profile/library",
+    state: "personal libraries and phone sync set up",
     setup: `
-      const toggle = button(document, "I lost my phone");
-      if (!toggle) return "no FAQ question";
-      toggle.click(); await sleep(800);
-      document.querySelector(".help-faq").scrollIntoView({ block: "center" }); await sleep(300);
-      "answer open";`
+      const add = button(document, "Add a phone");
+      if (!add) return "no Add a phone button";
+      add.click(); await sleep(600);
+      const name = topModal().querySelector("input");
+      setInput(name, "Anna's Pixel"); await sleep(200);
+      button(topModal(), "Add a phone").click(); await sleep(1500);
+      "set up shown";`
+  },
+  { name: "121-phone-my-library", url: "profile/library", state: "personal libraries and phone sync set up" },
+  {
+    // Below the networks and the address: every member's phones.
+    name: "122-phone-sync",
+    url: "control/security/phone-sync",
+    state: "personal libraries and phone sync set up",
+    setup: `
+      const head = [...document.querySelectorAll("h2, h3")].find((h) => /phones/i.test(h.textContent) && !/networks/i.test(h.textContent));
+      if (!head) return "no phones heading";
+      head.scrollIntoView({ block: "start" }); window.scrollBy(0, -40); await sleep(500);
+      "phones in view";`
+  },
+  {
+    name: "123-personal-libraries",
+    url: "control/storage",
+    state: "personal libraries and phone sync set up",
+    setup: `
+      const card = document.getElementById("personal-libraries")
+        ?? [...document.querySelectorAll("h2, h3")].find((h) => h.textContent.trim() === "Personal libraries");
+      if (!card) return "no Personal libraries card";
+      card.scrollIntoView({ block: "start" }); window.scrollBy(0, -90); await sleep(500);
+      "card in view";`
+  },
+  {
+    name: "124-library-phone-backups",
+    url: "control/libraries",
+    state: "a phone linked to the Photos library",
+    setup: `
+      const row = [...document.querySelectorAll("tr, .library-row, li, article")].find((r) => r.textContent.includes("Photos") && !r.textContent.includes("Personal"));
+      const edit = row && [...row.querySelectorAll("button")].find((b) => /Edit/.test(b.textContent + (b.getAttribute("aria-label") ?? "")));
+      if (!edit) return "no Edit button on the Photos library";
+      edit.click(); await sleep(900);
+      const tab = [...topModal().querySelectorAll('[role="tab"]')].find((b) => b.textContent.trim() === "Phone backups");
+      if (!tab) return "no Phone backups tab";
+      tab.click(); await sleep(1200);
+      "phone backups tab";`
   },
   {
     // Set location over a selection: saved places as chips under the search box,

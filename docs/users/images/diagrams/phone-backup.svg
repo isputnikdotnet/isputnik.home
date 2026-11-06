@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 270" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <!-- Drawn inline by the app in the reader's theme (classes styled in
+       apps/web/src/styles/about.css); this <style> is the fallback GitHub uses. -->
+  <style>
+    .d-box { fill: #f4f6f8; stroke: #c9d2da; }
+    .d-hot { fill: #e4f5f7; stroke: #1a8f9a; }
+    .d-flow { fill: none; stroke: #1a8f9a; stroke-width: 2; }
+    .d-no { fill: none; stroke: #c4453a; stroke-width: 2; stroke-dasharray: 5 5; }
+    .d-dash { fill: none; stroke: #7a8794; stroke-width: 1.5; stroke-dasharray: 4 4; }
+    .d-arrow { fill: #1a8f9a; }
+    .d-lbl { fill: #1f2937; font-size: 13px; font-weight: 650; }
+    .d-sub { fill: #5b6775; font-size: 11.5px; }
+    .d-mono { fill: #1a8f9a; font-family: Consolas, monospace; font-size: 11.5px; }
+    .d-no-txt { fill: #c4453a; font-size: 11.5px; font-weight: 650; }
+  </style>
+  <defs>
+    <marker id="pb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path class="d-arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="d-box" x="10" y="80" width="150" height="110" rx="14"/>
+  <text class="d-lbl" x="28" y="110">Your phone</text>
+  <text class="d-sub" x="28" y="130">PhotoSync app</text>
+  <text class="d-sub" x="28" y="148">sends new photos</text>
+  <text class="d-mono" x="28" y="170">its own password</text>
+
+  <rect class="d-box" x="225" y="38" width="165" height="62" rx="12"/>
+  <text class="d-lbl" x="242" y="64">Home Wi-Fi</text>
+  <text class="d-sub" x="242" y="84">a phone-sync network</text>
+  <rect class="d-box" x="225" y="118" width="165" height="62" rx="12"/>
+  <text class="d-lbl" x="242" y="144">VPN into the house</text>
+  <text class="d-sub" x="242" y="164">once the admin lists it</text>
+  <text class="d-no-txt" x="236" y="230">Mobile data, other Wi-Fi: refused</text>
+
+  <path class="d-flow" d="M160 116 C190 100, 200 72, 223 70" marker-end="url(#pb-arrow)"/>
+  <path class="d-flow" d="M160 150 L223 150" marker-end="url(#pb-arrow)"/>
+  <path class="d-no" d="M160 174 C185 196, 200 212, 226 222"/>
+
+  <rect class="d-hot" x="452" y="70" width="170" height="122" rx="14"/>
+  <text class="d-lbl" x="470" y="98">iSputnik server</text>
+  <text class="d-mono" x="470" y="119">/dav/</text>
+  <text class="d-sub" x="470" y="140">checks the network</text>
+  <text class="d-sub" x="470" y="158">and the password,</text>
+  <text class="d-sub" x="470" y="176">skips what it has</text>
+
+  <path class="d-flow" d="M390 70 C425 70, 428 100, 450 108" marker-end="url(#pb-arrow)"/>
+  <path class="d-flow" d="M390 150 C425 150, 428 145, 450 143" marker-end="url(#pb-arrow)"/>
+
+  <rect class="d-hot" x="688" y="36" width="202" height="88" rx="12"/>
+  <text class="d-lbl" x="705" y="62">My library</text>
+  <text class="d-sub" x="705" y="82">only you can open it</text>
+  <text class="d-mono" x="705" y="104">Phone/2026/2026-11-05</text>
+
+  <rect class="d-box" x="688" y="148" width="202" height="88" rx="12"/>
+  <text class="d-lbl" x="705" y="174">A linked family library</text>
+  <text class="d-sub" x="705" y="194">holds the photo already?</text>
+  <text class="d-sub" x="705" y="212">then it isn't stored again</text>
+
+  <path class="d-flow" d="M622 112 C652 102, 660 80, 686 80" marker-end="url(#pb-arrow)"/>
+  <path class="d-dash" d="M622 156 C652 166, 660 192, 686 192"/>
+</svg>

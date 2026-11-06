@@ -126,3 +126,16 @@ Control panel → Backup.
     ]);
   });
 });
+
+describe("sections for administrators", () => {
+  it("marks a section with the admin line under its heading, and its subsections with it", () => {
+    const sections = splitSections("phones", "# Phones\n\nIntro.\n\n## Using it\n\nSteps.\n\n## Setting it up\n<!-- admin -->\n\nNetworks.\n\n### VPN\n\nRanges.\n\n## Good to know\n\nMore.");
+    expect(sections.map((s) => [s.heading, Boolean(s.adminOnly)])).toEqual([
+      [null, false],
+      ["Using it", false],
+      ["Setting it up", true],
+      ["VPN", true],
+      ["Good to know", false]
+    ]);
+  });
+});

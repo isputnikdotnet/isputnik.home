@@ -19,7 +19,13 @@ export interface GuideSection {
   heading: string | null;
   anchor: string | null;
   text: string;
+  /** Under a "## " heading marked for administrators (an `<!-- admin -->` line
+   *  directly beneath it); members neither see nor find these sections. */
+  adminOnly?: boolean;
 }
+
+/** The marker line under a guide heading that keeps its section from members. */
+export const ADMIN_MARKER = /^\s*<!--\s*admin\s*-->\s*$/i;
 
 // Stand-ins for a code span's angle brackets while tags are stripped: characters
 // from the Private Use Area, which no guide contains.
@@ -56,10 +62,13 @@ export function splitSections(slug: string, markdown: string): GuideSection[] {
   const lines = markdown.split(/\r?\n/);
   const sections: GuideSection[] = [];
   let guideTitle = slug;
-  let current: { heading: string | null; body: string[] } = { heading: null, body: [] };
+  let current: { heading: string | null; body: string[]; depth: number } = { heading: null, body: [], depth: 1 };
   let inFence = false;
+  // A marked "## " section keeps its "### " subsections with it.
+  let adminPart = false;
 
   const flush = () => {
+    if (current.depth === 2) adminPart = ADMIN_MARKER.test(current.body.find((line) => line.trim()) ?? "");
     const text = plainText(current.body.join("\n"));
     if (current.heading !== null || text) {
       sections.push({
@@ -67,7 +76,8 @@ export function splitSections(slug: string, markdown: string): GuideSection[] {
         guideTitle,
         heading: current.heading,
         anchor: current.heading === null ? null : headingAnchor(current.heading),
-        text
+        text,
+        ...(current.heading !== null && adminPart ? { adminOnly: true } : {})
       });
     }
   };
@@ -82,7 +92,7 @@ export function splitSections(slug: string, markdown: string): GuideSection[] {
       guideTitle = plainText(match[2]);
     } else {
       flush();
-      current = { heading: match[2], body: [] };
+      current = { heading: match[2], body: [], depth: match[1].length };
     }
   }
   flush();
