@@ -47,10 +47,12 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   logs: "activity audit trail events sign-in history retention prune clear source apps containers games video server log docker logs lines tail output refused gateway rejected errors " +
     "активность аудит журнал события история входов хранение очистка удалить",
 
-  libraries: "add library scan sources folders paths extensions uploads access members wizard rescan " +
-    "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать",
-  storage: "thumbnails cache path containers approved folders disk location recycle bin trash folder " +
-    "миниатюры кэш путь контейнеры разрешённые папки диск расположение корзина папка",
+  libraries: "add library scan sources folders paths extensions uploads access members wizard rescan manage status " +
+    "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать управлять состояние",
+  organization: "organize organise labels categories tags genres shared sets applies to remove unused re-match " +
+    "упорядочить метки категории теги жанры общие наборы применяется убрать неиспользуемые пересопоставить",
+  storage: "thumbnails cache path library locations containers approved folders disk location free space recycle bin trash folder " +
+    "миниатюры кэш путь места библиотек контейнеры разрешённые папки диск расположение свободное место корзина папка",
   storageContents: "app storage contents what is in it size on disk parts app files recordings voice notes music movies family tree orphans orphaned files delete other files move folder " +
     "содержимое хранилища приложения размер на диске комнаты файлы приложения записи голосовые заметки музыка фильмы семейное древо сироты осиротевшие файлы удалить другие файлы перенести папку",
   categories: "genres genre keywords mapping icons images taxonomy " +
@@ -78,8 +80,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "блокировка перебор порог попытки пароль минимальная длина сложность оповещения о входе почта репутация угрозы только чтение удаление доверенная сеть защита удалений",
   securityTrusted: "cidr subnet allowlist lan home network exempt whitelist " +
     "подсеть белый список локальная сеть домашняя сеть исключение",
-  phoneSync: "phone sync backup photosync foldersync webdav dav mobile android iphone tablet vpn wireguard tailscale unifi network cidr range refused stale no contact last contact full limit phones members " +
-    "синхронизация телефонов резервная копия телефона фото сеть подсеть диапазон впн отказ нет связи последняя связь заполнена предел телефоны участники",
+  phoneSync: "device sync phone sync phone backups backup photosync foldersync webdav dav mobile android iphone tablet vpn wireguard tailscale unifi network cidr range refused stale no contact last contact full limit phones members personal libraries " +
+    "синхронизация устройств синхронизация телефонов резервная копия телефона фото сеть подсеть диапазон впн отказ нет связи последняя связь заполнена предел телефоны участники личные библиотеки",
   securityBlocked:
     "banned ip block unblock auto-block ban permanent never expires forever make permanent reputation abuseipdb abuse score check " +
     "заблокированный ip блокировка разблокировать автоблокировка бан навсегда никогда не истекает сделать постоянным репутация проверка",
@@ -145,8 +147,8 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "appStorage", section: "storage", anchor: "app-storage", keywords: "app storage switch on off enable one folder system data custom folder photo inbox app files made in the app renders music map data move in disk space хранилище приложения включить выключить одна папка системные данные своя папка входящие файлы приложения рендеры музыка данные карт перенести место на диске" },
   { titleKey: "thumbnailStorage", section: "storage", anchor: "system-data", keywords: "thumbnails cache folder path move own folder system data миниатюры кэш папка путь отдельная папка системные данные" },
   { titleKey: "backupFolder", section: "storage", anchor: "system-data", keywords: "backups backup folder path another disk same disk move резервные копии папка путь другой диск тот же диск перенос" },
-  { titleKey: "libraryContainers", section: "storage", anchor: "storage-containers", keywords: "approved allowed root folders mount разрешённые корневые папки" },
-  { titleKey: "personalLibraries", section: "storage", anchor: "personal-libraries", keywords: "personal library private my library own photos phone backup photo sync size limit quota who may adopt orphaned hand over phones devices total disk space личная библиотека личные фото моя библиотека резервная копия телефона лимит размера кто может передать сироты телефоны устройства всего место на диске" },
+  { titleKey: "libraryContainers", section: "storage", anchor: "storage-containers", keywords: "library locations containers approved allowed root folders mount free space места библиотек контейнеры разрешённые корневые папки свободное место" },
+  { titleKey: "personalLibraries", section: "phoneSync", anchor: "personal-libraries", keywords: "personal library private my library own photos phone backup photo sync size limit quota who may adopt orphaned hand over phones devices total disk space личная библиотека личные фото моя библиотека резервная копия телефона лимит размера кто может передать сироты телефоны устройства всего место на диске" },
   { titleKey: "scanSources", section: "libraries", keywords: "folder path watch include exclude extensions папка путь включить исключить расширения" },
   { titleKey: "backSides", section: "libraries", keywords: "back side two-sided print scanned both sides flip epson fastfoto _b _back pattern pairing verso оборот обратная сторона двусторонний отпечаток перевернуть эпсон правило" },
   { titleKey: "libraryAccessMembers", section: "libraries", keywords: "who can see private share group user кто видит приватная поделиться группа доступ" },

@@ -135,7 +135,15 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   tabs. Retired in 4.15 and not to be brought back: fold-out branches inside a group
   (Utilities → Gallery/Widgets), a group of one page (Maps), and a second row of views
   inside a page (the Dashboard's six views; Duplicates before that) — the reasons are
-  in `nav.ts` and `docs/control-panel-navigation-review.md`. Retired addresses stay
+  in `nav.ts` and `docs/control-panel-navigation-review.md`. Two kinds of sub-page
+  are allowed (4.73): a tab's **pages** (`pages` on its `nav.ts` entry — Library ›
+  Organization's Book categories, Tags, Video genres) keep their own address and
+  search entry, keep the tab selected, and open with a back link (`ControlSectionHead`
+  draws it); a **page of one thing** (a member, a group, a library's Manage page at
+  `libraryManageHref()`) has its own route outside the table and drops the tab row.
+  Neither is a second row. Library's tabs each answer one question: Libraries ·
+  Organization · Device Sync (phone backup, personal libraries) · Storage · App storage
+  contents. Retired addresses stay
   in `CONTROL_ALIASES` (and the Dashboard's `?view=` in `LEGACY_DASHBOARD_VIEWS`);
   `ControlPanelPage` rewrites them to the canonical path.
   New settings get search terms in `features/control/search-index.ts`; a setting on a

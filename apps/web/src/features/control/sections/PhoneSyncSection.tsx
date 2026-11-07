@@ -10,6 +10,8 @@ import { formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { logsHref } from "../links";
 import { PhoneSyncNetworksCard } from "./PhoneSyncNetworksCard";
+import { PersonalLibrariesPanel } from "./storage/PersonalLibrariesPanel";
+import type { StorageRoot } from "../types";
 
 /** Only problems about the phone or the server reach an admin (server: ADMIN_PROBLEMS). */
 type AdminProblem = "not_listed" | "proxy" | "quota" | "disk_full" | "library_unavailable";
@@ -42,9 +44,15 @@ const daysSince = (iso: string) => Math.max(1, Math.floor((Date.now() - Date.par
 // was the live run that asked for this). What happened, and when, is Overview › Logs
 // (the photo_sync events); this page is the state. The privacy line of phase 4 holds:
 // never counts of what was sent, never files or file types.
+//
+// Library › Device Sync since 4.73 (it was Security › Phone sync): phone backup is
+// about libraries, so the page moved to the group they are in, and took Personal
+// libraries with it from Storage — who may have one, where, and how big — so the
+// whole of phone backup is set in one place. Security keeps a link to the networks.
 export function PhoneSyncSection() {
   const { t } = useTranslation(["controlAdmin", "control"]);
   const [phones, setPhones] = useState<OverviewPhone[] | null>(null);
+  const [storageRoots, setStorageRoots] = useState<StorageRoot[] | null>(null);
   const [error, setError] = useState("");
   const [networksKey, setNetworksKey] = useState(0);
   const [adding, setAdding] = useState<string | null>(null);
@@ -64,6 +72,13 @@ export function PhoneSyncSection() {
     }
   }, [load, t]);
   useEffect(() => { void loadQuietly(); }, [loadQuietly]);
+
+  // The personal-library editor picks its folder from the library locations.
+  useEffect(() => {
+    api<{ roots: StorageRoot[] }>("/api/storage/roots")
+      .then((payload) => setStorageRoots(payload.roots))
+      .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:phoneSyncPage.loadFailed")));
+  }, [t]);
 
   const phoneName = (phone: OverviewPhone) => phone.label || t("controlAdmin:member.phones.unnamed");
 
@@ -226,6 +241,8 @@ export function PhoneSyncSection() {
           </div>
         )}
       </section>
+
+      {storageRoots && <PersonalLibrariesPanel storageRoots={storageRoots} />}
     </>
   );
 }

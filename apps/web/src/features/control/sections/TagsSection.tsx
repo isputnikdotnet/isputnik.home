@@ -11,8 +11,14 @@ import { ControlSectionHead } from "../ControlSectionHead";
 interface ManageTag {
   id: string;
   name: string;
-  bookCount: number;
+  /** Library items carrying the tag: books and Gallery photos alike. */
+  libraryItemCount: number;
+  /** Everything else carrying it: albums, slideshows, stories, family-tree people. */
+  otherCount: number;
 }
+
+/** Every place the tag is used. Zero is what "unused" means, here and on the server's prune. */
+const usesOf = (tag: ManageTag) => tag.libraryItemCount + tag.otherCount;
 
 const TAG_PAGE_SIZE = 60;
 
@@ -127,7 +133,7 @@ export function TagsSection() {
   const term = search.trim().toLowerCase();
   const visible = term ? tags.filter((tag) => tag.name.toLowerCase().includes(term)) : tags;
   const paged = visible.slice(0, limit);
-  const unusedCount = tags.filter((tag) => tag.bookCount === 0).length;
+  const unusedCount = tags.filter((tag) => usesOf(tag) === 0).length;
 
   return (
     <>
@@ -174,7 +180,8 @@ export function TagsSection() {
             <thead>
               <tr>
                 <th>{t("controlAdmin:tags.thTag")}</th>
-                <th className="col-num">{t("controlAdmin:tags.thBooks")}</th>
+                <th className="col-num">{t("controlAdmin:tags.thLibraryItems")}</th>
+                <th className="col-num" title={t("controlAdmin:tags.thElsewhereHint")}>{t("controlAdmin:tags.thElsewhere")}</th>
                 <th className="col-actions"></th>
               </tr>
             </thead>
@@ -197,7 +204,8 @@ export function TagsSection() {
                       <strong>{tag.name}</strong>
                     )}
                   </td>
-                  <td className="col-num datagrid-muted">{tag.bookCount}</td>
+                  <td className="col-num datagrid-muted">{tag.libraryItemCount}</td>
+                  <td className="col-num datagrid-muted">{tag.otherCount}</td>
                   <td className="col-actions">
                     <div className="row-actions">
                       {editingId === tag.id ? (
@@ -224,7 +232,7 @@ export function TagsSection() {
                 </tr>
               ))}
               {visible.length === 0 && (
-                <tr><td colSpan={3} className="management-empty">{t("controlAdmin:tags.noMatch")}</td></tr>
+                <tr><td colSpan={4} className="management-empty">{t("controlAdmin:tags.noMatch")}</td></tr>
               )}
             </tbody>
           </table>
@@ -287,7 +295,9 @@ export function TagsSection() {
           onConfirm={deleteTag}
           onCancel={() => setPendingDelete(null)}
         >
-          {t("controlAdmin:tags.deleteBody", { count: pendingDelete.bookCount })}
+          {usesOf(pendingDelete) === 0
+            ? t("controlAdmin:tags.deleteBodyUnused")
+            : t("controlAdmin:tags.deleteBody", { count: usesOf(pendingDelete) })}
         </ConfirmDialog>
       )}
     </>

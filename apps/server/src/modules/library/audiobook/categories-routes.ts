@@ -18,7 +18,7 @@ type CategoryListRow = Pick<CategoryRow, "id" | "key" | "name" | "sort_order" | 
   mapping_count: number;
 };
 
-type TagListRow = Pick<TagRow, "id"> & { name: TagRow["display_name"]; bookCount: number; otherCount: number };
+type TagListRow = Pick<TagRow, "id"> & { name: TagRow["display_name"]; libraryItemCount: number; otherCount: number };
 
 function imageUrl(imageStorageKey: string | null) {
   if (isBuiltinCategoryImageKey(imageStorageKey)) {
@@ -381,9 +381,12 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   });
 
   // ── Tag management ────────────────────────────────────────────────
-  // Global tag list with usage counts. `bookCount` counts books not soft-deleted;
-  // `otherCount` counts non-book uses (family-tree persons today) so prune and
-  // the UI don't treat a family-only tag as unused.
+  // Global tag list with usage counts. `libraryItemCount` counts library items not
+  // soft-deleted: books and Gallery photos alike, since every library type is a
+  // library_item. `otherCount` counts everything else that carries a tag (albums,
+  // slideshows, stories, family-tree people…). A tag is unused only when both are
+  // zero. Prune checks both, and so must the admin page: it once read only the
+  // first, as `bookCount`, so a story- or person-only tag looked unused.
   function listTags(): TagListRow[] {
     return db.prepare(`
       SELECT
@@ -396,7 +399,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
           WHERE taggables.tag_id = tags.id
             AND taggables.entity_type = 'library_item'
             AND library_items.deleted_at IS NULL
-        ) AS bookCount,
+        ) AS libraryItemCount,
         (
           SELECT COUNT(*)
           FROM taggables
@@ -536,7 +539,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   // destructive: prune deletes tag rows — refused from untrusted networks under
   // the deletions-only policy, like DELETE /api/library/manage/tags/:id.
   app.post("/api/library/manage/tags/prune", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request) => {
-    const unused = listTags().filter((tag) => tag.bookCount === 0 && tag.otherCount === 0);
+    const unused = listTags().filter((tag) => tag.libraryItemCount === 0 && tag.otherCount === 0);
     db.transaction(() => {
       for (const tag of unused) {
         db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(tag.id);

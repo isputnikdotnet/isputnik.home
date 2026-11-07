@@ -254,7 +254,7 @@ Portraits the app cut out of a photo never show, so the same face doesn't appear
 twice. A photo placed
 in a story, an album or a slideshow keeps showing there for those people, and opens
 in the viewer as any other. To see everything it holds, open **Control panel →
-Library → Storage contents**.
+Library → App storage contents**.
 
 ## Photo Inbox
 

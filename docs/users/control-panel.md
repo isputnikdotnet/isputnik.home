@@ -12,7 +12,7 @@ a guide of its own, it points there rather than repeating it.
 | Section | Tabs |
 |---|---|
 | **Overview** | Dashboard, Activity, Library statistics, Logs |
-| **Library** | Libraries, Storage, Storage contents, Categories, Tags |
+| **Library** | Libraries, Organization, Device Sync, Storage, App storage contents |
 | **Members** | Users, Groups, Invite links |
 | **Security** | Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs |
 | **Maintenance** | Tasks, Scheduled jobs, Backup, Recycle Bin, Duplicate cleanup, Missing photos, Videos |
@@ -140,28 +140,92 @@ none is.
 
 ## Library
 
+Each tab answers one question: what libraries there are, how content is labelled,
+whether phones can back up, where files are kept, and what is using App storage.
+
 ### Libraries
 
 Adding libraries and pointing them at folders has [its own guide](libraries.md).
 
+Each row shows the library's name and type, who can open it, how many files it holds
+and how big it is, and its **Status**: up to date (and when it was last checked),
+scanning — with a link to follow it in Tasks — a failed last scan, or, for a video
+library, that the video engine isn't answering. **Manage** opens the library's own
+page; the **⋯** beside it has **Rescan** and **Delete library**. Someone else's
+personal library shows only whose it is and its size.
+
+A library's **Manage** page lists what can be set for that type of library, each
+with **Edit**: its name, owner and access; members and groups; files and uploads;
+scanning; the layout rules of a book library; face recognition and phone backups for
+a Gallery library; the folder and language of a Video library. Below are the shared
+sets it is organized with, everything the old details window showed, and **Delete
+library**. Back to the list is the **Libraries** link at the top.
+
+### Organization
+
+How content is labelled and grouped — **Book categories**, **Tags** and **Video
+genres** — one card each, saying what it applies to:
+
+| | Applies to |
+|---|---|
+| **Book categories** | Ebooks and audiobooks — the shelves the scanner sorts books onto |
+| **Tags** | Books, Gallery photos (and video clips), albums, slideshows, stories and family-tree people |
+| **Video genres** | Films and shows in Video libraries |
+
+Each card shows its numbers and the action you most often come for — **Re-match all
+books** for categories, **Remove unused** for tags (a tag counts as used if anything
+at all carries it). **Manage** opens the editor, a page under Organization: rename,
+merge and delete there, across the whole install. Each is one shared set, so a change
+applies everywhere, whichever library you came from.
+
+### Device Sync
+
+Everything about members backing up their phones, on one page (until 4.73 it was
+split between Security › Phone sync and the bottom of Storage). Setting it up step
+by step has [its own guide](phone-sync-setup.md).
+
+**Phone-sync networks** are where members' phones may back up photos from (into
+their personal library). It is a list of its own: it relaxes nothing about signing
+in, so a VPN range can go here without skipping two-factor sign-in or lockout for
+it. Type a range with its size (`192.168.12.0/24`); a bare `192.168.12.0` is
+refused, since it would mean that one address. **Copy trusted networks** adds the
+trusted ones in one go; after that the two lists are kept apart. While it is empty,
+phone backup is off. **Address phones use** is this server's address on your home
+network with its port (`http://192.168.2.10:4000`), typed once; the phone setup card
+in Profile › My library shows it to members. A warning appears if the address is
+outside the networks on the list.
+
+**Phones** lists every member's phones: last contact, the address and network each
+last came from, and its state — backing up, refused, no contact for a week, or a
+library nearly full. A phone refused from an address on no list offers **Add** for
+that address's /24; **See in Logs** opens the phone's history in Overview › Logs
+(the *photo_sync* event). Under each phone are the libraries it is linked to — set
+on that library's **Manage › Phone backups**, so photos already there aren't backed
+up twice. What a phone sent — files, counts, types — stays with its owner.
+
+**Personal libraries**, at the bottom, decides who may have a private photo library,
+which library location holds them and how big each may grow.
+
 ### Storage
 
-Where the app keeps its own things, and the approved folders your libraries may
-read. Has [its own guide](storage.md).
+Which folders libraries may use, and where the app keeps its own files. Has [its own
+guide](storage.md).
 
-**System data** is the folder the app needs to run: thumbnails, backups and
-metadata, the first two of which can each have a folder of their own. **App
-storage** is one optional switch for the Photo Inbox, the App files library,
-renders and map data, kept together in one folder. Every change is confirmed with
-the exact folder before it happens. The **Recycle Bin location** is set on the
-Recycle Bin page; changing it moves what is in the bin in the background.
+**Library locations** are the folders on this server that libraries are allowed to
+use, each with how many libraries use it and the free space on its disk. **System
+data** is the folder the app needs to run: thumbnails, backups and metadata, the
+first two of which can each have a folder of their own. **App storage** is one
+optional switch for the Photo Inbox, the App files library, renders and map data,
+kept together in one folder. Each block leads with its folder, its free space and
+**Change**; **What's inside** unfolds the details, and opens by itself when a move is
+running or something needs attention. Every change is confirmed with the exact folder
+before it happens. The **Recycle Bin location** is set on the Recycle Bin page;
+changing it moves what is in the bin in the background.
 
-### Categories and Tags
+### App storage contents
 
-The two ways things get grouped across every library type. Categories are a fixed,
-shelf-like taxonomy the scanner assigns; tags are free-form, and one tag can span
-audiobooks, photos and family-tree people at once. Here you rename, merge and delete
-them across the whole install.
+What is using App storage, whose it is, and files nothing uses any more —
+[Storage](storage.md#what-it-holds-the-contents-page) explains it.
 
 ---
 
@@ -410,28 +474,8 @@ internet](exposing-to-the-internet.md).
   from rate limits, lockout and the new-network alerts. Add your own network so
   household devices don't trip the protection meant for strangers. The **In use**
   column counts the live sessions inside each range — a range with none is
-  either a spare or a typo.
-
-- **Phone sync** — where members' phones may back up photos from (into their
-  personal library), and how every phone is doing. **Phone-sync networks** is a
-  list of its own: it relaxes nothing about signing in, so a VPN range can go here
-  without skipping two-factor sign-in or lockout for it. Type a range with its
-  size (`192.168.12.0/24`); a bare `192.168.12.0` is refused, since it would mean
-  that one address. **Copy trusted networks** adds the trusted ones in one go;
-  after that the two lists are kept apart. While it is empty, phone backup is
-  off. **Address phones use** is this server's address on your home network with
-  its port (`http://192.168.2.10:4000`), typed once; the phone setup card in
-  Profile › My library shows it to members. A warning appears if the address is
-  outside the networks on the list.
-
-  Below, **Phones** lists every member's phones: last contact, the address and
-  network each last came from, and its state — backing up, refused, no contact
-  for a week, or a library nearly full. A phone refused from an address on no
-  list offers **Add** for that address's /24; **See in Logs** opens the phone's
-  history in Overview › Logs (the *photo_sync* event). Under each phone are the
-  libraries it is linked to — set on that library's **Edit › Phone backups** tab, so
-  photos already there aren't backed up twice. What a phone sent — files,
-  counts, types — stays with its owner.
+  either a spare or a typo. The networks phones may back up from are a separate
+  list, on **Library › Device Sync**.
 - **Blocked IPs** — what's been blocked, and where you unblock it, add a block by
   hand, or make a temporary automatic block permanent (the ∞ button on rows that
   would otherwise expire). The chips above the list count and filter running,

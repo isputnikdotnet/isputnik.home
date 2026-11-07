@@ -368,17 +368,17 @@
   .invite-table th:nth-child(3) { width: 22%; }
   .invite-table th:nth-child(5) { width: 13%; }
 
+  /* Access and Contents go first; Status stays, since it is the one that changes. */
   .library-table th:nth-child(2),
   .library-table td:nth-child(2),
-  .library-table th:nth-child(5),
-  .library-table td:nth-child(5) {
+  .library-table th:nth-child(3),
+  .library-table td:nth-child(3) {
     display: none;
   }
 
-  .library-table th:nth-child(1) { width: 48%; }
-  .library-table th:nth-child(3) { width: 16%; }
-  .library-table th:nth-child(4) { width: 12%; }
-  .library-table th:nth-child(6) { width: 24%; }
+  .library-table th:nth-child(1) { width: 46%; }
+  .library-table th:nth-child(4) { width: 28%; }
+  .library-table th:nth-child(5) { width: 26%; }
 
   .library-info-grid {
     grid-template-columns: 1fr;
@@ -461,11 +461,6 @@
     padding: 18px 16px;
   }
 
-  .library-table th:nth-child(4),
-  .library-table td:nth-child(4) {
-    display: none;
-  }
-
   .user-table th:nth-child(3),
   .user-table td:nth-child(3) {
     display: none;
@@ -492,10 +487,6 @@
   .invite-table th:nth-child(1) { width: 61%; }
   .invite-table th:nth-child(2) { width: 21%; }
   .invite-table th:nth-child(5) { width: 18%; }
-
-  .library-table th:nth-child(1) { width: 56%; }
-  .library-table th:nth-child(3) { width: 18%; }
-  .library-table th:nth-child(6) { width: 26%; }
 
   .library-info-list > div {
     grid-template-columns: 1fr;

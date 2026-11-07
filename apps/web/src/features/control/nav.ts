@@ -46,11 +46,23 @@ import i18n from "../../i18n";
 // duplicate pages, and as the Dashboard's six views — and both times it was more
 // chrome than the relationship was worth. A page whose content wants to be split
 // is split into tabs; a view switch inside a page is for views of one task.
+//
+// A tab may own PAGES (4.73): destinations one step down from it that are not tabs
+// of their own. Organization's three editors are the case — Book categories, Tags
+// and Video genres were three tabs that read as equals of Libraries and Storage
+// while each applied to only some content; under Organization they keep their own
+// addresses and search entries, the tab row stays up with Organization selected,
+// and the page opens with a link back (ControlSectionHead does both). A page of one
+// thing — a member, a group, a library's Manage page — is the other kind of
+// sub-page: it has its own route outside this table and drops the tab row.
+// Pages are not a second row and never become one.
 
 export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "settings";
 
 export interface ControlTabDef {
   section: ControlSection;
+  /** Pages under this tab: their own addresses, this tab's row and selection. */
+  pages?: ControlSection[];
 }
 
 export interface ControlGroupDef {
@@ -77,14 +89,18 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "library",
     icon: LibraryBig,
+    // Each tab answers one question (4.73, from the Library control-panel review):
+    // what libraries there are; how content is labelled; whether phones can back up;
+    // where files are kept; what is using app-managed space.
     tabs: [
       { section: "libraries" },
+      // Book categories, Tags and the video engine's genres, each saying what it applies to.
+      { section: "organization", pages: ["categories", "tags", "genres"] },
+      // Phone backup in one place: personal libraries, the networks phones may use,
+      // the address they use, and every member's phones. Was Security › Phone sync.
+      { section: "phoneSync" },
       { section: "storage" },
-      { section: "storageContents" },
-      { section: "categories" },
-      { section: "tags" },
-      // The video engine's own genres: films and shows, beside the books' categories.
-      { section: "genres" }
+      { section: "storageContents" }
     ]
   },
   {
@@ -108,9 +124,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "securityPolicies" },
       { section: "securityTrusted" },
       { section: "securityBlocked" },
-      // Phone sync (phase 5 of docs/photo-sync-plan.md): where phones may back up from,
-      // and every member's phones — the fix for one refused; the history is in Logs.
-      { section: "phoneSync" },
       { section: "appsAccess" }
     ]
   },
@@ -150,13 +163,31 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   }
 ];
 
-/** Every tab there is. One row per group, so this is simply all of them — what
- *  search indexes and what page titles come from. */
-export const ALL_TABS: ControlTabDef[] = CONTROL_GROUPS.flatMap((group) => group.tabs);
+/** Every destination there is: each tab, then the pages under it — what search
+ *  indexes and what page titles come from. */
+export const ALL_TABS: ControlTabDef[] = CONTROL_GROUPS.flatMap((group) =>
+  group.tabs.flatMap((tab) => [tab, ...(tab.pages ?? []).map((section) => ({ section }))])
+);
 
 const GROUP_BY_SECTION = new Map<ControlSection, ControlGroupDef>(
-  CONTROL_GROUPS.flatMap((group) => group.tabs.map((tab) => [tab.section, group] as const))
+  CONTROL_GROUPS.flatMap((group) => group.tabs.flatMap((tab) =>
+    [tab.section, ...(tab.pages ?? [])].map((section) => [section, group] as const)))
 );
+
+const PARENT_TAB = new Map<ControlSection, ControlSection>(
+  CONTROL_GROUPS.flatMap((group) => group.tabs.flatMap((tab) =>
+    (tab.pages ?? []).map((section) => [section, tab.section] as const)))
+);
+
+/** The tab a page sits under (Tags → Organization), or null for a tab itself. */
+export function parentTab(section: ControlSection): ControlSection | null {
+  return PARENT_TAB.get(section) ?? null;
+}
+
+/** The tab to show selected: the section's own, or the one it is a page of. */
+export function selectedTab(section: ControlSection): ControlSection {
+  return PARENT_TAB.get(section) ?? section;
+}
 
 export function groupForSection(section: ControlSection): ControlGroupDef {
   // Every section is on exactly one tab, so the lookup can't miss; Overview is
@@ -180,9 +211,12 @@ export function sectionTitle(section: ControlSection): string {
   return tabLabel(section);
 }
 
-/** Where the page sits: its group's name. */
+/** Where the page sits: its group's name, and for a page under a tab that tab's too
+ *  ("Library · Organization"). */
 export function sectionEyebrow(section: ControlSection): string {
-  return groupLabel(groupForSection(section).key);
+  const group = groupLabel(groupForSection(section).key);
+  const parent = parentTab(section);
+  return parent ? `${group} · ${tabLabel(parent)}` : group;
 }
 
 export function sectionHref(section: ControlSection): string {

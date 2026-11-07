@@ -254,7 +254,7 @@ Admins have **Edit** on every film's and show's page. Its tabs:
   gave it; type over it to change it, or leave it empty to keep what was found.
   Edits stay through every rescan; **Use what was found** hands a field back.
 - **Genres**: pick the title's genres from the list kept on **Control panel →
-  Library → Video genres**. With none picked it keeps the genres that were found.
+  Library → Organization → Video genres**. With none picked it keeps the genres that were found.
 - **Set** (films): which set the film is in. **As found** keeps the `.nfo`
   file's set, else TMDB's collection; **In this set** puts it into one by name
   (pick one that is there, or type a new name to make a set) at the place you
@@ -279,7 +279,7 @@ Admins have **Edit** on every film's and show's page. Its tabs:
 
 Films and shows arrive with genres from their `.nfo` files and from TMDB, often
 in two languages and several spellings ("Comedy", "Комедия", "Sci-Fi & Fantasy").
-**Control panel → Library → Video genres** keeps one list of your own, the way
+**Control panel → Library → Organization → Video genres** keeps one list of your own, the way
 Categories does for books, and decides what each genre a film arrives with
 becomes. There are four cases:
 

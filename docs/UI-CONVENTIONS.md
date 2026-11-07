@@ -432,6 +432,20 @@ tab entry there — nothing else keeps a parallel list.
   second row of views inside a page (all three were tried and retired in 4.15 —
   the reasons are in `nav.ts` and `docs/control-panel-navigation-review.md`).
   Content that wants splitting becomes tabs.
+- **Sub-pages come in two kinds, and neither is a second row** (4.73).
+  - A tab's **pages**: list them in `pages` on the tab's `nav.ts` entry (Library ›
+    Organization owns Book categories, Tags and Video genres). Each keeps its own
+    `CONTROL_PATHS` address and search entry; the tab row stays up with the parent
+    selected, and `ControlSectionHead` adds a link back to the tab and names it in the
+    eyebrow ("Library · Organization"). Use this when several editors share one
+    question and each would otherwise read as an equal of the group's other tabs.
+  - A **page of one thing** — a member, a group, a library's Manage page
+    (`libraryManageHref()`) — has its own route matched after the table in
+    `getRoute()`, drops the tab row, and opens with its own back link. Use this
+    instead of a dialog when one thing has more to set than a dialog holds.
+- **A row offers one way in.** A list of things to manage (Library › Libraries) gives
+  each row a **Manage** link to its page and a **⋯** `ActionMenu` for the quick
+  actions (Rescan, Delete); not an icon per dialog.
 - **Personal things live in Profile, not here.** The control panel is admin-only;
   anything that belongs to the signed-in person (reader tokens, devices, theme)
   goes under `PROFILE_PATHS` so every member can reach their own.

@@ -17,6 +17,7 @@ import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
+import { StorageFold } from "./StorageFold";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 import { InboxReviewersModal } from "./InboxReviewersModal";
 import { InboxScanningModal } from "./InboxScanningModal";
@@ -283,18 +284,14 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
         </div>
       ) : (
         <>
-          <div className="system-data-summary">
+          <div className="system-data-summary has-action">
             <strong>{view.folder}</strong>
             {view.where === "system" && <span className="datagrid-muted">{t("controlAdmin:appStorage.sharesDisk")}</span>}
             <SpaceMeter space={view.space} />
-          </div>
-          {isLowSpace(view.space) && (
-            <MessageBox tone="warning" title={t("controlAdmin:appStorage.lowTitle")}>{t("controlAdmin:appStorage.lowBodyOn")}</MessageBox>
-          )}
-          <div className="library-settings-actions">
             <Button
               variant="secondary"
               compact
+              className="system-data-change"
               disabled={view.moving}
               title={view.moving ? t("controlAdmin:appStorage.movingTitle") : undefined}
               onClick={() => { setSaveError(""); setChanging({ where: view.where, path: view.customPath ?? "" }); }}
@@ -302,9 +299,16 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
               {t("controlAdmin:appStorage.change")}
             </Button>
           </div>
+          {isLowSpace(view.space) && (
+            <MessageBox tone="warning" title={t("controlAdmin:appStorage.lowTitle")}>{t("controlAdmin:appStorage.lowBodyOn")}</MessageBox>
+          )}
         </>
       )}
 
+      <StorageFold
+        summary={view.enabled ? t("controlAdmin:appStorage.insideSummary") : t("controlAdmin:appStorage.insideSummaryOff")}
+        attention={view.enabled && view.parts.some((entry) => !entry.inside || entry.move.running || entry.move.failed.length > 0 || Boolean(entry.renameTo) || (entry.counts.unowned ?? 0) > 0)}
+      >
       <div className="datagrid-wrap system-data-rows">
         <table className="datagrid datagrid-phone-stack">
           <thead>
@@ -397,6 +401,12 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
           </tbody>
         </table>
       </div>
+      </StorageFold>
+      {view.enabled && (
+        <p className="storage-block-links">
+          {link(controlHref("storageContents"), t("controlAdmin:appStorage.viewContents"))}
+        </p>
+      )}
 
       {changing && (
         <Modal

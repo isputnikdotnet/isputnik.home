@@ -3074,3 +3074,100 @@ tr.control-anchor-flash > td {
   /* No tooltip on a phone: an address that doesn't fit wraps, or it couldn't be read. */
   .dash-fact-line dd { white-space: normal; overflow-wrap: anywhere; }
 }
+
+/* A page under a tab (Library › Organization › Tags) opens with a link back to the
+   tab — ControlSectionHead draws it; nav.ts says which pages have one. */
+.control-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding-left: 0;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+/* Library › Organization: one card per labelling system (OrganizationSection). */
+.organization-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.organization-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.organization-card-top {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.organization-card-top h2 {
+  margin: 0 0 2px;
+  font-size: var(--text-lg);
+}
+
+.organization-card-top p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.organization-card-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.organization-applies {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+
+.organization-applies small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.organization-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.organization-stats .is-warning {
+  color: var(--warning);
+}
+
+.organization-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
+}
+
+.organization-footnote {
+  margin-top: 14px;
+  font-size: var(--text-sm);
+}

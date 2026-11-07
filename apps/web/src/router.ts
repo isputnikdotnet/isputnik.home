@@ -6,12 +6,14 @@ export type ControlSection =
   // Overview
   | "dashboard" | "activity" | "libraryStats" | "logs"
   // Library
-  | "libraries" | "storage" | "storageContents" | "categories" | "tags" | "genres"
+  | "libraries" | "organization" | "phoneSync" | "storage" | "storageContents"
+  // Library › Organization's editors: pages under that tab, not tabs of their own
+  | "categories" | "tags" | "genres"
   // Members
   | "users" | "groups" | "invites"
   // Security
   | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
-  | "phoneSync" | "appsAccess"
+  | "appsAccess"
   // Maintenance
   | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
   | "videoStreaming"
@@ -30,11 +32,14 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   logs: "/control/overview/logs",
 
   libraries: "/control/libraries",
+  organization: "/control/libraries/organization",
+  categories: "/control/libraries/organization/categories",
+  tags: "/control/libraries/organization/tags",
+  genres: "/control/libraries/organization/genres",
+  // Device Sync. The section keeps its first name; the page was Security › Phone sync until 4.73.
+  phoneSync: "/control/libraries/device-sync",
   storage: "/control/libraries/storage",
   storageContents: "/control/libraries/storage/contents",
-  categories: "/control/libraries/categories",
-  tags: "/control/libraries/tags",
-  genres: "/control/libraries/genres",
 
   users: "/control/members",
   groups: "/control/members/groups",
@@ -46,7 +51,6 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   securityPolicies: "/control/security/policies",
   securityTrusted: "/control/security/trusted-networks",
   securityBlocked: "/control/security/blocked-ips",
-  phoneSync: "/control/security/phone-sync",
   appsAccess: "/control/security/apps",
 
   tasks: "/control/maintenance/tasks",
@@ -96,6 +100,12 @@ export function memberHref(userId: string, tab: MemberPageTab = "account"): stri
 // lives, so the page has no tabs.
 export function groupHref(groupId: string): string {
   return `${CONTROL_PATHS.groups}/${encodeURIComponent(groupId)}`;
+}
+
+// One library's Manage page under Library › Libraries (4.73): its settings, access,
+// scanning and the rest in one place, instead of an icon per dialog on its row.
+export function libraryManageHref(libraryId: string): string {
+  return `${CONTROL_PATHS.libraries}/${encodeURIComponent(libraryId)}`;
 }
 
 /** The story editor's panes as addresses — its nav links to real URLs the same
@@ -160,6 +170,13 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/categories": "categories",
   "/control/categories/tags": "tags",
   "/control/tags": "tags",
+  // Categories, Tags and Video genres were Library tabs until 4.73, when they moved
+  // under Organization; Phone sync was a Security tab and became Device Sync.
+  "/control/libraries/categories": "categories",
+  "/control/libraries/tags": "tags",
+  "/control/libraries/genres": "genres",
+  "/control/security/phone-sync": "phoneSync",
+  "/control/libraries/phone-sync": "phoneSync",
 
   "/control/accounts": "users",
   "/control/users": "users",
@@ -459,6 +476,8 @@ export type Route =
   | { name: "tagDetail"; tagName: string }
   | { name: "control"; section: ControlSection }
   | { name: "controlCategoryEditor"; categoryId: string | null }
+  /** One library's Manage page under Library › Libraries (libraryManageHref). */
+  | { name: "controlLibrary"; libraryId: string }
   /** One account's page under Members › Users (memberHref). */
   | { name: "controlMember"; userId: string; tab: MemberPageTab }
   /** One group's page under Members › Groups (groupHref). */
@@ -858,9 +877,17 @@ export function getRoute(): Route {
       return { name: "control", section };
     }
 
-    const categoryEditMatch = path.match(/^\/control\/(?:libraries\/)?categories\/([^/]+)$/);
+    // Under Organization since 4.73; under Library and the panel's root before that.
+    const categoryEditMatch = path.match(/^\/control\/(?:libraries\/(?:organization\/)?)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
+    }
+
+    // A library's Manage page, after the table: /control/libraries/storage is a tab,
+    // not a library whose id is "storage".
+    const libraryMatch = path.match(/^\/control\/libraries\/([^/]+)$/);
+    if (libraryMatch) {
+      return { name: "controlLibrary", libraryId: decodeURIComponent(libraryMatch[1]) };
     }
 
     // A group's page, ahead of the member's, which would otherwise read

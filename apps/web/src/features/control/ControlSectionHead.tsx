@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
-import type { ControlSection } from "../../router";
-import { sectionEyebrow, sectionTitle } from "./nav";
+import { ArrowLeft } from "lucide-react";
+import { controlHref, followRoute, type ControlSection } from "../../router";
+import { parentTab, sectionEyebrow, sectionTitle, tabLabel } from "./nav";
 
 // The header every control-panel page opens with. The eyebrow is the nav group
 // and the title is the tab, both read straight from nav.ts — so a page can
 // never disagree with the nav about where it lives, which is how the old panel
 // ended up with "Maintenance" pages sitting under "Digital Library".
+//
+// A page under a tab (Tags under Organization) also opens with a link back to that
+// tab, and its eyebrow names it: the tab row above stays on the tab, so this is
+// where the page says it is one step down.
 //
 // `children` is the right-hand side of the row: a Refresh button, a search
 // field, an "Add library" action.
@@ -27,6 +32,7 @@ export function ControlSectionHead({
   className?: string;
   children?: ReactNode;
 }) {
+  const parent = parentTab(section);
   const copy = (
     <div className={icon ? "admin-heading-copy" : undefined}>
       <p className="eyebrow">{sectionEyebrow(section)}</p>
@@ -35,7 +41,7 @@ export function ControlSectionHead({
     </div>
   );
 
-  return (
+  const head = (
     <div className={["section-head", icon ? "admin-section-head" : "", className].filter(Boolean).join(" ")}>
       {icon ? (
         <div className="admin-title-wrap">
@@ -49,5 +55,17 @@ export function ControlSectionHead({
       )}
       {children}
     </div>
+  );
+
+  if (!parent) return head;
+  const parentHref = controlHref(parent);
+  return (
+    <>
+      <a className="text-button control-page-back" href={parentHref} onClick={(event) => followRoute(event, parentHref)}>
+        <ArrowLeft size={15} aria-hidden="true" />
+        {tabLabel(parent)}
+      </a>
+      {head}
+    </>
   );
 }

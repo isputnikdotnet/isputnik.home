@@ -5,36 +5,39 @@ sits in **Control panel → Library → Storage**, in three parts:
 
 | | What it is | Why it's needed |
 |---|---|---|
-| **Digital Library containers** | The folders your libraries are allowed to read | A safety boundary: a library can only ever point somewhere inside an approved container, so a mistyped path can't wander off into the rest of the disk. |
+| **Library locations** | The folders on this server your libraries are allowed to use | A safety boundary: a library can only ever point somewhere inside a location you added, so a mistyped path can't wander off into the rest of the disk. |
 | **System data** | The one folder the app needs to run: thumbnails, backups and metadata go there | Required. No library can be added until thumbnails have somewhere to go. Thumbnails and backups can each have a folder of their own. |
 | **App storage** | One optional switch for the Photo Inbox, the library for what the family makes in the app, renders and map data, kept in one folder | Off until you switch it on. The four parts go together, so it is one answer rather than four. |
 
-Until system data is chosen and at least one container exists, **Add library**
+Until system data is chosen and at least one library location exists, **Add library**
 stays disabled and the Libraries page tells you so, with a button straight back
 here.
 
 The Recycle Bin's location is not on this page: it is on the **Recycle Bin**
 page, in its settings, where you are when you think about deleted files.
 
-## Digital Library containers
+## Library locations
 
-A container is a root folder you're approving. Libraries can then use the whole
-container or any folder inside it.
+A library location is a folder on this server you allow libraries to use. A library
+then takes the whole location or any folder inside it. (Until 4.73 these were called
+*Digital Library containers*; "container" now means only the apps that run beside
+iSputnik, and the Docker container itself.)
 
-Choose **Add container** and give it a name and a path:
+Choose **Add location** and give it a name and a folder:
 
-![The Add storage container dialog](images/12-storage-add-container.png)
+![The Add library location dialog](images/12-storage-add-container.png)
 
 | Field | Example |
 |---|---|
-| **Container name** | `Family media` — a label for you, shown when picking folders |
-| **Container path** | `D:\ProjectTesting\AppDocTest` — must already exist on the server |
+| **Name** | `Family media` — a label for you, shown when picking folders |
+| **Folder** | `D:\ProjectTesting\AppDocTest` — must already exist on the server |
 
 The folder has to exist already; the app won't create it. If the path is wrong
 or unreadable, you're told immediately rather than at scan time.
 
-Containers come first on the page because libraries and App storage live inside
-one.
+Locations come first on the page because libraries usually live inside one. Each
+row shows how many libraries use it and how much of its disk is free; **Remove** takes
+it off the list (the folder and its files stay) once no library uses it.
 
 ## System data
 
@@ -47,7 +50,7 @@ know where it is.
 On a new install the block asks for the folder and suggests the one next to the
 database: `/config` in Docker, the app's `data` folder otherwise. Take the
 suggestion or type another folder, on any disk. It doesn't have to be inside a
-container, but it can't be inside a library, and it can't be a container itself.
+library location, but it can't be inside a library, and it can't be a location itself.
 The app makes the folder if it isn't there yet and checks that it can write in it.
 Choosing it shows a box with the exact path first.
 
@@ -57,7 +60,9 @@ photo or video for thumbnails (roughly 8 GB for 100,000), a few hundred MB per
 backup, and a few KB per book of metadata. When less than a tenth of the disk is
 free, the block warns you.
 
-Once it is set, the block lists what lives there:
+Once it is set, the block leads with the folder, its free space and **Change**.
+**What's inside** unfolds what lives there (it opens by itself while a move runs or
+when something needs attention):
 
 | Row | Where it goes | Change |
 |---|---|---|
@@ -113,7 +118,7 @@ Before switching on, choose where it lives:
   data. One click, and fine for a small household, but it shares that disk with the
   thumbnails and backups.
 - **Custom folder**: type a folder, on any disk. It does not have to be inside a
-  container, but it can't be a container itself or sit inside a library. In a
+  library location, but it can't be a location itself or sit inside a library. In a
   household with a lot of video, a folder on your media disk is the better home.
 
 The free space on that disk shows under the choice, and the ⓘ beside the heading
@@ -194,7 +199,7 @@ location databases move back beside the database.
 
 ### What it holds: the Contents page
 
-**Library → Storage contents**, the tab beside Storage, answers the other question
+**Library → App storage contents**, the tab beside Storage, answers the other question
 about App storage: what is in it, and why. The top table gives every part a count
 and a size, counted from the app's own records where it keeps them (the two
 libraries) and from the disk where it does not (renders, map data), plus the hidden
@@ -233,7 +238,7 @@ What keeps it safe:
 - One move runs at a time, and never while a library is being scanned; a scan waits
   for a move the same way.
 
-Once system data is chosen and a container is listed, you're ready for
+Once system data is chosen and a library location is listed, you're ready for
 **[Setting up libraries](libraries.md)**.
 
 ### An install that already had these set
@@ -253,12 +258,14 @@ them has it off.
 ## Personal libraries
 
 A **personal library** is a private photo library that belongs to one member. Only that member
-can open it — administrators included. The card at the bottom of **Library › Storage** decides:
+can open it — administrators included. **Library › Device Sync** decides, in its **Personal
+libraries** card (it was at the bottom of Storage until 4.73, and Storage still says where
+they are kept):
 
 | Setting | What it does |
 |---|---|
 | **Members may have a personal library** | Off by default. While off, nobody can turn one on |
-| **Storage container** and **Folder inside it** | Where new personal libraries are made: one folder per member, named after them. The folder may not sit inside another library |
+| **Library location** and **Folder inside it** | Where new personal libraries are made: one folder per member, named after them. The folder may not sit inside another library |
 | **Who may have one** | Every member, or only the members and groups you tick |
 | **Size limit per member (GB)** | Optional. Uploads that would pass it are refused |
 
@@ -281,12 +288,12 @@ private), or **Delete** it — the library leaves the app; the files on disk sta
 
 ## How to organise the folder underneath
 
-One container with a folder per library and App storage beside them is the
+One library location with a folder per library and App storage beside them is the
 arrangement most people end up with, and it's what the rest of these guides
 assume:
 
 ```
-D:\ProjectTesting\AppDocTest\      ← the container
+D:\ProjectTesting\AppDocTest\      ← the library location
 ├── Audio\                         ← an audiobook library
 ├── Ebooks\                        ← an ebook library
 ├── Gallery\                       ← a gallery library
@@ -298,7 +305,7 @@ D:\ProjectTesting\AppDocTest\      ← the container
     └── Map data\
 ```
 
-System data sits wherever you chose, often outside the container altogether:
+System data sits wherever you chose, often outside the location altogether:
 
 ```
 /config\                           ← system data (Docker)
@@ -308,9 +315,9 @@ System data sits wherever you chose, often outside the container altogether:
 └── metadata\
 ```
 
-You can add several containers if your media lives on different drives. The
+You can add several locations if your media lives on different drives. The
 **Libraries** column on this page shows how many libraries are using each one,
-and a container can't be deleted while a library still depends on it.
+and a location can't be removed while a library still depends on it.
 
 ## Your original files are never modified
 

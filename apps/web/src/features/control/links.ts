@@ -1,4 +1,4 @@
-import { controlHref, groupHref, memberHref, type MemberPageTab } from "../../router";
+import { controlHref, groupHref, libraryManageHref, memberHref, type MemberPageTab } from "../../router";
 
 // Addresses that land on a control page already narrowed to what you were looking
 // at — a scan's library on Tasks, a cleanup's removals in the Recycle Bin, an
@@ -43,9 +43,10 @@ export function blockIpHref(ip: string): string {
   return withQuery(controlHref("securityBlocked"), { block: ip });
 }
 
-/** Library › Libraries, scrolled to one library's row. */
+/** One library's Manage page under Library › Libraries (it was the list, scrolled to
+ *  the library's row, until the Manage page took over the row's dialogs in 4.73). */
 export function libraryRowHref(libraryId: string): string {
-  return `${controlHref("libraries")}#library-${libraryId}`;
+  return libraryManageHref(libraryId);
 }
 
 /** Library › Storage, scrolled to one of its cards. */

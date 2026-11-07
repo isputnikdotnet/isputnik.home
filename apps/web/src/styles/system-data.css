@@ -122,3 +122,32 @@
 .metadata-modal.inbox-scanning-modal { width: min(calc(100vw - 48px), 720px); }
 .inbox-scanning { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .inbox-scanning-intro { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+/* A Storage block leads with its folder, free space and one Change (4.73)… */
+.system-data-summary.has-action {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.system-data-summary.has-action > :not(.system-data-change) { grid-column: 1; }
+.system-data-summary.has-action > .system-data-change { grid-column: 2; grid-row: 1 / span 3; }
+
+/* …and folds its rows under one line (StorageFold). */
+.storage-fold { margin-top: 4px; }
+.storage-fold > summary {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.storage-fold > summary::-webkit-details-marker { display: none; }
+.storage-fold-chevron { transition: transform 0.15s ease; }
+.storage-fold[open] .storage-fold-chevron { transform: rotate(90deg); }
+.storage-fold > .datagrid-wrap { margin-top: 8px; }
+
+/* Library locations: a long folder wraps rather than running off a phone. */
+.storage-locations-table code { overflow-wrap: anywhere; white-space: normal; }

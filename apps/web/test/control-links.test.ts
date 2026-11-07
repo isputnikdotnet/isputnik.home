@@ -18,12 +18,50 @@ describe("control page links", () => {
     [logsHref({ ip: "203.0.113.9" }), "/control/overview/logs?ip=203.0.113.9", "logs"],
     [logsHref({ user: "acct_123" }), "/control/overview/logs?user=acct_123", "logs"],
     [blockIpHref("203.0.113.9"), "/control/security/blocked-ips?block=203.0.113.9", "securityBlocked"],
-    [libraryRowHref("lib1"), "/control/libraries#library-lib1", "libraries"],
     [storageHref("app-storage"), "/control/libraries/storage#app-storage", "storage"]
   ])("%s", (href, expected, section) => {
     expect(href).toBe(expected);
     at(href);
     expect(getRoute()).toEqual({ name: "control", section });
+  });
+
+  // A library's Manage page (4.73) sits under the Libraries address, after the
+  // Library tabs that share its prefix — a tab must never read as a library id.
+  it("opens a library's Manage page, behind the Library tabs", () => {
+    expect(libraryRowHref("lib1")).toBe("/control/libraries/lib1");
+    at(libraryRowHref("lib1"));
+    expect(getRoute()).toEqual({ name: "controlLibrary", libraryId: "lib1" });
+    for (const [path, section] of [
+      ["/control/libraries/organization", "organization"],
+      ["/control/libraries/device-sync", "phoneSync"],
+      ["/control/libraries/storage", "storage"],
+      ["/control/libraries/storage/contents", "storageContents"]
+    ] as const) {
+      at(path);
+      expect(getRoute()).toEqual({ name: "control", section });
+    }
+  });
+
+  // Organization's editors are pages under it; their old tab addresses, and Phone
+  // sync's under Security, still land on them.
+  it.each([
+    ["/control/libraries/organization/categories", "categories"],
+    ["/control/libraries/organization/tags", "tags"],
+    ["/control/libraries/organization/genres", "genres"],
+    ["/control/libraries/categories", "categories"],
+    ["/control/libraries/tags", "tags"],
+    ["/control/libraries/genres", "genres"],
+    ["/control/security/phone-sync", "phoneSync"]
+  ] as const)("%s", (path, section) => {
+    at(path);
+    expect(getRoute()).toEqual({ name: "control", section });
+  });
+
+  it("finds the category editor at its new address and its old one", () => {
+    at("/control/libraries/organization/categories/cat1");
+    expect(getRoute()).toEqual({ name: "controlCategoryEditor", categoryId: "cat1" });
+    at("/control/libraries/categories/new");
+    expect(getRoute()).toEqual({ name: "controlCategoryEditor", categoryId: null });
   });
 
   // A member's page is a sub-page of Users, so it must not be shadowed by the

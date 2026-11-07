@@ -10,6 +10,7 @@ import {
   groupForSection,
   groupLabel,
   sectionEyebrow,
+  selectedTab,
   tabLabel,
   type ControlTabDef
 } from "./nav";
@@ -29,6 +30,7 @@ import { useIsMobile } from "../../shared/useIsMobile";
 // any one tab. The page itself is now just the nav and the tab row.
 const UsersSection = lazy(() => import("./sections/UsersSection").then((m) => ({ default: m.UsersSection })));
 const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) => ({ default: m.InvitesSection })));
+const OrganizationSection = lazy(() => import("./sections/OrganizationSection").then((m) => ({ default: m.OrganizationSection })));
 const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
 const AboutSection = lazy(() => import("./sections/AboutSection").then((m) => ({ default: m.AboutSection })));
@@ -80,11 +82,14 @@ export interface GroupPageTarget {
 export function ControlPanelPage({
   section,
   categoryId,
+  libraryId,
   member,
   group
 }: {
   section: ControlSection;
   categoryId?: string | null;
+  /** A library's Manage page, a sub-page of Libraries. */
+  libraryId?: string;
   member?: MemberPageTarget;
   group?: GroupPageTarget;
 }) {
@@ -105,14 +110,15 @@ export function ControlPanelPage({
   // keeps the nav highlight but drops the tab row.
   const editingCategory = section === "categories" && categoryId !== undefined;
   // So is a member's page of Users: its tabs are its own, drawn by the page.
-  const subPage = editingCategory || member !== undefined || group !== undefined;
+  // And a library's Manage page, of Libraries.
+  const subPage = editingCategory || libraryId !== undefined || member !== undefined || group !== undefined;
 
   // An old address — an alias, or the Dashboard with a retired ?view= — shows the
   // page it meant; the address bar is then tidied to that page's own. replaceState,
   // so Back never returns to the dead address, and the rest of the query and the
   // hash ride along, because a Sign-ins link carrying ?ip=… is a dive, not a page.
   useEffect(() => {
-    if (categoryId !== undefined || member !== undefined || group !== undefined) return;
+    if (categoryId !== undefined || libraryId !== undefined || member !== undefined || group !== undefined) return;
     const canonical = controlHref(section);
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === canonical && !params.has("view")) return;
@@ -122,7 +128,7 @@ export function ControlPanelPage({
     }
     const query = params.toString();
     window.history.replaceState(window.history.state, "", `${canonical}${query ? `?${query}` : ""}${window.location.hash}`);
-  }, [section, categoryId, member, group]);
+  }, [section, categoryId, libraryId, member, group]);
 
   const tabs = groupForSection(section).tabs;
   // On a phone the menu lists every page, and its button names the one you are on,
@@ -155,9 +161,9 @@ export function ControlPanelPage({
           )}
           {/* Inside the page, so the nav and tab row stay up while a section's
               chunk is on its way — or, offline, fails to arrive. */}
-          <LoadErrorBoundary resetKey={`${section}:${categoryId ?? ""}:${member?.userId ?? ""}:${group?.groupId ?? ""}`}>
+          <LoadErrorBoundary resetKey={`${section}:${categoryId ?? ""}:${libraryId ?? ""}:${member?.userId ?? ""}:${group?.groupId ?? ""}`}>
             <Suspense fallback={<p className="muted">{t("control:ui.loading")}</p>}>
-              <ControlSectionBody section={section} categoryId={categoryId} member={member} group={group} currentUser={user} />
+              <ControlSectionBody section={section} categoryId={categoryId} libraryId={libraryId} member={member} group={group} currentUser={user} />
             </Suspense>
           </LoadErrorBoundary>
         </section>
@@ -172,12 +178,14 @@ export function ControlPanelPage({
 function ControlSectionBody({
   section,
   categoryId,
+  libraryId,
   member,
   group,
   currentUser
 }: {
   section: ControlSection;
   categoryId?: string | null;
+  libraryId?: string;
   member?: MemberPageTarget;
   group?: GroupPageTarget;
   currentUser: PublicUser;
@@ -188,7 +196,9 @@ function ControlSectionBody({
     case "libraryStats":    return <LibraryStatsSection />;
     case "logs":            return <LogsSection />;
 
-    case "libraries":       return <LibrariesSection />;
+    case "libraries":       return <LibrariesSection libraryId={libraryId} />;
+    case "organization":    return <OrganizationSection />;
+    case "phoneSync":       return <PhoneSyncSection />;
     case "storage":         return <StorageSection />;
     case "storageContents": return <StorageContentsSection />;
     case "categories":      return categoryId !== undefined ? <CategoryEditorPage categoryId={categoryId} /> : <CategoriesSection />;
@@ -207,7 +217,6 @@ function ControlSectionBody({
     case "securityPolicies":
     case "securityTrusted":
     case "securityBlocked": return <SecuritySection section={section} />;
-    case "phoneSync":       return <PhoneSyncSection />;
 
     case "tasks":           return <TasksSection />;
     case "scheduledJobs":   return <ScheduledJobsSection />;
@@ -392,7 +401,7 @@ function ControlPanelPhoneMenu({ section, onClose }: { section: ControlSection; 
               <ul>
                 {group.tabs.map((tab) => {
                   const href = controlHref(tab.section);
-                  const current = tab.section === section;
+                  const current = tab.section === selectedTab(section);
                   return (
                     <li key={tab.section}>
                       <a
@@ -400,7 +409,8 @@ function ControlPanelPhoneMenu({ section, onClose }: { section: ControlSection; 
                         className={current ? "is-active" : undefined}
                         aria-current={current ? "page" : undefined}
                         onClick={(event) => {
-                          if (current) {
+                          // Lit for a page under it too, but only the tab itself is "here".
+                          if (tab.section === section) {
                             event.preventDefault();
                             onClose();
                             return;
@@ -438,7 +448,8 @@ function ControlTabs({
     <div className="control-tabs" role="tablist" aria-label={label}>
       {tabs.map((tab) => {
         const href = controlHref(tab.section);
-        const active = tab.section === section;
+        // A page under a tab (Tags under Organization) keeps that tab selected.
+        const active = tab.section === selectedTab(section);
         return (
           <a
             key={tab.section}

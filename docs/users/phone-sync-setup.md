@@ -34,12 +34,12 @@ own phones, and you see how each phone is doing, never what it sent.
 
 ## Allowing personal libraries
 
-1. Open **Library › Storage** in the control panel and find **Personal libraries**.
+1. Open **Library › Device Sync** in the control panel and find **Personal libraries**.
 2. Turn them on, choose the folder they are made in, and who may have one.
 3. Set a **size limit** if you want one. Members see how full they are; phones are refused once
    a library is full.
 
-![Library › Storage › Personal libraries: on, the folder, who may have one, a size limit, and the totals](images/123-personal-libraries.png)
+![Library › Device Sync › Personal libraries: on, the folder, who may have one, a size limit, and the totals](images/123-personal-libraries.png)
 
 The card also totals them: how many there are, how much they hold, and how many phones back up
 into each. More in [Storage](storage.md#personal-libraries).
@@ -48,7 +48,7 @@ into each. More in [Storage](storage.md#personal-libraries).
 
 Phones are refused unless they come from a **phone-sync network**.
 
-1. Open **Security › Phone sync**.
+1. Open **Library › Device Sync**.
 2. Add your home network, for example `192.168.2.0/24`. **Copy trusted networks** is a starting
    point.
 3. Fill in **Address phones use**: the address phones on that network reach the server at, such
@@ -71,17 +71,17 @@ address.
 - For **WireGuard** it is often `10.6.0.0/24`; for **Tailscale** `100.64.0.0/10`.
 
 The VPN must route to the server without hiding the phone's address (UniFi's VPN server does).
-A phone that tries from an unlisted network shows on **Phone sync** with an
+A phone that tries from an unlisted network shows on **Device Sync** with an
 **Add 192.168.12.0/24** button (the /24 it came from).
 
 ## Watching the phones
 
-**Security › Phone sync** lists every member's phones on one page: whose, last contact, the
+**Library › Device Sync** lists every member's phones on one page: whose, last contact, the
 address and network it last came from, what is wrong now (refused, no contact for a week, or a
 library nearly full), and under each phone the libraries it is linked to.
 **See in Logs** opens that phone's history.
 
-![Security › Phone sync: the networks, the address phones use, and every member's phones with their last contact](images/122-phone-sync.png)
+![Library › Device Sync: the networks, the address phones use, and every member's phones with their last contact](images/122-phone-sync.png)
 
 - **A member's page › Account** has a *Personal library and phones* card: the library's size
   (with a warning near the limit), each phone with when it was added and last made contact, and

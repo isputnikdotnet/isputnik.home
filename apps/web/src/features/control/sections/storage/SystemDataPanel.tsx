@@ -16,6 +16,7 @@ import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { formatBytes } from "../../../../shared/utils";
 import { ServerFolderPicker } from "./ServerFolderPicker";
+import { StorageFold } from "./StorageFold";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 // The panel's stylesheet: it arrives with the panel, on the Storage page and in the setup guide (docs/css-map.md).
 import "../../../../styles/system-data.css";
@@ -258,18 +259,13 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
         </div>
       ) : (
         <>
-          <div className="storage-path-summary system-data-summary">
+          <div className="storage-path-summary system-data-summary has-action">
             <strong>{view.path}</strong>
             <SpaceMeter space={view.space} />
-          </div>
-          {view.problem && <MessageBox tone="error" title={t("controlAdmin:systemData.problemTitle")}>{view.problem}</MessageBox>}
-          {isLowSpace(view.space) && (
-            <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
-          )}
-          <div className="library-settings-actions">
             <Button
               variant="secondary"
               compact
+              className="system-data-change"
               disabled={view.moving}
               title={view.moving ? t("controlAdmin:systemData.movingTitle") : undefined}
               onClick={() => openEditor("system")}
@@ -277,7 +273,15 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
               {t("controlAdmin:systemData.change")}
             </Button>
           </div>
+          {view.problem && <MessageBox tone="error" title={t("controlAdmin:systemData.problemTitle")}>{view.problem}</MessageBox>}
+          {isLowSpace(view.space) && (
+            <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
+          )}
 
+          <StorageFold
+            summary={t("controlAdmin:systemData.insideSummary")}
+            attention={Boolean(view.thumbnails.problem) || [view.thumbnails.move, view.backups.move, view.metadata.move].some((move) => move.running || move.failed.length > 0)}
+          >
           <div className="datagrid-wrap system-data-rows">
             <table className="datagrid datagrid-phone-stack">
               <thead>
@@ -360,6 +364,7 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
               </tbody>
             </table>
           </div>
+          </StorageFold>
         </>
       )}
 

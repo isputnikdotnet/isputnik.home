@@ -44,12 +44,12 @@
   text-overflow: ellipsis;
 }
 
-.library-table th:nth-child(1) { width: 32%; }
-.library-table th:nth-child(2) { width: 15%; }
-.library-table th:nth-child(3) { width: 11%; }
-.library-table th:nth-child(4) { width: 9%; }
-.library-table th:nth-child(5) { width: 11%; }
-.library-table th:nth-child(6) { width: 22%; }
+/* Library · Access · Contents · Status · Manage + ⋯ (4.73). */
+.library-table th:nth-child(1) { width: 35%; }
+.library-table th:nth-child(2) { width: 13%; }
+.library-table th:nth-child(3) { width: 14%; }
+.library-table th:nth-child(4) { width: 22%; }
+.library-table th:nth-child(5) { width: 16%; }
 
 .library-table .row-actions {
   gap: 6px;
@@ -65,18 +65,119 @@
   padding: 8px;
 }
 
-/* Empty placeholder filling the leading action slot for library types without a
-   scan-rules / face action, so the shared icons stay column-aligned across rows. */
-.library-table .library-action-spacer {
-  display: inline-block;
-  width: 34px;
-  height: 34px;
-}
-
 .library-table .secondary-button.compact-button {
   min-height: 34px;
   padding: 0 10px;
   white-space: nowrap;
+}
+
+.library-table .library-contents-cell span,
+.library-table .library-contents-cell small {
+  display: block;
+}
+
+/* A library's state in a word and a line (libraries/LibraryStatus), in the table's
+   Status column and under the name on its Manage page. */
+.library-status {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+  font-size: var(--text-md);
+}
+
+.library-status-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.library-status.is-busy .library-status-dot { background: var(--accent); }
+.library-status.is-error .library-status-dot { background: var(--danger); }
+.library-status.is-off .library-status-dot { background: var(--muted); }
+
+.library-status-text {
+  min-width: 0;
+}
+
+.library-status-text small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* One library's Manage page (libraries/LibraryManagePage). */
+.library-manage-page {
+  display: grid;
+  gap: 16px;
+}
+
+.library-manage-page .control-page-back {
+  justify-self: start;
+  margin-bottom: -6px;
+}
+
+.library-manage-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: baseline;
+}
+
+.library-manage-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.library-manage-card h2 {
+  margin: 0 0 8px;
+  font-size: var(--text-lg);
+}
+
+.library-manage-card > p {
+  margin: 0 0 12px;
+}
+
+.library-manage-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-manage-rows li {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+
+.library-manage-rows li:first-child {
+  border-top: 0;
+}
+
+.library-manage-rows li > div {
+  min-width: 0;
+}
+
+.library-manage-rows strong,
+.library-manage-rows span {
+  display: block;
+}
+
+.library-manage-rows span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.library-manage-danger {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
 }
 
 /* ── Profile page header ────────────────────────────────────────── */
@@ -419,20 +520,6 @@
   font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.library-info-button.icon-button.compact-button {
-  flex: 0 0 auto;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 4px;
-  color: var(--muted);
-  background: transparent;
-}
-
-.library-info-button.icon-button:hover {
-  color: var(--mint);
-  background: var(--active);
 }
 
 .library-access-cell {
