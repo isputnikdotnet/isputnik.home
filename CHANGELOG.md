@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.73.0 — Library control panel
+
+- **Library's tabs each answer one question:** Libraries, Organization, Device Sync, Storage and App storage contents. Before, Categories, Tags and Video genres sat beside Libraries and Storage as if they were the same kind of thing, and setting up phone backup meant visiting Storage, Security and a library's settings.
+- **Organization** shows Book categories, Tags and Video genres as cards that say what each applies to, with their numbers and the action you usually come for — **Re-match all books**, **Remove unused**. Their editors open from the cards, from search, or from a library's page, and their old addresses still work.
+- **Device Sync** puts phone backup in one place: the networks phones may use, the address they use, every member's phones and, moved from Storage, who may have a personal library and how big it may grow. It was Security › Phone sync.
+- **Each library has a Manage page.** A row now shows who can open the library, what it holds and its **Status** — up to date, scanning with a link to follow it, or what went wrong — with **Manage** and a **⋯** menu for Rescan and Delete, instead of six small icons. The Manage page lists only what that type of library can have set, the shared sets it is organized with, and everything the old details window showed.
+- **Storage reads more simply.** *Digital Library containers* are now **Library locations** — "container" also meant the apps beside the server — each with its free space, and **Remove** rather than Delete, since the folder stays. System data and App storage lead with their folder, free space and **Change**; the details fold under **What's inside**, which opens by itself when a move runs or something needs attention.
+- **Tags used only on stories or family-tree people no longer look unused.** The Tags page counted only books and photos, so such a tag showed 0 and was counted by **Remove unused** (which never actually removed it). The page now shows library items and everything else, and the delete dialog counts every use.
+
 ## 4.72.0 — Help handbook
 
 - **Help is now a handbook.** The Help page opens with the newest guide worth setting up, then the **common questions** as short answer cards, then every guide on shelves grouped like the app: Photos, Books, Family, You & sign-in, On the TV and, for administrators, Running the server. The page sits in the middle of the window like Home.
