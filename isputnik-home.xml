@@ -25,6 +25,36 @@ Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobo
 Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>
 
+  <Date>1794052800</Date>
+  <Changes>
+### 2026.11.07 — 4.73.0 Library control panel
+- **Library's tabs each answer one question:** Libraries, Organization, Device Sync, Storage and App storage contents. Before, Categories, Tags and Video genres sat beside Libraries and Storage as if they were the same kind of thing, and setting up phone backup meant visiting Storage, Security and a library's settings.
+- **Organization** shows Book categories, Tags and Video genres as cards that say what each applies to, with their numbers and the action you usually come for — **Re-match all books**, **Remove unused**. Their editors open from the cards, from search, or from a library's page, and their old addresses still work.
+- **Device Sync** puts phone backup in one place: the networks phones may use, the address they use, every member's phones and, moved from Storage, who may have a personal library and how big it may grow. It was Security › Phone sync.
+- **Each library has a Manage page.** A row now shows who can open the library, what it holds and its **Status** — up to date, scanning with a link to follow it, or what went wrong — with **Manage** and a **⋯** menu for Rescan and Delete, instead of six small icons. The Manage page lists only what that type of library can have set, the shared sets it is organized with, and everything the old details window showed.
+- **Storage reads more simply.** *Digital Library containers* are now **Library locations** — "container" also meant the apps beside the server — each with its free space, and **Remove** rather than Delete, since the folder stays. System data and App storage lead with their folder, free space and **Change**; the details fold under **What's inside**, which opens by itself when a move runs or something needs attention.
+- **Tags used only on stories or family-tree people no longer look unused.** The Tags page counted only books and photos, so such a tag showed 0 and was counted by **Remove unused** (which never actually removed it). The page now shows library items and everything else, and the delete dialog counts every use.
+
+### 2026.11.06 — 4.72.0 Help handbook
+- **Help is now a handbook.** The Help page opens with the newest guide worth setting up, then the **common questions** as short answer cards, then every guide on shelves grouped like the app: Photos, Books, Family, You &amp; sign-in, On the TV and, for administrators, Running the server. The page sits in the middle of the window like Home.
+- **A guide starts with how the thing works.** Guides open with a diagram drawn in your theme's colours, then cards such as **Who sees what** and **What happens when…**, before the numbered steps. All the guides are listed on the left and **On this page** on the right follows you down. Parts meant only for administrators are hidden from members and from their search; an administrator can narrow a guide to **Using it** or **Setting it up**.
+- **Phone backup has three guides.** *Backing up your phone* for members, *Linking a phone to a library* for photos already on the server, and *Setting up phone backups* for administrators, with new screenshots and three new common questions: who can see your phone's photos, what deleting on the phone does, and backing up away from home.
+
+### 2026.11.06 — 4.71.1 Phone sync table fits
+- **The Phones table on Security › Phone sync fits its card again.** A phone refused from an unlisted network stretched the table past the edge, cutting off **See in Logs** and squeezing its state into a narrow column a word per line. The state now wraps as a short paragraph, **Add** for the range sits above **See in Logs**, and the table scrolls sideways inside its card only on a narrow window.
+
+### 2026.11.06 — 4.71.0 Phone backup
+- **Back up your phone's photos to the server.** Each member can now have a **personal library** of their own — only they can open it, admins see its size and never its contents. Turn it on under **Profile › My library**, add a phone there, and point the free **PhotoSync** app at the server: photos and videos arrive on their own whenever the phone is on the home Wi-Fi (or a VPN into the house), filed by date under the phone's name. Nothing is ever stored twice, a photo you delete at home is not sent again, and the phone never deletes anything on the server. The new guide *Backing up your phone* walks through Android and iPhone.
+- **For the administrator, nothing happens until you set it up**: allow personal libraries (where, for whom, any size limit) under **Library › Storage**, and list the networks phones may back up from on the new **Security › Phone sync** tab — kept apart from Trusted networks, so a VPN range for phones relaxes nothing about signing in. The same tab lists every member's phones with their last contact and anything wrong (refused from an unlisted address — with a one-click **Add** for its range — no contact for a week, a library nearly full), and **Overview › Logs** keeps the history.
+- **Photos already on the server aren't sent again.** If a phone's photos were backed up some other way into a shared photo library (Immich, say), tick that phone on the library's new **Edit › Phone backups** tab before switching PhotoSync on: photos already there are counted as backed up and only new ones go to the personal library.
+- **Live Photos are one photo.** In every photo library, a still and its short `.mov` with the same name become one item with a *LIVE* mark; press **LIVE**, hold the photo on a phone or hover it with the mouse to play the motion. iPhone clips are converted so every browser plays them.
+- **Photos and videos are no longer downloaded again when they haven't changed.** The browser now asks the server whether its copy is still current and reuses it, so galleries and videos you've opened before load faster and use less data.
+- Needs no manual step: the database is upgraded on start (personal libraries, phones and Live Photo columns).
+
+### 2026.11.05 — 4.70.0 Stories and Tags in the top bar
+- **Stories and Tags have their own places in the top bar**: Home · Media · Family · Stories · Tags. Stories used to hide inside Family, and Tags in the menu under your name. **Family** is now the family tree alone, its tabs starting at Chart.
+  </Changes>
+
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
 
   <WebUI>http://[IP]:[PORT:4000]/</WebUI>
