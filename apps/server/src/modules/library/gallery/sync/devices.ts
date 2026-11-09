@@ -68,7 +68,7 @@ export function addPhone(user: { id: string }, label: string, ip: string | null)
     .get(user.id, PHONE_SCOPE, name);
   if (taken) throw new PhoneError("You already have a phone with that name.", 409, "label_taken");
 
-  const { id, raw } = createApiToken(user.id, name, PHONE_SCOPE, null, libraryId);
+  const { id, raw } = createApiToken(user.id, name, PHONE_SCOPE, libraryId);
   logActivity({
     event: "photo_sync.phone_added",
     actorUserId: user.id,

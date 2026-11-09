@@ -55,8 +55,8 @@ const app = fastify({
     // log (every audio range request is one).
     level: process.env.LOG_LEVEL?.trim() || "info",
     // The gateway's proxy writes its own line with the path it forwards
-    // ("fetching from remote server", { source }), which for a Stremio link has
-    // the token in it — masked the same way as the request line.
+    // ("fetching from remote server", { source }); a path that carries a token
+    // is masked there the same way as the request line.
     redact: { paths: ["source"], censor: (value: unknown) => (typeof value === "string" ? maskLogUrl(value) : value) },
     serializers: {
       // Mirror Fastify's default request log, but mask every path-segment token

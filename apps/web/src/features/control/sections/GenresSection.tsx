@@ -17,7 +17,7 @@ import "../../../styles/genres.css";
 // books' categories are. Films and shows carry raw words from their .nfo files
 // and from TMDB ("Comedy", "комедия", "Sci-Fi & Fantasy"); here they are mapped
 // onto genres the family chose, or hidden. The engine applies the map wherever a
-// genre shows — cards, filters, Video home's rows, the TV app, Stremio — so a
+// genre shows — cards, filters, Video home's rows, the TV app — so a
 // change here needs no rescan. Every answer is the whole page again.
 
 interface Genre {

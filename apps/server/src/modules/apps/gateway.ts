@@ -96,12 +96,6 @@ export function signInHref(path: string): string {
 
 /** What one container adds to the shared gateway. */
 export interface GatewayHooks {
-  /** Asked first, for a client that cannot carry the session cookie (a TV app):
-   *  the member a token in the request names, who then goes through the same
-   *  access and network checks as a session ("token" in X-Isputnik-Via).
-   *  "answered" means the hook replied itself (a bad token); null means the
-   *  request is not one of the token routes, and goes on as usual. */
-  userFromToken?: (request: FastifyRequest, reply: FastifyReply) => User | "answered" | null;
   /** Asked before the session check, for someone with no session. "admit" lets
    *  the request through without one (identityFor then says who it is),
    *  "answered" means the hook replied itself, "authenticate" goes on as usual. */
@@ -120,7 +114,7 @@ export interface GatewayHooks {
 export interface AccessVerdict {
   /** The person's role in this container; null for someone a hook admitted (a guest). */
   role: AppRole | null;
-  via: "session" | "token" | "guest";
+  via: "session" | "guest";
   network: NetworkClass;
 }
 
@@ -232,13 +226,6 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
         // opens only the paths its definition names.
         if (definition.browserPaths && !definition.browserPaths.some((allowed) => requestPath.startsWith(allowed))) {
           void reply.code(404).send({ error: "Not found" });
-          return;
-        }
-        const tokenUser = hooks.userFromToken?.(request, reply) ?? null;
-        if (tokenUser === "answered") return;
-        if (tokenUser) {
-          request.user = tokenUser;
-          if (authorize(request, reply, "token")) done();
           return;
         }
         const decision = hooks.admitWithoutSession?.(request, reply) ?? "authenticate";

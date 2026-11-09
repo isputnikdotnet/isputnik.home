@@ -241,8 +241,9 @@ Stremio's home screen can't be made iSputnik-only without a paid account (owner,
 reports progress back, keeps the family's history on its servers, has no field for
 skip marks, and crashes on a file the TV can't decode.
 
-**Proposed:** the Stremio add-on stays released and working, and gets no new work.
-Whether to remove it is decided once the TV app has replaced it in the house.
+**Decided (2026-11-08):** the Stremio add-on was removed in home 4.74 and engine 0.29
+(`docs/stremio-plan.md` keeps the record). The TV app had replaced it in the house, and
+a player that charges its users for its home page is not one this project points at.
 
 ## Decisions
 
@@ -466,7 +467,7 @@ T5 and T6 can swap, and neither is needed for the video app to be finished.
 1. **Photos before audiobooks?** Recommended, as above.
 2. **A PIN on the person picker?** Recommended not at first, since everyone in the house
    is trusted and the guide states what it means.
-3. **Stremio's future.** Decide after T4.
+3. **Stremio's future.** Decided: removed, 2026-11-08 (above).
 4. **Kodi over WebDAV (V4).** The TV app removes most of its reason. Leave open.
 5. **Session lifetime.** A device session ends after `deviceSessionDays`, and the TV then
    needs linking again. Check that it fails with a clear message and a fresh code.

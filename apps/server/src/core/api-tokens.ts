@@ -15,11 +15,11 @@ import { parseBody } from "./shared.js";
 const TOKEN_PREFIX = "isp_";
 const tokenBody = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 32);
 
-// "opds": reading apps. "video-stremio": a member's Stremio add-on link
-// (modules/library/video/stremio.ts, docs/stremio-plan.md). "photo-sync": one phone
-// backing up into its owner's personal library (modules/library/gallery/sync/,
-// docs/photo-sync-plan.md, decision 6) — the only scope bound to a library.
-export type ApiTokenScope = "opds" | "video-stremio" | "photo-sync";
+// "opds": reading apps. "photo-sync": one phone backing up into its owner's
+// personal library (modules/library/gallery/sync/, docs/photo-sync-plan.md,
+// decision 6) — the only scope bound to a library. ("video-stremio", a member's
+// Stremio add-on link, was retired in 4.74: migration 093 revoked those tokens.)
+export type ApiTokenScope = "opds" | "photo-sync";
 
 export interface ApiTokenRow {
   id: string;
@@ -29,8 +29,6 @@ export interface ApiTokenRow {
   last_seen_at: string | null;
   last_ip: string | null;
   expires_at: string | null;
-  /** Stremio links: the address the link was made on; null = APP_URL. */
-  origin: string | null;
 }
 
 export function generateApiToken(scope: ApiTokenScope = "opds"): { raw: string; hash: string } {
@@ -44,22 +42,14 @@ export function createApiToken(
   userId: string,
   label: string | null,
   scope: ApiTokenScope = "opds",
-  origin: string | null = null,
   libraryId: string | null = null
 ): { id: string; raw: string } {
   const id = nanoid(16);
   const { raw, hash } = generateApiToken(scope);
   db.prepare(
-    "INSERT INTO api_tokens (id, user_id, token_hash, scope, label, origin, library_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).run(id, userId, hash, scope, label, origin, libraryId);
+    "INSERT INTO api_tokens (id, user_id, token_hash, scope, label, library_id) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(id, userId, hash, scope, label, libraryId);
   return { id, raw };
-}
-
-// The address a token was made on (Stremio links), or null for APP_URL. Only
-// asked after resolveApiToken has accepted the token.
-export function apiTokenOrigin(raw: string): string | null {
-  const row = db.prepare("SELECT origin FROM api_tokens WHERE token_hash = ?").get(sha256(raw)) as { origin: string | null } | undefined;
-  return row?.origin ?? null;
 }
 
 // Resolve a raw token to its live user, or null when unknown / revoked / expired
@@ -98,38 +88,12 @@ export function isUnknownApiToken(raw: string): boolean {
 // A user's active (non-revoked) tokens — never the secret.
 export function listApiTokens(userId: string, scope?: ApiTokenScope): ApiTokenRow[] {
   const sql = `
-    SELECT id, label, scope, created_at, last_seen_at, last_ip, expires_at, origin
+    SELECT id, label, scope, created_at, last_seen_at, last_ip, expires_at
     FROM api_tokens
     WHERE user_id = ? AND revoked_at IS NULL ${scope ? "AND scope = ?" : ""}
     ORDER BY created_at DESC
   `;
   return (scope ? db.prepare(sql).all(userId, scope) : db.prepare(sql).all(userId)) as ApiTokenRow[];
-}
-
-export interface ApiTokenOwnerRow extends ApiTokenRow {
-  user_id: string;
-  user_name: string;
-}
-
-// Everyone's live tokens of one scope, with their owner — for an administrator
-// revoking a lost device's link. Never the secret.
-export function listAllApiTokens(scope: ApiTokenScope): ApiTokenOwnerRow[] {
-  return db.prepare(`
-    SELECT api_tokens.id, label, scope, api_tokens.created_at, last_seen_at, last_ip, expires_at, api_tokens.origin,
-           users.id AS user_id, users.display_name AS user_name
-    FROM api_tokens
-    JOIN users ON users.id = api_tokens.user_id
-    WHERE api_tokens.scope = ? AND api_tokens.revoked_at IS NULL AND users.deleted_at IS NULL
-    ORDER BY users.display_name COLLATE NOCASE, api_tokens.created_at DESC
-  `).all(scope) as ApiTokenOwnerRow[];
-}
-
-// An administrator's revoke: any owner's token of the scope. Returns the owner, or null.
-export function revokeAnyApiToken(id: string, scope: ApiTokenScope): string | null {
-  const row = db.prepare("SELECT user_id FROM api_tokens WHERE id = ? AND scope = ? AND revoked_at IS NULL").get(id, scope) as { user_id: string } | undefined;
-  if (!row) return null;
-  db.prepare("UPDATE api_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
-  return row.user_id;
 }
 
 export function revokeApiToken(userId: string, id: string, scope?: ApiTokenScope): boolean {

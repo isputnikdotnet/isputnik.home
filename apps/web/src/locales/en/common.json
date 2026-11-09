@@ -379,8 +379,7 @@
       "library": "My library",
       "shares": "Shared links",
       "appearance": "Appearance",
-      "readerAccess": "Reader access",
-      "stremio": "Stremio"
+      "readerAccess": "Reader access"
     },
     "account": {
       "displayName": "Display name",

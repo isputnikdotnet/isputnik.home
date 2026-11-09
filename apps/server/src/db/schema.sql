@@ -1804,7 +1804,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   last_ip      TEXT,
   expires_at   TEXT,                            -- NULL = no expiry
   revoked_at   TEXT,
-  origin       TEXT,                            -- the address a Stremio link was made on; NULL = APP_URL
+  origin       TEXT,                            -- unused since 4.74 (was: the address a Stremio link was made on)
   library_id   TEXT                             -- photo-sync: the personal library the phone backs up into
 );
 

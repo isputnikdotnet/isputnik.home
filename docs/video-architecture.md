@@ -33,7 +33,7 @@ data and does the heavy work.**
 │ Catalog: shows, seasons, episodes, movies, posters            │
 │ Watch progress per person                                     │
 │ Playback: direct / remux / transcode (ffmpeg, HLS)            │
-│ Later: Stremio add-on, WebDAV for Kodi                        │
+│ Later: WebDAV for Kodi                                        │
 └───────────────┬───────────────────────────────────────────────┘
                 │ read-only mount
                 ▼
@@ -129,7 +129,7 @@ rest of home works. Library rows and access stay editable in home.
 
 - **Resources:** ffmpeg and big scans run in their own container; it can be
   CPU-limited in Unraid without touching home.
-- **Code size:** scanner, TMDB, transcoding, HLS and Stremio live in their own
+- **Code size:** scanner, TMDB, transcoding and HLS live in their own
   repository.
 - **One place to manage, one look:** libraries, access, tags and the screens
   stay in home, so video is managed and looks like every other library.

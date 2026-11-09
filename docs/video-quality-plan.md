@@ -99,8 +99,8 @@ release are read again once, the way 0.25.0 did for colour (`media-probe.ts`,
    above the cap for an internet viewer with the capped rung instead — the answer says
    which rung is playing and which are allowed, so the player's picker shows the truth.
 2. No `?quality=`: *Original* when `X-Isputnik-Network` is `home` or `trusted`, the
-   admin's rung when it is `internet`. The TV app and Stremio pass nothing, so a TV on
-   the LAN sees no change at all.
+   admin's rung when it is `internet`. The TV app passes nothing, so a TV on the LAN
+   sees no change at all.
 
 **ffmpeg** (`hls.ts`, `ffmpegArgs`): the rung sets `MAX_HEIGHT`, `-b:v`/`-maxrate`/
 `-bufsize` (GPU) or `-maxrate`/`-bufsize` with the same CRF (CPU), and `-b:a`. The
@@ -193,8 +193,8 @@ cost is disk (about 1 GB per two-hour film) and a queue to show and empty.
 - Converting the whole library ahead of time, or a cache that fills itself.
 - A speed test per viewer. The cap plus the picker is what Plex and Jellyfin do and it
   is enough for a family.
-- A picker on the TV app or in Stremio: both are on the LAN. The `?quality=`
-  parameter is there when a TV on a hotel Wi-Fi ever needs it.
+- A picker on the TV app: it is on the LAN. The `?quality=` parameter is there when
+  a TV on a hotel Wi-Fi ever needs it.
 
 ## Testing
 
@@ -220,7 +220,7 @@ cost is disk (about 1 GB per two-hour film) and a queue to show and empty.
 | **Q1** | `bitRate` in the probe; rung in `decideDelivery` and in the HLS address; `X-Isputnik-Network` default and cap; rung-aware `ffmpegArgs`; the rung in the viewers list. Home: Quality in the player menu, remembered per browser; *Quality away from home* on Converting video; search terms; help; architecture doc note | engine + home |
 | **Q2** | Master playlist of the allowed rungs on one segment grid; hls.js ABR tuned, start level from Q1; only if Q1 leaves people stalling | engine + home |
 | **Q3** | Travel copies per film/season (queue, Storage line), Download original / travel copy; the copy serves the 720p rung | engine + home |
-| later | A picker in the TV app; Stremio stream variants | TV, engine |
+| later | A picker in the TV app | TV |
 
 ## Open questions
 

@@ -411,8 +411,7 @@
       "library": "Моя библиотека",
       "shares": "Ссылки",
       "appearance": "Оформление",
-      "readerAccess": "Доступ для читалок",
-      "stremio": "Stremio"
+      "readerAccess": "Доступ для читалок"
     },
     "account": {
       "displayName": "Отображаемое имя",

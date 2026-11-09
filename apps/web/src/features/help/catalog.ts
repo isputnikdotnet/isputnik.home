@@ -160,12 +160,6 @@ export const GUIDES = {
     title: "The TV app",
     description: "iSputnik TV on an Android TV or Fire TV: installing it, signing in with your phone, several people on one TV, and updates."
   },
-  stremio: {
-    slug: guide("stremio.md"),
-    icon: Tv,
-    title: "Watching in Stremio",
-    description: "Your own add-on link for the Stremio player on a TV, phone or computer: installing it, the converted stream, subtitles, and revoking a link."
-  },
   controlPanel: {
     slug: guide("control-panel.md"),
     icon: Settings,
@@ -224,7 +218,7 @@ const SHELVES: HelpShelf[] = [
   { id: "books", icon: BookOpen, title: "Books", guides: ["audiobooks", "ebooks", "quotes"] },
   { id: "family", icon: FolderTree, title: "Family", guides: ["familyTree", "stories", "familySharing"] },
   { id: "account", icon: KeyRound, title: "You & sign-in", guides: ["yourAccount", "passkeys", "twoFactor", "linkDevice"] },
-  { id: "watching", icon: Tv, title: "On the TV", guides: ["tvApp", "stremio"] },
+  { id: "watching", icon: Tv, title: "On the TV", guides: ["tvApp"] },
   {
     id: "server",
     icon: Settings,

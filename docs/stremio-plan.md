@@ -1,3 +1,8 @@
+> **Retired 2026-11-08 (home 4.74, engine 0.29).** The add-on was removed: Stremio
+> charges its users for basics such as the home page, which is against what this
+> project stands for. The TV app (`docs/tv-app-plan.md`) is the TV answer. Kept as
+> the record of what was built in 4.46–4.46.1 and engine 0.9.
+
 # Stremio add-on — plan (draft for review)
 
 Phase **3** (home) and **V3** (engine) of `docs/apps-platform-plan.md`, worked out.

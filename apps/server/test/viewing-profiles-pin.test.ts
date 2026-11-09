@@ -161,6 +161,6 @@ describe("the PIN check", () => {
     expect(lockedOut("/api/profile/theme")).toBe(true);
     expect(lockedOut("/api/profiles")).toBe(false);
     expect(lockedOut("/api/profiles/switch")).toBe(false);
-    expect(lockedOut("/api/account/stremio")).toBe(true);
+    expect(lockedOut("/api/account/reader-tokens")).toBe(true);
   });
 });

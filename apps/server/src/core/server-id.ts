@@ -5,7 +5,7 @@ const SERVER_ID_KEY = "server_id";
 
 /** This install's random id, made the first time it is asked for. It tells this
  *  server apart from every other iSputnik: the origin of the records in a family
- *  tree package, the Stremio add-on's id and item ids (docs/stremio-plan.md).
+ *  tree package (and, until 4.74, the Stremio add-on's ids).
  *  It lives in the database, so it survives upgrades and a restore onto new
  *  hardware — and a copied database carries it along. */
 export function getServerId(): string {

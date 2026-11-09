@@ -94,8 +94,9 @@ video library is created, shared and browsed exactly like every other library.
   to put in its template. The container's address is saved on Setup too (since
   4.38.1), so a new container never needs home's template edited; `<APP>_URL` and
   `<APP>_GATEWAY_SECRET` in home's environment still win when set.
-- **Video's first client is the browser/PWA player.** The Stremio add-on (Fire TV)
-  follows; Kodi over WebDAV after that.
+- **Video's first client is the browser/PWA player.** The Stremio add-on followed
+  (4.46) and was removed again (4.74, `docs/stremio-plan.md`); the native TV app
+  (`docs/tv-app-plan.md`) is the TV client. Kodi over WebDAV stays open.
 - **Home never starts, stops or updates containers.** That would need the Docker
   socket, which is root on the host. Unraid's Docker page keeps that job; home only
   observes.
@@ -180,7 +181,7 @@ patterns under its prefix and a default network rule. Video's:
 | `browse` | `/video/api/*` | Anywhere |
 | `watch` | `/video/api/stream/*`, `/video/api/hls/*`, `/video/api/subtitles/*` | Anywhere |
 | `download` | `/video/api/download/*` | Trusted networks only |
-| `devices` | `/video/stremio/*`, `/video/dav/*` | Home network only |
+| `devices` | `/video/dav/*` (was also `/video/stremio/*` in 4.46–4.73) | Home network only |
 | `manage` | `/video/api/admin/*` | Anywhere (needs `manager`) |
 
 Home checks a manifest before using it: every path must sit under the container's
@@ -216,14 +217,15 @@ policy, per container and per capability.
 
 ## Tokens — clients without a session
 
-Stremio and Kodi cannot carry the session cookie (the native TV app can, and does:
-`docs/tv-app-plan.md`). `api_tokens` already has
-scopes (OPDS); a manifest lists its **token routes** and the scope each takes
-(`video-stremio`, `video-webdav`). On those routes the gateway takes the token from
-the path (`/video/stremio/<token>/…`) or Basic auth (WebDAV), resolves it with
-`resolveApiToken`, applies the capability's network rule and forwards the token
-owner's identity — libraries included — with `X-Isputnik-Via: token`. The
-container never sees or stores tokens.
+Kodi cannot carry the session cookie (the native TV app can, and does:
+`docs/tv-app-plan.md`). `api_tokens` already has scopes (OPDS, photo-sync); a
+container that needs one lists its **token routes** and the scope each takes
+(`video-webdav`). On those routes the gateway takes the token from Basic auth
+(WebDAV), resolves it with `resolveApiToken`, applies the capability's network rule
+and forwards the token owner's identity — libraries included — with
+`X-Isputnik-Via: token`. The container never sees or stores tokens. (The Stremio
+add-on did this with a token in the path, 4.46–4.73; its `userFromToken` gateway
+hook went with it and comes back with the first client that needs it.)
 
 Tokens are personal: created and revoked in **Profile → Devices**, shown once,
 read-only. Apps → Access adds an admin list of every container token for revoking.
@@ -402,12 +404,8 @@ responses. Measured in V2 before anything else is considered.
 
 **Later clients** (routes in the engine, tokens checked by home's gateway)
 
-- **Stremio add-on** — manifest, catalog, meta, stream and subtitle routes under
-  `/video/stremio/<token>/`; ids `isputnik:<id>`, never IMDb ids, so Stremio's
-  Cinemeta is not told what the family watches; art from this server; `devices`
-  at Home network only by default. The TV plays the original file itself, with a
-  Converted stream for formats TVs refuse. Stremio keeps its own progress — the
-  protocol never reports back. Worked out in `docs/stremio-plan.md`.
+- **Stremio add-on** — built in 4.46 / engine 0.9 and removed in 4.74 / engine 0.29
+  (`docs/stremio-plan.md` has the design and the reason).
 - **Kodi / WebDAV** — a read-only view of the libraries with their `.nfo` files and
   posters, Basic auth with a `video-webdav` token.
 - **Hardware transcoding** — Intel Quick Sync or NVIDIA passed into the container.
@@ -423,7 +421,7 @@ responses. Measured in V2 before anything else is considered.
 | **V1** | home | remote library type `video`; Add library → Video, Libraries page and Tasks from the engine; Video menu entry; browse, show and movie pages (no player yet) |
 | **V2** | both | the player: direct play, remux, transcode; tracks, subtitles, resume; Continue watching on For you; search. **Step 1 built (engine 0.2.0, home 4.39.0):** direct play with byte ranges, per-person progress and resume, next episode, Continue watching. **Step 2 built (engine 0.3.0):** remux and transcode to HLS, the sound converted to AAC. **Step 3 built (engine 0.6.0):** subtitles — text tracks inside the file and SRT/ASS/VTT files beside it served as WebVTT (`/subtitles/:id/:track.vtt`, under `watch`), image tracks (PGS, DVD) burned into a transcode (`/hls/:id/t<a>b<s>/…`); the player's Subtitles menu remembers the language per browser. Posters and TMDB built in the same engine release (`metadata.ts`): art beside the files first, TMDB with the admin's key (Apps → Installed), Fix match on a title's page |
 | **3** | home | token routes through the gateway; Profile → Devices for container tokens |
-| **V3** | engine | Stremio add-on |
+| **V3** | engine | Stremio add-on — built (engine 0.9.0, home 4.46.0), removed (engine 0.29, home 4.74) |
 | **V4** | engine | WebDAV for Kodi; hardware transcoding |
 
 Phases 0–2 are worth doing for games alone. V1 starts once phase 1 has landed.

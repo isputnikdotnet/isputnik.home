@@ -27,7 +27,6 @@ import { canReadCollectionRow, registerVideoListRoutes } from "./lists.js";
 import { VIDEO_ENTITY_TYPES, forgetVideoLibrary, refreshVideoRefs } from "./refs.js";
 import { setSubjectPreparer } from "../../social/subjects.js";
 import { notePlayResponse } from "./play-log.js";
-import { registerStremioRoutes, stremioHeaders, stremioTokenUser } from "./stremio.js";
 import {
   VideoLibraryError,
   deleteVideoLibraryRow,
@@ -206,9 +205,6 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     setSubjectPreparer(entityType, (ids) => (configured() ? refreshVideoRefs(engine, kind, ids) : Promise.resolve()));
   }
 
-  // Profile → Security › Stremio, and the administrator's list of links.
-  registerStremioRoutes(app, (user) => available() && appRole("video", user) !== null);
-
   // ── Add library → Video: the engine's own folders ───────────────────────
   app.get("/api/library/video-folders", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseQuery(foldersQuerySchema, request.query);
@@ -334,14 +330,11 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     // An engine has no pages: a signed-out page load gets this server's 401.
     hasPages: false,
     hooks: {
-      // Stremio on a TV: a member's link instead of a session (stremio.ts).
-      userFromToken: stremioTokenUser,
       // The only permission model the engine has: which of its libraries this
       // person may see, worked out from each library's own access.
       extraHeaders: (request) => ({
         // Narrowed by the viewing profile the session wears (modules/profiles).
-        "x-isputnik-libraries": [...visibleVideoLibraryIds(request.user!, request)].join(","),
-        ...stremioHeaders(request)
+        "x-isputnik-libraries": [...visibleVideoLibraryIds(request.user!, request)].join(",")
       }),
       // A title started: the line Overview › Activity counts as "Watched".
       onResponse: (request, statusCode) => notePlayResponse(VIDEO.prefix, request, statusCode)
