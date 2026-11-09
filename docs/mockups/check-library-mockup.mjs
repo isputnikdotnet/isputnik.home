@@ -52,7 +52,7 @@ try {
   });
   await send('Page.enable'); await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1160, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: pathToFileURL(path.join(base, 'dist/index.html')).href });
+  await send('Page.navigate', { url: pathToFileURL(path.join(base, 'index.html')).href });
   for (let i=0;i<40;i++) { if (await evaluate('Boolean(document.querySelector("h1"))')) break; await sleep(100); }
   assert.equal(await evaluate('document.querySelector("h1").textContent'), 'Libraries');
   for (const page of ['libraries', 'organization', 'device-sync', 'storage', 'contents']) {

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive iSputnik control panel design proposal using sample data.">
+  <title>Library · iSputnik design preview</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar" aria-label="Control panel navigation">
+    <a class="brand" href="#libraries"><span class="brand-mark" data-icon="orbit"></span><span><strong>iSputnik</strong><small>YOUR STORIES — IN ORBIT</small></span></a>
+    <div class="sidebar-label">CONTROL PANEL</div>
+    <nav class="groups">
+      <span><i data-icon="home"></i>Home</span>
+      <span><i data-icon="activity"></i>Overview</span>
+      <a class="active" href="#libraries" aria-current="true"><i data-icon="library"></i>Library<span class="active-dot"></span></a>
+      <span><i data-icon="users"></i>Members</span>
+      <span><i data-icon="shield"></i>Security</span>
+      <span><i data-icon="tool"></i>Maintenance</span>
+      <span><i data-icon="settings"></i>Settings</span>
+    </nav>
+    <div class="sidebar-bottom"><span class="preview-label"><span></span>Design preview</span><p>Sample data · Explore the Library tabs</p><div class="profile"><span class="avatar">DA</span><span><strong>Demo Admin</strong><small>Administrator</small></span><i data-icon="chevron"></i></div></div>
+  </aside>
+  <main>
+    <div class="mobile-brand"><strong>iSputnik</strong><span>Control panel · Preview</span></div>
+    <nav class="tabs" aria-label="Library pages">
+      <a href="#libraries" data-page="libraries">Libraries</a>
+      <a href="#organization" data-page="organization">Organization</a>
+      <a href="#device-sync" data-page="device-sync">Device Sync</a>
+      <a href="#storage" data-page="storage">Storage</a>
+      <a href="#contents" data-page="contents">App storage contents</a>
+    </nav>
+    <div class="content" id="content"></div>
+    <footer><span>iSputnik · Library control panel</span><span>Interactive concept / sample data</span></footer>
+  </main>
+  <dialog id="editor" aria-labelledby="dialog-title"><form method="dialog" class="dialog-shell"><header><div><span class="eyebrow" id="dialog-eyebrow">LIBRARY</span><h2 id="dialog-title"></h2></div><button class="icon-button" value="cancel" aria-label="Close dialog"><i data-icon="close"></i></button></header><div id="dialog-content"></div><div class="dialog-actions"><button class="button" value="cancel">Close</button><button class="button primary" id="dialog-save" value="save">Save preview</button></div></form></dialog>
+  <div class="toast" id="toast" role="status"></div>
+</body>
+</html>
