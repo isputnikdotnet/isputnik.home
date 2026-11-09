@@ -4,9 +4,10 @@ Status, 2026-11-08:
 
 - **P1 (per-account profiles)**: pushed (home 13e75f59, shipped in 4.73.1; TV 405e2ef, no tag).
   Replaced the same day by the household model below.
-- **Household profiles + PIN**: built, not committed, not yet seen on a real TV (the owner
-  asked for no TV testing yet).
-- **Own history per profile**: next (phase P3).
+- **Household profiles + PIN**: pushed 2026-11-08 (home ccdf46f3, TV 2aa66d8), not yet seen on
+  a real TV (the owner asked for no TV testing yet).
+- **Own history per profile (P3)**: built 2026-11-09 in home and the engine, not committed.
+  Needs engine 0.30+; with an older engine a profile shares its person's history, as before.
 
 ## What the owner asked for
 
@@ -47,9 +48,8 @@ owner changed that the same day to the household model.
 8. **Rows**: a profile's page is its own rows, else the household's rows. A person's own
    "Just me" rows never reach a profile. Rows naming only libraries outside the profile are
    dropped when read.
-9. **History per profile (P3).** In the Netflix model each profile should have its own Continue
-   watching and My list, the same whichever account the TV is linked with. Until P3, they're
-   the account's.
+9. **History per profile (P3).** Each profile has its own Continue watching, watched marks and
+   My list, the same whichever account is signed in. A profile starts with an empty history.
 
 ## Data
 
@@ -83,12 +83,18 @@ owner changed that the same day to the household model.
   the profile's name in the top bar, the PIN pad (`PinScreen.kt`) for every way out of a
   locked profile, "Locked" on tiles that need it.
 
-## Next: own history per profile (P3)
+## Own history per profile (P3)
 
-- The gateway adds `x-isputnik-profile-id`; the engine keys progress and watched marks by
-  profile when it's there, and by user as today when it isn't (an older home keeps working).
-- `video_my_list` gets a profile-keyed twin; the For you summary asks as the profile.
-- History follows the profile, not the account, so Kids is the same on every TV.
+- **Engine** (`isputnik.video`): `X-Isputnik-Profile-Id` gives the identity a `historyId`
+  (`profile:<id>`, else the person's id). Progress, watched marks, Continue watching, next up
+  and sets read and write by it; the person's own conversions and log lines stay by `id`. No
+  migration: `progress.user_id` simply holds the history id. `DELETE
+  /api/admin/history/profiles/:id` forgets a deleted profile's history.
+- **Home**: the gateway sends the header while a session wears a profile (a client can't send
+  it; `X-Isputnik-*` from outside is dropped). My list is `video_profile_my_list` while a
+  profile is worn (ON DELETE CASCADE with the profile). Deleting a profile asks the engine to
+  forget its history (best effort).
+- Screens need no change: the TV and the web ask the same routes as before.
 
 ## Open questions
 

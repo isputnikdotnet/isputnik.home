@@ -81,8 +81,10 @@ export function forgetVideoLibrary(libraryId: string): void {
     for (const [kind, entityType] of Object.entries(VIDEO_ENTITY_TYPES)) {
       db.prepare(`DELETE FROM collection_items WHERE entity_type = ? AND entity_id IN (SELECT entity_id FROM video_refs WHERE kind = ? AND library_id = ?)`)
         .run(entityType, kind, libraryId);
-      db.prepare(`DELETE FROM video_my_list WHERE kind = ? AND entity_id IN (SELECT entity_id FROM video_refs WHERE kind = ? AND library_id = ?)`)
-        .run(kind, kind, libraryId);
+      for (const table of ["video_my_list", "video_profile_my_list"]) {
+        db.prepare(`DELETE FROM ${table} WHERE kind = ? AND entity_id IN (SELECT entity_id FROM video_refs WHERE kind = ? AND library_id = ?)`)
+          .run(kind, kind, libraryId);
+      }
     }
     db.prepare("DELETE FROM video_refs WHERE library_id = ?").run(libraryId);
   })();

@@ -68,6 +68,7 @@ forwards it with signed headers:
 | `X-Isputnik-User-Id`, name, language | who is asking |
 | `X-Isputnik-App-Role` | `member` or `manager` in video |
 | `X-Isputnik-Libraries` | the video libraries this person may see |
+| `X-Isputnik-Profile-Id` | the household viewing profile worn, whose watch history it is (docs/tv-profiles-plan.md) |
 
 The container filters everything by `X-Isputnik-Libraries`. That is its whole
 permission model.

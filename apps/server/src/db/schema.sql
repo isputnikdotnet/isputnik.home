@@ -2583,6 +2583,16 @@ CREATE TABLE IF NOT EXISTS viewing_profiles (
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- A viewing profile's My list (P3): what Kids means to watch is Kids', whoever is
+-- signed in. Goes with the profile. The person's own list is video_my_list.
+CREATE TABLE IF NOT EXISTS video_profile_my_list (
+  profile_id TEXT NOT NULL REFERENCES viewing_profiles(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL CHECK (kind IN ('movies', 'shows')),
+  entity_id  TEXT NOT NULL,
+  added_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (profile_id, kind, entity_id)
+);
+
 -- The household PIN for leaving a restricted viewing profile (modules/profiles/pins.ts).
 -- One row at most; hashed like a password, set by an admin with their password.
 -- failures and locked_until cap guesses with a remote.

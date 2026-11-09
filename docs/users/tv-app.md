@@ -127,7 +127,9 @@ about that. Profiles are only changed by an administrator on the website, never 
 remote can't make Kids show more. A child with their own tablet or browser should have their
 own account rather than a profile: a profile doesn't lock the rest of the website.
 
-For now, Continue watching and My list are the account's in every profile.
+Each profile has its own **Continue watching**, watched marks and **My list**, the same on
+every TV and browser whoever is signed in: Kids' history is Kids'. Without a profile, they're
+your own, as before. Deleting a profile deletes its history and list too.
 
 ## Its colours
 

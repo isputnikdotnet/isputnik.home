@@ -16,6 +16,8 @@ let booted: BootedApp;
 let admin: TestSession;
 let tv: TestSession;
 let mum: TestSession;
+/** Profiles home asked the engine to forget the history of. */
+let forgotten: string[];
 
 beforeEach(async () => {
   resetDb();
@@ -27,7 +29,14 @@ beforeEach(async () => {
   grant("user", "mum", "cartoons", "viewer");
 
   engine = Fastify();
+  forgotten = [];
   engine.get("/video/api/shows", async (request) => ({ libraries: request.headers["x-isputnik-libraries"] }));
+  // Whose history the engine is asked for (P3).
+  engine.get("/video/api/continue", async (request) => ({ profile: request.headers["x-isputnik-profile-id"] ?? null }));
+  engine.delete("/video/api/admin/history/profiles/:id", async (request) => {
+    forgotten.push((request.params as { id: string }).id);
+    return { removed: 0 };
+  });
   await engine.listen({ host: "127.0.0.1", port: 0 });
   const address = engine.server.address();
   const upstream = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
@@ -181,5 +190,55 @@ describe("a profile's video page", () => {
   it("needs a profile that exists", async () => {
     expect((await booted.as(admin.cookie).put("/api/video/home", { rows, scope: "profile", profileId: "nope" })).statusCode).toBe(404);
     expect((await booted.as(admin.cookie).put("/api/video/home", { rows, scope: "profile" })).statusCode).toBe(400);
+  });
+});
+
+describe("a profile's own history (P3)", () => {
+  it("is what the engine is asked for while the profile is worn", async () => {
+    const id = (await create()).json().profile.id as string;
+    const whose = async (session = tv) => (await booted.as(session.cookie).get("/video/api/continue")).json().profile;
+    expect(await whose()).toBeNull();
+    await wear(id);
+    expect(await whose()).toBe(id);
+    // Not something a client can claim for itself.
+    const claimed = await booted.as(mum.cookie).get("/video/api/continue", undefined, { "x-isputnik-profile-id": id });
+    expect(claimed.json().profile).toBeNull();
+    await wear(null);
+    expect(await whose()).toBeNull();
+  });
+
+  it("keeps My list apart: the profile's, whoever watches as it", async () => {
+    db.prepare("INSERT INTO video_refs (kind, entity_id, library_id, title) VALUES ('movies', 'toon', 'cartoons', 'Toon'), ('movies', 'film', 'films', 'Film')").run();
+    const id = (await create()).json().profile.id as string;
+    const list = async (session: TestSession) => (await booted.as(session.cookie).get("/api/video/my-list")).json().items.map((item: { id: string }) => item.id);
+    // Dad's own list, from his browser.
+    const dad = await booted.session("dad");
+    expect((await booted.as(dad.cookie).put("/api/video/my-list/movies/film")).statusCode).toBe(200);
+    // The TV, as Kids.
+    await wear(id);
+    expect(await list(tv)).toEqual([]);
+    expect((await booted.as(tv.cookie).put("/api/video/my-list/movies/toon")).json()).toEqual({ inList: true });
+    // A film outside the profile's libraries can't go on its list.
+    expect((await booted.as(tv.cookie).put("/api/video/my-list/movies/film")).statusCode).toBe(404);
+    expect(await list(tv)).toEqual(["toon"]);
+    expect(await list(dad)).toEqual(["film"]);
+    // Mum watching as Kids sees Kids' list.
+    await wear(id, mum);
+    expect(await list(mum)).toEqual(["toon"]);
+    expect((await booted.as(mum.cookie).get("/api/video/my-list/movies/toon")).json()).toEqual({ inList: true });
+    await booted.as(mum.cookie).delete("/api/video/my-list/movies/toon");
+    expect(await list(tv)).toEqual([]);
+  });
+
+  it("goes with the profile: its list here, and its history on the engine", async () => {
+    db.prepare("INSERT INTO video_refs (kind, entity_id, library_id, title) VALUES ('movies', 'toon', 'cartoons', 'Toon')").run();
+    const id = (await create()).json().profile.id as string;
+    await wear(id);
+    await booted.as(tv.cookie).put("/api/video/my-list/movies/toon");
+    expect((await booted.as(admin.cookie).delete(`/api/profiles/${id}`)).statusCode).toBe(200);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM video_profile_my_list").get()).toEqual({ n: 0 });
+    // The engine call is fire-and-forget: give it a moment.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(forgotten).toEqual([id]);
   });
 });

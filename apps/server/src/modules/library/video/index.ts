@@ -19,7 +19,7 @@ import { onAppRestored } from "../../apps/backup.js";
 import { registerAppGateway } from "../../apps/gateway.js";
 import { resolveAppSecret } from "../../apps/pairing.js";
 import { appConfigured, appDefinition } from "../../apps/registry.js";
-import { currentProfileOf, getProfile, visibleVideoLibraryIds, type ViewingProfile } from "../../profiles/store.js";
+import { currentProfileOf, getProfile, onProfileDeleted, visibleVideoLibraryIds, type ViewingProfile } from "../../profiles/store.js";
 import { sessionLocked } from "../../profiles/fence.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
 import { getHouseholdLayout, getProfileLayout, getVideoLayout, resetVideoLayout, saveProfileRows, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
@@ -73,6 +73,12 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   // Switched off by the admin = not there, as for the games.
   const available = () => configured() && getSections().video;
   const engine = engineClient(target);
+  // A deleted viewing profile's watch history goes too. Best effort: an engine that is
+  // down, or older than 0.30, keeps rows nobody can reach any more.
+  onProfileDeleted((id) => {
+    if (!configured()) return;
+    void engine.call("DELETE", `/admin/history/profiles/${encodeURIComponent(id)}`).catch(() => undefined);
+  });
 
   const fail = (reply: FastifyReply, err: unknown) => {
     if (err instanceof EngineError || err instanceof VideoLibraryError) return reply.code(err.status).send({ error: err.message });
@@ -332,10 +338,16 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     hooks: {
       // The only permission model the engine has: which of its libraries this
       // person may see, worked out from each library's own access.
-      extraHeaders: (request) => ({
-        // Narrowed by the viewing profile the session wears (modules/profiles).
-        "x-isputnik-libraries": [...visibleVideoLibraryIds(request.user!, request)].join(",")
-      }),
+      extraHeaders: (request) => {
+        const profile = currentProfileOf(request);
+        return {
+          // Narrowed by the viewing profile the session wears (modules/profiles).
+          "x-isputnik-libraries": [...visibleVideoLibraryIds(request.user!, request)].join(","),
+          // ...and its watch history is the profile's, whoever is signed in (engine 0.30+;
+          // an older engine ignores it and keeps the person's own).
+          ...(profile ? { "x-isputnik-profile-id": profile.id } : {})
+        };
+      },
       // A title started: the line Overview › Activity counts as "Watched".
       onResponse: (request, statusCode) => notePlayResponse(VIDEO.prefix, request, statusCode)
     }

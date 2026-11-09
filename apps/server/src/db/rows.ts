@@ -1511,6 +1511,14 @@ export interface VideoMyListRow {
   added_at: string;
 }
 
+/** `video_profile_my_list` */
+export interface VideoProfileMyListRow {
+  profile_id: string;
+  kind: "movies" | "shows";
+  entity_id: string;
+  added_at: string;
+}
+
 /** `video_refs` */
 export interface VideoRefRow {
   kind: "movies" | "shows";
@@ -1709,6 +1717,7 @@ export interface TableRows {
   video_home_layouts: VideoHomeLayoutRow;
   video_home_user_layouts: VideoHomeUserLayoutRow;
   video_my_list: VideoMyListRow;
+  video_profile_my_list: VideoProfileMyListRow;
   video_refs: VideoRefRow;
   viewing_profile_pin: ViewingProfilePinRow;
   viewing_profiles: ViewingProfileRow;

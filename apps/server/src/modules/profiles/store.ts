@@ -113,9 +113,19 @@ export function updateProfile(id: string, input: ProfileInput): ViewingProfile |
   return result.changes > 0 ? getProfile(id) : null;
 }
 
-/** Deleting drops every session wearing it back to its account (ON DELETE SET NULL). */
+/** What else holds a profile's things and must hear it is gone (the video engine's
+ *  watch history). Called after the row is deleted; a listener's failure is its own. */
+const deletedListeners: ((id: string) => void)[] = [];
+export function onProfileDeleted(listener: (id: string) => void): void {
+  deletedListeners.push(listener);
+}
+
+/** Deleting drops every session wearing it back to its account (ON DELETE SET NULL)
+ *  and its My list (ON DELETE CASCADE). */
 export function deleteProfile(id: string): boolean {
-  return db.prepare("DELETE FROM viewing_profiles WHERE id = ?").run(id).changes > 0;
+  const gone = db.prepare("DELETE FROM viewing_profiles WHERE id = ?").run(id).changes > 0;
+  if (gone) for (const listener of deletedListeners) listener(id);
+  return gone;
 }
 
 /** The order the screens show them in; unknown ids are ignored. */
