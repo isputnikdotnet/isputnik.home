@@ -27,6 +27,12 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794225600</Date>
   <Changes>
+### 2026.11.09 — 4.78.0 Quality for viewers away from home
+- **A Quality menu in the video player.** Beside Sound and Subtitles: **Original**, **1080p**, **720p** or **480p**. Pick a smaller one on a weak Wi-Fi corner or a phone and the engine makes that picture while you watch, from where the film is; a film already smaller than the rung plays as it is. The choice is remembered in that browser, one for home and one for away, and the next film starts in it.
+- **Viewers away from home are held under a cap.** Someone watching from outside your network starts at **Quality away from home** (Settings → Video → Converting video; up to 720p to start with) and can only go lower. Before, a Blu-ray rip went out at its full 30 Mbit/s or more, which no home upload link carries, and stalled; one viewer at 720p needs about 5 Mbit/s. Set it to *The file as it is* to turn the cap off. At home everyone still gets the file as it is unless they pick less.
+- **The engine now looks at a film's size, not only its codecs.** A picture taller than the rung asked, or heavier than the most the rung would make, is re-encoded down to it even when a browser could have played it as it is. The *Converting video* card marks each viewer's rung beside GPU/CPU and HDR. Needs **isputnik.video 0.31.0**; an older engine shows no menu and no setting.
+- The TV app is unchanged: on the home network it plays the original as before. Automatic switching by connection speed and per-film offline copies are planned, not built (`docs/video-quality-plan.md`).
+
 ### 2026.11.09 — 4.77.0 Photos on the TV
 - **Photos come to the TV, as a controlled view.** A TV may be watched by more people than the photos' owners, so it never gets the whole gallery: only the slideshows and albums an admin puts on its list. No folders, timeline, people or search.
 - **On TV, on the Photos page.** Admins find it on the Albums and Slideshows views: add a slideshow or an album, put them in the order the TV shows them, and take one off again (nothing is deleted). Each line says which profiles see it: **Everyone but restricted profiles** (the default), **Everyone**, or **Only…** chosen profiles and "Without a profile". That is how *Kids* gets Grandma's birthday album and nothing else.
@@ -50,13 +56,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 ### 2026.11.08 — 4.74.0 Without Stremio
 - **The Stremio add-on is gone.** Stremio asks its users to pay for basics such as its own home page, and that is not a player this project should point a family at. The TV app does what the add-on did and more: your place is shared with the website, intros are skipped, profiles work, and nothing leaves the house. With this update every Stremio link stops working; the Stremio card on Profile › Security, the administrator's list of links on Security › App access › Video, its *Stremio* network rule and the guide are removed. Manage, Watch and Browse rules are unchanged.
 - The video engine needs its own update for this release: **isputnik.video 0.29** drops the add-on's routes; an older engine keeps working, it only answers on addresses nothing asks for any more.
-
-### 2026.11.08 — 4.73.1 Phone backup you can trust
-- **A phone's photo is never dropped on the strength of an old record.** The server used to take its note of what a phone had sent as proof that it still held those bytes — so once a file had been edited or replaced in place on the server, another phone's untouched original, or the same phone's re-send, was acknowledged and thrown away. A match now only counts while the file on disk still has that size and content; otherwise the original is stored again. A photo you deleted at home on purpose still stays deleted.
-- **Two uploads can no longer slip past the size limit together.** The limit was checked once before each upload started, so two that fit alone both got through. Each upload now holds its bytes against the limit while it is in flight, and the limit is checked again just before the file is filed.
-- **Duplicate detection looks at every candidate.** It used to stop after 50 same-size photos (20 Live Photo clips), in no particular order, so a library with many photos of one size could store a copy it already had. It now starts from the indexed hashes and then checks every same-size file, remembering each digest so the work is done once.
-- **The setup card tells you when it worked.** After you add a phone, the card says *Waiting for the phone*, then *Connected*, then *First photo received* — or why the phone was refused — without reloading the page, and the phone list refreshes on its own while it is open.
-- **It is called phone backup everywhere now** — on Profile, on the Device Sync page and in the guides — because it deliberately goes one way only, from the phone into your library.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

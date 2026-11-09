@@ -3,6 +3,13 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.78.0 — Quality for viewers away from home
+
+- **A Quality menu in the video player.** Beside Sound and Subtitles: **Original**, **1080p**, **720p** or **480p**. Pick a smaller one on a weak Wi-Fi corner or a phone and the engine makes that picture while you watch, from where the film is; a film already smaller than the rung plays as it is. The choice is remembered in that browser, one for home and one for away, and the next film starts in it.
+- **Viewers away from home are held under a cap.** Someone watching from outside your network starts at **Quality away from home** (Settings → Video → Converting video; up to 720p to start with) and can only go lower. Before, a Blu-ray rip went out at its full 30 Mbit/s or more, which no home upload link carries, and stalled; one viewer at 720p needs about 5 Mbit/s. Set it to *The file as it is* to turn the cap off. At home everyone still gets the file as it is unless they pick less.
+- **The engine now looks at a film's size, not only its codecs.** A picture taller than the rung asked, or heavier than the most the rung would make, is re-encoded down to it even when a browser could have played it as it is. The *Converting video* card marks each viewer's rung beside GPU/CPU and HDR. Needs **isputnik.video 0.31.0**; an older engine shows no menu and no setting.
+- The TV app is unchanged: on the home network it plays the original as before. Automatic switching by connection speed and per-film offline copies are planned, not built (`docs/video-quality-plan.md`).
+
 ## 4.77.0 — Photos on the TV
 
 - **Photos come to the TV, as a controlled view.** A TV may be watched by more people than the photos' owners, so it never gets the whole gallery: only the slideshows and albums an admin puts on its list. No folders, timeline, people or search.
