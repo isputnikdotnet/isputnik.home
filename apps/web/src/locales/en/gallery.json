@@ -768,7 +768,8 @@
       "viewLabel": "View",
       "tileSizeHeading": "Tile size",
       "datesHeading": "Dates",
-      "upload": "Upload"
+      "upload": "Upload",
+      "onTv": "On TV"
     },
     "errors": {
       "loadLibraries": "Unable to load gallery libraries",
@@ -968,5 +969,37 @@
     "noMatchTitle": "No places match",
     "noMatchBody": "Try part of the town, region or country name.",
     "creditBefore": "Place names from"
+  },
+  "tv": {
+    "title": "Photos on TV",
+    "intro": "Only what's listed here shows on the household's TVs, in this order, and nothing else from Photos. Each line says which profiles see it. Nobody sees a photo on the TV that they can't open here.",
+    "loadFailed": "Unable to load the TV list",
+    "saveFailed": "Unable to change the TV list",
+    "none": "Nothing is on the TV yet. Add a slideshow or an album.",
+    "unnamed": "Deleted",
+    "kindSlideshow": "Slideshow",
+    "kindAlbum": "Album",
+    "photos_one": "{{count}} photo",
+    "photos_other": "{{count}} photos",
+    "audienceLabel": "Profiles",
+    "audienceGrownups": "Everyone but restricted profiles",
+    "audienceEveryone": "Everyone",
+    "audienceChosen": "Only…",
+    "audienceChosenCount_one": "Only {{count}} chosen",
+    "audienceChosenCount_other": "Only {{count}} chosen",
+    "profilesLabel": "Profiles that see {{name}}",
+    "withoutProfile": "Without a profile",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "remove": "Remove",
+    "full": "The TV list holds at most {{max}}.",
+    "addSlideshow": "Add slideshow",
+    "addAlbum": "Add album",
+    "chooseSlideshow": "Put a slideshow on the TV",
+    "chooseAlbum": "Put an album on the TV",
+    "noSlideshowsLeft": "Every slideshow with photos is already on the TV.",
+    "noAlbumsLeft": "Every album with photos is already on the TV.",
+    "put": "Put on TV",
+    "back": "Back"
   }
 }

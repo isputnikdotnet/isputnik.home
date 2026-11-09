@@ -379,6 +379,9 @@ A TV can do far better, and must not pay for conversion it doesn't need.
 
 ## Photos (T5)
 
+**Superseded 2026-11-09 by `docs/tv-photos-plan.md`:** the TV shows only slideshows and
+albums an admin puts on it, per profile; not the gallery. The original sketch follows.
+
 Uses `/api/library/gallery/slideshows`, `/albums`, `/memories`, `/people` and
 `/assets/:id/file`, all already filtered per viewer.
 

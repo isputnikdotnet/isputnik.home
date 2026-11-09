@@ -23,6 +23,7 @@ import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
 import { facesGatewayPlugin } from "./faces/gateway-plugin.js";
 import { registerGalleryStats } from "./stats.js";
+import { galleryTvRoutesPlugin } from "./tv-picks.js";
 import { personalLibraryRoutesPlugin } from "./personal/routes.js";
 import { photoSyncRoutesPlugin } from "./sync/routes.js";
 import { photoSyncDavPlugin } from "./sync/dav.js";
@@ -38,6 +39,8 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(facesGatewayPlugin);
   await app.register(galleryAlbumRoutesPlugin);
   await app.register(gallerySlideshowRoutesPlugin);
+  // Photos on the TV: the On TV list, and the fence that keeps a TV to it.
+  await app.register(galleryTvRoutesPlugin);
   await app.register(galleryMusicRoutesPlugin);
   await app.register(galleryInboxRoutesPlugin);
   await app.register(galleryDropRoutesPlugin);

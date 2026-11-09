@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Album, ArrowLeft, CalendarDays, ChevronDown, Compass, Film, FolderOpen, History, Image as ImageIcon, Inbox, LayoutGrid, LibraryBig, MapPin, MapPinned, Plus, Sparkles, SquareCheck, UploadCloud, Users } from "lucide-react";
-import { api } from "../../api";
+import { Album, ArrowLeft, CalendarDays, ChevronDown, Compass, Film, FolderOpen, History, Image as ImageIcon, Inbox, LayoutGrid, LibraryBig, MapPin, MapPinned, Plus, Sparkles, SquareCheck, Tv, UploadCloud, Users } from "lucide-react";
+import { api, isAdminSession } from "../../api";
 import { sendInBatches } from "../../shared/bulk";
 import { DashboardShell } from "../../app/DashboardShell";
 import { useSession } from "../../app/SessionContext";
@@ -20,6 +20,7 @@ import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
 import type { LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
 import { useGallerySlideshows } from "./useGallerySlideshows";
+import { TvPicksModal } from "./TvPicksModal";
 import { useGalleryPeople } from "./useGalleryPeople";
 import { GalleryLightbox, type GalleryAssetChange } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
@@ -276,6 +277,8 @@ export function GalleryPage({
   // Upload (source-writing, policy-gated): the modal is offered when any library
   // accepts uploads. A notice confirms the batch after the modal closes.
   const [uploadOpen, setUploadOpen] = useState(false);
+  /** Photos on the TV (docs/tv-photos-plan.md): the household's On TV list, an admin's. */
+  const [tvOpen, setTvOpen] = useState(false);
 
   // Where a rendered slideshow movie is saved — an admin-only setting reached
   // from the toolbar rather than a standing dropdown on the list page.
@@ -972,6 +975,13 @@ export function GalleryPage({
                   {/* Everywhere but People, which is a page about faces: the
                       photos they were found in are uploaded from the views that
                       show photos. */}
+                  {/* What the household's TVs show from Photos: admins at a keyboard. */}
+                  {isAdminSession(user) && (view === "albums" || view === "slideshows") && (
+                    <Button variant="toolbar" onClick={() => setTvOpen(true)}>
+                      <Tv size={18} aria-hidden="true" />
+                      <span className="toolbar-label">{t("gallery:page.toolbar.onTv")}</span>
+                    </Button>
+                  )}
                   {uploadLibraries.length > 0 && view !== "people" && view !== "places" && (
                     <Button
                       variant="toolbar"
@@ -1158,6 +1168,7 @@ export function GalleryPage({
         />
       )}
 
+      {tvOpen && <TvPicksModal onClose={() => setTvOpen(false)} />}
       {uploadOpen && uploadLibraries.length > 0 && (
         <GalleryUploadModal
           libraries={uploadLibraries}

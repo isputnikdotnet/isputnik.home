@@ -2613,3 +2613,22 @@ CREATE TABLE IF NOT EXISTS video_my_list (
   added_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   PRIMARY KEY (user_id, kind, entity_id)
 );
+
+-- The household's photos on the TV (docs/tv-photos-plan.md): slideshows and albums an
+-- admin picked, in order, each with the profiles that see it. Exactly one of
+-- slideshow_id / album_id is set, each at most once; a deleted slideshow or album leaves
+-- the list with it. audience: 'everyone', 'grownups' (everyone but restricted profiles)
+-- or 'chosen' with profile_ids (JSON array; '' stands for watching without a profile).
+CREATE TABLE IF NOT EXISTS tv_photo_picks (
+  id           TEXT PRIMARY KEY,
+  slideshow_id TEXT REFERENCES gallery_slideshows(id) ON DELETE CASCADE,
+  album_id     TEXT REFERENCES gallery_albums(id) ON DELETE CASCADE,
+  position     INTEGER NOT NULL DEFAULT 0,
+  audience     TEXT NOT NULL DEFAULT 'grownups' CHECK (audience IN ('everyone', 'grownups', 'chosen')),
+  profile_ids  TEXT,
+  created_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  CHECK ((slideshow_id IS NULL) <> (album_id IS NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tv_photo_picks_slideshow ON tv_photo_picks(slideshow_id) WHERE slideshow_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tv_photo_picks_album ON tv_photo_picks(album_id) WHERE album_id IS NOT NULL;

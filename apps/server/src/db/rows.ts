@@ -1433,6 +1433,18 @@ export interface TrustedNetworkRow {
   created_by: string | null;
 }
 
+/** `tv_photo_picks` */
+export interface TvPhotoPickRow {
+  id: string;
+  slideshow_id: string | null;
+  album_id: string | null;
+  position: number;
+  audience: "everyone" | "grownups" | "chosen";
+  profile_ids: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 /** `user_family_person` */
 export interface UserFamilyPersonRow {
   user_id: string;
@@ -1709,6 +1721,7 @@ export interface TableRows {
   track_progress: TrackProgressRow;
   trashed_items: TrashedItemRow;
   trusted_networks: TrustedNetworkRow;
+  tv_photo_picks: TvPhotoPickRow;
   user_family_person: UserFamilyPersonRow;
   user_gallery_person: UserGalleryPersonRow;
   user_groups: UserGroupRow;
