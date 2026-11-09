@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en" data-theme="orbit">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library step 2 mock</title>
+<!-- Mock for step 2 of docs/library-control-panel-review.md: quieter library
+     rows with a Manage page, "Library locations" instead of containers, and Storage
+     blocks that lead with path, space and one Change. Fictional data; no app code. -->
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+:root[data-theme="orbit"] {
+  color-scheme: dark;
+  --ink: #e9f1f7; --muted: #92a6b8; --line: rgba(142,182,212,.17);
+  --canvas: #050c17; --surface: #0b1725; --surface-raised: #122334; --field: #081321;
+  --hover: rgba(36,209,224,.1); --active: rgba(36,209,224,.16);
+  --mint: #24d1e0; --on-mint: #04131c; --success: #7ecf90; --warning: #e3b566; --danger: #e0766b;
+  --shadow: rgba(0,0,0,.5);
+}
+:root[data-theme="minimalist"] {
+  color-scheme: light;
+  --ink: #1d1d1f; --muted: #58585c; --line: rgba(29,29,31,.22);
+  --canvas: #e2e2df; --surface: #f2f2ef; --surface-raised: #ffffff; --field: #ffffff;
+  --hover: #e4e4e0; --active: #d4d4cf;
+  --mint: #1d1d1f; --on-mint: #ffffff; --success: #3e6b4f; --warning: #8a6d3b; --danger: #a13c33;
+  --shadow: rgba(0,0,0,.18);
+}
+:root { --surface-2: color-mix(in srgb, var(--ink) 6%, transparent); --radius: 10px; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font: 15px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+button, select, input { font: inherit; color: inherit; }
+code, .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .84rem; }
+a { color: var(--mint); text-decoration: none; }
+a:hover { text-decoration: underline; }
+svg.lucide { width: 16px; height: 16px; stroke-width: 1.9; flex: none; }
+
+/* Mock switcher — not part of the design */
+.mockbar { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 8px 16px; background: #ffd84d; color: #222; font-size: .8rem; }
+.mockbar b { margin-right: 6px; }
+.mockbar button { border: 1px solid rgba(0,0,0,.25); background: rgba(255,255,255,.6); border-radius: 6px; padding: 3px 9px; cursor: pointer; color: #222; }
+.mockbar button.on { background: #222; color: #ffd84d; }
+.mockbar .sep { width: 1px; height: 18px; background: rgba(0,0,0,.25); margin: 0 4px; }
+
+/* App shell */
+.shell { display: grid; grid-template-columns: 250px 1fr; min-height: calc(100vh - 38px); }
+.side { background: var(--surface); border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 4px; }
+.brand { display: flex; gap: 10px; align-items: center; padding: 8px 10px 20px; font-weight: 700; }
+.brand small { display: block; font-size: .62rem; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.brand .logo { width: 34px; height: 34px; border-radius: 9px; background: var(--mint); color: var(--on-mint); display: grid; place-items: center; }
+.nav { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 9px; color: var(--ink); font-weight: 600; }
+.nav.on { background: var(--active); }
+.nav svg.lucide { width: 19px; height: 19px; }
+main { padding: 26px 40px 60px; max-width: 1080px; width: 100%; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 24px; overflow-x: auto; }
+.tabs span { padding: 9px 12px; font-weight: 600; color: var(--muted); white-space: nowrap; border-bottom: 2px solid transparent; }
+.tabs span.on { color: var(--ink); border-color: var(--mint); }
+
+.head { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
+.head .ic { width: 52px; height: 52px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; }
+.head .ic svg.lucide { width: 26px; height: 26px; }
+.head .t { flex: 1; min-width: 0; }
+.eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 2px 0 2px; font-size: 1.9rem; line-height: 1.15; }
+.head p { margin: 0; color: var(--muted); }
+.head .acts { display: flex; gap: 8px; }
+h2 { font-size: 1.12rem; margin: 0 0 2px; }
+.sub { color: var(--muted); margin: 0; font-size: .9rem; }
+
+.btn { display: inline-flex; align-items: center; gap: 7px; border-radius: 8px; padding: 8px 14px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface-raised); white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--mint); color: var(--on-mint); border-color: transparent; }
+.btn.danger { color: var(--danger); }
+.btn.sm { padding: 5px 11px; font-size: .86rem; }
+.btn.icon { padding: 6px; }
+.btn.text { border: 0; background: none; padding: 4px 6px; color: var(--mint); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.toolbar { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; }
+.field { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--field); border-radius: 8px; padding: 7px 11px; }
+.field input, .field select { border: 0; background: none; outline: none; min-width: 0; flex: 1; }
+.toolbar .grow { flex: 1; }
+.count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+
+/* Library table */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--surface-2); }
+.num { text-align: right; white-space: nowrap; }
+.libname { display: flex; gap: 12px; align-items: center; }
+.libname .ti { width: 36px; height: 36px; border-radius: 9px; background: var(--surface-2); display: grid; place-items: center; flex: none; }
+.libname b { display: block; }
+.libname small { color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); font-size: .8rem; font-weight: 600; white-space: nowrap; }
+.chip svg.lucide { width: 13px; height: 13px; }
+.status { display: inline-flex; align-items: center; gap: 7px; font-size: .88rem; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex: none; }
+.dot.scan { background: var(--mint); animation: pulse 1.4s infinite; }
+.dot.err { background: var(--danger); }
+.dot.off { background: var(--muted); }
+@keyframes pulse { 50% { opacity: .35; } }
+.status small { display: block; color: var(--muted); font-size: .78rem; }
+.bar { display: block; height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; width: 110px; margin-top: 4px; }
+.bar i { display: block; height: 100%; background: var(--mint); }
+.bar.warn i { background: var(--warning); }
+.rowacts { display: flex; gap: 6px; justify-content: flex-end; position: relative; }
+.menu { position: absolute; right: 0; top: 36px; z-index: 20; min-width: 210px; background: var(--surface-raised); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 12px 30px var(--shadow); padding: 6px; display: none; }
+.menu.open { display: block; }
+.menu button { display: flex; gap: 9px; align-items: center; width: 100%; border: 0; background: none; padding: 8px 10px; border-radius: 7px; text-align: left; cursor: pointer; }
+.menu button:hover { background: var(--hover); }
+.menu .danger { color: var(--danger); }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 5px 0; }
+.footnote { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .88rem; margin-top: 14px; }
+
+.msg { display: flex; gap: 10px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--line); margin-bottom: 16px; background: var(--surface); }
+.msg[hidden] { display: none; }
+.msg.warning { border-color: color-mix(in srgb, var(--warning) 55%, transparent); background: color-mix(in srgb, var(--warning) 10%, var(--surface)); }
+.msg.info { border-color: color-mix(in srgb, var(--mint) 40%, transparent); }
+.msg b { display: block; }
+.msg p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+.msg.warning svg.lucide { color: var(--warning); }
+
+/* Storage blocks */
+.block { padding: 18px 20px; margin-bottom: 16px; }
+.block-head { display: flex; gap: 14px; align-items: flex-start; }
+.block-head .t { flex: 1; min-width: 0; }
+.badge { font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); margin-left: 8px; vertical-align: 2px; }
+.badge.on { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+.where { display: flex; gap: 18px; align-items: center; margin-top: 14px; padding: 12px 14px; background: var(--surface-2); border-radius: 9px; flex-wrap: wrap; }
+.where .path { font-weight: 600; flex: 1; min-width: 200px; overflow-wrap: anywhere; }
+.where .space { font-size: .84rem; color: var(--muted); min-width: 170px; }
+.where .space .bar { width: 170px; }
+details { margin-top: 10px; }
+summary { cursor: pointer; color: var(--muted); font-size: .88rem; font-weight: 600; list-style: none; display: inline-flex; gap: 6px; align-items: center; padding: 4px 0; }
+summary::-webkit-details-marker { display: none; }
+details[open] summary .chev { transform: rotate(90deg); }
+.parts { margin-top: 8px; border: 1px solid var(--line); border-radius: 9px; }
+.parts td { padding: 9px 12px; font-size: .88rem; }
+.parts td small { display: block; color: var(--muted); }
+.linkrow { display: flex; gap: 18px; margin-top: 12px; font-size: .9rem; flex-wrap: wrap; }
+.linkrow a { display: inline-flex; gap: 6px; align-items: center; }
+.loc-table td .path { overflow-wrap: anywhere; }
+.summary-line { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: .9rem; }
+.summary-line span { display: inline-flex; gap: 6px; align-items: center; }
+.summary-line span svg.lucide { color: var(--muted); }
+
+/* Manage page */
+.back { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-weight: 600; margin-bottom: 14px; }
+.manage { display: grid; grid-template-columns: 1fr 230px; gap: 22px; align-items: start; }
+.toc { position: sticky; top: 58px; display: flex; flex-direction: column; gap: 2px; }
+.toc a { color: var(--muted); padding: 6px 10px; border-left: 2px solid var(--line); font-size: .9rem; }
+.toc a.on { color: var(--ink); border-color: var(--mint); }
+.section { padding: 18px 20px; margin-bottom: 16px; }
+.section h2 { display: flex; gap: 8px; align-items: center; }
+.form { display: grid; gap: 12px; margin-top: 14px; max-width: 560px; }
+label.lbl { display: grid; gap: 5px; font-size: .86rem; color: var(--muted); font-weight: 600; }
+label.lbl .field { color: var(--ink); font-weight: 400; }
+.resolved { font-size: .84rem; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.people { display: flex; flex-direction: column; gap: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 9px; }
+.people div { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: .9rem; }
+.people div:last-child { border: 0; }
+.switch { width: 36px; height: 20px; border-radius: 999px; background: var(--mint); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--on-mint); }
+.switch.off { background: var(--surface-2); border: 1px solid var(--line); }
+.switch.off::after { left: 3px; right: auto; background: var(--muted); }
+.toggle-row { display: flex; gap: 12px; align-items: center; margin-top: 12px; font-size: .92rem; }
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+.facts div { background: var(--surface-2); border-radius: 9px; padding: 10px 12px; }
+.facts small { display: block; color: var(--muted); font-size: .76rem; }
+.facts b { font-size: 1.05rem; }
+.dangerzone { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+
+/* Dialog */
+.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; place-items: center; z-index: 100; padding: 16px; }
+.backdrop.open { display: grid; }
+.dialog { width: min(560px, 100%); background: var(--surface-raised); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px var(--shadow); padding: 22px; }
+.dialog h3 { margin: 0 0 6px; font-size: 1.2rem; }
+.dialog p { color: var(--muted); margin: 0 0 14px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.steps { display: flex; gap: 8px; margin-bottom: 14px; font-size: .78rem; color: var(--muted); }
+.steps span.on { color: var(--ink); font-weight: 700; }
+
+[hidden] { display: none !important; }
+.h2gap { margin: 22px 0 10px; }
+
+/* Organization cards */
+.org-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.org { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.org-top { display: flex; gap: 12px; align-items: flex-start; }
+.org-top .ti { width: 38px; height: 38px; border-radius: 9px; background: var(--surface-2); display: grid; place-items: center; flex: none; }
+.applies { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; font-size: .84rem; }
+.applies small { display: block; font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.org-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .88rem; color: var(--muted); }
+.org-stats b { color: var(--ink); }
+.org-stats .warn, .org-stats .warn b { color: var(--warning); }
+.org-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: auto; }
+
+/* Device Sync */
+.ds-ready { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 12px 16px; border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 8%, var(--surface)); font-size: .9rem; }
+.ds-ready span:not(.dot) { color: var(--muted); }
+.ds-ready a { margin-left: auto; }
+.setrow { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.setrow:last-child { border-bottom: 0; }
+.setrow > svg.lucide { color: var(--muted); width: 19px; height: 19px; }
+.setrow .t { flex: 1; min-width: 0; }
+.setrow .t small { display: block; color: var(--muted); font-size: .82rem; }
+.setrow .val { font-size: .86rem; color: var(--muted); text-align: right; max-width: 40%; }
+.checklist { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 10px; }
+.checklist li { display: flex; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; }
+.checklist li > div { flex: 1; min-width: 0; }
+.checklist small { display: block; color: var(--muted); font-size: .84rem; }
+.checklist .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .85rem; background: var(--surface-2); flex: none; }
+.checklist .done .n { background: color-mix(in srgb, var(--success) 25%, transparent); color: var(--success); }
+.checklist .now { border-color: var(--mint); }
+.checklist .now .n { background: var(--mint); color: var(--on-mint); }
+.checklist .member { border-style: dashed; }
+
+.screen { display: none; }
+.screen.on { display: block; }
+.note { margin-top: 26px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 9px; color: var(--muted); font-size: .84rem; }
+.note b { color: var(--ink); }
+
+/* Phones: the app's phone layout is its own (tab bar); this only proves the content reflows. */
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  main { min-width: 0; }
+  .toolbar .field { min-width: 0; }
+  table.stack, table.stack tbody { display: block; }
+  .head .t { flex-basis: 100%; }
+  .side { display: none; }
+  main { padding: 16px 16px 60px; }
+  h1 { font-size: 1.5rem; }
+  .head .ic { display: none; }
+  .head { flex-wrap: wrap; }
+  .head .acts .label { display: none; }
+  .hide-phone { display: none; }
+  table.stack thead { display: none; }
+  table.stack tr { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 12px; border-bottom: 1px solid var(--line); }
+  table.stack td { border: 0; padding: 0; }
+  table.stack td.c-name { grid-column: 1; }
+  table.stack td.c-acts { grid-column: 2; grid-row: 1; }
+  table.stack td.c-status, table.stack td.c-access, table.stack td.c-size { grid-column: 1 / -1; text-align: left; }
+  .manage { grid-template-columns: 1fr; }
+  .toc { display: none; }
+  .facts { grid-template-columns: 1fr 1fr; }
+  .org-grid { grid-template-columns: minmax(0, 1fr); }
+  table.fit th, table.fit td { padding: 9px 8px; }
+  table.fit th { font-size: .62rem; letter-spacing: .03em; }
+  .setrow { flex-wrap: wrap; }
+  .setrow .val { max-width: none; text-align: left; flex-basis: 100%; order: 3; }
+  .ds-ready a { margin-left: 0; }
+  .where .space .bar { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="mockbar">
+  <b>MOCK · Library group</b>
+  <button data-screen="libraries" class="on">Libraries</button>
+  <button data-screen="manage">Manage a library</button>
+  <button data-screen="organization">Organization</button>
+  <button data-screen="tags">Organization › Tags</button>
+  <button data-screen="devicesync">Device Sync</button>
+  <button data-screen="devicesetup">Device Sync · first setup</button>
+  <button data-screen="storage">Storage</button>
+  <button data-screen="contents">App storage contents</button>
+  <button data-dialog="wizard">Add library · folder step</button>
+  <button data-dialog="addloc">Add location</button>
+  <span class="sep"></span>
+  <button data-theme-btn="orbit" class="on">Orbit</button>
+  <button data-theme-btn="minimalist">Minimalist</button>
+  <span class="sep"></span>
+  <button id="problems">Show problems</button>
+</div>
+
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span class="logo"><i data-lucide="orbit"></i></span><span>iSputnik<small>YOUR STORIES — IN ORBIT</small></span></div>
+    <a class="nav"><i data-lucide="activity"></i>Overview</a>
+    <a class="nav on"><i data-lucide="library-big"></i>Library</a>
+    <a class="nav"><i data-lucide="users-round"></i>Members</a>
+    <a class="nav"><i data-lucide="shield-check"></i>Security</a>
+    <a class="nav"><i data-lucide="wrench"></i>Maintenance</a>
+    <a class="nav"><i data-lucide="settings"></i>Settings</a>
+  </aside>
+
+  <main>
+    <div class="tabs" role="tablist">
+      <span data-tab="libraries" class="on">Libraries</span><span data-tab="organization">Organization</span><span data-tab="devicesync">Device Sync</span><span data-tab="storage">Storage</span><span data-tab="contents">App storage contents</span>
+    </div>
+
+    <!-- ═══════════════ LIBRARIES ═══════════════ -->
+    <section class="screen on" id="s-libraries">
+      <div class="head">
+        <div class="ic"><i data-lucide="library-big"></i></div>
+        <div class="t"><div class="eyebrow">Library</div><h1>Libraries</h1><p>Every library on this server, what it scans, and who can see it.</p></div>
+        <div class="acts">
+          <button class="btn icon" title="Refresh" aria-label="Refresh"><i data-lucide="refresh-cw"></i></button>
+          <button class="btn primary" data-dialog="wizard"><i data-lucide="plus"></i><span class="label">Add library</span></button>
+        </div>
+      </div>
+
+      <div class="msg warning problem" hidden>
+        <i data-lucide="triangle-alert"></i>
+        <div><b>One library needs attention</b><p>"Shows" can't be read: the video engine is not answering. Its titles stay where they are until it is back.</p></div>
+      </div>
+
+      <div class="toolbar">
+        <label class="field"><i data-lucide="layout-grid"></i><select><option>All types</option><option>Gallery</option><option>Audiobooks</option><option>Ebooks</option><option>Video</option></select></label>
+        <label class="field grow"><i data-lucide="search"></i><input placeholder="Search libraries…"></label>
+      </div>
+
+      <div class="card">
+        <table class="stack" id="libtable">
+          <thead><tr><th>Library</th><th>Access</th><th class="num hide-phone">Contents</th><th>Status</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="footnote"><i data-lucide="folder"></i>Libraries can use folders inside a <a href="#" data-go="storage">library location</a>. Personal libraries are private — you see whose each one is and its size, never what is in it; who may have one is set on <a href="#" data-go="devicesync">Device Sync</a>.</div>
+
+      <div class="note"><b>What changed.</b> Five icon buttons and an ⓘ per row became one <b>Manage</b> button and a ⋯ menu (Rescan, Browse, Delete). Type moved under the name; Files + Size became one Contents column. Status is new: up to date, scanning with progress and a link to Tasks, or the problem. Someone else's personal library has no Manage — only what an admin may do with it.</div>
+    </section>
+
+    <!-- ═══════════════ MANAGE ═══════════════ -->
+    <section class="screen" id="s-manage">
+      <a class="back" href="#" data-go="libraries"><i data-lucide="arrow-left"></i>Libraries</a>
+      <div class="head">
+        <div class="ic"><i data-lucide="image"></i></div>
+        <div class="t"><div class="eyebrow">Library · Gallery</div><h1>Family photos</h1><p>24,860 items · 186 GB · Up to date, checked 2 hours ago</p></div>
+        <div class="acts"><button class="btn"><i data-lucide="refresh-cw"></i><span class="label">Rescan…</span></button><button class="btn"><i data-lucide="external-link"></i><span class="label">Browse</span></button></div>
+      </div>
+
+      <div class="manage">
+        <div>
+          <div class="card section" id="m-general">
+            <h2><i data-lucide="folder-cog"></i>General</h2>
+            <div class="form">
+              <label class="lbl">Name<span class="field"><input value="Family photos"></span></label>
+              <label class="lbl">Location<span class="field"><select><option>Family media</option><option>Archive disk</option></select></span></label>
+              <label class="lbl">Folder within location<span class="field"><input value="Photos"><button class="btn sm">Browse</button></span></label>
+              <div class="resolved"><i data-lucide="corner-down-right"></i><code>/mnt/user/media/Photos</code></div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-start"><button class="btn primary sm">Save</button></div>
+          </div>
+
+          <div class="card section" id="m-access">
+            <h2><i data-lucide="users-round"></i>Access</h2>
+            <p class="sub">Who can open this library. Admins always can.</p>
+            <div class="toggle-row"><span class="switch off"></span>Everyone on this server</div>
+            <div class="people">
+              <div><span><i data-lucide="users"></i> Family <small style="color:var(--muted)">group · 5 members</small></span><button class="btn text sm">Remove</button></div>
+              <div><span><i data-lucide="user"></i> Grandma Vera</span><button class="btn text sm">Remove</button></div>
+            </div>
+            <div style="margin-top:10px"><button class="btn sm"><i data-lucide="plus"></i>Add member or group</button></div>
+          </div>
+
+          <div class="card section" id="m-scanning">
+            <h2><i data-lucide="scan-line"></i>Scanning</h2>
+            <p class="sub">How files in this folder become photos.</p>
+            <div class="toggle-row"><span class="switch"></span>Pair back sides of prints <small style="color:var(--muted)">files ending in _b</small></div>
+            <div class="toggle-row"><span class="switch off"></span>Skip videos longer than 30 minutes</div>
+          </div>
+
+          <div class="card section" id="m-faces">
+            <h2><i data-lucide="scan-face"></i>Faces</h2>
+            <div class="toggle-row"><span class="switch"></span>Find faces in this library</div>
+            <div class="summary-line"><span><i data-lucide="check"></i>19,204 photos checked</span><span><i data-lucide="users"></i>3,118 faces · 41 people named</span><a href="#">Open People</a></div>
+          </div>
+
+          <div class="card section" id="m-phones">
+            <h2><i data-lucide="smartphone"></i>Phone backups</h2>
+            <p class="sub">Phones whose photos are already in this library, so they aren't sent again.</p>
+            <div class="people">
+              <div><span>Anna's iPhone <small style="color:var(--muted)">· Anna</small></span><button class="btn text sm">Remove</button></div>
+            </div>
+            <div style="margin-top:10px"><button class="btn sm"><i data-lucide="plus"></i>Link a phone</button></div>
+          </div>
+
+          <div class="card section" id="m-organize">
+            <h2><i data-lucide="tags"></i>Organizing</h2>
+            <p class="sub">Photos in a Gallery library are labelled with <b>Tags</b>. Tags are one shared set — the same list books, albums, stories and family-tree people use — so a change there applies everywhere.</p>
+            <div class="linkrow"><a href="#" data-go="tags"><i data-lucide="arrow-right"></i>Open Tags</a></div>
+          </div>
+
+          <div class="card section dangerzone" id="m-delete">
+            <h2><i data-lucide="trash-2"></i>Delete library</h2>
+            <p class="sub">Removes the library and its catalogue from the app. The files in <code>/mnt/user/media/Photos</code> are not touched.</p>
+            <div style="margin-top:12px"><button class="btn danger sm">Delete library…</button></div>
+          </div>
+        </div>
+        <nav class="toc">
+          <a href="#m-general" class="on">General</a><a href="#m-access">Access</a><a href="#m-scanning">Scanning</a><a href="#m-faces">Faces</a><a href="#m-phones">Phone backups</a><a href="#m-organize">Organizing</a><a href="#m-delete">Delete</a>
+        </nav>
+      </div>
+
+      <div class="note"><b>Manage is a page, not a dialog</b> — the Member page's pattern (<code>/control/libraries/&lt;id&gt;</code>), one column of cards and no tab row, so the "every tab is a route" rule holds. Cards appear only when the type has them: a book library shows General · Access · Scan rules · Delete; Video shows General · Access · Delete; Faces and Phone backups are Gallery-only. Everything the old ⓘ dialog showed is in the header line.</div>
+    </section>
+
+    <!-- ═══════════════ STORAGE ═══════════════ -->
+    <section class="screen" id="s-storage">
+      <div class="head">
+        <div class="ic"><i data-lucide="hard-drive"></i></div>
+        <div class="t"><div class="eyebrow">Library</div><h1>Storage</h1><p>Which folders libraries may use, and where the app keeps its own files.</p></div>
+        <div class="acts"><button class="btn icon" title="Refresh" aria-label="Refresh"><i data-lucide="refresh-cw"></i></button></div>
+      </div>
+
+      <div class="msg warning problem" hidden>
+        <i data-lucide="triangle-alert"></i>
+        <div><b>System data's disk is almost full</b><p>18 GB free of 240 GB. Thumbnails and backups will outgrow it; move them to a disk with more room.</p></div>
+      </div>
+
+      <div class="card block" id="locations">
+        <div class="block-head">
+          <div class="t"><h2>Library locations</h2><p class="sub">Folders on this server that libraries are allowed to use. A library takes the whole location or any folder inside it.</p></div>
+          <button class="btn primary" data-dialog="addloc"><i data-lucide="plus"></i><span class="label">Add location</span></button>
+        </div>
+        <table class="loc-table stack" style="margin-top:12px">
+          <thead><tr><th>Location</th><th class="num">Libraries</th><th class="hide-phone">Free space</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="c-name"><b>Family media</b><br><code class="path">/mnt/user/media</code></td><td class="num c-size">6</td>
+              <td class="c-status hide-phone"><small style="color:var(--muted)">3.1 TB free of 8 TB</small><div class="bar"><i style="width:61%"></i></div></td>
+              <td class="c-acts"><div class="rowacts"><button class="btn icon" data-menu aria-label="More"><i data-lucide="ellipsis"></i></button>
+                <div class="menu"><button><i data-lucide="pencil"></i>Rename</button><hr><button class="danger" disabled title="Remove its 6 libraries first"><i data-lucide="x"></i>Remove location</button></div></div></td></tr>
+            <tr><td class="c-name"><b>Archive disk</b><br><code class="path">/mnt/disks/archive</code></td><td class="num c-size">0</td>
+              <td class="c-status hide-phone"><small style="color:var(--muted)">1.6 TB free of 2 TB</small><div class="bar"><i style="width:20%"></i></div></td>
+              <td class="c-acts"><div class="rowacts"><button class="btn icon" data-menu aria-label="More"><i data-lucide="ellipsis"></i></button>
+                <div class="menu"><button><i data-lucide="pencil"></i>Rename</button><hr><button class="danger"><i data-lucide="x"></i>Remove location</button></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card block">
+        <div class="block-head">
+          <div class="t"><h2>System data<span class="badge">Required</span></h2><p class="sub">What the app needs to run: database, thumbnails, backups and metadata.</p></div>
+        </div>
+        <div class="where">
+          <span class="path mono">/config</span>
+          <span class="space"><span class="sysfree">212 GB free of 240 GB</span><span class="bar sysbar"><i style="width:12%"></i></span></span>
+          <button class="btn sm">Change</button>
+        </div>
+        <details>
+          <summary><i data-lucide="chevron-right" class="chev"></i>What's inside · thumbnails and backups have folders of their own</summary>
+          <table class="parts">
+            <tr><td><b>Database</b><small>Every setting and the catalogue</small></td><td><code>/config/db/isputnik.sqlite</code><small>Set when the app was installed</small></td><td></td></tr>
+            <tr><td><b>Thumbnails</b><small>Rebuilt by a scan if lost</small></td><td><code>/cache/thumbnails</code><small>A folder of its own · 9.4 GB</small></td><td class="num"><button class="btn sm">Change</button></td></tr>
+            <tr><td><b>Backups</b><small>Copies of the catalogue and settings</small></td><td><code>/backups</code><small>A folder of its own · 7 backups · 2.1 GB</small></td><td class="num"><button class="btn sm">Change</button></td></tr>
+            <tr><td><b>Metadata</b><small>Covers and book details</small></td><td><code>/config/metadata</code><small>Inside system data · 640 MB</small></td><td></td></tr>
+          </table>
+        </details>
+      </div>
+
+      <div class="card block">
+        <div class="block-head">
+          <div class="t"><h2>App storage<span class="badge on">On</span></h2><p class="sub">Photo Inbox, App files, Renders and Map data — what you upload and record in the app.</p></div>
+        </div>
+        <div class="where">
+          <span class="path mono">/mnt/user/media/iSputnik</span>
+          <span class="space">3.1 TB free of 8 TB<span class="bar"><i style="width:61%"></i></span></span>
+          <button class="btn sm">Change</button>
+        </div>
+        <details>
+          <summary><i data-lucide="chevron-right" class="chev"></i>What's inside · 4 parts, 38.6 GB</summary>
+          <table class="parts">
+            <tr><td><b>Photo Inbox</b><small>Scans waiting for review</small></td><td><code>…/iSputnik/Inbox</code></td><td class="num">1.2 GB</td></tr>
+            <tr><td><b>App files</b><small>Recordings, voice notes, uploads</small></td><td><code>…/iSputnik/App files</code></td><td class="num">34.9 GB</td></tr>
+            <tr><td><b>Renders</b><small>Slideshow movies and music</small></td><td><code>…/iSputnik/Renders</code></td><td class="num">2.3 GB</td></tr>
+            <tr><td><b>Map data</b><small>Kept maps and place names</small></td><td><code>…/iSputnik/Map data</code></td><td class="num">210 MB</td></tr>
+          </table>
+        </details>
+        <div class="linkrow"><a href="#"><i data-lucide="list"></i>View contents</a></div>
+      </div>
+
+      <div class="card block">
+        <div class="block-head">
+          <div class="t"><h2>Personal libraries</h2><p class="sub">Kept in <b>Family media › Personal</b> — <code>/mnt/user/media/Personal</code>. Who may have one and how big it may grow is set with phone backups.</p></div>
+          <a class="btn sm" href="#" data-go="devicesync">Device Sync<i data-lucide="arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="note"><b>What changed.</b> "Digital Library containers" → <b>Library locations</b>, with free space per location and Rename/Remove in a ⋯ menu. System data and App storage each lead with one line — path, free space, one Change — and the parts table folds away under "What's inside" (a problem with a part opens it and shows above). The Personal libraries form left for Device Sync; Storage keeps only where they live and a link, never a second editable copy. Warnings stay at the top, never folded.</div>
+    </section>
+
+    <!-- ═══════════════ ORGANIZATION ═══════════════ -->
+    <section class="screen" id="s-organization">
+      <div class="head">
+        <div class="ic"><i data-lucide="tags"></i></div>
+        <div class="t"><div class="eyebrow">Library</div><h1>Organization</h1><p>How content is labelled and grouped. Each is one shared set, used by the kinds of content listed on it.</p></div>
+      </div>
+
+      <div class="org-grid">
+        <div class="card org">
+          <div class="org-top"><span class="ti"><i data-lucide="shapes"></i></span><div><h2>Book categories</h2><p class="sub">The shelves books are sorted onto, by keyword rules.</p></div></div>
+          <div class="applies"><small>Applies to</small>Ebooks · Audiobooks</div>
+          <div class="org-stats"><span><b>18</b> categories</span><span><b>1,412</b> books sorted</span><span class="warn"><b>37</b> not sorted</span></div>
+          <div class="org-acts"><a class="btn sm" href="#" data-go="tags">Manage categories<i data-lucide="arrow-right"></i></a><button class="btn text sm">Re-match all books</button></div>
+        </div>
+        <div class="card org">
+          <div class="org-top"><span class="ti"><i data-lucide="tag"></i></span><div><h2>Tags</h2><p class="sub">Free labels, from scanned genres or added by hand.</p></div></div>
+          <div class="applies"><small>Applies to</small>Books · Gallery photos · Albums · Slideshows · Stories · Family-tree people</div>
+          <div class="org-stats"><span><b>312</b> tags</span><span class="warn"><b>14</b> unused</span></div>
+          <div class="org-acts"><a class="btn sm" href="#" data-go="tags">Manage tags<i data-lucide="arrow-right"></i></a><button class="btn text sm">Remove unused (14)</button></div>
+        </div>
+        <div class="card org">
+          <div class="org-top"><span class="ti"><i data-lucide="clapperboard"></i></span><div><h2>Video genres</h2><p class="sub">Genres for films and shows, merged from files and TMDB.</p></div></div>
+          <div class="applies"><small>Applies to</small>Movies · TV shows in Video libraries</div>
+          <div class="org-stats genres-ok"><span><b>22</b> genres</span><span class="warn"><b>3</b> titles without one</span></div>
+          <div class="org-stats genres-down" hidden><span class="warn">Video engine not answering — genres can't be edited until it is back</span></div>
+          <div class="org-acts"><a class="btn sm" href="#" data-go="tags">Manage genres<i data-lucide="arrow-right"></i></a></div>
+        </div>
+      </div>
+
+      <div class="note"><b>Cards, not editors.</b> Each card says what it applies to, shows its live numbers and offers the one action people come for (Remove unused, Re-match). The editors are pages under this tab — <code>/control/libraries/organization/tags</code> and so on — with the tab staying selected and a back link, like a member's page under Members. Ctrl K opens an editor directly, and a library's Manage page links to the one its type uses. Gallery video clips take tags; Video libraries' films and shows use genres.</div>
+    </section>
+
+    <!-- ═══════════════ ORGANIZATION › TAGS ═══════════════ -->
+    <section class="screen" id="s-tags">
+      <a class="back" href="#" data-go="organization"><i data-lucide="arrow-left"></i>Organization</a>
+      <div class="head">
+        <div class="ic"><i data-lucide="tag"></i></div>
+        <div class="t"><div class="eyebrow">Library · Organization</div><h1>Tags</h1><p>One shared set for books, Gallery photos, albums, slideshows, stories and family-tree people.</p></div>
+        <div class="acts"><button class="btn"><i data-lucide="eraser"></i><span class="label">Remove unused (14)</span></button><button class="btn primary"><i data-lucide="plus"></i><span class="label">New tag</span></button></div>
+      </div>
+      <div class="toolbar"><label class="field grow"><i data-lucide="search"></i><input placeholder="Search tags"></label><span class="count">312 tags</span></div>
+      <div class="card">
+        <table class="fit">
+          <thead><tr><th>Tag</th><th class="num">Library items</th><th class="num" title="Albums, slideshows, stories and family-tree people">Elsewhere</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Fiction</b></td><td class="num">412</td><td class="num">0</td><td class="num"><button class="btn icon" aria-label="Rename"><i data-lucide="pencil"></i></button> <button class="btn icon danger" aria-label="Delete"><i data-lucide="trash-2"></i></button></td></tr>
+            <tr><td><b>Grandpa Nikolai</b></td><td class="num">0</td><td class="num">6</td><td class="num"><button class="btn icon" aria-label="Rename"><i data-lucide="pencil"></i></button> <button class="btn icon danger" aria-label="Delete"><i data-lucide="trash-2"></i></button></td></tr>
+            <tr><td><b>Summer 1987</b></td><td class="num">148</td><td class="num">2</td><td class="num"><button class="btn icon" aria-label="Rename"><i data-lucide="pencil"></i></button> <button class="btn icon danger" aria-label="Delete"><i data-lucide="trash-2"></i></button></td></tr>
+            <tr><td><b>Leftover</b></td><td class="num">0</td><td class="num">0</td><td class="num"><button class="btn icon" aria-label="Rename"><i data-lucide="pencil"></i></button> <button class="btn icon danger" aria-label="Delete"><i data-lucide="trash-2"></i></button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><b>A page under a tab.</b> The Organization tab stays selected and the back link returns to the cards. This is today's Tags page (with the usage-count fix) moved, not redrawn; Book categories and Video genres move the same way. Their old addresses keep working.</div>
+    </section>
+
+    <!-- ═══════════════ DEVICE SYNC ═══════════════ -->
+    <section class="screen" id="s-devicesync">
+      <div class="head">
+        <div class="ic"><i data-lucide="smartphone"></i></div>
+        <div class="t"><div class="eyebrow">Library</div><h1>Device Sync</h1><p>Members' phones back up photos and videos to their personal libraries. Check here that it's working.</p></div>
+        <div class="acts"><a class="btn" href="#"><i data-lucide="scroll-text"></i><span class="label">History in Logs</span></a><button class="btn icon" aria-label="Refresh"><i data-lucide="refresh-cw"></i></button></div>
+      </div>
+
+      <div class="msg warning problem" hidden>
+        <i data-lucide="triangle-alert"></i>
+        <div><b>Dad's Pixel was refused</b><p>It connected from 10.8.0.14, which is on no phone-sync network — probably the VPN. Add 10.8.0.0/24 to let it back up from there.</p>
+          <div style="margin-top:8px"><button class="btn sm primary">Add 10.8.0.0/24</button></div></div>
+      </div>
+
+      <div class="ds-ready">
+        <span class="dot"></span><b>Phone backup is on</b>
+        <span>Every member · 50 GB each</span><span>2 networks</span><span>Address set</span>
+        <a href="#ds-setup">Settings</a>
+      </div>
+
+      <h2 class="h2gap">Phones</h2>
+      <div class="card">
+        <table class="stack">
+          <thead><tr><th>Phone</th><th>Last contact</th><th class="hide-phone">Network</th><th>State</th></tr></thead>
+          <tbody>
+            <tr><td class="c-name"><div class="libname"><span class="ti"><i data-lucide="smartphone"></i></span><span><b>Anna's iPhone</b><small>Anna</small></span></div></td><td class="c-access">4 minutes ago</td><td class="hide-phone">Home LAN</td><td class="c-status"><span class="status"><span class="dot"></span>Backing up</span></td></tr>
+            <tr class="dad"><td class="c-name"><div class="libname"><span class="ti"><i data-lucide="smartphone"></i></span><span><b>Dad's Pixel</b><small>Pavel · skips photos already in Family photos</small></span></div></td><td class="c-access">yesterday</td><td class="hide-phone">Home LAN</td>
+              <td class="c-status"><span class="status dad-ok"><span class="dot"></span>Backing up</span><span class="status dad-bad" hidden><span class="dot err"></span><span>Refused today<small>address not on a network</small></span></span></td></tr>
+            <tr><td class="c-name"><div class="libname"><span class="ti"><i data-lucide="tablet"></i></span><span><b>Family iPad</b><small>Masha</small></span></div></td><td class="c-access">9 days ago</td><td class="hide-phone">VPN</td><td class="c-status"><span class="status"><span class="dot" style="background:var(--warning)"></span>No contact for 9 days</span></td></tr>
+            <tr><td class="c-name"><div class="libname"><span class="ti"><i data-lucide="smartphone"></i></span><span><b>Masha's phone</b><small>Masha</small></span></div></td><td class="c-access">never</td><td class="hide-phone">—</td><td class="c-status"><span class="status"><span class="dot off"></span>Waiting for first contact</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="sub" style="margin-top:8px">Members add a phone themselves in <b>Profile › My library</b>. Backup only adds: deleting a photo on the phone leaves the server copy. You see phones and sizes, never what they sent.</p>
+
+      <h2 class="h2gap" id="ds-setup">Settings</h2>
+      <div class="card">
+        <div class="setrow"><i data-lucide="users"></i><div class="t"><b>Personal libraries</b><small>Who may have one, where they are kept and how big they may grow</small></div><span class="val">Every member · 50 GB each · Family media › Personal</span><button class="btn sm">Edit</button></div>
+        <div class="setrow"><i data-lucide="network"></i><div class="t"><b>Phone-sync networks</b><small>Where phones may back up from. Separate from sign-in's trusted networks.</small></div><span class="val">Home LAN 192.168.2.0/24 · VPN 192.168.12.0/24</span><button class="btn sm">Edit</button></div>
+        <div class="setrow"><i data-lucide="globe"></i><div class="t"><b>Address phones use</b><small>Shown to members on their phone setup card</small></div><span class="val mono">http://192.168.2.10:4000</span><button class="btn sm">Edit</button></div>
+      </div>
+
+      <h2 class="h2gap">Personal libraries</h2>
+      <div class="card">
+        <table>
+          <thead><tr><th>Member</th><th class="num">Size</th><th class="num hide-phone">Phones</th></tr></thead>
+          <tbody>
+            <tr><td>Anna</td><td class="num">12.4 GB <small style="color:var(--muted)">of 50 GB</small></td><td class="num hide-phone">1</td></tr>
+            <tr><td>Pavel</td><td class="num">31.0 GB <small style="color:var(--muted)">of 50 GB</small></td><td class="num hide-phone">1</td></tr>
+            <tr><td>Masha</td><td class="num">4.2 GB <small style="color:var(--muted)">of 50 GB</small></td><td class="num hide-phone">2</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note"><b>One page for phone backup.</b> Phones lead, because "is it working?" is the everyday question; a refused phone comes to the top with its fix. The three settings are today's editors (Personal libraries from Storage, networks and address from Security › Phone sync), folded to one line each with Edit. Security keeps a link to the networks editor. Personal libraries are listed on their own because one can exist without a phone. Searching "phone sync", "PhotoSync" or "phone backups" finds this page.</div>
+    </section>
+
+    <!-- ═══════════════ DEVICE SYNC · FIRST SETUP ═══════════════ -->
+    <section class="screen" id="s-devicesetup">
+      <div class="head">
+        <div class="ic"><i data-lucide="smartphone"></i></div>
+        <div class="t"><div class="eyebrow">Library</div><h1>Device Sync</h1><p>Members' phones back up photos and videos to their personal libraries. Check here that it's working.</p></div>
+      </div>
+
+      <div class="card block">
+        <h2>Set up phone backup</h2>
+        <p class="sub">Three things, once. Then each member adds their own phone.</p>
+        <ol class="checklist">
+          <li class="done"><span class="n"><i data-lucide="check"></i></span><div><b>Allow personal libraries</b><small>Every member · 50 GB each · Family media › Personal</small></div><button class="btn sm">Edit</button></li>
+          <li class="now"><span class="n">2</span><div><b>Choose where phones may back up from</b><small>Your home network, plus a VPN range for backing up away from home.</small></div><button class="btn sm primary">Add network</button></li>
+          <li><span class="n">3</span><div><b>Set the address phones use</b><small>This server on your home network, with its port, such as http://192.168.2.10:4000.</small></div><button class="btn sm" disabled>Set address</button></li>
+          <li class="member"><span class="n"><i data-lucide="user"></i></span><div><b>Then, each member</b><small>Profile › My library › Add a phone, and follow the card.</small></div></li>
+        </ol>
+      </div>
+      <div class="note"><b>Until it's set up</b>, the page is just this checklist; the phone list appears once the first phone has been added. Each step opens the same editor the running page uses.</div>
+    </section>
+
+    <!-- ═══════════════ APP STORAGE CONTENTS ═══════════════ -->
+    <section class="screen" id="s-contents">
+      <div class="head">
+        <div class="ic"><i data-lucide="list"></i></div>
+        <div class="t"><div class="eyebrow">Library</div><h1>App storage contents</h1><p>What is using App storage, whose it is, and files nothing uses any more.</p></div>
+        <div class="acts"><a class="btn" href="#" data-go="storage"><i data-lucide="hard-drive"></i><span class="label">Storage settings</span></a></div>
+      </div>
+      <div class="note"><b>Unchanged</b> apart from its name (was "Storage contents") and the Storage settings link; Storage's App storage card links back with "View contents".</div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══════════════ DIALOGS ═══════════════ -->
+<div class="backdrop" id="d-wizard">
+  <div class="dialog">
+    <div class="steps"><span>1 Type</span>›<span class="on">2 Folder</span>›<span>3 Review</span></div>
+    <h3>Where are the photos?</h3>
+    <p>Pick a library location, then the folder inside it that holds this library.</p>
+    <div class="form" style="margin-top:0">
+      <label class="lbl">Location<span class="field"><select><option>Family media — /mnt/user/media</option><option>Archive disk — /mnt/disks/archive</option></select></span></label>
+      <label class="lbl">Folder within location<span class="field"><input value="Photos/Scans"><button class="btn sm"><i data-lucide="folder-open"></i>Browse</button></span></label>
+      <div class="resolved"><i data-lucide="corner-down-right"></i>This library will read <code>/mnt/user/media/Photos/Scans</code></div>
+    </div>
+    <div class="footnote" style="margin-top:12px"><i data-lucide="info"></i>Not listed? Add it under Storage › <a href="#" data-dialog="addloc">Library locations</a>.</div>
+    <div class="modal-actions"><button class="btn" data-close>Back</button><button class="btn primary" data-close>Continue</button></div>
+  </div>
+</div>
+
+<div class="backdrop" id="d-addloc">
+  <div class="dialog">
+    <h3>Add library location</h3>
+    <p>A folder on this server that libraries may use. In Docker, use the path inside the container, such as <code>/media</code>.</p>
+    <div class="form" style="margin-top:0">
+      <label class="lbl">Name<span class="field"><input placeholder="Family media"></span></label>
+      <label class="lbl">Folder<span class="field"><input placeholder="/mnt/user/media"><button class="btn sm"><i data-lucide="folder-open"></i>Browse</button></span></label>
+    </div>
+    <div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-close>Add location</button></div>
+  </div>
+</div>
+
+<script>
+const LIBS = [
+  { name: "Family photos", type: "Gallery", icon: "image", access: ["users", "Family + 1"], contents: ["24,860 items", "186 GB"], status: ["ok", "Up to date", "2 hours ago"], manage: true },
+  { name: "Scanned albums", type: "Gallery", icon: "image", access: ["globe", "Everyone"], contents: ["3,412 items", "41.2 GB"], status: ["scan", "Scanning 42%", "View in Tasks"], manage: true },
+  { name: "Audiobooks", type: "Audiobooks", icon: "headphones", access: ["globe", "Everyone"], contents: ["316 books", "42.8 GB"], status: ["ok", "Up to date", "yesterday"], manage: true },
+  { name: "Ebooks", type: "Ebooks", icon: "book-open", access: ["globe", "Everyone"], contents: ["1,248 books", "3.2 GB"], status: ["ok", "Up to date", "yesterday"], manage: true },
+  { name: "Movies", type: "Video · Movies", icon: "clapperboard", access: ["lock", "Adults"], contents: ["124 films", "248 GB"], status: ["ok", "Up to date", "3 days ago"], manage: true },
+  { name: "Shows", type: "Video · Shows", icon: "tv", access: ["globe", "Everyone"], contents: ["42 shows", "132 GB"], status: ["ok", "Up to date", "3 days ago"], problem: ["err", "Can't read", "Video engine not answering"], manage: true },
+  { name: "Anna", type: "Personal · Gallery", icon: "user-round", access: ["lock", "Private"], contents: ["", "12.4 GB"], status: ["off", "Private", "contents not shown"], manage: false }
+];
+let showProblems = false;
+function renderLibs() {
+  const body = document.querySelector("#libtable tbody");
+  body.innerHTML = LIBS.map((l, i) => {
+    const s = showProblems && l.problem ? l.problem : l.status;
+    const statusSub = s[0] === "scan" ? `<a href="#">${s[2]}</a>` : s[2];
+    const bar = s[0] === "scan" ? `<div class="bar"><i style="width:42%"></i></div>` : "";
+    const menu = l.manage
+      ? `<button><i data-lucide="refresh-cw"></i>Rescan…</button><button><i data-lucide="external-link"></i>Browse library</button><hr><button class="danger"><i data-lucide="trash-2"></i>Delete library…</button>`
+      : `<button><i data-lucide="key-round"></i>Take ownership…</button><hr><button class="danger"><i data-lucide="trash-2"></i>Delete library…</button>`;
+    return `<tr>
+      <td class="c-name"><div class="libname"><span class="ti"><i data-lucide="${l.icon}"></i></span><span><b>${l.name}</b><small>${l.type}</small></span></div></td>
+      <td class="c-access"><span class="chip"><i data-lucide="${l.access[0]}"></i>${l.access[1]}</span></td>
+      <td class="num c-size hide-phone">${l.contents[0] ? l.contents[0] + "<br>" : ""}<small style="color:var(--muted)">${l.contents[1]}</small></td>
+      <td class="c-status"><span class="status"><span class="dot ${s[0]}"></span><span>${s[1]}<small>${statusSub}</small>${bar}</span></span></td>
+      <td class="c-acts"><div class="rowacts">
+        ${l.manage ? `<button class="btn sm" data-go="manage">Manage</button>` : ""}
+        <button class="btn icon" data-menu aria-label="More for ${l.name}"><i data-lucide="ellipsis"></i></button>
+        <div class="menu">${menu}</div></div></td></tr>`;
+  }).join("");
+  lucide.createIcons();
+}
+
+function go(screen) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === "s-" + screen));
+  document.querySelectorAll("[data-screen]").forEach((b) => b.classList.toggle("on", b.dataset.screen === screen));
+  const tab = { manage: "libraries", tags: "organization", devicesetup: "devicesync" }[screen] ?? screen;
+  document.querySelectorAll("[data-tab]").forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
+  window.scrollTo(0, 0);
+}
+function openDialog(id) { document.querySelectorAll(".backdrop").forEach((d) => d.classList.remove("open")); document.getElementById("d-" + id).classList.add("open"); }
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button, a, [data-tab]");
+  document.querySelectorAll(".menu.open").forEach((m) => { if (!t || m.previousElementSibling !== t) m.classList.remove("open"); });
+  if (!t) return;
+  if (t.dataset.screen) go(t.dataset.screen);
+  if (t.dataset.tab) go(t.dataset.tab);
+  if (t.dataset.go) { e.preventDefault(); document.querySelectorAll(".backdrop").forEach((d) => d.classList.remove("open")); go(t.dataset.go); }
+  if (t.dataset.dialog) { e.preventDefault(); openDialog(t.dataset.dialog); }
+  if (t.hasAttribute("data-close")) t.closest(".backdrop").classList.remove("open");
+  if (t.hasAttribute("data-menu")) t.nextElementSibling.classList.toggle("open");
+  if (t.dataset.themeBtn) {
+    document.documentElement.dataset.theme = t.dataset.themeBtn;
+    document.querySelectorAll("[data-theme-btn]").forEach((b) => b.classList.toggle("on", b === t));
+  }
+  if (t.id === "problems") {
+    showProblems = !showProblems; t.classList.toggle("on", showProblems);
+    document.querySelectorAll(".problem").forEach((p) => (p.hidden = !showProblems));
+    document.querySelector(".sysfree").textContent = showProblems ? "18 GB free of 240 GB" : "212 GB free of 240 GB";
+    document.querySelector(".sysbar").classList.toggle("warn", showProblems);
+    document.querySelector(".sysbar i").style.width = showProblems ? "92%" : "12%";
+    document.querySelector(".genres-ok").hidden = showProblems;
+    document.querySelector(".genres-down").hidden = !showProblems;
+    document.querySelector(".dad-ok").hidden = showProblems;
+    document.querySelector(".dad-bad").hidden = !showProblems;
+    renderLibs();
+  }
+});
+document.querySelectorAll(".backdrop").forEach((b) => b.addEventListener("click", (e) => { if (e.target === b) b.classList.remove("open"); }));
+renderLibs();
+</script>
+</body>
+</html>
