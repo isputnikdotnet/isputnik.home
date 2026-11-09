@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.75.0",
+    "label": "Who was at the door",
+    "changes": [
+      "**A failed sign-in now names the person and the device.** Security › Sign-ins used to gather every failed attempt under *Not signed in*, because a wrong password proves nothing about who typed it — but it does say whose account was tried. Each failed attempt now counts against the account whose name was typed, in the People table and in that person's own dive, and the attempts table shows the browser or phone it came from, with the account's name under the address. Names that match no account still gather under *Not signed in*. Attempts logged before this update are matched up by the name they tried; the device they came from was never recorded.",
+      "**A locked account shows on the page.** Being refused at a locked account counted nowhere, so an account could be locked for half an hour while Sign-ins looked quiet. Those refusals now count as failures with a **Locked out** result, the Failed card says how many there were, and the person's row says **Locked out now** with an unlock button — the same rescue as Members › Users.",
+      "**4.74.0 never reached the image registry.** Its build failed on a lint check over the Library mockup scripts in the docs folder, which are prototypes rather than the app; they are now excluded from the check, and ten database-upgrade tests that the Stremio removal had left failing are fixed. This release carries everything 4.74.0 announced, including the removal of the Stremio add-on."
+    ]
+  },
+  {
     "version": "4.74.0",
     "label": "Without Stremio",
     "changes": [

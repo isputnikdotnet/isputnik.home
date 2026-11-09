@@ -27,7 +27,12 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794225600</Date>
   <Changes>
-### 2026.11.09 — 4.74.0 Without Stremio
+### 2026.11.09 — 4.75.0 Who was at the door
+- **A failed sign-in now names the person and the device.** Security › Sign-ins used to gather every failed attempt under *Not signed in*, because a wrong password proves nothing about who typed it — but it does say whose account was tried. Each failed attempt now counts against the account whose name was typed, in the People table and in that person's own dive, and the attempts table shows the browser or phone it came from, with the account's name under the address. Names that match no account still gather under *Not signed in*. Attempts logged before this update are matched up by the name they tried; the device they came from was never recorded.
+- **A locked account shows on the page.** Being refused at a locked account counted nowhere, so an account could be locked for half an hour while Sign-ins looked quiet. Those refusals now count as failures with a **Locked out** result, the Failed card says how many there were, and the person's row says **Locked out now** with an unlock button — the same rescue as Members › Users.
+- **4.74.0 never reached the image registry.** Its build failed on a lint check over the Library mockup scripts in the docs folder, which are prototypes rather than the app; they are now excluded from the check, and ten database-upgrade tests that the Stremio removal had left failing are fixed. This release carries everything 4.74.0 announced, including the removal of the Stremio add-on.
+
+### 2026.11.08 — 4.74.0 Without Stremio
 - **The Stremio add-on is gone.** Stremio asks its users to pay for basics such as its own home page, and that is not a player this project should point a family at. The TV app does what the add-on did and more: your place is shared with the website, intros are skipped, profiles work, and nothing leaves the house. With this update every Stremio link stops working; the Stremio card on Profile › Security, the administrator's list of links on Security › App access › Video, its *Stremio* network rule and the guide are removed. Manage, Watch and Browse rules are unchanged.
 - The video engine needs its own update for this release: **isputnik.video 0.29** drops the add-on's routes; an older engine keeps working, it only answers on addresses nothing asks for any more.
 
@@ -50,9 +55,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **Help is now a handbook.** The Help page opens with the newest guide worth setting up, then the **common questions** as short answer cards, then every guide on shelves grouped like the app: Photos, Books, Family, You &amp; sign-in, On the TV and, for administrators, Running the server. The page sits in the middle of the window like Home.
 - **A guide starts with how the thing works.** Guides open with a diagram drawn in your theme's colours, then cards such as **Who sees what** and **What happens when…**, before the numbered steps. All the guides are listed on the left and **On this page** on the right follows you down. Parts meant only for administrators are hidden from members and from their search; an administrator can narrow a guide to **Using it** or **Setting it up**.
 - **Phone backup has three guides.** *Backing up your phone* for members, *Linking a phone to a library* for photos already on the server, and *Setting up phone backups* for administrators, with new screenshots and three new common questions: who can see your phone's photos, what deleting on the phone does, and backing up away from home.
-
-### 2026.11.06 — 4.71.1 Phone sync table fits
-- **The Phones table on Security › Phone sync fits its card again.** A phone refused from an unlisted network stretched the table past the edge, cutting off **See in Logs** and squeezing its state into a narrow column a word per line. The state now wraps as a short paragraph, **Add** for the range sits above **See in Logs**, and the table scrolls sideways inside its card only on a narrow window.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

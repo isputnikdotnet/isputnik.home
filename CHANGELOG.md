@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.75.0 — Who was at the door
+
+- **A failed sign-in now names the person and the device.** Security › Sign-ins used to gather every failed attempt under *Not signed in*, because a wrong password proves nothing about who typed it — but it does say whose account was tried. Each failed attempt now counts against the account whose name was typed, in the People table and in that person's own dive, and the attempts table shows the browser or phone it came from, with the account's name under the address. Names that match no account still gather under *Not signed in*. Attempts logged before this update are matched up by the name they tried; the device they came from was never recorded.
+- **A locked account shows on the page.** Being refused at a locked account counted nowhere, so an account could be locked for half an hour while Sign-ins looked quiet. Those refusals now count as failures with a **Locked out** result, the Failed card says how many there were, and the person's row says **Locked out now** with an unlock button — the same rescue as Members › Users.
+- **4.74.0 never reached the image registry.** Its build failed on a lint check over the Library mockup scripts in the docs folder, which are prototypes rather than the app; they are now excluded from the check, and ten database-upgrade tests that the Stremio removal had left failing are fixed. This release carries everything 4.74.0 announced, including the removal of the Stremio add-on.
+
 ## 4.74.0 — Without Stremio
 
 - **The Stremio add-on is gone.** Stremio asks its users to pay for basics such as its own home page, and that is not a player this project should point a family at. The TV app does what the add-on did and more: your place is shared with the website, intros are skipped, profiles work, and nothing leaves the house. With this update every Stremio link stops working; the Stremio card on Profile › Security, the administrator's list of links on Security › App access › Video, its *Stremio* network rule and the guide are removed. Manage, Watch and Browse rules are unchanged.
