@@ -199,6 +199,14 @@ player. **Settings → Video → Converting video** sets how:
 - **When a viewer's memory is full** — *Carry on on the disk* keeps the usual
   few minutes ready, the rest in the `/transcode` folder; *Keep less ahead*
   stays in memory and converts a little at a time.
+- **Quality away from home** (*up to 720p* to start with). Someone watching from
+  outside your network gets at most this picture, made smaller while they watch,
+  and starts at it; the player's **Quality** menu lets them pick less. A film
+  already under it is sent as it is. At home everyone gets the file as it is,
+  and the same menu offers 1080p, 720p and 480p for a weak Wi-Fi corner or a
+  phone; the choice is remembered in that browser, one for home and one for
+  away. One viewer at 720p needs about 5 Mbit/s of your upload link; a
+  Blu-ray rip sent as it is needs 30 or more, which is why the cap exists.
 
 The card shows who is watching what right now, and how much of it sits in
 memory and on the disk. Most films need well under the 300 MB; a Blu-ray rip

@@ -1094,6 +1094,11 @@
       "track": "Субтитры {{number}}",
       "forced": "Только надписи"
     },
+    "quality": {
+      "label": "Качество",
+      "original": "Оригинал",
+      "rung": "{{height}}p"
+    },
     "rating": "★ {{rating}}",
     "viewAria": "Вид",
     "viewSets": "Циклы",

@@ -307,9 +307,15 @@ interface ConversionSettings {
   whenFull: "disk" | "wait";
   /** Engine 0.20+: where a picture is re-encoded (isputnik.video hardware.ts). */
   hardware?: HardwareMode;
+  /** Engine 0.31+: the most a viewer on the internet gets, and their default
+   *  (docs/video-quality-plan.md); null is the file as it is. */
+  remoteQuality?: 1080 | 720 | 480 | null;
 }
 
 type HardwareMode = "auto" | "cpu" | "gpu";
+/** The quality setting as the form holds it. */
+type RemoteQuality = "original" | "1080" | "720" | "480";
+const REMOTE_QUALITIES: RemoteQuality[] = ["original", "1080", "720", "480"];
 
 /** What the engine found the GPU does (engine 0.20+). */
 interface HardwareState {
@@ -331,7 +337,7 @@ interface ConversionState {
   available: boolean;
   settings: ConversionSettings;
   usage: {
-    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; hdr?: boolean; converting: boolean; memoryBytes: number; diskBytes: number }[];
+    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; hdr?: boolean; rung?: number | null; converting: boolean; memoryBytes: number; diskBytes: number }[];
     memoryBytes: number;
     diskBytes: number;
   };
@@ -398,7 +404,7 @@ function HardwareStatus({ hardware, checking, onCheck }: { hardware: HardwareSta
 export function VideoConversion({ prefix }: { prefix: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [state, setState] = useState<ConversionState | null>(null);
-  const [form, setForm] = useState<{ memory: string; viewers: string; whenFull: ConversionSettings["whenFull"]; hardware: HardwareMode | null } | null>(null);
+  const [form, setForm] = useState<{ memory: string; viewers: string; whenFull: ConversionSettings["whenFull"]; hardware: HardwareMode | null; remoteQuality: RemoteQuality | null } | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -421,7 +427,9 @@ export function VideoConversion({ prefix }: { prefix: string }) {
         viewers: String(payload.settings.maxViewers),
         whenFull: payload.settings.whenFull,
         // An engine from before 0.20 has no GPU setting: none is offered.
-        hardware: payload.settings.hardware ?? null
+        hardware: payload.settings.hardware ?? null,
+        // …and one from before 0.31 no quality away from home.
+        remoteQuality: payload.settings.remoteQuality === undefined ? null : payload.settings.remoteQuality === null ? "original" : String(payload.settings.remoteQuality) as RemoteQuality
       }))
       .catch(() => undefined);
   }, [load]);
@@ -435,7 +443,8 @@ export function VideoConversion({ prefix }: { prefix: string }) {
     try {
       const body: ConversionSettings = {
         memoryPerViewerMb: Number(form.memory), maxViewers: Number(form.viewers), whenFull: form.whenFull,
-        ...(form.hardware ? { hardware: form.hardware } : {})
+        ...(form.hardware ? { hardware: form.hardware } : {}),
+        ...(form.remoteQuality ? { remoteQuality: form.remoteQuality === "original" ? null : Number(form.remoteQuality) as 1080 | 720 | 480 } : {})
       };
       setState(await api<ConversionState>(url, { method: "PUT", body: JSON.stringify(body) }));
       setSaved(true);
@@ -511,6 +520,7 @@ export function VideoConversion({ prefix }: { prefix: string }) {
                         {viewer.mode === "transcode" ? t("controlAdmin:apps.conversion.modeTranscode") : t("controlAdmin:apps.conversion.modeRemux")}
                         {viewer.converter && ` · ${viewer.converter === "gpu" ? t("controlAdmin:apps.conversion.onGpu") : t("controlAdmin:apps.conversion.onCpu")}`}
                         {viewer.hdr && ` · ${t("controlAdmin:apps.conversion.hdr")}`}
+                        {viewer.rung && ` · ${t("controlAdmin:apps.conversion.rung", { height: viewer.rung })}`}
                         {!viewer.converting && ` · ${t("controlAdmin:apps.conversion.paused")}`}
                       </td>
                       <td>{formatBytes(viewer.memoryBytes)}</td>
@@ -545,6 +555,24 @@ export function VideoConversion({ prefix }: { prefix: string }) {
                   { value: "gpu", label: t("controlAdmin:apps.conversion.hardwareGpu") }
                 ]}
                 onChange={(value) => setForm({ ...form, hardware: value })}
+              />
+            </div>
+          )}
+          {form.remoteQuality && (
+            <div className="security-setting-row">
+              <span className="security-setting-copy">
+                <span className="security-setting-label">{t("controlAdmin:apps.conversion.remoteQualityLabel")}</span>
+                <span className="security-setting-help">{t("controlAdmin:apps.conversion.remoteQualityHelp")}</span>
+              </span>
+              <SelectField<RemoteQuality>
+                label={t("controlAdmin:apps.conversion.remoteQualityLabel")}
+                hideLabel
+                value={form.remoteQuality}
+                options={REMOTE_QUALITIES.map((value) => ({
+                  value,
+                  label: value === "original" ? t("controlAdmin:apps.conversion.qualityOriginal") : t("controlAdmin:apps.conversion.qualityUpTo", { height: Number(value) })
+                }))}
+                onChange={(value) => setForm({ ...form, remoteQuality: value })}
               />
             </div>
           )}

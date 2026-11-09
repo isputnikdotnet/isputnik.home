@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowLeft, AudioLines, Captions, Flag, Maximize, Minimize, SkipForward } from "lucide-react";
+import { ArrowLeft, AudioLines, Captions, Flag, Gauge, Maximize, Minimize, SkipForward } from "lucide-react";
 import { api, csrfToken } from "../../api";
 import { useSession } from "../../app/SessionContext";
 import { followBack, followRoute, navigate } from "../../router";
@@ -9,7 +9,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { SelectMenu } from "../../shared/SelectMenu";
 import { VideoMarksPanel } from "./VideoMarksPanel";
-import { VIDEO_API, VIDEO_OVERVIEW_HREF, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoSubtitleTrack } from "./types";
+import { VIDEO_API, VIDEO_OVERVIEW_HREF, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoQuality, type VideoQualityChoice, type VideoSubtitleTrack } from "./types";
 import "../../styles/video.css";
 
 type HlsInstance = import("hls.js").default;
@@ -25,6 +25,19 @@ const AUDIO_LANGUAGE_KEY = "isputnik.video.audioLanguage";
 /** …and the subtitles: a language, or "off" once they were turned off. */
 const SUBTITLE_LANGUAGE_KEY = "isputnik.video.subtitleLanguage";
 const SUBTITLES_OFF = "off";
+/** …and the picture's quality: one choice at home and one away, since the reasons
+ *  differ (docs/video-quality-plan.md). "original", or a rung's height. */
+const qualityKey = (network: VideoQualityChoice["network"]) => `isputnik.video.quality.${network === "internet" ? "away" : "home"}`;
+const QUALITY_ORIGINAL = "original";
+
+/** A quality from its menu value or stored preference; undefined for anything else. */
+function qualityOf(value: string | null): VideoQuality | undefined {
+  if (value === QUALITY_ORIGINAL) return null;
+  const height = Number(value);
+  return height === 1080 || height === 720 || height === 480 ? height : undefined;
+}
+
+const qualityValue = (quality: VideoQuality) => (quality === null ? QUALITY_ORIGINAL : String(quality));
 
 function readPreference(key: string): string | null {
   try {
@@ -95,10 +108,11 @@ function nextName(t: TFunction, next: NonNullable<VideoPlayInfo["next"]>): strin
   return next.title ? `${code} · ${next.title}` : code;
 }
 
-function playQuery(audio: number | null | undefined, burn: string | null | undefined): string {
+function playQuery(audio: number | null | undefined, burn: string | null | undefined, quality?: VideoQuality): string {
   const params = new URLSearchParams();
   if (audio !== null && audio !== undefined) params.set("audio", String(audio));
   if (burn) params.set("subtitle", burn);
+  if (quality !== undefined) params.set("quality", qualityValue(quality));
   const query = params.toString();
   return query ? `?${query}` : "";
 }
@@ -171,9 +185,13 @@ export function VideoPlayerPage({ id }: { id: string }) {
         const wanted = language ? (payload.audioTracks ?? []).find((track) => track.language === language) : undefined;
         const shown = pickSubtitle(payload.subtitleTracks ?? [], readPreference(SUBTITLE_LANGUAGE_KEY));
         const burn = shown?.kind === "image" ? shown.id : null;
-        if ((wanted && !wanted.selected) || burn) {
+        // The quality chosen last here (at home, or away), where the engine allows it.
+        const choice = payload.playback.quality;
+        const kept = choice ? qualityOf(readPreference(qualityKey(choice.network))) : undefined;
+        const quality = choice && kept !== undefined && kept !== choice.current && choice.allowed.includes(kept) ? kept : undefined;
+        if ((wanted && !wanted.selected) || burn || quality !== undefined) {
           const audio = wanted?.index ?? payload.audioTracks?.find((track) => track.selected)?.index;
-          payload = await api<VideoPlayInfo>(`${playUrl}${playQuery(audio, burn)}`).catch(() => payload);
+          payload = await api<VideoPlayInfo>(`${playUrl}${playQuery(audio, burn, quality)}`).catch(() => payload);
         }
         if (!live) return;
         startAt.current = payload.resumeAt;
@@ -231,11 +249,11 @@ export function VideoPlayerPage({ id }: { id: string }) {
 
   /** The film again from the engine, with this sound and image subtitle, from
    *  where it is now. */
-  const replay = async (audio: number | null | undefined, burn: string | null): Promise<boolean> => {
+  const replay = async (audio: number | null | undefined, burn: string | null, quality: VideoQuality | undefined = info?.playback.quality?.current): Promise<boolean> => {
     if (!info) return false;
     const at = video.current?.currentTime ?? startAt.current;
     try {
-      const payload = await api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(info.id)}${playQuery(audio, burn)}`);
+      const payload = await api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(info.id)}${playQuery(audio, burn, quality)}`);
       startAt.current = at;
       switched.current = true;
       setResumedAt(0);
@@ -265,6 +283,20 @@ export function VideoPlayerPage({ id }: { id: string }) {
     const burn = track?.kind === "image" ? track.id : null;
     if (burn !== burnedId && !(await replay(selectedAudio, burn))) return;
     setSubtitle(track ? track.id : SUBTITLES_OFF);
+  };
+
+  // The picture's quality: what plays and what may be picked (engine 0.31+); the
+  // menu is there once there is a choice — always at home, away only under a
+  // cap that leaves more than one rung.
+  const qualityChoice = info?.playback.quality;
+  const qualityOptions = qualityChoice && qualityChoice.allowed.length > 1 ? qualityChoice.allowed : [];
+
+  /** A smaller picture, or the full one: the engine makes that instead, from where the film is. */
+  const chooseQuality = async (value: string) => {
+    const quality = qualityOf(value);
+    if (quality === undefined || !qualityChoice || quality === qualityChoice.current) return;
+    writePreference(qualityKey(qualityChoice.network), value);
+    await replay(selectedAudio, burnedId, quality);
   };
 
   // The text track chosen is shown, the rest hidden. The browser adds a <track>
@@ -323,7 +355,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
         // engine says so on a fresh look; anything else this browser can't play.
         const audio = info.audioTracks?.find((track) => track.selected)?.index;
         const burn = info.subtitleTracks?.find((track) => track.burned)?.id;
-        api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(info.id)}${playQuery(audio, burn)}`).then(
+        api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(info.id)}${playQuery(audio, burn, info.playback.quality?.current)}`).then(
           (payload) => {
             if (!live) return;
             if (payload.playback.busy) setInfo((current) => (current && current.id === payload.id ? { ...current, playback: payload.playback } : current));
@@ -459,11 +491,24 @@ export function VideoPlayerPage({ id }: { id: string }) {
             onChange={(value) => void chooseSubtitle(value)}
           />
         )}
+        {qualityChoice && qualityOptions.length > 0 && (
+          <SelectMenu
+            className="video-player-audio"
+            label={t("video.quality.label")}
+            triggerIcon={<Gauge size={16} aria-hidden="true" />}
+            value={qualityValue(qualityChoice.current)}
+            options={qualityOptions.map((quality) => ({
+              value: qualityValue(quality),
+              label: quality === null ? t("video.quality.original") : t("video.quality.rung", { height: quality })
+            }))}
+            onChange={(value) => void chooseQuality(value)}
+          />
+        )}
         {user.role === "admin" && info?.available && (
           <Button
             variant="secondary"
             compact
-            className={`video-player-mark${audioTracks.length > 1 || subtitleTracks.length > 0 ? "" : " is-alone"}`}
+            className={`video-player-mark${audioTracks.length > 1 || subtitleTracks.length > 0 || qualityOptions.length > 0 ? "" : " is-alone"}`}
             aria-pressed={marking}
             onClick={() => setMarking((value) => !value)}
           >

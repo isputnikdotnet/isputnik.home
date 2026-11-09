@@ -4,8 +4,8 @@ For the video engine (isputnik.video) and home's player. Background:
 `docs/video-architecture.md`; builds on `docs/video-hw-transcode-plan.md` (the GPU
 converts) and sits beside `docs/video-skip-plan.md`.
 
-Status: proposed 2026-11-08, nothing built. Decisions below are recommendations
-for the owner.
+Status: proposed 2026-11-08; the owner took the four decisions as recommended and
+Q1 was built 2026-11-09 (see "As built in Q1"). Q2 and Q3 wait on use.
 
 ## In one sentence
 
@@ -87,10 +87,10 @@ Original is a cap on **height and bitrate**:
 | anything | Original | exactly today's decision |
 
 The bitrate test uses the probe's **overall bitrate** (`format.bit_rate`, falling back
-to size ÷ duration), with a fifth of slack so a 1080p film at 8.5 Mbit/s is not
-re-encoded to save nothing. `MediaInfo` gains `bitRate`; probes from before this
-release are read again once, the way 0.25.0 did for colour (`media-probe.ts`,
-`fresh`).
+to size ÷ duration) against the **most the rung itself would make** (10, 4 and
+2 Mbit/s), so a 1080p film at 9 Mbit/s is not re-encoded to save nothing.
+`MediaInfo` gains `bitRate`; probes from before this release are read again once,
+the way 0.25.0 did for colour (`media-probe.ts`, `fresh`).
 
 **Where the rung comes from**, in order:
 
@@ -137,6 +137,26 @@ of them; nothing to change there.
   `check:ui` enforces it).
 - `docs/video-architecture.md` open question 3 is answered: streaming through home's
   gateway is not the bottleneck; the upload link is, and this plan is the answer to it.
+
+## As built in Q1 (2026-11-09, for engine 0.31.0 and home 4.78.0)
+
+- Engine: `delivery.ts` has `Rung`, `RUNGS`, `RUNG_LIMITS` (8/10 · 3/4 · 1.5/2 Mbit/s
+  aimed/most; sound 192k · 128k · 96k) and a fifth argument to `decideDelivery`; a
+  file above the rung gets reason `size`. `ffmpeg.ts` keeps `bitRate`. `identity.ts`
+  reads `X-Isputnik-Network` into `identity.network` ("home" when an older home
+  doesn't send it). `app.ts`: `?quality=original|1080|720|480` on `/play`,
+  `q<height>` after the track in the HLS address, `qualityFor()` applies the cap
+  (`remoteQuality` in the conversion settings, default 720, null for the original);
+  an internet viewer asking for the uncapped address gets 404. The `/play` answer's
+  `playback.quality` is `{ current, allowed, network }`; the viewers list carries
+  `rung`.
+- Home: a Quality menu in the player beside Sound and Subtitles, shown whenever more
+  than one rung is allowed; the choice is kept in `localStorage` under
+  `isputnik.video.quality.home` / `.away` and asked for again on the next film.
+  Settings › Video › Converting video gained *Quality away from home*; the Apps guide
+  and the search index say so.
+- Not done, as planned: no TV app picker (it sends no `quality`, so a TV on the LAN
+  plays the original as before), no auto switching (Q2), no travel copies (Q3).
 
 ## Auto switching without extra encodes (Q2)
 

@@ -62,11 +62,29 @@ describe("converting on the GPU", () => {
     expect(JSON.parse(calls.find((call) => call.method === "PUT")!.body!)).toMatchObject({ hardware: "cpu" });
   });
 
+  it("saves the quality for viewers away from home, and marks each viewer's rung (engine 0.31+)", async () => {
+    const calls: { method: string; body?: string }[] = [];
+    const rungUsage = { ...usage, viewers: [{ ...usage.viewers[0], rung: 720 }] };
+    mockApi.mockImplementation((async (_path: string, options?: RequestInit) => {
+      calls.push({ method: options?.method ?? "GET", body: options?.body as string | undefined });
+      return { ...state(kabyLake, { remoteQuality: 720 }), usage: rungUsage };
+    }) as never);
+    render(<VideoConversion prefix="/video" />);
+    expect(await screen.findByText(/· GPU · 720p/)).toBeInTheDocument();
+    const field = screen.getByLabelText("Quality away from home");
+    expect(field).toHaveValue("720");
+    await userEvent.selectOptions(field, "original");
+    await userEvent.click(screen.getByRole("button", { name: /Save/ }));
+    await waitFor(() => expect(calls.find((call) => call.method === "PUT")).toBeDefined());
+    expect(JSON.parse(calls.find((call) => call.method === "PUT")!.body!)).toMatchObject({ remoteQuality: null });
+  });
+
   it("offers no GPU setting to an engine from before it had one", async () => {
     mockApi.mockResolvedValue(state(undefined) as never);
     render(<VideoConversion prefix="/video" />);
     expect(await screen.findByLabelText("People watching converted video at once", { exact: false })).toBeInTheDocument();
     expect(screen.queryByLabelText("Where to convert")).toBeNull();
+    expect(screen.queryByLabelText("Quality away from home")).toBeNull();
     expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
   });
 });

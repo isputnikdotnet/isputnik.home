@@ -141,6 +141,9 @@ rest of home works. Library rows and access stay editable in home.
    with audiobook progress so "Continue" rows are one query?
 2. **Categories for films** — worth it, or tags only at first?
 3. **Streaming through home** — fine on the LAN; revisit if a remote viewer
-   shows home's CPU or bandwidth is the bottleneck.
+   shows home's CPU or bandwidth is the bottleneck. *Answered 2026-11-09: the
+   gateway piping bytes is not the bottleneck, the house's upload link is;
+   `docs/video-quality-plan.md` (quality rungs, a cap for viewers on the
+   internet) is the answer to that.*
 4. **One video library per type** (Shows, Movies) or mixed libraries the
    container sorts itself?

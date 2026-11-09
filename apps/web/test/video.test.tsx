@@ -750,6 +750,69 @@ describe("the player", () => {
     });
   });
 
+  describe("quality (engine 0.31+)", () => {
+    const hlsAt = (rung: number | null, network: string, allowed: (number | null)[]) => ({
+      mode: rung ? "transcode" : "remux", reasons: rung ? ["container", "size"] : ["container"],
+      url: `/video/api/hls/e2/t1${rung ? `q${rung}` : ""}/index.m3u8`, duration: 2400,
+      quality: { current: rung, allowed, network }
+    });
+    const atHome = (path: string) => {
+      const asked = /quality=(\w+)/.exec(path)?.[1];
+      return { ...playInfo, playback: hlsAt(asked && asked !== "original" ? Number(asked) : null, "home", [null, 1080, 720, 480]) };
+    };
+
+    beforeEach(() => {
+      window.localStorage.removeItem("isputnik.video.quality.home");
+      window.localStorage.removeItem("isputnik.video.quality.away");
+      hlsCalls.source = "";
+    });
+
+    it("offers the rungs the engine allows, and switches to the one chosen from where the film is", async () => {
+      mockApi.mockImplementation((async (path: string) => atHome(path)) as never);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t1/index.m3u8"));
+
+      await userEvent.click(screen.getByRole("button", { name: "Quality: Original" }));
+      expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["Original", "1080p", "720p", "480p"]);
+      await userEvent.click(screen.getByRole("option", { name: "720p" }));
+      expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2?quality=720");
+      await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t1q720/index.m3u8"));
+      expect(screen.getByRole("button", { name: "Quality: 720p" })).toBeInTheDocument();
+      // Remembered for the next film at home, apart from the choice away.
+      expect(window.localStorage.getItem("isputnik.video.quality.home")).toBe("720");
+      expect(window.localStorage.getItem("isputnik.video.quality.away")).toBeNull();
+    });
+
+    it("starts at the quality chosen last time here, when the engine allows it", async () => {
+      window.localStorage.setItem("isputnik.video.quality.home", "480");
+      mockApi.mockImplementation((async (path: string) => atHome(path)) as never);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t1q480/index.m3u8"));
+      expect(hlsCalls.config).toMatchObject({ startPosition: 754 });
+    });
+
+    it("away from home offers only what the admin's cap allows, and hides the menu under a cap of one", async () => {
+      // Capped at 720p: the engine starts there and offers 720p and 480p.
+      mockApi.mockResolvedValue({ ...playInfo, playback: hlsAt(720, "internet", [720, 480]) });
+      const view = renderSignedIn(<VideoPlayerPage id="e2" />);
+      await userEvent.click(await screen.findByRole("button", { name: "Quality: 720p" }));
+      expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["720p", "480p"]);
+      view.unmount();
+
+      mockApi.mockResolvedValue({ ...playInfo, playback: hlsAt(480, "internet", [480]) });
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Quality/ })).not.toBeInTheDocument();
+    });
+
+    it("shows no menu to an engine that offers no quality", async () => {
+      mockApi.mockResolvedValue(playInfo);
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Quality/ })).not.toBeInTheDocument();
+    });
+  });
+
   describe("subtitles", () => {
     const text = { id: "s3", kind: "text", codec: "subrip", language: "eng", title: null, default: false, forced: false, external: false, url: "/video/api/subtitles/e2/s3.vtt", burned: false };
     const beside = { id: "x0123456789", kind: "text", codec: "srt", language: "ru", title: "SDH", default: false, forced: false, external: true, url: "/video/api/subtitles/e2/x0123456789.vtt", burned: false };

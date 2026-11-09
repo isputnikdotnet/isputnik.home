@@ -1012,6 +1012,11 @@
       "track": "Subtitles {{number}}",
       "forced": "Forced"
     },
+    "quality": {
+      "label": "Quality",
+      "original": "Original",
+      "rung": "{{height}}p"
+    },
     "rating": "★ {{rating}}",
     "viewAria": "View",
     "viewSets": "Sets",

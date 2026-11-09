@@ -101,10 +101,23 @@ export interface VideoNextUp {
  *  engine has no ffmpeg and the browser can't play it as it is. */
 export type VideoPlaybackMode = "direct" | "remux" | "transcode" | "none";
 
+/** A ceiling on the picture (engine 0.31+, docs/video-quality-plan.md): the tallest
+ *  it may be, held to that rung's bitrate too; null is the file as it is. */
+export type VideoQuality = 1080 | 720 | 480 | null;
+
+export interface VideoQualityChoice {
+  /** What is playing. */
+  current: VideoQuality;
+  /** What this person may pick: everything at home, up to the admin's cap away. */
+  allowed: VideoQuality[];
+  /** Where the gateway saw the browser: a trusted zone, the home network, or the internet. */
+  network: "trusted" | "home" | "internet";
+}
+
 export interface VideoPlayback {
   mode: VideoPlaybackMode;
-  /** Why it isn't sent as it is. */
-  reasons: ("container" | "audio" | "video" | "subtitles")[];
+  /** Why it isn't sent as it is; "size": it is above the quality rung asked. */
+  reasons: ("container" | "audio" | "video" | "subtitles" | "size")[];
   /** The file, or its HLS playlist, through the gateway. */
   url: string | null;
   duration: number | null;
@@ -112,6 +125,8 @@ export interface VideoPlayback {
    *  ("person", engine 0.7.0+) this person is converting `title` already, on
    *  another screen or in a tab left open. */
   busy?: { limit: number; reason?: "household" | "person"; title?: string } | null;
+  /** The quality playing and the rungs on offer (engine 0.31+). */
+  quality?: VideoQualityChoice;
 }
 
 /** A sound track, as the engine found it (ffprobe). */
