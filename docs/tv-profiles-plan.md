@@ -6,8 +6,9 @@ Status, 2026-11-08:
   Replaced the same day by the household model below.
 - **Household profiles + PIN**: pushed 2026-11-08 (home ccdf46f3, TV 2aa66d8), not yet seen on
   a real TV (the owner asked for no TV testing yet).
-- **Own history per profile (P3)**: built 2026-11-09 in home and the engine, not committed.
-  Needs engine 0.30+; with an older engine a profile shares its person's history, as before.
+- **Own history per profile (P3)**: built 2026-11-09.
+- **Released 2026-11-09** together: isputnik.video 0.30.0, home 4.76.0 ("Who's watching"),
+  iSputnik TV 0.9.0. With an older engine a profile shares its person's history.
 
 ## What the owner asked for
 
