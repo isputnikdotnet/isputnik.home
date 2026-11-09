@@ -27,6 +27,13 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794225600</Date>
   <Changes>
+### 2026.11.09 — 4.77.0 Photos on the TV
+- **Photos come to the TV, as a controlled view.** A TV may be watched by more people than the photos' owners, so it never gets the whole gallery: only the slideshows and albums an admin puts on its list. No folders, timeline, people or search.
+- **On TV, on the Photos page.** Admins find it on the Albums and Slideshows views: add a slideshow or an album, put them in the order the TV shows them, and take one off again (nothing is deleted). Each line says which profiles see it: **Everyone but restricted profiles** (the default), **Everyone**, or **Only…** chosen profiles and "Without a profile". That is how *Kids* gets Grandma's birthday album and nothing else.
+- **A person's own access still applies on top.** The list only ever narrows: a photo the person signed in can't open on the website never shows on the TV, even inside a picked album. A slideshow's rendered movie plays on the TV only when the viewer may see every photo in it; otherwise the TV plays the slideshow live, with just their photos.
+- **A TV can't wander off the list.** A TV's session reads only its list's albums and slideshows, their photos and videos, their music and allowed movies; everything else in Photos is refused, and it can change nothing.
+- The TV app's **Photos** tab arrives in **iSputnik TV 0.11**: a banner and rows of slideshows and albums, a full-screen viewer with each slideshow's own timing and transitions, music, videos playing in place, and a caption with the date, place and who is in the photo. The tab appears only when something is on the list for the profile watching.
+
 ### 2026.11.09 — 4.76.0 Who's watching
 - **Viewing profiles, as on Netflix.** An admin sets up the household's ways of watching video — *Kids*, *Russian*, *Classic* — on the video page under **Customize › Profiles**. Each has a name, a colour, the video libraries it shows and rows of its own (set on its tab in Customize; until then it shows the household's rows).
 - **Every TV and browser can watch as a profile.** The TV app asks **Who's watching?** when it opens, and the video page has a **Watching as** menu. A profile only ever narrows what the person signed in may see — search, title pages and sets show nothing outside its libraries — and it changes Video only: photos, books and the rest of the app stay the account's.
@@ -50,14 +57,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **Duplicate detection looks at every candidate.** It used to stop after 50 same-size photos (20 Live Photo clips), in no particular order, so a library with many photos of one size could store a copy it already had. It now starts from the indexed hashes and then checks every same-size file, remembering each digest so the work is done once.
 - **The setup card tells you when it worked.** After you add a phone, the card says *Waiting for the phone*, then *Connected*, then *First photo received* — or why the phone was refused — without reloading the page, and the phone list refreshes on its own while it is open.
 - **It is called phone backup everywhere now** — on Profile, on the Device Sync page and in the guides — because it deliberately goes one way only, from the phone into your library.
-
-### 2026.11.07 — 4.73.0 Library control panel
-- **Library's tabs each answer one question:** Libraries, Organization, Device Sync, Storage and App storage contents. Before, Categories, Tags and Video genres sat beside Libraries and Storage as if they were the same kind of thing, and setting up phone backup meant visiting Storage, Security and a library's settings.
-- **Organization** shows Book categories, Tags and Video genres as cards that say what each applies to, with their numbers and the action you usually come for — **Re-match all books**, **Remove unused**. Their editors open from the cards, from search, or from a library's page, and their old addresses still work.
-- **Device Sync** puts phone backup in one place: the networks phones may use, the address they use, every member's phones and, moved from Storage, who may have a personal library and how big it may grow. It was Security › Phone sync.
-- **Each library has a Manage page.** A row now shows who can open the library, what it holds and its **Status** — up to date, scanning with a link to follow it, or what went wrong — with **Manage** and a **⋯** menu for Rescan and Delete, instead of six small icons. The Manage page lists only what that type of library can have set, the shared sets it is organized with, and everything the old details window showed.
-- **Storage reads more simply.** *Digital Library containers* are now **Library locations** — "container" also meant the apps beside the server — each with its free space, and **Remove** rather than Delete, since the folder stays. System data and App storage lead with their folder, free space and **Change**; the details fold under **What's inside**, which opens by itself when a move runs or something needs attention.
-- **Tags used only on stories or family-tree people no longer look unused.** The Tags page counted only books and photos, so such a tag showed 0 and was counted by **Remove unused** (which never actually removed it). The page now shows library items and everything else, and the delete dialog counts every use.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

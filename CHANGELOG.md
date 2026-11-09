@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.77.0 — Photos on the TV
+
+- **Photos come to the TV, as a controlled view.** A TV may be watched by more people than the photos' owners, so it never gets the whole gallery: only the slideshows and albums an admin puts on its list. No folders, timeline, people or search.
+- **On TV, on the Photos page.** Admins find it on the Albums and Slideshows views: add a slideshow or an album, put them in the order the TV shows them, and take one off again (nothing is deleted). Each line says which profiles see it: **Everyone but restricted profiles** (the default), **Everyone**, or **Only…** chosen profiles and "Without a profile". That is how *Kids* gets Grandma's birthday album and nothing else.
+- **A person's own access still applies on top.** The list only ever narrows: a photo the person signed in can't open on the website never shows on the TV, even inside a picked album. A slideshow's rendered movie plays on the TV only when the viewer may see every photo in it; otherwise the TV plays the slideshow live, with just their photos.
+- **A TV can't wander off the list.** A TV's session reads only its list's albums and slideshows, their photos and videos, their music and allowed movies; everything else in Photos is refused, and it can change nothing.
+- The TV app's **Photos** tab arrives in **iSputnik TV 0.11**: a banner and rows of slideshows and albums, a full-screen viewer with each slideshow's own timing and transitions, music, videos playing in place, and a caption with the date, place and who is in the photo. The tab appears only when something is on the list for the profile watching.
+
 ## 4.76.0 — Who's watching
 
 - **Viewing profiles, as on Netflix.** An admin sets up the household's ways of watching video — *Kids*, *Russian*, *Classic* — on the video page under **Customize › Profiles**. Each has a name, a colour, the video libraries it shows and rows of its own (set on its tab in Customize; until then it shows the household's rows).
