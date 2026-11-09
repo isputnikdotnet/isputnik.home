@@ -116,7 +116,7 @@ phone — the tab says so.
 
 Under your library, **Phones** is where you let a phone back up its photos into it, with the
 PhotoSync app. Your administrator first has to say which networks phones may back up from
-(your home Wi-Fi, a VPN); until then the section says phone sync is unavailable.
+(your home Wi-Fi, a VPN); until then the section says phone backup is unavailable.
 
 1. Press **Add a phone** and give it a name ("My Galaxy").
 2. The next screen shows what to type into PhotoSync's WebDAV target: server, port, path
@@ -136,7 +136,7 @@ phone is lost or replaced, **Revoke** it: it stops at once, and the photos it al
 
 Each phone in the list shows how its backup is going: last contact, the last file received,
 what arrived in the last 24 hours and in all, and the last problem ("File type not allowed:
-.dng", "Refused: not from a phone-sync network") until the phone backs up again. A phone out of
+.dng", "Refused: not from a phone-backup network") until the phone backs up again. A phone out of
 touch for a week says so, and a library close to its size limit warns here and on My library
 before phones are refused. Setting up PhotoSync step by step, automatic
 backups and battery settings are in [Backing up your phone](phone-backup.md).

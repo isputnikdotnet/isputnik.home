@@ -17,7 +17,7 @@ import { addPhone, revokePhone } from "../src/modules/library/gallery/sync/devic
 import { photoSyncDavPlugin } from "../src/modules/library/gallery/sync/dav.js";
 import { davPathOf } from "../src/modules/library/gallery/sync/namespace.js";
 import {
-  deviceFolderName, parseClientDate, setFreeSpaceProbeForTests, STAGING_PREFIX
+  deviceFolderName, inFlightBytes, parseClientDate, setFreeSpaceProbeForTests, STAGING_PREFIX
 } from "../src/modules/library/gallery/sync/put.js";
 import { getPersonalSettings, savePersonalSettings } from "../src/modules/library/gallery/personal/settings.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
@@ -307,6 +307,66 @@ describe("a backup, the way PhotoSync sends it", () => {
     expect((db.prepare("SELECT item_id FROM photo_sync_files WHERE client_path = '/Camera/IMG_1.jpg'").get() as { item_id: string }).item_id).toBe(handId);
   });
 
+  it("stores the original again once the file a phone sent was replaced in place", async () => {
+    // A record of what was sent is no proof the bytes are still there: the file was edited
+    // (rotated, retouched) on the server after the first phone sent it, and the catalogue
+    // followed. The second phone's untouched original must not be thrown away.
+    const original = await jpeg(1);
+    await dav("PUT", "/dav/Camera/a.jpg", { payload: original });
+    const [stored] = filesOnDisk();
+    fs.writeFileSync(path.join(root, stored!), await jpeg(2));
+    const { scanSingleGalleryFile } = await import("../src/modules/library/gallery/scanner.js");
+    await scanSingleGalleryFile("mine", stored!);
+    const second = addPhone({ id: "mia" }, "Mia's phone", null);
+    const res = await app.inject({
+      method: "PUT", url: "/dav/Pixel/DCIM/a.jpg", payload: original, remoteAddress: PHONE_IP,
+      headers: { authorization: basic(second.raw) }
+    });
+    expect(res.statusCode).toBe(201);
+    const files = filesOnDisk();
+    expect(files).toHaveLength(2);
+    expect(files.some((file) => fs.readFileSync(path.join(root, file)).equals(original))).toBe(true);
+  });
+
+  it("takes the same phone's copy again when the file at its path was replaced in place", async () => {
+    // PhotoSync re-sends a path when asked to; "nothing changed" is only true while the
+    // server still has those bytes. A deletion at home is different and stays a 204 below.
+    const original = await jpeg(1);
+    await dav("PUT", "/dav/Camera/a.jpg", { payload: original });
+    const [stored] = filesOnDisk();
+    fs.writeFileSync(path.join(root, stored!), await jpeg(2));
+    const { scanSingleGalleryFile } = await import("../src/modules/library/gallery/scanner.js");
+    await scanSingleGalleryFile("mine", stored!);
+    expect((await dav("PUT", "/dav/Camera/a.jpg", { payload: original })).statusCode).toBe(201);
+    const files = filesOnDisk();
+    expect(files).toHaveLength(2);
+    expect(files.some((file) => fs.readFileSync(path.join(root, file)).equals(original))).toBe(true);
+    // Sent again untouched, it is "nothing changed" once more.
+    expect((await dav("PUT", "/dav/Camera/a.jpg", { payload: original })).statusCode).toBe(204);
+    expect(filesOnDisk()).toHaveLength(2);
+  });
+
+  it("finds a copy among any number of same-size files", async () => {
+    // Sixty files of one size, the wanted one sorted last: no fixed cutoff may hide it.
+    const size = 4096;
+    fs.mkdirSync(path.join(root, "2024"));
+    const insertItem = db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status, discovered_at) VALUES (?, 'mine', 'gallery', ?, 'ready', '2026-01-01T00:00:00.000Z')");
+    const insertDetails = db.prepare("INSERT INTO gallery_details (item_id, kind, relative_path, size) VALUES (?, 'photo', ?, ?)");
+    const bodyOf = (n: number) => { const body = Buffer.alloc(size, 0); body.writeUInt32BE(n, 0); return body; };
+    for (let n = 0; n < 60; n += 1) {
+      const relativePath = `2024/f${String(n).padStart(2, "0")}.jpg`;
+      fs.writeFileSync(path.join(root, relativePath), bodyOf(n));
+      insertItem.run(`same${String(n).padStart(2, "0")}`, relativePath);
+      insertDetails.run(`same${String(n).padStart(2, "0")}`, relativePath, size);
+    }
+    const res = await dav("PUT", "/dav/Camera/x.jpg", { payload: bodyOf(59) });
+    expect(res.statusCode).toBe(201);
+    expect(filesOnDisk()).toHaveLength(60);
+    expect((db.prepare("SELECT item_id FROM photo_sync_files WHERE client_path = '/Camera/x.jpg'").get() as { item_id: string }).item_id).toBe("same59");
+    // The digests read on the way are kept, so the next lookup compares instead of reading.
+    expect((db.prepare("SELECT COUNT(*) AS n FROM gallery_details WHERE content_hash IS NOT NULL").get() as { n: number }).n).toBe(60);
+  });
+
   it("never overwrites: new content at a known path is a new file, and the old one stays", async () => {
     await dav("PUT", "/dav/Camera/IMG_20261102_160025.jpg", { payload: await jpeg(1) });
     const changed = await dav("PUT", "/dav/Camera/IMG_20261102_160025.jpg", { payload: await jpeg(2) });
@@ -395,6 +455,23 @@ describe("limits", () => {
     const res = await dav("PUT", "/dav/a.jpg", { payload: Buffer.alloc(4096, 1) });
     expect(res.statusCode).toBe(507);
     expect(fs.readdirSync(root)).toEqual([]);
+  });
+
+  it("holds room for uploads in flight, so two that fit alone never both fit", async () => {
+    const a = await jpeg(1);
+    const b = await jpeg(2);
+    setSizeLimitGB((Math.max(a.length, b.length) * 1.5) / 1024 ** 3);
+    const [first, second] = await Promise.all([
+      dav("PUT", "/dav/a.jpg", { payload: a }),
+      dav("PUT", "/dav/b.jpg", { payload: b })
+    ]);
+    expect([first.statusCode, second.statusCode].sort()).toEqual([201, 507]);
+    expect(filesOnDisk()).toHaveLength(1);
+    expect(inFlightBytes("mine")).toBe(0);
+    // And on its own, the refused one fits once there is room again.
+    setSizeLimitGB(((a.length + b.length) * 1.5) / 1024 ** 3);
+    expect((await dav("PUT", "/dav/c.jpg", { payload: first.statusCode === 201 ? b : a })).statusCode).toBe(201);
+    expect(filesOnDisk()).toHaveLength(2);
   });
 
   it("refuses with 507 when the disk is full, and leaves nothing behind", async () => {

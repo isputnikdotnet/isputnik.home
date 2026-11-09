@@ -94,7 +94,7 @@
       "ipReputation": "IP reputation (AbuseIPDB)",
       "deletionProtection": "Deletion protection",
       "addTrustedNetwork": "Add a trusted network",
-      "phoneSyncNetworks": "Phone-sync networks",
+      "phoneSyncNetworks": "Phone-backup networks",
       "scheduledBackups": "Scheduled backups",
       "containerBackups": "Container backups",
       "defaultTheme": "Default theme",
@@ -604,7 +604,7 @@
       "loading": "Loading phones…",
       "unableToLoad": "Unable to load phones",
       "syncOffTitle": "Phone backup is off",
-      "syncOffBody": "Phones can be linked now; they back up once phone-sync networks are listed.",
+      "syncOffBody": "Phones can be linked now; they back up once phone-backup networks are listed.",
       "openPhoneSync": "Open Device Sync",
       "howTitle": "Link before the first backup",
       "howBody": "A link counts from then on: photos a phone already stored in its personal library stay there. A photo deleted from this library after the phone has sent it is not sent again. Stop the old backup app on the phone, or new photos arrive twice."

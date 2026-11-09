@@ -66,8 +66,12 @@ yet (or not for you): ask them. More about the library itself is in
 > **The password is shown only this once.** Leave the screen open until PhotoSync is set up. If
 > you lose it, revoke the phone and add it again: it costs nothing.
 
+The card watches for the phone while it is open: it says **Waiting for the phone** until
+PhotoSync signs in with these details, then **Connected**, and **First photo received** once
+the first one lands. If the phone is refused, the card says why.
+
 If the screen says the server address isn't set yet, your administrator still has to fill it
-in; keep the password and ask them for the address. If **Phones** says phone sync is
+in; keep the password and ask them for the address. If **Phones** says phone backup is
 unavailable, no network has been listed for phone backups yet.
 
 ## Setting up PhotoSync
@@ -174,7 +178,7 @@ The problems you may see:
 
 | Problem | What to do |
 | --- | --- |
-| **Refused: not from a phone-sync network** (with an address) | The phone tried from somewhere not listed: mobile data, a friend's Wi-Fi, a VPN the administrator hasn't added. Back up at home, or ask the administrator to list your VPN. |
+| **Refused: not from a phone-backup network** (with an address) | The phone tried from somewhere not listed: mobile data, a friend's Wi-Fi, a VPN the administrator hasn't added. Back up at home, or ask the administrator to list your VPN. |
 | **File type not allowed: .dng** | RAW photos (and other types the library doesn't take) are turned away. Switch RAW off in the camera, or leave those out of Autotransfer. The other photos still go. |
 | **Your library has reached its size limit** | Your administrator set a limit. Move photos into a family library, delete some, or ask for more room. |
 | **The server's disk is full** | Tell your administrator. Nothing is lost; the phone sends again once there is room. |
@@ -184,7 +188,7 @@ The problems you may see:
 
 Backups away from home only work through a **VPN into the house** (UniFi, WireGuard, Tailscale
 and the like), and only once your administrator has added the VPN's addresses to the
-phone-sync networks.
+phone-backup networks.
 
 1. Turn the VPN on.
 2. Send from PhotoSync by hand. If Autotransfer is set to *Wi-Fi only*, it waits until you are

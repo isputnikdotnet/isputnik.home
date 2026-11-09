@@ -36,7 +36,7 @@ revoked on Profile › My library, and what it sent stays.
 ## Can my phone back up when I'm away from home?
 
 Only through a VPN into the house, once your administrator has added its
-addresses to the phone-sync networks. Never over mobile data or the open
+addresses to the phone-backup networks. Never over mobile data or the open
 internet; the phone simply catches up when you are home.
 
 [Backing up your phone › Away from home](phone-backup.md#away-from-home)

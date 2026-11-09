@@ -184,7 +184,7 @@ Everything about members backing up their phones, on one page (until 4.73 it was
 split between Security › Phone sync and the bottom of Storage). Setting it up step
 by step has [its own guide](phone-sync-setup.md).
 
-**Phone-sync networks** are where members' phones may back up photos from (into
+**Phone-backup networks** are where members' phones may back up photos from (into
 their personal library). It is a list of its own: it relaxes nothing about signing
 in, so a VPN range can go here without skipping two-factor sign-in or lockout for
 it. Type a range with its size (`192.168.12.0/24`); a bare `192.168.12.0` is

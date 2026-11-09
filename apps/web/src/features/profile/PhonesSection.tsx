@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
 import { Check, Copy, Plus, Smartphone, Trash2 } from "lucide-react";
 import { api } from "../../api";
@@ -73,15 +74,19 @@ interface AddedPhone {
 
 const GUIDE_HREF = "/help/phone-backup";
 
-/** One phone's backup at a glance: last contact and file, today and in all, and the
- *  last problem — as a notice until the phone backs up again, as a line after. A week
- *  without contact, and a library near its limit, are said here too (phase 5). */
-function PhoneStatusLines({ status, createdAt, usage }: { status: PhoneStatus; createdAt: string; usage: LibraryUsage | null }) {
-  const { t } = useTranslation();
-  const PROBLEM_TEXT: Record<ProblemCode, string> = {
-    not_listed: t("profile.phones.problem.not_listed", { detail: status.problem?.detail ?? "" }),
+/** While the setup card is open the list is asked again every few seconds, so the card
+ *  says when the phone connects and when its first photo lands; otherwise now and then,
+ *  so the cards follow a phone that is backing up. Never while the tab is hidden. */
+const SETUP_POLL_MS = 4_000;
+const LIST_POLL_MS = 30_000;
+
+/** How the last problem is worded (server: sync/status.ts). The detail is never a file name. */
+function problemText(t: TFunction, problem: NonNullable<PhoneStatus["problem"]>): string {
+  const detail = problem.detail ?? "";
+  const words: Record<ProblemCode, string> = {
+    not_listed: t("profile.phones.problem.not_listed", { detail }),
     proxy: t("profile.phones.problem.proxy"),
-    type: t("profile.phones.problem.type", { detail: status.problem?.detail ?? "" }),
+    type: t("profile.phones.problem.type", { detail }),
     too_large: t("profile.phones.problem.too_large"),
     quota: t("profile.phones.problem.quota"),
     disk_full: t("profile.phones.problem.disk_full"),
@@ -90,9 +95,41 @@ function PhoneStatusLines({ status, createdAt, usage }: { status: PhoneStatus; c
     library_unavailable: t("profile.phones.problem.library_unavailable"),
     server_error: t("profile.phones.problem.server_error")
   };
+  return words[problem.code];
+}
+
+/** Whether a problem is still standing. The server says; an older server's answer is read the old way. */
+function currentProblem(status: PhoneStatus): NonNullable<PhoneStatus["problem"]> | null {
   const problem = status.problem;
-  // The server says when it is over; an older server's answer is read the old way.
-  const current = problem && (problem.current ?? (!status.lastReceived || problem.at > status.lastReceived));
+  if (!problem) return null;
+  return (problem.current ?? (!status.lastReceived || problem.at > status.lastReceived)) ? problem : null;
+}
+
+/** On the setup card: waiting for the phone, then connected, then its first photo — or
+ *  what went wrong — so the details typed into PhotoSync are seen to work. */
+function SetupProgress({ phone }: { phone: Phone | null }) {
+  const { t } = useTranslation();
+  const status = phone?.status ?? null;
+  const problem = status ? currentProblem(status) : null;
+  if (problem) {
+    return <MessageBox tone="warning" title={t("profile.phones.setup.problemTitle")}>{problemText(t, problem)}</MessageBox>;
+  }
+  if (status?.lastReceived) {
+    return <MessageBox tone="success" title={t("profile.phones.setup.receivedTitle")}>{t("profile.phones.setup.receivedBody")}</MessageBox>;
+  }
+  if (status?.lastContact) {
+    return <MessageBox tone="success" title={t("profile.phones.setup.connectedTitle")}>{t("profile.phones.setup.connectedBody")}</MessageBox>;
+  }
+  return <MessageBox tone="info" title={t("profile.phones.setup.waitingTitle")}>{t("profile.phones.setup.waitingBody")}</MessageBox>;
+}
+
+/** One phone's backup at a glance: last contact and file, today and in all, and the
+ *  last problem — as a notice until the phone backs up again, as a line after. A week
+ *  without contact, and a library near its limit, are said here too (phase 5). */
+function PhoneStatusLines({ status, createdAt, usage }: { status: PhoneStatus; createdAt: string; usage: LibraryUsage | null }) {
+  const { t } = useTranslation();
+  const problem = status.problem;
+  const current = currentProblem(status) !== null;
   return (
     <>
       <span className="opds-intro">
@@ -127,12 +164,12 @@ function PhoneStatusLines({ status, createdAt, usage }: { status: PhoneStatus; c
       )}
       {problem && current && (
         <MessageBox tone="warning" title={t("profile.phones.problemTitle", { date: formatDateTime(problem.at) })}>
-          {PROBLEM_TEXT[problem.code]}
+          {problemText(t, problem)}
         </MessageBox>
       )}
       {problem && !current && (
         <span className="opds-intro">
-          {t("profile.phones.problemEarlier", { date: formatDateTime(problem.at), problem: PROBLEM_TEXT[problem.code] })}
+          {t("profile.phones.problemEarlier", { date: formatDateTime(problem.at), problem: problemText(t, problem) })}
         </span>
       )}
     </>
@@ -181,6 +218,13 @@ export function PhonesSection() {
   }, [t]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, added ? SETUP_POLL_MS : LIST_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [added, load]);
 
   const copy = async (key: string, value: string) => {
     try {
@@ -331,6 +375,7 @@ export function PhonesSection() {
                   components={{ guide: <a href={GUIDE_HREF} onClick={(event) => followRoute(event, GUIDE_HREF)} /> }}
                 />
               </p>
+              <SetupProgress phone={phones.find((phone) => phone.id === added.id) ?? null} />
               <div className="modal-actions">
                 <Button variant="primary" onClick={closeAdd}>{t("common.done")}</Button>
               </div>

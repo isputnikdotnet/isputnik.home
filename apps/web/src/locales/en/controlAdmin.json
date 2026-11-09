@@ -1598,12 +1598,12 @@
     "thPhones": "Phones"
   },
   "phoneSync": {
-    "heading": "Phone-sync networks",
-    "desc": "Where members' phones may back up photos from. Empty means phone sync is off.",
+    "heading": "Phone-backup networks",
+    "desc": "Where members' phones may back up photos from. Empty means phone backup is off.",
     "apartTitle": "A list of its own",
     "apartBody": "Listing a network here only lets phones back up from it. Unlike trusted networks it relaxes nothing about signing in, so a VPN range can go here without skipping two-factor sign-in, lockout or rate limits. Each phone still needs its own key.",
     "add": "Add network",
-    "addTitle": "Add a phone-sync network",
+    "addTitle": "Add a phone-backup network",
     "labelPlaceholder": "Home Wi-Fi, WireGuard…",
     "copyTrusted": "Copy trusted networks",
     "copying": "Copying…",
@@ -1612,12 +1612,12 @@
     "copiedNone": "Every trusted network is already on the list.",
     "doneTitle": "Done",
     "remove": "Remove network",
-    "removeAria": "Remove phone-sync network {{cidr}}",
-    "offTitle": "Phone sync is off",
+    "removeAria": "Remove phone-backup network {{cidr}}",
+    "offTitle": "Phone backup is off",
     "offBody": "No network is listed, so no phone can back up. Add your home network (and a VPN range for backing up away from home) to turn it on.",
-    "loadFailed": "Unable to load phone-sync networks.",
+    "loadFailed": "Unable to load phone-backup networks.",
     "addFailed": "Unable to add the network.",
-    "updateFailed": "Unable to update phone-sync networks",
+    "updateFailed": "Unable to update phone-backup networks",
     "addressHeading": "Address phones use",
     "addressDesc": "Type this server's address on your home network once, with its port — the one the Phones setup card in Profile › My library shows members, such as http://192.168.2.10:4000. Never a public address: phones back up over the LAN or a VPN only.",
     "saveAddress": "Save address",
@@ -1628,7 +1628,7 @@
     "addressFailed": "Unable to save the address.",
     "addressLabel": "Address",
     "addressUnset": "Not set yet: the setup card tells members you haven't set it. Phones can still be added.",
-    "outsideTitle": "This address is outside the phone-sync networks",
+    "outsideTitle": "This address is outside the phone-backup networks",
     "outsideBody": "Phones on the listed networks may not reach it, and backups are only accepted from those networks. Check the address, or add its network to the list."
   },
   "storage": {
@@ -1988,7 +1988,7 @@
       "revokeFailed": "Unable to revoke the phone",
       "loadFailed": "Unable to load their phones.",
       "problem": {
-        "not_listed": "Refused: not from a phone-sync network ({{detail}})",
+        "not_listed": "Refused: not from a phone-backup network ({{detail}})",
         "proxy": "Refused: the server is behind a proxy it does not trust",
         "quota": "Their library has reached its size limit",
         "disk_full": "The server's disk is full",
@@ -2200,7 +2200,7 @@
     "stateStale_other": "No contact for {{count}} days",
     "noNetwork": "not on a list",
     "addRange": "Add {{range}}",
-    "addRangeTitle": "Add {{range}} to the phone-sync networks",
+    "addRangeTitle": "Add {{range}} to the phone-backup networks",
     "addingRange": "Adding…",
     "addRangeFailed": "Unable to add the network",
     "rangeLabel": "Added for {{phone}}",
@@ -2208,7 +2208,7 @@
     "skipsLibrary": "Skips photos already in {{library}}",
     "skipsLibraryNoAccess": "Linked to {{library}}, which the member can't open: not used",
     "seeInLogsAria": "See {{phone}} in Logs",
-    "allInLogs": "All phone sync history in Logs",
-    "movedNote": "Phone-sync networks are on <link>Library › Device Sync</link>."
+    "allInLogs": "All phone backup history in Logs",
+    "movedNote": "Phone-backup networks are on <link>Library › Device Sync</link>."
   }
 }

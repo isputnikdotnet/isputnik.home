@@ -454,8 +454,8 @@
     "phones": {
       "heading": "Phones",
       "intro": "Back up your phone's photos into this library with the PhotoSync app. Each phone gets its own key, which you can revoke at any time.",
-      "unavailableTitle": "Phone sync is unavailable",
-      "unavailableOff": "Phone sync is unavailable: no phone-sync network is set. Ask your administrator to add your home network.",
+      "unavailableTitle": "Phone backup is unavailable",
+      "unavailableOff": "Phone backup is unavailable: no phone-backup network is set. Ask your administrator to add your home network.",
       "add": "Add a phone",
       "adding": "Adding…",
       "addTitle": "Add a phone",
@@ -502,7 +502,7 @@
       "problemTitle": "Problem on {{date}}",
       "problemEarlier": "Earlier problem ({{date}}): {{problem}}",
       "problem": {
-        "not_listed": "Refused: not from a phone-sync network ({{detail}}). Back up on your home Wi-Fi, or ask your administrator to list your VPN.",
+        "not_listed": "Refused: not from a phone-backup network ({{detail}}). Back up on your home Wi-Fi, or ask your administrator to list your VPN.",
         "proxy": "Refused: the server can't tell which network the phone is on. Ask your administrator.",
         "type": "File type not allowed: {{detail}}",
         "too_large": "A file was larger than this library allows.",
@@ -518,7 +518,16 @@
       "staleTitle_other": "No contact for {{count}} days",
       "staleBody": "This phone was last in touch on {{date}}. Open PhotoSync on it and check that it is on your home Wi-Fi or the VPN, and that its battery settings let it run.",
       "staleNever": "This phone hasn't connected since it was added on {{date}}. Check the server, user name and password in its app.",
-      "nearLimit": "Your library is {{percent}}% full. Backups stop at {{limit}}."
+      "nearLimit": "Your library is {{percent}}% full. Backups stop at {{limit}}.",
+      "setup": {
+        "waitingTitle": "Waiting for the phone…",
+        "waitingBody": "Once PhotoSync connects with these details, this card says so on its own.",
+        "connectedTitle": "Connected",
+        "connectedBody": "The phone has signed in. Send a photo or two from PhotoSync to try it.",
+        "receivedTitle": "First photo received",
+        "receivedBody": "Backup works. Photos go into your library as they arrive — you can close this now.",
+        "problemTitle": "The phone connected, but something is wrong"
+      }
     },
     "tvProfiles": {
       "heading": "TV profiles",

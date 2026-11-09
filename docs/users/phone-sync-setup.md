@@ -5,7 +5,7 @@ Members back their phones up into a personal library of their own with the Photo
 settings, once per install. After that each member turns on their own library and adds their
 own phones, and you see how each phone is doing, never what it sent.
 
-![Three settings you make once (personal libraries, the phone-sync networks, the address phones use) let each member turn on My library, add a phone and set up PhotoSync. You then see every phone and each library's size, never what is in it.](images/diagrams/phone-sync-setup.svg)
+![Three settings you make once (personal libraries, the phone-backup networks, the address phones use) let each member turn on My library, add a phone and set up PhotoSync. You then see every phone and each library's size, never what is in it.](images/diagrams/phone-sync-setup.svg)
 
 <div class="guide-cards">
 <div class="guide-card">
@@ -46,7 +46,7 @@ into each. More in [Storage](storage.md#personal-libraries).
 
 ## Listing the networks
 
-Phones are refused unless they come from a **phone-sync network**.
+Phones are refused unless they come from a **phone-backup network**.
 
 1. Open **Library › Device Sync**.
 2. Add your home network, for example `192.168.2.0/24`. **Copy trusted networks** is a starting
