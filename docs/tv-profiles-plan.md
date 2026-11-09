@@ -97,8 +97,34 @@ owner changed that the same day to the household model.
   forget its history (best effort).
 - Screens need no change: the TV and the web ask the same routes as before.
 
+## Kids: libraries, not age ratings (decided 2026-11-09)
+
+Kids stays a pair of libraries (*Kids Movies*, *Kids Shows*). A film from the ordinary
+libraries that the children may watch is moved into Kids Movies. Nothing else is built.
+
+Why not an age-rating limit: the data isn't there for this household's library, which is
+mostly Soviet classics.
+- The engine stores no ratings, and the owner's `.nfo` files rarely carry one (1 of 15 films).
+- Sampled on TMDB, 12 of the owner's titles: 2 have a Russian rating (Иван Васильевич 12+,
+  Операция «Ы» 6+), 3 only a US one (Маша и Медведь TV-Y, Counterpart TV-MA, Bad Boys R), and
+  7 have neither, including every kids' title checked (Электроник, Тайна третьей планеты,
+  Врунгель, Ералаш).
+- A safe limit must hide unrated titles, which would empty Kids; letting them through
+  would make it pointless.
+
+Plex and Jellyfin hit the same wall: both offer a rating cap but rely on tags (Plex labels,
+Jellyfin allowed tags) or hand-edited ratings for older and non-American films, and Jellyfin
+leaves "block unrated items" as the admin's choice.
+
+**When to revisit**, in this order:
+1. **A tag allowance** (the next step, before ratings): a profile shows its libraries plus any
+   title carrying a chosen tag (home already tags films and shows). Needs the engine to accept
+   the allowed titles, since it filters by library only today. Worth it when a film belongs in
+   both an adults' and the Kids library.
+2. **Manual ratings** with a max age per profile, pre-filled from TMDB or the `.nfo`: only if
+   the household wants age steps between children (6+ and 12+ profiles) or the library grows
+   too large to sort by folder.
+
 ## Open questions
 
-1. **Age ratings.** Kids is a library choice today. A TMDB certification cap would let Kids
-   use the ordinary libraries; worth it only if the engine's certifications are reliable.
-2. **Avatars.** Colours and a letter for now; pictures would need to ship in the TV app too.
+1. **Avatars.** Colours and a letter for now; pictures would need to ship in the TV app too.
