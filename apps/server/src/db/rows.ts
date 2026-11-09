@@ -1521,17 +1521,26 @@ export interface VideoRefRow {
   updated_at: string;
 }
 
+/** `viewing_profile_pin` */
+export interface ViewingProfilePinRow {
+  id: number;
+  pin_hash: string;
+  failures: number;
+  locked_until: string | null;
+  updated_by: string | null;
+  updated_at: string;
+}
+
 /** `viewing_profiles` */
 export interface ViewingProfileRow {
   id: string;
-  user_id: string;
   name: string;
   avatar: string;
   position: number;
   restricted: 0 | 1;
   libraries: string | null;
-  sections: string | null;
   rows: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1700,6 +1709,7 @@ export interface TableRows {
   video_home_user_layouts: VideoHomeUserLayoutRow;
   video_my_list: VideoMyListRow;
   video_refs: VideoRefRow;
+  viewing_profile_pin: ViewingProfilePinRow;
   viewing_profiles: ViewingProfileRow;
   webauthn_challenges: WebauthnChallengeRow;
   webauthn_credentials: WebauthnCredentialRow;

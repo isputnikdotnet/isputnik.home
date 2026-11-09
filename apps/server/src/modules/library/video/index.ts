@@ -20,6 +20,7 @@ import { registerAppGateway } from "../../apps/gateway.js";
 import { resolveAppSecret } from "../../apps/pairing.js";
 import { appConfigured, appDefinition } from "../../apps/registry.js";
 import { currentProfileOf, getProfile, visibleVideoLibraryIds, type ViewingProfile } from "../../profiles/store.js";
+import { sessionLocked } from "../../profiles/fence.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
 import { getHouseholdLayout, getProfileLayout, getVideoLayout, resetVideoLayout, saveProfileRows, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
 import { canReadCollectionRow, registerVideoListRoutes } from "./lists.js";
@@ -114,22 +115,23 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   // screen, as the viewer. `editable` is whether this person may change the
   // household's; their own they always may.
   //
-  // A viewing profile (modules/profiles) is a third layer: a TV wearing one gets
-  // its page, and its owner edits it from the browser with scope "profile".
+  // A viewing profile (modules/profiles) is a third layer: a session wearing one gets
+  // its page, and an admin edits it with scope "profile".
   const pageLayout = (user: { id: string; role: string }) => ({ ...getVideoLayout(user.id), editable: user.role === "admin" });
   const profileLayout = (profile: ViewingProfile, user: { id: string; role: string }) =>
     ({ ...getProfileLayout(profile), profileId: profile.id, editable: user.role === "admin" });
   const videoGate = (request: FastifyRequest, reply: FastifyReply) =>
     !available() || appRole("video", request.user!) === null ? reply.code(404).send({ error: "Video is not available" }) : null;
-  /** The profile a request names (scope "profile"), only ever the person's own. */
+  /** The profile a change names (scope "profile"): the household's, so an admin's to
+   *  change, from a keyboard and not from inside a locked profile. */
   const namedProfile = (request: FastifyRequest, reply: FastifyReply, id: string | undefined) => {
-    const profile = id ? getProfile(id, request.user!.id) : null;
-    if (!profile) {
-      reply.code(404).send({ error: "Profile not found" });
+    if (request.user!.role !== "admin" || request.sessionKind === "device" || sessionLocked(request)) {
+      reply.code(403).send({ error: "Only an admin changes a profile's rows" });
       return null;
     }
-    if (request.sessionKind === "device") {
-      reply.code(403).send({ error: "Profiles are changed in Profile on your own device, not on a TV." });
+    const profile = id ? getProfile(id) : null;
+    if (!profile) {
+      reply.code(404).send({ error: "Profile not found" });
       return null;
     }
     return profile;
@@ -141,8 +143,8 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     const { scope, profile: profileId } = layoutScopeSchema.parse(request.query ?? {});
     if (scope === "everyone") return { ...getHouseholdLayout(), mine: false, editable: request.user!.role === "admin" };
     if (scope === "profile") {
-      // Reading is fine from anywhere the profile's owner is signed in.
-      const profile = profileId ? getProfile(profileId, request.user!.id) : null;
+      // Anyone may read a household profile's page; the screens narrow it to them.
+      const profile = profileId ? getProfile(profileId) : null;
       if (!profile) return reply.code(404).send({ error: "Profile not found" });
       return profileLayout(profile, request.user!);
     }
@@ -166,8 +168,9 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     if (scope === "profile") {
       const profile = namedProfile(request, reply, profileId);
       if (!profile) return reply;
-      saveProfileRows(profile.id, request.user!.id, rows);
-      return profileLayout(getProfile(profile.id, request.user!.id)!, request.user!);
+      saveProfileRows(profile.id, rows);
+      logActivity({ event: "library.video.rows_saved", actorUserId: request.user!.id, targetType: "viewing_profile", targetId: profile.id, detail: `Saved the video page's rows for the profile "${profile.name}" (${rows.length}).`, ipAddress: request.ip });
+      return profileLayout(getProfile(profile.id)!, request.user!);
     }
     saveVideoLayout(scope, rows, request.user!.id);
     if (scope === "everyone") {
@@ -186,8 +189,8 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
       // Back to following its owner's page.
       const profile = namedProfile(request, reply, query.profile);
       if (!profile) return reply;
-      saveProfileRows(profile.id, request.user!.id, null);
-      return profileLayout(getProfile(profile.id, request.user!.id)!, request.user!);
+      saveProfileRows(profile.id, null);
+      return profileLayout(getProfile(profile.id)!, request.user!);
     }
     resetVideoLayout(scope, request.user!.id);
     if (scope === "everyone") {

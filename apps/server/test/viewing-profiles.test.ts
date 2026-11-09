@@ -1,31 +1,30 @@
-// Viewing profiles (modules/profiles, docs/tv-profiles-plan.md phase P1): views of
-// one account for a shared TV. What matters most here is that a profile only ever
-// NARROWS: the engine is told fewer libraries, never more, and a section a profile
-// leaves out is refused on the server, not just hidden on the screen.
+// Viewing profiles (modules/profiles, docs/tv-profiles-plan.md): the household's ways of
+// watching video, set up by an admin and worn by any TV or browser. What matters most is
+// that a profile only ever NARROWS: the engine is told fewer libraries, never more, and
+// never more than the signed-in account may see.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
-import { ALL_SECTIONS_ON } from "../src/core/sections.js";
 import { videoPlugin } from "../src/modules/library/video/index.js";
 import { profilesPlugin } from "../src/modules/profiles/index.js";
-import { fencedSection } from "../src/modules/profiles/fence.js";
 import { bootApp, type BootedApp, type TestSession } from "./helpers/boot.js";
 import { grant, makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
 const SECRET = "video-gateway-secret-0123456789abcdef";
 let engine: FastifyInstance;
 let booted: BootedApp;
-let browser: TestSession;
+let admin: TestSession;
 let tv: TestSession;
+let mum: TestSession;
 
 beforeEach(async () => {
   resetDb();
+  makeUser("admin", "admin");
   makeUser("dad", "member");
   makeUser("mum", "member");
-  for (const id of ["films", "cartoons", "secret"]) makeLibrary(id, { createdBy: "dad", type: "video" });
-  grant("user", "dad", "films", "viewer");
-  grant("user", "dad", "cartoons", "viewer");
-  grant("user", "mum", "secret", "viewer");
+  for (const id of ["films", "cartoons", "secret"]) makeLibrary(id, { createdBy: "admin", type: "video" });
+  for (const id of ["films", "cartoons"]) grant("user", "dad", id, "viewer");
+  grant("user", "mum", "cartoons", "viewer");
 
   engine = Fastify();
   engine.get("/video/api/shows", async (request) => ({ libraries: request.headers["x-isputnik-libraries"] }));
@@ -33,16 +32,10 @@ beforeEach(async () => {
   const address = engine.server.address();
   const upstream = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 
-  booted = await bootApp({
-    plugins: [[videoPlugin, { upstream, secret: SECRET }], profilesPlugin],
-    afterRegister: (app) => {
-      // Something in a section a Kids profile leaves out.
-      app.get("/api/family-tree/test", { preHandler: app.authenticate }, async () => ({ ok: true }));
-      app.get("/api/stories", { preHandler: app.authenticate }, async () => ({ ok: true }));
-    }
-  });
-  browser = await booted.session("dad");
+  booted = await bootApp({ plugins: [[videoPlugin, { upstream, secret: SECRET }], profilesPlugin] });
+  admin = await booted.session("admin");
   tv = await booted.session("dad", { kind: "device", label: "Living Room TV" });
+  mum = await booted.session("mum");
 });
 
 afterEach(async () => {
@@ -51,31 +44,35 @@ afterEach(async () => {
 });
 
 const kids = { name: "Kids", avatar: "green", restricted: true, libraries: ["cartoons"] };
-const create = async (body: unknown = kids) => booted.as(browser.cookie).post("/api/profiles", body as never);
+const create = async (body: unknown = kids) => booted.as(admin.cookie).post("/api/profiles", body as never);
 const wear = async (profileId: string | null, session = tv) => booted.as(session.cookie).post("/api/profiles/switch", { profileId });
 const engineSees = async (session = tv) =>
   String((await booted.as(session.cookie).get("/video/api/shows")).json().libraries).split(",").filter(Boolean).sort();
 
-describe("making profiles", () => {
-  it("is done from a browser, and a restricted one starts with Video alone", async () => {
+describe("setting profiles up", () => {
+  it("is an admin's, for the whole household", async () => {
     const res = await create();
     expect(res.statusCode).toBe(201);
-    expect(res.json().profile).toMatchObject({ name: "Kids", avatar: "green", restricted: true, libraries: ["cartoons"], sections: ["video"], ownRows: false });
-    const list = (await booted.as(browser.cookie).get("/api/profiles")).json();
-    expect(list.profiles).toHaveLength(1);
-    expect(list).toMatchObject({ current: null, editable: true });
+    expect(res.json().profile).toMatchObject({ name: "Kids", avatar: "green", restricted: true, libraries: ["cartoons"], ownRows: false });
+    // Everyone sees the same list; only an admin at a keyboard may change it.
+    const seen = (await booted.as(mum.cookie).get("/api/profiles")).json();
+    expect(seen.profiles.map((profile: { name: string }) => profile.name)).toEqual(["Kids"]);
+    expect(seen.editable).toBe(false);
+    expect((await booted.as(admin.cookie).get("/api/profiles")).json().editable).toBe(true);
+    expect(db.prepare("SELECT created_by FROM viewing_profiles").get()).toEqual({ created_by: "admin" });
   });
 
-  it("is refused on a TV, so the remote can't loosen Kids", async () => {
-    expect((await booted.as(tv.cookie).post("/api/profiles", kids)).statusCode).toBe(403);
+  it("is refused to members and to TVs, even an admin's", async () => {
     const id = (await create()).json().profile.id as string;
-    expect((await booted.as(tv.cookie).patch(`/api/profiles/${id}`, { ...kids, libraries: null })).statusCode).toBe(403);
-    expect((await booted.as(tv.cookie).delete(`/api/profiles/${id}`)).statusCode).toBe(403);
-    expect((await booted.as(tv.cookie).get("/api/profiles")).json().editable).toBe(false);
+    expect((await booted.as(mum.cookie).post("/api/profiles", kids)).statusCode).toBe(403);
+    expect((await booted.as(mum.cookie).patch(`/api/profiles/${id}`, { ...kids, libraries: null })).statusCode).toBe(403);
+    const adminTv = await booted.session("admin", { kind: "device" });
+    expect((await booted.as(adminTv.cookie).delete(`/api/profiles/${id}`)).statusCode).toBe(403);
   });
 
-  it("keeps only libraries the owner can see", async () => {
-    const res = await create({ ...kids, libraries: ["cartoons", "secret", "nowhere"] });
+  it("keeps only video libraries", async () => {
+    makeLibrary("books", { createdBy: "admin", type: "audiobook" });
+    const res = await create({ ...kids, libraries: ["cartoons", "books", "nowhere"] });
     expect(res.json().profile.libraries).toEqual(["cartoons"]);
   });
 
@@ -83,46 +80,35 @@ describe("making profiles", () => {
     expect((await create({ ...kids, avatar: "skull" })).statusCode).toBe(400);
     expect((await create({ ...kids, name: "  " })).statusCode).toBe(400);
   });
-
-  it("are never another account's", async () => {
-    const id = (await create()).json().profile.id as string;
-    const mum = await booted.session("mum");
-    const mumTv = await booted.session("mum", { kind: "device" });
-    expect((await booted.as(mum.cookie).patch(`/api/profiles/${id}`, kids)).statusCode).toBe(404);
-    expect((await booted.as(mum.cookie).delete(`/api/profiles/${id}`)).statusCode).toBe(404);
-    expect((await wear(id, mumTv)).statusCode).toBe(404);
-  });
 });
 
 describe("wearing a profile", () => {
-  it("is a TV's: a browser session doesn't switch", async () => {
-    const id = (await create()).json().profile.id as string;
-    expect((await wear(id, browser)).statusCode).toBe(403);
-  });
-
-  it("narrows what the engine is told, and stays on the session", async () => {
+  it("works on a TV and in a browser, each session on its own", async () => {
     const id = (await create()).json().profile.id as string;
     expect(await engineSees()).toEqual(["cartoons", "films"]);
     const worn = await wear(id);
     expect(worn.statusCode).toBe(200);
-    expect(worn.json()).toMatchObject({ current: id, sections: { ...Object.fromEntries(Object.keys(ALL_SECTIONS_ON).map((key) => [key, false])), video: true } });
+    expect(worn.json()).toMatchObject({ current: id });
     expect(await engineSees()).toEqual(["cartoons"]);
     expect(db.prepare("SELECT profile_id FROM sessions WHERE id = ?").get(tv.id)).toEqual({ profile_id: id });
-    // The owner's own browser is untouched.
-    expect(await engineSees(browser)).toEqual(["cartoons", "films"]);
+    // Dad's browser is a session of its own and isn't wearing anything.
+    const dadBrowser = await booted.session("dad");
+    expect(await engineSees(dadBrowser)).toEqual(["cartoons", "films"]);
+    expect((await wear(id, dadBrowser)).statusCode).toBe(200);
+    expect(await engineSees(dadBrowser)).toEqual(["cartoons"]);
     await wear(null);
     expect(await engineSees()).toEqual(["cartoons", "films"]);
   });
 
-  it("never outlives the owner's own access", async () => {
-    const id = (await create()).json().profile.id as string;
-    await wear(id);
-    db.prepare("DELETE FROM assignments WHERE subject_id = 'dad' AND object_id = 'cartoons'").run();
-    expect(await engineSees()).toEqual([]);
-    // Nor does a profile with every library widen anything.
+  it("never shows more than the account may see", async () => {
     const all = (await create({ name: "Everything", avatar: "blue", libraries: null })).json().profile.id as string;
-    await wear(all);
-    expect(await engineSees()).toEqual(["films"]);
+    const secret = (await create({ name: "Secret", avatar: "red", libraries: ["secret", "cartoons"] })).json().profile.id as string;
+    await wear(all, mum);
+    expect(await engineSees(mum)).toEqual(["cartoons"]);
+    await wear(secret, mum);
+    expect(await engineSees(mum)).toEqual(["cartoons"]);
+    db.prepare("DELETE FROM assignments WHERE subject_id = 'mum'").run();
+    expect(await engineSees(mum)).toEqual([]);
   });
 
   it("narrows the library list the screens draw", async () => {
@@ -132,24 +118,23 @@ describe("wearing a profile", () => {
     expect(listed).toEqual(["cartoons"]);
   });
 
-  it("refuses the sections it leaves out, on the server", async () => {
+  it("is a video thing only: the rest of the account is untouched", async () => {
     const id = (await create()).json().profile.id as string;
-    expect((await booted.as(tv.cookie).get("/api/family-tree/test")).statusCode).toBe(200);
-    await wear(id);
-    expect((await booted.as(tv.cookie).get("/api/family-tree/test")).statusCode).toBe(403);
-    expect((await booted.as(tv.cookie).get("/api/stories")).statusCode).toBe(403);
-    // Its own list, and switching back, stay open.
-    expect((await booted.as(tv.cookie).get("/api/profiles")).statusCode).toBe(200);
-    expect((await wear(null)).statusCode).toBe(200);
-    expect((await booted.as(tv.cookie).get("/api/stories")).statusCode).toBe(200);
+    await wear(id, mum);
+    // No PIN set: nothing is locked, and a browser is never fenced.
+    expect((await booted.as(mum.cookie).get("/api/profiles")).json()).toMatchObject({ current: id, locked: false });
   });
 
   it("goes back to the account when the profile is deleted", async () => {
     const id = (await create()).json().profile.id as string;
     await wear(id);
-    expect((await booted.as(browser.cookie).delete(`/api/profiles/${id}`)).statusCode).toBe(200);
+    expect((await booted.as(admin.cookie).delete(`/api/profiles/${id}`)).statusCode).toBe(200);
     expect(db.prepare("SELECT profile_id FROM sessions WHERE id = ?").get(tv.id)).toEqual({ profile_id: null });
     expect(await engineSees()).toEqual(["cartoons", "films"]);
+  });
+
+  it("refuses a profile that doesn't exist", async () => {
+    expect((await wear("nope")).statusCode).toBe(404);
   });
 });
 
@@ -161,55 +146,40 @@ describe("a profile's video page", () => {
     { id: "both", type: "titles", kind: "all", libraries: ["films", "cartoons"] }
   ];
 
-  it("follows the owner's page until it has its own", async () => {
+  it("follows the household's page until it has its own, never a person's own", async () => {
     const id = (await create()).json().profile.id as string;
-    await booted.as(browser.cookie).put("/api/video/home", { rows: [{ id: "s", type: "sets" }], scope: "mine" });
+    await booted.as(admin.cookie).put("/api/video/home", { rows: [{ id: "s", type: "sets" }] });
+    // Dad's own "Just me" rows don't reach the profile.
+    const dadBrowser = await booted.session("dad");
+    await booted.as(dadBrowser.cookie).put("/api/video/home", { rows: [{ id: "m", type: "mylist" }], scope: "mine" });
     await wear(id);
     const page = (await booted.as(tv.cookie).get("/api/video/home")).json();
     expect(page).toMatchObject({ profileId: id, own: false, rows: [{ id: "s", type: "sets" }] });
   });
 
-  it("is the owner's to set from a browser, drawn on the TV that wears it, without rows it can't fill", async () => {
+  it("is set by an admin, drawn wherever the profile is worn, without rows it can't fill", async () => {
     const id = (await create()).json().profile.id as string;
-    const saved = await booted.as(browser.cookie).put("/api/video/home", { rows, scope: "profile", profileId: id });
+    const saved = await booted.as(admin.cookie).put("/api/video/home", { rows, scope: "profile", profileId: id });
     expect(saved.statusCode).toBe(200);
     expect(saved.json().own).toBe(true);
-    // The owner's own page is untouched.
-    expect((await booted.as(browser.cookie).get("/api/video/home")).json().rows).toHaveLength(4 /* the default rows */);
+    // The household's page is untouched.
+    expect((await booted.as(admin.cookie).get("/api/video/home?scope=everyone")).json().rows).toHaveLength(4 /* the default rows */);
     await wear(id);
     const page = (await booted.as(tv.cookie).get("/api/video/home")).json();
     expect(page.rows.map((row: { id: string }) => row.id)).toEqual(["c", "toons", "both"]);
     expect(page.rows[2].libraries).toEqual(["cartoons"]);
-    // The TV can't change it.
+    // Not a member's, and not a TV's.
+    expect((await booted.as(mum.cookie).put("/api/video/home", { rows, scope: "profile", profileId: id })).statusCode).toBe(403);
     expect((await booted.as(tv.cookie).put("/api/video/home", { rows, scope: "profile", profileId: id })).statusCode).toBe(403);
-    // Reset: back to following the owner's.
-    const reset = await booted.as(browser.cookie).delete(`/api/video/home?scope=profile&profile=${id}`);
+    // Anyone may read it.
+    expect((await booted.as(mum.cookie).get(`/api/video/home?scope=profile&profile=${id}`)).statusCode).toBe(200);
+    // Reset: back to following the household's.
+    const reset = await booted.as(admin.cookie).delete(`/api/video/home?scope=profile&profile=${id}`);
     expect(reset.json().own).toBe(false);
   });
 
-  it("needs a profile of the person's own", async () => {
-    const id = (await create()).json().profile.id as string;
-    const mum = await booted.session("mum");
-    expect((await booted.as(mum.cookie).put("/api/video/home", { rows, scope: "profile", profileId: id })).statusCode).toBe(404);
-    expect((await booted.as(mum.cookie).get(`/api/video/home?scope=profile&profile=${id}`)).statusCode).toBe(404);
-    expect((await booted.as(browser.cookie).put("/api/video/home", { rows, scope: "profile" })).statusCode).toBe(400);
-  });
-});
-
-describe("the section fence", () => {
-  const only = (...keys: (keyof typeof ALL_SECTIONS_ON)[]) =>
-    ({ ...Object.fromEntries(Object.keys(ALL_SECTIONS_ON).map((key) => [key, false])), ...Object.fromEntries(keys.map((key) => [key, true])) }) as typeof ALL_SECTIONS_ON;
-
-  it("matches whole path segments", () => {
-    expect(fencedSection("/video/api/shows", only("games"))).toBe("video");
-    expect(fencedSection("/videos", only("games"))).toBeNull();
-    expect(fencedSection("/api/library/video-libraries", only("games"))).toBe("video");
-    expect(fencedSection("/api/library/gallery-libraries", only("video"))).toBe("gallery");
-  });
-
-  it("closes books only when both book sections are off", () => {
-    expect(fencedSection("/api/library/books/x", only("audiobooks"))).toBeNull();
-    expect(fencedSection("/api/library/books/x", only("video"))).toBe("audiobooks");
-    expect(fencedSection("/api/library/audiobook-libraries", only("ebooks"))).toBe("audiobooks");
+  it("needs a profile that exists", async () => {
+    expect((await booted.as(admin.cookie).put("/api/video/home", { rows, scope: "profile", profileId: "nope" })).statusCode).toBe(404);
+    expect((await booted.as(admin.cookie).put("/api/video/home", { rows, scope: "profile" })).statusCode).toBe(400);
   });
 });

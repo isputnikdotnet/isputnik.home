@@ -15,6 +15,7 @@ import { PosterGrid, type PosterItem } from "./VideoPoster";
 import { PeopleResults } from "./VideoPeople";
 import { VideoRows, setPoster } from "./VideoRows";
 import { VideoRowsEditor } from "./VideoRowsEditor";
+import { PROFILES_API, WatchingAs, type ProfilesAnswer } from "./VideoProfiles";
 import { VideoSectionNav } from "./VideoSectionNav";
 import { VIDEO_HOME_API, VIDEO_ROWS_MAX, newRowId, rowName, type VideoLayout, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
 import {
@@ -64,6 +65,8 @@ export function VideoHomePage() {
   /** How many titles this person can see at all: none is "Nothing here yet". */
   const [catalogTotal, setCatalogTotal] = useState<number | null>(null);
   const [customizing, setCustomizing] = useState(false);
+  /** The household's viewing profiles and which one this browser wears. */
+  const [profiles, setProfiles] = useState<ProfilesAnswer | null>(null);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; title: string; body?: string } | null>(null);
   /** The sets this person can see, for their row; Sets in View waits until there is one. */
   const [setRow, setSetRow] = useState<VideoSetSummary[]>([]);
@@ -91,6 +94,10 @@ export function VideoHomePage() {
     replaceQuery("libraries", filters.libraries.join(",") || null);
     replaceQuery("genres", filters.genres.join(",") || null);
   }, [kind, view, sort, filters]);
+
+  useEffect(() => {
+    api<ProfilesAnswer>(PROFILES_API).then(setProfiles).catch(() => setProfiles(null));
+  }, []);
 
   useEffect(() => {
     api<{ libraries: VideoLibraryRef[] }>(`${VIDEO_API}/libraries`)
@@ -278,8 +285,9 @@ export function VideoHomePage() {
   const subtitle = shown === "sets" ? t("video.countSets", { count: total })
     : shown === "grid" && titles ? t("video.countTitles", { count: total }) : undefined;
   const empty = catalogTotal === 0 && !error;
-  /** Anyone may make the rows their own; the page waits until it knows them. */
-  const editable = layout !== null && catalogTotal !== 0;
+  /** Anyone may make the rows their own; the page waits until it knows them. A page
+   *  wearing a profile is the household's: only an admin (not locked in it) changes it. */
+  const editable = layout !== null && catalogTotal !== 0 && (!layout.profileId || (profiles?.editable ?? false));
 
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav />}>
@@ -338,7 +346,14 @@ export function VideoHomePage() {
                   ...(setsOffered ? [{ value: "sets" as const, label: t("video.viewSets") }] : [])
                 ]}
               />
-              {editable && shown === "grid" && !query && (
+              {profiles && profiles.profiles.length > 0 && (
+                <WatchingAs
+                  answer={profiles}
+                  // Everything on the page is narrowed by the profile: start it again.
+                  onSwitched={() => window.location.reload()}
+                />
+              )}
+              {editable && !layout?.profileId && shown === "grid" && !query && (
                 <Button variant="toolbar" onClick={() => void saveAsRow()}>
                   <Plus size={18} aria-hidden="true" />
                   <span>{t("video.rows.saveAsRow")}</span>
@@ -404,7 +419,11 @@ export function VideoHomePage() {
         <VideoRowsEditor
           layout={layout}
           libraries={libraries}
-          onClose={() => setCustomizing(false)}
+          // Profiles may have changed in Customize › Profiles: the switch shows them as they are now.
+          onClose={() => {
+            setCustomizing(false);
+            api<ProfilesAnswer>(PROFILES_API).then(setProfiles).catch(() => undefined);
+          }}
           onSaved={(next) => {
             setLayout(next);
             setCustomizing(false);

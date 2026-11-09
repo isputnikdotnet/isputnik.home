@@ -2,7 +2,7 @@ import { SelectField } from "../shared/SelectField";
 import { chooseLayout, layoutChoice, type LayoutChoice } from "../app/layoutChoice";
 import { useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Images, Link2, Palette, ShieldCheck, Tv, UserRound, type LucideIcon } from "lucide-react";
+import { Images, Link2, Palette, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { LANGUAGES, setAppLanguage, type Language } from "../i18n";
 import { ChoiceGroup } from "../shared/ChoiceGroup";
@@ -24,7 +24,6 @@ import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
 import { ReaderAccessSection } from "../features/profile/ReaderAccessSection";
 import { StremioSection } from "../features/profile/StremioSection";
 import { MyLibrarySection } from "../features/profile/MyLibrarySection";
-import { ViewingProfilesSection } from "../features/profile/ViewingProfilesSection";
 import { useSession } from "../app/SessionContext";
 // The install card's stylesheet (Profile is the only page that shows it): loads with this page, not on every route (docs/css-map.md).
 import "../styles/install.css";
@@ -34,7 +33,6 @@ const PROFILE_TABS: { key: ProfileTab; icon: LucideIcon }[] = [
   { key: "account", icon: UserRound },
   { key: "security", icon: ShieldCheck },
   { key: "library", icon: Images },
-  { key: "tv", icon: Tv },
   { key: "shares", icon: Link2 },
   { key: "appearance", icon: Palette }
 ];
@@ -311,17 +309,6 @@ export function ProfilePage({
           >
             {/* Asks the server only when the tab is open. */}
             {activeTab === "library" && <MyLibrarySection />}
-          </div>
-
-          <div
-            className="profile-tab-panel"
-            role="tabpanel"
-            id="profile-panel-tv"
-            aria-labelledby="profile-tab-tv"
-            hidden={activeTab !== "tv"}
-          >
-            {/* Asks the server only when the tab is open. */}
-            {activeTab === "tv" && <ViewingProfilesSection />}
           </div>
           <div
             className="profile-tab-panel"

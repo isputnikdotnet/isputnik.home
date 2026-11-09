@@ -100,11 +100,12 @@ export function getVideoLayout(userId: string): { rows: VideoRow[]; custom: bool
 }
 
 // ── A viewing profile's page (docs/tv-profiles-plan.md) ─────────────────────
-// A third layer above the two: a profile's own rows, else its owner's page.
+// The household's profiles each have a page: their own rows (an admin's), else the
+// household's. A person's own "Just me" rows never reach a profile.
 
-/** A profile's own rows, or null when it follows its owner's page. */
-export function getProfileRows(profileId: string, userId: string): VideoRow[] | null {
-  const json = getProfileRowsJson(profileId, userId);
+/** A profile's own rows, or null when it follows the household's page. */
+export function getProfileRows(profileId: string): VideoRow[] | null {
+  const json = getProfileRowsJson(profileId);
   return json === null ? null : readRows(json);
 }
 
@@ -121,15 +122,15 @@ export function narrowRows(rows: VideoRow[], profile: ViewingProfile | null): Vi
   });
 }
 
-/** What a profile's page shows: its own rows, else its owner's page. */
+/** What a profile's page shows: its own rows, else the household's. */
 export function getProfileLayout(profile: ViewingProfile): { rows: VideoRow[]; custom: boolean; mine: boolean; own: boolean } {
-  const owner = getVideoLayout(profile.userId);
-  const own = getProfileRows(profile.id, profile.userId);
-  return { ...owner, rows: narrowRows(own ?? owner.rows, profile), own: own !== null };
+  const household = getHouseholdLayout();
+  const own = getProfileRows(profile.id);
+  return { ...household, mine: false, rows: narrowRows(own ?? household.rows, profile), own: own !== null };
 }
 
-export function saveProfileRows(profileId: string, userId: string, rows: VideoRow[] | null): boolean {
-  return setProfileRowsJson(profileId, userId, rows === null ? null : JSON.stringify(rows));
+export function saveProfileRows(profileId: string, rows: VideoRow[] | null): boolean {
+  return setProfileRowsJson(profileId, rows === null ? null : JSON.stringify(rows));
 }
 
 export function saveVideoLayout(scope: VideoLayoutScope, rows: VideoRow[], userId: string): void {

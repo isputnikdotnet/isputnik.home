@@ -14,12 +14,13 @@ import {
   type VideoLayout, type VideoRow, type VideoRowKind, type VideoRowSort, type VideoTitlesRow
 } from "./rows";
 import { VIDEO_API, type VideoLibraryRef } from "./types";
-import { PROFILES_API, type ProfilesAnswer, type ViewingProfile } from "../profile/ViewingProfilesSection";
+import { PROFILES_API, VideoProfilesManager, type ProfilesAnswer, type ViewingProfile } from "./VideoProfiles";
 
 type RowType = VideoRow["type"];
-/** Whose rows: the person's own, (admins) the household's, or one of the person's
- *  viewing profiles (docs/tv-profiles-plan.md), as "profile:<id>". */
-type Scope = "mine" | "everyone" | `profile:${string}`;
+/** Whose rows: the person's own, (admins) the household's, or one of the household's
+ *  viewing profiles (docs/tv-profiles-plan.md) as "profile:<id>"; "profiles" is the
+ *  admin's list of the profiles themselves and their PIN. */
+type Scope = "mine" | "everyone" | "profiles" | `profile:${string}`;
 const profileIdOf = (scope: Scope) => (scope.startsWith("profile:") ? scope.slice("profile:".length) : null);
 
 // Customize on the video page (docs/video-home-rows-plan.md): the rows, in order,
@@ -33,11 +34,16 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
   onSaved: (layout: VideoLayout) => void;
 }) {
   const { t } = useTranslation();
-  const [scope, setScope] = useState<Scope>(layout.mine || !layout.editable ? "mine" : "everyone");
+  // A page wearing a profile opens on that profile's rows (only an admin gets here then).
+  const [scope, setScope] = useState<Scope>(layout.profileId ? `profile:${layout.profileId}` : layout.mine || !layout.editable ? "mine" : "everyone");
   // Each side as it is being edited. Someone with no rows of their own starts
   // "Just me" from the household's; an admin with their own asks for the
   // household's when they turn to Everyone.
-  const [drafts, setDrafts] = useState<Partial<Record<Scope, VideoRow[]>>>(() => (layout.mine ? { mine: layout.rows } : { mine: layout.rows, everyone: layout.rows }));
+  // A page wearing a profile shows that profile's rows; the others are asked for.
+  const [drafts, setDrafts] = useState<Partial<Record<Scope, VideoRow[]>>>(() => (
+    layout.profileId ? { [`profile:${layout.profileId}`]: layout.rows }
+      : layout.mine ? { mine: layout.rows } : { mine: layout.rows, everyone: layout.rows }
+  ));
   const [householdCustom, setHouseholdCustom] = useState(layout.custom);
   /** The row being added or changed; its index, or -1 for a new one. */
   const [editing, setEditing] = useState<{ index: number; row: VideoRow } | null>(null);
@@ -49,10 +55,11 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
   const [collections, setCollections] = useState<{ id: string; name: string }[]>([]);
   const collectionNames = Object.fromEntries(collections.map((entry) => [entry.id, entry.name]));
   const rows = drafts[scope] ?? [];
-  /** This person's viewing profiles, each a page of its own to set up here. */
-  const [profiles, setProfiles] = useState<ViewingProfile[]>([]);
+  /** The household's viewing profiles, each a page of its own (an admin's to set up). */
+  const [profilesAnswer, setProfilesAnswer] = useState<ProfilesAnswer | null>(null);
+  const profiles: ViewingProfile[] = profilesAnswer?.editable ? profilesAnswer.profiles : [];
   /** Which profiles have rows of their own (else they follow the person's page). */
-  const [profileOwn, setProfileOwn] = useState<Record<string, boolean>>({});
+  const [profileOwn, setProfileOwn] = useState<Record<string, boolean>>(() => (layout.profileId ? { [layout.profileId]: Boolean(layout.own) } : {}));
   const profileId = profileIdOf(scope);
   const profile = profileId ? profiles.find((entry) => entry.id === profileId) ?? null : null;
   // A profile's rows can only name the libraries the profile shows.
@@ -61,8 +68,8 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
   useEffect(() => {
     let live = true;
     api<ProfilesAnswer>(PROFILES_API)
-      .then((payload) => { if (live && payload.editable) setProfiles(payload.profiles); })
-      .catch(() => { if (live) setProfiles([]); });
+      .then((payload) => { if (live) setProfilesAnswer(payload); })
+      .catch(() => { if (live) setProfilesAnswer(null); });
     return () => { live = false; };
   }, []);
 
@@ -87,6 +94,15 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
     return () => { live = false; };
   }, []);
   const loaded = drafts[scope] !== undefined;
+
+  useEffect(() => {
+    if (scope !== "mine" || drafts.mine) return;
+    let live = true;
+    api<VideoLayout>(`${VIDEO_HOME_API}?scope=mine`)
+      .then((page) => { if (live) setDrafts((current) => ({ ...current, mine: page.rows })); })
+      .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.loadFailed")); });
+    return () => { live = false; };
+  }, [scope, drafts.mine, t]);
 
   useEffect(() => {
     if (scope !== "everyone" || drafts.everyone) return;
@@ -181,7 +197,7 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
           />
         ) : (
           <>
-            {(layout.editable || profiles.length > 0) && (
+            {layout.editable && (
               <div className="video-kind-tabs video-rows-scope" role="tablist" aria-label={t("video.rows.scopeAria")}>
                 <Button variant="tab" selected={scope === "mine"} disabled={busy} onClick={() => setScope("mine")}>{t("video.rows.scopeMine")}</Button>
                 {layout.editable && (
@@ -192,8 +208,19 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
                     {entry.name}
                   </Button>
                 ))}
+                {profilesAnswer?.editable && (
+                  <Button variant="tab" selected={scope === "profiles"} disabled={busy} onClick={() => setScope("profiles")}>{t("video.profiles.tab")}</Button>
+                )}
               </div>
             )}
+            {scope === "profiles" && profilesAnswer ? (
+              <>
+                <VideoProfilesManager answer={profilesAnswer} onChange={setProfilesAnswer} />
+                <div className="modal-actions">
+                  <Button variant="secondary" onClick={onClose}>{t("common.close")}</Button>
+                </div>
+              </>
+            ) : (<>
             <p className="muted">
               {profile
                 ? (profileOwn[profile.id] ? t("video.rows.hintProfile", { name: profile.name }) : t("video.rows.hintProfileFollows", { name: profile.name }))
@@ -250,6 +277,7 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
               <Button variant="secondary" disabled={busy} onClick={onClose}>{t("common.cancel")}</Button>
               <Button variant="primary" disabled={busy || !loaded} onClick={() => void save()}>{saving ? t("video.rows.saving") : t("video.rows.save")}</Button>
             </div>
+            </>)}
           </>
         )}
       </div>

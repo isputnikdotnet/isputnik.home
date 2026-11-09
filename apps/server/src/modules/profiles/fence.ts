@@ -1,48 +1,35 @@
-// The sections a profile leaves out, refused on the server as well as hidden on
-// the screen: a TV in Kids can't reach a family-tree route by typing its address.
-// Matched by route prefix — enough to fence what the screens use. Books are shared
-// by audiobooks and ebooks, so their routes close only when both sections do.
+// What a linked TV in a LOCKED profile (a restricted one, with the household PIN set) is
+// refused besides switching away without the PIN: the account's own settings, and
+// signing out — on a TV with several people linked, unlinking Kids would land on the
+// next person's account. The owner can still remove the TV from Profile › Security on
+// their own device.
+//
+// Only a TV: in a browser a profile is a choice on the video page, and the rest of the
+// site stays the account's (a child with their own browser gets their own account).
 import type { FastifyRequest } from "fastify";
-import type { SectionKey, Sections } from "../../core/sections.js";
-import { currentProfileOf, effectiveSections } from "./store.js";
+import { hasPin } from "./pins.js";
+import { currentProfileOf } from "./store.js";
 
-/** [prefix, the sections of which any one keeps it open]. */
-const FENCES: [string, SectionKey[]][] = [
-  ["/video", ["video"]],
-  ["/api/video", ["video"]],
-  ["/api/library/video-", ["video"]],
-  ["/games", ["games"]],
-  ["/api/games", ["games"]],
-  ["/api/library/gallery", ["gallery"]],
-  ["/api/family-tree", ["familyTree"]],
-  ["/api/stories", ["stories"]],
-  ["/api/library/audiobook", ["audiobooks"]],
-  ["/api/library/ebook", ["ebooks"]],
-  ["/api/library/books", ["audiobooks", "ebooks"]],
-  ["/api/library/series", ["audiobooks", "ebooks"]],
-  ["/api/library/works", ["audiobooks", "ebooks"]]
-];
+const LOCKED_OUT = ["/api/profile", "/api/account", "/api/auth/logout"];
 
+/** A prefix fences "/x" and "/x/…", never "/xs". */
 function matches(path: string, prefix: string): boolean {
   if (!path.startsWith(prefix)) return false;
-  // "/video" fences "/video/…" but not "/videos": a prefix that ends a word must
-  // end a path segment. One ending in "-" or a word stem ("audiobook") is a stem.
-  if (prefix.endsWith("-") || prefix.endsWith("audiobook") || prefix.endsWith("ebook") || prefix.endsWith("gallery")) return true;
   const next = path.charAt(prefix.length);
   return next === "" || next === "/" || next === "?";
 }
 
-export function fencedSection(path: string, sections: Sections): SectionKey | null {
-  for (const [prefix, keys] of FENCES) {
-    if (matches(path, prefix) && !keys.some((key) => sections[key])) return keys[0]!;
-  }
-  return null;
+export function lockedOut(path: string): boolean {
+  return LOCKED_OUT.some((prefix) => matches(path, prefix));
+}
+
+/** Whether leaving the profile this session wears needs the household PIN. */
+export function sessionLocked(request: FastifyRequest): boolean {
+  return Boolean(currentProfileOf(request)?.restricted) && hasPin();
 }
 
 /** The session guard (core/session-guards.ts). */
 export function profileFence(request: FastifyRequest): string | null {
-  const profile = currentProfileOf(request);
-  if (!profile?.sections) return null;
-  const section = fencedSection(request.url, effectiveSections(profile));
-  return section ? `This profile can't open ${section}.` : null;
+  if (request.sessionKind !== "device" || !lockedOut(request.url)) return null;
+  return sessionLocked(request) ? "This profile is locked. Enter the PIN to leave it first." : null;
 }

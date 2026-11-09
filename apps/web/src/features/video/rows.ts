@@ -46,6 +46,10 @@ export interface VideoLayout {
   mine: boolean;
   /** This person may change the household's (an admin); their own anyone may. */
   editable: boolean;
+  /** The viewing profile this page is (docs/tv-profiles-plan.md), when the session wears one. */
+  profileId?: string;
+  /** That profile has rows of its own, rather than the household's. */
+  own?: boolean;
 }
 
 export function newRowId(): string {

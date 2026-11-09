@@ -2557,26 +2557,37 @@ CREATE TABLE IF NOT EXISTS video_refs (
 );
 CREATE INDEX IF NOT EXISTS idx_video_refs_library ON video_refs(library_id);
 
--- Viewing profiles (docs/tv-profiles-plan.md): views of ONE account for a shared
--- screen (Kids, Russian, Classic). A profile only ever narrows what its owner sees:
--- libraries NULL is all of the owner's video libraries, else a subset of them,
--- intersected with the owner's own access on every request, so it can never outlive
--- it; sections NULL is the owner's, else a subset. rows NULL follows the owner's
--- video page. restricted marks a profile that is locked to leave (phase P2).
+-- Viewing profiles (docs/tv-profiles-plan.md): the household's ways of watching
+-- video (Kids, Russian, Classic), set up by an admin on the video page and offered on
+-- every TV and browser. A profile only ever narrows what the signed-in account sees:
+-- libraries NULL is every video library that account may see, else a subset of them,
+-- intersected with its own access on every request. rows NULL follows the household's
+-- video page. restricted marks a profile the household PIN is needed to leave.
+-- Migration 92 turned 4.73.1's per-account profiles into these.
 CREATE TABLE IF NOT EXISTS viewing_profiles (
   id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
   avatar      TEXT NOT NULL,
   position    INTEGER NOT NULL DEFAULT 0,
   restricted  INTEGER NOT NULL DEFAULT 0 CHECK (restricted IN (0, 1)),
   libraries   TEXT,
-  sections    TEXT,
   rows        TEXT,
+  created_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE INDEX IF NOT EXISTS idx_viewing_profiles_user ON viewing_profiles(user_id, position);
+
+-- The household PIN for leaving a restricted viewing profile (modules/profiles/pins.ts).
+-- One row at most; hashed like a password, set by an admin with their password.
+-- failures and locked_until cap guesses with a remote.
+CREATE TABLE IF NOT EXISTS viewing_profile_pin (
+  id           INTEGER PRIMARY KEY CHECK (id = 1),
+  pin_hash     TEXT NOT NULL,
+  failures     INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT,
+  updated_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
 
 -- My list: films and shows a person means to watch, newest first. Theirs alone.
 CREATE TABLE IF NOT EXISTS video_my_list (

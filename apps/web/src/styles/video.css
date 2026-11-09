@@ -1729,3 +1729,55 @@
   margin: -4px 0 0;
   font-size: 0.86rem;
 }
+
+/* Viewing profiles (features/video/VideoProfiles.tsx): Customize › Profiles and the
+   Watching as switch. The avatar colours are the profile's own, the same on every theme
+   and on the TV (core/Profiles.kt), so they are fixed values rather than tokens; the
+   letter on them is always white. */
+.video-profile-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+.video-profile-avatar-blue { background: #2f6fd6; }
+.video-profile-avatar-green { background: #2e9d57; }
+.video-profile-avatar-orange { background: #d9771f; }
+.video-profile-avatar-pink { background: #d14d8c; }
+.video-profile-avatar-purple { background: #7b55c7; }
+.video-profile-avatar-teal { background: #1a948f; }
+.video-profile-avatar-red { background: #c9433b; }
+.video-profile-avatar-yellow { background: #b8900f; }
+.video-profiles { display: grid; gap: 12px; min-width: 0; }
+.video-profiles > .button { justify-self: start; }
+.video-profiles-list > li { gap: 10px; }
+.video-profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  vertical-align: middle;
+}
+.video-profile-form { display: grid; gap: 14px; min-width: 0; }
+.video-profile-avatars { display: flex; flex-wrap: wrap; gap: 8px; }
+.video-profile-avatar-choice {
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.video-profile-avatar-choice.is-selected { border-color: var(--accent); }
+.video-profile-avatar-choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.video-profile-pin { display: grid; gap: 8px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.video-profile-pin h3 { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 1rem; }
+.video-profile-pin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
