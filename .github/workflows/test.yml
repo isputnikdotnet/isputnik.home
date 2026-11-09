@@ -48,8 +48,20 @@ jobs:
           node-version: 26
           cache: npm
 
+      # ffmpeg-static and ffprobe-static download their binaries from GitHub
+      # releases during install, and that download fails now and then with a 504
+      # (it took the v4.75.0 image build down twice on 2026-11-09, with the repo
+      # itself green). A second or third try a minute later has always worked, so
+      # the install retries before the run is called red.
       - name: Install
-        run: npm ci
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "npm ci failed (attempt $attempt), retrying in 60s" >&2
+            rm -rf node_modules
+            sleep 60
+          done
+          exit 1
 
       - name: Typecheck
         run: npm run typecheck
