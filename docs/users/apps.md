@@ -27,8 +27,10 @@ install each one like any other container, then connect it to iSputnik in
   in, checks they may use the app, and passes the request on. So there is one
   sign-in, one address and one certificate, and every protection iSputnik already
   has (two-factor, rate limits, blocked addresses) covers the apps too.
-- **No published port.** An app's container needs no port open to your network or
-  the internet. Only iSputnik talks to it.
+- **No door of its own.** An app's container needs no port open to the internet,
+  and none for people: only iSputnik talks to it. The Unraid templates do
+  publish the app's port on your LAN so that iSputnik can reach it there; that
+  gives nothing away, since without the secret the app answers everyone 401.
 - **A shared secret.** iSputnik signs each request it passes on with a secret the
   app also holds, so the app knows the request came from iSputnik and nobody else.
 - **Games is an app, Video is an engine.** Games draws its own pages. Video has no
@@ -48,6 +50,10 @@ iSputnik must be able to reach each app by address. Either:
 - **Fixed addresses**, for example Unraid's `br0` with a fixed IP for each
   container. iSputnik reaches the app at `http://<its IP>:4200` (games) or
   `:4300` (video).
+- **A published port**, which the Unraid templates do by default: the container
+  stays on `bridge` and publishes its port (4200 for games), and iSputnik reaches
+  it at `http://<your Unraid IP>:4200`. Nothing to create; the other two layouts
+  work as well, and the mapping is then simply unused.
 
 ## 2. Install the app's container
 
@@ -55,9 +61,12 @@ iSputnik must be able to reach each app by address. Either:
 
 On Unraid, install **isputnik-games** from Community Applications (or add the
 template from the [isputnik.games repository](https://github.com/isputnikdotnet/isputnik.games)).
-Leave **Gateway Secret** empty for now — you'll fill it in step 3. Keep
-**Config & Data** (`/config`) on your appdata share; it holds the matches,
-scores and the games' own log of events.
+Its **Gateway Secret** field is required, so make the secret first: open
+**Control panel → Settings → Apps → Games**, press **Generate secret** and
+**Copy** (it is shown once), and paste it into the field. Keep **Config & Data**
+(`/config`) on your appdata share; it holds the matches, scores and the games'
+own log of events. Then come back to the same page for step 3: the address is
+`http://<your Unraid IP>:4200` as installed.
 
 With compose, add the service from the games repository's `docker-compose.yml`
 to the same file as iSputnik, so both share its network.
@@ -434,7 +443,7 @@ backup still finishes and its log line says which app was left out and why.
 ## Checklist
 
 ```
-[ ] App container on the same network as iSputnik (or a fixed IP), no port published
+[ ] App container where iSputnik can reach it: its published port, a shared network or a fixed IP
 [ ] Settings → Apps: address saved, and the Container line says it answers
 [ ] Settings → Apps: secret generated, pasted into the app's GATEWAY_SECRET, app restarted
 [ ] Settings → Apps: Test connection says Paired
