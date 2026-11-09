@@ -25,8 +25,15 @@ Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobo
 Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>
 
-  <Date>1794052800</Date>
+  <Date>1794225600</Date>
   <Changes>
+### 2026.11.09 — 4.73.1 Phone backup you can trust
+- **A phone's photo is never dropped on the strength of an old record.** The server used to take its note of what a phone had sent as proof that it still held those bytes — so once a file had been edited or replaced in place on the server, another phone's untouched original, or the same phone's re-send, was acknowledged and thrown away. A match now only counts while the file on disk still has that size and content; otherwise the original is stored again. A photo you deleted at home on purpose still stays deleted.
+- **Two uploads can no longer slip past the size limit together.** The limit was checked once before each upload started, so two that fit alone both got through. Each upload now holds its bytes against the limit while it is in flight, and the limit is checked again just before the file is filed.
+- **Duplicate detection looks at every candidate.** It used to stop after 50 same-size photos (20 Live Photo clips), in no particular order, so a library with many photos of one size could store a copy it already had. It now starts from the indexed hashes and then checks every same-size file, remembering each digest so the work is done once.
+- **The setup card tells you when it worked.** After you add a phone, the card says *Waiting for the phone*, then *Connected*, then *First photo received* — or why the phone was refused — without reloading the page, and the phone list refreshes on its own while it is open.
+- **It is called phone backup everywhere now** — on Profile, on the Device Sync page and in the guides — because it deliberately goes one way only, from the phone into your library.
+
 ### 2026.11.07 — 4.73.0 Library control panel
 - **Library's tabs each answer one question:** Libraries, Organization, Device Sync, Storage and App storage contents. Before, Categories, Tags and Video genres sat beside Libraries and Storage as if they were the same kind of thing, and setting up phone backup meant visiting Storage, Security and a library's settings.
 - **Organization** shows Book categories, Tags and Video genres as cards that say what each applies to, with their numbers and the action you usually come for — **Re-match all books**, **Remove unused**. Their editors open from the cards, from search, or from a library's page, and their old addresses still work.
@@ -50,9 +57,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **Live Photos are one photo.** In every photo library, a still and its short `.mov` with the same name become one item with a *LIVE* mark; press **LIVE**, hold the photo on a phone or hover it with the mouse to play the motion. iPhone clips are converted so every browser plays them.
 - **Photos and videos are no longer downloaded again when they haven't changed.** The browser now asks the server whether its copy is still current and reuses it, so galleries and videos you've opened before load faster and use less data.
 - Needs no manual step: the database is upgraded on start (personal libraries, phones and Live Photo columns).
-
-### 2026.11.05 — 4.70.0 Stories and Tags in the top bar
-- **Stories and Tags have their own places in the top bar**: Home · Media · Family · Stories · Tags. Stories used to hide inside Family, and Tags in the menu under your name. **Family** is now the family tree alone, its tabs starting at Chart.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

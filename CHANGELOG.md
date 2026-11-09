@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.73.1 — Phone backup you can trust
+
+- **A phone's photo is never dropped on the strength of an old record.** The server used to take its note of what a phone had sent as proof that it still held those bytes — so once a file had been edited or replaced in place on the server, another phone's untouched original, or the same phone's re-send, was acknowledged and thrown away. A match now only counts while the file on disk still has that size and content; otherwise the original is stored again. A photo you deleted at home on purpose still stays deleted.
+- **Two uploads can no longer slip past the size limit together.** The limit was checked once before each upload started, so two that fit alone both got through. Each upload now holds its bytes against the limit while it is in flight, and the limit is checked again just before the file is filed.
+- **Duplicate detection looks at every candidate.** It used to stop after 50 same-size photos (20 Live Photo clips), in no particular order, so a library with many photos of one size could store a copy it already had. It now starts from the indexed hashes and then checks every same-size file, remembering each digest so the work is done once.
+- **The setup card tells you when it worked.** After you add a phone, the card says *Waiting for the phone*, then *Connected*, then *First photo received* — or why the phone was refused — without reloading the page, and the phone list refreshes on its own while it is open.
+- **It is called phone backup everywhere now** — on Profile, on the Device Sync page and in the guides — because it deliberately goes one way only, from the phone into your library.
+
 ## 4.73.0 — Library control panel
 
 - **Library's tabs each answer one question:** Libraries, Organization, Device Sync, Storage and App storage contents. Before, Categories, Tags and Video genres sat beside Libraries and Storage as if they were the same kind of thing, and setting up phone backup meant visiting Storage, Security and a library's settings.
