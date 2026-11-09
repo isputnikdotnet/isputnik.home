@@ -13,6 +13,7 @@ import {
 import { currentSessionHash } from "../../auth.js";
 import { isPrivateIp } from "../../core/cidr.js";
 import { describeUserAgent, deviceType } from "../../core/device-link.js";
+import { isAccountLocked } from "../../core/security.js";
 import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
 import { signInPlaceNames } from "./place-names.js";
 import { parseBody } from "../../core/shared.js";
@@ -44,8 +45,18 @@ type EventRow = Pick<ActivityLogRow, "id" | "event" | "detail" | "ip_address" | 
 // Leaving it out made every such sign-in invisible here while the Logs page
 // showed them plainly.
 const LOGIN_SUCCESS_EVENTS = "'auth.login', 'auth.passkey_login', 'auth.mfa_verified', 'auth.device_link_approved'";
-// A wrong code is a failed sign-in as much as a wrong password is.
-const LOGIN_FAILED_EVENTS = "'auth.login_failed', 'auth.mfa_failed'";
+// A wrong code is a failed sign-in as much as a wrong password is — and so is
+// a refusal at a locked door: the person was kept out, which is the fact this
+// page reports. (4.74 left login_locked out, so a locked account showed nothing
+// here at all while the admin alert said it was locked.)
+const LOGIN_FAILED_EVENTS = "'auth.login_failed', 'auth.mfa_failed', 'auth.login_locked'";
+// A failure has no actor — a wrong password proves nothing about who typed it —
+// but since 4.75 it is pinned to the account whose name was typed (target_type
+// 'user'), as a rejected two-factor code always was. The People table counts it
+// against that person and a person's dive includes it; a name that matches no
+// account has no target and stays under the null row.
+const FAILED_TARGET_SQL = `CASE WHEN activity_logs.event IN (${LOGIN_FAILED_EVENTS}) AND activity_logs.target_type = 'user' THEN activity_logs.target_id END`;
+const PERSON_SQL = `COALESCE(activity_logs.actor_user_id, ${FAILED_TARGET_SQL})`;
 // Someone opening a guest share link is in the house without signing in, and
 // the Sign-ins page is where an admin looks for who got in — so those visits
 // are listed here too, as their own kind. Only visits by strangers count: a
@@ -443,7 +454,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       "activity_logs.created_at <= @to"
     ];
     if (userId) {
-      conditions.push("activity_logs.actor_user_id = @userId");
+      conditions.push(`(activity_logs.actor_user_id = @userId OR ${FAILED_TARGET_SQL} = @userId)`);
       params.userId = userId;
     }
     if (ipSet) conditions.push(ipConditionFor("activity_logs.ip_address"));
@@ -454,6 +465,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}, ${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS attempts,
         SUM(CASE WHEN event IN (${LOGIN_SUCCESS_EVENTS}) THEN 1 ELSE 0 END) AS success,
         SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        SUM(CASE WHEN event = 'auth.login_locked' THEN 1 ELSE 0 END) AS locked,
         SUM(${GUEST_VISIT_CASE}) AS guests,
         COUNT(DISTINCT actor_user_id) AS people,
         COUNT(DISTINCT ip_address) AS addresses,
@@ -468,6 +480,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       attempts: number | null;
       success: number | null;
       failed: number | null;
+      locked: number | null;
       guests: number | null;
       people: number;
       addresses: number;
@@ -596,16 +609,19 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       };
     });
 
-    // Per-person. Failures carry no actor — a wrong password does not prove who
-    // typed it — so they gather under the null row, which the page labels rather
-    // than hiding: "someone at the door" is a fact worth a row. Guest visits have
-    // no actor either, but they are a different fact (someone let in by a link,
-    // not someone guessing), so they get a row of their own under a fixed key.
+    // Per-person. A failure carries no actor — a wrong password does not prove who
+    // typed it — but it is pinned to the account whose name was typed, and counts
+    // against that person here (PERSON_SQL). A name that matches no account gathers
+    // under the null row, which the page labels rather than hiding: "someone at the
+    // door" is a fact worth a row. Guest visits have no actor either, but they are
+    // a different fact (someone let in by a link, not someone guessing), so they
+    // get a row of their own under a fixed key.
     const userRows = db.prepare(`
-      SELECT CASE WHEN event = 'share.accessed' THEN 'guest' ELSE actor_user_id END AS user_id,
+      SELECT CASE WHEN event = 'share.accessed' THEN 'guest' ELSE ${PERSON_SQL} END AS user_id,
         users.display_name AS name, users.email AS email,
         COUNT(*) AS connections,
         SUM(CASE WHEN event IN (${LOGIN_FAILED_EVENTS}) THEN 1 ELSE 0 END) AS failed,
+        SUM(CASE WHEN event = 'auth.login_locked' THEN 1 ELSE 0 END) AS locked,
         SUM(${GUEST_VISIT_CASE}) AS guests,
         COUNT(DISTINCT ip_address) AS addresses,
         MAX(activity_logs.created_at) AS last_seen,
@@ -613,15 +629,16 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         SUM(CASE WHEN event = 'auth.passkey_login' THEN 1 ELSE 0 END) AS m_passkey,
         SUM(CASE WHEN event = 'auth.mfa_verified' THEN 1 ELSE 0 END) AS m_two_factor,
         SUM(CASE WHEN event = 'auth.device_link_approved' THEN 1 ELSE 0 END) AS m_device_link
-      FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
+      FROM activity_logs LEFT JOIN users ON users.id = ${PERSON_SQL}
       WHERE ${where}
       GROUP BY 1 ORDER BY connections DESC LIMIT 100
     `).all(params) as {
-      user_id: string | null; // actor_user_id, or 'guest'
+      user_id: string | null; // PERSON_SQL, or 'guest'
       name: UserRow["display_name"] | null;
       email: UserRow["email"] | null;
       connections: number;
       failed: number | null;
+      locked: number | null;
       guests: number | null;
       addresses: number;
       last_seen: string;
@@ -637,6 +654,11 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       email: row.email,
       connections: row.connections,
       failed: row.failed ?? 0,
+      locked: row.locked ?? 0,
+      // Whether the door is shut for them RIGHT NOW — the lockout is derived from
+      // login_attempts, not from anything in the window, so this is live like the
+      // devices panel. Only asked for a row that failed at all: it is a query each.
+      lockedNow: row.email !== null && (row.failed ?? 0) > 0 && isAccountLocked(row.email),
       guests: row.guests ?? 0,
       addresses: row.addresses,
       lastSeen: row.last_seen,
@@ -720,18 +742,24 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     // reads identically here and on the Logs page. Two hundred is a few pages of
     // reading; the Logs page carries the full archive.
     //
-    // A failed attempt has no actor, so each one also carries the name that was
-    // tried: the typed address for a password failure (read back out of its
-    // detail), the account's address for a rejected two-factor code.
+    // A failed attempt has no actor, so each one also carries the account it was
+    // aimed at (its target, pinned since 4.75 — name and address) and, for one
+    // aimed at no account, the name that was tried, read back out of its detail.
+    // Every sign-in event since 4.75 also carries the device it came from.
     const events = (db.prepare(`
-      SELECT activity_logs.id, event, detail, ip_address, activity_logs.created_at,
-        users.display_name AS actor_name, users.id AS actor_id, target.email AS target_email
+      SELECT activity_logs.id, event, detail, ip_address, activity_logs.user_agent, activity_logs.created_at,
+        users.display_name AS actor_name, users.id AS actor_id,
+        target.email AS target_email, target.display_name AS target_name
       FROM activity_logs LEFT JOIN users ON users.id = activity_logs.actor_user_id
-        LEFT JOIN users AS target ON activity_logs.event = 'auth.mfa_failed'
+        LEFT JOIN users AS target ON activity_logs.event IN (${LOGIN_FAILED_EVENTS})
           AND activity_logs.target_type = 'user' AND target.id = activity_logs.target_id
       WHERE ${where}
       ORDER BY activity_logs.created_at DESC, activity_logs.rowid DESC LIMIT 200
-    `).all(params) as (EventRow & { target_email: string | null })[]).map((row) => ({
+    `).all(params) as (EventRow & {
+      user_agent: ActivityLogRow["user_agent"];
+      target_email: UserRow["email"] | null;
+      target_name: UserRow["display_name"] | null;
+    })[]).map((row) => ({
       id: row.id,
       event: row.event,
       detail: row.detail,
@@ -739,7 +767,10 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       createdAt: row.created_at,
       actorName: row.actor_name,
       actorId: row.actor_id,
-      triedName: row.event === "auth.login_failed" ? triedNameFromDetail(row.detail) : row.target_email
+      triedName: row.target_email ?? triedNameFromDetail(row.detail),
+      targetName: row.target_name,
+      device: row.user_agent ? describeUserAgent(row.user_agent) : null,
+      deviceType: row.user_agent ? deviceType(row.user_agent) : null
     }));
 
     return reply.send({
@@ -751,6 +782,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
         attempts: totalsRow.attempts ?? 0,
         success: totalsRow.success ?? 0,
         failed: totalsRow.failed ?? 0,
+        locked: totalsRow.locked ?? 0,
         guests: totalsRow.guests ?? 0,
         people: totalsRow.people,
         addresses: totalsRow.addresses,

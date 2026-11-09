@@ -289,7 +289,9 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
       targetType: "user",
       targetId: user.id,
       detail: `Authorized a device ("${label}") on ${describeNetwork(row.ip_address)}.`,
-      ipAddress: request.ip
+      ipAddress: request.ip,
+      // The device that got in is the one that asked, not the phone that approved.
+      userAgent: row.user_agent
     });
     alertDeviceLinked(user, request, label);
 

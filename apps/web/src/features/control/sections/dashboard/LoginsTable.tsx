@@ -9,6 +9,7 @@ import {
   House,
   KeyRound,
   Link2,
+  Lock,
   Share2,
   Shield,
   ShieldCheck,
@@ -21,6 +22,7 @@ import { Tooltip } from "../../../../shared/Tooltip";
 import { countryName, formatManagedDate } from "../../../../shared/utils";
 import type { IpReputationEntry, LogEvent } from "../../types";
 import { GUEST_VISIT_EVENT, isFailedLoginEvent, isGuestVisitEvent, loginMethodLabel, loginResultLabel } from "./activityEvents";
+import { DEVICE_ICONS } from "./deviceIcons";
 import type { ActivitySort } from "./useRecentActivity";
 
 // The sign-ins table proper. A row is the glanceable version — address, a
@@ -34,14 +36,17 @@ const METHOD_ICONS: Record<string, LucideIcon> = {
   "auth.passkey_login": Fingerprint,
   "auth.mfa_verified": ShieldCheck,
   "auth.mfa_failed": SmartphoneNfc,
+  "auth.login_locked": Lock,
   "auth.device_link_approved": Link2,
   [GUEST_VISIT_EVENT]: Share2
 };
 
 // A share-link visit has no account behind it by design, which is a different
-// thing from a name the address gave that matched nobody.
+// thing from a name the address gave that matched nobody. A failure aimed at a
+// real account names the person, and the opened record adds the address typed.
 function actorLabel(entry: LogEvent, t: TFunction<readonly ["common", "controlDash"], undefined>, long: boolean): string {
   if (entry.actorName) return entry.actorName;
+  if (entry.targetName) return long && entry.triedName ? `${entry.targetName} · ${entry.triedName}` : entry.targetName;
   if (entry.triedName) return entry.triedName;
   if (isGuestVisitEvent(entry.event)) return t("controlDash:loginsTable.guest");
   return long ? t("controlDash:loginsTable.unknownActor") : t("controlDash:loginsTable.unknown");
@@ -107,7 +112,7 @@ export function LoginsTable({
 }) {
   const { t } = useTranslation(["common", "controlDash"]);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const columnCount = reputationConfigured ? 6 : 5;
+  const columnCount = reputationConfigured ? 7 : 6;
 
   return (
     <div className="datagrid-wrap">
@@ -124,6 +129,7 @@ export function LoginsTable({
               dir={dir}
               onChange={onSort}
             />
+            <th>{t("controlDash:table.device")}</th>
             <SortHeader column="event" label={t("controlDash:table.method")} sort={sort} dir={dir} onChange={onSort} />
             <th>{t("controlDash:table.result")}</th>
             {reputationConfigured && <th>{t("controlDash:table.reputation")}</th>}
@@ -142,6 +148,7 @@ export function LoginsTable({
             const methodLabel = rawMethod === "—" ? t("controlDash:loginsTable.methodNotRecorded") : rawMethod;
             const light = reputationLight(entry.ipAddress, entry.ipAddress ? reputation[entry.ipAddress] : undefined, t);
             const Light = light.icon;
+            const DeviceIcon = DEVICE_ICONS[entry.deviceType ?? "unknown"];
 
             return [
               <tr key={entry.id} className={open ? "is-expanded" : undefined}>
@@ -162,6 +169,18 @@ export function LoginsTable({
                     <strong>{entry.ipAddress ?? t("controlDash:loginsTable.noAddress")}</strong>
                     <small>{actorLabel(entry, t, false)}</small>
                   </span>
+                </td>
+                {/* Rows from before 4.75 recorded no device; the dash says so
+                    without pretending it was an unknown one. */}
+                <td className="datagrid-muted">
+                  {entry.device ? (
+                    <span className="location-cell">
+                      <DeviceIcon size={15} aria-hidden="true" className="signins-device-icon" />
+                      {entry.device}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 {/* The hover target is the whole cell, not the 18px glyph: an
                     icon that small is easy to hover past. */}
@@ -235,6 +254,10 @@ function LoginDetails({
       <div>
         <dt>{t("controlDash:table.ipAddress")}</dt>
         <dd>{ip ?? t("controlDash:loginsTable.notRecorded")}</dd>
+      </div>
+      <div>
+        <dt>{t("controlDash:table.device")}</dt>
+        <dd>{entry.device ?? t("controlDash:loginsTable.notRecorded")}</dd>
       </div>
       <div>
         <dt>{t("controlDash:table.method")}</dt>

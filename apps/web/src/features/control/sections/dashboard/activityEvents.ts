@@ -32,11 +32,14 @@ export function loginMethodLabel(event: string): string {
 
 // The event name itself decides pass/fail — use this instead of comparing
 // loginResultLabel()'s translated text, which is only for display.
+// A refusal at a locked account counts as a failure too: the person was kept
+// out. It keeps a result label of its own, since nothing was checked.
 export function isFailedLoginEvent(event: string): boolean {
-  return event === "auth.login_failed" || event === "auth.mfa_failed";
+  return event === "auth.login_failed" || event === "auth.mfa_failed" || event === "auth.login_locked";
 }
 
 export function loginResultLabel(event: string): string {
   if (isGuestVisitEvent(event)) return i18n.t("controlDash:events.resultGuest");
+  if (event === "auth.login_locked") return i18n.t("controlDash:events.resultLocked");
   return isFailedLoginEvent(event) ? i18n.t("controlDash:events.resultFailed") : i18n.t("controlDash:events.resultSuccess");
 }

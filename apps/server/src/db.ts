@@ -37,6 +37,18 @@ export interface ActivityInput {
   targetId?: string | null;
   detail: string;
   ipAddress?: string | null;
+  /** The sign-in events only: the request's User-Agent, see userAgentOf(). */
+  userAgent?: string | null;
+}
+
+// The browser or device behind a request, for the sign-in events: a failed
+// attempt has no session to read it off later, so the event carries it itself.
+// Capped, because a User-Agent is whatever the client chose to send and the log
+// is not the place to keep a kilobyte of it.
+export function userAgentOf(headers: { "user-agent"?: string | string[] | undefined }): string | null {
+  const value = headers["user-agent"];
+  const text = Array.isArray(value) ? value[0] : value;
+  return typeof text === "string" && text.length > 0 ? text.slice(0, 512) : null;
 }
 
 // Canonical timestamp helper. Matches the SQL column default in schema.sql
@@ -171,8 +183,8 @@ export function logActivity(input: ActivityInput) {
   if (isPreviewing()) return;
   if (activityGates.some((gate) => !gate(input))) return;
   db.prepare(`
-    INSERT INTO activity_logs (id, event, actor_user_id, target_type, target_id, detail, ip_address)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO activity_logs (id, event, actor_user_id, target_type, target_id, detail, ip_address, user_agent)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     nanoid(16),
     input.event,
@@ -180,7 +192,8 @@ export function logActivity(input: ActivityInput) {
     input.targetType ?? null,
     input.targetId ?? null,
     input.detail,
-    input.ipAddress ?? null
+    input.ipAddress ?? null,
+    input.userAgent ?? null
   );
 }
 

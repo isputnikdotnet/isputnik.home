@@ -8,6 +8,10 @@ import type Database from "better-sqlite3";
 export const version = 93;
 
 export function up(db: Database.Database): void {
+  // A test fixture replaying migrations from an older shape may have no
+  // api_tokens at all; there is nothing to revoke there.
+  const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'api_tokens'").get();
+  if (!table) return;
   db.prepare(
     "UPDATE api_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE scope = 'video-stremio' AND revoked_at IS NULL"
   ).run();

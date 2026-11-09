@@ -9,15 +9,11 @@ import {
   Globe2,
   KeyRound,
   Laptop,
+  LockOpen,
   LogOut,
   MapPin,
-  Monitor,
-  ShieldQuestion,
-  Smartphone,
-  Tablet,
   UsersRound,
-  X,
-  type LucideIcon
+  X
 } from "lucide-react";
 import { api } from "../../../../api";
 import { controlHref, followRoute, pushPath } from "../../../../router";
@@ -40,6 +36,7 @@ import { countryFlag, formatManagedDate } from "../../../../shared/utils";
 import { relativeTime } from "../../../../shared/relativeTime";
 import type { DashboardSignIns, DeviceType, LogEvent, SignInsDeviceRow, SignInsIpRow, SignInsUserRow } from "../../types";
 import { DashboardChart, DashboardChartLegend, type DashboardChartSeries } from "./DashboardChart";
+import { DEVICE_ICONS } from "./deviceIcons";
 import { LoginsTable } from "./LoginsTable";
 import { SignInsFilterModal } from "./SignInsFilterModal";
 import { useIpReputation } from "./useIpReputation";
@@ -109,14 +106,6 @@ function bucketLabel(iso: string, bucket: "hour" | "day"): string {
     ? formatTime(date, "padded")
     : formatDate(date, "dayMonth");
 }
-
-const DEVICE_ICONS: Record<DeviceType, LucideIcon> = {
-  display: Monitor,
-  phone: Smartphone,
-  tablet: Tablet,
-  computer: Laptop,
-  unknown: ShieldQuestion
-};
 
 // The order the counter chips render in — displays first because a linked TV is
 // the session type that outlives everything else and the one worth glancing for.
@@ -190,6 +179,10 @@ export function SignInsView() {
   const [pendingRevoke, setPendingRevoke] = useState<SignInsDeviceRow | null>(null);
   const [revoking, setRevoking] = useState(false);
   const [revokeError, setRevokeError] = useState("");
+  // The People table's one action: clearing a lockout. Members › Users has the
+  // same button; here it sits on the row that just said "Locked out now".
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
+  const [unlockError, setUnlockError] = useState("");
   // Bumped after a revoke so the whole page refetches — the devices table, but
   // also the counters above it, describe rows that just changed.
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -228,6 +221,19 @@ export function SignInsView() {
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:signIns.loadFailed")));
   }, [range.from, range.to, scope, reloadNonce, t]);
+
+  const unlockAccount = async (userId: string) => {
+    setUnlockingId(userId);
+    setUnlockError("");
+    try {
+      await api(`/api/users/${userId}/unlock`, { method: "POST" });
+      setReloadNonce((nonce) => nonce + 1);
+    } catch (err) {
+      setUnlockError(err instanceof Error ? err.message : t("controlDash:signIns.unlockFailed"));
+    } finally {
+      setUnlockingId(null);
+    }
+  };
 
   const revokeSession = async () => {
     if (!pendingRevoke) return;
@@ -366,6 +372,9 @@ export function SignInsView() {
   // this one narrows with the dive.
   const blockedContext = [
     t("controlDash:signIns.shareOfAttempts", { share: failShare }),
+    data && data.totals.locked > 0
+      ? t("controlDash:signIns.lockedRefusalsN", { count: data.totals.locked })
+      : null,
     data && data.totals.blockedIps > 0
       ? t("controlDash:signIns.blockedAddresses", { count: data.totals.blockedIps })
       : null
@@ -765,6 +774,9 @@ export function SignInsView() {
                 <h3>{t("controlDash:signIns.peopleTitle")}</h3>
                 <span>{t("controlDash:signIns.peopleNote")}</span>
               </div>
+              {unlockError && (
+                <MessageBox tone="error" title={t("controlDash:signIns.unlockFailed")}>{unlockError}</MessageBox>
+              )}
               {data.users.length > 0 ? (
                 <>
                   <div className="datagrid-wrap">
@@ -785,9 +797,19 @@ export function SignInsView() {
                           <tr key={row.userId ?? (row.guest ? "guest" : "anonymous")}>
                             <td>
                               <span className="datagrid-primary">
-                                <strong>
-                                  {row.name ?? (row.guest ? t("controlDash:signIns.guestVisitors") : t("controlDash:signIns.notSignedIn"))}
-                                </strong>
+                                <span className="admin-name-line">
+                                  <strong>
+                                    {row.name ?? (row.guest ? t("controlDash:signIns.guestVisitors") : t("controlDash:signIns.notSignedIn"))}
+                                  </strong>
+                                  {/* Locked now is live; the count is what the window saw.
+                                      Both say the same thing a step apart: the door was shut
+                                      in this person's face. */}
+                                  {row.lockedNow ? (
+                                    <span className="status-badge locked">{t("controlDash:signIns.lockedNow")}</span>
+                                  ) : row.locked > 0 ? (
+                                    <span className="status-badge idle">{t("controlDash:signIns.lockedOutN", { count: row.locked })}</span>
+                                  ) : null}
+                                </span>
                                 <small>
                                   {row.email ?? (row.guest ? t("controlDash:signIns.guestVisitorsNote") : t("controlDash:signIns.failedNoPerson"))}
                                 </small>
@@ -800,7 +822,18 @@ export function SignInsView() {
                             <td className="col-num datagrid-muted" data-label={t("controlDash:table.addresses")}>{formatNumber(row.addresses)}</td>
                             <td className="datagrid-muted">{row.guest ? t("controlDash:signIns.methodShareLinkN", { count: row.guests }) : methodsSummary(row.methods, t)}</td>
                             <td className="datagrid-muted">{relativeTime(row.lastSeen)}</td>
-                            <td className="col-actions locations-row-action">
+                            <td className="col-actions locations-row-action signins-device-actions">
+                              {row.userId && row.lockedNow && (
+                                <Button
+                                  variant="icon"
+                                  aria-label={t("controlDash:signIns.unlockOf", { name: row.name ?? t("controlDash:signIns.thisPerson") })}
+                                  title={t("controlDash:signIns.unlock")}
+                                  disabled={unlockingId === row.userId}
+                                  onClick={() => void unlockAccount(row.userId!)}
+                                >
+                                  <LockOpen size={15} aria-hidden="true" />
+                                </Button>
+                              )}
                               {row.userId && scope.user !== row.userId && (
                                 <Button
                                   variant="icon"

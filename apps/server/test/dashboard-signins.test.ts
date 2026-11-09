@@ -3,14 +3,15 @@ import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
 import { dashboardPlugin } from "../src/modules/dashboard/index.js";
-import { failedSignInDetail } from "../src/core/auth-routes.js";
+import { failedSignInDetail, lockedSignInDetail } from "../src/core/auth-routes.js";
 import { bootApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // The Dashboard's Sign-ins view asks one endpoint for everything it shows,
 // scoped to an address, a person, or a place. These pin the scoping: every panel
-// of the response must describe the same rows, failures must gather under the
-// null actor rather than vanish, and the side tables (blocks, scanner traffic,
+// of the response must describe the same rows, a failure must count against the
+// account whose name was typed (or gather under the null actor when the name is
+// nobody's) rather than vanish, and the side tables (blocks, scanner traffic,
 // live sessions) must follow the same scope as the main counts. The second
 // block pins the window itself — those cases came from /api/dashboard/logins,
 // which this endpoint absorbed along with the view.
@@ -320,6 +321,57 @@ describe("GET /api/dashboard/signins over a window", () => {
     const mine = await signins(session, { ...window(hoursAgo(24)), user: member });
     expect(mine.body.totals.guests).toBe(0);
     expect(mine.body.users.some((u: { guest: boolean }) => u.guest)).toBe(false);
+  });
+
+  it("counts a failure against the account whose name was typed, and a locked refusal with it", async () => {
+    const memberEmail = (db.prepare("SELECT email FROM users WHERE id = ?").get(member) as { email: string }).email;
+    const phone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 Version/18.5 Mobile/15E148 Safari/604.1";
+    const at = hoursAgo(1).toISOString();
+    const insert = db.prepare(`
+      INSERT INTO activity_logs (id, event, target_type, target_id, detail, ip_address, user_agent, created_at)
+      VALUES (?, ?, 'user', ?, ?, '7.7.7.7', ?, ?)
+    `);
+    insert.run("fail-1", "auth.login_failed", member, failedSignInDetail(memberEmail, "wrong password"), phone, at);
+    insert.run("fail-2", "auth.login_failed", member, failedSignInDetail(memberEmail, "wrong password"), phone, at);
+    insert.run("locked-1", "auth.login_locked", member, lockedSignInDetail(memberEmail), phone, at);
+    logLogin("auth.login", "9.9.9.9", admin, 1);
+
+    const session = await signIn(admin);
+    const { body } = await signins(session, window(hoursAgo(24)));
+
+    // A refusal at a locked account is a failure: the person was kept out.
+    expect(body.totals).toMatchObject({ attempts: 4, success: 1, failed: 3, locked: 1 });
+    // Pinned to the account, not gathered under "Not signed in".
+    const row = body.users.find((u: { userId: string | null }) => u.userId === member);
+    expect(row).toMatchObject({ connections: 3, failed: 3, locked: 1, lockedNow: false });
+    expect(body.users.some((u: { userId: string | null; guest: boolean }) => u.userId === null && !u.guest)).toBe(false);
+    // Each attempt names the person and the device it came from.
+    const locked = body.events.find((e: { id: string }) => e.id === "locked-1");
+    expect(locked).toMatchObject({ actorName: null, triedName: memberEmail, deviceType: "phone" });
+    expect(locked.targetName).toBeTruthy();
+    expect(locked.device).toBeTruthy();
+
+    // The person's own dive includes what was aimed at them.
+    const mine = await signins(session, { ...window(hoursAgo(24)), user: member });
+    expect(mine.body.totals).toMatchObject({ attempts: 3, failed: 3 });
+    expect(mine.body.events.map((e: { id: string }) => e.id).sort()).toEqual(["fail-1", "fail-2", "locked-1"]);
+  });
+
+  it("says when the account is locked right now, which the window alone cannot tell", async () => {
+    const memberEmail = (db.prepare("SELECT email FROM users WHERE id = ?").get(member) as { email: string }).email;
+    db.prepare(`
+      INSERT INTO activity_logs (id, event, target_type, target_id, detail, ip_address, created_at)
+      VALUES ('fail-1', 'auth.login_failed', 'user', ?, ?, '7.7.7.7', ?)
+    `).run(member, failedSignInDetail(memberEmail, "wrong password"), hoursAgo(1).toISOString());
+
+    const session = await signIn(admin);
+    const before = await signins(session, window(hoursAgo(24)));
+    expect(before.body.users.find((u: { userId: string | null }) => u.userId === member)).toMatchObject({ lockedNow: false });
+
+    // Five failures inside the lockout window (the default threshold) shut the door.
+    for (let i = 0; i < 5; i += 1) logAttempt(memberEmail, "7.7.7.7", "signin", 0);
+    const after = await signins(session, window(hoursAgo(24)));
+    expect(after.body.users.find((u: { userId: string | null }) => u.userId === member)).toMatchObject({ lockedNow: true });
   });
 
   it("rejects a backwards range and a garbage date", async () => {

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { db, logActivity, publicUser, type User } from "../db.js";
+import { db, logActivity, publicUser, userAgentOf, type User } from "../db.js";
 import { verifyDummyPassword, verifyPassword } from "../crypto.js";
 import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } from "../auth.js";
 import { onboardingPending } from "./setup.js";
@@ -28,12 +28,22 @@ function failureReason(email: string, user: User | undefined): string {
 // The failed-sign-in sentence and the reader that takes the typed name back out of
 // it live side by side, so the Sign-ins table (which shows that name on the row)
 // can't drift from what is written — and rows logged before it asked still read.
+// Since 4.75 a failure is also pinned to the account it was aimed at (target_type
+// 'user'); the sentence stays the only record of a name that matches no account.
 export function failedSignInDetail(email: string, reason: string): string {
   return `A sign-in attempt for ${email} failed — ${reason}.`;
 }
 
+export function lockedSignInDetail(email: string, how = "Sign-in"): string {
+  return `${how} refused for ${email}: account temporarily locked after repeated failures.`;
+}
+
 export function triedNameFromDetail(detail: string): string | null {
-  return /^A sign-in attempt for (.+) failed — /.exec(detail)?.[1] ?? null;
+  return (
+    /^A sign-in attempt for (.+) failed — /.exec(detail)?.[1] ??
+    /^(?:Passkey )?[Ss]ign-in refused for (.+): /.exec(detail)?.[1] ??
+    null
+  );
 }
 
 export async function authPlugin(app: FastifyInstance) {
@@ -53,10 +63,16 @@ export async function authPlugin(app: FastifyInstance) {
     const trusted = isTrustedRequest(request);
 
     if (!trusted && isAccountLocked(email)) {
+      // Pinned to the account the name belongs to (when it does), as a failure is
+      // below: the Sign-ins page counts the refusal against the person kept out.
+      const locked = getUserByEmail(email);
       logActivity({
         event: "auth.login_locked",
-        detail: `Sign-in refused for ${email}: account temporarily locked after repeated failures.`,
-        ipAddress: request.ip
+        targetType: locked ? "user" : null,
+        targetId: locked?.id ?? null,
+        detail: lockedSignInDetail(email),
+        ipAddress: request.ip,
+        userAgent: userAgentOf(request.headers)
       });
       return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes.", code: "auth.locked" });
     }
@@ -84,10 +100,16 @@ export async function authPlugin(app: FastifyInstance) {
     if (!awaitingSecondFactor) recordLoginAttempt(email, request.ip, ok);
 
     if (!ok) {
+      // No actor — a wrong password proves nothing about who typed it — but
+      // the account it was aimed at is a fact, and the Sign-ins page counts the
+      // failure against that person and names the device it came from.
       logActivity({
         event: "auth.login_failed",
+        targetType: user ? "user" : null,
+        targetId: user?.id ?? null,
         detail: failedSignInDetail(email, failureReason(email, user)),
-        ipAddress: request.ip
+        ipAddress: request.ip,
+        userAgent: userAgentOf(request.headers)
       });
       // Trusted networks are never auto-blocked or locked out.
       if (!trusted) {
@@ -176,7 +198,8 @@ export async function authPlugin(app: FastifyInstance) {
       targetType: "user",
       targetId: authed.id,
       detail: authed.mfa_enabled && trusted ? "Signed in (two-factor skipped on a trusted network)." : "Signed in.",
-      ipAddress: request.ip
+      ipAddress: request.ip,
+      userAgent: userAgentOf(request.headers)
     });
     return reply.send({ user: publicUser(authed) });
   });

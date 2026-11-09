@@ -32,6 +32,7 @@ export interface ActivityLogRow {
   target_id: string | null;
   detail: string;
   ip_address: string | null;
+  user_agent: string | null;
   created_at: string;
 }
 

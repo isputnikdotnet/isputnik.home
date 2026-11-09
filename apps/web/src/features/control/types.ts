@@ -60,6 +60,11 @@ export interface LogEvent {
   actorId: string | null;
   /** Sign-ins page only: the address a failed attempt tried, since it has no actor. */
   triedName?: string | null;
+  /** Sign-ins page only: the account a failed attempt was aimed at, when the name is one. */
+  targetName?: string | null;
+  /** Sign-ins page only: the browser or device the attempt came from (4.75+ rows). */
+  device?: string | null;
+  deviceType?: DeviceType | null;
 }
 
 export interface LibraryStatusStats {
@@ -406,6 +411,10 @@ export interface SignInsUserRow {
   email: string | null;
   connections: number;
   failed: number;
+  /** Of the failures, attempts refused because the account was locked at the time. */
+  locked: number;
+  /** The account is locked right now — live, like the devices panel, not bound to the range. */
+  lockedNow: boolean;
   guests: number;
   addresses: number;
   lastSeen: string;
@@ -435,6 +444,8 @@ export interface DashboardSignIns {
     attempts: number;
     success: number;
     failed: number;
+    /** Of the failures, attempts refused at a locked account. */
+    locked: number;
     /** Guest share links opened by someone not signed in. Not an attempt: the
      *  link let them in, so it is counted beside sign-ins rather than among them. */
     guests: number;

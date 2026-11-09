@@ -1896,6 +1896,12 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   target_id     TEXT,
   detail        TEXT NOT NULL,
   ip_address    TEXT,
+  -- The browser or device behind a sign-in event, as the request's User-Agent
+  -- (4.75, migration 094). Written for the sign-in events only, so the Sign-ins
+  -- page can name the device a FAILED attempt came from: a failure has no
+  -- session to read it off, and the lockout alert alone never said which phone
+  -- or laptop was at the door.
+  user_agent    TEXT,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 

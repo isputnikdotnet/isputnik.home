@@ -388,14 +388,16 @@ internet](exposing-to-the-internet.md).
   **Sign-ins in this range** — the chart of successful against failed sign-ins
   over the window, and under it every attempt in it, 10, 20, 50 or 100 rows to a
   page, and it remembers which you picked. A row shows the address with the
-  person under it, the method as an icon (hover for its name),
-  the result, and — with an AbuseIPDB key set under Security → Policies — a
+  person under it (for a failed attempt, the account whose name was typed), the
+  device it came from, the method as an icon (hover for its name), the result
+  (**Locked out** when the lockout refused the attempt before checking anything),
+  and — with an AbuseIPDB key set under Security → Policies — a
   coloured reputation light: one shield whose colour is the signal: green for a
   clean address, amber for one with some history, red for one the community calls
   abusive, an outlined shield for an address nobody has checked, and a muted
   house for your own network. Hover it for the score and where the address sits.
   The arrow at the start of a row opens the full record underneath it: user,
-  address, method, result, time, the event name, the logged detail, and the
+  address, device, method, result, time, the event name, the logged detail, and the
   reputation in words with a **Check with AbuseIPDB** button when that address has
   never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
   addresses are never sent at all. Click IP address, User, Method or Time in the
@@ -406,8 +408,11 @@ internet](exposing-to-the-internet.md).
   Three tables follow the card. **Addresses** is one row per address with its
   location, how many connections and failures came from it, whether it is
   blocked, and any scanner traffic counted against it. **People** is the same by
-  person, with the methods they used; failed attempts prove nothing about who
-  typed them, so they gather under "Not signed in" rather than being hidden.
+  person, with the methods they used. A failed attempt counts against the account
+  whose name was typed, so the person someone is guessing at shows up with their
+  failures beside them; a name that matches no account gathers under "Not signed
+  in" rather than being hidden. When the lockout has shut an account, its row says
+  **Locked out now** and offers an unlock button, the same rescue as Members → Users.
   **Names tried** appears when a stranger has been guessing: the sign-in names
   they tried that belong to no account here.
 

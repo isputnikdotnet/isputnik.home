@@ -49,6 +49,9 @@ export default tseslint.config(
       "apps/web/src/vendor/**",
       "apps/server/models/**",
       "data/**",
+      // Hand-written browser prototypes (the Library mockup), not the app: no tsconfig,
+      // no globals set up, and nothing ships from here. 4.74.0 failed CI lint on them.
+      "docs/**",
       "coverage/**"
     ]
   },

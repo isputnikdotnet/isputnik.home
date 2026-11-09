@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
-import { db, logActivity, publicUser, type User } from "../db.js";
+import { db, logActivity, publicUser, userAgentOf, type User } from "../db.js";
+import { lockedSignInDetail } from "./auth-routes.js";
 import { config } from "../config.js";
 import { hostCookieName } from "./cookies.js";
 import { verifyPassword } from "../crypto.js";
@@ -245,8 +246,11 @@ export async function webauthnRoutes(app: FastifyInstance) {
         reply.clearCookie(LOGIN_COOKIE, { path: "/" });
         logActivity({
           event: "auth.login_locked",
-          detail: `Passkey sign-in refused for ${user.email}: account temporarily locked after repeated failures.`,
-          ipAddress: request.ip
+          targetType: "user",
+          targetId: user.id,
+          detail: lockedSignInDetail(user.email, "Passkey sign-in"),
+          ipAddress: request.ip,
+          userAgent: userAgentOf(request.headers)
         });
         return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
       }
@@ -309,7 +313,8 @@ export async function webauthnRoutes(app: FastifyInstance) {
         detail: user.mfa_enabled
           ? "Signed in with a passkey (two-factor satisfied by the device's own check)."
           : "Signed in with a passkey.",
-        ipAddress: request.ip
+        ipAddress: request.ip,
+        userAgent: userAgentOf(request.headers)
       });
       return reply.send({ user: publicUser(user) });
     }

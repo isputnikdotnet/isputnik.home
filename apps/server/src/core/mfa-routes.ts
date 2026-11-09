@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { db, logActivity, nowIso, publicUser, type MfaMethod, type User } from "../db.js";
+import { db, logActivity, nowIso, publicUser, userAgentOf, type MfaMethod, type User } from "../db.js";
 import { config } from "../config.js";
 import { hostCookieName } from "./cookies.js";
 import { verifyPassword } from "../crypto.js";
@@ -684,7 +684,8 @@ export async function mfaRoutes(app: FastifyInstance) {
           detail: outdatedTotp
             ? "A two-factor code was rejected: this enrollment predates 3.10.3 and can no longer be verified. The account has to re-enroll."
             : "A two-factor code was rejected.",
-          ipAddress: request.ip
+          ipAddress: request.ip,
+          userAgent: userAgentOf(request.headers)
         });
         // After the log write, so this failure counts toward the tally.
         alertMfaFailures(user, request.ip);
@@ -729,7 +730,8 @@ export async function mfaRoutes(app: FastifyInstance) {
         targetType: "user",
         targetId: user.id,
         detail: "Completed two-factor sign-in.",
-        ipAddress: request.ip
+        ipAddress: request.ip,
+        userAgent: userAgentOf(request.headers)
       });
       return reply.send({ user: publicUser(user) });
     }
