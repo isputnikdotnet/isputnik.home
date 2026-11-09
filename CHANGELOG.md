@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.76.0 — Who's watching
+
+- **Viewing profiles, as on Netflix.** An admin sets up the household's ways of watching video — *Kids*, *Russian*, *Classic* — on the video page under **Customize › Profiles**. Each has a name, a colour, the video libraries it shows and rows of its own (set on its tab in Customize; until then it shows the household's rows).
+- **Every TV and browser can watch as a profile.** The TV app asks **Who's watching?** when it opens, and the video page has a **Watching as** menu. A profile only ever narrows what the person signed in may see — search, title pages and sets show nothing outside its libraries — and it changes Video only: photos, books and the rest of the app stay the account's.
+- **Each profile keeps its own history.** Continue watching, watched marks and My list belong to the profile, the same on every TV whoever is signed in, so the cartoons stay out of the grown-ups' Continue watching. Without a profile, everything is your own, as before.
+- **Restricted profiles and a household PIN.** Getting into *Kids* is free; getting out needs the PIN, set by an admin with their password (4 to 8 digits; 5 wrong tries lock entry for 15 minutes). On a TV the PIN also guards choosing another person linked on it, linking someone new and unlinking. Without a PIN, the Profiles tab says that anyone can still switch away.
+- Profiles made in the short-lived **Profile › TV profiles** tab that slipped into 4.73.1 become household profiles, and a TV wearing one keeps it.
+- The video engine needs its own update for profiles to keep their own history: **isputnik.video 0.30**. An older engine keeps working, and a profile then shares the history of whoever is watching. The TV app's profiles and PIN pad come in **iSputnik TV 0.9**.
+
 ## 4.75.0 — Who was at the door
 
 - **A failed sign-in now names the person and the device.** Security › Sign-ins used to gather every failed attempt under *Not signed in*, because a wrong password proves nothing about who typed it — but it does say whose account was tried. Each failed attempt now counts against the account whose name was typed, in the People table and in that person's own dive, and the attempts table shows the browser or phone it came from, with the account's name under the address. Names that match no account still gather under *Not signed in*. Attempts logged before this update are matched up by the name they tried; the device they came from was never recorded.
