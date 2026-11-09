@@ -1,10 +1,12 @@
 # Photos on the TV
 
 Status: **P1 built** 2026-11-09 (home: `tv_photo_picks`, `modules/library/gallery/tv-picks.ts`,
-the On TV panel on the Photos page's Albums and Slideshows views), not released yet. **P2 built**
-the same day in isputnik.tv (`feature-photos`: the Photos tab and the live viewer), checked in
-an emulator against dev, not committed. P3 next. Open questions 1–3 were left at the proposals below: new picks default
-to "Everyone but restricted profiles"; the website's movie rule is unchanged.
+the On TV panel on the Photos page's Albums and Slideshows views), not released yet. **P2 and P3
+built** the same day in isputnik.tv (`feature-photos`: the Photos tab, the live viewer, the
+movie through Media3, slideshow music, videos in place, people in the caption), checked in an
+emulator against dev; music not seen (dev has no tracks). Open questions 1–3 were left at the
+proposals below: new picks default to "Everyone but restricted profiles"; the website's movie
+rule is unchanged.
 
 Mock-up: the "Photos on the TV" section of
 https://claude.ai/artifact/MUwo1cYaW2FXE8ZBA7BAwr (TV › Photos, TV › playing an album,
