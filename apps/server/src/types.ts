@@ -8,6 +8,10 @@ declare module "fastify" {
     // app.authenticate. A 'device' session belongs to a linked display rather
     // than to someone at a keyboard, and requireAdmin refuses it.
     sessionKind?: SessionKind;
+    // The session row's id and the viewing profile it wears (modules/profiles;
+    // null is the account itself), set alongside `user` by app.authenticate.
+    sessionId?: string;
+    profileId?: string | null;
     // Set while an admin previews the app as a member (core/preview.ts): `user`
     // is then that member, and this is the admin looking.
     previewBy?: { id: string; displayName: string };

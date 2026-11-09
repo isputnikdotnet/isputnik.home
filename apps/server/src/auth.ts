@@ -6,6 +6,7 @@ import { sha256 } from "./crypto.js";
 import { hostCookieName } from "./core/cookies.js";
 import { registerViewerContext } from "./core/viewer-context.js";
 import { previewAllows, previewTargetOf } from "./core/preview.js";
+import { sessionGuardRefusal } from "./core/session-guards.js";
 import type { SessionRow } from "./db/rows.js";
 
 // On a secure deployment the session cookie carries the __Host- prefix (see
@@ -101,7 +102,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
 
     const tokenHash = sha256(token);
     const row = db.prepare(`
-      SELECT users.*, sessions.kind AS session_kind
+      SELECT users.*, sessions.kind AS session_kind, sessions.id AS session_id, sessions.profile_id AS session_profile_id
       FROM sessions
       JOIN users ON users.id = sessions.user_id
       WHERE sessions.token_hash = ?
@@ -109,7 +110,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
         AND sessions.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         AND users.deleted_at IS NULL
         AND users.is_active = 1
-    `).get(tokenHash) as (User & { session_kind: SessionKind }) | undefined;
+    `).get(tokenHash) as (User & { session_kind: SessionKind; session_id: string; session_profile_id: string | null }) | undefined;
 
     if (!row) {
       clearSession(reply);
@@ -119,9 +120,11 @@ export async function registerAuthDecorators(app: FastifyInstance) {
     }
 
     db.prepare("UPDATE sessions SET last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE token_hash = ?").run(tokenHash);
-    const { session_kind: sessionKind, ...user } = row;
+    const { session_kind: sessionKind, session_id: sessionId, session_profile_id: profileId, ...user } = row;
     request.user = user as User;
     request.sessionKind = sessionKind;
+    request.sessionId = sessionId;
+    request.profileId = profileId ?? null;
 
     // "Preview as …" (core/preview.ts): an admin at a keyboard, looking at the app
     // as one member. Everything after this answers as that member; the admin
@@ -139,6 +142,10 @@ export async function registerAuthDecorators(app: FastifyInstance) {
         }
       }
     }
+
+    // What modules add to every signed-in request (core/session-guards.ts).
+    const refusal = sessionGuardRefusal(request);
+    if (refusal) return reply.code(403).send({ error: refusal });
   });
 
   app.decorate("requireAdmin", async (request: FastifyRequest, reply: FastifyReply) => {

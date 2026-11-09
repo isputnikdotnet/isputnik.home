@@ -335,13 +335,15 @@ export function galleryReviewAlbumHref(albumId: string, recommendationId: string
 
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
-export type ProfileTab = "account" | "security" | "library" | "shares" | "appearance";
+export type ProfileTab = "account" | "security" | "library" | "tv" | "shares" | "appearance";
 
 export const PROFILE_PATHS: Record<ProfileTab, string> = {
   account: "/profile",
   security: "/profile/security",
   // A member's personal library (docs/photo-sync-plan.md, phase 1).
   library: "/profile/library",
+  // Viewing profiles a linked TV picks from (docs/tv-profiles-plan.md).
+  tv: "/profile/tv",
   shares: "/profile/shares",
   appearance: "/profile/appearance"
 };

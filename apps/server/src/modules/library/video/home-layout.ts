@@ -12,6 +12,7 @@
 // with no copy follows the household's as it changes.
 import { z } from "zod";
 import { db } from "../../../db.js";
+import { getProfileRowsJson, setProfileRowsJson, type ViewingProfile } from "../../profiles/store.js";
 
 /** Enough for a long page; more is a list, not a home. */
 export const VIDEO_ROWS_MAX = 15;
@@ -49,8 +50,10 @@ export const videoLayoutSchema = z.object({
     .refine((rows) => new Set(rows.map((row) => row.id)).size === rows.length, "Two rows have the same id"),
   /** Whose rows: the person's own, or (admins) the household's. Left out is the
    *  household's, as 4.63 sent it. */
-  scope: z.enum(["mine", "everyone"]).default("everyone")
-});
+  scope: z.enum(["mine", "everyone", "profile"]).default("everyone"),
+  /** With scope "profile": which of the person's viewing profiles. */
+  profileId: z.string().min(1).max(64).optional()
+}).refine((layout) => layout.scope !== "profile" || layout.profileId, "A profile's rows name the profile");
 export type VideoLayoutScope = "mine" | "everyone";
 
 /** The page as it was before rows could be chosen: what nobody has changed shows. */
@@ -94,6 +97,39 @@ export function getVideoLayout(userId: string): { rows: VideoRow[]; custom: bool
   const household = getHouseholdLayout();
   const own = getPersonalRows(userId);
   return own ? { rows: own, custom: household.custom, mine: true } : { ...household, mine: false };
+}
+
+// ── A viewing profile's page (docs/tv-profiles-plan.md) ─────────────────────
+// A third layer above the two: a profile's own rows, else its owner's page.
+
+/** A profile's own rows, or null when it follows its owner's page. */
+export function getProfileRows(profileId: string, userId: string): VideoRow[] | null {
+  const json = getProfileRowsJson(profileId, userId);
+  return json === null ? null : readRows(json);
+}
+
+/** Rows a profile can show: one naming only libraries outside it is dropped, one
+ *  naming some keeps those. The engine narrows anyway; this keeps a Kids page from
+ *  drawing a row that can only ever come back empty. */
+export function narrowRows(rows: VideoRow[], profile: ViewingProfile | null): VideoRow[] {
+  if (!profile?.libraries) return rows;
+  const allowed = new Set(profile.libraries);
+  return rows.flatMap((row) => {
+    if (row.type !== "titles" || row.libraries.length === 0) return [row];
+    const kept = row.libraries.filter((id) => allowed.has(id));
+    return kept.length > 0 ? [{ ...row, libraries: kept }] : [];
+  });
+}
+
+/** What a profile's page shows: its own rows, else its owner's page. */
+export function getProfileLayout(profile: ViewingProfile): { rows: VideoRow[]; custom: boolean; mine: boolean; own: boolean } {
+  const owner = getVideoLayout(profile.userId);
+  const own = getProfileRows(profile.id, profile.userId);
+  return { ...owner, rows: narrowRows(own ?? owner.rows, profile), own: own !== null };
+}
+
+export function saveProfileRows(profileId: string, userId: string, rows: VideoRow[] | null): boolean {
+  return setProfileRowsJson(profileId, userId, rows === null ? null : JSON.stringify(rows));
 }
 
 export function saveVideoLayout(scope: VideoLayoutScope, rows: VideoRow[], userId: string): void {

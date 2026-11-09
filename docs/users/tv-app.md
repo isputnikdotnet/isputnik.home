@@ -98,6 +98,28 @@ There's no PIN on that screen. Anyone holding the remote can choose anyone linke
 If a child's account is limited, those limits only hold while no less limited account is linked
 here.
 
+## TV profiles
+
+A profile is a different view of **your** account for a shared TV: *Kids*, *Russian*,
+*Classic*. Make them on the website under **Profile › TV profiles**. Each has a name, a colour,
+and can only show less than your account does:
+
+- **Video libraries**: only the ones you tick. Search, title pages and sets show nothing else.
+- **Sections**: only the ones you tick. The server refuses the rest; they aren't just hidden.
+- **Its own video page**: on the website's video page, choose **Customize**, then the profile's
+  tab. Until you save one, a profile shows your page, from its own libraries only.
+
+When the app opens on a TV linked to an account with profiles, **Who's watching?** shows your
+name and each profile. Your name is everything your account sees. To change later, choose the
+name at the top right. The TV remembers the profile it's left in, even after a restart.
+
+A **restricted** profile is meant for children and starts with Video alone. The app doesn't ask
+who's watching when it opens in one. For now, anyone with the remote can still switch away from
+it; a PIN for leaving is planned.
+
+Profiles are only made and changed on the website, never on the TV, so the remote can't make
+Kids show more. Continue watching and My list are still your account's in every profile.
+
 ## Its colours
 
 The app wears the theme you chose in **Profile → Appearance**, and there's nothing to set on the

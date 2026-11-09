@@ -33,6 +33,11 @@ export function currentViewer(): AuthUser | null {
   return user ? { id: user.id, role: user.role } : null;
 }
 
+/** The request being answered, or null outside one (jobs, startup, runAsViewer). */
+export function currentRequest(): FastifyRequest | null {
+  return store.getStore()?.request ?? null;
+}
+
 /** Whether the current request is an admin's "Preview as …" (core/preview.ts). */
 export function isPreviewing(): boolean {
   return store.getStore()?.request?.previewBy != null;

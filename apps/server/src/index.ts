@@ -34,6 +34,7 @@ import { mapsPlugin } from "./modules/maps/index.js";
 import { appsPlugin } from "./modules/apps/index.js";
 import { gamesPlugin } from "./modules/games/index.js";
 import { videoPlugin } from "./modules/library/video/index.js";
+import { profilesPlugin } from "./modules/profiles/index.js";
 import { upstreamBase } from "./modules/maps/provider.js";
 
 // X-Forwarded-For is only trusted when the operator names the reverse proxies in
@@ -305,6 +306,7 @@ await app.register(appsPlugin);
 await app.register(gamesPlugin);
 // Before the static fallback too: /video/* belongs to the video engine.
 await app.register(videoPlugin);
+await app.register(profilesPlugin);
 
 if (config.staticPath) {
   await app.register(staticFiles, {

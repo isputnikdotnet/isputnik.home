@@ -14,10 +14,13 @@ import {
   type VideoLayout, type VideoRow, type VideoRowKind, type VideoRowSort, type VideoTitlesRow
 } from "./rows";
 import { VIDEO_API, type VideoLibraryRef } from "./types";
+import { PROFILES_API, type ProfilesAnswer, type ViewingProfile } from "../profile/ViewingProfilesSection";
 
 type RowType = VideoRow["type"];
-/** Whose rows: the person's own, or (admins) the household's. */
-type Scope = "mine" | "everyone";
+/** Whose rows: the person's own, (admins) the household's, or one of the person's
+ *  viewing profiles (docs/tv-profiles-plan.md), as "profile:<id>". */
+type Scope = "mine" | "everyone" | `profile:${string}`;
+const profileIdOf = (scope: Scope) => (scope.startsWith("profile:") ? scope.slice("profile:".length) : null);
 
 // Customize on the video page (docs/video-home-rows-plan.md): the rows, in order,
 // each shown or hidden, and Add row. Everyone may make the page their own (Just
@@ -46,6 +49,35 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
   const [collections, setCollections] = useState<{ id: string; name: string }[]>([]);
   const collectionNames = Object.fromEntries(collections.map((entry) => [entry.id, entry.name]));
   const rows = drafts[scope] ?? [];
+  /** This person's viewing profiles, each a page of its own to set up here. */
+  const [profiles, setProfiles] = useState<ViewingProfile[]>([]);
+  /** Which profiles have rows of their own (else they follow the person's page). */
+  const [profileOwn, setProfileOwn] = useState<Record<string, boolean>>({});
+  const profileId = profileIdOf(scope);
+  const profile = profileId ? profiles.find((entry) => entry.id === profileId) ?? null : null;
+  // A profile's rows can only name the libraries the profile shows.
+  const rowLibraries = profile?.libraries ? libraries.filter((entry) => profile.libraries!.includes(entry.id)) : libraries;
+
+  useEffect(() => {
+    let live = true;
+    api<ProfilesAnswer>(PROFILES_API)
+      .then((payload) => { if (live && payload.editable) setProfiles(payload.profiles); })
+      .catch(() => { if (live) setProfiles([]); });
+    return () => { live = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!profileId || drafts[scope]) return;
+    let live = true;
+    api<VideoLayout & { own: boolean }>(`${VIDEO_HOME_API}?scope=profile&profile=${encodeURIComponent(profileId)}`)
+      .then((page) => {
+        if (!live) return;
+        setDrafts((current) => ({ ...current, [scope]: page.rows }));
+        setProfileOwn((current) => ({ ...current, [profileId]: page.own }));
+      })
+      .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.loadFailed")); });
+    return () => { live = false; };
+  }, [scope, profileId, drafts, t]);
 
   useEffect(() => {
     let live = true;
@@ -89,21 +121,37 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
     }
     return true;
   };
+  /** A profile's page isn't the one on screen: saving it leaves this page as it is. */
+  const sendForProfile = async (request: Promise<unknown>) => {
+    setError("");
+    try {
+      await request;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("video.rows.saveFailed"));
+      return false;
+    }
+    onClose();
+    return true;
+  };
   const save = async () => {
     setSaving(true);
-    await send(api<VideoLayout>(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows, scope }) }));
+    if (profileId) await sendForProfile(api(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows, scope: "profile", profileId }) }));
+    else await send(api<VideoLayout>(VIDEO_HOME_API, { method: "PUT", body: JSON.stringify({ rows, scope }) }));
     setSaving(false);
   };
   const reset = async () => {
     setResetting("busy");
-    const done = await send(api<VideoLayout>(`${VIDEO_HOME_API}?scope=${scope}`, { method: "DELETE" }));
+    const done = profileId
+      ? await sendForProfile(api(`${VIDEO_HOME_API}?scope=profile&profile=${encodeURIComponent(profileId)}`, { method: "DELETE" }))
+      : await send(api<VideoLayout>(`${VIDEO_HOME_API}?scope=${scope}`, { method: "DELETE" }));
     setResetting(done ? null : "ask");
   };
 
   const busy = saving || resetting === "busy";
   // Mine: back to the household's, when there are rows of one's own to drop.
   // Everyone: back to the default rows, when someone changed them.
-  const canReset = scope === "mine" ? layout.mine : householdCustom;
+  // A profile: back to following the person's page, when it has rows of its own.
+  const canReset = profileId ? Boolean(profileOwn[profileId]) : scope === "mine" ? layout.mine : householdCustom;
   const describe = (row: VideoRow) => {
     if (row.type === "continue") return t("video.rows.typeContinueHint");
     if (row.type === "sets") return t("video.rows.typeSetsHint");
@@ -121,7 +169,7 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
           <RowForm
             row={editing.row}
             isNew={editing.index < 0}
-            libraries={libraries}
+            libraries={rowLibraries}
             libraryNames={libraryNames}
             collections={collections}
             onCancel={() => setEditing(null)}
@@ -133,14 +181,23 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
           />
         ) : (
           <>
-            {layout.editable && (
+            {(layout.editable || profiles.length > 0) && (
               <div className="video-kind-tabs video-rows-scope" role="tablist" aria-label={t("video.rows.scopeAria")}>
                 <Button variant="tab" selected={scope === "mine"} disabled={busy} onClick={() => setScope("mine")}>{t("video.rows.scopeMine")}</Button>
-                <Button variant="tab" selected={scope === "everyone"} disabled={busy} onClick={() => setScope("everyone")}>{t("video.rows.scopeEveryone")}</Button>
+                {layout.editable && (
+                  <Button variant="tab" selected={scope === "everyone"} disabled={busy} onClick={() => setScope("everyone")}>{t("video.rows.scopeEveryone")}</Button>
+                )}
+                {profiles.map((entry) => (
+                  <Button key={entry.id} variant="tab" selected={scope === `profile:${entry.id}`} disabled={busy} onClick={() => setScope(`profile:${entry.id}`)}>
+                    {entry.name}
+                  </Button>
+                ))}
               </div>
             )}
             <p className="muted">
-              {scope === "mine" ? t("video.rows.hintMine") : layout.mine ? t("video.rows.hintEveryoneButMine") : t("video.rows.hint")}
+              {profile
+                ? (profileOwn[profile.id] ? t("video.rows.hintProfile", { name: profile.name }) : t("video.rows.hintProfileFollows", { name: profile.name }))
+                : scope === "mine" ? t("video.rows.hintMine") : layout.mine ? t("video.rows.hintEveryoneButMine") : t("video.rows.hint")}
             </p>
             {error && <MessageBox tone="error" title={t("video.rows.saveFailed")}>{error}</MessageBox>}
             <ol className="video-rows-list">
@@ -187,7 +244,7 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
             <div className="modal-actions">
               {canReset && (
                 <Button variant="text" disabled={busy} onClick={() => setResetting("ask")}>
-                  {scope === "mine" ? t("video.rows.resetMine") : t("video.rows.reset")}
+                  {profile ? t("video.rows.resetProfile") : scope === "mine" ? t("video.rows.resetMine") : t("video.rows.reset")}
                 </Button>
               )}
               <Button variant="secondary" disabled={busy} onClick={onClose}>{t("common.cancel")}</Button>
@@ -198,14 +255,14 @@ export function VideoRowsEditor({ layout, libraries, onClose, onSaved }: {
       </div>
       {resetting && (
         <ConfirmDialog
-          title={scope === "mine" ? t("video.rows.resetMineTitle") : t("video.rows.resetTitle")}
-          confirmLabel={scope === "mine" ? t("video.rows.resetMineConfirm") : t("video.rows.resetConfirm")}
+          title={profile ? t("video.rows.resetProfileTitle", { name: profile.name }) : scope === "mine" ? t("video.rows.resetMineTitle") : t("video.rows.resetTitle")}
+          confirmLabel={profile ? t("video.rows.resetProfileConfirm") : scope === "mine" ? t("video.rows.resetMineConfirm") : t("video.rows.resetConfirm")}
           busyLabel={t("video.rows.resetting")}
           busy={resetting === "busy"}
           onConfirm={() => void reset()}
           onCancel={() => setResetting(null)}
         >
-          {scope === "mine" ? t("video.rows.resetMineBody") : t("video.rows.resetBody")}
+          {profile ? t("video.rows.resetProfileBody", { name: profile.name }) : scope === "mine" ? t("video.rows.resetMineBody") : t("video.rows.resetBody")}
         </ConfirmDialog>
       )}
     </Modal>

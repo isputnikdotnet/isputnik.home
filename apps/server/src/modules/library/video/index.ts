@@ -19,9 +19,9 @@ import { onAppRestored } from "../../apps/backup.js";
 import { registerAppGateway } from "../../apps/gateway.js";
 import { resolveAppSecret } from "../../apps/pairing.js";
 import { appConfigured, appDefinition } from "../../apps/registry.js";
-import { accessibleLibraryIds, canUserAccessLibrary } from "../shared/library-access.js";
+import { currentProfileOf, getProfile, visibleVideoLibraryIds, type ViewingProfile } from "../../profiles/store.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
-import { getHouseholdLayout, getVideoLayout, resetVideoLayout, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
+import { getHouseholdLayout, getProfileLayout, getVideoLayout, resetVideoLayout, saveProfileRows, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
 import { canReadCollectionRow, registerVideoListRoutes } from "./lists.js";
 import { VIDEO_ENTITY_TYPES, forgetVideoLibrary, refreshVideoRefs } from "./refs.js";
 import { setSubjectPreparer } from "../../social/subjects.js";
@@ -40,7 +40,6 @@ import {
   updateVideoLibrary,
   videoLibraryCreateSchema,
   videoLibraryUpdateSchema,
-  VIDEO_LIBRARY_TYPE,
   type EngineLibrary
 } from "./libraries.js";
 
@@ -52,7 +51,11 @@ const SYNC_EVERY_MS = 6 * 60 * 60 * 1000;
 
 const listQuerySchema = z.object({ manage: z.string().optional() });
 /** Whose rows: the page's (left out), the person's own, or the household's. */
-const layoutScopeSchema = z.object({ scope: z.enum(["mine", "everyone"]).optional() });
+const layoutScopeSchema = z.object({
+  scope: z.enum(["mine", "everyone", "profile"]).optional(),
+  /** With scope "profile": which of the person's viewing profiles. */
+  profile: z.string().min(1).max(64).optional()
+});
 const foldersQuerySchema = z.object({ path: z.string().max(1000).default("") });
 
 export interface VideoPluginOptions {
@@ -110,16 +113,43 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   // and anyone's own copy. Each row's titles are asked of the engine by the
   // screen, as the viewer. `editable` is whether this person may change the
   // household's; their own they always may.
+  //
+  // A viewing profile (modules/profiles) is a third layer: a TV wearing one gets
+  // its page, and its owner edits it from the browser with scope "profile".
   const pageLayout = (user: { id: string; role: string }) => ({ ...getVideoLayout(user.id), editable: user.role === "admin" });
+  const profileLayout = (profile: ViewingProfile, user: { id: string; role: string }) =>
+    ({ ...getProfileLayout(profile), profileId: profile.id, editable: user.role === "admin" });
   const videoGate = (request: FastifyRequest, reply: FastifyReply) =>
     !available() || appRole("video", request.user!) === null ? reply.code(404).send({ error: "Video is not available" }) : null;
+  /** The profile a request names (scope "profile"), only ever the person's own. */
+  const namedProfile = (request: FastifyRequest, reply: FastifyReply, id: string | undefined) => {
+    const profile = id ? getProfile(id, request.user!.id) : null;
+    if (!profile) {
+      reply.code(404).send({ error: "Profile not found" });
+      return null;
+    }
+    if (request.sessionKind === "device") {
+      reply.code(403).send({ error: "Profiles are changed in Profile on your own device, not on a TV." });
+      return null;
+    }
+    return profile;
+  };
 
   app.get("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
     const refused = videoGate(request, reply);
     if (refused) return refused;
-    const { scope } = layoutScopeSchema.parse(request.query ?? {});
+    const { scope, profile: profileId } = layoutScopeSchema.parse(request.query ?? {});
     if (scope === "everyone") return { ...getHouseholdLayout(), mine: false, editable: request.user!.role === "admin" };
-    return pageLayout(request.user!);
+    if (scope === "profile") {
+      // Reading is fine from anywhere the profile's owner is signed in.
+      const profile = profileId ? getProfile(profileId, request.user!.id) : null;
+      if (!profile) return reply.code(404).send({ error: "Profile not found" });
+      return profileLayout(profile, request.user!);
+    }
+    if (scope === "mine") return pageLayout(request.user!);
+    // The page as this session sees it: the profile it wears, else the person's.
+    const worn = currentProfileOf(request);
+    return worn ? profileLayout(worn, request.user!) : pageLayout(request.user!);
   });
 
   app.put("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
@@ -127,12 +157,18 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     if (refused) return refused;
     const parsed = parseBody(videoLayoutSchema, request.body);
     if (parsed.error) return reply.code(400).send({ error: "Invalid video rows", details: parsed.error });
-    const { rows, scope } = videoLayoutSchema.parse(parsed.data);
+    const { rows, scope, profileId } = parsed.data;
     if (scope === "everyone" && request.user!.role !== "admin") return reply.code(403).send({ error: "Only an admin changes everyone's rows" });
     // A Collection row shows a collection of the person saving it (or one already
     // on everyone's page): never a way into someone else's.
     const foreign = rows.find((row) => row.type === "collection" && !canReadCollectionRow(row.collectionId, request.user!.id));
     if (foreign) return reply.code(400).send({ error: "A row shows a collection that is not yours" });
+    if (scope === "profile") {
+      const profile = namedProfile(request, reply, profileId);
+      if (!profile) return reply;
+      saveProfileRows(profile.id, request.user!.id, rows);
+      return profileLayout(getProfile(profile.id, request.user!.id)!, request.user!);
+    }
     saveVideoLayout(scope, rows, request.user!.id);
     if (scope === "everyone") {
       logActivity({ event: "library.video.rows_saved", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: `Saved the video page's rows for everyone (${rows.length}).`, ipAddress: request.ip });
@@ -143,8 +179,16 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   app.delete("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
     const refused = videoGate(request, reply);
     if (refused) return refused;
-    const scope = layoutScopeSchema.parse(request.query ?? {}).scope ?? "everyone";
+    const query = layoutScopeSchema.parse(request.query ?? {});
+    const scope = query.scope ?? "everyone";
     if (scope === "everyone" && request.user!.role !== "admin") return reply.code(403).send({ error: "Only an admin changes everyone's rows" });
+    if (scope === "profile") {
+      // Back to following its owner's page.
+      const profile = namedProfile(request, reply, query.profile);
+      if (!profile) return reply;
+      saveProfileRows(profile.id, request.user!.id, null);
+      return profileLayout(getProfile(profile.id, request.user!.id)!, request.user!);
+    }
     resetVideoLayout(scope, request.user!.id);
     if (scope === "everyone") {
       logActivity({ event: "library.video.rows_reset", actorUserId: request.user!.id, targetType: "video", targetId: "home", detail: "Put the video page's rows back to the default.", ipAddress: request.ip });
@@ -191,7 +235,8 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     const parsed = parseQuery(listQuerySchema, request.query);
     if (parsed.error) return reply.code(400).send({ error: "Invalid query", details: parsed.error });
     const manage = parsed.data.manage != null && user.role === "admin";
-    const rows = listVideoLibraries().filter((row) => manage || canUserAccessLibrary(row, user.id, user.role));
+    const visible = manage ? null : visibleVideoLibraryIds(user, request);
+    const rows = listVideoLibraries().filter((row) => visible === null || visible.has(row.id));
     // The counts are the engine's; a member's list needs none.
     const counts = manage && rows.length > 0 ? await engineCounts(request) : undefined;
     return {
@@ -291,7 +336,8 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
       // The only permission model the engine has: which of its libraries this
       // person may see, worked out from each library's own access.
       extraHeaders: (request) => ({
-        "x-isputnik-libraries": [...accessibleLibraryIds(request.user!.id, request.user!.role, VIDEO_LIBRARY_TYPE)].join(","),
+        // Narrowed by the viewing profile the session wears (modules/profiles).
+        "x-isputnik-libraries": [...visibleVideoLibraryIds(request.user!, request)].join(","),
         ...stremioHeaders(request)
       }),
       // A title started: the line Overview › Activity counts as "Watched".

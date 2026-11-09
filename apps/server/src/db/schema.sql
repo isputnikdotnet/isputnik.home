@@ -68,7 +68,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   -- What the owner calls this device ("Living Room TV"). device_name above is the
   -- raw user agent and is never editable; this is, and takes precedence in the UI.
   label         TEXT,
-  revoked_at    TEXT
+  revoked_at    TEXT,
+  -- The viewing profile this session wears (docs/tv-profiles-plan.md; migration 91):
+  -- a TV switched to Kids stays in Kids. NULL is the account itself.
+  profile_id    TEXT REFERENCES viewing_profiles(id) ON DELETE SET NULL
 );
 
 -- Short-lived second-factor step between password success and a full session.
@@ -2553,6 +2556,27 @@ CREATE TABLE IF NOT EXISTS video_refs (
   PRIMARY KEY (kind, entity_id)
 );
 CREATE INDEX IF NOT EXISTS idx_video_refs_library ON video_refs(library_id);
+
+-- Viewing profiles (docs/tv-profiles-plan.md): views of ONE account for a shared
+-- screen (Kids, Russian, Classic). A profile only ever narrows what its owner sees:
+-- libraries NULL is all of the owner's video libraries, else a subset of them,
+-- intersected with the owner's own access on every request, so it can never outlive
+-- it; sections NULL is the owner's, else a subset. rows NULL follows the owner's
+-- video page. restricted marks a profile that is locked to leave (phase P2).
+CREATE TABLE IF NOT EXISTS viewing_profiles (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  avatar      TEXT NOT NULL,
+  position    INTEGER NOT NULL DEFAULT 0,
+  restricted  INTEGER NOT NULL DEFAULT 0 CHECK (restricted IN (0, 1)),
+  libraries   TEXT,
+  sections    TEXT,
+  rows        TEXT,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_viewing_profiles_user ON viewing_profiles(user_id, position);
 
 -- My list: films and shows a person means to watch, newest first. Theirs alone.
 CREATE TABLE IF NOT EXISTS video_my_list (

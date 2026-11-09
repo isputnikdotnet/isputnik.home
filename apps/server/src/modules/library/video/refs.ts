@@ -8,9 +8,9 @@
 import { db } from "../../../db.js";
 import { getSections } from "../../../core/sections.js";
 import { appRole } from "../../apps/access.js";
-import { accessibleLibraryIds } from "../shared/library-access.js";
+import { visibleVideoLibraryIds } from "../../profiles/store.js";
 import type { EngineClient } from "./engine.js";
-import { VIDEO_LIBRARY_TYPE, listVideoLibraries } from "./libraries.js";
+import { listVideoLibraries } from "./libraries.js";
 
 export type VideoRefKind = "movies" | "shows";
 /** The Collections entity types a film and a show are. */
@@ -67,7 +67,8 @@ export async function refreshVideoRefs(engine: EngineClient, kind: VideoRefKind,
 export function visibleVideoRefs(kind: VideoRefKind, ids: string[], user: { id: string; role: string }): Map<string, VideoRef> {
   const out = new Map<string, VideoRef>();
   if (ids.length === 0 || !getSections().video || appRole("video", user) === null) return out;
-  const libraries = accessibleLibraryIds(user.id, user.role, VIDEO_LIBRARY_TYPE);
+  // Narrowed by the viewing profile the session wears (modules/profiles).
+  const libraries = visibleVideoLibraryIds(user);
   const rows = db.prepare(`SELECT kind, entity_id, library_id, title, year, poster FROM video_refs WHERE kind = ? AND entity_id IN (${ids.map(() => "?").join(", ")})`)
     .all(kind, ...ids) as VideoRefRow[];
   for (const row of rows) if (libraries.has(row.library_id)) out.set(row.entity_id, fromRow(row));

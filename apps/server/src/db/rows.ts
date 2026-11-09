@@ -1178,6 +1178,7 @@ export interface SessionRow {
   kind: "browser" | "device";
   label: string | null;
   revoked_at: string | null;
+  profile_id: string | null;
 }
 
 /** `share_link_drops` */
@@ -1520,6 +1521,21 @@ export interface VideoRefRow {
   updated_at: string;
 }
 
+/** `viewing_profiles` */
+export interface ViewingProfileRow {
+  id: string;
+  user_id: string;
+  name: string;
+  avatar: string;
+  position: number;
+  restricted: 0 | 1;
+  libraries: string | null;
+  sections: string | null;
+  rows: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** `webauthn_challenges` */
 export interface WebauthnChallengeRow {
   id: string;
@@ -1684,6 +1700,7 @@ export interface TableRows {
   video_home_user_layouts: VideoHomeUserLayoutRow;
   video_my_list: VideoMyListRow;
   video_refs: VideoRefRow;
+  viewing_profiles: ViewingProfileRow;
   webauthn_challenges: WebauthnChallengeRow;
   webauthn_credentials: WebauthnCredentialRow;
   work_items: WorkItemRow;

@@ -1839,6 +1839,65 @@
   min-width: 0;
 }
 
+/* Profile › TV profiles (features/profile/ViewingProfilesSection.tsx). The avatar
+   colours are the profile's own, the same on every theme and on the TV, so
+   they are fixed values rather than tokens; the letter on them is always white. */
+.tv-profile-row { justify-content: flex-start; }
+.tv-profile-row .opds-token-meta { flex: 1; }
+.tv-profile-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+.tv-profile-avatar-blue { background: #2f6fd6; }
+.tv-profile-avatar-green { background: #2e9d57; }
+.tv-profile-avatar-orange { background: #d9771f; }
+.tv-profile-avatar-pink { background: #d14d8c; }
+.tv-profile-avatar-purple { background: #7b55c7; }
+.tv-profile-avatar-teal { background: #1a948f; }
+.tv-profile-avatar-red { background: #c9433b; }
+.tv-profile-avatar-yellow { background: #b8900f; }
+.tv-profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  vertical-align: middle;
+}
+.tv-profile-form { display: grid; gap: 14px; min-width: 0; }
+.tv-profile-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.tv-profile-checks > legend { margin-bottom: 4px; font-weight: 600; }
+.tv-profile-checks > p { flex-basis: 100%; margin: 0 0 4px; font-size: 0.86rem; }
+.tv-profile-checks > label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.tv-profile-avatars { display: flex; flex-wrap: wrap; gap: 8px; }
+.tv-profile-avatar-choice {
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.tv-profile-avatar-choice.is-selected { border-color: var(--accent); }
+.tv-profile-avatar-choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* About page tabs (About / Credits) + the credits list. */
 .about-tabs { margin: 18px 0 16px; }
 

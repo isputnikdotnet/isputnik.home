@@ -69,6 +69,7 @@ import * as m087 from "./087-personal-libraries.js";
 import * as m088 from "./088-api-token-library.js";
 import * as m089 from "./089-photo-sync-problem-resolved.js";
 import * as m090 from "./090-live-photo-motion.js";
+import * as m091 from "./091-session-profile.js";
 
 export interface Migration {
   readonly version: number;
@@ -81,5 +82,5 @@ export const migrations: readonly Migration[] = [
   m053, m054, m055, m056, m057, m058, m059, m060, m061, m062,
   m063, m064, m065, m066, m067, m068, m069, m070, m071, m072,
   m073, m074, m075, m076, m077, m078, m079, m080,
-  m081, m082, m083, m084, m085, m086, m087, m088, m089, m090
+  m081, m082, m083, m084, m085, m086, m087, m088, m089, m090, m091
 ];

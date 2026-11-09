@@ -1,5 +1,5 @@
 import { ALL_TABS, sectionEyebrow, sectionHref, tabLabel } from "./nav";
-import { profileAnchorHref, type ControlSection } from "../../router";
+import { profileAnchorHref, profileHref, type ControlSection } from "../../router";
 // Plain module-level data, not a component — see nav.ts's note on the same pattern.
 import i18n from "../../i18n";
 
@@ -290,6 +290,14 @@ export function getControlSearchEntries(): ControlSearchEntry[] {
       href: profileAnchorHref("readerAccess"),
       keywords: "opds catalog token koreader thorium moon+ reader ereader e-reader basic auth device create qr " +
         "каталог токен читалка электронная книга устройство создать"
+    },
+    {
+      id: "profile:tv",
+      title: i18n.t("profile.tabs.tv"),
+      breadcrumb: i18n.t("nav.profile"),
+      href: profileHref("tv"),
+      keywords: "viewing profiles tv kids children russian classic who is watching picker fire tv android tv " +
+        "профили просмотра телевизор дети детский русский классика кто смотрит"
     },
     {
       id: "profile:stremio",
