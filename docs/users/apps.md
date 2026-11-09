@@ -78,11 +78,11 @@ container:
 
 | Setting | Value |
 |---|---|
-| Image | `ghcr.io/isputnikdotnet/isputnik.video` (on Unraid, the template `isputnik-video.xml` in the [isputnik.video repository](https://github.com/isputnikdotnet/isputnik.video)) |
+| Image | `ghcr.io/isputnikdotnet/isputnik.video` (on Unraid, **isputnik-video** from Community Applications, or the template `isputnik-video.xml` in the [isputnik.video repository](https://github.com/isputnikdotnet/isputnik.video)) |
 | `/media` | your video folder, **read-only** (for example `/mnt/user/data/video`) |
 | `/config` | an appdata folder: the catalog database and poster cache |
-| Network | the same network as iSputnik, or a fixed IP; **no port published** |
-| `GATEWAY_SECRET` | empty for now — you'll fill it in step 3; until then the container stops as soon as it starts |
+| Network | the Unraid template publishes port 4300 on `bridge`, so the address is `http://<your Unraid IP>:4300`; a shared network or a fixed IP work too |
+| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Settings → Apps → Video → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
 | `/transcode` | optional: where ffmpeg writes each piece of a film being converted before the engine takes it into memory, and where pieces past a viewer's memory share stay ([Converting video](#converting-video)); left out, a folder inside the container |
 
 Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
@@ -98,9 +98,9 @@ backup. Give its container:
 
 | Setting | Value |
 |---|---|
-| Image | `ghcr.io/isputnikdotnet/isputnik.faces` (on Unraid, the template `isputnik-faces.xml` in the [isputnik.faces repository](https://github.com/isputnikdotnet/isputnik.faces)) |
-| Network | the same network as iSputnik, or a fixed IP; **no port published** |
-| `GATEWAY_SECRET` | empty for now — you'll fill it in step 3; until then the container stops as soon as it starts |
+| Image | `ghcr.io/isputnikdotnet/isputnik.faces` (on Unraid, **isputnik-faces** from Community Applications, or the template `isputnik-faces.xml` in the [isputnik.faces repository](https://github.com/isputnikdotnet/isputnik.faces)) |
+| Network | the Unraid template publishes port 4400 on `bridge`, so the address is `http://<your Unraid IP>:4400`; a shared network or a fixed IP work too |
+| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Settings → Apps → Faces → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
 | CPU threads | optional: all cores but one by default, so the box stays responsive during a scan |
 
 Without a paired Faces container there is no face recognition (since 4.65.1
