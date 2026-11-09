@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.74.0 — Without Stremio
+
+- **The Stremio add-on is gone.** Stremio asks its users to pay for basics such as its own home page, and that is not a player this project should point a family at. The TV app does what the add-on did and more: your place is shared with the website, intros are skipped, profiles work, and nothing leaves the house. With this update every Stremio link stops working; the Stremio card on Profile › Security, the administrator's list of links on Security › App access › Video, its *Stremio* network rule and the guide are removed. Manage, Watch and Browse rules are unchanged.
+- The video engine needs its own update for this release: **isputnik.video 0.29** drops the add-on's routes; an older engine keeps working, it only answers on addresses nothing asks for any more.
+
 ## 4.73.1 — Phone backup you can trust
 
 - **A phone's photo is never dropped on the strength of an old record.** The server used to take its note of what a phone had sent as proof that it still held those bytes — so once a file had been edited or replaced in place on the server, another phone's untouched original, or the same phone's re-send, was acknowledged and thrown away. A match now only counts while the file on disk still has that size and content; otherwise the original is stored again. A photo you deleted at home on purpose still stays deleted.

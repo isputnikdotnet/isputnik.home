@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.74.0",
+    "label": "Without Stremio",
+    "changes": [
+      "**The Stremio add-on is gone.** Stremio asks its users to pay for basics such as its own home page, and that is not a player this project should point a family at. The TV app does what the add-on did and more: your place is shared with the website, intros are skipped, profiles work, and nothing leaves the house. With this update every Stremio link stops working; the Stremio card on Profile › Security, the administrator's list of links on Security › App access › Video, its *Stremio* network rule and the guide are removed. Manage, Watch and Browse rules are unchanged.",
+      "The video engine needs its own update for this release: **isputnik.video 0.29** drops the add-on's routes; an older engine keeps working, it only answers on addresses nothing asks for any more."
+    ]
+  },
+  {
     "version": "4.73.1",
     "label": "Phone backup you can trust",
     "changes": [

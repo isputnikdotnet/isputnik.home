@@ -27,7 +27,11 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794225600</Date>
   <Changes>
-### 2026.11.09 — 4.73.1 Phone backup you can trust
+### 2026.11.09 — 4.74.0 Without Stremio
+- **The Stremio add-on is gone.** Stremio asks its users to pay for basics such as its own home page, and that is not a player this project should point a family at. The TV app does what the add-on did and more: your place is shared with the website, intros are skipped, profiles work, and nothing leaves the house. With this update every Stremio link stops working; the Stremio card on Profile › Security, the administrator's list of links on Security › App access › Video, its *Stremio* network rule and the guide are removed. Manage, Watch and Browse rules are unchanged.
+- The video engine needs its own update for this release: **isputnik.video 0.29** drops the add-on's routes; an older engine keeps working, it only answers on addresses nothing asks for any more.
+
+### 2026.11.08 — 4.73.1 Phone backup you can trust
 - **A phone's photo is never dropped on the strength of an old record.** The server used to take its note of what a phone had sent as proof that it still held those bytes — so once a file had been edited or replaced in place on the server, another phone's untouched original, or the same phone's re-send, was acknowledged and thrown away. A match now only counts while the file on disk still has that size and content; otherwise the original is stored again. A photo you deleted at home on purpose still stays deleted.
 - **Two uploads can no longer slip past the size limit together.** The limit was checked once before each upload started, so two that fit alone both got through. Each upload now holds its bytes against the limit while it is in flight, and the limit is checked again just before the file is filed.
 - **Duplicate detection looks at every candidate.** It used to stop after 50 same-size photos (20 Live Photo clips), in no particular order, so a library with many photos of one size could store a copy it already had. It now starts from the indexed hashes and then checks every same-size file, remembering each digest so the work is done once.
@@ -49,14 +53,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
 ### 2026.11.06 — 4.71.1 Phone sync table fits
 - **The Phones table on Security › Phone sync fits its card again.** A phone refused from an unlisted network stretched the table past the edge, cutting off **See in Logs** and squeezing its state into a narrow column a word per line. The state now wraps as a short paragraph, **Add** for the range sits above **See in Logs**, and the table scrolls sideways inside its card only on a narrow window.
-
-### 2026.11.06 — 4.71.0 Phone backup
-- **Back up your phone's photos to the server.** Each member can now have a **personal library** of their own — only they can open it, admins see its size and never its contents. Turn it on under **Profile › My library**, add a phone there, and point the free **PhotoSync** app at the server: photos and videos arrive on their own whenever the phone is on the home Wi-Fi (or a VPN into the house), filed by date under the phone's name. Nothing is ever stored twice, a photo you delete at home is not sent again, and the phone never deletes anything on the server. The new guide *Backing up your phone* walks through Android and iPhone.
-- **For the administrator, nothing happens until you set it up**: allow personal libraries (where, for whom, any size limit) under **Library › Storage**, and list the networks phones may back up from on the new **Security › Phone sync** tab — kept apart from Trusted networks, so a VPN range for phones relaxes nothing about signing in. The same tab lists every member's phones with their last contact and anything wrong (refused from an unlisted address — with a one-click **Add** for its range — no contact for a week, a library nearly full), and **Overview › Logs** keeps the history.
-- **Photos already on the server aren't sent again.** If a phone's photos were backed up some other way into a shared photo library (Immich, say), tick that phone on the library's new **Edit › Phone backups** tab before switching PhotoSync on: photos already there are counted as backed up and only new ones go to the personal library.
-- **Live Photos are one photo.** In every photo library, a still and its short `.mov` with the same name become one item with a *LIVE* mark; press **LIVE**, hold the photo on a phone or hover it with the mouse to play the motion. iPhone clips are converted so every browser plays them.
-- **Photos and videos are no longer downloaded again when they haven't changed.** The browser now asks the server whether its copy is still current and reuses it, so galleries and videos you've opened before load faster and use less data.
-- Needs no manual step: the database is upgraded on start (personal libraries, phones and Live Photo columns).
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
