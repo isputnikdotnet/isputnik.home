@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.78.1 — System data is chosen for you
+
+- **A new install no longer stops at the Storage page before its first library.** Home now takes the folder next to its database as system data when it first starts: `/config` in Docker, the `data` folder beside the app otherwise. Before, every new install had to open Control panel → Library → Storage and confirm that same suggested folder before any library could be created, and the page did not say so until you tried.
+- You can still change it on the Storage page; thumbnails, backups and metadata follow it as before. An install that already has system data or libraries is not touched, and a suggested folder the app cannot write to is still left for you to choose.
+
 ## 4.78.0 — Quality for viewers away from home
 
 - **A Quality menu in the video player.** Beside Sound and Subtitles: **Original**, **1080p**, **720p** or **480p**. Pick a smaller one on a weak Wi-Fi corner or a phone and the engine makes that picture while you watch, from where the film is; a film already smaller than the rung plays as it is. The choice is remembered in that browser, one for home and one for away, and the next film starts in it.

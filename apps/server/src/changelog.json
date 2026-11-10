@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.78.1",
+    "label": "System data is chosen for you",
+    "changes": [
+      "**A new install no longer stops at the Storage page before its first library.** Home now takes the folder next to its database as system data when it first starts: `/config` in Docker, the `data` folder beside the app otherwise. Before, every new install had to open Control panel → Library → Storage and confirm that same suggested folder before any library could be created, and the page did not say so until you tried.",
+      "You can still change it on the Storage page; thumbnails, backups and metadata follow it as before. An install that already has system data or libraries is not touched, and a suggested folder the app cannot write to is still left for you to choose."
+    ]
+  },
+  {
     "version": "4.78.0",
     "label": "Quality for viewers away from home",
     "changes": [
