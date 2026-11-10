@@ -75,6 +75,7 @@ interface SecurityPolicy {
   // it is here because both policy cards PATCH the whole blob, and a field missing
   // from the type is a field a later edit drops on the floor.
   deviceLinkScope: "local" | "any";
+  alertAdminsDeviceLinked: boolean;
   requireMfaOutside: boolean;
   // The key itself never leaves the server; the form gets only whether one is
   // stored, and sends a replacement (blank = keep) — like the SMTP password.
@@ -923,6 +924,28 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         </span>
                       </span>
                     </label>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={policyForm.alertAdminsDeviceLinked}
+                        onChange={(event) => setPolicyForm({ ...policyForm, alertAdminsDeviceLinked: event.target.checked })}
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">{t("controlAdmin:security.devicesAlertLabel")}</span>
+                        <span className="security-setting-help">
+                          {t("controlAdmin:security.devicesAlertHelp")}
+                        </span>
+                      </span>
+                    </label>
+                    {policyForm.alertAdminsDeviceLinked && !data.mailConfigured && (
+                      <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
+                        <Trans
+                          i18nKey="security.alertsNoMailBody"
+                          ns="controlAdmin"
+                          components={{ lnk: <a href={controlHref("email")} onClick={(event) => followRoute(event, controlHref("email"))} /> }}
+                        />
+                      </MessageBox>
+                    )}
 
                     {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.linkRefusedTitle")}>

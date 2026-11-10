@@ -9,14 +9,16 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
 
 import { db, logActivity, type User } from "../src/db.js";
 import { sendMail } from "../src/core/mail.js";
+import type { FastifyRequest } from "fastify";
 import {
+  alertAdminsDeviceLinked,
   alertEmailChanged,
   alertMfaBackupCodesRegenerated,
   alertMfaEnabled,
   alertMfaFailures,
   alertPasswordChanged
 } from "../src/core/security-alerts.js";
-import { MFA_FAILURE_ALERT_THRESHOLD, recentMfaFailureCount } from "../src/core/security.js";
+import { DEFAULT_SECURITY_POLICY, MFA_FAILURE_ALERT_THRESHOLD, recentMfaFailureCount, setSecurityPolicy } from "../src/core/security.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // The alerts are fire-and-forget (`void notify(…)`), so let the microtask queue
@@ -61,6 +63,32 @@ beforeEach(() => {
   resetDb();
   vi.clearAllMocks();
   configureMail();
+});
+
+describe("a device linked to an account", () => {
+  const request = { ip: "203.0.113.9" } as FastifyRequest;
+
+  it("tells every admin but the account's own, naming the account and the device", async () => {
+    const admin = freshUser("admin");
+    const otherAdmin = freshUser("admin");
+    const member = freshUser();
+    alertAdminsDeviceLinked(member, request, "iSputnik TV app on Android");
+    alertAdminsDeviceLinked(admin, request, "iSputnik TV app on Android");
+    await flush();
+    expect(recipients()).toEqual([[admin.email, otherAdmin.email], [otherAdmin.email]]);
+    expect(bodies()[0]).toContain(member.email);
+    expect(bodies()[0]).toContain("iSputnik TV app on Android");
+  });
+
+  it("is on by default, and the policy turns it off", async () => {
+    freshUser("admin");
+    const member = freshUser();
+    expect(DEFAULT_SECURITY_POLICY.alertAdminsDeviceLinked).toBe(true);
+    setSecurityPolicy({ ...DEFAULT_SECURITY_POLICY, alertAdminsDeviceLinked: false }, null);
+    alertAdminsDeviceLinked(member, request, "Chrome on Windows");
+    await flush();
+    expect(sendMail).not.toHaveBeenCalled();
+  });
 });
 
 describe("account-security change alerts", () => {

@@ -17,6 +17,7 @@ export interface SecurityPolicy {
   ipAutoblockMinutes: number; // …how long the auto-block lasts
   alertNewIpSignIn: boolean; // email on a sign-in from a network not seen before
   deviceLinkScope: DeviceLinkScope; // where a device may ask to be linked from
+  alertAdminsDeviceLinked: boolean; // email the admins whenever a device is linked to any account
   requireMfaOutside: boolean; // every sign-in from outside a trusted network needs a second factor
   abuseIpdbKey: string; // AbuseIPDB API key; "" disables all reputation lookups
   reputationAutoEscalate: boolean; // auto-blocks become permanent when the score crosses…
@@ -46,6 +47,7 @@ export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   ipAutoblockMinutes: 60,
   alertNewIpSignIn: false,
   deviceLinkScope: "local",
+  alertAdminsDeviceLinked: true,
   requireMfaOutside: false,
   abuseIpdbKey: "",
   reputationAutoEscalate: true,

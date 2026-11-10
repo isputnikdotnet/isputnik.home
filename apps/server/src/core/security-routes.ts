@@ -61,6 +61,8 @@ const policySchema = z.object({
   ipAutoblockMinutes: z.number().int().min(1).max(10080),
   alertNewIpSignIn: z.boolean(),
   deviceLinkScope: z.enum(["local", "any"]),
+  // Optional: omitted (a client that predates it) keeps what is stored.
+  alertAdminsDeviceLinked: z.boolean().optional(),
   requireMfaOutside: z.boolean(),
   // Omitted/blank on save = keep the stored key; never echoed back (like the SMTP
   // password). Other policy cards PATCH the whole blob without it, so it must be
@@ -210,6 +212,7 @@ export async function securityRoutes(app: FastifyInstance) {
     const { clearAbuseIpdbKey, abuseIpdbKey: submittedKey, ...restPolicy } = parsed.data;
     const next: SecurityPolicy = {
       ...restPolicy,
+      alertAdminsDeviceLinked: restPolicy.alertAdminsDeviceLinked ?? before.alertAdminsDeviceLinked,
       abuseIpdbKey: clearAbuseIpdbKey ? "" : submittedKey?.length ? sealSecret(submittedKey) : getStoredAbuseIpdbKeyRaw()
     };
     setSecurityPolicy(next, request.user!.id);

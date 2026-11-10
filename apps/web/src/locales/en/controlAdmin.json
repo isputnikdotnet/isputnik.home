@@ -1107,6 +1107,8 @@
     "devicesLocalHelp": "The recommended setting. A wall display is always in the house, and this is what stops a stranger elsewhere from starting a request at all.",
     "devicesAnyLabel": "Any device that can reach the server",
     "devicesAnyHelp": "Needed only if you link devices while away from home. It also lets someone else start a request and send you its code — approving one still needs your password, so never approve a device you didn't just set up, and check the code matches the screen in front of you.",
+    "devicesAlertLabel": "Email the admins when a device is linked",
+    "devicesAlertHelp": "Every time a TV, display or other device is linked to any account, the admins get an email naming the account and the device. The account owner always gets their own receipt. Recommended when linking is open to the internet.",
     "linkRefusedTitle": "Device linking is refusing everything",
     "linkRefusedBody": "Requests arrive through a proxy but neither <cd>TRUST_PROXY</cd> nor <cd>TRUST_PROXY_HOPS</cd> is set, so every device looks like it is on the proxy's own address — which would make \"home network only\" mean \"anyone at all\". Linking is refused entirely until you set one.",
     "devicesSaved": "Device linking updated.",

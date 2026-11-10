@@ -5,7 +5,7 @@ import { db, logActivity, publicUser, type User } from "../db.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody, requestOrigin } from "./shared.js";
-import { alertDeviceLinked, alertDeviceLinkRejected, alertRemoteDeviceLinked, flagAbusiveRequest } from "./security-alerts.js";
+import { alertAdminsDeviceLinked, alertDeviceLinked, alertDeviceLinkRejected, alertRemoteDeviceLinked, flagAbusiveRequest } from "./security-alerts.js";
 import {
   approveLinkRequest,
   attachSession,
@@ -164,6 +164,8 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
       const window = liveWindowFor(user.id);
       if (window) closeLinkWindow(window.id, sessionId);
       alertRemoteDeviceLinked(user, request, label);
+    } else {
+      alertAdminsDeviceLinked(user, request, label);
     }
 
     logActivity({

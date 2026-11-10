@@ -345,6 +345,21 @@ export function alertRemoteDeviceLinked(user: User, request: FastifyRequest, lab
   ]);
 }
 
+// Any other device that gets in, told to the admins when the policy says so
+// (alertAdminsDeviceLinked, on by default). With linking open to the internet a
+// household member can be talked into approving a stranger's code; the owner's
+// receipt above may go unread, and the admins are the ones who can end it. The
+// account's own admin is left out: they already have the receipt.
+export function alertAdminsDeviceLinked(user: User, request: FastifyRequest, label: string): void {
+  if (!getSecurityPolicy().alertAdminsDeviceLinked) return;
+  void notify(adminEmailsExcept(user.email), "A device was linked to an account", [
+    `"${label}" is now signed in to ${user.display_name}'s account.`,
+    context(request.ip, { label: "Account", value: user.email }, { label: "Device", value: label }),
+    "If nobody in the household expected this, end its session from Control panel → Members → Sessions and ask them to change their password.",
+    "These emails can be turned off in Control panel → Security → Policies, under Linking devices."
+  ]);
+}
+
 // A device asked to be linked and the server refused before creating anything.
 // Goes to admins, not the owner: nobody owns it yet, and both reasons are the
 // admin's to act on — widen the policy deliberately, or configure proxy trust.
