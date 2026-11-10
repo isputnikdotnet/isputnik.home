@@ -783,67 +783,111 @@
   color: var(--gold);
 }
 
-/* The player: a dark page of its own, the video as large as the window allows. */
+/* The player: a black page of its own, the film over all of it. Nothing else is
+   on screen while it plays: the title (top) and the controls (bottom) are drawn
+   over the picture and fade in with the pointer or a key. Dark whatever the
+   theme, with the TV app's amber for where the film is. */
 .video-player-page {
+  --player-accent: #f5a524;
+  --player-ink: #f5f3ee;
+  --player-muted: rgba(245, 243, 238, 0.68);
+  --player-sheet: rgba(22, 23, 27, 0.94);
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 12px 16px 24px;
-  box-sizing: border-box;
-  background: #0b0c0f;
-  color: #f2efe8;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #000;
+  color: var(--player-ink);
 }
 
-.video-player-bar {
+.video-player-page.is-idle {
+  cursor: none;
+}
+
+.video-player-frame {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* What fades: the title and the controls. */
+.video-player-chrome {
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+.video-player-chrome.is-hidden,
+.video-player-chrome.is-hidden * {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.video-player-top {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  display: flex;
   align-items: center;
-  gap: 8px 18px;
+  gap: 10px;
+  padding: 20px 28px 56px 18px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+  /* The shade is not in the way of a click on the picture. */
+  pointer-events: none;
+}
+
+.video-player-top > * {
+  pointer-events: auto;
 }
 
 .video-player-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 8px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   color: inherit;
   text-decoration: none;
 }
 
 .video-player-back:hover,
 .video-player-back:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .video-player-heading {
   min-width: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .video-player-heading h1 {
   margin: 0;
-  font-size: 1.1rem;
+  overflow: hidden;
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .video-player-heading p {
-  margin: 2px 0 0;
-  color: rgba(242, 239, 232, 0.7);
-  font-size: 0.9rem;
-}
-
-/* The sound-track menu sits at the far end of the bar. */
-.video-player-audio {
-  margin-left: auto;
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--player-muted);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .video-player-stage {
   position: relative;
-  display: flex;
   flex: 1 1 auto;
-  align-items: center;
-  justify-content: center;
   min-height: 0;
 }
 
@@ -852,28 +896,304 @@
 }
 
 .video-player {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-height: calc(100dvh - 120px);
+  height: 100%;
   background: #000;
+  object-fit: contain;
+}
+
+.video-player-bottom {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  padding: 72px 28px 14px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.video-player-controls {
+  pointer-events: auto;
+}
+
+.video-player-timeline {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.video-player-seek {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.video-player-time {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The seek line and the volume line: a thin track, amber up to where it is, a
+   paler stretch for what has arrived. */
+.video-player-controls input[type="range"] {
+  --track: linear-gradient(
+    to right,
+    var(--player-accent) 0 var(--played, 0%),
+    rgba(255, 255, 255, 0.5) var(--played, 0%) var(--buffered, 0%),
+    rgba(255, 255, 255, 0.24) var(--buffered, 0%) 100%
+  );
+  display: block;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.video-player-controls input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+
+.video-player-controls input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+
+.video-player-controls input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--player-accent);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.video-player-controls input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--player-accent);
+}
+
+.video-player-controls input[type="range"]:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--player-ink);
+  outline-offset: 2px;
+}
+
+.video-player-seek-tip {
+  position: absolute;
+  bottom: 26px;
+  padding: 3px 8px;
   border-radius: 6px;
+  background: var(--player-sheet);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.video-player-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* The first and last icons line up with the ends of the seek line. */
+  margin: 4px -11px 0;
+}
+
+.video-player-buttons-gap {
+  flex: 1 1 auto;
+}
+
+.video-player-button {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--player-ink);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.video-player-button:hover,
+.video-player-button:focus-visible,
+.video-player-button[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.video-player-button:focus-visible {
+  outline: 2px solid var(--player-ink);
+  outline-offset: 1px;
+}
+
+.video-player-button.is-small {
+  width: 30px;
+  height: 30px;
+}
+
+/* "10" inside the round arrow. */
+.video-player-button.is-jump > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 0.6rem;
+  font-weight: 700;
+  transform: translate(-50%, -42%);
+}
+
+.video-player-volume {
+  display: flex;
+  align-items: center;
+}
+
+/* The volume line opens beside its icon under the pointer or the keyboard. */
+.video-player-volume input[type="range"] {
+  width: 0;
+  opacity: 0;
+  transition: width 0.18s ease, opacity 0.18s ease;
+}
+
+.video-player-volume:hover input[type="range"],
+.video-player-volume:focus-within input[type="range"] {
+  width: 84px;
+  margin: 0 8px 0 2px;
+  opacity: 1;
+}
+
+.video-player-menu {
+  position: relative;
+}
+
+.video-player-menu-sheet {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 5;
+  display: grid;
+  min-width: 250px;
+  max-width: min(340px, calc(100vw - 32px));
+  max-height: min(60vh, 420px);
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: var(--player-sheet);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(18px);
+}
+
+.video-player-menu-title {
+  padding: 8px 10px 6px;
+  color: var(--player-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.video-player-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--player-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.video-player-menu-item:hover,
+.video-player-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
+.video-player-menu-item.is-back {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.video-player-menu-check {
+  display: inline-grid;
+  flex: 0 0 18px;
+  place-items: center;
+  color: var(--player-accent);
+}
+
+.video-player-menu-item:not([aria-checked]) .video-player-menu-check {
+  color: var(--player-muted);
+}
+
+.video-player-menu-value {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--player-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Over the picture, above the controls: "Resumed at" on the left; Skip intro
+   and the next-episode card on the right. They drop to the edge when the
+   controls go. */
+.video-player-resumed,
+.video-player-next,
+.video-player-skip {
+  position: absolute;
+  bottom: 136px;
+  z-index: 4;
+  transition: bottom 0.25s ease;
+}
+
+.video-player-page.is-idle .video-player-resumed,
+.video-player-page.is-idle .video-player-next,
+.video-player-page.is-idle .video-player-skip {
+  bottom: 40px;
 }
 
 .video-player-resumed,
 .video-player-next {
-  position: absolute;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 12px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: rgba(11, 12, 15, 0.86);
-  color: #f2efe8;
+  background: var(--player-sheet);
+  color: var(--player-ink);
 }
 
 .video-player-resumed {
-  top: 12px;
-  left: 12px;
+  left: 28px;
+}
+
+.video-player-resumed .text-button {
+  color: var(--player-accent);
 }
 
 /* While the engine reads the film and cuts its first segment. */
@@ -881,25 +1201,41 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
   padding: 8px 14px;
   border-radius: 10px;
-  background: rgba(11, 12, 15, 0.86);
-  color: #f2efe8;
+  background: var(--player-sheet);
+  color: var(--player-ink);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+/* Playing, but the next of it hasn't arrived. */
+.video-player-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--player-accent);
+  border-radius: 50%;
+  animation: video-player-spin 0.9s linear infinite;
   pointer-events: none;
 }
 
-.video-player-resumed .text-button {
-  color: var(--gold);
+@keyframes video-player-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Light, in the theme's own colours, so its buttons read as they do elsewhere. */
 .video-player-next {
-  right: 16px;
-  bottom: 64px;
+  right: 28px;
   flex-direction: column;
   align-items: flex-start;
-  max-width: min(360px, calc(100% - 32px));
+  max-width: min(360px, calc(100% - 56px));
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
@@ -912,62 +1248,143 @@
 
 /* Over the picture while the intro plays, where the end card comes later. */
 .video-player-skip {
-  position: absolute;
-  right: 16px;
-  bottom: 64px;
+  right: 28px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
-.video-player-fullscreen {
+/* More → Playback information: what is being sent, and why. */
+.video-player-info {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(11, 12, 15, 0.6);
-  color: #f2efe8;
-  opacity: 0.55;
+  top: 96px;
+  right: 28px;
+  z-index: 4;
+  width: min(380px, calc(100% - 56px));
+  padding: 10px 14px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: var(--player-sheet);
+  color: var(--player-ink);
+  font-size: 0.9rem;
 }
 
-.video-player-fullscreen:hover,
-.video-player-fullscreen:focus-visible {
-  background: rgba(11, 12, 15, 0.86);
-  color: #f2efe8;
-  opacity: 1;
+.video-player-info header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
 }
 
-/* The page in full screen: the picture and what is drawn over it, nothing else. */
-.video-player-page.is-fullscreen {
-  padding: 0;
-  background: #000;
+.video-player-info dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 14px;
+  margin: 0;
 }
 
-.video-player-page.is-fullscreen > .video-player-bar,
-.video-player-page.is-fullscreen > .video-player-after {
-  display: none;
+.video-player-info dt {
+  color: var(--player-muted);
 }
 
-.video-player-page.is-fullscreen .video-player {
-  height: 100%;
-  max-height: none;
-  border-radius: 0;
+.video-player-info dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
-.video-player-message,
-.video-player-after {
+/* In place of the film: why it can't play, under the title. */
+.video-player-message {
   max-width: 720px;
+  padding: 104px 28px 0;
 }
 
-.video-player-after a {
-  color: var(--gold);
+.video-player-message + .video-player-message {
+  padding-top: 12px;
 }
 
 /* Marking the intro and credits (admins): under the picture, in the theme's own
-   colours like the end card, so its buttons read as they do elsewhere. */
-.video-player-mark.is-alone {
-  margin-left: auto;
+   colours like the end card, so its buttons read as they do elsewhere. The
+   picture gives it the room; full screen has none. */
+.video-player-page > .video-marks {
+  flex: 0 0 auto;
+  max-width: none;
+  max-height: 46vh;
+  overflow-y: auto;
+  border-radius: 0;
 }
 
 .video-player-page.is-fullscreen > .video-marks {
   display: none;
+}
+
+@media (hover: none) {
+  .video-player-volume input[type="range"] {
+    display: none;
+  }
+}
+
+@media (max-width: 740px) {
+  .video-player-top {
+    padding: 10px 16px 40px 6px;
+  }
+
+  .video-player-heading h1 {
+    font-size: 1.15rem;
+  }
+
+  .video-player-heading p {
+    font-size: 0.85rem;
+  }
+
+  .video-player-bottom {
+    padding: 48px 16px 8px;
+  }
+
+  .video-player-timeline {
+    gap: 10px;
+  }
+
+  .video-player-time {
+    font-size: 0.8rem;
+  }
+
+  .video-player-buttons {
+    gap: 2px;
+    margin: 0 -8px;
+  }
+
+  .video-player-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* The phone's own buttons are the volume. */
+  .video-player-volume {
+    display: none;
+  }
+
+  .video-player-resumed,
+  .video-player-next,
+  .video-player-skip {
+    bottom: 104px;
+  }
+
+  .video-player-resumed {
+    left: 16px;
+  }
+
+  .video-player-next,
+  .video-player-skip {
+    right: 16px;
+  }
+
+  .video-player-info {
+    top: 72px;
+    right: 16px;
+    width: calc(100% - 32px);
+  }
+
+  .video-player-message {
+    padding: 80px 16px 0;
+  }
 }
 
 .video-marks {

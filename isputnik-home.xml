@@ -27,7 +27,15 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794312000</Date>
   <Changes>
-### 2026.11.10 — 4.78.2 Know when a device is linked
+### 2026.11.10 — 4.79.0 A player that gets out of the way
+- **Nothing on screen but the film.** The player for movies and shows lost its permanent bar: the picture now fills the whole window, and the title and the controls are drawn over it. Move the mouse, tap the picture or press a key and they fade in; about three seconds after the last movement they go again, the mouse pointer with them. Paused, they stay. Before, a header sat over every film and the browser's own controls sat under it, different in every browser.
+- **Its own controls, the same everywhere.** Play and pause, ten seconds back and forward, the next episode, a thin amber line showing where the film is (point at it to see the time, drag it to go there), volume, subtitles, settings and full screen. A click on the picture pauses; a double click is full screen.
+- **Settings, Subtitles and More.** The gear holds **Quality**, **Sound** (where a film has more than one track) and a new **Speed**, from 0.5× to 2×. **CC** chooses the subtitles. **More** (⋯) has **Start over**, a new **Playback information** (whether the film is sent as it is or converted and why, the picture's size, the sound track) and, for admins, **Mark intro**.
+- **The keyboard.** Space or K plays and pauses, ← and → jump ten seconds, ↑ and ↓ change the volume, M mutes, F is full screen, S still skips the intro. The letters go by the key's place, so a Russian layout works.
+- **How loud is remembered** in each browser, like the sound language, the subtitles and the quality already were.
+- "Resumed at" now steps aside after a few seconds instead of staying over the picture; Start over is always under More.
+
+### 2026.11.09 — 4.78.2 Know when a device is linked
 - **The admins are emailed whenever a device is linked to any account.** The email names the account, the device (say, the TV app on Android), where it asked from and when, and how to end its session if nobody expected it. Before, only the account owner got a receipt, so a household member talked into approving a stranger’s code was the only one who knew. It is on by default; turn it off under Control panel → Security → Policies → **Linking devices**. Needs email set up in Settings → Email.
 - **Fix: a device link typed in capitals now works.** The address a TV shows (`/link/` and its code) is read off the screen and typed, and a phone that capitalised it as `/LINK/…` sent you to sign in and then to the home page, with the code forgotten. Any case is accepted now.
 
@@ -47,14 +55,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **A person's own access still applies on top.** The list only ever narrows: a photo the person signed in can't open on the website never shows on the TV, even inside a picked album. A slideshow's rendered movie plays on the TV only when the viewer may see every photo in it; otherwise the TV plays the slideshow live, with just their photos.
 - **A TV can't wander off the list.** A TV's session reads only its list's albums and slideshows, their photos and videos, their music and allowed movies; everything else in Photos is refused, and it can change nothing.
 - The TV app's **Photos** tab arrives in **iSputnik TV 0.11**: a banner and rows of slideshows and albums, a full-screen viewer with each slideshow's own timing and transitions, music, videos playing in place, and a caption with the date, place and who is in the photo. The tab appears only when something is on the list for the profile watching.
-
-### 2026.11.09 — 4.76.0 Who's watching
-- **Viewing profiles, as on Netflix.** An admin sets up the household's ways of watching video — *Kids*, *Russian*, *Classic* — on the video page under **Customize › Profiles**. Each has a name, a colour, the video libraries it shows and rows of its own (set on its tab in Customize; until then it shows the household's rows).
-- **Every TV and browser can watch as a profile.** The TV app asks **Who's watching?** when it opens, and the video page has a **Watching as** menu. A profile only ever narrows what the person signed in may see — search, title pages and sets show nothing outside its libraries — and it changes Video only: photos, books and the rest of the app stay the account's.
-- **Each profile keeps its own history.** Continue watching, watched marks and My list belong to the profile, the same on every TV whoever is signed in, so the cartoons stay out of the grown-ups' Continue watching. Without a profile, everything is your own, as before.
-- **Restricted profiles and a household PIN.** Getting into *Kids* is free; getting out needs the PIN, set by an admin with their password (4 to 8 digits; 5 wrong tries lock entry for 15 minutes). On a TV the PIN also guards choosing another person linked on it, linking someone new and unlinking. Without a PIN, the Profiles tab says that anyone can still switch away.
-- Profiles made in the short-lived **Profile › TV profiles** tab that slipped into 4.73.1 become household profiles, and a TV wearing one keeps it.
-- The video engine needs its own update for profiles to keep their own history: **isputnik.video 0.30**. An older engine keeps working, and a profile then shares the history of whoever is watching. The TV app's profiles and PIN pad come in **iSputnik TV 0.9**.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getRoute } from "../src/router";
@@ -725,11 +725,13 @@ describe("the player", () => {
       renderSignedIn(<VideoPlayerPage id="e2" />);
       await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t1/index.m3u8"));
 
-      await userEvent.click(screen.getByRole("button", { name: "Sound: English · 5.1" }));
-      await userEvent.click(screen.getByRole("option", { name: /Russian · Дубляж · Stereo/ }));
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Sound: English · 5.1" }));
+      await userEvent.click(screen.getByRole("menuitemradio", { name: /Russian · Дубляж · Stereo/ }));
       expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2?audio=2");
       await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t2/index.m3u8"));
-      expect(screen.getByRole("button", { name: "Sound: Russian · Дубляж · Stereo" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.getByRole("menuitem", { name: "Sound: Russian · Дубляж · Stereo" })).toBeInTheDocument();
       // The next film starts in Russian.
       expect(window.localStorage.getItem("isputnik.video.audioLanguage")).toBe("rus");
     });
@@ -746,7 +748,9 @@ describe("the player", () => {
       mockApi.mockResolvedValue({ ...playInfo, audioTracks: [english] });
       renderSignedIn(<VideoPlayerPage id="e2" />);
       expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /^Sound/ })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.getByRole("menuitem", { name: "Speed: Normal" })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: /^Sound/ })).not.toBeInTheDocument();
     });
   });
 
@@ -772,12 +776,14 @@ describe("the player", () => {
       renderSignedIn(<VideoPlayerPage id="e2" />);
       await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t1/index.m3u8"));
 
-      await userEvent.click(screen.getByRole("button", { name: "Quality: Original" }));
-      expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["Original", "1080p", "720p", "480p"]);
-      await userEvent.click(screen.getByRole("option", { name: "720p" }));
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Quality: Original" }));
+      expect(screen.getAllByRole("menuitemradio").map((option) => option.textContent)).toEqual(["Original", "1080p", "720p", "480p"]);
+      await userEvent.click(screen.getByRole("menuitemradio", { name: "720p" }));
       expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2?quality=720");
       await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t1q720/index.m3u8"));
-      expect(screen.getByRole("button", { name: "Quality: 720p" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.getByRole("menuitem", { name: "Quality: 720p" })).toBeInTheDocument();
       // Remembered for the next film at home, apart from the choice away.
       expect(window.localStorage.getItem("isputnik.video.quality.home")).toBe("720");
       expect(window.localStorage.getItem("isputnik.video.quality.away")).toBeNull();
@@ -795,21 +801,24 @@ describe("the player", () => {
       // Capped at 720p: the engine starts there and offers 720p and 480p.
       mockApi.mockResolvedValue({ ...playInfo, playback: hlsAt(720, "internet", [720, 480]) });
       const view = renderSignedIn(<VideoPlayerPage id="e2" />);
-      await userEvent.click(await screen.findByRole("button", { name: "Quality: 720p" }));
-      expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["720p", "480p"]);
+      await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Quality: 720p" }));
+      expect(screen.getAllByRole("menuitemradio").map((option) => option.textContent)).toEqual(["720p", "480p"]);
       view.unmount();
 
       mockApi.mockResolvedValue({ ...playInfo, playback: hlsAt(480, "internet", [480]) });
       renderSignedIn(<VideoPlayerPage id="e2" />);
       expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /^Quality/ })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.queryByRole("menuitem", { name: /^Quality/ })).not.toBeInTheDocument();
     });
 
     it("shows no menu to an engine that offers no quality", async () => {
       mockApi.mockResolvedValue(playInfo);
       renderSignedIn(<VideoPlayerPage id="e2" />);
       expect(await screen.findByRole("heading", { name: "Counterpart" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /^Quality/ })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.queryByRole("menuitem", { name: /^Quality/ })).not.toBeInTheDocument();
     });
   });
 
@@ -831,8 +840,8 @@ describe("the player", () => {
       mockApi.mockImplementation((async (path: string) => answer(path)) as never);
       renderSignedIn(<VideoPlayerPage id="e2" />);
       await userEvent.click(await screen.findByRole("button", { name: "Subtitles: Off" }));
-      expect(screen.getByRole("option", { name: "Russian · SDH" })).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("option", { name: "English" }));
+      expect(screen.getByRole("menuitemradio", { name: "Russian · SDH" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("menuitemradio", { name: "English" }));
       const tracks = [...document.querySelectorAll("video track")];
       expect(tracks.map((track) => track.getAttribute("src"))).toEqual(["/video/api/subtitles/e2/s3.vtt", "/video/api/subtitles/e2/x0123456789.vtt"]);
       expect(screen.getByRole("button", { name: "Subtitles: English" })).toBeInTheDocument();
@@ -845,7 +854,7 @@ describe("the player", () => {
       mockApi.mockImplementation((async (path: string) => answer(path)) as never);
       renderSignedIn(<VideoPlayerPage id="e2" />);
       await userEvent.click(await screen.findByRole("button", { name: "Subtitles: Off" }));
-      await userEvent.click(screen.getByRole("option", { name: "French" }));
+      await userEvent.click(screen.getByRole("menuitemradio", { name: "French" }));
       expect(mockApi).toHaveBeenCalledWith("/video/api/play/e2?subtitle=s4");
       await waitFor(() => expect(hlsCalls.source).toBe("/video/api/hls/e2/t-b4/index.m3u8"));
       expect(screen.getByRole("button", { name: "Subtitles: French" })).toBeInTheDocument();
@@ -856,6 +865,105 @@ describe("the player", () => {
       mockApi.mockImplementation((async (path: string) => answer(path)) as never);
       renderSignedIn(<VideoPlayerPage id="e2" />);
       expect(await screen.findByRole("button", { name: "Subtitles: Russian · SDH" })).toBeInTheDocument();
+    });
+  });
+
+  describe("its own controls", () => {
+    const playing = async () => {
+      mockApi.mockResolvedValue({ ...playInfo, resumeAt: 0 });
+      renderSignedIn(<VideoPlayerPage id="e2" />);
+      await screen.findByRole("heading", { name: "Counterpart" });
+      const element = document.querySelector("video")!;
+      let paused = true;
+      Object.defineProperty(element, "paused", { configurable: true, get: () => paused });
+      Object.defineProperty(element, "duration", { configurable: true, value: 2400 });
+      Object.defineProperty(element, "currentTime", { configurable: true, writable: true, value: 100 });
+      element.play = vi.fn(() => { paused = false; fireEvent.play(element); return Promise.resolve(); });
+      element.pause = vi.fn(() => { paused = true; fireEvent.pause(element); });
+      fireEvent.durationChange(element);
+      return element;
+    };
+
+    it("leaves nothing over a playing film once the pointer rests, and brings it back with the pointer or a pause", async () => {
+      const element = await playing();
+      const main = document.querySelector("main")!;
+      // Paused: the title and the controls stay.
+      expect(main).not.toHaveClass("is-idle");
+      vi.useFakeTimers();
+      try {
+        act(() => { void element.play(); });
+        expect(main).not.toHaveClass("is-idle");
+        act(() => { vi.advanceTimersByTime(3100); });
+        expect(main).toHaveClass("is-idle");
+        expect(document.querySelector(".video-player-bottom")).toHaveClass("is-hidden");
+        fireEvent.pointerMove(main);
+        expect(main).not.toHaveClass("is-idle");
+        act(() => { vi.advanceTimersByTime(3100); });
+        expect(main).toHaveClass("is-idle");
+        act(() => { element.pause(); });
+        expect(main).not.toHaveClass("is-idle");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("plays and pauses with its button, a click on the picture, Space and K", async () => {
+      const element = await playing();
+      await userEvent.click(screen.getByRole("button", { name: "Play" }));
+      expect(element.play).toHaveBeenCalledTimes(1);
+      await userEvent.click(screen.getByRole("button", { name: "Pause" }));
+      expect(element.pause).toHaveBeenCalledTimes(1);
+      await userEvent.click(element);
+      expect(element.play).toHaveBeenCalledTimes(2);
+      fireEvent.keyDown(document.body, { code: "Space", key: " " });
+      expect(element.pause).toHaveBeenCalledTimes(2);
+      fireEvent.keyDown(document.body, { code: "KeyK", key: "л" });
+      expect(element.play).toHaveBeenCalledTimes(3);
+    });
+
+    it("jumps ten seconds either way with its buttons and the arrows, and goes where the line is put", async () => {
+      const element = await playing();
+      expect(screen.getByText("1:40 / 40:00")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Forward 10 seconds" }));
+      expect(element.currentTime).toBe(110);
+      await userEvent.click(screen.getByRole("button", { name: "Back 10 seconds" }));
+      expect(element.currentTime).toBe(100);
+      fireEvent.keyDown(document.body, { code: "ArrowRight", key: "ArrowRight" });
+      expect(element.currentTime).toBe(110);
+      fireEvent.keyDown(document.body, { code: "ArrowLeft", key: "ArrowLeft" });
+      fireEvent.keyDown(document.body, { code: "ArrowLeft", key: "ArrowLeft" });
+      expect(element.currentTime).toBe(90);
+      fireEvent.change(screen.getByRole("slider", { name: "Seek" }), { target: { value: "1200" } });
+      expect(element.currentTime).toBe(1200);
+    });
+
+    it("mutes with its button and M, and keeps how loud for the next film", async () => {
+      window.localStorage.removeItem("isputnik.video.volume");
+      window.localStorage.removeItem("isputnik.video.muted");
+      const element = await playing();
+      await userEvent.click(screen.getByRole("button", { name: "Mute" }));
+      expect(element.muted).toBe(true);
+      fireEvent.keyDown(document.body, { code: "KeyM", key: "m" });
+      expect(element.muted).toBe(false);
+      fireEvent.change(screen.getByRole("slider", { name: "Volume" }), { target: { value: "0.4" } });
+      expect(element.volume).toBeCloseTo(0.4);
+      expect(window.localStorage.getItem("isputnik.video.volume")).toBe("0.4");
+      window.localStorage.removeItem("isputnik.video.volume");
+      window.localStorage.removeItem("isputnik.video.muted");
+    });
+
+    it("plays faster or slower from Settings, starts over from More, and says what is being sent", async () => {
+      const element = await playing();
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Speed: Normal" }));
+      await userEvent.click(screen.getByRole("menuitemradio", { name: "1.5×" }));
+      expect(element.playbackRate).toBe(1.5);
+      await userEvent.click(screen.getByRole("button", { name: "More" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Start over" }));
+      expect(element.currentTime).toBe(0);
+      await userEvent.click(screen.getByRole("button", { name: "More" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Playback information" }));
+      expect(screen.getByText("The file as it is")).toBeInTheDocument();
     });
   });
 
@@ -1105,7 +1213,8 @@ describe("skipping the intro and the credits", () => {
       mockApi.mockResolvedValue(info);
       renderSignedIn(<VideoPlayerPage id="e2" />);
       await screen.findByRole("heading", { name: "Counterpart" });
-      expect(document.querySelector("video")).toHaveAttribute("controlslist", "nofullscreen");
+      // The controls are the page's own, so nothing of the browser's covers them.
+      expect(document.querySelector("video")).not.toHaveAttribute("controls");
       await userEvent.click(screen.getByRole("button", { name: "Full screen" }));
       expect(requestFullscreen.mock.contexts[0]).toBe(document.querySelector("main"));
     } finally {
@@ -1125,7 +1234,8 @@ describe("skipping the intro and the credits", () => {
     });
     renderSignedIn(<VideoPlayerPage id="e2" />, { user: { id: "a1", role: "admin" } as never });
     await screen.findByRole("heading", { name: "Counterpart" });
-    await userEvent.click(screen.getByRole("button", { name: "Mark intro" }));
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Mark intro" }));
     expect(screen.getByRole("tab", { name: "Whole season 1" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "Save credits" })).toBeDisabled();
     playerAt(2250.54);
@@ -1143,7 +1253,8 @@ describe("skipping the intro and the credits", () => {
     mockApi.mockImplementation(async (path: string) => (path === "/video/api/admin/markers/e2/detect" ? { queued: true } : found));
     renderSignedIn(<VideoPlayerPage id="e2" />, { user: { id: "a1", role: "admin" } as never });
     await screen.findByRole("heading", { name: "Counterpart" });
-    await userEvent.click(screen.getByRole("button", { name: "Mark intro" }));
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Mark intro" }));
     expect(screen.getByText("Found automatically")).toBeInTheDocument();
     // A found time is not a mark: nothing to clear.
     expect(screen.queryByRole("button", { name: "Clear mark" })).not.toBeInTheDocument();
@@ -1177,7 +1288,8 @@ describe("skipping the intro and the credits", () => {
     });
     renderSignedIn(<VideoPlayerPage id="e2" />, { user: { id: "a1", role: "admin" } as never });
     await screen.findByRole("heading", { name: "Counterpart" });
-    await userEvent.click(screen.getByRole("button", { name: "Mark intro" }));
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Mark intro" }));
     expect(screen.getByRole("tab", { name: "Whole season 1" })).toHaveAttribute("aria-selected", "true");
     playerAt(20);
     await userEvent.click(screen.getAllByRole("button", { name: "Here" })[0]);
@@ -1191,14 +1303,15 @@ describe("skipping the intro and the credits", () => {
     mockApi.mockResolvedValue(info);
     renderSignedIn(<VideoPlayerPage id="e2" />);
     await screen.findByRole("heading", { name: "Counterpart" });
-    expect(screen.queryByRole("button", { name: "Mark intro" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("menuitem", { name: "Start over" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Mark intro" })).not.toBeInTheDocument();
   });
 
   it("leaves full screen to the browser where it can't", async () => {
     mockApi.mockResolvedValue(info);
     renderSignedIn(<VideoPlayerPage id="e2" />);
     await screen.findByRole("heading", { name: "Counterpart" });
-    expect(document.querySelector("video")).not.toHaveAttribute("controlslist");
     expect(screen.queryByRole("button", { name: "Full screen" })).not.toBeInTheDocument();
   });
 });

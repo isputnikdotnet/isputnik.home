@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.79.0 — A player that gets out of the way
+
+- **Nothing on screen but the film.** The player for movies and shows lost its permanent bar: the picture now fills the whole window, and the title and the controls are drawn over it. Move the mouse, tap the picture or press a key and they fade in; about three seconds after the last movement they go again, the mouse pointer with them. Paused, they stay. Before, a header sat over every film and the browser's own controls sat under it, different in every browser.
+- **Its own controls, the same everywhere.** Play and pause, ten seconds back and forward, the next episode, a thin amber line showing where the film is (point at it to see the time, drag it to go there), volume, subtitles, settings and full screen. A click on the picture pauses; a double click is full screen.
+- **Settings, Subtitles and More.** The gear holds **Quality**, **Sound** (where a film has more than one track) and a new **Speed**, from 0.5× to 2×. **CC** chooses the subtitles. **More** (⋯) has **Start over**, a new **Playback information** (whether the film is sent as it is or converted and why, the picture's size, the sound track) and, for admins, **Mark intro**.
+- **The keyboard.** Space or K plays and pauses, ← and → jump ten seconds, ↑ and ↓ change the volume, M mutes, F is full screen, S still skips the intro. The letters go by the key's place, so a Russian layout works.
+- **How loud is remembered** in each browser, like the sound language, the subtitles and the quality already were.
+- "Resumed at" now steps aside after a few seconds instead of staying over the picture; Start over is always under More.
+
 ## 4.78.2 — Know when a device is linked
 
 - **The admins are emailed whenever a device is linked to any account.** The email names the account, the device (say, the TV app on Android), where it asked from and when, and how to end its session if nobody expected it. Before, only the account owner got a receipt, so a household member talked into approving a stranger’s code was the only one who knew. It is on by default; turn it off under Control panel → Security → Policies → **Linking devices**. Needs email set up in Settings → Email.

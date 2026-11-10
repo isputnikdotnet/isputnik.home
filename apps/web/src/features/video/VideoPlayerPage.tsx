@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowLeft, AudioLines, Captions, Flag, Gauge, Maximize, Minimize, SkipForward } from "lucide-react";
+import { ChevronLeft, Flag, Info, RotateCcw, SkipForward, X } from "lucide-react";
 import { api, csrfToken } from "../../api";
 import { useSession } from "../../app/SessionContext";
-import { followBack, followRoute, navigate } from "../../router";
+import { followBack, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
-import { SelectMenu } from "../../shared/SelectMenu";
+import { formatBytes } from "../../shared/utils";
 import { VideoMarksPanel } from "./VideoMarksPanel";
+import { VideoPlayerControls } from "./VideoPlayerControls";
+import type { PlayerMenuAction, PlayerMenuSection } from "./VideoPlayerMenu";
 import { VIDEO_API, VIDEO_OVERVIEW_HREF, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoQuality, type VideoQualityChoice, type VideoSubtitleTrack } from "./types";
 import "../../styles/video.css";
 
@@ -18,6 +20,23 @@ type HlsInstance = import("hls.js").default;
 const SAVE_EVERY_S = 15;
 /** How long the end card waits before the next episode starts by itself. */
 const NEXT_IN_S = 10;
+/** How long the controls stay over a playing film once the pointer and keys rest. */
+const IDLE_MS = 3000;
+/** How long "Resumed at" stays up. */
+const RESUMED_FOR_MS = 8000;
+
+const MODE_KEYS = {
+  direct: "video.player.info.direct",
+  remux: "video.player.info.remux",
+  transcode: "video.player.info.transcode"
+} as const;
+const REASON_KEYS = {
+  container: "video.player.info.reasonContainer",
+  audio: "video.player.info.reasonAudio",
+  video: "video.player.info.reasonVideo",
+  subtitles: "video.player.info.reasonSubtitles",
+  size: "video.player.info.reasonSize"
+} as const;
 
 /** The sound language last chosen, in this browser: the next episode (or film)
  *  starts in it when it has it — a dub watched once is the dub wanted. */
@@ -133,6 +152,11 @@ function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): vo
 // the next episode follows the end — or the start of the credits, where the file
 // says where they are; its intro, likewise, offers Skip intro.
 //
+// Nothing is on screen but the film while it plays: the title over the top and
+// the controls over the bottom (VideoPlayerControls — the page's own, not the
+// browser's) fade in with the pointer or a key and out again after IDLE_MS; they
+// stay while it is paused.
+//
 // Full screen is this page's, not the <video>'s: a video element in full screen
 // hides everything drawn over it (Skip intro, the end card), and a new episode
 // would drop out of it. Where the browser can't (iPhones), its own stays.
@@ -154,7 +178,25 @@ export function VideoPlayerPage({ id }: { id: string }) {
   const [subtitle, setSubtitle] = useState<string>(SUBTITLES_OFF);
   /** Bumped by "Try again" when every place to watch converted video was taken. */
   const [attempt, setAttempt] = useState(0);
+  /** Nothing playing: the controls stay up. */
+  const [paused, setPaused] = useState(true);
+  /** The pointer or a key moved within IDLE_MS. */
+  const [awake, setAwake] = useState(true);
+  /** Playing, but waiting for more of the film to arrive. */
+  const [waiting, setWaiting] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const video = useRef<HTMLVideoElement | null>(null);
+  /** The same element as state, for what must follow a change of it. */
+  const [element, setElement] = useState<HTMLVideoElement | null>(null);
+  const attach = useCallback((mounted: HTMLVideoElement | null) => {
+    video.current = mounted;
+    setElement(mounted);
+    if (mounted) setPaused(mounted.paused);
+    setWaiting(false);
+  }, []);
+  const idleTimer = useRef<number | undefined>(undefined);
+  /** A touch that only brought the controls up: its click is not a pause. */
+  const tapWoke = useRef(false);
   const page = useRef<HTMLElement | null>(null);
   /** The credits have brought the end card up, and aren't to again until seeked back from. */
   const creditsOffered = useRef(false);
@@ -427,7 +469,13 @@ export function VideoPlayerPage({ id }: { id: string }) {
   }, [skipTo]);
 
   const canFullscreen = document.fullscreenEnabled === true;
+  /** iPhones: no page full screen, only the <video>'s own, with the phone's controls. */
+  const ownFullscreen = !canFullscreen && typeof (element as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null)?.webkitEnterFullscreen === "function";
   const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenEnabled !== true) {
+      (video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null)?.webkitEnterFullscreen?.();
+      return;
+    }
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
     else void page.current?.requestFullscreen().catch(() => undefined);
   }, []);
@@ -438,219 +486,351 @@ export function VideoPlayerPage({ id }: { id: string }) {
     return () => document.removeEventListener("fullscreenchange", changed);
   }, []);
 
-  // S skips the recap or intro, F is full screen; by the key's place, so a Russian layout's "ы" counts.
+  // The controls come up with the pointer or a key and go again after a few
+  // seconds of neither, unless the pointer rests on them or one of their menus is
+  // open. Paused, they stay.
+  const wake = useCallback(() => {
+    setAwake(true);
+    window.clearTimeout(idleTimer.current);
+    const rest = () => {
+      const hovering = window.matchMedia?.("(hover: hover)").matches ? ".video-player-controls:hover, .video-player-top a:hover, " : "";
+      if (page.current?.querySelector(`${hovering}.video-player-chrome [aria-expanded="true"]`)) {
+        idleTimer.current = window.setTimeout(rest, IDLE_MS);
+        return;
+      }
+      setAwake(false);
+    };
+    idleTimer.current = window.setTimeout(rest, IDLE_MS);
+  }, []);
+  useEffect(() => () => window.clearTimeout(idleTimer.current), []);
+
+  // "Resumed at" has said it after a few seconds; Start over stays under More.
+  useEffect(() => {
+    if (resumedAt <= 0) return;
+    const timer = window.setTimeout(() => setResumedAt(0), RESUMED_FOR_MS);
+    return () => window.clearTimeout(timer);
+  }, [resumedAt]);
+
+  // S skips the recap or intro, F is full screen; by the key's place, so a Russian
+  // layout's "ы" counts. The rest of the keyboard is the controls' own.
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
+      wake();
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
       if (event.code === "KeyS" && skipping) skip();
       else if (event.code === "KeyF" && canFullscreen) toggleFullscreen();
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [skipping, skip, canFullscreen, toggleFullscreen]);
+  }, [skipping, skip, canFullscreen, toggleFullscreen, wake]);
 
+  const togglePlay = () => {
+    const playing = video.current;
+    if (!playing) return;
+    if (playing.paused) void playing.play()?.catch(() => undefined);
+    else playing.pause();
+  };
+
+  const startOver = () => {
+    if (video.current) video.current.currentTime = 0;
+    setResumedAt(0);
+  };
+
+  const locale = i18n.resolvedLanguage ?? "en";
   const back = info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : VIDEO_OVERVIEW_HREF;
   const code = info && info.season !== null && info.episode !== null ? t("video.episodeCode", episodeCodeValues(info.season!, info.episode!)) : null;
   const heading = info ? (info.show ? info.show.title : info.title) : "";
   const subheading = info?.show ? [code, info.title].filter(Boolean).join(" · ") : null;
   const unplayable = info ? !info.available || info.playback.mode === "none" || cannotPlay : false;
+  const staged = Boolean(info && playback && playback.mode !== "none" && !busy && !cannotPlay);
+  const chromeShown = !staged || paused || awake || marking;
+
+  const qualityLabel = (quality: VideoQuality) => (quality === null ? t("video.quality.original") : t("video.quality.rung", { height: quality }));
+  const playingAudio = audioTracks.find((track) => track.selected) ?? audioTracks[0];
+  const shownSubtitle = subtitleTracks.find((track) => track.id === subtitle);
+
+  // Settings: the picture's quality and the sound track, each where there is a
+  // choice; the controls add Speed.
+  const settings: PlayerMenuSection[] = [
+    ...(qualityChoice && qualityOptions.length > 0
+      ? [{
+          id: "quality",
+          label: t("video.quality.label"),
+          value: qualityValue(qualityChoice.current),
+          options: qualityOptions.map((quality) => ({ value: qualityValue(quality), label: qualityLabel(quality) })),
+          onChange: (value: string) => void chooseQuality(value)
+        }]
+      : []),
+    ...(audioTracks.length > 1
+      ? [{
+          id: "audio",
+          label: t("video.audio.label"),
+          value: String(playingAudio.index),
+          options: audioTracks.map((track, position) => ({ value: String(track.index), label: audioTrackLabel(track, position, t, locale) })),
+          onChange: (value: string) => void chooseAudio(value)
+        }]
+      : [])
+  ];
+  const subtitleSection: PlayerMenuSection | null = subtitleTracks.length > 0
+    ? {
+        id: "subtitles",
+        label: t("video.subtitles.label"),
+        value: subtitle,
+        options: [
+          { value: SUBTITLES_OFF, label: t("video.subtitles.off") },
+          ...subtitleTracks.map((track, position) => ({ value: track.id, label: subtitleTrackLabel(track, position, t, locale) }))
+        ],
+        onChange: (value) => void chooseSubtitle(value)
+      }
+    : null;
+  const more: PlayerMenuAction[] = [
+    { id: "startOver", label: t("video.startOver"), icon: <RotateCcw size={16} />, onSelect: startOver },
+    ...(user.role === "admin" && info?.available
+      ? [{
+          id: "marks",
+          label: t("video.marks.open"),
+          icon: <Flag size={16} />,
+          onSelect: () => {
+            // The panel sits under the picture, which full screen has no room for.
+            if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+            setMarking((value) => !value);
+          }
+        }]
+      : []),
+    { id: "info", label: t("video.player.info.open"), icon: <Info size={16} />, onSelect: () => setShowInfo((value) => !value) }
+  ];
+
+  const nextLabel = info?.next
+    ? info.next.season === null || info.next.episode === null
+      ? t("video.set.upNext", { title: info.next.title ?? "" })
+      : `${t("video.upNext", { code: t("video.episodeCode", episodeCodeValues(info.next.season, info.next.episode)) })}${info.next.title ? ` · ${info.next.title}` : ""}`
+    : null;
 
   return (
-    <main ref={page} className={`video-player-page${fullscreen ? " is-fullscreen" : ""}`}>
-      <header className="video-player-bar">
-        <a className="video-player-back" href={back} onClick={(event) => followBack(event, back)}>
-          <ArrowLeft size={18} aria-hidden="true" />
-          <span>{info?.show ? info.show.title : t("video.movies")}</span>
-        </a>
-        {info && (
-          <div className="video-player-heading">
-            <h1>{heading}</h1>
-            {subheading && <p>{subheading}</p>}
+    <main
+      ref={page}
+      className={`video-player-page${fullscreen ? " is-fullscreen" : ""}${chromeShown ? "" : " is-idle"}`}
+      onPointerMove={wake}
+      onPointerDown={wake}
+    >
+      <div className="video-player-frame">
+        <header className={`video-player-top video-player-chrome${chromeShown ? "" : " is-hidden"}`}>
+          <a className="video-player-back" href={back} aria-label={t("video.back")} title={t("video.back")} onClick={(event) => followBack(event, back)}>
+            <ChevronLeft size={34} strokeWidth={1.75} aria-hidden="true" />
+          </a>
+          {info && (
+            <div className="video-player-heading">
+              <h1>{heading}</h1>
+              {subheading && <p>{subheading}</p>}
+            </div>
+          )}
+        </header>
+
+        {error && (
+          <div className="video-player-message">
+            <MessageBox tone="warning" title={t("video.unavailableTitle")}>{error}</MessageBox>
           </div>
         )}
-        {audioTracks.length > 1 && (
-          <SelectMenu
-            className="video-player-audio"
-            label={t("video.audio.label")}
-            triggerIcon={<AudioLines size={16} aria-hidden="true" />}
-            value={String(audioTracks.find((track) => track.selected)?.index ?? audioTracks[0].index)}
-            options={audioTracks.map((track, position) => ({ value: String(track.index), label: audioTrackLabel(track, position, t, i18n.resolvedLanguage ?? "en") }))}
-            onChange={(value) => void chooseAudio(value)}
-          />
+
+        {info && unplayable && (
+          <div className="video-player-message">
+            <MessageBox tone="info" title={t("video.cantPlayTitle")}>
+              {!info.available ? t("video.fileMissing") : info.playback.mode === "none" ? t("video.cantPlayFormat") : t("video.cantPlayBrowser")}
+            </MessageBox>
+          </div>
         )}
-        {subtitleTracks.length > 0 && (
-          <SelectMenu
-            className="video-player-audio"
-            label={t("video.subtitles.label")}
-            triggerIcon={<Captions size={16} aria-hidden="true" />}
-            value={subtitle}
-            options={[
-              { value: SUBTITLES_OFF, label: t("video.subtitles.off") },
-              ...subtitleTracks.map((track, position) => ({ value: track.id, label: subtitleTrackLabel(track, position, t, i18n.resolvedLanguage ?? "en") }))
-            ]}
-            onChange={(value) => void chooseSubtitle(value)}
-          />
-        )}
-        {qualityChoice && qualityOptions.length > 0 && (
-          <SelectMenu
-            className="video-player-audio"
-            label={t("video.quality.label")}
-            triggerIcon={<Gauge size={16} aria-hidden="true" />}
-            value={qualityValue(qualityChoice.current)}
-            options={qualityOptions.map((quality) => ({
-              value: qualityValue(quality),
-              label: quality === null ? t("video.quality.original") : t("video.quality.rung", { height: quality })
-            }))}
-            onChange={(value) => void chooseQuality(value)}
-          />
-        )}
-        {user.role === "admin" && info?.available && (
-          <Button
-            variant="secondary"
-            compact
-            className={`video-player-mark${audioTracks.length > 1 || subtitleTracks.length > 0 || qualityOptions.length > 0 ? "" : " is-alone"}`}
-            aria-pressed={marking}
-            onClick={() => setMarking((value) => !value)}
-          >
-            <Flag size={16} aria-hidden="true" />
-            <span>{t("video.marks.open")}</span>
-          </Button>
-        )}
-      </header>
 
-      {error && <MessageBox tone="warning" title={t("video.unavailableTitle")}>{error}</MessageBox>}
-
-      {info && unplayable && (
-        <div className="video-player-message">
-          <MessageBox tone="info" title={t("video.cantPlayTitle")}>
-            {!info.available ? t("video.fileMissing") : info.playback.mode === "none" ? t("video.cantPlayFormat") : t("video.cantPlayBrowser")}
-          </MessageBox>
-        </div>
-      )}
-
-      {info && busy && (
-        <div className="video-player-message">
-          <MessageBox
-            tone="info"
-            title={busy.reason === "person" ? t("video.busyPersonTitle") : t("video.busyTitle")}
-            action={<Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>{t("video.busyRetry")}</Button>}
-          >
-            {busy.reason === "person"
-              ? busy.title ? t("video.busyPersonBody", { title: busy.title }) : t("video.busyPersonBodyUnnamed")
-              : t("video.busyBody", { count: busy.limit })}
-          </MessageBox>
-        </div>
-      )}
-
-      {info && playback && playback.mode !== "none" && !busy && (
-        <div className={`video-player-stage${cannotPlay ? " is-hidden" : ""}`}>
-          <video
-            // A new element for each address: hls.js letting go of the old one
-            // must not take a direct file's src with it.
-            key={playback.url ?? ""}
-            ref={video}
-            className="video-player"
-            src={isHls ? undefined : playback.url ?? undefined}
-            controls
-            controlsList={canFullscreen ? "nofullscreen" : undefined}
-            onDoubleClick={canFullscreen ? toggleFullscreen : undefined}
-            autoPlay
-            playsInline
-            preload="metadata"
-            aria-label={subheading ? `${heading} · ${subheading}` : heading}
-            onLoadedMetadata={(event) => {
-              const element = event.currentTarget;
-              // Resume, unless it was nearly over: then from the start.
-              const at = startAt.current;
-              if (at > 0 && (!Number.isFinite(element.duration) || at < element.duration - 10)) {
-                element.currentTime = at;
-                if (!switched.current) setResumedAt(at);
-              }
-            }}
-            onTimeUpdate={(event) => {
-              if (Math.abs(event.currentTarget.currentTime - lastSaved.current) >= SAVE_EVERY_S) save();
-              followMarkers(event.currentTarget);
-            }}
-            onPause={(event) => {
-              if (event.currentTarget.ended) return;
-              save();
-              // Stopped in the credits: nothing moves on by itself.
-              setNextIn(null);
-            }}
-            onSeeked={() => save()}
-            onEnded={() => {
-              save({ watched: true });
-              // Already counting from the credits: it goes on, not over.
-              if (info.next) setNextIn((value) => value ?? NEXT_IN_S);
-            }}
-            onPlay={() => setNextIn(null)}
-            onError={() => setCannotPlay(true)}
-          >
-            {subtitleTracks.filter((track) => track.kind === "text" && track.url).map((track, position) => (
-              <track
-                key={track.id}
-                id={track.id}
-                kind="subtitles"
-                src={track.url!}
-                srcLang={track.language ?? undefined}
-                label={subtitleTrackLabel(track, position, t, i18n.resolvedLanguage ?? "en")}
-              />
-            ))}
-          </video>
-
-          {preparing && !cannotPlay && (
-            <div className="video-player-preparing" role="status">{t("video.preparing")}</div>
-          )}
-
-          {resumedAt > 0 && (
-            <div className="video-player-resumed" role="status">
-              <span>{t("video.resumedAt", { time: formatPlayTime(resumedAt) })}</span>
-              <Button
-                variant="text"
-                onClick={() => {
-                  if (video.current) video.current.currentTime = 0;
-                  setResumedAt(0);
-                }}
-              >
-                {t("video.startOver")}
-              </Button>
-            </div>
-          )}
-
-          {canFullscreen && (
-            <Button
-              variant="icon"
-              className="video-player-fullscreen"
-              aria-label={fullscreen ? t("video.fullscreenLeave") : t("video.fullscreen")}
-              title={fullscreen ? t("video.fullscreenLeave") : t("video.fullscreen")}
-              onClick={toggleFullscreen}
+        {info && busy && (
+          <div className="video-player-message">
+            <MessageBox
+              tone="info"
+              title={busy.reason === "person" ? t("video.busyPersonTitle") : t("video.busyTitle")}
+              action={<Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>{t("video.busyRetry")}</Button>}
             >
-              {fullscreen ? <Minimize size={18} aria-hidden="true" /> : <Maximize size={18} aria-hidden="true" />}
-            </Button>
-          )}
+              {busy.reason === "person"
+                ? busy.title ? t("video.busyPersonBody", { title: busy.title }) : t("video.busyPersonBodyUnnamed")
+                : t("video.busyBody", { count: busy.limit })}
+            </MessageBox>
+          </div>
+        )}
 
-          {skipping && nextIn === null && (
-            <Button variant="secondary" className="video-player-skip" onClick={skip}>
-              <SkipForward size={16} aria-hidden="true" />
-              <span>{t(skipping === "recap" ? "video.skipRecap" : "video.skipIntro")}</span>
-            </Button>
-          )}
+        {info && playback && playback.mode !== "none" && !busy && (
+          <div className={`video-player-stage${cannotPlay ? " is-hidden" : ""}`}>
+            <video
+              // A new element for each address: hls.js letting go of the old one
+              // must not take a direct file's src with it.
+              key={playback.url ?? ""}
+              ref={attach}
+              className="video-player"
+              src={isHls ? undefined : playback.url ?? undefined}
+              autoPlay
+              playsInline
+              preload="metadata"
+              aria-label={subheading ? `${heading} · ${subheading}` : heading}
+              onPointerDown={(event) => {
+                // A finger on a picture with nothing over it brings the controls up; it doesn't pause.
+                tapWoke.current = event.pointerType === "touch" && !chromeShown;
+              }}
+              onClick={() => {
+                if (tapWoke.current) tapWoke.current = false;
+                else togglePlay();
+              }}
+              onDoubleClick={canFullscreen ? toggleFullscreen : undefined}
+              onLoadedMetadata={(event) => {
+                const loaded = event.currentTarget;
+                // Resume, unless it was nearly over: then from the start.
+                const at = startAt.current;
+                if (at > 0 && (!Number.isFinite(loaded.duration) || at < loaded.duration - 10)) {
+                  loaded.currentTime = at;
+                  if (!switched.current) setResumedAt(at);
+                }
+              }}
+              onTimeUpdate={(event) => {
+                if (Math.abs(event.currentTarget.currentTime - lastSaved.current) >= SAVE_EVERY_S) save();
+                followMarkers(event.currentTarget);
+              }}
+              onPause={(event) => {
+                setPaused(true);
+                if (event.currentTarget.ended) return;
+                save();
+                // Stopped in the credits: nothing moves on by itself.
+                setNextIn(null);
+              }}
+              onSeeked={() => save()}
+              onEnded={() => {
+                save({ watched: true });
+                // Already counting from the credits: it goes on, not over.
+                if (info.next) setNextIn((value) => value ?? NEXT_IN_S);
+              }}
+              onPlay={() => {
+                setPaused(false);
+                setNextIn(null);
+                wake();
+              }}
+              onWaiting={() => setWaiting(true)}
+              onPlaying={() => setWaiting(false)}
+              onCanPlay={() => setWaiting(false)}
+              onError={() => setCannotPlay(true)}
+            >
+              {subtitleTracks.filter((track) => track.kind === "text" && track.url).map((track, position) => (
+                <track
+                  key={track.id}
+                  id={track.id}
+                  kind="subtitles"
+                  src={track.url!}
+                  srcLang={track.language ?? undefined}
+                  label={subtitleTrackLabel(track, position, t, locale)}
+                />
+              ))}
+            </video>
 
-          {info.next && nextIn !== null && (
-            <div className="video-player-next" role="status">
-              <span>{info.next.season === null ? t("video.set.nextIn", { count: nextIn }) : t("video.nextIn", { count: nextIn })}</span>
-              <strong>{nextName(t, info.next)}</strong>
-              <div className="video-player-next-actions">
-                <Button variant="secondary" onClick={() => setNextIn(null)}>{t("common.cancel")}</Button>
-                <Button variant="primary" onClick={() => navigate(watchHref(info.next!.id))}>
-                  <SkipForward size={16} aria-hidden="true" />
-                  <span>{t("video.playNext")}</span>
-                </Button>
+            {preparing && !cannotPlay && (
+              <div className="video-player-preparing" role="status">{t("video.preparing")}</div>
+            )}
+            {waiting && !preparing && !cannotPlay && (
+              <div className="video-player-spinner" role="status" aria-label={t("video.player.buffering")} />
+            )}
+
+            {resumedAt > 0 && (
+              <div className="video-player-resumed" role="status">
+                <span>{t("video.resumedAt", { time: formatPlayTime(resumedAt) })}</span>
+                <Button variant="text" onClick={startOver}>{t("video.startOver")}</Button>
               </div>
+            )}
+
+            {skipping && nextIn === null && (
+              <Button variant="secondary" className="video-player-skip" onClick={skip}>
+                <SkipForward size={16} aria-hidden="true" />
+                <span>{t(skipping === "recap" ? "video.skipRecap" : "video.skipIntro")}</span>
+              </Button>
+            )}
+
+            {info.next && nextIn !== null && (
+              <div className="video-player-next" role="status">
+                <span>{info.next.season === null ? t("video.set.nextIn", { count: nextIn }) : t("video.nextIn", { count: nextIn })}</span>
+                <strong>{nextName(t, info.next)}</strong>
+                <div className="video-player-next-actions">
+                  <Button variant="secondary" onClick={() => setNextIn(null)}>{t("common.cancel")}</Button>
+                  <Button variant="primary" onClick={() => navigate(watchHref(info.next!.id))}>
+                    <SkipForward size={16} aria-hidden="true" />
+                    <span>{t("video.playNext")}</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {showInfo && (
+              <section className="video-player-info" aria-label={t("video.player.info.open")}>
+                <header>
+                  <strong>{t("video.player.info.open")}</strong>
+                  <Button variant="bare" className="video-player-button is-small" aria-label={t("common.close")} title={t("common.close")} onClick={() => setShowInfo(false)}>
+                    <X size={16} aria-hidden="true" />
+                  </Button>
+                </header>
+                <dl>
+                  <dt>{t("video.player.info.playback")}</dt>
+                  <dd>{t(MODE_KEYS[playback.mode === "remux" || playback.mode === "transcode" ? playback.mode : "direct"])}</dd>
+                  {playback.reasons.length > 0 && (
+                    <>
+                      <dt>{t("video.player.info.why")}</dt>
+                      <dd>{playback.reasons.map((reason) => t(REASON_KEYS[reason])).join(", ")}</dd>
+                    </>
+                  )}
+                  {qualityChoice && (
+                    <>
+                      <dt>{t("video.quality.label")}</dt>
+                      <dd>{qualityLabel(qualityChoice.current)}</dd>
+                    </>
+                  )}
+                  {element && element.videoWidth > 0 && (
+                    <>
+                      <dt>{t("video.player.info.picture")}</dt>
+                      <dd>{element.videoWidth} × {element.videoHeight}</dd>
+                    </>
+                  )}
+                  {playingAudio && (
+                    <>
+                      <dt>{t("video.player.info.sound")}</dt>
+                      <dd>{audioTrackLabel(playingAudio, audioTracks.indexOf(playingAudio), t, locale)} · {playingAudio.codec.toUpperCase()}</dd>
+                    </>
+                  )}
+                  {shownSubtitle && (
+                    <>
+                      <dt>{t("video.player.info.subtitles")}</dt>
+                      <dd>{subtitleTrackLabel(shownSubtitle, subtitleTracks.indexOf(shownSubtitle), t, locale)}</dd>
+                    </>
+                  )}
+                  {info.sizeBytes !== null && (
+                    <>
+                      <dt>{t("video.player.info.size")}</dt>
+                      <dd>{formatBytes(info.sizeBytes)}</dd>
+                    </>
+                  )}
+                  {qualityChoice && (
+                    <>
+                      <dt>{t("video.player.info.network")}</dt>
+                      <dd>{t(qualityChoice.network === "internet" ? "video.player.info.networkAway" : "video.player.info.networkHome")}</dd>
+                    </>
+                  )}
+                </dl>
+              </section>
+            )}
+
+            <div className={`video-player-bottom video-player-chrome${chromeShown ? "" : " is-hidden"}`}>
+              <VideoPlayerControls
+                videoRef={video}
+                element={element}
+                fallbackDuration={playback.duration}
+                next={info.next && nextLabel ? { href: watchHref(info.next.id), label: nextLabel } : null}
+                settings={settings}
+                subtitles={subtitleSection}
+                more={more}
+                fullscreen={canFullscreen || ownFullscreen ? { active: fullscreen, toggle: toggleFullscreen } : null}
+              />
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {marking && info && !unplayable && !busy && (
         <VideoMarksPanel
@@ -661,19 +841,6 @@ export function VideoPlayerPage({ id }: { id: string }) {
           onMarkers={(markers) => setInfo((current) => (current && current.id === info.id ? { ...current, markers } : current))}
           onClose={() => setMarking(false)}
         />
-      )}
-
-      {info?.next && nextIn === null && !unplayable && (
-        <p className="video-player-after">
-          <a href={watchHref(info.next.id)} onClick={(event) => followRoute(event, watchHref(info.next!.id))}>
-            {info.next.season === null || info.next.episode === null
-              ? t("video.set.upNext", { title: info.next.title ?? "" })
-              : <>
-                  {t("video.upNext", { code: t("video.episodeCode", episodeCodeValues(info.next.season, info.next.episode)) })}
-                  {info.next.title ? ` · ${info.next.title}` : ""}
-                </>}
-          </a>
-        </p>
       )}
     </main>
   );

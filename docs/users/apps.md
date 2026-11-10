@@ -11,7 +11,7 @@ install each one like any other container, then connect it to iSputnik in
 > they are; the rest are converted while they play — usually just the sound
 > (AC3, DTS and the like become AAC), the picture too when a browser can't show
 > it (HEVC, 10-bit), which takes real CPU. A film with more than one sound track
-> has a **Sound** menu in the player (a dub, a commentary), and the next film
+> has a **Sound** choice under the player's **Settings** (a dub, a commentary), and the next film
 > starts in the language chosen last. Subtitles, posters and online metadata
 > come next. Each person resumes where they stopped, and
 > Continue watching (on Video's **Overview**, Shows, Movies and For you) lists what
@@ -210,7 +210,7 @@ player. **Settings → Video → Converting video** sets how:
   stays in memory and converts a little at a time.
 - **Quality away from home** (*up to 720p* to start with). Someone watching from
   outside your network gets at most this picture, made smaller while they watch,
-  and starts at it; the player's **Quality** menu lets them pick less. A film
+  and starts at it; **Quality** under the player's **Settings** lets them pick less. A film
   already under it is sent as it is. At home everyone gets the file as it is,
   and the same menu offers 1080p, 720p and 480p for a weak Wi-Fi corner or a
   phone; the choice is remembered in that browser, one for home and one for
@@ -356,8 +356,8 @@ from where its credits start.
 
 The player knows where they are from, in this order:
 
-- **A mark an admin set** in the player. **Mark intro** in the bar above the
-  picture opens a panel under it: play or scrub the film to where the intro starts
+- **A mark an admin set** in the player. **Mark intro** in the player's **More**
+  (⋯) menu opens a panel under the picture: play or scrub the film to where the intro starts
   and press **Here**, then where it ends, then **Save intro**; the credits the same
   way. A mark is for the **whole season** by default, since intros usually sit at
   the same time in every episode; choose **This episode only** for one with a cold
@@ -401,16 +401,35 @@ The player knows where they are from, in this order:
 An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
 Files where nothing is known play as before.
 
-The **full-screen button** at the top right of the picture (or **F**, or a double
-click) keeps Skip intro and the card on screen, and stays full screen into the next
-episode. On Firefox the player's own full-screen control hides them, so use this
-one; on iPhones only the phone's own full screen exists, and they don't show there.
+## The player's controls
+
+While a film plays there is nothing on screen but the film. Move the mouse, tap the
+picture or press a key and the title comes up over the top and the controls over
+the bottom; about three seconds after the last movement they go again. Paused,
+they stay.
+
+- **Play / Pause** — the button, a click on the picture, **Space** or **K**.
+- **Back and forward 10 seconds** — the two round arrows, or **←** and **→**. The
+  line above them shows where the film is; drag it, or point at it to see the time
+  under the pointer.
+- **Next** (in a show or a set) starts the next episode or film.
+- **Volume** — the speaker mutes (**M**); its line opens beside it under the mouse
+  (**↑** and **↓**). How loud is remembered in this browser.
+- **Subtitles** — see below.
+- **Settings** — **Quality** and **Sound** (where the film has a choice) and
+  **Speed**, 0.5× to 2×.
+- **More** (⋯) — **Start over**, **Playback information** (what is being sent and
+  why — as it is or converted, the picture's size, the sound track), and for admins
+  **Mark intro**.
+- **Full screen** — the button, **F**, or a double click. Skip intro and the next
+  episode's card stay on screen, and it stays full screen into the next episode. On
+  iPhones only the phone's own full screen exists, and they don't show there.
 
 ## Subtitles
 
 Subtitles inside a film and subtitle files beside it — `Film (Year).srt`,
 `Film (Year).ru.srt`, `Film (Year).en.forced.srt` (SRT, ASS or VTT) — appear in
-the player's **Subtitles** menu, named by language. Text subtitles show over the
+the player's **Subtitles** (CC) menu, named by language. Text subtitles show over the
 film as it plays. Blu-ray and DVD subtitles are pictures no browser can show, so
 the engine draws them onto the film, which then counts as converted video. The
 language chosen last is picked again for the next episode.
