@@ -27,7 +27,11 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794312000</Date>
   <Changes>
-### 2026.11.10 — 4.78.1 System data is chosen for you
+### 2026.11.10 — 4.78.2 Know when a device is linked
+- **The admins are emailed whenever a device is linked to any account.** The email names the account, the device (say, the TV app on Android), where it asked from and when, and how to end its session if nobody expected it. Before, only the account owner got a receipt, so a household member talked into approving a stranger’s code was the only one who knew. It is on by default; turn it off under Control panel → Security → Policies → **Linking devices**. Needs email set up in Settings → Email.
+- **Fix: a device link typed in capitals now works.** The address a TV shows (`/link/` and its code) is read off the screen and typed, and a phone that capitalised it as `/LINK/…` sent you to sign in and then to the home page, with the code forgotten. Any case is accepted now.
+
+### 2026.11.09 — 4.78.1 System data is chosen for you
 - **A new install no longer stops at the Storage page before its first library.** Home now takes the folder next to its database as system data when it first starts: `/config` in Docker, the `data` folder beside the app otherwise. Before, every new install had to open Control panel → Library → Storage and confirm that same suggested folder before any library could be created, and the page did not say so until you tried.
 - You can still change it on the Storage page; thumbnails, backups and metadata follow it as before. An install that already has system data or libraries is not touched, and a suggested folder the app cannot write to is still left for you to choose.
 
@@ -51,11 +55,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **Restricted profiles and a household PIN.** Getting into *Kids* is free; getting out needs the PIN, set by an admin with their password (4 to 8 digits; 5 wrong tries lock entry for 15 minutes). On a TV the PIN also guards choosing another person linked on it, linking someone new and unlinking. Without a PIN, the Profiles tab says that anyone can still switch away.
 - Profiles made in the short-lived **Profile › TV profiles** tab that slipped into 4.73.1 become household profiles, and a TV wearing one keeps it.
 - The video engine needs its own update for profiles to keep their own history: **isputnik.video 0.30**. An older engine keeps working, and a profile then shares the history of whoever is watching. The TV app's profiles and PIN pad come in **iSputnik TV 0.9**.
-
-### 2026.11.08 — 4.75.0 Who was at the door
-- **A failed sign-in now names the person and the device.** Security › Sign-ins used to gather every failed attempt under *Not signed in*, because a wrong password proves nothing about who typed it — but it does say whose account was tried. Each failed attempt now counts against the account whose name was typed, in the People table and in that person's own dive, and the attempts table shows the browser or phone it came from, with the account's name under the address. Names that match no account still gather under *Not signed in*. Attempts logged before this update are matched up by the name they tried; the device they came from was never recorded.
-- **A locked account shows on the page.** Being refused at a locked account counted nowhere, so an account could be locked for half an hour while Sign-ins looked quiet. Those refusals now count as failures with a **Locked out** result, the Failed card says how many there were, and the person's row says **Locked out now** with an unlock button — the same rescue as Members › Users.
-- **4.74.0 never reached the image registry.** Its build failed on a lint check over the Library mockup scripts in the docs folder, which are prototypes rather than the app; they are now excluded from the check, and ten database-upgrade tests that the Stremio removal had left failing are fixed. This release carries everything 4.74.0 announced, including the removal of the Stremio add-on.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

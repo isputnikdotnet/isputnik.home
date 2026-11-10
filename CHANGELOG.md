@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.78.2 — Know when a device is linked
+
+- **The admins are emailed whenever a device is linked to any account.** The email names the account, the device (say, the TV app on Android), where it asked from and when, and how to end its session if nobody expected it. Before, only the account owner got a receipt, so a household member talked into approving a stranger’s code was the only one who knew. It is on by default; turn it off under Control panel → Security → Policies → **Linking devices**. Needs email set up in Settings → Email.
+- **Fix: a device link typed in capitals now works.** The address a TV shows (`/link/` and its code) is read off the screen and typed, and a phone that capitalised it as `/LINK/…` sent you to sign in and then to the home page, with the code forgotten. Any case is accepted now.
+
 ## 4.78.1 — System data is chosen for you
 
 - **A new install no longer stops at the Storage page before its first library.** Home now takes the folder next to its database as system data when it first starts: `/config` in Docker, the `data` folder beside the app otherwise. Before, every new install had to open Control panel → Library → Storage and confirm that same suggested folder before any library could be created, and the page did not say so until you tried.
