@@ -73,6 +73,25 @@ app; tablets are served by the web app, not by this one.
 - The reviewer member sees the video libraries and the photo library, has a Kids profile
   and the household PIN to try, and no upload, scan, Inbox or Device Sync permission.
 
+**D1 as built (2026-11-09).** `D:/Demo/scripts/unraid-demo.mjs` packs the demo site
+into `\\192.168.2.83\data\isputnik-demo` (`/mnt/user/data/isputnik-demo`): `media/`
+(4.0 GB; `media/Video` is the engine's `/media`), `seed/home` and `seed/video` (fresh
+`/config` folders) and `scripts/demo.sh` (`install | snapshot | reset`, D3). It snapshots
+both databases with SQLite's backup (the demo's WAL is never half-copied), rewrites the
+drive paths in libraries, the storage root, four settings, activity lines and a job
+error, gives both accounts random passwords (the Demo Admin becomes
+`admin@demo.isputnik.example`; passwords only in `~/.isputnik-demo/accounts.txt` on the
+dev PC), drops sessions, tokens, passkeys, sign-in history and share links, sets
+`deviceLinkScope = any`, and stops if a drive path, `test@test.com` or the house's
+coordinates survive. Two things the plan had not foreseen: the demo copy still held the
+**house's real coordinates** as `home_location` and the saved "Home" place (moved to the
+Wisconsin State Capitol), and the owner's **OpenRouteService key** (dropped). The engine
+catalog needed nothing: its folders are relative and it held no progress. The schema is
+left at the demo's version (90); the published image migrates it on first boot. It has
+not booted on Linux yet — no Docker on the dev PC — so the first install is that test.
+Reviewer members are made in the app after the first boot, not by script; the setup
+steps are in `D:/Demo/README.md` → "The public demo on Unraid".
+
 ### D2. Containers and network on Unraid
 
 - Two containers from the published images and the same CA templates, named apart
