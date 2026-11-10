@@ -523,13 +523,16 @@ export function getRoute(): Route {
     return { name: "login" };
   }
 
-  if (path === "/link") {
+  // Both are read off a TV screen and typed, so any case is accepted: a phone that
+  // capitalises, or someone copying the code's capitals, typed /LINK/… and was sent
+  // to sign in with the code forgotten.
+  if (/^\/link\/?$/i.test(path)) {
     return { name: "deviceLink" };
   }
 
   // The QR's target. The code is matched loosely and normalised by the page —
   // someone reading it off a screen will type it lowercase, or with the dash.
-  const deviceCodeMatch = path.match(/^\/link\/([A-Za-z0-9-]{1,20})$/);
+  const deviceCodeMatch = path.match(/^\/link\/([A-Za-z0-9-]{1,20})$/i);
   if (deviceCodeMatch) {
     return { name: "deviceLinkConfirm", userCode: deviceCodeMatch[1] };
   }

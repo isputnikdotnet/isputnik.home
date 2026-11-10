@@ -39,6 +39,13 @@ describe("getRoute", () => {
     expect(getRoute()).toEqual({ name: "familyMap", personId: "abc" });
   });
 
+  it("reads a device link typed in any case", () => {
+    at("/LINK/PN2U-WQXZ");
+    expect(getRoute()).toEqual({ name: "deviceLinkConfirm", userCode: "PN2U-WQXZ" });
+    at("/Link");
+    expect(getRoute()).toEqual({ name: "deviceLink" });
+  });
+
   it("pulls the token out of an invite link", () => {
     at("/invite/abc123");
     expect(getRoute()).toEqual({ name: "invite", token: "abc123" });
