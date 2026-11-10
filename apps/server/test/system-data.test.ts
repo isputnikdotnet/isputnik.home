@@ -22,6 +22,7 @@ import {
 } from "../src/modules/library/shared/thumbnail.js";
 import { getTrashRootSetting } from "../src/modules/library/shared/trash-settings.js";
 import {
+  adoptSuggestedSystemData,
   setBackupFolder,
   setSystemDataPath,
   setThumbnailFolder,
@@ -196,6 +197,39 @@ describe("changing folders", () => {
     setSystemDataPath(path.join(base, "sys2"), "admin");
     expect(() => setSystemDataPath(path.join(base, "sys3"), "admin")).toThrowError(/storage move is running/);
     return waitForStorageMoves();
+  });
+});
+
+describe("a fresh install", () => {
+  it("takes the folder next to the database as system data, with its folders", () => {
+    const folder = path.join(base, "config");
+    expect(adoptSuggestedSystemData(folder)).toBe(fs.realpathSync(folder));
+    expect(getSystemDataPath()).toBe(fs.realpathSync(folder));
+    expect(fs.existsSync(path.join(folder, "thumbnails"))).toBe(true);
+    expect(systemDataView().path).toBe(fs.realpathSync(folder));
+  });
+
+  it("never replaces a folder already chosen", () => {
+    saveSystemDataPath(path.join(base, "chosen"), "admin");
+    expect(adoptSuggestedSystemData(path.join(base, "config"))).toBeNull();
+    expect(getSystemDataPath()).toBe(path.join(base, "chosen"));
+  });
+
+  it("leaves an install that already has libraries to the conversion and the admin", () => {
+    libraryAt("PHOTOS", path.join(base, "media", "Photos"));
+    expect(adoptSuggestedSystemData(path.join(base, "config"))).toBeNull();
+    expect(getSystemDataPath()).toBeNull();
+  });
+
+  it("leaves a suggestion that fails the checks for the admin to choose", () => {
+    db.prepare("INSERT INTO storage_roots (id, name, path, created_by) VALUES ('r1', 'Media', ?, 'admin')").run(path.join(base, "config"));
+    expect(adoptSuggestedSystemData(path.join(base, "config"))).toBeNull();
+    expect(getSystemDataPath()).toBeNull();
+  });
+
+  it("does nothing with no folder next to an in-memory database", () => {
+    expect(adoptSuggestedSystemData()).toBeNull();
+    expect(getSystemDataPath()).toBeNull();
   });
 });
 

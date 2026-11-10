@@ -256,6 +256,38 @@ export function setSystemDataPath(candidate: string, userId: string, ip = ""): S
   return systemDataView();
 }
 
+/** A fresh install takes the suggested folder as system data at startup (`/config`
+ *  in the image, `<app>/data` bare), so the first library needs no trip to the
+ *  Storage page first; the admin can still change it there. Runs after the 4.6
+ *  conversion, and only while nothing is set and no library exists. A suggestion
+ *  that fails the usual checks is left for the admin to choose, as before.
+ *  Returns the folder taken, or null. */
+export function adoptSuggestedSystemData(folder?: string): string | null {
+  if (getSystemDataPath()) return null;
+  if (!folder && config.dbPath === ":memory:") return null; // no folder next to an in-memory database
+  const suggested = folder ?? suggestedSystemDataPath();
+  const libraries = (db.prepare("SELECT COUNT(*) AS n FROM libraries").get() as { n: number }).n;
+  if (libraries > 0) return null;
+  let wanted: string;
+  try {
+    wanted = validateSystemDataPath(suggested);
+  } catch {
+    return null;
+  }
+  saveSystemDataPath(wanted, null);
+  for (const folder of Object.values(SYSTEM_DATA_FOLDERS)) {
+    try { fs.mkdirSync(path.join(wanted, folder), { recursive: true }); } catch { /* reported by the row */ }
+  }
+  logActivity({
+    event: "config.updated",
+    actorUserId: null,
+    targetType: "setting",
+    targetId: "system_data",
+    detail: `System data set to ${wanted}, the folder next to the database. Change it on the Storage page.`
+  });
+  return wanted;
+}
+
 /** Give thumbnails a folder of their own, or (null) send them back to system data.
  *  What is in the old folder follows as a move task. */
 export function setThumbnailFolder(candidate: string | null, userId: string, ip = ""): SystemDataView {

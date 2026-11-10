@@ -18,8 +18,9 @@
 // and /config/metadata until 4.6. On the image's layout (the database at
 // /config/db/isputnik.sqlite) those are taken as what the variables said.
 //
-// A fresh install (no library, nothing configured) is left alone: its admin
-// chooses system data. Once system data is set, this does nothing at all.
+// A fresh install (no library, nothing configured) is left alone here: right after
+// this, adoptSuggestedSystemData() (system-data.ts) gives it the folder next to the
+// database. Once system data is set, this does nothing at all.
 import path from "node:path";
 import { config } from "../../config.js";
 import { db, logActivity } from "../../db.js";

@@ -23,6 +23,7 @@ import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
 import { convertStorageSettings } from "./modules/library/system-data-upgrade.js";
+import { adoptSuggestedSystemData } from "./modules/library/system-data.js";
 import { convertAppStorageSetting } from "./modules/library/app-storage-upgrade.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
 import { storiesPlugin } from "./modules/stories/index.js";
@@ -283,6 +284,14 @@ try {
   if (converted) app.log.info(`Storage settings converted for system data (${converted.systemData}); no file moved.`);
 } catch (err) {
   app.log.error({ err }, "Could not convert the storage settings for system data; the Storage page asks for it instead.");
+}
+// A fresh install takes the folder next to the database as system data, so its
+// first library needs no stop on the Storage page; the admin can change it there.
+try {
+  const adopted = adoptSuggestedSystemData();
+  if (adopted) app.log.info(`System data set to ${adopted}, the folder next to the database.`);
+} catch (err) {
+  app.log.error({ err }, "Could not set system data to the folder next to the database; the Storage page asks for it instead.");
 }
 // Then App storage's rooms become its one switch (app-storage-upgrade.ts), which
 // needs system data to say where "in system data" is.

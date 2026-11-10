@@ -79,6 +79,12 @@ guide steps, the Recycle Bin location card and an "App storage is off" notice.
    `<app>\data` elsewhere), and the admin confirms that or picks another. No
    library can be created until system data is set. This replaces "Configure
    thumbnail storage before creating a library".
+   *Revised 2026-11-09:* confirming the suggestion was a stop every new install
+   made for nothing, so a fresh install (nothing set, no library) now takes it at
+   startup when it passes the usual checks (`adoptSuggestedSystemData()` in
+   `modules/library/system-data.ts`). The Storage page shows it as chosen, and
+   the admin changes it there as before. A suggestion that fails the checks is
+   still left for the admin to pick.
 2. **The database is not inside the choice.** Every setting, including system
    data itself, lives in the database, so the running app cannot pick where the
    database lives. It stays where the install put it (`DB_PATH`, default

@@ -1,10 +1,10 @@
 // System data — docs/system-data-plan.md, phase 2.
 //
 // The one folder the app needs in order to run: thumbnails, backups and metadata
-// go there unless a folder of their own was chosen. The admin picks it (the
-// setup guide and the Storage page suggest the folder next to the database), and
-// no library can be created until it is set, because thumbnails would have
-// nowhere to go.
+// go there unless a folder of their own was chosen. A fresh install takes the
+// folder next to the database at startup (adoptSuggestedSystemData); the admin can
+// change it on the Storage page. No library can be created while it is unset (the
+// suggestion failed its checks), because thumbnails would have nowhere to go.
 //
 // The database is not inside the choice: every setting, this one included,
 // lives in it, so the running app cannot say where it is. It stays where the
