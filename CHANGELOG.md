@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.81.0 — What you have watched
+
+- **Every video poster says where you are in it.** A bar along the foot of a film you left part-way, a check in the corner of one you finished, and "8 unwatched" on a show you have started; on a show's page each season says 6/10 watched. A title you never started says nothing. Before, a grid of posters could not tell you what was new, started or done.
+- **Mark it by hand.** A film seen at the cinema, four seasons watched somewhere else, a series to watch again: **Mark as watched** and **Mark as unwatched** are on a film's page, on a show's page for all of it, beside each season's count, and in the **⋮** menu of every episode and every poster. **Reset progress** forgets the place you stopped in a film. The menu offers only what applies. A whole show or season is asked about first.
+- **Play and Continue watching follow at once.** Mark seasons 1 to 3 watched and season 4's first episode is next; a new episode of a show you had finished brings its count back.
+- **Filter → Watched** narrows the video page to Unwatched, In progress or Watched, any of them together.
+- The marks are yours alone: each account, and each viewing profile, has its own. Bars, counts, the filter and marking a whole show or season need the video container 0.32 or newer; with an older one a single film, episode or part can still be marked on its page. The TV app does not show them yet.
+
 ## 4.80.0 — Films for the road
 
 - **Download a film, a season or an episode and watch it with no connection.** A film's page has **Download**; a show has **Download season** above its episodes and a download button on each one. It is kept on the phone, tablet or computer you are holding and plays there on a flight or anywhere the server can't be reached. Before, video needed the server for every minute of it.

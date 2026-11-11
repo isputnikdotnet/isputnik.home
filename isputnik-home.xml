@@ -27,7 +27,14 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794398400</Date>
   <Changes>
-### 2026.11.11 — 4.80.0 Films for the road
+### 2026.11.11 — 4.81.0 What you have watched
+- **Every video poster says where you are in it.** A bar along the foot of a film you left part-way, a check in the corner of one you finished, and "8 unwatched" on a show you have started; on a show's page each season says 6/10 watched. A title you never started says nothing. Before, a grid of posters could not tell you what was new, started or done.
+- **Mark it by hand.** A film seen at the cinema, four seasons watched somewhere else, a series to watch again: **Mark as watched** and **Mark as unwatched** are on a film's page, on a show's page for all of it, beside each season's count, and in the **⋮** menu of every episode and every poster. **Reset progress** forgets the place you stopped in a film. The menu offers only what applies. A whole show or season is asked about first.
+- **Play and Continue watching follow at once.** Mark seasons 1 to 3 watched and season 4's first episode is next; a new episode of a show you had finished brings its count back.
+- **Filter → Watched** narrows the video page to Unwatched, In progress or Watched, any of them together.
+- The marks are yours alone: each account, and each viewing profile, has its own. Bars, counts, the filter and marking a whole show or season need the video container 0.32 or newer; with an older one a single film, episode or part can still be marked on its page. The TV app does not show them yet.
+
+### 2026.11.10 — 4.80.0 Films for the road
 - **Download a film, a season or an episode and watch it with no connection.** A film's page has **Download**; a show has **Download season** above its episodes and a download button on each one. It is kept on the phone, tablet or computer you are holding and plays there on a flight or anywhere the server can't be reached. Before, video needed the server for every minute of it.
 - **Pick the quality.** 720p is offered first, about 1.4 GB for a two-hour film; Original is the file as it is. The dialog says roughly what each takes and how much room the device has. Away from home the choices stop at the admin's **Quality away from home**.
 - **Keep iSputnik open while it downloads.** One film downloads at a time and the rest wait their turn. A download that is interrupted (the screen locked, the connection dropped, the app closed) carries on where it stopped the next time iSputnik is open. Downloads wait while you watch something from the server, and a film being converted for a download takes one of the places under **People watching converted video at once**.
@@ -49,12 +56,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 ### 2026.11.09 — 4.78.1 System data is chosen for you
 - **A new install no longer stops at the Storage page before its first library.** Home now takes the folder next to its database as system data when it first starts: `/config` in Docker, the `data` folder beside the app otherwise. Before, every new install had to open Control panel → Library → Storage and confirm that same suggested folder before any library could be created, and the page did not say so until you tried.
 - You can still change it on the Storage page; thumbnails, backups and metadata follow it as before. An install that already has system data or libraries is not touched, and a suggested folder the app cannot write to is still left for you to choose.
-
-### 2026.11.09 — 4.78.0 Quality for viewers away from home
-- **A Quality menu in the video player.** Beside Sound and Subtitles: **Original**, **1080p**, **720p** or **480p**. Pick a smaller one on a weak Wi-Fi corner or a phone and the engine makes that picture while you watch, from where the film is; a film already smaller than the rung plays as it is. The choice is remembered in that browser, one for home and one for away, and the next film starts in it.
-- **Viewers away from home are held under a cap.** Someone watching from outside your network starts at **Quality away from home** (Settings → Video → Converting video; up to 720p to start with) and can only go lower. Before, a Blu-ray rip went out at its full 30 Mbit/s or more, which no home upload link carries, and stalled; one viewer at 720p needs about 5 Mbit/s. Set it to *The file as it is* to turn the cap off. At home everyone still gets the file as it is unless they pick less.
-- **The engine now looks at a film's size, not only its codecs.** A picture taller than the rung asked, or heavier than the most the rung would make, is re-encoded down to it even when a browser could have played it as it is. The *Converting video* card marks each viewer's rung beside GPU/CPU and HDR. Needs **isputnik.video 0.31.0**; an older engine shows no menu and no setting.
-- The TV app is unchanged: on the home network it plays the original as before. Automatic switching by connection speed and per-film offline copies are planned, not built (`docs/video-quality-plan.md`).
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
