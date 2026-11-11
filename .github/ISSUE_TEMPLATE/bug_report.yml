@@ -9,6 +9,9 @@ body:
         on the latest release before filing — a fair number of bugs are already
         fixed.
 
+        Problems with the add-ons (video, games, faces) or the TV app belong
+        here too — no need to work out which repository the bug lives in.
+
         **Do not report security problems here.** Use the
         [Security tab](https://github.com/isputnikdotnet/isputnik.home/security)
         instead — see [SECURITY.md](https://github.com/isputnikdotnet/isputnik.home/blob/main/SECURITY.md).
@@ -29,10 +32,19 @@ body:
     id: version
     attributes:
       label: Version
-      description: Shown in the app under **Control panel → About**.
-      placeholder: "2.11.9"
+      description: Shown in the app under **Control panel → Settings → About**.
+      placeholder: "4.80.0"
     validations:
       required: true
+
+  - type: input
+    id: addon-versions
+    attributes:
+      label: Add-on versions
+      description: >
+        Only if the problem involves an add-on container or the TV app. Leave
+        out the ones you don't run.
+      placeholder: "video 0.31.0, games 0.26.0, faces 0.1.0, TV app 0.11.0"
 
   - type: dropdown
     id: deployment
@@ -51,10 +63,19 @@ body:
     attributes:
       label: Which part of the app?
       options:
+        - Home page & navigation
         - Audiobooks
         - Ebooks / reader
         - Gallery (photos & videos)
+        - Face recognition
+        - Photo Sync (phone backup)
+        - Video (films & shows)
+        - TV app (Android TV / Fire TV)
+        - Games
         - Family tree
+        - Stories & recipes
+        - Collections, tags & quotes
+        - Maps & places
         - Library scanning
         - Uploads
         - Users, sharing & permissions
@@ -71,16 +92,26 @@ body:
     attributes:
       label: Browser and device
       description: Only if the problem is in the interface.
-      placeholder: "Firefox 141 on Windows 11 / installed PWA on iPhone"
+      placeholder: "Firefox 141 on Windows 11 / installed PWA on Android / Fire TV Stick 4K"
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Interface language
+      description: Only if the problem is in the interface.
+      options:
+        - English
+        - Russian
+        - Both / doesn't matter
 
   - type: textarea
     id: logs
     attributes:
       label: Server logs
       description: >
-        From **Control panel → Logs**, or `docker logs` for the container.
-        Include the lines from around the time the problem happened. This is
-        rendered as a code block, so no backticks needed.
+        From **Control panel → Overview → Logs**, or `docker logs` for the
+        container. Include the lines from around the time the problem happened.
+        This is rendered as a code block, so no backticks needed.
       render: text
 
   - type: textarea

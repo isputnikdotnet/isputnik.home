@@ -31,10 +31,19 @@ body:
     attributes:
       label: Which part of the app?
       options:
+        - Home page & navigation
         - Audiobooks
         - Ebooks / reader
         - Gallery (photos & videos)
+        - Face recognition
+        - Photo Sync (phone backup)
+        - Video (films & shows)
+        - TV app (Android TV / Fire TV)
+        - Games
         - Family tree
+        - Stories & recipes
+        - Collections, tags & quotes
+        - Maps & places
         - Library scanning
         - Uploads
         - Users, sharing & permissions
