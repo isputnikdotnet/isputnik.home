@@ -425,6 +425,43 @@ they stay.
   episode's card stay on screen, and it stays full screen into the next episode. On
   iPhones only the phone's own full screen exists, and they don't show there.
 
+## What you have watched
+
+Every poster says where you are in it, and says nothing for a title you never
+started:
+
+- **A bar** along the foot of a film or episode you left part-way.
+- **A check** in the corner of one you finished.
+- **"8 unwatched"** on a show you have started, with a bar of how much of it you
+  have seen. A new episode of a show you had finished brings the count back.
+- On a show's page each season says **6/10 watched**.
+
+**Filter → Watched** narrows the video page to *Unwatched*, *In progress* or
+*Watched*; pick more than one for any of them.
+
+iSputnik marks a film or episode watched by itself once you reach its credits
+(or 92% of it). When it has it wrong — you saw the film at the cinema, the first
+four seasons somewhere else, or you want to watch a series again — set it by
+hand. The menu offers only what applies:
+
+- **On a poster:** point at it (or, on a phone, look in its corner) for the
+  **⋮** menu: *Play*, *Mark as watched* or *Mark as unwatched*, and *Reset
+  progress* on a film left part-way.
+- **A film's page:** **Mark as watched** beside Play. A film in several files is
+  marked as one.
+- **A show's page:** **Mark as watched** for all of it, the **⋮** beside a
+  season's count for that season, and the **⋮** on an episode for one.
+
+A whole show or season is asked about first. Marking watched forgets the places
+you stopped; marking unwatched puts the episodes back to never seen. Play and
+Continue watching follow at once: mark seasons 1–3 watched and season 4's first
+episode is next.
+
+The marks are yours alone: each account, and each viewing profile, has its own.
+Bars, counts, the filter and marking a whole show or season need video container
+0.32 or newer; with an older one a film, an episode or a part can still be
+marked on its own page.
+
 ## Watching with no connection
 
 **Download**, on a film's page, keeps it on the phone, tablet or computer you

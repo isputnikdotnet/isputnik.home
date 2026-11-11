@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { followRoute } from "../../router";
+import { ActionMenu, type ActionMenuItem } from "../../shared/ActionMenu";
 import { DEFAULT_COVERS, DEFAULT_WIDE_COVERS } from "../audiobooks/covers";
 
 export interface PosterItem {
@@ -16,6 +17,11 @@ export interface PosterItem {
   /** 0–1: how far this person got; left out when they haven't started. */
   fraction?: number;
   watched?: boolean;
+  /** A few words over the foot of the picture: "8 unwatched". */
+  badge?: string | null;
+  /** What can be done about it from the card (Play, Mark as watched…): a ⋮ menu
+   *  in the picture's corner. */
+  menu?: ActionMenuItem[];
 }
 
 /** A card's cut: a tall poster, a wide frame of the film (Continue watching), or
@@ -25,32 +31,47 @@ export type PosterShape = "poster" | "wide" | "box";
 // A poster and its name, the TV app's card: no frame, a ring when you point at it.
 // A link, so it opens in a new tab like any address. With no picture yet, the
 // card says what it is inside itself, over the kind's placeholder art.
+//
+// Where this person is in it shows on the picture, and nothing shows for a title
+// never started: a bar along the foot for one left part-way, a check in the corner
+// for one finished, a count for a show with episodes still to see.
 export function PosterCard({ item, shape = "poster" }: { item: PosterItem; shape?: PosterShape }) {
   const { t } = useTranslation();
   const placeholder = shape === "wide" ? DEFAULT_WIDE_COVERS[item.kind] : DEFAULT_COVERS[item.kind];
-  const watched = item.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />;
+  const partway = item.fraction !== undefined && item.fraction > 0 && item.fraction < 1;
   return (
-    <a className={`video-card is-${shape}`} href={item.href} onClick={(event) => followRoute(event, item.href)}>
-      <span className={`video-card-cover${item.poster ? " has-poster" : " is-placeholder"}`}>
-        <img src={item.poster ?? placeholder} alt="" loading="lazy" />
-        {!item.poster && (
-          <span className="video-card-blank">
+    <div className="video-card-frame">
+      <a className={`video-card is-${shape}`} href={item.href} onClick={(event) => followRoute(event, item.href)}>
+        <span className={`video-card-cover${item.poster ? " has-poster" : " is-placeholder"}`}>
+          <img src={item.poster ?? placeholder} alt="" loading="lazy" />
+          {!item.poster && (
+            <span className="video-card-blank">
+              <strong>{item.title}</strong>
+              {item.sub && <span>{item.sub}</span>}
+            </span>
+          )}
+          {item.watched && (
+            <span className="video-card-watched" role="img" aria-label={t("video.watched")}>
+              <Check size={14} strokeWidth={3} aria-hidden="true" />
+            </span>
+          )}
+          {item.badge && <span className={`video-card-badge${partway ? " has-bar" : ""}`}>{item.badge}</span>}
+          {partway && (
+            <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(item.fraction! * 100)}%` }} /></span>
+          )}
+        </span>
+        {/* A blank card already says its name; one with a picture says it underneath. */}
+        {item.poster && (
+          <span className="video-card-body">
             <strong>{item.title}</strong>
             {item.sub && <span>{item.sub}</span>}
           </span>
         )}
-        {item.fraction !== undefined && item.fraction > 0 && item.fraction < 1 && (
-          <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(item.fraction * 100)}%` }} /></span>
-        )}
-      </span>
-      {/* A blank card already says its name; one with a picture says it underneath. */}
-      {item.poster ? (
-        <span className="video-card-body">
-          <strong>{item.title}{watched}</strong>
-          {item.sub && <span>{item.sub}</span>}
-        </span>
-      ) : watched}
-    </a>
+      </a>
+      {item.menu && item.menu.length > 0 && (
+        <ActionMenu trigger="icon" className="video-card-menu" label={t("video.mark.menu", { name: item.title })} items={item.menu} />
+      )}
+    </div>
   );
 }
 

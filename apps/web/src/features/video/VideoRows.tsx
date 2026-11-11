@@ -4,8 +4,10 @@ import { api } from "../../api";
 import { ContinueWatching } from "./ContinueWatching";
 import { MY_LIST_API, listPoster, type VideoListItem } from "./VideoMyList";
 import { PosterRow, type PosterItem } from "./VideoPoster";
+import { useTitleCards } from "./VideoTitleCards";
+import { useWatchedStamp } from "./watched";
 import { rowKindUnder, rowName, titlesRowPath, type VideoCollectionRow, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
-import { videoHref, videoSetHref, yearSpan, type VideoPage, type VideoSetSummary, type VideoTitleSummary } from "./types";
+import { videoSetHref, yearSpan, type VideoPage, type VideoSetSummary, type VideoTitleSummary } from "./types";
 
 // The video page's rows as the household set them, under the page's
 // All · Movies · Shows switch. Each titles row asks the engine for its own
@@ -46,32 +48,35 @@ export function VideoRows({ rows, kind, libraryNames, sets, viewAll }: {
 
 function TitlesRow({ row, kind, title, action }: { row: VideoTitlesRow; kind: VideoRowKind; title: string; action: ReactNode }) {
   const [items, setItems] = useState<VideoTitleSummary[]>([]);
+  const [tracked, setTracked] = useState(false);
+  const cards = useTitleCards(tracked);
+  const marked = useWatchedStamp();
   const path = titlesRowPath(row, kind);
 
   useEffect(() => {
     let live = true;
     api<VideoPage<VideoTitleSummary>>(path)
-      .then((page) => { if (live) setItems(page.items); })
+      .then((page) => {
+        if (!live) return;
+        setItems(page.items);
+        setTracked(page.watch === true);
+      })
       // A row that cannot be read is simply not shown.
       .catch(() => { if (live) setItems([]); });
     return () => { live = false; };
-  }, [path]);
+  }, [path, marked]);
 
   return (
-    <PosterRow
-      title={title}
-      // Shows alone keep the overview's nearly square cards.
-      shape={kind === "shows" ? "box" : "poster"}
-      items={items.map((item): PosterItem => ({
-        key: item.id,
-        href: videoHref(item.kind, item.id),
-        title: item.title,
-        sub: item.year ? String(item.year) : null,
-        poster: item.poster,
-        kind: item.kind === "shows" ? "show" : "movie"
-      }))}
-      action={action}
-    />
+    <>
+      {cards.dialogs}
+      <PosterRow
+        title={title}
+        // Shows alone keep the overview's nearly square cards.
+        shape={kind === "shows" ? "box" : "poster"}
+        items={items.map((item): PosterItem => cards.poster(item, item.year ? String(item.year) : null))}
+        action={action}
+      />
+    </>
   );
 }
 

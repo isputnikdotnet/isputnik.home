@@ -1387,6 +1387,27 @@
         "gone": "No longer in the library",
         "format": "This can't be played in a browser, so it can't be downloaded"
       }
+    },
+    "mark": {
+      "watched": "Mark as watched",
+      "unwatched": "Mark as unwatched",
+      "reset": "Reset progress",
+      "menu": "More for {{name}}",
+      "failedTitle": "Unable to save the mark",
+      "saving": "Saving…",
+      "unwatchedCount_one": "{{count}} unwatched",
+      "unwatchedCount_other": "{{count}} unwatched",
+      "seasonCount": "{{watched}}/{{count}} watched",
+      "seasonWatched": "Mark season as watched",
+      "seasonUnwatched": "Mark season as unwatched",
+      "showWatchedTitle": "Mark all of \"{{name}}\" as watched?",
+      "showWatchedBody": "Every episode is marked watched for you, and the place you stopped in any of them is forgotten. Nobody else's history changes.",
+      "showUnwatchedTitle": "Mark all of \"{{name}}\" as unwatched?",
+      "showUnwatchedBody": "Every episode goes back to never seen, and the places you stopped are forgotten. Nobody else's history changes.",
+      "facet": "Watched",
+      "stateUnwatched": "Unwatched",
+      "stateProgress": "In progress",
+      "stateWatched": "Watched"
     }
   }
 }

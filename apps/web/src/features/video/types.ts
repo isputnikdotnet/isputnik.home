@@ -38,6 +38,11 @@ export interface VideoShowSummary extends VideoArt {
   genres: string[];
   seasons: number;
   episodes: number;
+  /** Where this person is in it (engine 0.32+): episodes seen, whether any of it
+   *  is started, and the episode Play starts (null once all are watched). */
+  watchedEpisodes?: number;
+  started?: boolean;
+  playId?: string | null;
 }
 
 export interface VideoMovieSummary extends VideoArt {
@@ -48,6 +53,10 @@ export interface VideoMovieSummary extends VideoArt {
   imdbId: string | null;
   genres: string[];
   runtimeMinutes: number | null;
+  /** Where this person is in it (engine 0.32+), a film in parts counting as one,
+   *  and the file Play starts. */
+  progress?: VideoProgress | null;
+  playId?: string | null;
 }
 
 /** A card of the one list of films and shows (engine 0.19.0+), saying which it is. */
@@ -60,6 +69,9 @@ export interface VideoPage<T> {
   total: number;
   page: number;
   pageSize: number;
+  /** The cards say where this person is in each title, and ?watch= narrows by
+   *  it (engine 0.32+). */
+  watch?: boolean;
 }
 
 /** Whether a browser plays the file as it is (the engine judges by its kind):
@@ -231,6 +243,8 @@ export interface VideoShow extends VideoArt {
   tmdbId: string | null;
   source: "nfo" | "folder";
   seasons: { number: number; episodes: VideoEpisode[] }[];
+  /** The whole show or a season can be marked in one call (engine 0.32+). */
+  marksAll?: boolean;
   /** null once every episode is watched. */
   nextUp: VideoNextUp | null;
   backdrop?: string | null;

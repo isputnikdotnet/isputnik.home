@@ -11,15 +11,17 @@ import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { SortMenu } from "../../shared/SortMenu";
 import { VideoBanner } from "./VideoBanner";
-import { PosterGrid, type PosterItem } from "./VideoPoster";
+import { PosterGrid } from "./VideoPoster";
 import { PeopleResults } from "./VideoPeople";
 import { VideoRows, setPoster } from "./VideoRows";
 import { VideoRowsEditor } from "./VideoRowsEditor";
 import { PROFILES_API, WatchingAs, type ProfilesAnswer } from "./VideoProfiles";
 import { VideoSectionNav } from "./VideoSectionNav";
+import { useTitleCards } from "./VideoTitleCards";
+import { useWatchedStamp } from "./watched";
 import { VIDEO_HOME_API, VIDEO_ROWS_MAX, newRowId, rowName, type VideoLayout, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
 import {
-  MY_LIST_HREF, VIDEO_API, videoBrowseHref, videoHref,
+  MY_LIST_HREF, VIDEO_API, videoBrowseHref,
   type VideoKind, type VideoLibraryRef, type VideoMovieSummary, type VideoPage, type VideoSetSummary, type VideoShowSummary, type VideoTitleSummary
 , type VideoPersonSummary } from "./types";
 import "../../styles/video.css";
@@ -37,8 +39,11 @@ type View = "rows" | "grid" | "sets";
 interface VideoFilters {
   libraries: string[];
   genres: string[];
+  /** Where this person is in a title: unwatched, progress, watched — any of. */
+  watch: string[];
 }
-const NO_FILTERS: VideoFilters = { libraries: [], genres: [] };
+const NO_FILTERS: VideoFilters = { libraries: [], genres: [], watch: [] };
+const WATCH_STATES = ["unwatched", "progress", "watched"] as const;
 
 const listParam = (key: string) => (queryParam(key) ?? "").split(",").filter(Boolean);
 const oneOf = <T extends string>(value: string | null, options: readonly T[], fallback: T): T =>
@@ -55,7 +60,16 @@ export function VideoHomePage() {
   const [kind, setKind] = useState<Kind>(() => oneOf(queryParam("kind"), ["all", "movies", "shows"] as const, "all"));
   const [view, setView] = useState<View>(() => oneOf(queryParam("view"), ["rows", "grid", "sets"] as const, "rows"));
   const [sort, setSort] = useState<Sort>(() => oneOf(queryParam("sort"), ["title", "year", "added"] as const, "title"));
-  const [filters, setFilters] = useState<VideoFilters>(() => ({ libraries: listParam("libraries"), genres: listParam("genres") }));
+  const [filters, setFilters] = useState<VideoFilters>(() => ({
+    libraries: listParam("libraries"),
+    genres: listParam("genres"),
+    watch: listParam("watch").filter((state) => (WATCH_STATES as readonly string[]).includes(state))
+  }));
+  /** The engine says where this person is in each title (0.32+): bars, marks and the Watched filter. */
+  const [tracked, setTracked] = useState(false);
+  const cards = useTitleCards(tracked);
+  /** Something was marked by hand: the grid reads its titles again. */
+  const marked = useWatchedStamp();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<VideoPersonSummary[]>([]);
@@ -93,6 +107,7 @@ export function VideoHomePage() {
     replaceQuery("sort", sort === "title" ? null : sort);
     replaceQuery("libraries", filters.libraries.join(",") || null);
     replaceQuery("genres", filters.genres.join(",") || null);
+    replaceQuery("watch", filters.watch.join(",") || null);
   }, [kind, view, sort, filters]);
 
   useEffect(() => {
@@ -125,7 +140,11 @@ export function VideoHomePage() {
       .then((next) => { if (live) setLayout(next); })
       .catch(() => { if (live) setLayout({ rows: [], custom: false, mine: false, editable: false }); });
     api<VideoPage<VideoTitleSummary>>(`${VIDEO_API}/titles?pageSize=1`)
-      .then((page) => { if (live) setCatalogTotal(page.total); })
+      .then((page) => {
+        if (!live) return;
+        setCatalogTotal(page.total);
+        setTracked(page.watch === true);
+      })
       .catch((err: unknown) => {
         if (!live) return;
         setCatalogTotal(0);
@@ -136,6 +155,7 @@ export function VideoHomePage() {
 
   const librariesKey = libraryFilter.join(",");
   const genresKey = filters.genres.join(",");
+  const watchKey = filters.watch.join(",");
   useEffect(() => {
     if (shown === "rows") return;
     let live = true;
@@ -163,6 +183,7 @@ export function VideoHomePage() {
       if (kind !== "all") params.set("kind", kind);
       if (librariesKey) params.set("libraries", librariesKey);
       if (genresKey) params.set("genres", genresKey);
+      if (watchKey) params.set("watch", watchKey);
       api<VideoPage<VideoTitleSummary>>(`${VIDEO_API}/titles?${params}`)
         .then((payload) => {
           if (!live) return;
@@ -173,7 +194,7 @@ export function VideoHomePage() {
         .catch(fail);
     }
     return () => { live = false; };
-  }, [shown, kind, sort, query, librariesKey, genresKey, t]);
+  }, [shown, kind, sort, query, librariesKey, genresKey, watchKey, marked, t]);
 
   // People whose name has the words, shown above the titles a search finds.
   useEffect(() => {
@@ -208,7 +229,7 @@ export function VideoHomePage() {
     else if (row.type === "titles") {
       setKind(under);
       setSort(row.sort);
-      setFilters({ libraries: row.libraries, genres: row.genres });
+      setFilters({ libraries: row.libraries, genres: row.genres, watch: [] });
       setView("grid");
     }
     window.scrollTo({ top: 0 });
@@ -243,14 +264,6 @@ export function VideoHomePage() {
     }
     return parts.join(" · ");
   };
-  const titleItem = (of: VideoKind, item: VideoShowSummary | VideoMovieSummary, sub: string | null = meta(item)): PosterItem => ({
-    key: item.id,
-    href: videoHref(of, item.id),
-    title: item.title,
-    sub,
-    poster: item.poster,
-    kind: of === "shows" ? "show" : "movie"
-  });
   const setItem = (set: VideoSetSummary) => setPoster(set, t);
   const viewAll = (row: VideoRow, under: VideoRowKind) => {
     if (row.type === "continue" || row.type === "collection") return null;
@@ -271,12 +284,20 @@ export function VideoHomePage() {
     );
   };
 
+  const watchLabels: Record<string, string> = {
+    unwatched: t("video.mark.stateUnwatched"),
+    progress: t("video.mark.stateProgress"),
+    watched: t("video.mark.stateWatched")
+  };
   const facetOrder: FacetDef<keyof VideoFilters>[] = [
     // A filter that can only mean "everything" isn't one.
     ...(kindLibraries.length > 1
       ? [{ key: "libraries" as const, title: t("video.facetLibraries"), searchable: false, fixed: kindLibraries.map((entry) => ({ value: entry.id, label: entry.name })) }]
       : []),
-    { key: "genres", title: t("video.facetGenres"), searchable: true }
+    { key: "genres", title: t("video.facetGenres"), searchable: true },
+    ...(tracked
+      ? [{ key: "watch" as const, title: t("video.mark.facet"), searchable: false, fixed: WATCH_STATES.map((state) => ({ value: state, label: watchLabels[state] })) }]
+      : [])
   ];
   const libraryNames = Object.fromEntries(libraries.map((entry) => [entry.id, entry.name]));
   const setsOffered = kind !== "shows" && (setRow.length > 0 || view === "sets");
@@ -317,7 +338,7 @@ export function VideoHomePage() {
               <FacetFilterButton
                 order={facetOrder}
                 facets={{ genres }}
-                value={{ libraries: libraryFilter, genres: filters.genres }}
+                value={{ libraries: libraryFilter, genres: filters.genres, watch: filters.watch }}
                 onChange={setFilters}
                 empty={NO_FILTERS}
               />
@@ -376,11 +397,13 @@ export function VideoHomePage() {
         {query && shown !== "sets" && <PeopleResults people={people} />}
 
         <FacetFilterChips
-          value={{ libraries: libraryFilter, genres: filters.genres }}
+          value={{ libraries: libraryFilter, genres: filters.genres, watch: filters.watch }}
           onChange={setFilters}
           empty={NO_FILTERS}
-          labels={libraryNames}
+          labels={{ ...libraryNames, ...watchLabels }}
         />
+
+        {cards.dialogs}
 
         {shown === "rows" && (empty ? (
           <div className="empty-state library-empty">
@@ -402,7 +425,7 @@ export function VideoHomePage() {
             {!filtering && <p className="muted">{t("video.emptyBody")}</p>}
           </div>
         ) : (
-          <PosterGrid items={(titles ?? []).map((item) => titleItem(item.kind, item))} />
+          <PosterGrid items={(titles ?? []).map((item) => cards.poster(item, meta(item)))} />
         ))}
 
         {shown === "sets" && (sets && sets.length === 0 && !error ? (

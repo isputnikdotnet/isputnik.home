@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { useVideoAvailable } from "../../app/useVideoAvailable";
 import { VIDEO_API, episodeCodeValues, formatPlayTime, watchHref, type VideoArt, type VideoContinueItem, type VideoShow } from "./types";
 import { PosterRow } from "./VideoPoster";
+import { useWatchedStamp } from "./watched";
 import "../../styles/video.css";
 
 // The engine's continue list has no pictures, so each costs a request of its own.
@@ -20,6 +21,8 @@ export function ContinueWatching({ only, title }: { only?: "episode" | "movie"; 
   const available = useVideoAvailable();
   const [items, setItems] = useState<VideoContinueItem[] | null>(null);
   const [posters, setPosters] = useState<Record<string, string | null>>({});
+  /** Something was marked watched by hand: what comes next has changed. */
+  const marked = useWatchedStamp();
 
   useEffect(() => {
     if (!available) return;
@@ -45,7 +48,7 @@ export function ContinueWatching({ only, title }: { only?: "episode" | "movie"; 
       // A row that cannot be read is simply not shown.
       .catch(() => { if (live) setItems([]); });
     return () => { live = false; };
-  }, [available, only]);
+  }, [available, only, marked]);
 
   const shown = (items ?? []).filter((item) => !only || item.type === only);
   if (!available) return null;
