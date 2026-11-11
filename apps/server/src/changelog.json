@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.83.1",
+    "label": "Video progress, easier to see",
+    "changes": [
+      "**Clearer watch progress.** Movie and episode cards now have thicker, rounded progress bars set slightly inside the artwork, with an opaque track and outline. Season counts, resume actions and the home banner use the same treatment.",
+      "**Progress and watched checks follow your theme.** Both use the current theme's accent color. Contrasting tracks and outlined check badges keep them visible over artwork in every theme, including Minimalist."
+    ]
+  },
+  {
     "version": "4.83.0",
     "label": "Video pages, tidied",
     "changes": [

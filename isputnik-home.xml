@@ -27,7 +27,11 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794398400</Date>
   <Changes>
-### 2026.11.11 — 4.83.0 Video pages, tidied
+### 2026.11.11 — 4.83.1 Video progress, easier to see
+- **Clearer watch progress.** Movie and episode cards now have thicker, rounded progress bars set slightly inside the artwork, with an opaque track and outline. Season counts, resume actions and the home banner use the same treatment.
+- **Progress and watched checks follow your theme.** Both use the current theme's accent color. Contrasting tracks and outlined check badges keep them visible over artwork in every theme, including Minimalist.
+
+### 2026.11.10 — 4.83.0 Video pages, tidied
 - **A poster's menu is beside its name.** The ⋮ now sits under the poster, next to the title, on every film and show: always there, never over the picture, and the same with a finger as with a mouse. Before, it appeared over the art only when you pointed at it. The menu also has **Add to My list** and, for a film, **Download**.
 - **Marks in the corner.** The watched check and a show's "8 unwatched" are in the picture's top-right corner; a film left part-way has a gold bar along its foot.
 - **One row of buttons on a film's or show's page.** Play, My list, Download for a film, and a ⋮ with the rest: Mark as watched or unwatched, Reset progress, Add to collection and, for admins, Edit. Before, they ran to two rows.
@@ -56,14 +60,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **Keep iSputnik open while it downloads.** One film downloads at a time and the rest wait their turn. A download that is interrupted (the screen locked, the connection dropped, the app closed) carries on where it stopped the next time iSputnik is open. Downloads wait while you watch something from the server, and a film being converted for a download takes one of the places under **People watching converted video at once**.
 - **Downloads** lists them under **Movies and shows**, with Play, Pause, Resume and Remove. A downloaded film plays from the device even at home, so it starts at once; with no connection, open it from Downloads. Where you stopped is remembered on the device and sent to the server when it is next reachable.
 - What is kept: the picture at the quality chosen, the sound track in the language last picked in the player, and text subtitles. Blu-ray and DVD picture subtitles are not. iPhones and iPads need iOS 17.1 or newer to play a downloaded film that had to be converted. Nothing extra is stored on the server, and the video container needs no update.
-
-### 2026.11.09 — 4.79.0 A player that gets out of the way
-- **Nothing on screen but the film.** The player for movies and shows lost its permanent bar: the picture now fills the whole window, and the title and the controls are drawn over it. Move the mouse, tap the picture or press a key and they fade in; about three seconds after the last movement they go again, the mouse pointer with them. Paused, they stay. Before, a header sat over every film and the browser's own controls sat under it, different in every browser.
-- **Its own controls, the same everywhere.** Play and pause, ten seconds back and forward, the next episode, a thin amber line showing where the film is (point at it to see the time, drag it to go there), volume, subtitles, settings and full screen. A click on the picture pauses; a double click is full screen.
-- **Settings, Subtitles and More.** The gear holds **Quality**, **Sound** (where a film has more than one track) and a new **Speed**, from 0.5× to 2×. **CC** chooses the subtitles. **More** (⋯) has **Start over**, a new **Playback information** (whether the film is sent as it is or converted and why, the picture's size, the sound track) and, for admins, **Mark intro**.
-- **The keyboard.** Space or K plays and pauses, ← and → jump ten seconds, ↑ and ↓ change the volume, M mutes, F is full screen, S still skips the intro. The letters go by the key's place, so a Russian layout works.
-- **How loud is remembered** in each browser, like the sound language, the subtitles and the quality already were.
-- "Resumed at" now steps aside after a few seconds instead of staying over the picture; Start over is always under More.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

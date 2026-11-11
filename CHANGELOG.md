@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.83.1 — Video progress, easier to see
+
+- **Clearer watch progress.** Movie and episode cards now have thicker, rounded progress bars set slightly inside the artwork, with an opaque track and outline. Season counts, resume actions and the home banner use the same treatment.
+- **Progress and watched checks follow your theme.** Both use the current theme's accent color. Contrasting tracks and outlined check badges keep them visible over artwork in every theme, including Minimalist.
+
 ## 4.83.0 — Video pages, tidied
 
 - **A poster's menu is beside its name.** The ⋮ now sits under the poster, next to the title, on every film and show: always there, never over the picture, and the same with a finger as with a mouse. Before, it appeared over the art only when you pointed at it. The menu also has **Add to My list** and, for a film, **Download**.
