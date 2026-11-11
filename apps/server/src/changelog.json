@@ -1,5 +1,17 @@
 [
   {
+    "version": "4.82.0",
+    "label": "Downloads you don't wait for",
+    "changes": [
+      "**Two ways to download a film or episode.** **Optimized for this device** is a smaller picture: 480p is suggested on a phone (about 0.7 GB for a two-hour film) and 720p on a tablet or computer (about 1.4 GB), and you can pick another. **Full copy** is the file as it is, and starts at once.",
+      "**The server prepares an optimized copy, and you don't have to wait for it.** The dialog says about how long it takes. Close iSputnik and come back later: the copy is waiting in Downloads and comes down by itself as soon as the app is open on that device, at the full speed of the connection. Before, the film was converted while the phone waited, which was slow, loaded the server throughout and needed the app open from start to finish.",
+      "**Email me when it is ready**, a tick box in the dialog where email is set up and your account has an address. One email per request, so a whole season sends one.",
+      "**A prepared copy is kept on the server**, so the next person who wants that film gets it at once. Control panel → Settings → Video → **Copies for download** sets how much room they may take together (20 GB to start with), shows what they take, and removes them all. Copies are made one at a time, on the GPU when the video container has one, and wait while anyone is watching.",
+      "A prepared copy is one ordinary MP4, so it plays on any iPhone or iPad; a converted download no longer needs iOS 17.1.",
+      "This needs the video container 0.33 or newer; update it with this release. With an older one, an optimized download is still converted while the app waits."
+    ]
+  },
+  {
     "version": "4.81.0",
     "label": "What you have watched",
     "changes": [
