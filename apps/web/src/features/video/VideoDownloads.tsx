@@ -5,44 +5,91 @@ import { Check, Download, HardDrive, Loader, RotateCcw } from "lucide-react";
 import { api } from "../../api";
 import { estimateStorage, type StorageEstimate } from "../../offline/downloads";
 import { downloadFraction, useVideoDownloads } from "../../offline/useVideoDownloads";
-import { estimateVideoBytes, videoDownloads, warmVideoPlayer, type VideoDownloadRequest } from "../../offline/video";
+import { askVideoCopy, estimateVideoBytes, videoDownloads, warmVideoPlayer, type VideoCopyAnswer, type VideoDownloadRequest } from "../../offline/video";
+import type { StoredVideoDownload } from "../../offline/video-store";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SelectMenu } from "../../shared/SelectMenu";
 import { formatBytes } from "../../shared/utils";
 import { VIDEO_API, type VideoKind, type VideoPlayInfo, type VideoQuality } from "./types";
 
 // Download, on a film's page, a season and an episode: keeps it on this device
 // to watch with no connection (offline/video.ts). The button says where that
 // stands — nothing yet, on its way (the Downloads page has the rest), or here.
+//
+// Two ways to have it (docs/video-quality-plan.md → Prepared copies): the full
+// copy, which is the file as it is and starts at once; or one optimized for the
+// device, a smaller picture the server prepares first — which takes a while, and
+// needs nobody to wait for it.
 
-/** The quality downloaded last, in this browser: offered first the next time. */
+type Rung = 1080 | 720 | 480;
+
+/** The optimized quality picked last, in this browser: offered first the next time. */
 const QUALITY_KEY = "isputnik.video.downloadQuality";
+/** …and whether it was the full copy. */
+const FULL_KEY = "isputnik.video.downloadFull";
 const DOWNLOADS_HREF = "/downloads";
-
-const qualityValue = (quality: VideoQuality) => (quality === null ? "original" : String(quality));
+const NOTICES_API = "/api/video/copy-notices";
 
 export const videoQualityLabel = (quality: VideoQuality, t: TFunction) =>
   (quality === null ? t("video.quality.original") : t("video.quality.rung", { height: quality }));
 
-function readQuality(): string | null {
+function readKept(key: string): string | null {
   try {
-    return window.localStorage.getItem(QUALITY_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-/** The quality to offer first: the one chosen last, else 720p — a film for the
- *  road rather than the living room — else the smallest there is. */
-function firstChoice(allowed: VideoQuality[]): VideoQuality {
-  const kept = allowed.find((quality) => qualityValue(quality) === readQuality());
-  if (kept !== undefined) return kept;
-  if (allowed.includes(720)) return 720;
-  const rungs = allowed.filter((quality): quality is 1080 | 720 | 480 => quality !== null);
-  return rungs.length > 0 ? Math.min(...rungs) as VideoQuality : allowed[0] ?? null;
+function keep(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Private window: asked again next time.
+  }
+}
+
+/** What is in the hand: a phone gets the smallest picture, anything larger held
+ *  by touch the middle one; a desk has room for that too. */
+export function deviceKind(): "phone" | "tablet" | "computer" {
+  const touch = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  if (!touch) return "computer";
+  return Math.min(window.screen.width, window.screen.height) < 600 ? "phone" : "tablet";
+}
+
+/** The quality suggested for this device, among those allowed: 480p for a phone,
+ *  720p for a tablet or a computer; the nearest below when that is not on offer. */
+export function suggestedRung(allowed: Rung[], device = deviceKind()): Rung | null {
+  const wanted: Rung = device === "phone" ? 480 : 720;
+  const fitting = allowed.filter((rung) => rung <= wanted);
+  if (fitting.length > 0) return Math.max(...fitting) as Rung;
+  return allowed.length > 0 ? (Math.min(...allowed) as Rung) : null;
+}
+
+/** "about 6 minutes", "about 1 hour 20 minutes". */
+function aboutTime(seconds: number, t: TFunction): string {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return t("video.download.minutes", { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round((minutes % 60) / 5) * 5;
+  return rest > 0 ? `${t("video.download.hours", { count: hours })} ${t("video.download.minutes", { count: rest })}` : t("video.download.hours", { count: hours });
+}
+
+/** What a download still on its way is doing, in a few words. */
+export function downloadStateText(record: StoredVideoDownload, t: TFunction): string {
+  if (record.state === "queued") return t("video.download.queued");
+  if (record.state === "paused") return t("video.download.paused");
+  if (record.state === "preparing") {
+    const prepare = record.prepare;
+    if (!prepare || (prepare.ahead > 0 && prepare.progress === 0)) return t("video.download.preparingQueued");
+    if (prepare.paused) return t("video.download.preparingPaused");
+    return t("video.download.preparing", { percent: Math.round(prepare.progress * 100) });
+  }
+  return t("video.download.downloading", { percent: Math.round(downloadFraction(record) * 100) });
 }
 
 export interface VideoDownloadTarget {
@@ -63,14 +110,18 @@ export function VideoDownloadButton({ target, compact = false, label }: { target
   if (target.items.length === 0) return null;
 
   const records = target.items.map((item) => downloads.get(item.id) ?? null);
-  const active = records.filter((record) => record && record.state !== "complete" && record.state !== "failed");
+  const active = records.filter((record): record is StoredVideoDownload => record !== null && record.state !== "complete" && record.state !== "failed");
   const failed = records.some((record) => record?.state === "failed");
   const missing = target.items.filter((_, index) => !records[index] || records[index]!.state === "failed");
   const fraction = records.reduce((sum, record) => sum + (record ? downloadFraction(record) : 0), 0) / records.length;
 
   if (active.length > 0) {
-    const waiting = active.every((record) => record!.state === "paused");
-    const text = waiting ? t("video.download.paused") : t("video.download.downloading", { percent: Math.round(fraction * 100) });
+    const waiting = active.every((record) => record.state === "paused");
+    // One thing: say what it is doing. Several: how far the lot has come.
+    const fetching = active.some((record) => record.state === "downloading");
+    const text = waiting ? t("video.download.paused")
+      : active.length === 1 || !fetching ? downloadStateText(active.find((record) => record.state !== "queued") ?? active[0], t)
+      : t("video.download.downloading", { percent: Math.round(fraction * 100) });
     return (
       <a
         className={compact ? "video-download-status is-compact" : "text-button video-download-status"}
@@ -134,16 +185,24 @@ export function VideoDownloadButton({ target, compact = false, label }: { target
   );
 }
 
-/** Which quality, how much room it takes, and Download. */
+/** Full copy or optimized, at which quality, what it takes — and Download. */
 function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; onClose: () => void }) {
   const { t } = useTranslation();
   const [info, setInfo] = useState<VideoPlayInfo | null>(null);
   const [storage, setStorage] = useState<StorageEstimate | null>(null);
-  const [quality, setQuality] = useState<VideoQuality>(null);
+  const [full, setFull] = useState(() => readKept(FULL_KEY) === "1");
+  const [rung, setRung] = useState<Rung | null>(null);
+  /** How the optimized copy of the first one stands on the server; null while
+   *  unknown, or on an engine that prepares none. */
+  const [copy, setCopy] = useState<VideoCopyAnswer | null>(null);
+  /** This account can be emailed, on a server that sends email. */
+  const [canNotify, setCanNotify] = useState(false);
+  const [notify, setNotify] = useState(false);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
   const first = target.items[0];
   const single = target.items.length === 1;
+  const device = deviceKind();
 
   // The first one says what may be picked here (everything at home, up to the
   // admin's limit away) and, for a single film, how big it is.
@@ -152,18 +211,39 @@ function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; 
     api<VideoPlayInfo>(`${VIDEO_API}/play/${encodeURIComponent(first.id)}`)
       .then((payload) => {
         if (!live) return;
+        const rungs = (payload.playback.quality?.allowed ?? []).filter((quality): quality is Rung => quality !== null);
+        const kept = rungs.find((quality) => String(quality) === readKept(QUALITY_KEY));
         setInfo(payload);
-        setQuality(firstChoice(payload.playback.quality?.allowed ?? [null]));
+        setRung(kept ?? suggestedRung(rungs, device));
       })
       .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.loadFailed")); });
     void estimateStorage().then((estimate) => { if (live) setStorage(estimate); }, () => undefined);
+    api<{ available: boolean }>(NOTICES_API).then((answer) => { if (live) setCanNotify(answer.available); }, () => undefined);
     return () => { live = false; };
-  }, [first.id, t]);
+  }, [first.id, t, device]);
 
-  const allowed = info?.playback.quality?.allowed ?? [null];
+  // How the copy at this quality stands: ready, or about how long it takes.
+  useEffect(() => {
+    setCopy(null);
+    if (!info || rung === null) return;
+    let live = true;
+    const audio = info.audioTracks?.find((track) => track.selected)?.index ?? null;
+    askVideoCopy(first.id, rung, audio).then((answer) => { if (live) setCopy(answer); }, () => undefined);
+    return () => { live = false; };
+  }, [first.id, info, rung]);
+
+  const rungs = (info?.playback.quality?.allowed ?? []).filter((quality): quality is Rung => quality !== null);
+  const fullAllowed = !info || !info.playback.quality || info.playback.quality.allowed.includes(null);
+  const suggested = suggestedRung(rungs, device);
+  // Away from home the full copy may not be on offer at all; an old engine offers nothing else.
+  const optimized = rungs.length > 0;
+  const takeFull = (full && fullAllowed) || !optimized;
+  const quality: VideoQuality = takeFull ? null : rung;
+
+  const duration = info ? info.playback.duration ?? (info.runtimeMinutes ? info.runtimeMinutes * 60 : null) : null;
   const sizeAt = (choice: VideoQuality): number | null => {
     if (!info) return null;
-    if (single) return estimateVideoBytes(info.sizeBytes, info.playback.duration ?? (info.runtimeMinutes ? info.runtimeMinutes * 60 : null), choice);
+    if (single) return estimateVideoBytes(info.sizeBytes, duration, choice);
     // Several: each one's length is known, their files' sizes are not.
     if (choice === null) return null;
     let total = 0;
@@ -178,6 +258,19 @@ function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; 
   const needed = sizeAt(quality);
   const tooBig = free !== null && needed !== null && needed > free;
   const unplayable = info !== null && (!info.available || info.playback.mode === "none");
+  /** The server makes the copy first, and nobody has to wait for it here. */
+  const prepares = !takeFull && copy !== null && (copy.state === "none" || copy.state === "queued" || copy.state === "running" || copy.state === "failed");
+
+  // What choosing Optimized means for this one, in a line.
+  const optimizedNote = (): string => {
+    if (!info || rung === null) return "";
+    if (!single) return t("video.download.optimizedSeveral");
+    if (copy === null) return t("video.download.optimizedOpen");
+    if (copy.state === "ready") return t("video.download.optimizedReady");
+    if (copy.state === "unneeded") return t("video.download.optimizedUnneeded");
+    if (copy.state === "queued" || copy.state === "running") return t("video.download.optimizedUnderWay");
+    return copy.estimateSeconds ? t("video.download.optimizedPrepare", { time: aboutTime(copy.estimateSeconds, t) }) : t("video.download.optimizedPrepareUnknown");
+  };
 
   const start = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -185,12 +278,14 @@ function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; 
     setStarting(true);
     setError("");
     try {
-      try {
-        window.localStorage.setItem(QUALITY_KEY, qualityValue(quality));
-      } catch {
-        // Private window: asked again next time.
-      }
+      keep(FULL_KEY, takeFull ? "1" : "0");
+      if (rung !== null && !takeFull) keep(QUALITY_KEY, String(rung));
       await videoDownloads.enqueue(target.items, { quality, parent: target.parent, posterUrl: target.posterUrl });
+      // One email for the lot, once the server has them all ready. Not being able to ask is no reason to fail the download.
+      if (notify && canNotify && quality !== null) {
+        const batch = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+        void api(NOTICES_API, { method: "POST", body: JSON.stringify({ batch, items: target.items.map((item) => ({ id: item.id, quality, title: item.showTitle ? `${item.showTitle} · ${item.title}` : item.title })) }) }).catch(() => undefined);
+      }
       // The player's code, kept for when there is no connection to fetch it over.
       warmVideoPlayer();
       onClose();
@@ -208,22 +303,60 @@ function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; 
 
       {info && !unplayable && (
         <fieldset className="video-download-qualities">
-          <legend>{t("video.quality.label")}</legend>
-          {allowed.map((choice) => {
-            const size = sizeAt(choice);
-            return (
-              <label key={qualityValue(choice)} className="video-download-quality">
-                <input type="radio" name="video-download-quality" checked={quality === choice} onChange={() => setQuality(choice)} />
-                <span>
-                  <strong>{videoQualityLabel(choice, t)}</strong>
-                  <small className="muted">
-                    {size !== null ? t("video.download.about", { size: formatBytes(size) }) : choice === null ? t("video.download.asItIs") : ""}
-                  </small>
-                </span>
-              </label>
-            );
-          })}
+          <legend className="sr-only">{t("video.download.which")}</legend>
+          {optimized && (
+            <label className="video-download-quality">
+              <input type="radio" name="video-download-kind" checked={!takeFull} onChange={() => setFull(false)} />
+              <span>
+                <strong>{t("video.download.optimized")}</strong>
+                <small className="muted">{optimizedNote()}</small>
+                {!takeFull && rung !== null && (
+                  <span className="video-download-rung">
+                    <SelectMenu
+                      label={t("video.quality.label")}
+                      value={String(rung)}
+                      onChange={(value) => setRung(Number(value) as Rung)}
+                      options={rungs.map((choice) => {
+                        const size = sizeAt(choice);
+                        const name = videoQualityLabel(choice, t);
+                        const hint = choice === suggested ? t(`video.download.suggested.${device}`) : null;
+                        return { value: String(choice), label: [name, size !== null ? t("video.download.about", { size: formatBytes(size) }) : null, hint].filter(Boolean).join(" · ") };
+                      })}
+                    />
+                  </span>
+                )}
+              </span>
+            </label>
+          )}
+          {fullAllowed && (
+            <label className="video-download-quality">
+              <input type="radio" name="video-download-kind" checked={takeFull} onChange={() => setFull(true)} />
+              <span>
+                <strong>{t("video.download.full")}</strong>
+                <small className="muted">
+                  {[t("video.download.fullNote"), sizeAt(null) !== null ? formatBytes(sizeAt(null)!) : null].filter(Boolean).join(" · ")}
+                </small>
+              </span>
+            </label>
+          )}
         </fieldset>
+      )}
+
+      {info && !unplayable && prepares && (
+        <MessageBox tone="info" title={t("video.download.prepareTitle")}>
+          {t("video.download.prepareBody")}
+          {canNotify && (
+            <label className="video-download-notify">
+              <input type="checkbox" checked={notify} onChange={(event) => setNotify(event.target.checked)} />
+              <span>{t("video.download.notify")}</span>
+            </label>
+          )}
+        </MessageBox>
+      )}
+
+      {/* An engine that prepares no copies converts while the app waits. */}
+      {info && !unplayable && !takeFull && rung !== null && copy === null && info.playback.mode !== "direct" && (
+        <p className="muted">{t("video.download.keepOpen")}</p>
       )}
 
       {free !== null && (
@@ -232,8 +365,6 @@ function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; 
           <span>{t("video.download.free", { size: formatBytes(free) })}</span>
         </p>
       )}
-
-      {info && !unplayable && <p className="muted">{t("video.download.keepOpen")}</p>}
 
       {unplayable && <MessageBox tone="info" title={t("video.download.failedTitle")}>{t("video.download.problem.format")}</MessageBox>}
       {tooBig && <MessageBox tone="warning" title={t("video.download.tooBigTitle")}>{t("video.download.tooBig", { size: formatBytes(needed) })}</MessageBox>}

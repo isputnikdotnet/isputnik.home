@@ -24,6 +24,7 @@ import { sessionLocked } from "../../profiles/fence.js";
 import { EngineError, engineClient, type EngineTarget } from "./engine.js";
 import { getHouseholdLayout, getProfileLayout, getVideoLayout, resetVideoLayout, saveProfileRows, saveVideoLayout, videoLayoutSchema } from "./home-layout.js";
 import { canReadCollectionRow, registerVideoListRoutes } from "./lists.js";
+import { registerCopyNotices } from "./copy-notices.js";
 import { VIDEO_ENTITY_TYPES, forgetVideoLibrary, refreshVideoRefs } from "./refs.js";
 import { setSubjectPreparer } from "../../social/subjects.js";
 import { notePlayResponse } from "./play-log.js";
@@ -207,6 +208,8 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
   // My list and Collection rows (lists.ts); Collections learn films and shows
   // from the engine as they are added (refs.ts).
   registerVideoListRoutes(app, engine, videoGate);
+  // "Email me when it's ready", for a film being prepared for download.
+  registerCopyNotices(app, engine, videoGate);
   for (const [kind, entityType] of Object.entries(VIDEO_ENTITY_TYPES) as ["movies" | "shows", string][]) {
     setSubjectPreparer(entityType, (ids) => (configured() ? refreshVideoRefs(engine, kind, ids) : Promise.resolve()));
   }

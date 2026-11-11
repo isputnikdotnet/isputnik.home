@@ -1385,8 +1385,36 @@
         "busy": "Waiting: the server is converting video for someone else",
         "space": "Not enough room on this device",
         "gone": "No longer in the library",
-        "format": "This can't be played in a browser, so it can't be downloaded"
-      }
+        "format": "This can't be played in a browser, so it can't be downloaded",
+        "prepare": "The server could not prepare this copy"
+      },
+      "which": "Which copy",
+      "optimized": "Optimized for this device",
+      "full": "Full copy",
+      "fullNote": "The file as it is. Starts at once",
+      "optimizedOpen": "A smaller picture that takes less room.",
+      "optimizedReady": "A smaller picture. Ready now: it starts at once.",
+      "optimizedUnneeded": "This one is already small enough: it comes as it is, at once.",
+      "optimizedUnderWay": "A smaller picture. The server is already preparing it.",
+      "optimizedPrepare": "A smaller picture. The server prepares it first: {{time}}.",
+      "optimizedPrepareUnknown": "A smaller picture. The server prepares it first.",
+      "optimizedSeveral": "A smaller picture of each. The server prepares those it has not made yet, one after another.",
+      "minutes_one": "about {{count}} minute",
+      "minutes_other": "about {{count}} minutes",
+      "hours_one": "about {{count}} hour",
+      "hours_other": "about {{count}} hours",
+      "suggested": {
+        "phone": "suggested for this phone",
+        "tablet": "suggested for this tablet",
+        "computer": "suggested"
+      },
+      "prepareTitle": "You don't have to wait",
+      "prepareBody": "The server prepares the copy by itself. Close iSputnik if you like and come back later: it will be waiting in Downloads, and comes down as soon as this device opens the app.",
+      "notify": "Email me when it is ready",
+      "preparing": "Preparing on the server: {{percent}}%",
+      "preparingQueued": "Waiting for the server to prepare it",
+      "preparingPaused": "Preparing paused while someone is watching",
+      "preparingHint": "Nothing to wait for here: it downloads by itself once it is ready."
     },
     "mark": {
       "watched": "Mark as watched",

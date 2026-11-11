@@ -10,6 +10,8 @@ export function useVideoDownloads(): VideoDownloadSnapshot {
 /** How far along a download is, 0–1. */
 export function downloadFraction(record: StoredVideoDownload): number {
   if (record.state === "complete") return 1;
+  // Nothing of it is here yet: the bar is the server's, making the copy.
+  if (record.state === "preparing") return 0;
   if (record.kind === "file" && record.totalBytes) return Math.min(1, record.downloadedBytes / record.totalBytes);
   return record.totalParts ? Math.min(1, record.doneParts / record.totalParts) : 0;
 }

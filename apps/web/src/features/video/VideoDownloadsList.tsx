@@ -9,7 +9,7 @@ import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
-import { videoQualityLabel } from "./VideoDownloads";
+import { downloadStateText, videoQualityLabel } from "./VideoDownloads";
 import { episodeCodeValues, watchHref } from "./types";
 
 // The films and episodes on this device, on the Downloads page: what each is,
@@ -21,15 +21,14 @@ const PROBLEM_KEYS = {
   busy: "video.download.problem.busy",
   space: "video.download.problem.space",
   gone: "video.download.problem.gone",
-  format: "video.download.problem.format"
+  format: "video.download.problem.format",
+  prepare: "video.download.problem.prepare"
 } as const;
 
 function stateText(record: StoredVideoDownload, t: TFunction): string | null {
   if (record.state === "complete") return null;
   if (record.problem) return t(PROBLEM_KEYS[record.problem]);
-  if (record.state === "queued") return t("video.download.queued");
-  if (record.state === "paused") return t("video.download.paused");
-  return t("video.download.downloading", { percent: Math.round(downloadFraction(record) * 100) });
+  return downloadStateText(record, t);
 }
 
 /** The poster kept with a download, as an address for an <img>. */
@@ -77,6 +76,7 @@ function VideoDownloadRow({ record }: { record: StoredVideoDownload }) {
   const state = stateText(record, t);
   const name = record.showTitle ? `${record.showTitle} · ${[code, record.title].filter(Boolean).join(" · ")}` : record.title;
   const waiting = record.state === "paused" || record.state === "failed";
+  const shown = record.state === "preparing" ? record.prepare?.progress ?? 0 : downloadFraction(record);
 
   return (
     <li className={`video-download${complete ? "" : " is-pending"}`}>
@@ -87,11 +87,13 @@ function VideoDownloadRow({ record }: { record: StoredVideoDownload }) {
         <strong>{heading}</strong>
         {meta && <small className="muted">{meta}</small>}
         {state && <small className={record.state === "failed" ? "video-download-state is-failed" : "video-download-state"}>{state}</small>}
+        {/* While the server makes the copy the bar is its; then it is the download's. */}
         {!complete && (
-          <span className="video-download-track" role="progressbar" aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(downloadFraction(record) * 100)}>
-            <span style={{ width: `${Math.round(downloadFraction(record) * 100)}%` }} />
+          <span className={`video-download-track${record.state === "preparing" ? " is-preparing" : ""}`} role="progressbar" aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(shown * 100)}>
+            <span style={{ width: `${Math.round(shown * 100)}%` }} />
           </span>
         )}
+        {record.state === "preparing" && <small className="muted">{t("video.download.preparingHint")}</small>}
       </div>
       <div className="video-download-actions">
         {complete && (
@@ -99,7 +101,7 @@ function VideoDownloadRow({ record }: { record: StoredVideoDownload }) {
             <Play size={16} />
           </Button>
         )}
-        {(record.state === "queued" || record.state === "downloading") && (
+        {(record.state === "queued" || record.state === "downloading" || record.state === "preparing") && (
           <Button variant="icon" onClick={() => void videoDownloads.pause(record.id)} aria-label={t("video.download.pauseAria", { name })} title={t("video.download.pause")}>
             <Pause size={16} />
           </Button>

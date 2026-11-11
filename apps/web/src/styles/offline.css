@@ -236,3 +236,8 @@
   flex: 0 0 auto;
   gap: 6px;
 }
+
+/* The server is making the copy: its progress, drawn quieter than a download's. */
+.video-download-track.is-preparing > span {
+  background: var(--muted);
+}

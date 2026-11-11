@@ -412,6 +412,27 @@
       "notSetUp": "Video isn't set up yet. Pair it with this server first.",
       "openDashboard": "See how it stands",
       "openSetup": "Open Settings › Apps"
+    },
+    "copies": {
+      "title": "Copies for download",
+      "intro": "When someone downloads a film optimized for their phone or tablet, the video app prepares a smaller copy of it first and keeps it, so the next person who wants that film gets it at once. Copies are made one at a time, on the GPU when there is one, and wait while anyone is watching. Past the size below, the ones used longest ago are removed.",
+      "limitLabel": "Room for copies, GB",
+      "usage_one": "{{count}} copy kept, {{used}} of {{limit}}.",
+      "usage_other": "{{count}} copies kept, {{used}} of {{limit}}.",
+      "making_one": "Preparing \"{{title}}\" now.",
+      "making_other": "Preparing \"{{title}}\" now; {{count}} asked for in all.",
+      "waiting_one": "{{count}} waiting to be prepared.",
+      "waiting_other": "{{count}} waiting to be prepared.",
+      "folder": "Kept in {{folder}} inside the video container: its conversion folder when one is mapped, else beside its catalog.",
+      "clear": "Remove all copies",
+      "clearTitle": "Remove all copies for download?",
+      "clearBody": "Every prepared copy is deleted from the server, and any being prepared is stopped. Your video files and what people have already downloaded to their devices are not affected; a copy is prepared again the next time someone asks.",
+      "clearConfirm": "Remove copies",
+      "clearing": "Removing…",
+      "saving": "Saving…",
+      "loadFailed": "Unable to load this setting.",
+      "saveFailed": "The setting could not be saved.",
+      "save": "Save"
     }
   },
   "games": {

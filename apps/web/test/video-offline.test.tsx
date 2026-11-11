@@ -32,6 +32,7 @@ const { VideoDownloads, estimateVideoBytes, getOfflineVideo, playlistSegments, v
 const { memoryVideoStore } = await import("../src/offline/video-store");
 const { offlineHlsLoader } = await import("../src/features/video/offlineSource");
 const { VideoPlayerPage } = await import("../src/features/video/VideoPlayerPage");
+const { suggestedRung } = await import("../src/features/video/VideoDownloads");
 const mockApi = vi.mocked(api);
 
 type Store = ReturnType<typeof memoryVideoStore>;
@@ -84,12 +85,18 @@ describe("estimateVideoBytes", () => {
   });
 });
 
-describe("downloading a converted film", () => {
+/** The engine's answers before it prepared copies: how a film plays, and no word of copies. */
+const oldEngine = (play: unknown) => (async (path: string) => {
+  if (String(path).startsWith("/video/api/copies/")) throw new ApiError("Not found", 404);
+  return play;
+}) as never;
+
+describe("downloading a converted film from an engine that prepares no copies", () => {
   const hls = { mode: "transcode", url: "/video/api/hls/e2/t1q720/index.m3u8", quality: { current: 720, allowed: [null, 1080, 720, 480], network: "home" } };
 
   it("keeps the playlist and every segment, then gives the engine its place back", async () => {
     const store = memoryVideoStore();
-    mockApi.mockResolvedValue(playInfo(hls));
+    mockApi.mockImplementation(oldEngine(playInfo(hls)));
     fetchMock.mockImplementation(async (url, init) => {
       if (init?.method === "DELETE") return new Response(null, { status: 204 });
       if (String(url).endsWith("index.m3u8")) return new Response(PLAYLIST);
@@ -111,7 +118,7 @@ describe("downloading a converted film", () => {
 
   it("carries on from the segment it was paused at", async () => {
     const store = memoryVideoStore();
-    mockApi.mockResolvedValue(playInfo(hls));
+    mockApi.mockImplementation(oldEngine(playInfo(hls)));
     const asked: string[] = [];
     let stall = true;
     fetchMock.mockImplementation((url, init) => {
@@ -137,12 +144,12 @@ describe("downloading a converted film", () => {
     await reaches(store, "complete");
     // The first segment is not fetched again, and the engine is not asked again how it plays.
     expect(asked).toEqual(["index.m3u8", "1.ts", "2.ts"]);
-    expect(mockApi).toHaveBeenCalledTimes(1);
+    expect(mockApi.mock.calls.filter(([path]) => String(path).startsWith("/video/api/play/"))).toHaveLength(1);
   });
 
   it("gives way while a film is watched from the server", async () => {
     const store = memoryVideoStore();
-    mockApi.mockResolvedValue(playInfo(hls));
+    mockApi.mockImplementation(oldEngine(playInfo(hls)));
     let stall = true;
     fetchMock.mockImplementation((url, init) => {
       if (init?.method === "DELETE") return Promise.resolve(new Response(null, { status: 204 }));
@@ -173,6 +180,102 @@ describe("downloading a converted film", () => {
     await downloads.enqueue([request], options);
     await reaches(store, "failed");
     expect((await store.get("e2"))?.problem).toBe("gone");
+  });
+});
+
+describe("downloading a copy the server prepares", () => {
+  const hls = { mode: "transcode", url: "/video/api/hls/e2/t1q720/index.m3u8", quality: { current: 720, allowed: [null, 1080, 720, 480], network: "home" } };
+  const copyUrl = "/video/api/copies/e2/file?quality=720&audio=1";
+  const info = { ...playInfo(hls), audioTracks: [{ index: 1, codec: "ac3", channels: 6, language: "eng", title: null, default: true, selected: true }] };
+
+  /** The server's side: the copy's state, and the file once it is ready. */
+  function server(copy: { state: string }) {
+    const asked: { method: string; path: string }[] = [];
+    mockApi.mockImplementation((async (path: string, init?: RequestInit) => {
+      asked.push({ method: init?.method ?? "GET", path: String(path) });
+      if (String(path).startsWith("/video/api/copies/")) {
+        return copy.state === "ready" ? { state: "ready", progress: 1, url: copyUrl, sizeBytes: 9 } : { state: copy.state, progress: 0.4, ahead: 0, paused: false, etaSeconds: 60 };
+      }
+      return info;
+    }) as never);
+    fetchMock.mockImplementation(async (url) => {
+      if (String(url) !== copyUrl) return new Response(null, { status: 404 });
+      return new Response("the copy!", { status: 206, headers: { "Content-Range": "bytes 0-8/9", "Content-Type": "video/mp4" } });
+    });
+    return asked;
+  }
+
+  it("asks for it, waits without holding the queue, and fetches the one file once it is ready", async () => {
+    const store = memoryVideoStore();
+    const copy = { state: "running" };
+    const asked = server(copy);
+    const downloads = new VideoDownloads(() => store);
+    await downloads.enqueue([request], options);
+    await reaches(store, "preparing");
+    // Asked for with the sound track that plays, and nothing fetched meanwhile.
+    expect(asked).toContainEqual({ method: "PUT", path: "/video/api/copies/e2" });
+    expect(JSON.parse(String(mockApi.mock.calls.find(([, init]) => init?.method === "PUT")![1]!.body))).toEqual({ quality: 720, audio: 1 });
+    expect((await store.get("e2"))?.prepare).toMatchObject({ progress: 0.4 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(downloads.busy).toBe(false);
+
+    copy.state = "ready";
+    await downloads.lookAtPreparing();
+    await reaches(store, "complete");
+    expect(await store.get("e2")).toMatchObject({ kind: "file", fileUrl: copyUrl, mime: "video/mp4", totalBytes: 9, quality: 720, prepare: null });
+    expect(await (await store.getParts("e2"))[0].text()).toBe("the copy!");
+  });
+
+  it("starts at once when the copy is already there", async () => {
+    const store = memoryVideoStore();
+    server({ state: "ready" });
+    const downloads = new VideoDownloads(() => store);
+    await downloads.enqueue([request], options);
+    await reaches(store, "complete");
+    expect((await store.get("e2"))?.fileUrl).toBe(copyUrl);
+  });
+
+  it("says so when the server could not prepare it, and asks afresh on Resume", async () => {
+    const store = memoryVideoStore();
+    const copy = { state: "failed" };
+    server(copy);
+    const downloads = new VideoDownloads(() => store);
+    await downloads.enqueue([request], options);
+    await reaches(store, "failed");
+    expect((await store.get("e2"))?.problem).toBe("prepare");
+    copy.state = "ready";
+    await downloads.resume("e2");
+    await reaches(store, "complete");
+  });
+
+  it("asks again for a copy the server no longer knows of", async () => {
+    const store = memoryVideoStore();
+    const copy = { state: "queued" };
+    const asked = server(copy);
+    const downloads = new VideoDownloads(() => store);
+    await downloads.enqueue([request], options);
+    await reaches(store, "preparing");
+    // A restart there, or a cleared cache: nothing known of it.
+    copy.state = "none";
+    asked.length = 0;
+    const waiting = downloads.lookAtPreparing();
+    copy.state = "running";
+    await waiting;
+    await waitFor(() => expect(asked.filter((call) => call.method === "PUT")).toHaveLength(1));
+    await reaches(store, "preparing");
+  });
+});
+
+describe("the quality suggested for a device", () => {
+  it("is 480p for a phone and 720p for a tablet or a computer, within what is allowed", () => {
+    expect(suggestedRung([1080, 720, 480], "phone")).toBe(480);
+    expect(suggestedRung([1080, 720, 480], "tablet")).toBe(720);
+    expect(suggestedRung([1080, 720, 480], "computer")).toBe(720);
+    // Held to 480p away from home: that, on anything.
+    expect(suggestedRung([480], "tablet")).toBe(480);
+    // Only larger ones on offer: the smallest of them.
+    expect(suggestedRung([1080], "phone")).toBe(1080);
+    expect(suggestedRung([], "phone")).toBeNull();
   });
 });
 

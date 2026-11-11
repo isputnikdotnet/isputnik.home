@@ -118,7 +118,8 @@ export async function offlinePlayInfo(record: StoredVideoDownload, source: Offli
   if (!fresh && next && !(await getOfflineVideo(next.id))) next = null;
   return {
     ...info,
-    playback: { ...info.playback, url: source.url, busy: null, quality: undefined },
+    // A file kept whole plays as a file, whatever the server would have done to stream it.
+    playback: { ...info.playback, mode: record.kind === "file" ? "direct" : info.playback.mode, url: source.url, busy: null, quality: undefined },
     // The one sound track downloaded, and the subtitles kept as text.
     audioTracks: (info.audioTracks ?? []).filter((track) => track.selected),
     subtitleTracks: (info.subtitleTracks ?? [])

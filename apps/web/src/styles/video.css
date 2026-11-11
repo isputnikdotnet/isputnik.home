@@ -2418,3 +2418,18 @@
 .video-card-frame .video-card-progress > span {
   background: #fff;
 }
+
+/* ── Download: full copy or optimized (VideoDownloads) ─────────────── */
+
+.video-download-rung {
+  display: block;
+  margin-top: 8px;
+}
+
+.video-download-notify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  cursor: pointer;
+}

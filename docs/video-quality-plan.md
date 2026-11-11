@@ -188,6 +188,41 @@ Q2 is a new playlist shape and about a day of player tuning; it is built only if
 leaves people stalling, which the `who is watching` list and the engine log will show
 (a viewer re-asking the same segment, a player hanging up mid-film).
 
+## Prepared copies (2026-11-11): the travel copy after all
+
+A day of real use showed what the plan below had guessed: an optimized download
+that converts while the phone waits is slow and loads the server at the moment
+it is least welcome. So the copy is now made **by the server, on a queue**
+(engine 0.33, `copies.ts`), much as the proposal at the foot of this page had it:
+
+- **Two choices in the dialog:** *Optimized for this device* (480p suggested on a
+  phone, 720p on a tablet or computer, any allowed rung on offer) and *Full
+  copy*. The owner's choices.
+- **A copy is one MP4** (H.264, AAC, faststart, HDR tone-mapped), made by the same
+  `ffmpegArgs` as a stream with a whole-file output. 1080p copies are held to
+  5 Mbit/s, lower than a 1080p stream.
+- **A queue of one**, on the GPU where there is one, else `nice` and half the
+  cores; stood still (SIGSTOP) while anyone watches converted video. What waits is
+  only in memory: after a restart the downloader asks again.
+- **Kept and shared:** keyed by title, rung and sound track, so the next person
+  gets it at once. Under the admin's size (Settings › Video › Copies for download,
+  20 GB to start with); least recently used go first. In `<TRANSCODE_PATH>/copies`
+  when that is mapped, which the start-up sweep of the conversion folder now leaves
+  alone, else beside the catalog.
+- **The downloader waits without holding its queue:** a download whose copy is
+  being made is `preparing`; it asks every few seconds while the app is open and
+  takes its turn once the copy is ready. Nothing needs the app open but the
+  download itself, which is then a plain ranged fetch.
+- **Email when ready** is home's: the engine never calls out, so home looks at
+  `/admin/copies` once a minute while anyone is waiting
+  (`modules/library/video/copy-notices.ts`), one email per request.
+- **Routes:** `GET`/`PUT /video/api/copies/:id`, `GET …/file` (under the gateway's
+  *watch* rule), `GET`/`PUT`/`DELETE /video/api/admin/copies`.
+- An engine before 0.33 answers 404 to all of it, and home falls back to the HLS
+  capture described next.
+- Not done: serving a prepared copy to someone *streaming* at that rung; a copy
+  list with per-copy removal; the copies folder in the Disks answer.
+
 ## Downloads in the PWA (Q3 as built, 2026-11-10)
 
 The owner asked for films and shows downloaded and kept offline **in the PWA**, so

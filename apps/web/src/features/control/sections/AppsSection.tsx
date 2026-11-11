@@ -718,6 +718,100 @@ interface DetectionState {
   working?: string | null;
 }
 
+/** GET/PUT/DELETE /video/api/admin/copies (engine 0.33+, its copies.ts). */
+interface CopiesState {
+  settings: { limitGb: number };
+  folder: string;
+  usedBytes: number;
+  copies: { itemId: string; quality: number; title: string; state: "queued" | "running" | "ready" | "failed"; sizeBytes: number }[];
+}
+
+// Copies made for download (engine 0.33+): a smaller MP4 of a film, prepared when
+// someone asks to keep it on a phone or tablet, and kept for whoever asks next.
+// Here: how much room they may take together, what they take now, and Clear.
+export function VideoCopies({ prefix }: { prefix: string }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const [state, setState] = useState<CopiesState | null>(null);
+  const [limit, setLimit] = useState("");
+  const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const url = `${prefix}/api/admin/copies`;
+
+  const took = (payload: CopiesState) => {
+    setState(payload);
+    setLimit(String(payload.settings.limitGb));
+  };
+
+  useEffect(() => {
+    api<CopiesState>(url)
+      .then((payload) => { took(payload); setError(""); })
+      // An engine from before 0.33 makes no copies: no card.
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("controlAdmin:apps.copies.loadFailed")));
+  }, [t, url]);
+
+  const run = async (work: () => Promise<CopiesState>) => {
+    setBusy(true);
+    setSaveError("");
+    try {
+      took(await work());
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.copies.saveFailed"));
+    } finally {
+      setBusy(false);
+      setClearing(false);
+    }
+  };
+
+  if (error || !state) return null;
+  const wanted = Number(limit);
+  const valid = Number.isInteger(wanted) && wanted >= 1 && wanted <= 10_000;
+  const ready = state.copies.filter((copy) => copy.state === "ready").length;
+  const waiting = state.copies.filter((copy) => copy.state === "queued" || copy.state === "running").length;
+  const making = state.copies.find((copy) => copy.state === "running");
+  const save = (event: FormEvent) => {
+    event.preventDefault();
+    if (valid) void run(() => api<CopiesState>(url, { method: "PUT", body: JSON.stringify({ limitGb: wanted }) }));
+  };
+
+  return (
+    <section className="config-block" id="video-copies">
+      <h3>{t("controlAdmin:apps.copies.title")}</h3>
+      <p className="muted">{t("controlAdmin:apps.copies.intro")}</p>
+      <form className="video-copies-limit" onSubmit={save}>
+        <Field label={t("controlAdmin:apps.copies.limitLabel")} type="number" min={1} max={10000} value={limit} onChange={setLimit} />
+        <Button variant="primary" type="submit" disabled={busy || !valid || wanted === state.settings.limitGb}>
+          <Save size={16} aria-hidden="true" />
+          <span>{busy ? t("controlAdmin:apps.copies.saving") : t("controlAdmin:apps.copies.save")}</span>
+        </Button>
+      </form>
+      <p className="muted">
+        {t("controlAdmin:apps.copies.usage", { count: ready, used: formatBytes(state.usedBytes), limit: `${state.settings.limitGb} GB` })}
+        {waiting > 0 && ` ${making ? t("controlAdmin:apps.copies.making", { title: making.title, count: waiting }) : t("controlAdmin:apps.copies.waiting", { count: waiting })}`}
+      </p>
+      <p className="muted">{t("controlAdmin:apps.copies.folder", { folder: state.folder })}</p>
+      {state.copies.length > 0 && (
+        <Button variant="secondary" danger disabled={busy} onClick={() => setClearing(true)}>{t("controlAdmin:apps.copies.clear")}</Button>
+      )}
+      {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
+      {clearing && (
+        <ConfirmDialog
+          title={t("controlAdmin:apps.copies.clearTitle")}
+          confirmLabel={t("controlAdmin:apps.copies.clearConfirm")}
+          busyLabel={t("controlAdmin:apps.copies.clearing")}
+          busy={busy}
+          danger
+          onConfirm={() => void run(() => api<CopiesState>(url, { method: "DELETE" }))}
+          onCancel={() => setClearing(false)}
+        >
+          {t("controlAdmin:apps.copies.clearBody")}
+        </ConfirmDialog>
+      )}
+    </section>
+  );
+}
+
 // Finding intros, recaps and credits by itself (engine 0.18.0+): the engine reads
 // every episode's sound and picture once, after each scan. On unless turned off
 // here; marks set by hand, .edl files and chapters count either way.

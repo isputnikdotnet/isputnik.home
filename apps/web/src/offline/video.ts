@@ -1,16 +1,19 @@
 import { ApiError, api, csrfToken } from "../api";
 import { VIDEO_API, VIDEO_AUDIO_LANGUAGE_KEY, type VideoKind, type VideoPlayInfo, type VideoQuality } from "../features/video/types";
-import { POSTER_PART, idbVideoStore, type StoredVideoDownload, type VideoDownloadProblem, type VideoStore } from "./video-store";
+import { POSTER_PART, idbVideoStore, type StoredVideoDownload, type VideoDownloadProblem, type VideoPrepareStatus, type VideoStore } from "./video-store";
 
 // Films and episodes kept on this device, to watch with no connection
 // (docs/video-quality-plan.md → Q3, as built).
 //
-// Nothing is made for it on the server. A film a browser plays as it is comes
-// down as the file, in slices (byte ranges). Anything else comes down the way it
-// plays: as the HLS segments the engine cuts, at the quality asked — the cuts are
-// the same whichever run made them (the engine's hls.ts), so a download picks up
-// at the segment it stopped at, today or next week. The player then reads the
-// copy here instead of the server's (features/video/offlineSource.ts).
+// A film a browser plays as it is comes down as the file, in slices (byte
+// ranges). A smaller picture is a copy the server prepares first (engine 0.33+,
+// its copies.ts): asked for here, made there on a queue whether or not this app
+// stays open, and fetched as one MP4 once it is ready — a download waiting on one
+// is "preparing", and costs this device nothing. An engine before that has no
+// copies: the film then comes down the way it plays, as the HLS segments the
+// engine cuts at the quality asked, which needs the app open throughout. The
+// player reads the copy here instead of the server's
+// (features/video/offlineSource.ts).
 //
 // One film at a time, in turn. The engine converts one film per person, so a
 // download gives way to watching: the player holds the queue (holdVideoDownloads)
@@ -26,8 +29,9 @@ const BUSY_TRIES = 30;
 /** Kept free on the device beyond what the film takes. */
 const SPACE_MARGIN = 100 * 1024 * 1024;
 
-/** What a rung makes per second, picture and sound (the engine's RUNG_LIMITS). */
-const RUNG_BITS: Record<1080 | 720 | 480, number> = { 1080: 8_192_000, 720: 3_128_000, 480: 1_596_000 };
+/** What a copy for download takes per second, picture and sound (the engine's
+ *  COPY_LIMITS: 1080p is held lower for a copy than for a stream). */
+const RUNG_BITS: Record<1080 | 720 | 480, number> = { 1080: 5_160_000, 720: 3_128_000, 480: 1_596_000 };
 
 /** Roughly what a film takes at a quality: the file itself for the original, and
  *  never more than the file for a rung (one already under it is sent as it is).
@@ -52,6 +56,42 @@ export interface VideoDownloadRequest {
 
 class Stopped extends Error {}
 class Busy extends Error {}
+/** The server is still making the copy: nothing to fetch yet, and nothing wrong. */
+class Preparing extends Error {}
+
+/** How often the server is asked about the copies it is making. */
+const PREPARE_LOOK_S = 8;
+
+/** GET/PUT /video/api/copies/:id (the engine's copies.ts). */
+export interface VideoCopyAnswer {
+  state: "none" | "unneeded" | "queued" | "running" | "ready" | "failed";
+  progress?: number;
+  ahead?: number;
+  paused?: boolean;
+  etaSeconds?: number | null;
+  /** Before it is made: about how long making it takes. */
+  estimateSeconds?: number;
+  sizeBytes?: number | null;
+  /** The finished copy, or for "unneeded" the film itself. */
+  url?: string | null;
+}
+
+const copyUrl = (id: string) => `${VIDEO_API}/copies/${encodeURIComponent(id)}`;
+
+/** How a smaller copy stands on the server; null from an engine that makes none. */
+export async function askVideoCopy(id: string, quality: 1080 | 720 | 480, audio: number | null, request = false): Promise<VideoCopyAnswer | null> {
+  try {
+    return request
+      ? await api<VideoCopyAnswer>(copyUrl(id), { method: "PUT", body: JSON.stringify({ quality, ...(audio === null ? {} : { audio }) }) })
+      : await api<VideoCopyAnswer>(`${copyUrl(id)}?quality=${quality}${audio === null ? "" : `&audio=${audio}`}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+const prepareOf = (answer: VideoCopyAnswer): VideoPrepareStatus =>
+  ({ progress: answer.progress ?? 0, ahead: answer.ahead ?? 0, paused: answer.paused ?? false, etaSeconds: answer.etaSeconds ?? null });
 class Problem extends Error {
   constructor(readonly problem: VideoDownloadProblem) {
     super(problem);
@@ -107,6 +147,7 @@ export class VideoDownloads {
   private running: { id: string; abort: AbortController; done: Promise<void> } | null = null;
   private holds = 0;
   private wakeLock: { release(): Promise<void> } | null = null;
+  private looking: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private open: () => VideoStore | null = idbVideoStore) {}
 
@@ -142,6 +183,7 @@ export class VideoDownloads {
       const rows = await this.store?.list().catch(() => []) ?? [];
       this.records = new Map(rows.map((row) => [row.id, row]));
       this.publish();
+      this.lookLater();
     })();
     return this.loading;
   }
@@ -181,6 +223,8 @@ export class VideoDownloads {
         posterUrl: options.posterUrl,
         kind: null,
         info: null,
+        fileUrl: null,
+        prepare: null,
         mime: null,
         playlist: null,
         subtitles: [],
@@ -218,8 +262,43 @@ export class VideoDownloads {
   async resume(id: string): Promise<void> {
     const record = this.records.get(id);
     if (!record || record.state === "complete" || record.state === "downloading") return;
-    await this.change(id, { state: "queued", problem: null });
+    // Asked of the server afresh: what it was told before may be long gone.
+    await this.change(id, { state: "queued", problem: null, ...(record.state === "failed" ? { kind: null, info: null, fileUrl: null } : {}) });
     void this.pump();
+  }
+
+  /** Asks the server about every copy it is making for this device: the ones
+   *  now ready take their turn to be fetched. Again in a few seconds while any
+   *  is still being made, and not at all otherwise. */
+  async lookAtPreparing(): Promise<void> {
+    this.looking = null;
+    for (const record of [...this.records.values()]) {
+      if (record.state !== "preparing" || record.quality === null) continue;
+      const audio = record.info?.audioTracks?.find((track) => track.selected)?.index ?? null;
+      try {
+        const answer = await askVideoCopy(record.id, record.quality, audio);
+        if (this.records.get(record.id)?.state !== "preparing") continue;
+        // Ready — or nothing known of it there any more (a restart, a cleared
+        // cache): its turn comes, and the turn asks again.
+        if (!answer || answer.state === "ready" || answer.state === "none" || answer.state === "unneeded") {
+          await this.change(record.id, { state: "queued", prepare: null, kind: null });
+        } else if (answer.state === "failed") {
+          await this.change(record.id, { state: "failed", problem: "prepare", prepare: null });
+        } else {
+          await this.change(record.id, { prepare: prepareOf(answer) });
+        }
+      } catch {
+        // No connection just now: the server carries on without us.
+      }
+    }
+    void this.pump();
+    this.lookLater();
+  }
+
+  private lookLater(): void {
+    if (this.looking !== null) return;
+    if (![...this.records.values()].some((record) => record.state === "preparing")) return;
+    this.looking = setTimeout(() => void this.lookAtPreparing(), PREPARE_LOOK_S * 1000);
   }
 
   /** Takes a download off this device, finished or not. */
@@ -274,7 +353,7 @@ export class VideoDownloads {
     await running.done;
     // The engine stops converting it now rather than after a minute of silence,
     // and this person may watch something else converted at once.
-    if (this.records.get(id)?.kind !== "file") await leaveConversion(id);
+    if (this.records.get(id)?.kind === "hls") await leaveConversion(id);
   }
 
   private async pump(): Promise<void> {
@@ -320,6 +399,7 @@ export class VideoDownloads {
       let record = await this.change(id, { state: "downloading", problem: null });
       if (!record) return;
       if (!record.info || !record.kind) record = await this.begin(record, store, signal);
+      if (record.state === "preparing") throw new Preparing();
       if (record.kind === "file") await this.fetchFile(record, store, signal);
       else await this.fetchSegments(record, store, signal);
       if (signal.aborted) return;
@@ -328,6 +408,11 @@ export class VideoDownloads {
     } catch (err) {
       // Stopped by Pause, Remove or the player: whoever did it set the state.
       if (err instanceof Stopped || signal.aborted) return;
+      // Waiting on the server's copy: looked in on now and then, fetched once ready.
+      if (err instanceof Preparing) {
+        this.lookLater();
+        return;
+      }
       const problem: VideoDownloadProblem = err instanceof Problem ? err.problem : err instanceof Busy ? "busy" : isQuota(err) ? "space" : "connection";
       const passing = problem === "connection" || problem === "busy";
       await this.change(id, { state: passing ? "paused" : "failed", problem }).catch(() => undefined);
@@ -350,9 +435,23 @@ export class VideoDownloads {
     });
     if (!info.available) throw new Problem("gone");
     if (info.playback.mode === "none" || !info.playback.url) throw new Problem("format");
-    const kind = info.playback.mode === "direct" ? "file" as const : "hls" as const;
     const quality = info.playback.quality?.current ?? record.quality;
-    const estimatedBytes = estimateVideoBytes(info.sizeBytes, info.playback.duration ?? (info.runtimeMinutes ? info.runtimeMinutes * 60 : null), kind === "file" ? null : quality);
+    // A smaller picture than the file's: the server prepares one MP4 of it, where
+    // it can (engine 0.33+). Until that is ready there is nothing here to do.
+    let fileUrl: string | null = null;
+    if (info.playback.mode !== "direct" && quality !== null) {
+      const audio = info.audioTracks?.find((track) => track.selected)?.index ?? null;
+      const copy = await this.patiently(signal, () => askVideoCopy(record.id, quality, audio, true));
+      if (copy && (copy.state === "queued" || copy.state === "running")) {
+        const waiting = await this.change(record.id, { state: "preparing", info, quality, prepare: prepareOf(copy) });
+        if (!waiting) throw new Stopped();
+        return waiting;
+      }
+      if (copy?.state === "failed") throw new Problem("prepare");
+      if (copy && (copy.state === "ready" || copy.state === "unneeded") && copy.url) fileUrl = copy.url;
+    }
+    const kind = info.playback.mode === "direct" || fileUrl ? "file" as const : "hls" as const;
+    const estimatedBytes = estimateVideoBytes(info.sizeBytes, info.playback.duration ?? (info.runtimeMinutes ? info.runtimeMinutes * 60 : null), kind === "file" && !fileUrl ? null : quality);
     if (estimatedBytes !== null && !(await hasRoomFor(estimatedBytes))) throw new Problem("space");
 
     if (record.posterUrl) {
@@ -366,14 +465,14 @@ export class VideoDownloads {
       if (vtt) subtitles.push({ id: track.id, vtt });
     }
     if (signal.aborted) throw new Stopped();
-    const next = await this.change(record.id, { info, kind, quality, estimatedBytes, subtitles });
+    const next = await this.change(record.id, { info, kind, quality, estimatedBytes, subtitles, fileUrl, prepare: null });
     if (!next) throw new Stopped();
     return next;
   }
 
   /** The file itself, a slice at a time. */
   private async fetchFile(record: StoredVideoDownload, store: VideoStore, signal: AbortSignal): Promise<void> {
-    const url = record.info!.playback.url!;
+    const url = record.fileUrl ?? record.info!.playback.url!;
     let { doneParts, downloadedBytes, totalBytes, totalParts } = record;
     while (totalParts === null || doneParts < totalParts) {
       const from = doneParts * FILE_PART_BYTES;

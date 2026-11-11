@@ -2537,3 +2537,25 @@
 .device-others > button {
   justify-self: start;
 }
+
+/* Settings > Video > Copies for download: the size and its Save on one line. */
+.video-copies-limit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  max-width: 420px;
+  margin-bottom: 12px;
+}
+
+.video-copies-limit > .field,
+.video-copies-limit > label {
+  flex: 1 1 160px;
+  min-width: 0;
+  margin: 0;
+}
+
+.video-copies-limit > button {
+  flex: 0 0 auto;
+  width: auto;
+}

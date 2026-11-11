@@ -467,36 +467,61 @@ marked on its own page.
 **Download**, on a film's page, keeps it on the phone, tablet or computer you
 are holding, to watch on a flight or anywhere the server can't be reached. A
 show has **Download season** above its episodes and a download button on each
-one.
+one. The dialog offers two copies:
 
-- **Pick a quality.** *720p* is offered first: about 1.4 GB for a two-hour film.
-  *Original* is the file as it is, and can be many times that. The dialog says
-  roughly what each takes and how much room the device has. Away from home the
-  choices stop at the admin's **Quality away from home**.
-- **Keep iSputnik open while it downloads.** A film the server has to convert
-  comes down as fast as it converts, so a long one takes a while. A download that
-  is interrupted — the screen locked, the connection dropped, the app closed —
-  carries on where it stopped the next time iSputnik is open. One film downloads
-  at a time; the rest wait their turn.
-- **Downloads wait while you watch.** Playing something from the server pauses
-  them, and they pick up again afterwards. A film being converted for a download
-  takes one of the places under **People watching converted video at once**.
-- **Play it** from the film's page as usual, or from **Downloads** (in the
-  installed app's menu, or the link the button turns into while it downloads).
-  A downloaded film plays from the device even at home, so it starts at once.
-  With no connection, open **Downloads**: the video pages themselves need the
-  server. Where you stopped is remembered on the device and sent to the server
-  when it is next reachable.
+- **Optimized for this device.** A smaller picture that takes less room: *480p*
+  is suggested on a phone (about 0.7 GB for a two-hour film) and *720p* on a
+  tablet (about 1.4 GB); pick another if you like. The server prepares this copy
+  first, which takes a while — the dialog says about how long. **You don't have
+  to wait for it:** close iSputnik and come back later. The copy will be waiting
+  in **Downloads**, and comes down by itself as soon as the app is open on that
+  device. Tick **Email me when it is ready** to be told (when email is set up
+  and your account has an address).
+- **Full copy.** The file as it is, however large. Nothing to prepare, so it
+  starts at once.
+
+Good to know:
+
+- **A copy prepared once is kept on the server**, so the next person who wants
+  that film at that quality gets it at once. See *Copies for download* below.
+- **The download itself needs the app open**, and carries on where it stopped if
+  the screen locks or the connection drops. One film downloads at a time.
+- **Downloads wait while you watch** something from the server.
+- **Play it** from the film's page as usual, or from **Downloads**. A downloaded
+  film plays from the device even at home, so it starts at once. With no
+  connection, open **Downloads**: the video pages themselves need the server.
+  Where you stopped is remembered on the device and sent to the server when it
+  is next reachable.
 - **What is kept:** the picture at the quality chosen, the sound track in the
   language you last picked in the player, and the text subtitles. Subtitles that
   are pictures (Blu-ray and DVD ones) are not.
 - **Remove it** with the *Downloaded* button on its page or the bin on
   **Downloads**. Only the copy on that device goes.
+- Away from home the choices stop at the admin's **Quality away from home**,
+  which may leave no full copy on offer.
 
 Downloads belong to the browser or installed app they were made in, and to the
 person signed in there: another device, or another account on the same device,
-has its own. Nothing extra is stored on the server. iPhones and iPads need iOS
-17.1 or newer to play a film that had to be converted.
+has its own.
+
+### Copies for download
+
+**Settings → Video → Copies for download** is where an admin sets how much room
+the prepared copies may take together (20 GB to start with) and sees what they
+take now. Past that size, the copies used longest ago are removed; a copy of a
+file that has since changed is made again. **Remove all copies** empties it;
+your video files and what people have already downloaded are not affected.
+
+Copies are made one at a time, on the GPU when the video container has one
+(*Converting on the GPU* above), otherwise on the CPU at low priority and with
+half its cores. A copy being made stands still while anyone watches converted
+video, and carries on after. They are kept in the video container's `/transcode`
+folder when you have mapped one — put it on a fast disk with room for them —
+and beside its catalog otherwise.
+
+This needs video container 0.33 or newer. With an older one, an optimized
+download is converted while the app waits, which is slower and needs the app
+open from start to finish.
 
 ## Subtitles
 

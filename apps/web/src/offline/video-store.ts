@@ -6,15 +6,28 @@ import { openOfflineDb } from "./downloads";
 // beside it in pieces: a file as slices of itself, a converted one as the HLS
 // segments the engine cut. Per person, like every other download here.
 
-/** queued: waiting its turn. downloading: being fetched, or was when the app
- *  closed (it carries on by itself). paused: stopped by the person, or by a
- *  `problem` that may pass. failed: a `problem` that won't. */
-export type VideoDownloadState = "queued" | "downloading" | "paused" | "complete" | "failed";
+/** queued: waiting its turn. preparing: the server is making a smaller copy of
+ *  it, which needs nothing of this device — it is fetched once that is ready.
+ *  downloading: being fetched, or was when the app closed (it carries on by
+ *  itself). paused: stopped by the person, or by a `problem` that may pass.
+ *  failed: a `problem` that won't. */
+export type VideoDownloadState = "queued" | "preparing" | "downloading" | "paused" | "complete" | "failed";
 
 /** Why a download stopped: the server can't be reached, this device is full,
  *  the film is gone (or not theirs any more), it can't be played in a browser at
  *  all, or every place to convert video stayed taken. */
-export type VideoDownloadProblem = "connection" | "space" | "gone" | "format" | "busy";
+export type VideoDownloadProblem = "connection" | "space" | "gone" | "format" | "busy" | "prepare";
+
+/** How the server's copy is coming along, as it last said. */
+export interface VideoPrepareStatus {
+  /** 0–1 of a copy being made. */
+  progress: number;
+  /** Copies the server makes before this one. */
+  ahead: number;
+  /** Stood still while someone watches. */
+  paused: boolean;
+  etaSeconds: number | null;
+}
 
 export interface StoredVideoDownload {
   /** The film, episode or part: what /watch/<id> plays. */
@@ -33,6 +46,11 @@ export interface StoredVideoDownload {
   /** Set when the download starts: how it is fetched, and what the player needs. */
   kind: "file" | "hls" | null;
   info: VideoPlayInfo | null;
+  /** Where the file comes from when it is not the film itself: the copy the
+   *  server prepared (engine 0.33+). */
+  fileUrl?: string | null;
+  /** While the server prepares that copy. */
+  prepare?: VideoPrepareStatus | null;
   /** A file's content type. */
   mime: string | null;
   /** A converted film's playlist, as the engine gave it. */

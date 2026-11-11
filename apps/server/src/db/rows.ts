@@ -1500,6 +1500,17 @@ export interface UserRow {
   deleted_at: string | null;
 }
 
+/** `video_copy_notices` */
+export interface VideoCopyNoticeRow {
+  user_id: string;
+  batch: string;
+  item_id: string;
+  quality: number;
+  title: string;
+  state: "waiting" | "ready" | "failed" | "skipped";
+  created_at: string;
+}
+
 /** `video_home_layouts` */
 export interface VideoHomeLayoutRow {
   owner: string;
@@ -1727,6 +1738,7 @@ export interface TableRows {
   user_groups: UserGroupRow;
   user_seen_versions: UserSeenVersionRow;
   users: UserRow;
+  video_copy_notices: VideoCopyNoticeRow;
   video_home_layouts: VideoHomeLayoutRow;
   video_home_user_layouts: VideoHomeUserLayoutRow;
   video_my_list: VideoMyListRow;

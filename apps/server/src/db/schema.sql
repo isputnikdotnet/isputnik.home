@@ -2593,6 +2593,20 @@ CREATE TABLE IF NOT EXISTS video_profile_my_list (
   PRIMARY KEY (profile_id, kind, entity_id)
 );
 
+-- "Email me when it's ready" for a film being prepared for download
+-- (modules/library/video/copy-notices.ts). A row per title asked for; a batch is
+-- one Download, told of in one email once none of it is still waiting.
+CREATE TABLE IF NOT EXISTS video_copy_notices (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  batch      TEXT NOT NULL,
+  item_id    TEXT NOT NULL,
+  quality    INTEGER NOT NULL,
+  title      TEXT NOT NULL,
+  state      TEXT NOT NULL DEFAULT 'waiting' CHECK (state IN ('waiting', 'ready', 'failed', 'skipped')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (user_id, batch, item_id, quality)
+);
+
 -- The household PIN for leaving a restricted viewing profile (modules/profiles/pins.ts).
 -- One row at most; hashed like a password, set by an admin with their password.
 -- failures and locked_until cap guesses with a remote.

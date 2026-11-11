@@ -3,7 +3,7 @@ import { Clapperboard } from "lucide-react";
 import { controlHref } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { isRunning, useAppsStatus, VideoConversion, VideoDetection, VideoMetadata } from "./AppsSection";
+import { isRunning, useAppsStatus, VideoConversion, VideoCopies, VideoDetection, VideoMetadata } from "./AppsSection";
 
 // Settings › Video: the video engine's own settings — how it converts films a
 // browser cannot play, where posters and descriptions come from, and whether it
@@ -29,6 +29,7 @@ export function VideoSettingsSection() {
       {apps && video && isRunning(video) && (
         <>
           <VideoConversion prefix={video.prefix} />
+          <VideoCopies prefix={video.prefix} />
           <VideoMetadata prefix={video.prefix} />
           <VideoDetection prefix={video.prefix} />
         </>
