@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.84.0 — How fast is the TV's connection?
+
+- **Test the connection speed from the TV app.** iSputnik TV 0.13.0 can measure how fast it downloads from your server and say what that is enough for, such as *42 Mbit/s: enough for 1080p*. The server sends it a few seconds of data to time. Only signed-in devices can ask, and only a few times a minute.
+
 ## 4.83.1 — Video progress, easier to see
 
 - **Clearer watch progress.** Movie and episode cards now have thicker, rounded progress bars set slightly inside the artwork, with an opaque track and outline. Season counts, resume actions and the home banner use the same treatment.

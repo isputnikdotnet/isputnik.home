@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.84.0",
+    "label": "How fast is the TV's connection?",
+    "changes": [
+      "**Test the connection speed from the TV app.** iSputnik TV 0.13.0 can measure how fast it downloads from your server and say what that is enough for, such as *42 Mbit/s: enough for 1080p*. The server sends it a few seconds of data to time. Only signed-in devices can ask, and only a few times a minute."
+    ]
+  },
+  {
     "version": "4.83.1",
     "label": "Video progress, easier to see",
     "changes": [

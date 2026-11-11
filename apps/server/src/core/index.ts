@@ -15,6 +15,7 @@ import { notificationsPlugin } from "./notification-routes.js";
 import { securityRoutes } from "./security-routes.js";
 import { securityTxtPlugin } from "./security-txt.js";
 import { healthPlugin } from "./health.js";
+import { speedTestPlugin } from "./speed-test.js";
 
 export async function corePlugin(app: FastifyInstance) {
   await app.register(healthPlugin);
@@ -33,4 +34,5 @@ export async function corePlugin(app: FastifyInstance) {
   await app.register(statusPlugin);
   await app.register(securityRoutes);
   await app.register(securityTxtPlugin);
+  await app.register(speedTestPlugin);
 }
