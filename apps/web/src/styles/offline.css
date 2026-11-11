@@ -151,3 +151,88 @@
   display: flex;
   gap: 6px;
 }
+
+/* ── Films and episodes on the Downloads page (VideoDownloadsList) ── */
+
+.video-downloads {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 760px;
+}
+
+.video-download {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.video-download-poster {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 46px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.video-download-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-download-copy {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.video-download-copy strong,
+.video-download-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-download-state {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.video-download-state.is-failed {
+  color: var(--rose);
+}
+
+.video-download-track {
+  display: block;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.video-download-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mint);
+  transition: width 0.3s ease;
+}
+
+.video-download-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}

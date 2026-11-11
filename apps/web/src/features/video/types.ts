@@ -321,6 +321,11 @@ export interface VideoTmdbCandidate {
  *  pages that show it live at /shows and /movies. */
 export const VIDEO_API = "/video/api";
 
+/** The sound language last chosen, in this browser: the next episode (or film)
+ *  starts in it when it has it — a dub watched once is the dub wanted. A download
+ *  is made in it too. */
+export const VIDEO_AUDIO_LANGUAGE_KEY = "isputnik.video.audioLanguage";
+
 /** Video's front page. Not under /video: that address belongs to the engine. */
 export const VIDEO_OVERVIEW_HREF = "/videos";
 /** What Collections calls a film and a show (home 4.64+). */

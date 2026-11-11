@@ -2198,3 +2198,112 @@
 .video-profile-pin { display: grid; gap: 8px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
 .video-profile-pin h3 { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 1rem; }
 .video-profile-pin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Download for offline (features/video/VideoDownloads.tsx) ─────── */
+
+.video-download-open,
+.video-download-done,
+.video-download-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.video-download-done {
+  color: var(--mint);
+}
+
+/* On its way: a link to the Downloads page, where it is paused or removed. */
+.video-download-status {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.video-download-status:hover,
+.video-download-status:focus-visible {
+  color: var(--ink);
+}
+
+.video-download-status.is-compact {
+  font-size: 0.78rem;
+}
+
+.video-download-spin {
+  animation: video-download-spin 1.4s linear infinite;
+}
+
+@keyframes video-download-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-download-spin {
+    animation: none;
+  }
+}
+
+.video-season-actions {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 32px;
+  margin: 0 0 8px;
+}
+
+/* An episode's code and date, with its download at the end of the line. */
+.video-episode-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.video-episode-meta > span {
+  min-width: 0;
+}
+
+.video-download-qualities {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 0;
+  border: 0;
+}
+
+.video-download-qualities legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-weight: 650;
+}
+
+.video-download-quality {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.video-download-quality:has(input:checked) {
+  border-color: var(--mint);
+}
+
+.video-download-quality > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.video-download-quality input {
+  margin-top: 3px;
+}
+
+.video-download-free {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.86rem;
+}

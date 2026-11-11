@@ -8,10 +8,12 @@ import { followBack, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
+import { getOfflineVideo, holdVideoDownloads, saveOfflineVideoPosition } from "../../offline/video";
+import { offlinePlayInfo, openOfflineVideo, type OfflineVideoSource } from "./offlineSource";
 import { VideoMarksPanel } from "./VideoMarksPanel";
 import { VideoPlayerControls } from "./VideoPlayerControls";
 import type { PlayerMenuAction, PlayerMenuSection } from "./VideoPlayerMenu";
-import { VIDEO_API, VIDEO_OVERVIEW_HREF, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoQuality, type VideoQualityChoice, type VideoSubtitleTrack } from "./types";
+import { VIDEO_API, VIDEO_AUDIO_LANGUAGE_KEY as AUDIO_LANGUAGE_KEY, VIDEO_OVERVIEW_HREF, episodeCodeValues, formatPlayTime, videoHref, watchHref, type VideoAudioTrack, type VideoPlayInfo, type VideoQuality, type VideoQualityChoice, type VideoSubtitleTrack } from "./types";
 import "../../styles/video.css";
 
 type HlsInstance = import("hls.js").default;
@@ -38,10 +40,12 @@ const REASON_KEYS = {
   size: "video.player.info.reasonSize"
 } as const;
 
-/** The sound language last chosen, in this browser: the next episode (or film)
- *  starts in it when it has it — a dub watched once is the dub wanted. */
-const AUDIO_LANGUAGE_KEY = "isputnik.video.audioLanguage";
-/** …and the subtitles: a language, or "off" once they were turned off. */
+/** How long a downloaded film waits for the engine's word on where this person
+ *  got to elsewhere, before it starts from what this device knows. */
+const FRESH_WAIT_MS = 2500;
+
+/** The subtitles last chosen, in this browser (the sound's language is
+ *  VIDEO_AUDIO_LANGUAGE_KEY): a language, or "off" once they were turned off. */
 const SUBTITLE_LANGUAGE_KEY = "isputnik.video.subtitleLanguage";
 const SUBTITLES_OFF = "off";
 /** …and the picture's quality: one choice at home and one away, since the reasons
@@ -136,12 +140,13 @@ function playQuery(audio: number | null | undefined, burn: string | null | undef
   return query ? `?${query}` : "";
 }
 
-/** A request that outlives the page (keepalive), with the CSRF token api() would add. */
-function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): void {
+/** A request that outlives the page (keepalive), with the CSRF token api() would add.
+ *  Answers whether it got through. */
+function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): Promise<boolean> {
   const headers: Record<string, string> = body ? { "content-type": "application/json" } : {};
   const token = csrfToken();
   if (token) headers["X-CSRF-Token"] = token;
-  void fetch(url, { method, body, headers, keepalive: true, credentials: "same-origin" }).catch(() => undefined);
+  return fetch(url, { method, body, headers, keepalive: true, credentials: "same-origin" }).then((response) => response.ok, () => false);
 }
 
 // The player (docs/apps-platform-plan.md → V2): the browser's own <video>. A
@@ -160,10 +165,16 @@ function sendOnLeaving(url: string, method: "PUT" | "DELETE", body?: string): vo
 // Full screen is this page's, not the <video>'s: a video element in full screen
 // hides everything drawn over it (Skip intro, the end card), and a new episode
 // would drop out of it. Where the browser can't (iPhones), its own stays.
+//
+// A film downloaded to this device (offline/video.ts) plays from the copy here,
+// connection or not: nothing is asked of the engine but where this person got
+// to, and that only when it answers at once.
 export function VideoPlayerPage({ id }: { id: string }) {
   const { t, i18n } = useTranslation();
   const { user } = useSession();
   const [info, setInfo] = useState<VideoPlayInfo | null>(null);
+  /** The copy on this device, when that is what plays. */
+  const [local, setLocal] = useState<OfflineVideoSource | null>(null);
   /** Admins: the panel for marking the intro and credits is open. */
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState("");
@@ -209,6 +220,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
   useEffect(() => {
     let live = true;
     setInfo(null);
+    setLocal(null);
     setError("");
     setCannotPlay(false);
     setResumedAt(0);
@@ -219,8 +231,42 @@ export function VideoPlayerPage({ id }: { id: string }) {
     creditsOffered.current = false;
     lastSaved.current = 0;
     const playUrl = `${VIDEO_API}/play/${encodeURIComponent(id)}`;
-    api<VideoPlayInfo>(playUrl)
-      .then(async (payload) => {
+    let source: OfflineVideoSource | null = null;
+    let hold: ReturnType<typeof holdVideoDownloads> | null = null;
+
+    /** The copy kept on this device, when there is one: true once it is playing. */
+    const playSaved = async (): Promise<boolean> => {
+      const saved = await getOfflineVideo(id);
+      if (!saved || !live) return false;
+      const opened = await openOfflineVideo(saved).catch(() => null);
+      if (!opened) return false;
+      source = opened;
+      const fresh = navigator.onLine
+        ? await Promise.race([
+            api<VideoPlayInfo>(playUrl).catch(() => null),
+            new Promise<null>((resolve) => window.setTimeout(() => resolve(null), FRESH_WAIT_MS))
+          ])
+        : null;
+      const payload = await offlinePlayInfo(saved, opened, fresh);
+      if (!live) return true;
+      const shown = pickSubtitle(payload.subtitleTracks ?? [], readPreference(SUBTITLE_LANGUAGE_KEY));
+      startAt.current = payload.resumeAt;
+      switched.current = false;
+      setSubtitle(shown ? shown.id : SUBTITLES_OFF);
+      setLocal(opened);
+      setInfo(payload);
+      return true;
+    };
+
+    playSaved()
+      .then(async (playing) => {
+        if (playing || !live) return;
+        // From the server: whatever is downloading waits, and gives the engine back
+        // its place to convert (one film per person) before the player asks for it.
+        hold = holdVideoDownloads();
+        await hold.ready;
+        if (!live) return;
+        let payload = await api<VideoPlayInfo>(playUrl);
         // In the languages chosen last time, when this one has them; an image
         // subtitle is burned in, so the engine is asked again for it.
         const language = readPreference(AUDIO_LANGUAGE_KEY);
@@ -233,7 +279,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
         const quality = choice && kept !== undefined && kept !== choice.current && choice.allowed.includes(kept) ? kept : undefined;
         if ((wanted && !wanted.selected) || burn || quality !== undefined) {
           const audio = wanted?.index ?? payload.audioTracks?.find((track) => track.selected)?.index;
-          payload = await api<VideoPlayInfo>(`${playUrl}${playQuery(audio, burn, quality)}`).catch(() => payload);
+          const first = payload;
+          payload = await api<VideoPlayInfo>(`${playUrl}${playQuery(audio, burn, quality)}`).catch(() => first);
         }
         if (!live) return;
         startAt.current = payload.resumeAt;
@@ -242,7 +289,11 @@ export function VideoPlayerPage({ id }: { id: string }) {
         setInfo(payload);
       })
       .catch((err: unknown) => { if (live) setError(err instanceof Error ? err.message : t("video.loadFailed")); });
-    return () => { live = false; };
+    return () => {
+      live = false;
+      source?.close();
+      hold?.release();
+    };
   }, [id, t, attempt]);
 
   /** Where the player is, to the engine. `leaving` survives the page closing. */
@@ -253,14 +304,14 @@ export function VideoPlayerPage({ id }: { id: string }) {
     // Nothing played yet: nothing to remember.
     if (element.currentTime === 0 && options.watched === undefined) return;
     lastSaved.current = element.currentTime;
-    const body = JSON.stringify({ position: element.currentTime, duration, ...(options.watched === undefined ? {} : { watched: options.watched }) });
+    const at = { position: element.currentTime, duration, ...(options.watched === undefined ? {} : { watched: options.watched }) };
+    const body = JSON.stringify(at);
     const url = `${VIDEO_API}/progress/${encodeURIComponent(info.id)}`;
-    if (options.leaving) {
-      sendOnLeaving(url, "PUT", body);
-      return;
-    }
-    void api(url, { method: "PUT", body }).catch(() => undefined);
-  }, [info]);
+    const send = () => (options.leaving ? sendOnLeaving(url, "PUT", body) : api(url, { method: "PUT", body }).then(() => true, () => false));
+    // A downloaded film remembers it here as well, for when nothing gets through.
+    if (local) void saveOfflineVideoPosition(info.id, at, send);
+    else void send();
+  }, [info, local]);
 
   // On the way out — another page, a closed tab, the phone locked.
   useEffect(() => {
@@ -372,11 +423,14 @@ export function VideoPlayerPage({ id }: { id: string }) {
     void import("hls.js").then(({ default: Hls }) => {
       if (!live) return;
       if (!Hls.isSupported()) {
-        if (element.canPlayType("application/vnd.apple.mpegurl")) element.src = url;
+        // The browser's own HLS reads the network only: not a copy kept here.
+        if (!local && element.canPlayType("application/vnd.apple.mpegurl")) element.src = url;
         else setCannotPlay(true);
         return;
       }
       const player = new Hls({
+        // A downloaded film: its playlist and segments come from this device.
+        ...(local?.loader ? { loader: local.loader } : {}),
         startPosition: startAt.current > 0 ? startAt.current : -1,
         // The first play of a film reads all its keyframes before the playlist
         // exists, and a re-encode's first segment takes a while.
@@ -393,6 +447,10 @@ export function VideoPlayerPage({ id }: { id: string }) {
           return;
         }
         setPreparing(false);
+        if (local) {
+          setCannotPlay(true);
+          return;
+        }
         // Turned away because every place to convert was taken meanwhile? The
         // engine says so on a fresh look; anything else this browser can't play.
         const audio = info.audioTracks?.find((track) => track.selected)?.index;
@@ -413,15 +471,15 @@ export function VideoPlayerPage({ id }: { id: string }) {
       live = false;
       hls?.destroy();
     };
-  }, [info, isHls, playback?.url, busy]);
+  }, [info, isHls, playback?.url, busy, local]);
 
   // Leaving the film stops the engine converting it (a change of sound track
   // replaces the conversion on the engine by itself): another page or a closed
   // tab. After the effect above, so hls.js has hung up before the engine hears.
-  const convertingId = info && isHls && !busy ? info.id : null;
+  const convertingId = info && isHls && !busy && !local ? info.id : null;
   useEffect(() => {
     if (!convertingId) return;
-    const stop = () => sendOnLeaving(`${VIDEO_API}/hls/${encodeURIComponent(convertingId)}`, "DELETE");
+    const stop = () => void sendOnLeaving(`${VIDEO_API}/hls/${encodeURIComponent(convertingId)}`, "DELETE");
     window.addEventListener("pagehide", stop);
     return () => {
       window.removeEventListener("pagehide", stop);
@@ -537,7 +595,10 @@ export function VideoPlayerPage({ id }: { id: string }) {
   };
 
   const locale = i18n.resolvedLanguage ?? "en";
-  const back = info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : VIDEO_OVERVIEW_HREF;
+  // With no connection the title's page can't open: back to what is on this device.
+  const back = local && !navigator.onLine
+    ? "/downloads"
+    : info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : VIDEO_OVERVIEW_HREF;
   const code = info && info.season !== null && info.episode !== null ? t("video.episodeCode", episodeCodeValues(info.season!, info.episode!)) : null;
   const heading = info ? (info.show ? info.show.title : info.title) : "";
   const subheading = info?.show ? [code, info.title].filter(Boolean).join(" · ") : null;
@@ -769,8 +830,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
                 </header>
                 <dl>
                   <dt>{t("video.player.info.playback")}</dt>
-                  <dd>{t(MODE_KEYS[playback.mode === "remux" || playback.mode === "transcode" ? playback.mode : "direct"])}</dd>
-                  {playback.reasons.length > 0 && (
+                  <dd>{local ? t("video.download.playingSaved") : t(MODE_KEYS[playback.mode === "remux" || playback.mode === "transcode" ? playback.mode : "direct"])}</dd>
+                  {!local && playback.reasons.length > 0 && (
                     <>
                       <dt>{t("video.player.info.why")}</dt>
                       <dd>{playback.reasons.map((reason) => t(REASON_KEYS[reason])).join(", ")}</dd>

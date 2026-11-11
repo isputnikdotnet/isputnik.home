@@ -480,14 +480,16 @@
     "protectedHint": "Downloads are protected from automatic eviction",
     "protected": "Protected",
     "emptyHeading": "No downloads yet",
-    "empty": "Open a book and tap \"Save offline\" to keep it on this device for listening or reading without a connection.",
+    "empty": "Open a book and tap \"Save offline\", or a film or episode and tap Download, to keep it on this device for when there is no connection.",
     "loading": "Loading downloads…",
     "chapters_one": "{{count}} chapter",
     "chapters_other": "{{count}} chapters",
     "stateDownloading": "downloading…",
     "stateIncomplete": "incomplete",
     "removeFromDownloadsAria": "Remove {{title}} from downloads",
-    "removeDownload": "Remove download"
+    "removeDownload": "Remove download",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items"
   },
   "install": {
     "title": "Install the mobile app",

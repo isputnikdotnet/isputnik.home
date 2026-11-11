@@ -6,6 +6,7 @@ import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/dow
 import { flushProgressQueue } from "../offline/progress";
 import { flushQuoteQueue } from "../offline/quotes";
 import { flushBookmarkQueue } from "../offline/bookmarks";
+import { videoDownloads, wakeVideoDownloads } from "../offline/video";
 import { clearPrivateRuntimeCaches } from "../pwa/cache";
 import { AppLoading, Shell } from "./Shell";
 import { SessionContext, type Session } from "./SessionContext";
@@ -234,10 +235,23 @@ export function App() {
   // once we're signed in, and again whenever connectivity returns.
   useEffect(() => {
     if (!session.user) return;
-    const flush = () => { void flushProgressQueue(); void flushQuoteQueue(); void flushBookmarkQueue(); };
+    // Films kept on this device ride along: where they were watched offline goes
+    // to the engine, and a download the connection (or a closed app) interrupted
+    // carries on.
+    const flush = () => { void flushProgressQueue(); void flushQuoteQueue(); void flushBookmarkQueue(); void wakeVideoDownloads(); };
     flush();
+    // A phone that was locked dropped its downloads' connections with the screen.
+    const shown = () => {
+      if (document.visibilityState !== "visible") return;
+      videoDownloads.awake();
+      void videoDownloads.resumeInterrupted();
+    };
     window.addEventListener("online", flush);
-    return () => window.removeEventListener("online", flush);
+    document.addEventListener("visibilitychange", shown);
+    return () => {
+      window.removeEventListener("online", flush);
+      document.removeEventListener("visibilitychange", shown);
+    };
   }, [session.user]);
 
   useEffect(() => {

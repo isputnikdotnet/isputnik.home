@@ -425,6 +425,42 @@ they stay.
   episode's card stay on screen, and it stays full screen into the next episode. On
   iPhones only the phone's own full screen exists, and they don't show there.
 
+## Watching with no connection
+
+**Download**, on a film's page, keeps it on the phone, tablet or computer you
+are holding, to watch on a flight or anywhere the server can't be reached. A
+show has **Download season** above its episodes and a download button on each
+one.
+
+- **Pick a quality.** *720p* is offered first: about 1.4 GB for a two-hour film.
+  *Original* is the file as it is, and can be many times that. The dialog says
+  roughly what each takes and how much room the device has. Away from home the
+  choices stop at the admin's **Quality away from home**.
+- **Keep iSputnik open while it downloads.** A film the server has to convert
+  comes down as fast as it converts, so a long one takes a while. A download that
+  is interrupted — the screen locked, the connection dropped, the app closed —
+  carries on where it stopped the next time iSputnik is open. One film downloads
+  at a time; the rest wait their turn.
+- **Downloads wait while you watch.** Playing something from the server pauses
+  them, and they pick up again afterwards. A film being converted for a download
+  takes one of the places under **People watching converted video at once**.
+- **Play it** from the film's page as usual, or from **Downloads** (in the
+  installed app's menu, or the link the button turns into while it downloads).
+  A downloaded film plays from the device even at home, so it starts at once.
+  With no connection, open **Downloads**: the video pages themselves need the
+  server. Where you stopped is remembered on the device and sent to the server
+  when it is next reachable.
+- **What is kept:** the picture at the quality chosen, the sound track in the
+  language you last picked in the player, and the text subtitles. Subtitles that
+  are pictures (Blu-ray and DVD ones) are not.
+- **Remove it** with the *Downloaded* button on its page or the bin on
+  **Downloads**. Only the copy on that device goes.
+
+Downloads belong to the browser or installed app they were made in, and to the
+person signed in there: another device, or another account on the same device,
+has its own. Nothing extra is stored on the server. iPhones and iPads need iOS
+17.1 or newer to play a film that had to be converted.
+
 ## Subtitles
 
 Subtitles inside a film and subtitle files beside it — `Film (Year).srt`,

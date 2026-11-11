@@ -194,7 +194,7 @@ untouched.
 | **Bookmarks** | Places inside a book: a moment in an audiobook, a page in an ebook | The bookmark button while listening or reading |
 | **Quotes** | Passages worth keeping, with the book and page they came from | Highlight text in the reader, or **Add quote** on any book |
 | **Collections** | Lists you make yourself, which can mix audiobooks, ebooks and photos in one list | **Add to collection** from any item |
-| **Downloads** | Books kept on this device for offline use *(installed app only)* | The download button on a book |
+| **Downloads** | Books, films and episodes kept on this device for offline use *(in the menu of the installed app; a film's download button links to it in any browser)* | The download button on a book, **Download** on a film or episode |
 
 **Likes vs Collections** is the usual question. Likes is one flat list —
 one tap, no thinking. A collection is a list you name and curate ("Car trips",

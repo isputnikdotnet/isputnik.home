@@ -25,6 +25,9 @@ import {
   type StorageEstimate
 } from "../../offline/downloads";
 import { Button } from "../../shared/Button";
+import { useVideoDownloads } from "../../offline/useVideoDownloads";
+import { videoDownloads } from "../../offline/video";
+import { VideoDownloadsList } from "../video/VideoDownloadsList";
 
 interface ViewerState {
   bookId: string;
@@ -47,6 +50,12 @@ export function DownloadsPage() {
   const [removing, setRemoving] = useState<string[]>([]);
   const [removingEbook, setRemovingEbook] = useState<string[]>([]);
   const [viewer, setViewer] = useState<ViewerState | null>(null);
+  // Films and episodes (offline/video.ts): they change as they download, so they
+  // are followed rather than read once.
+  const videoMap = useVideoDownloads();
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const videos = [...videoMap.values()].sort((a, b) => a.queuedAt - b.queuedAt);
+  const videoBytes = videos.reduce((sum, video) => sum + video.downloadedBytes, 0);
 
   const refresh = useCallback(async () => {
     const [list, ebookList, est] = await Promise.all([listDownloads(), listEbookDownloads(), estimateStorage()]);
@@ -58,7 +67,13 @@ export function DownloadsPage() {
   useEffect(() => {
     void requestPersistentStorage();
     void refresh();
+    void videoDownloads.load().finally(() => setVideoLoaded(true));
   }, [refresh]);
+
+  // The storage line follows a film as it comes down.
+  useEffect(() => {
+    void estimateStorage().then(setStorage, () => undefined);
+  }, [videoBytes]);
 
   const remove = async (bookId: string) => {
     setRemoving((current) => [...current, bookId]);
@@ -100,11 +115,21 @@ export function DownloadsPage() {
 
   const totalDownloadedBytes =
     (downloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0) +
-    (ebookDownloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0);
-  const totalCount = (downloads?.length ?? 0) + (ebookDownloads?.length ?? 0);
+    (ebookDownloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0) +
+    videoBytes;
+  const bookCount = (downloads?.length ?? 0) + (ebookDownloads?.length ?? 0);
+  const totalCount = bookCount + videos.length;
   const hasAny = totalCount > 0;
-  const statsLabel = hasAny ? `${t("user:count.books", { count: totalCount })} · ${formatBytes(totalDownloadedBytes)}` : null;
-  const allLoaded = downloads !== null && ebookDownloads !== null;
+  // "3 books" while that is all there is; "5 items" once films sit beside them.
+  const countLabel = videos.length > 0 ? t("user:downloads.items", { count: totalCount }) : t("user:count.books", { count: totalCount });
+  const statsLabel = hasAny ? `${countLabel} · ${formatBytes(totalDownloadedBytes)}` : null;
+  const allLoaded = downloads !== null && ebookDownloads !== null && videoLoaded;
+  const videoSection = videos.length > 0 && (
+    <>
+      <h2 className="downloads-section-title">{t("common:video.download.section")}</h2>
+      <VideoDownloadsList records={videos} />
+    </>
+  );
   const usagePercent = storage && storage.quota > 0 ? Math.min(100, Math.round((storage.usage / storage.quota) * 100)) : null;
 
   return (
@@ -150,6 +175,7 @@ export function DownloadsPage() {
           </div>
         ) : isMobile ? (
           <div>
+            {videoSection}
             {downloads === null && <p className="management-empty">{t("user:downloads.loading")}</p>}
             {downloads && downloads.length > 0 && (
               <>
@@ -187,6 +213,7 @@ export function DownloadsPage() {
           </div>
         ) : (
           <div>
+          {videoSection}
           {downloads && downloads.length > 0 && <h2 className="downloads-section-title">{t("common:nav.audiobooks")}</h2>}
           <div className="audiobook-grid">
             {(downloads ?? []).map((book) => {

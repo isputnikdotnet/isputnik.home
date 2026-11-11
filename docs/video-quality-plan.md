@@ -5,7 +5,7 @@ For the video engine (isputnik.video) and home's player. Background:
 converts) and sits beside `docs/video-skip-plan.md`.
 
 Status: proposed 2026-11-08; the owner took the four decisions as recommended and
-Q1 was built 2026-11-09 (see "As built in Q1"). Q2 and Q3 wait on use.
+Q1 was built 2026-11-09 (see "As built in Q1"). Q2 waits on use; Q3 was built 2026-11-10 as downloads in the PWA (see "Downloads in the PWA").
 
 ## In one sentence
 
@@ -188,7 +188,44 @@ Q2 is a new playlist shape and about a day of player tuning; it is built only if
 leaves people stalling, which the `who is watching` list and the engine log will show
 (a viewer re-asking the same segment, a player hanging up mid-film).
 
-## Travel copies and downloads (Q3, later, opt-in)
+## Downloads in the PWA (Q3 as built, 2026-11-10)
+
+The owner asked for films and shows downloaded and kept offline **in the PWA**, so
+Q3 was built differently from the proposal below — with no travel copies, and no
+change to the engine or the gateway at all:
+
+- A film the browser plays as it is (delivery `direct`) comes down as the file, in
+  8 MB byte-range slices of `/stream`. Anything else comes down **the way it
+  plays**: the HLS playlist and every segment, at the rung asked. The engine's cuts
+  are the same whichever run made them (hls.ts), so a download resumes at the
+  segment it stopped at, and the engine converts at full speed because the
+  downloader asks for the next segment as soon as it has one.
+- Kept in the per-person offline IndexedDB (`offline/downloads.ts`, version 5:
+  `videoDownloads` + `videoParts`), one record per slice or segment. The player
+  (`VideoPlayerPage`) prefers a finished copy to the server: a file is the slices
+  as one Blob, a converted film is read by hls.js through a custom loader
+  (`features/video/offlineSource.ts`) — so it needs Media Source (iPhones: iOS
+  17.1+). The browser's own HLS can't read a local copy.
+- One download at a time (`offline/video.ts`, `VideoDownloads`). The engine
+  converts one film per person, so the player **holds** the queue while it plays
+  from the server, and the download in flight sends `DELETE /hls/:id` first to
+  give its place back. A download counts as a viewer under *People watching
+  converted video at once*, and shows in the Converting video card as one.
+- The remote cap applies by itself: `/play` and the HLS address are the player's.
+- Where a copy was watched offline is kept on its record and sent to `/progress`
+  on the next launch or `online` event (`flushVideoProgress`).
+- The player's code and hls.js are not precached; they are fetched when a download
+  starts and again on each online launch while downloads exist
+  (`warmVideoPlayer`), so the service worker's `isputnik-code` cache has the
+  current release's.
+- Not done: image subtitles (they would have to be burned in), more than one sound
+  track, a Wi-Fi-only switch, background download with the app closed (Background
+  Fetch is Chrome-on-Android only), a TV app equivalent.
+
+The proposal as first written follows, for the record; the travel copy remains the
+answer if conversions-per-download ever cost too much.
+
+## Travel copies and downloads (Q3 as proposed)
 
 - **Make a travel copy**: an admin action on a film (and a whole season), from the
   film page's menu. The engine queues it (one job at a time, on the GPU when there is
@@ -239,7 +276,7 @@ cost is disk (about 1 GB per two-hour film) and a queue to show and empty.
 |---|---|---|
 | **Q1** | `bitRate` in the probe; rung in `decideDelivery` and in the HLS address; `X-Isputnik-Network` default and cap; rung-aware `ffmpegArgs`; the rung in the viewers list. Home: Quality in the player menu, remembered per browser; *Quality away from home* on Converting video; search terms; help; architecture doc note | engine + home |
 | **Q2** | Master playlist of the allowed rungs on one segment grid; hls.js ABR tuned, start level from Q1; only if Q1 leaves people stalling | engine + home |
-| **Q3** | Travel copies per film/season (queue, Storage line), Download original / travel copy; the copy serves the 720p rung | engine + home |
+| **Q3** | Built 2026-11-10 as downloads kept in the PWA (no travel copies, no engine change): Download on a film, a season, an episode; resumable; the player prefers the copy on the device | home |
 | later | A picker in the TV app | TV |
 
 ## Open questions

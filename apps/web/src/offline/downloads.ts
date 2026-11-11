@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { PublicUser } from "../api";
 import type { AudiobookBookDetail } from "../features/audiobooks/types";
+import type { StoredVideoDownload, StoredVideoPart } from "./video-store";
 import i18n from "../i18n";
 import { foliateFileInfo } from "../shared/utils";
 
@@ -143,6 +144,10 @@ interface OfflineDB extends DBSchema {
   ebookFiles: { key: string; value: StoredEbookFile };
   quotesQueue: { key: string; value: QueuedQuote; indexes: { documentId: string } };
   bookmarksQueue: { key: string; value: QueuedBookmark; indexes: { documentId: string } };
+  // Films and episodes kept on this device (offline/video.ts): one row each, and
+  // the file itself in pieces — a film is far too big for one record.
+  videoDownloads: { key: string; value: StoredVideoDownload };
+  videoParts: { key: string; value: StoredVideoPart; indexes: { id: string } };
 }
 
 function dbName(userId: string) {
@@ -157,7 +162,7 @@ function db(): Promise<IDBPDatabase<OfflineDB>> | null {
   if (cached?.userId !== userId) {
     cached = {
       userId,
-      db: openDB<OfflineDB>(dbName(userId), 4, {
+      db: openDB<OfflineDB>(dbName(userId), 5, {
         upgrade(database, oldVersion) {
           if (oldVersion < 1) {
             database.createObjectStore("downloads", { keyPath: "bookId" });
@@ -176,6 +181,11 @@ function db(): Promise<IDBPDatabase<OfflineDB>> | null {
           if (oldVersion < 4) {
             const bookmarks = database.createObjectStore("bookmarksQueue", { keyPath: "localId" });
             bookmarks.createIndex("documentId", "documentId");
+          }
+          if (oldVersion < 5) {
+            database.createObjectStore("videoDownloads", { keyPath: "id" });
+            const parts = database.createObjectStore("videoParts", { keyPath: "key" });
+            parts.createIndex("id", "id");
           }
         }
       })

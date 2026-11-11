@@ -1346,6 +1346,47 @@
         "locked": "Too many wrong tries. Try again in a while.",
         "failed": "Unable to leave the profile"
       }
+    },
+    "download": {
+      "open": "Download",
+      "openSeason": "Download season",
+      "openAria": "Download {{name}}",
+      "retry": "Try download again",
+      "downloading": "Downloading {{percent}}%",
+      "queued": "Waiting to download",
+      "paused": "Download paused",
+      "done": "Downloaded",
+      "doneAria": "{{name}}: downloaded. Remove the download",
+      "title": "Download \"{{name}}\"?",
+      "intro": "It is kept on this device and plays here with no connection.",
+      "introSeveral_one": "{{count}} video is kept on this device and plays here with no connection.",
+      "introSeveral_other": "All {{count}} are kept on this device and play here with no connection.",
+      "checking": "Checking what can be downloaded…",
+      "about": "About {{size}}",
+      "asItIs": "The file as it is",
+      "free": "{{size}} free on this device",
+      "keepOpen": "Keep iSputnik open until it finishes; a download that is interrupted carries on where it stopped. Downloads wait while you watch something else.",
+      "tooBigTitle": "Not enough room on this device",
+      "tooBig": "This needs about {{size}}. Choose a smaller quality, or remove other downloads first.",
+      "failedTitle": "Unable to download",
+      "noStorage": "This browser is not keeping downloads (a private window?). Open iSputnik in a normal window and try again.",
+      "removeTitle": "Remove the download of \"{{name}}\"?",
+      "removeBody": "It is deleted from this device only. It stays in the library, and can be downloaded again.",
+      "removeConfirm": "Remove download",
+      "removeAria": "Remove the download of {{name}}",
+      "pause": "Pause",
+      "pauseAria": "Pause the download of {{name}}",
+      "resume": "Resume",
+      "resumeAria": "Resume the download of {{name}}",
+      "section": "Movies and shows",
+      "playingSaved": "From this device",
+      "problem": {
+        "connection": "Waiting for the connection",
+        "busy": "Waiting: the server is converting video for someone else",
+        "space": "Not enough room on this device",
+        "gone": "No longer in the library",
+        "format": "This can't be played in a browser, so it can't be downloaded"
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { ArrowLeft, Check, FolderPlus, Layers, Pencil, Play } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -11,6 +12,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatDate } from "../../shared/dates";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditTitleModal } from "./EditTitleModal";
+import { VideoDownloadButton, type VideoDownloadTarget } from "./VideoDownloads";
 import { MyListButton } from "./VideoMyList";
 import { CastRow, CrewLine } from "./VideoPeople";
 import { VideoSectionNav } from "./VideoSectionNav";
@@ -96,6 +98,7 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                 <div className="video-title-actions">
                   <PlayAction title={title} />
                   <MyListButton kind={kind} id={title.id} />
+                  {!show && <VideoDownloadButton target={movieDownload(title as VideoMovie, t)} />}
                   <Button variant="text" onClick={() => setCollecting(true)}>
                     <FolderPlus size={15} aria-hidden="true" />
                     <span>{t("video.addToCollection")}</span>
@@ -128,6 +131,36 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   );
 }
 
+/** A film to keep on this device: its one file, or each of its parts. */
+function movieDownload(movie: VideoMovie, t: TFunction): VideoDownloadTarget {
+  const parts = movie.parts ?? [];
+  return {
+    name: movie.title,
+    parent: { kind: "movies", id: movie.id },
+    posterUrl: movie.poster ?? null,
+    items: parts.length > 0
+      ? parts.map((part) => ({ id: part.id, title: `${movie.title} · ${part.title ?? t("video.part", { number: part.part })}` }))
+      : [{ id: movie.playId ?? movie.id, title: movie.title, runtimeMinutes: movie.runtimeMinutes }]
+  };
+}
+
+/** Episodes to keep on this device, under what the dialog calls them together. */
+function episodesDownload(show: VideoShow, season: number, episodes: VideoEpisode[], name: string, t: TFunction): VideoDownloadTarget {
+  return {
+    name,
+    parent: { kind: "shows", id: show.id },
+    posterUrl: show.poster ?? null,
+    items: episodes.map((episode) => ({
+      id: episode.id,
+      title: episode.title ?? t("video.episode", { number: episode.episode }),
+      showTitle: show.title,
+      season,
+      episode: episode.episode,
+      runtimeMinutes: episode.runtimeMinutes
+    }))
+  };
+}
+
 const seasonName = (number: number, t: (key: "video.specials" | "video.season", options?: { number: number }) => string) =>
   (number === 0 ? t("video.specials") : t("video.season", { number }));
 
@@ -150,14 +183,20 @@ function Seasons({ show }: { show: VideoShow }) {
         </div>
       )}
       <h2 id={`season-${current.number}`} className={several ? "sr-only" : undefined}>{seasonName(current.number, t)}</h2>
+      <div className="video-season-actions">
+        <VideoDownloadButton
+          target={episodesDownload(show, current.number, current.episodes, `${show.title} · ${seasonName(current.number, t)}`, t)}
+          label={t("video.download.openSeason")}
+        />
+      </div>
       <ol className="video-episodes">
-        {current.episodes.map((episode) => <EpisodeCard key={episode.id} season={current.number} episode={episode} />)}
+        {current.episodes.map((episode) => <EpisodeCard key={episode.id} show={show} season={current.number} episode={episode} />)}
       </ol>
     </section>
   );
 }
 
-function EpisodeCard({ season, episode }: { season: number; episode: VideoEpisode }) {
+function EpisodeCard({ show, season, episode }: { show: VideoShow; season: number; episode: VideoEpisode }) {
   const { t } = useTranslation();
   const name = episode.title ?? t("video.episode", { number: episode.episode });
   const fraction = progressFraction(episode.progress);
@@ -176,11 +215,14 @@ function EpisodeCard({ season, episode }: { season: number; episode: VideoEpisod
           {name}
           {episode.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
         </strong>
-        <small className="muted">
-          {[
-            t("video.episodeCode", episodeCodeValues(season, episode.episode)),
-            episode.aired ? t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) }) : null
-          ].filter(Boolean).join(" · ")}
+        <small className="muted video-episode-meta">
+          <span>
+            {[
+              t("video.episodeCode", episodeCodeValues(season, episode.episode)),
+              episode.aired ? t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) }) : null
+            ].filter(Boolean).join(" · ")}
+          </span>
+          <VideoDownloadButton compact target={episodesDownload(show, season, [episode], name, t)} />
         </small>
         {episode.plot && <p>{episode.plot}</p>}
       </div>
