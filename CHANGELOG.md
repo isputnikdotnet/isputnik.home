@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.80.0 — Films for the road
+
+- **Download a film, a season or an episode and watch it with no connection.** A film's page has **Download**; a show has **Download season** above its episodes and a download button on each one. It is kept on the phone, tablet or computer you are holding and plays there on a flight or anywhere the server can't be reached. Before, video needed the server for every minute of it.
+- **Pick the quality.** 720p is offered first, about 1.4 GB for a two-hour film; Original is the file as it is. The dialog says roughly what each takes and how much room the device has. Away from home the choices stop at the admin's **Quality away from home**.
+- **Keep iSputnik open while it downloads.** One film downloads at a time and the rest wait their turn. A download that is interrupted (the screen locked, the connection dropped, the app closed) carries on where it stopped the next time iSputnik is open. Downloads wait while you watch something from the server, and a film being converted for a download takes one of the places under **People watching converted video at once**.
+- **Downloads** lists them under **Movies and shows**, with Play, Pause, Resume and Remove. A downloaded film plays from the device even at home, so it starts at once; with no connection, open it from Downloads. Where you stopped is remembered on the device and sent to the server when it is next reachable.
+- What is kept: the picture at the quality chosen, the sound track in the language last picked in the player, and text subtitles. Blu-ray and DVD picture subtitles are not. iPhones and iPads need iOS 17.1 or newer to play a downloaded film that had to be converted. Nothing extra is stored on the server, and the video container needs no update.
+
 ## 4.79.0 — A player that gets out of the way
 
 - **Nothing on screen but the film.** The player for movies and shows lost its permanent bar: the picture now fills the whole window, and the title and the controls are drawn over it. Move the mouse, tap the picture or press a key and they fade in; about three seconds after the last movement they go again, the mouse pointer with them. Paused, they stay. Before, a header sat over every film and the browser's own controls sat under it, different in every browser.

@@ -25,9 +25,16 @@ Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobo
 Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>
 
-  <Date>1794312000</Date>
+  <Date>1794398400</Date>
   <Changes>
-### 2026.11.10 — 4.79.0 A player that gets out of the way
+### 2026.11.11 — 4.80.0 Films for the road
+- **Download a film, a season or an episode and watch it with no connection.** A film's page has **Download**; a show has **Download season** above its episodes and a download button on each one. It is kept on the phone, tablet or computer you are holding and plays there on a flight or anywhere the server can't be reached. Before, video needed the server for every minute of it.
+- **Pick the quality.** 720p is offered first, about 1.4 GB for a two-hour film; Original is the file as it is. The dialog says roughly what each takes and how much room the device has. Away from home the choices stop at the admin's **Quality away from home**.
+- **Keep iSputnik open while it downloads.** One film downloads at a time and the rest wait their turn. A download that is interrupted (the screen locked, the connection dropped, the app closed) carries on where it stopped the next time iSputnik is open. Downloads wait while you watch something from the server, and a film being converted for a download takes one of the places under **People watching converted video at once**.
+- **Downloads** lists them under **Movies and shows**, with Play, Pause, Resume and Remove. A downloaded film plays from the device even at home, so it starts at once; with no connection, open it from Downloads. Where you stopped is remembered on the device and sent to the server when it is next reachable.
+- What is kept: the picture at the quality chosen, the sound track in the language last picked in the player, and text subtitles. Blu-ray and DVD picture subtitles are not. iPhones and iPads need iOS 17.1 or newer to play a downloaded film that had to be converted. Nothing extra is stored on the server, and the video container needs no update.
+
+### 2026.11.09 — 4.79.0 A player that gets out of the way
 - **Nothing on screen but the film.** The player for movies and shows lost its permanent bar: the picture now fills the whole window, and the title and the controls are drawn over it. Move the mouse, tap the picture or press a key and they fade in; about three seconds after the last movement they go again, the mouse pointer with them. Paused, they stay. Before, a header sat over every film and the browser's own controls sat under it, different in every browser.
 - **Its own controls, the same everywhere.** Play and pause, ten seconds back and forward, the next episode, a thin amber line showing where the film is (point at it to see the time, drag it to go there), volume, subtitles, settings and full screen. A click on the picture pauses; a double click is full screen.
 - **Settings, Subtitles and More.** The gear holds **Quality**, **Sound** (where a film has more than one track) and a new **Speed**, from 0.5× to 2×. **CC** chooses the subtitles. **More** (⋯) has **Start over**, a new **Playback information** (whether the film is sent as it is or converted and why, the picture's size, the sound track) and, for admins, **Mark intro**.
@@ -48,13 +55,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **Viewers away from home are held under a cap.** Someone watching from outside your network starts at **Quality away from home** (Settings → Video → Converting video; up to 720p to start with) and can only go lower. Before, a Blu-ray rip went out at its full 30 Mbit/s or more, which no home upload link carries, and stalled; one viewer at 720p needs about 5 Mbit/s. Set it to *The file as it is* to turn the cap off. At home everyone still gets the file as it is unless they pick less.
 - **The engine now looks at a film's size, not only its codecs.** A picture taller than the rung asked, or heavier than the most the rung would make, is re-encoded down to it even when a browser could have played it as it is. The *Converting video* card marks each viewer's rung beside GPU/CPU and HDR. Needs **isputnik.video 0.31.0**; an older engine shows no menu and no setting.
 - The TV app is unchanged: on the home network it plays the original as before. Automatic switching by connection speed and per-film offline copies are planned, not built (`docs/video-quality-plan.md`).
-
-### 2026.11.09 — 4.77.0 Photos on the TV
-- **Photos come to the TV, as a controlled view.** A TV may be watched by more people than the photos' owners, so it never gets the whole gallery: only the slideshows and albums an admin puts on its list. No folders, timeline, people or search.
-- **On TV, on the Photos page.** Admins find it on the Albums and Slideshows views: add a slideshow or an album, put them in the order the TV shows them, and take one off again (nothing is deleted). Each line says which profiles see it: **Everyone but restricted profiles** (the default), **Everyone**, or **Only…** chosen profiles and "Without a profile". That is how *Kids* gets Grandma's birthday album and nothing else.
-- **A person's own access still applies on top.** The list only ever narrows: a photo the person signed in can't open on the website never shows on the TV, even inside a picked album. A slideshow's rendered movie plays on the TV only when the viewer may see every photo in it; otherwise the TV plays the slideshow live, with just their photos.
-- **A TV can't wander off the list.** A TV's session reads only its list's albums and slideshows, their photos and videos, their music and allowed movies; everything else in Photos is refused, and it can change nothing.
-- The TV app's **Photos** tab arrives in **iSputnik TV 0.11**: a banner and rows of slideshows and albums, a full-screen viewer with each slideshow's own timing and transitions, music, videos playing in place, and a caption with the date, place and who is in the photo. The tab appears only when something is on the list for the profile watching.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
