@@ -134,6 +134,14 @@
   --accent: var(--mint);
   --error: var(--danger);
 
+  /* Video status follows the theme. Opaque surfaces and outlines keep the
+     accent readable over artwork, including Minimalist's near-black accent. */
+  --video-progress-fill: var(--accent);
+  --video-progress-track: var(--surface-raised);
+  --video-progress-border: color-mix(in srgb, var(--ink) 60%, var(--surface));
+  --video-watched-fill: var(--accent);
+  --video-watched-ink: var(--surface-raised);
+
   /* ── Stacking ──────────────────────────────────────────────────────────
      #root is `isolation: isolate` (components/primitives.css), so the page is
      one layer and everything portalled into <body> paints over it. These

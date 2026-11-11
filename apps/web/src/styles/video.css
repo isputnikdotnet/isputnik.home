@@ -125,19 +125,36 @@
   object-fit: cover;
 }
 
-.video-card-progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 4px;
-  background: rgba(0, 0, 0, 0.55);
+/* One watch-progress treatment for posters, episodes, seasons and resume actions.
+   An opaque track keeps the remaining portion legible on bright or busy art. */
+.video-card-progress,
+.video-progress,
+.video-banner-bar {
+  display: block;
+  box-sizing: border-box;
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--video-progress-border);
+  border-radius: 999px;
+  background: var(--video-progress-track);
 }
 
-.video-card-progress > span {
+.video-card-progress > span,
+.video-progress > span,
+.video-banner-bar > span {
   display: block;
   height: 100%;
-  background: var(--mint);
+  border-radius: inherit;
+  background: var(--video-progress-fill);
+}
+
+.video-card-progress {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  /* Separate the track from both dark and light frames without covering art. */
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
 .video-card-body {
@@ -319,18 +336,7 @@
 }
 
 .video-banner-bar {
-  display: block;
   width: 100%;
-  height: 5px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: rgba(243, 247, 250, 0.24);
-}
-
-.video-banner-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--banner-accent);
 }
 
 .video-banner-actions {
@@ -494,20 +500,6 @@
   gap: 6px;
 }
 
-.video-progress {
-  display: block;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.video-progress > span {
-  display: block;
-  height: 100%;
-  background: var(--mint);
-}
-
 /* Seasons as a row of tabs over one season's episodes, as picture cards. */
 .video-season {
   display: grid;
@@ -644,7 +636,7 @@
 .video-watched-mark {
   margin-left: 6px;
   vertical-align: -2px;
-  color: var(--mint);
+  color: var(--video-watched-fill);
 }
 
 /* The other films of a film's set, as a row of posters. */
@@ -761,26 +753,6 @@
   .video-episodes {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-
-.video-progress {
-  display: block;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.video-progress > span {
-  display: block;
-  height: 100%;
-  background: var(--gold);
-}
-
-.video-watched-mark {
-  margin-left: 6px;
-  vertical-align: -2px;
-  color: var(--gold);
 }
 
 /* The player: a black page of its own, the film over all of it. Nothing else is
@@ -2331,19 +2303,20 @@
   min-width: 0;
 }
 
-/* Finished: a check in the picture's corner. */
+/* Finished: a theme-accent check badge, outlined against the artwork. */
 .video-card-watched {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--video-watched-ink);
   border-radius: 999px;
-  /* White on any poster and in any theme: a theme colour can vanish into the art. */
-  color: #14181d;
-  background: #fff;
+  color: var(--video-watched-ink);
+  background: var(--video-watched-fill);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -2408,17 +2381,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The bar on a poster: white on a dark track, for the same reason as the check —
-   this theme's accent is near black, and vanished into the track. */
-.video-card-frame .video-card-progress {
-  height: 5px;
-  background: rgba(0, 0, 0, 0.6);
-}
-
-.video-card-frame .video-card-progress > span {
-  background: #fff;
-}
-
 /* ── Download: full copy or optimized (VideoDownloads) ─────────────── */
 
 .video-download-rung {
@@ -2440,18 +2402,6 @@
    show's page: seasons, count, bar and the season's menu share one row, and an
    episode's menu sits beside its name. These follow the rules above them. */
 
-/* Finished: mint on any picture and in any theme — a theme's own accent can
-   vanish into the art (the default theme's is near black). */
-.video-card-watched {
-  top: 8px;
-  right: 8px;
-  left: auto;
-  width: 24px;
-  height: 24px;
-  color: #06231a;
-  background: #5fd3a8;
-}
-
 .video-card-badge,
 .video-card-badge.has-bar {
   top: 8px;
@@ -2459,17 +2409,6 @@
   bottom: auto;
   left: auto;
   max-width: calc(100% - 16px);
-}
-
-/* Part-way: gold along the foot of the picture. */
-.video-card-frame .video-card-progress > span,
-.video-episode-play .video-card-progress > span {
-  background: #e9b44c;
-}
-
-.video-episode-play .video-card-progress {
-  height: 5px;
-  background: rgba(0, 0, 0, 0.6);
 }
 
 /* The card's menu: beside its name, where the name leaves it room. */
@@ -2519,7 +2458,6 @@
 .video-season-seen .video-progress {
   flex: 1 1 auto;
   min-width: 60px;
-  height: 6px;
 }
 
 .video-season-count {
