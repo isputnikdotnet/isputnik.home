@@ -43,6 +43,12 @@ const mockApi = vi.mocked(api);
 
 const at = (url: string) => window.history.replaceState({}, "", url);
 
+/** Edit, on a title's page: under its More menu, with everything that is not Play. */
+const openEdit = async () => {
+  await userEvent.click(await screen.findByRole("button", { name: /^More for / }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+};
+
 /** The Edit dialog's answer for a title with no edits: every field as found. */
 const editState = (title: { title: string; originalTitle: string | null; year: number | null; plot: string | null; genres: string[] }) => ({
   kind: "movies",
@@ -162,7 +168,7 @@ describe("the overview", () => {
       const row = (await screen.findByRole("heading", { name: "Continue watching" })).closest("section")!;
       await waitFor(() => expect([...row.querySelectorAll("img")].map((img) => img.getAttribute("src"))).toEqual(["/video/api/art/e2/still", "/video/api/art/m1/backdrop"]));
       expect(row.querySelector(".video-row-list")).toHaveClass("is-wide");
-      expect(within(row).getByText("S01E02 · 50:00 left")).toBeInTheDocument();
+      expect(within(row).getByText("S01E02 · 50 min left")).toBeInTheDocument();
     } finally {
       fetchSpy.mockRestore();
       resetVideoAvailable();
@@ -521,7 +527,7 @@ describe("a show's page", () => {
     expect(document.querySelector(".video-title-cover img")).toHaveAttribute("src", "/video/api/art/m1/poster?v=1");
     expect(document.querySelector(".video-title-backdrop img")).toHaveAttribute("src", "/video/api/art/m1/backdrop?v=1");
 
-    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await openEdit();
     await userEvent.click(await screen.findByRole("tab", { name: "Lookup" }));
     await userEvent.click(screen.getByRole("button", { name: "Search TMDB" }));
     expect(mockApi).toHaveBeenCalledWith("/video/api/admin/metadata/search?kind=movie&q=Loose+Film&language=en&year=1999");
@@ -566,7 +572,7 @@ describe("a show's page", () => {
     }) as never);
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />, { user: { id: "a1", role: "admin" } as never });
     await screen.findByRole("heading", { name: "Concert Peter's Pop Show" });
-    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await openEdit();
     await userEvent.click(await screen.findByRole("tab", { name: "Lookup" }));
     await userEvent.click(screen.getByRole("button", { name: "Search TMDB" }));
     // Both have TMDB id 505: a film and a show are different counts there, so both are offered and the show says so.
@@ -615,7 +621,7 @@ describe("a show's page", () => {
       throw new Error(`unexpected ${path}`);
     }) as never);
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />, { user: { id: "a1", role: "admin" } as never });
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await openEdit();
     await userEvent.click(await screen.findByRole("tab", { name: "Set" }));
     expect(screen.getByText("Found: Old Set")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("radio", { name: /In this set/ }));

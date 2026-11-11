@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { useVideoAvailable } from "../../app/useVideoAvailable";
-import { VIDEO_API, episodeCodeValues, formatPlayTime, watchHref, type VideoArt, type VideoContinueItem, type VideoShow } from "./types";
+import { VIDEO_API, episodeCodeValues, watchHref, type VideoArt, type VideoContinueItem, type VideoShow } from "./types";
 import { PosterRow } from "./VideoPoster";
 import { useWatchedStamp } from "./watched";
 import "../../styles/video.css";
@@ -59,8 +59,10 @@ export function ContinueWatching({ only, title }: { only?: "episode" | "movie"; 
       title={title ?? t("video.continueWatching")}
       items={shown.map((item) => {
         const code = item.season !== null && item.episode !== null ? t("video.episodeCode", episodeCodeValues(item.season, item.episode)) : null;
-        const left = item.resume && item.duration ? t("video.continueLeft", { time: formatPlayTime(item.duration - item.position) }) : null;
-        // "S01E01 · 1:07:06 left"; an episode not started yet, "S01E03 · next".
+        const minutes = item.resume && item.duration ? Math.max(1, Math.ceil((item.duration - item.position) / 60)) : null;
+        const left = minutes === null ? null
+          : minutes < 60 ? t("video.leftMinutes", { minutes }) : t("video.leftHours", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+        // "S01E01 · 47 min left"; an episode not started yet, "S01E03 · next".
         const sub = item.show ? [code, left ?? t("video.upNextShort")].filter(Boolean).join(" · ") : left;
         return {
           key: item.id,

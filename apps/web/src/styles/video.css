@@ -2433,3 +2433,156 @@
   margin-top: 10px;
   cursor: pointer;
 }
+
+/* ── Watched marks, as redrawn 2026-11-11 (the owner's mock-up) ───────────────
+   On a card: the check and the count sit in the picture's top-right corner, and
+   the menu beside the name underneath — always there, never over the art. On a
+   show's page: seasons, count, bar and the season's menu share one row, and an
+   episode's menu sits beside its name. These follow the rules above them. */
+
+/* Finished: mint on any picture and in any theme — a theme's own accent can
+   vanish into the art (the default theme's is near black). */
+.video-card-watched {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  width: 24px;
+  height: 24px;
+  color: #06231a;
+  background: #5fd3a8;
+}
+
+.video-card-badge,
+.video-card-badge.has-bar {
+  top: 8px;
+  right: 8px;
+  bottom: auto;
+  left: auto;
+  max-width: calc(100% - 16px);
+}
+
+/* Part-way: gold along the foot of the picture. */
+.video-card-frame .video-card-progress > span,
+.video-episode-play .video-card-progress > span {
+  background: #e9b44c;
+}
+
+.video-episode-play .video-card-progress {
+  height: 5px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* The card's menu: beside its name, where the name leaves it room. */
+.video-card-frame.has-menu .video-card-body {
+  padding-right: 38px;
+}
+
+.video-card-menu,
+.video-card-frame:hover .video-card-menu {
+  top: auto;
+  right: -4px;
+  bottom: 0;
+  opacity: 1;
+}
+
+/* One row over the episodes: the seasons on the left; how much is seen, and the
+   season's menu, on the right. */
+.video-season-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.video-season-bar .video-season-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.video-season-bar > h2:not(.sr-only) {
+  flex: 1 1 auto;
+  padding: 9px 0;
+}
+
+.video-season-seen {
+  display: flex;
+  flex: 0 1 440px;
+  align-items: center;
+  gap: 14px;
+  max-width: none;
+  min-width: 220px;
+  margin-right: 0;
+  padding: 4px 0;
+}
+
+.video-season-seen .video-progress {
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 6px;
+}
+
+.video-season-count {
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* An episode: its name with its menu beside it, then a line about it. */
+.video-episode-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.video-episode-head > strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 6px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-episode.is-watched .video-episode-head > strong {
+  color: var(--muted);
+}
+
+.video-episode-head > .action-menu {
+  flex: 0 0 auto;
+}
+
+.video-episode-meta {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px 12px;
+}
+
+.video-episode-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.video-episode-copy p {
+  -webkit-line-clamp: 3;
+}
+
+/* The menus beside a name are quiet: three dots, no box, until pointed at. */
+.video-card-menu > button,
+.video-episode-head > .action-menu > button,
+.video-season-seen > .action-menu > button {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.video-card-menu > button:hover,
+.video-card-menu > button[aria-expanded="true"],
+.video-episode-head > .action-menu > button:hover,
+.video-episode-head > .action-menu > button[aria-expanded="true"],
+.video-season-seen > .action-menu > button:hover,
+.video-season-seen > .action-menu > button[aria-expanded="true"] {
+  background: var(--active);
+}

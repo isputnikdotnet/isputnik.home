@@ -1065,7 +1065,9 @@
       "add": "My list",
       "on": "On my list",
       "emptyTitle": "Nothing on your list yet",
-      "emptyBody": "Press My list on a film or show to keep it here for later."
+      "emptyBody": "Press My list on a film or show to keep it here for later.",
+      "addTo": "Add to My list",
+      "remove": "Remove from My list"
     },
     "rows": {
       "customize": "Customize",
@@ -1414,7 +1416,10 @@
       "preparing": "Preparing on the server: {{percent}}%",
       "preparingQueued": "Waiting for the server to prepare it",
       "preparingPaused": "Preparing paused while someone is watching",
-      "preparingHint": "Nothing to wait for here: it downloads by itself once it is ready."
+      "preparingHint": "Nothing to wait for here: it downloads by itself once it is ready.",
+      "episode": "Download episode",
+      "onDevice": "On this device",
+      "underWay": "Downloading: see Downloads"
     },
     "mark": {
       "watched": "Mark as watched",
@@ -1425,7 +1430,7 @@
       "saving": "Saving…",
       "unwatchedCount_one": "{{count}} unwatched",
       "unwatchedCount_other": "{{count}} unwatched",
-      "seasonCount": "{{watched}}/{{count}} watched",
+      "seasonCount": "{{watched}} of {{count}} watched",
       "seasonWatched": "Mark season as watched",
       "seasonUnwatched": "Mark season as unwatched",
       "showWatchedTitle": "Mark all of \"{{name}}\" as watched?",
@@ -1435,7 +1440,12 @@
       "facet": "Watched",
       "stateUnwatched": "Unwatched",
       "stateProgress": "In progress",
-      "stateWatched": "Watched"
-    }
+      "stateWatched": "Watched",
+      "allWatched": "Mark all as watched",
+      "allUnwatched": "Mark all as unwatched"
+    },
+    "playEpisodeItem": "Play episode",
+    "leftMinutes": "{{minutes}} min left",
+    "leftHours": "{{hours}} h {{minutes}} min left"
   }
 }

@@ -1,20 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Check, Download, HardDrive, Loader, RotateCcw } from "lucide-react";
+import { Check, Download, HardDrive, Loader, RotateCcw, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { estimateStorage, type StorageEstimate } from "../../offline/downloads";
 import { downloadFraction, useVideoDownloads } from "../../offline/useVideoDownloads";
 import { askVideoCopy, estimateVideoBytes, videoDownloads, warmVideoPlayer, type VideoCopyAnswer, type VideoDownloadRequest } from "../../offline/video";
 import type { StoredVideoDownload } from "../../offline/video-store";
-import { followRoute } from "../../router";
+import { followRoute, navigate } from "../../router";
+import type { ActionMenuItem } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SelectMenu } from "../../shared/SelectMenu";
 import { formatBytes } from "../../shared/utils";
-import { VIDEO_API, type VideoKind, type VideoPlayInfo, type VideoQuality } from "./types";
+import { VIDEO_API, type VideoKind, type VideoMovie, type VideoPlayInfo, type VideoQuality } from "./types";
 
 // Download, on a film's page, a season and an episode: keeps it on this device
 // to watch with no connection (offline/video.ts). The button says where that
@@ -100,55 +101,76 @@ export interface VideoDownloadTarget {
   posterUrl: string | null;
 }
 
-/** `compact`: an icon alone, for an episode's card. `label`: what the button
- *  says instead of Download ("Download season"). */
-export function VideoDownloadButton({ target, compact = false, label }: { target: VideoDownloadTarget; compact?: boolean; label?: string }) {
+/** A film to keep on this device: its one file, or each of its parts. */
+export function movieDownloadTarget(movie: VideoMovie, t: TFunction): VideoDownloadTarget {
+  const parts = movie.parts ?? [];
+  return {
+    name: movie.title,
+    parent: { kind: "movies", id: movie.id },
+    posterUrl: movie.poster ?? null,
+    items: parts.length > 0
+      ? parts.map((part) => ({ id: part.id, title: `${movie.title} · ${part.title ?? t("video.part", { number: part.part })}` }))
+      : [{ id: movie.playId ?? movie.id, title: movie.title, runtimeMinutes: movie.runtimeMinutes }]
+  };
+}
+
+/** Where a download of something stands, and what can be done about it — behind
+ *  the button on a film's page and behind "Download" in a card's or a season's
+ *  menu alike, so both say and do the same. */
+export interface VideoDownloadControl {
+  /** none: not here. failed: tried, and to be tried again. active: on its way. done: all of it is on this device. */
+  state: "none" | "failed" | "active" | "done";
+  /** On its way: what it is doing, in a few words. */
+  text: string;
+  /** On its way: stopped by the person rather than working. */
+  waiting: boolean;
+  fraction: number;
+  /** Opens the dialog for what is not here yet. */
+  open: () => void;
+  /** Asks before taking it off this device. */
+  remove: () => void;
+  /** The one thing a menu offers about it; null when there is nothing to download. */
+  menuItem: (label?: string) => ActionMenuItem | null;
+  /** The dialogs `open` and `remove` raise: render them once. */
+  dialogs: ReactNode;
+}
+
+export function useVideoDownloadControl(target: VideoDownloadTarget): VideoDownloadControl {
   const { t } = useTranslation();
   const downloads = useVideoDownloads();
   const [asking, setAsking] = useState(false);
   const [removing, setRemoving] = useState(false);
-  if (target.items.length === 0) return null;
 
   const records = target.items.map((item) => downloads.get(item.id) ?? null);
   const active = records.filter((record): record is StoredVideoDownload => record !== null && record.state !== "complete" && record.state !== "failed");
   const failed = records.some((record) => record?.state === "failed");
   const missing = target.items.filter((_, index) => !records[index] || records[index]!.state === "failed");
-  const fraction = records.reduce((sum, record) => sum + (record ? downloadFraction(record) : 0), 0) / records.length;
+  const fraction = records.length === 0 ? 0 : records.reduce((sum, record) => sum + (record ? downloadFraction(record) : 0), 0) / records.length;
+  const waiting = active.length > 0 && active.every((record) => record.state === "paused");
+  // One thing: say what it is doing. Several: how far the lot has come.
+  const fetching = active.some((record) => record.state === "downloading");
+  const text = active.length === 0 ? ""
+    : waiting ? t("video.download.paused")
+    : active.length === 1 || !fetching ? downloadStateText(active.find((record) => record.state !== "queued") ?? active[0], t)
+    : t("video.download.downloading", { percent: Math.round(fraction * 100) });
+  const state = target.items.length === 0 ? "none" : active.length > 0 ? "active" : missing.length === 0 ? "done" : failed ? "failed" : "none";
 
-  if (active.length > 0) {
-    const waiting = active.every((record) => record.state === "paused");
-    // One thing: say what it is doing. Several: how far the lot has come.
-    const fetching = active.some((record) => record.state === "downloading");
-    const text = waiting ? t("video.download.paused")
-      : active.length === 1 || !fetching ? downloadStateText(active.find((record) => record.state !== "queued") ?? active[0], t)
-      : t("video.download.downloading", { percent: Math.round(fraction * 100) });
-    return (
-      <a
-        className={compact ? "video-download-status is-compact" : "text-button video-download-status"}
-        href={DOWNLOADS_HREF}
-        onClick={(event) => followRoute(event, DOWNLOADS_HREF)}
-        aria-label={compact ? `${target.name}: ${text}` : undefined}
-        title={compact ? text : undefined}
-      >
-        <Loader size={15} aria-hidden="true" className={waiting ? undefined : "video-download-spin"} />
-        <span>{compact ? `${Math.round(fraction * 100)}%` : text}</span>
-      </a>
-    );
-  }
-
-  if (missing.length === 0) {
-    return (
+  return {
+    state,
+    text,
+    waiting,
+    fraction,
+    open: () => setAsking(true),
+    remove: () => setRemoving(true),
+    menuItem: (label) => {
+      if (target.items.length === 0) return null;
+      if (state === "active") return { key: "download", label: text, icon: <Loader size={15} />, onSelect: () => navigate(DOWNLOADS_HREF) };
+      if (state === "done") return { key: "download", label: t("video.download.removeConfirm"), icon: <Trash2 size={15} />, onSelect: () => setRemoving(true) };
+      return { key: "download", label: state === "failed" ? t("video.download.retry") : label ?? t("video.download.open"), icon: state === "failed" ? <RotateCcw size={15} /> : <Download size={15} />, onSelect: () => setAsking(true) };
+    },
+    dialogs: (
       <>
-        <Button
-          variant={compact ? "icon" : "text"}
-          className="video-download-done"
-          onClick={() => setRemoving(true)}
-          aria-label={compact ? t("video.download.doneAria", { name: target.name }) : undefined}
-          title={compact ? t("video.download.done") : undefined}
-        >
-          <Check size={compact ? 16 : 15} aria-hidden="true" />
-          {!compact && <span>{t("video.download.done")}</span>}
-        </Button>
+        {asking && <DownloadVideoModal target={{ ...target, items: missing }} onClose={() => setAsking(false)} />}
         {removing && (
           <ConfirmDialog
             title={t("video.download.removeTitle", { name: target.name })}
@@ -164,29 +186,72 @@ export function VideoDownloadButton({ target, compact = false, label }: { target
           </ConfirmDialog>
         )}
       </>
+    )
+  };
+}
+
+/** `compact`: an icon alone. `label`: what the button says instead of Download. */
+export function VideoDownloadButton({ target, compact = false, label }: { target: VideoDownloadTarget; compact?: boolean; label?: string }) {
+  const { t } = useTranslation();
+  const control = useVideoDownloadControl(target);
+  if (target.items.length === 0) return null;
+  const { fraction, waiting, text: status } = control;
+
+  if (control.state === "active") {
+    const text = status;
+    return (
+      <a
+        className={compact ? "video-download-status is-compact" : "text-button video-download-status"}
+        href={DOWNLOADS_HREF}
+        onClick={(event) => followRoute(event, DOWNLOADS_HREF)}
+        aria-label={compact ? `${target.name}: ${text}` : undefined}
+        title={compact ? text : undefined}
+      >
+        <Loader size={15} aria-hidden="true" className={waiting ? undefined : "video-download-spin"} />
+        <span>{compact ? `${Math.round(fraction * 100)}%` : text}</span>
+      </a>
     );
   }
 
+  if (control.state === "done") {
+    return (
+      <>
+        <Button
+          variant={compact ? "icon" : "text"}
+          className="video-download-done"
+          onClick={control.remove}
+          aria-label={compact ? t("video.download.doneAria", { name: target.name }) : undefined}
+          title={compact ? t("video.download.done") : undefined}
+        >
+          <Check size={compact ? 16 : 15} aria-hidden="true" />
+          {!compact && <span>{t("video.download.done")}</span>}
+        </Button>
+        {control.dialogs}
+      </>
+    );
+  }
+
+  const failed = control.state === "failed";
   const text = failed ? t("video.download.retry") : label ?? t("video.download.open");
   return (
     <>
       <Button
         variant={compact ? "icon" : "text"}
         className="video-download-open"
-        onClick={() => setAsking(true)}
+        onClick={control.open}
         aria-label={compact ? t("video.download.openAria", { name: target.name }) : undefined}
         title={compact ? text : undefined}
       >
         {failed ? <RotateCcw size={compact ? 16 : 15} aria-hidden="true" /> : <Download size={compact ? 16 : 15} aria-hidden="true" />}
         {!compact && <span>{text}</span>}
       </Button>
-      {asking && <DownloadVideoModal target={{ ...target, items: missing }} onClose={() => setAsking(false)} />}
+      {control.dialogs}
     </>
   );
 }
 
 /** Full copy or optimized, at which quality, what it takes — and Download. */
-function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; onClose: () => void }) {
+export function DownloadVideoModal({ target, onClose }: { target: VideoDownloadTarget; onClose: () => void }) {
   const { t } = useTranslation();
   const [info, setInfo] = useState<VideoPlayInfo | null>(null);
   const [storage, setStorage] = useState<StorageEstimate | null>(null);

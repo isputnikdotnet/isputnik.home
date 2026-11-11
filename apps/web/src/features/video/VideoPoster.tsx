@@ -20,7 +20,8 @@ export interface PosterItem {
   /** A few words over the foot of the picture: "8 unwatched". */
   badge?: string | null;
   /** What can be done about it from the card (Play, Mark as watched…): a ⋮ menu
-   *  in the picture's corner. */
+   *  beside its name, always there — never over the picture, and the same with a
+   *  finger as with a mouse. */
   menu?: ActionMenuItem[];
 }
 
@@ -39,8 +40,9 @@ export function PosterCard({ item, shape = "poster" }: { item: PosterItem; shape
   const { t } = useTranslation();
   const placeholder = shape === "wide" ? DEFAULT_WIDE_COVERS[item.kind] : DEFAULT_COVERS[item.kind];
   const partway = item.fraction !== undefined && item.fraction > 0 && item.fraction < 1;
+  const hasMenu = Boolean(item.menu && item.menu.length > 0);
   return (
-    <div className="video-card-frame">
+    <div className={`video-card-frame${hasMenu ? " has-menu" : ""}`}>
       <a className={`video-card is-${shape}`} href={item.href} onClick={(event) => followRoute(event, item.href)}>
         <span className={`video-card-cover${item.poster ? " has-poster" : " is-placeholder"}`}>
           <img src={item.poster ?? placeholder} alt="" loading="lazy" />
@@ -55,21 +57,22 @@ export function PosterCard({ item, shape = "poster" }: { item: PosterItem; shape
               <Check size={14} strokeWidth={3} aria-hidden="true" />
             </span>
           )}
-          {item.badge && <span className={`video-card-badge${partway ? " has-bar" : ""}`}>{item.badge}</span>}
+          {item.badge && !item.watched && <span className="video-card-badge">{item.badge}</span>}
           {partway && (
             <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(item.fraction! * 100)}%` }} /></span>
           )}
         </span>
-        {/* A blank card already says its name; one with a picture says it underneath. */}
-        {item.poster && (
+        {/* A blank card already says its name; one with a picture says it underneath —
+            and so does any card with a menu, which sits beside the name. */}
+        {(item.poster || hasMenu) && (
           <span className="video-card-body">
             <strong>{item.title}</strong>
             {item.sub && <span>{item.sub}</span>}
           </span>
         )}
       </a>
-      {item.menu && item.menu.length > 0 && (
-        <ActionMenu trigger="icon" className="video-card-menu" label={t("video.mark.menu", { name: item.title })} items={item.menu} />
+      {hasMenu && (
+        <ActionMenu trigger="icon" className="video-card-menu" label={t("video.mark.menu", { name: item.title })} items={item.menu!} />
       )}
     </div>
   );

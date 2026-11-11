@@ -67,13 +67,16 @@ describe("marking a film", () => {
     }) as never);
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Mark as watched" }));
+    // Under More, with everything about the film that is not Play, My list or Download.
+    await userEvent.click(await screen.findByRole("button", { name: "More for The General" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Mark as watched" }));
     await waitFor(() => expect(marks()).toEqual([{ id: "m1", position: 4020, duration: 4020, watched: true }]));
 
     // Read again from the engine: watched now, so the way back is offered.
-    await userEvent.click(await screen.findByRole("button", { name: "Mark as unwatched" }));
+    await waitFor(() => expect(mockApi.mock.calls.filter(([path]) => path === "/video/api/movies/m1").length).toBeGreaterThan(1));
+    await userEvent.click(screen.getByRole("button", { name: "More for The General" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Mark as unwatched" }));
     await waitFor(() => expect(marks()[1]).toEqual({ id: "m1", position: 0, duration: 4020, watched: false }));
-    expect(await screen.findByRole("button", { name: "Mark as watched" })).toBeInTheDocument();
   });
 
   it("marks every part of a film in several files, the first last when it is to be watched again", async () => {
@@ -86,7 +89,8 @@ describe("marking a film", () => {
     }) as never);
     renderSignedIn(<VideoTitlePage kind="movies" id="m1" />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Mark as unwatched" }));
+    await userEvent.click(await screen.findByRole("button", { name: "More for The General" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Mark as unwatched" }));
     // The part marked last is where the engine starts the film: part 1.
     await waitFor(() => expect(marks().map((mark) => mark.id)).toEqual(["p2", "m1"]));
     expect(marks().every((mark) => mark.watched === false && mark.position === 0)).toBe(true);
@@ -153,6 +157,7 @@ describe("posters in browse", () => {
     if (url.startsWith("/video/api/sets")) return { items: [], total: 0, page: 1, pageSize: 200 };
     if (url === "/api/video/home") return { rows: [], custom: false, mine: false, editable: false };
     if (url === "/api/profiles") return { profiles: [], current: null, editable: false };
+    if (url === "/api/video/my-list") return { items: [{ kind: "movies", id: "m1", title: "Finished Film", year: 2001, poster: "/p1" }] };
     if (url === "/video/api/continue") return { items: [] };
     return {};
   }) as never;
@@ -177,14 +182,14 @@ describe("posters in browse", () => {
     mockApi.mockImplementation(answer(true));
     renderSignedIn(<VideoHomePage />);
     await userEvent.click(await screen.findByRole("button", { name: "More for Halfway Film" }));
-    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Play", "Mark as watched", "Reset progress"]);
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Play", "Mark as watched", "Reset progress", "Add to My list", "Download"]);
     await userEvent.click(screen.getByRole("menuitem", { name: "Mark as watched" }));
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/video/api/watched/movies/m2", expect.objectContaining({ method: "PUT", body: JSON.stringify({ watched: true }) })));
     // The grid reads its titles again.
     await waitFor(() => expect(sent("/video/api/titles?pageSize=200").length).toBeGreaterThan(1));
 
     await userEvent.click(screen.getByRole("button", { name: "More for Finished Film" }));
-    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Play", "Mark as unwatched"]);
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Play", "Mark as unwatched", "Remove from My list", "Download"]);
   });
 
   it("ask before marking a whole show", async () => {
@@ -226,7 +231,7 @@ describe("marking a season", () => {
       return {};
     }) as never);
     renderSignedIn(<VideoTitlePage kind="shows" id="s1" />);
-    expect(await screen.findByText("1/2 watched")).toBeInTheDocument();
+    expect(await screen.findByText("1 of 2 watched")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "More for Season 1" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Mark season as watched" }));
@@ -239,8 +244,12 @@ describe("marking a season", () => {
   it("offers nothing for a whole show on an engine that can't mark one", async () => {
     mockApi.mockImplementation((async (path: string) => (path === "/video/api/shows/s1" ? show(null, null) : {})) as never);
     renderSignedIn(<VideoTitlePage kind="shows" id="s1" />);
-    expect(await screen.findByText("0/2 watched")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "More for Season 1" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Mark as watched" })).not.toBeInTheDocument();
+    expect(await screen.findByText("0 of 2 watched")).toBeInTheDocument();
+    // The season's menu has its download and nothing about marking.
+    await userEvent.click(screen.getByRole("button", { name: "More for Season 1" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Download season"]);
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "More for Counterpart" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Add to collection"]);
   });
 });

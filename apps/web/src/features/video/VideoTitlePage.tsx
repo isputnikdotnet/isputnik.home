@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowLeft, Check, CheckCheck, FolderPlus, Layers, Pencil, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, FolderPlus, HardDrive, Layers, Pencil, Play, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { useSession } from "../../app/SessionContext";
-import { followBack, followRoute } from "../../router";
+import { followBack, followRoute, navigate } from "../../router";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -15,7 +15,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatDate } from "../../shared/dates";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditTitleModal } from "./EditTitleModal";
-import { VideoDownloadButton, type VideoDownloadTarget } from "./VideoDownloads";
+import { VideoDownloadButton, movieDownloadTarget, useVideoDownloadControl, type VideoDownloadTarget } from "./VideoDownloads";
 import { MyListButton } from "./VideoMyList";
 import { CastRow, CrewLine } from "./VideoPeople";
 import { VideoSectionNav } from "./VideoSectionNav";
@@ -127,19 +127,14 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                 <div className="video-title-actions">
                   <PlayAction title={title} />
                   <MyListButton kind={kind} id={title.id} />
-                  {!show && <VideoDownloadButton target={movieDownload(title as VideoMovie, t)} />}
-                  {!show && <MovieWatched movie={title as VideoMovie} mark={mark} />}
-                  {show?.marksAll && <ShowWatched show={show} markAll={markAll} />}
-                  <Button variant="text" onClick={() => setCollecting(true)}>
-                    <FolderPlus size={15} aria-hidden="true" />
-                    <span>{t("video.addToCollection")}</span>
-                  </Button>
-                  {user.role === "admin" && (
-                    <Button variant="text" className="video-fix-match" onClick={() => setEditing(true)}>
-                      <Pencil size={15} aria-hidden="true" />
-                      <span>{t("video.edit.open")}</span>
-                    </Button>
-                  )}
+                  {!show && <VideoDownloadButton target={movieDownloadTarget(title as VideoMovie, t)} />}
+                  <TitleMore
+                    title={title}
+                    mark={mark}
+                    markAll={markAll}
+                    onCollect={() => setCollecting(true)}
+                    onEdit={user.role === "admin" ? () => setEditing(true) : null}
+                  />
                 </div>
               </div>
             </header>
@@ -160,19 +155,6 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
       </section>
     </DashboardShell>
   );
-}
-
-/** A film to keep on this device: its one file, or each of its parts. */
-function movieDownload(movie: VideoMovie, t: TFunction): VideoDownloadTarget {
-  const parts = movie.parts ?? [];
-  return {
-    name: movie.title,
-    parent: { kind: "movies", id: movie.id },
-    posterUrl: movie.poster ?? null,
-    items: parts.length > 0
-      ? parts.map((part) => ({ id: part.id, title: `${movie.title} · ${part.title ?? t("video.part", { number: part.part })}` }))
-      : [{ id: movie.playId ?? movie.id, title: movie.title, runtimeMinutes: movie.runtimeMinutes }]
-  };
 }
 
 /** Episodes to keep on this device, under what the dialog calls them together. */
@@ -237,28 +219,49 @@ function useMarkAll(markAll: MarkAll): { ask: (name: string, watched: boolean, s
   };
 }
 
-/** A show, on its page: every episode watched in one go — seen elsewhere — or
- *  the whole of it back to never seen. */
-function ShowWatched({ show, markAll }: { show: VideoShow; markAll: MarkAll }) {
+/** Everything about a title that is not Play, My list or Download, under one
+ *  More button, so the row of actions stays one row: marking it watched or not
+ *  (a whole show is asked about first), Add to collection, and an admin's Edit. */
+function TitleMore({ title, mark, markAll, onCollect, onEdit }: {
+  title: VideoShow | VideoMovie;
+  mark: MarkWatched;
+  markAll: MarkAll;
+  onCollect: () => void;
+  onEdit: (() => void) | null;
+}) {
   const { t } = useTranslation();
   const confirm = useMarkAll(markAll);
-  const episodes = show.seasons.flatMap((season) => season.episodes);
-  if (episodes.length === 0) return null;
-  const all = seenIn(episodes) === episodes.length;
+  const items: ActionMenuItem[] = [];
+  if ("seasons" in title) {
+    const episodes = title.seasons.flatMap((season) => season.episodes);
+    if (title.marksAll && episodes.length > 0) {
+      if (seenIn(episodes) < episodes.length) {
+        items.push({ key: "watched", label: t("video.mark.allWatched"), icon: <CheckCheck size={15} />, onSelect: () => confirm.ask(title.title, true) });
+      }
+      if (startedIn(episodes)) {
+        items.push({ key: "unwatched", label: t("video.mark.allUnwatched"), icon: <RotateCcw size={15} />, onSelect: () => confirm.ask(title.title, false) });
+      }
+    }
+  } else {
+    const parts = title.parts ?? [];
+    const targets: WatchTarget[] = parts.length > 0
+      ? parts.map((part) => ({ id: part.id, progress: part.progress }))
+      : [{ id: title.playId ?? title.id, progress: title.progress, runtimeMinutes: title.runtimeMinutes }];
+    // The part marked last is where the engine takes this person to be: the last
+    // one for a film now watched, the first for one to be watched again.
+    const run = (watched: boolean) => void mark(watched ? targets : [...targets].reverse(), watched);
+    const watched = title.progress?.watched === true;
+    const started = parts.length > 0 ? parts.some((part) => inProgress(part.progress) || part.progress?.watched) : inProgress(title.progress);
+    items.push(watched
+      ? { key: "unwatched", label: t("video.mark.unwatched"), icon: <RotateCcw size={15} />, onSelect: () => run(false) }
+      : { key: "watched", label: t("video.mark.watched"), icon: <CheckCheck size={15} />, onSelect: () => run(true) });
+    if (!watched && started) items.push({ key: "reset", label: t("video.mark.reset"), icon: <RotateCcw size={15} />, onSelect: () => run(false) });
+  }
+  items.push({ key: "collect", label: t("video.addToCollection"), icon: <FolderPlus size={15} />, onSelect: onCollect });
+  if (onEdit) items.push({ key: "edit", label: t("video.edit.open"), icon: <Pencil size={15} />, onSelect: onEdit });
   return (
     <>
-      {!all && (
-        <Button variant="text" className="video-mark-watched" onClick={() => confirm.ask(show.title, true)}>
-          <CheckCheck size={15} aria-hidden="true" />
-          <span>{t("video.mark.watched")}</span>
-        </Button>
-      )}
-      {startedIn(episodes) && (
-        <Button variant="text" className="video-mark-watched" onClick={() => confirm.ask(show.title, false)}>
-          <RotateCcw size={15} aria-hidden="true" />
-          <span>{t("video.mark.unwatched")}</span>
-        </Button>
-      )}
+      <ActionMenu trigger="icon" className="video-title-more" label={t("video.mark.menu", { name: title.title })} items={items} />
       {confirm.dialog}
     </>
   );
@@ -278,44 +281,12 @@ function watchedItems(target: WatchTarget, mark: MarkWatched, t: TFunction): Act
   ];
 }
 
-/** A film, on its page: Mark as watched, or back to unwatched; every part of a
- *  film in several files goes with it. */
-function MovieWatched({ movie, mark }: { movie: VideoMovie; mark: MarkWatched }) {
-  const { t } = useTranslation();
-  const [busy, setBusy] = useState(false);
-  const parts = movie.parts ?? [];
-  const targets: WatchTarget[] = parts.length > 0
-    ? parts.map((part) => ({ id: part.id, progress: part.progress }))
-    : [{ id: movie.playId ?? movie.id, progress: movie.progress, runtimeMinutes: movie.runtimeMinutes }];
-  const run = async (watched: boolean) => {
-    setBusy(true);
-    // The part marked last is where the engine takes this person to be: the last
-    // one for a film now watched, the first for one to be watched again.
-    await mark(watched ? targets : [...targets].reverse(), watched);
-    setBusy(false);
-  };
-  const watched = movie.progress?.watched === true;
-  const started = parts.length > 0 ? parts.some((part) => inProgress(part.progress) || part.progress?.watched) : inProgress(movie.progress);
-  return (
-    <>
-      <Button variant="text" className="video-mark-watched" disabled={busy} onClick={() => void run(!watched)}>
-        {watched ? <RotateCcw size={15} aria-hidden="true" /> : <CheckCheck size={15} aria-hidden="true" />}
-        <span>{watched ? t("video.mark.unwatched") : t("video.mark.watched")}</span>
-      </Button>
-      {!watched && started && (
-        <Button variant="text" className="video-mark-watched" disabled={busy} onClick={() => void run(false)}>
-          <RotateCcw size={15} aria-hidden="true" />
-          <span>{t("video.mark.reset")}</span>
-        </Button>
-      )}
-    </>
-  );
-}
-
 const seasonName = (number: number, t: (key: "video.specials" | "video.season", options?: { number: number }) => string) =>
   (number === 0 ? t("video.specials") : t("video.season", { number }));
 
-/** One season at a time, opening on the one this person is up to, as on the TV. */
+/** One season at a time, opening on the one this person is up to, as on the TV.
+ *  One row over its episodes: the seasons to pick from on the left; on the right
+ *  how much of this one is seen, and a menu for the season as a whole. */
 function Seasons({ show, mark, markAll }: { show: VideoShow; mark: MarkWatched; markAll: MarkAll }) {
   const { t } = useTranslation();
   const confirm = useMarkAll(markAll);
@@ -325,47 +296,44 @@ function Seasons({ show, mark, markAll }: { show: VideoShow; mark: MarkWatched; 
   const several = show.seasons.length > 1;
   const seen = seenIn(current.episodes);
   const seasonTitle = `${show.title} · ${seasonName(current.number, t)}`;
+  const download = useVideoDownloadControl(episodesDownload(show, current.number, current.episodes, seasonTitle, t));
+  const downloadItem = download.menuItem(t("video.download.openSeason"));
+  const items: ActionMenuItem[] = [
+    ...(show.marksAll && seen < current.episodes.length
+      ? [{ key: "watched", label: t("video.mark.seasonWatched"), icon: <CheckCheck size={15} />, onSelect: () => confirm.ask(seasonTitle, true, current.number) }]
+      : []),
+    ...(show.marksAll && startedIn(current.episodes)
+      ? [{ key: "unwatched", label: t("video.mark.seasonUnwatched"), icon: <RotateCcw size={15} />, onSelect: () => confirm.ask(seasonTitle, false, current.number) }]
+      : []),
+    ...(downloadItem ? [downloadItem] : [])
+  ];
   return (
     <section className="video-season" aria-labelledby={`season-${current.number}`}>
-      {several && (
-        <div className="video-season-tabs" role="tablist" aria-label={t("video.seasonsAria")}>
-          {show.seasons.map((season) => (
-            <Button variant="tab" key={season.number} selected={season.number === current.number} onClick={() => setChosen(season.number)}>
-              {seasonName(season.number, t)}
-            </Button>
-          ))}
-        </div>
-      )}
-      <h2 id={`season-${current.number}`} className={several ? "sr-only" : undefined}>{seasonName(current.number, t)}</h2>
-      <div className="video-season-actions">
-        {/* How much of the season this person has seen: a count, and a bar of it. */}
-        <div className="video-season-seen">
-          <span>
-            {t("video.mark.seasonCount", { watched: seen, count: current.episodes.length })}
-            {seen === current.episodes.length && <Check size={15} className="video-watched-mark" aria-hidden="true" />}
-          </span>
-          <span className="video-progress" aria-hidden="true"><span style={{ width: `${Math.round((seen / current.episodes.length) * 100)}%` }} /></span>
-        </div>
-        <VideoDownloadButton
-          target={episodesDownload(show, current.number, current.episodes, seasonTitle, t)}
-          label={t("video.download.openSeason")}
-        />
-        {show.marksAll && (
-          <ActionMenu
-            trigger="icon"
-            label={t("video.mark.menu", { name: seasonName(current.number, t) })}
-            items={[
-              ...(seen < current.episodes.length
-                ? [{ key: "watched", label: t("video.mark.seasonWatched"), icon: <CheckCheck size={15} />, onSelect: () => confirm.ask(seasonTitle, true, current.number) }]
-                : []),
-              ...(startedIn(current.episodes)
-                ? [{ key: "unwatched", label: t("video.mark.seasonUnwatched"), icon: <RotateCcw size={15} />, onSelect: () => confirm.ask(seasonTitle, false, current.number) }]
-                : [])
-            ]}
-          />
+      <div className="video-season-bar">
+        {several && (
+          <div className="video-season-tabs" role="tablist" aria-label={t("video.seasonsAria")}>
+            {show.seasons.map((season) => (
+              <Button variant="tab" key={season.number} selected={season.number === current.number} onClick={() => setChosen(season.number)}>
+                {seasonName(season.number, t)}
+              </Button>
+            ))}
+          </div>
         )}
-        {confirm.dialog}
+        <h2 id={`season-${current.number}`} className={several ? "sr-only" : undefined}>{seasonName(current.number, t)}</h2>
+        {current.episodes.length > 0 && (
+          <div className="video-season-seen">
+            {/* How much of the season this person has seen: a count, and a bar of it. */}
+            <span className="video-season-count">
+              {t("video.mark.seasonCount", { watched: seen, count: current.episodes.length })}
+              {seen === current.episodes.length && <Check size={15} className="video-watched-mark" aria-hidden="true" />}
+            </span>
+            <span className="video-progress" aria-hidden="true"><span style={{ width: `${Math.round((seen / current.episodes.length) * 100)}%` }} /></span>
+            {items.length > 0 && <ActionMenu trigger="icon" label={t("video.mark.menu", { name: seasonName(current.number, t) })} items={items} />}
+          </div>
+        )}
       </div>
+      {confirm.dialog}
+      {download.dialogs}
       <ol className="video-episodes">
         {current.episodes.map((episode) => <EpisodeCard key={episode.id} show={show} season={current.number} episode={episode} mark={mark} />)}
       </ol>
@@ -373,40 +341,93 @@ function Seasons({ show, mark, markAll }: { show: VideoShow; mark: MarkWatched; 
   );
 }
 
-function EpisodeCard({ show, season, episode, mark }: { show: VideoShow; season: number; episode: VideoEpisode; mark: MarkWatched }) {
+/** An episode, or one part of a film, as a card: its picture — a check in the
+ *  corner once it is watched, a bar while it is part-way — then its name with a
+ *  menu beside it, a line about it, and what it is about. */
+function MediaCard({ name, href, still, number, progress, meta, saved, status, plot, items, children }: {
+  name: string;
+  href: string;
+  still?: string | null;
+  number: number;
+  progress: VideoProgress | null;
+  /** "S02E04 · 52 min". */
+  meta: string;
+  /** Kept on this device. */
+  saved?: boolean;
+  /** On its way to this device: what it is doing. */
+  status?: string;
+  plot?: string | null;
+  items: ActionMenuItem[];
+  children?: ReactNode;
+}) {
   const { t } = useTranslation();
-  const name = episode.title ?? t("video.episode", { number: episode.episode });
-  const fraction = progressFraction(episode.progress);
-  const href = watchHref(episode.id);
+  const fraction = progressFraction(progress);
+  const watched = progress?.watched === true;
   return (
-    <li className={`video-episode${episode.progress?.watched ? " is-watched" : ""}`}>
+    <li className={`video-episode${watched ? " is-watched" : ""}`}>
       <a className="video-episode-play" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("video.playEpisode", { name })}>
-        {episode.still ? <img src={episode.still} alt="" loading="lazy" /> : <span className="video-episode-number">{episode.episode}</span>}
+        {still ? <img src={still} alt="" loading="lazy" /> : <span className="video-episode-number">{number}</span>}
         <Play className="video-episode-icon" size={30} fill="currentColor" aria-hidden="true" />
+        {watched && (
+          <span className="video-card-watched" role="img" aria-label={t("video.watched")}>
+            <Check size={14} strokeWidth={3} aria-hidden="true" />
+          </span>
+        )}
         {fraction > 0 && fraction < 1 && (
           <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(fraction * 100)}%` }} /></span>
         )}
       </a>
       <div className="video-episode-copy">
-        <strong>
-          {name}
-          {episode.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
-        </strong>
+        <div className="video-episode-head">
+          <strong>{name}</strong>
+          <ActionMenu trigger="icon" label={t("video.mark.menu", { name })} items={items} />
+        </div>
         <small className="muted video-episode-meta">
-          <span>
-            {[
-              t("video.episodeCode", episodeCodeValues(season, episode.episode)),
-              episode.aired ? t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) }) : null
-            ].filter(Boolean).join(" · ")}
-          </span>
-          <span className="video-episode-tools">
-            <VideoDownloadButton compact target={episodesDownload(show, season, [episode], name, t)} />
-            <ActionMenu trigger="icon" label={t("video.mark.menu", { name })} items={watchedItems(episode, mark, t)} />
-          </span>
+          {meta && <span>{meta}</span>}
+          {saved && (
+            <span className="video-episode-saved">
+              <HardDrive size={13} aria-hidden="true" />
+              {t("video.download.onDevice")}
+            </span>
+          )}
+          {status && <span>{status}</span>}
         </small>
-        {episode.plot && <p>{episode.plot}</p>}
+        {plot && <p>{plot}</p>}
       </div>
+      {children}
     </li>
+  );
+}
+
+function EpisodeCard({ show, season, episode, mark }: { show: VideoShow; season: number; episode: VideoEpisode; mark: MarkWatched }) {
+  const { t } = useTranslation();
+  const name = episode.title ?? t("video.episode", { number: episode.episode });
+  const href = watchHref(episode.id);
+  const download = useVideoDownloadControl(episodesDownload(show, season, [episode], name, t));
+  const downloadItem = download.menuItem(t("video.download.episode"));
+  return (
+    <MediaCard
+      name={name}
+      href={href}
+      still={episode.still}
+      number={episode.episode}
+      progress={episode.progress}
+      meta={[
+        t("video.episodeCode", episodeCodeValues(season, episode.episode)),
+        episode.runtimeMinutes ? t("video.minutes", { count: episode.runtimeMinutes }) : null,
+        episode.aired ? t("video.aired", { date: formatDate(episode.aired, "medium", { utc: true }) }) : null
+      ].filter(Boolean).join(" · ")}
+      saved={download.state === "done"}
+      status={download.state === "active" ? download.text : undefined}
+      plot={episode.plot}
+      items={[
+        { key: "play", label: t("video.playEpisodeItem"), icon: <Play size={15} />, onSelect: () => navigate(href) },
+        ...watchedItems(episode, mark, t),
+        ...(downloadItem ? [downloadItem] : [])
+      ]}
+    >
+      {download.dialogs}
+    </MediaCard>
   );
 }
 
@@ -458,36 +479,24 @@ function PartList({ parts, mark }: { parts: NonNullable<VideoMovie["parts"]>; ma
       <ol className="video-episodes">
         {parts.map((part) => {
           const name = part.title ?? t("video.part", { number: part.part });
-          const fraction = progressFraction(part.progress);
           const href = watchHref(part.id);
           return (
-            <li key={part.id} className={`video-episode${part.progress?.watched ? " is-watched" : ""}`}>
-              <a className="video-episode-play" href={href} onClick={(event) => followRoute(event, href)} aria-label={t("video.playEpisode", { name })}>
-                {part.still ? <img src={part.still} alt="" loading="lazy" /> : <span className="video-episode-number">{part.part}</span>}
-                <Play className="video-episode-icon" size={30} fill="currentColor" aria-hidden="true" />
-                {fraction > 0 && fraction < 1 && (
-                  <span className="video-card-progress" aria-hidden="true"><span style={{ width: `${Math.round(fraction * 100)}%` }} /></span>
-                )}
-              </a>
-              <div className="video-episode-copy">
-                <strong>
-                  {name}
-                  {part.progress?.watched && <Check size={15} className="video-watched-mark" aria-label={t("video.watched")} />}
-                </strong>
-                <small className="muted video-episode-meta">
-                  <span>
-                    {part.title
-                      ? [
-                          t("video.part", { number: part.part }),
-                          part.aired ? t("video.aired", { date: formatDate(part.aired, "medium", { utc: true }) }) : null
-                        ].filter(Boolean).join(" · ")
-                      : null}
-                  </span>
-                  <ActionMenu trigger="icon" label={t("video.mark.menu", { name })} items={watchedItems(part, mark, t)} />
-                </small>
-                {part.plot && <p>{part.plot}</p>}
-              </div>
-            </li>
+            <MediaCard
+              key={part.id}
+              name={name}
+              href={href}
+              still={part.still}
+              number={part.part}
+              progress={part.progress}
+              meta={part.title
+                ? [t("video.part", { number: part.part }), part.aired ? t("video.aired", { date: formatDate(part.aired, "medium", { utc: true }) }) : null].filter(Boolean).join(" · ")
+                : ""}
+              plot={part.plot}
+              items={[
+                { key: "play", label: t("video.play"), icon: <Play size={15} />, onSelect: () => navigate(href) },
+                ...watchedItems(part, mark, t)
+              ]}
+            />
           );
         })}
       </ol>

@@ -431,10 +431,12 @@ Every poster says where you are in it, and says nothing for a title you never
 started:
 
 - **A bar** along the foot of a film or episode you left part-way.
-- **A check** in the corner of one you finished.
-- **"8 unwatched"** on a show you have started, with a bar of how much of it you
-  have seen. A new episode of a show you had finished brings the count back.
-- On a show's page each season says **6/10 watched**.
+- **A check** in the top corner of one you finished.
+- **"8 unwatched"** in the top corner of a show you have started, with a bar of
+  how much of it you have seen. A new episode of a show you had finished brings
+  the count back.
+- On a show's page the season row says **6 of 10 watched**, with a bar.
+- **Continue watching** says how long is left of each: *47 min left*.
 
 **Filter → Watched** narrows the video page to *Unwatched*, *In progress* or
 *Watched*; pick more than one for any of them.
@@ -444,13 +446,15 @@ iSputnik marks a film or episode watched by itself once you reach its credits
 four seasons somewhere else, or you want to watch a series again — set it by
 hand. The menu offers only what applies:
 
-- **On a poster:** point at it (or, on a phone, look in its corner) for the
-  **⋮** menu: *Play*, *Mark as watched* or *Mark as unwatched*, and *Reset
-  progress* on a film left part-way.
-- **A film's page:** **Mark as watched** beside Play. A film in several files is
-  marked as one.
-- **A show's page:** **Mark as watched** for all of it, the **⋮** beside a
-  season's count for that season, and the **⋮** on an episode for one.
+- **On a poster:** the **⋮** beside its name: *Play*, *Mark as watched* or
+  *Mark as unwatched*, *Reset progress* on a film left part-way, *Add to My
+  list*, and *Download* for a film.
+- **A film's page:** the **⋮** after Play, My list and Download. A film in
+  several files is marked as one. *Add to collection* and an admin's *Edit* are
+  in the same menu.
+- **A show's page:** the **⋮** after Play and My list marks all of it; the
+  **⋮** at the end of the season row marks that season (and downloads it); the
+  **⋮** beside an episode's name plays, marks or downloads that one.
 
 A whole show or season is asked about first. Marking watched forgets the places
 you stopped; marking unwatched puts the episodes back to never seen. Play and
@@ -466,8 +470,9 @@ marked on its own page.
 
 **Download**, on a film's page, keeps it on the phone, tablet or computer you
 are holding, to watch on a flight or anywhere the server can't be reached. A
-show has **Download season** above its episodes and a download button on each
-one. The dialog offers two copies:
+show has **Download season** in the **⋮** at the end of its season row, and
+**Download episode** in the **⋮** beside each episode's name; an episode kept
+on the device says *On this device*. The dialog offers two copies:
 
 - **Optimized for this device.** A smaller picture that takes less room: *480p*
   is suggested on a phone (about 0.7 GB for a two-hour film) and *720p* on a
