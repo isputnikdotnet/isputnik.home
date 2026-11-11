@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.83.0 — Video pages, tidied
+
+- **A poster's menu is beside its name.** The ⋮ now sits under the poster, next to the title, on every film and show: always there, never over the picture, and the same with a finger as with a mouse. Before, it appeared over the art only when you pointed at it. The menu also has **Add to My list** and, for a film, **Download**.
+- **Marks in the corner.** The watched check and a show's "8 unwatched" are in the picture's top-right corner; a film left part-way has a gold bar along its foot.
+- **One row of buttons on a film's or show's page.** Play, My list, Download for a film, and a ⋮ with the rest: Mark as watched or unwatched, Reset progress, Add to collection and, for admins, Edit. Before, they ran to two rows.
+- **The season row says where you are.** The season tabs now share one row with "5 of 10 watched", a bar, and the season's ⋮, which marks the whole season and holds **Download season**.
+- **Episodes.** Each episode's ⋮ is beside its name: Play episode, Mark as watched, Download episode. Its line says how long it runs, and *On this device* once it is downloaded.
+- Continue watching says how long is left in minutes: *47 min left*.
+
 ## 4.82.0 — Downloads you don't wait for
 
 - **Two ways to download a film or episode.** **Optimized for this device** is a smaller picture: 480p is suggested on a phone (about 0.7 GB for a two-hour film) and 720p on a tablet or computer (about 1.4 GB), and you can pick another. **Full copy** is the file as it is, and starts at once.

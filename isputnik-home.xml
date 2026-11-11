@@ -27,7 +27,15 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794398400</Date>
   <Changes>
-### 2026.11.11 — 4.82.0 Downloads you don't wait for
+### 2026.11.11 — 4.83.0 Video pages, tidied
+- **A poster's menu is beside its name.** The ⋮ now sits under the poster, next to the title, on every film and show: always there, never over the picture, and the same with a finger as with a mouse. Before, it appeared over the art only when you pointed at it. The menu also has **Add to My list** and, for a film, **Download**.
+- **Marks in the corner.** The watched check and a show's "8 unwatched" are in the picture's top-right corner; a film left part-way has a gold bar along its foot.
+- **One row of buttons on a film's or show's page.** Play, My list, Download for a film, and a ⋮ with the rest: Mark as watched or unwatched, Reset progress, Add to collection and, for admins, Edit. Before, they ran to two rows.
+- **The season row says where you are.** The season tabs now share one row with "5 of 10 watched", a bar, and the season's ⋮, which marks the whole season and holds **Download season**.
+- **Episodes.** Each episode's ⋮ is beside its name: Play episode, Mark as watched, Download episode. Its line says how long it runs, and *On this device* once it is downloaded.
+- Continue watching says how long is left in minutes: *47 min left*.
+
+### 2026.11.10 — 4.82.0 Downloads you don't wait for
 - **Two ways to download a film or episode.** **Optimized for this device** is a smaller picture: 480p is suggested on a phone (about 0.7 GB for a two-hour film) and 720p on a tablet or computer (about 1.4 GB), and you can pick another. **Full copy** is the file as it is, and starts at once.
 - **The server prepares an optimized copy, and you don't have to wait for it.** The dialog says about how long it takes. Close iSputnik and come back later: the copy is waiting in Downloads and comes down by itself as soon as the app is open on that device, at the full speed of the connection. Before, the film was converted while the phone waited, which was slow, loaded the server throughout and needed the app open from start to finish.
 - **Email me when it is ready**, a tick box in the dialog where email is set up and your account has an address. One email per request, so a whole season sends one.
@@ -56,10 +64,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **The keyboard.** Space or K plays and pauses, ← and → jump ten seconds, ↑ and ↓ change the volume, M mutes, F is full screen, S still skips the intro. The letters go by the key's place, so a Russian layout works.
 - **How loud is remembered** in each browser, like the sound language, the subtitles and the quality already were.
 - "Resumed at" now steps aside after a few seconds instead of staying over the picture; Start over is always under More.
-
-### 2026.11.09 — 4.78.2 Know when a device is linked
-- **The admins are emailed whenever a device is linked to any account.** The email names the account, the device (say, the TV app on Android), where it asked from and when, and how to end its session if nobody expected it. Before, only the account owner got a receipt, so a household member talked into approving a stranger’s code was the only one who knew. It is on by default; turn it off under Control panel → Security → Policies → **Linking devices**. Needs email set up in Settings → Email.
-- **Fix: a device link typed in capitals now works.** The address a TV shows (`/link/` and its code) is read off the screen and typed, and a phone that capitalised it as `/LINK/…` sent you to sign in and then to the home page, with the code forgotten. Any case is accepted now.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
