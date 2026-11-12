@@ -164,6 +164,39 @@ describe("Security → App access", () => {
     ));
     await waitFor(() => expect(screen.getByLabelText("Where Play is allowed from")).toHaveValue("home"));
   });
+
+  it("removes a group from the list by choosing Remove as its role", async () => {
+    mockApi.mockImplementation(((path: string, init?: RequestInit) => {
+      if (path === "/api/apps/admin/access/games/grants/group/grp-kids" && init?.method === "DELETE") return Promise.resolve({ ...accessPayload, grants: [] });
+      return answer(path, init);
+    }) as never);
+    render(<AppsAccessSection />);
+    const role = await screen.findByLabelText("Role for Kids");
+    expect(role).toHaveValue("deny");
+    await userEvent.selectOptions(role, "__remove");
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/access/games/grants/group/grp-kids", { method: "DELETE" }));
+    await waitFor(() => expect(screen.queryByLabelText("Role for Kids")).toBeNull());
+  });
+
+  it("adds a member from its own page, as Member, and comes back to the list", async () => {
+    mockApi.mockImplementation(((path: string, init?: RequestInit) => {
+      if (path === "/api/apps/admin/access/games/grants" && init?.method === "POST") {
+        return Promise.resolve({ ...accessPayload, grants: [...accessPayload.grants, { subjectType: "user", subjectId: "mum", role: "member", name: "Mum", email: "mum@example.com", missing: false }] });
+      }
+      return answer(path, init);
+    }) as never);
+    render(<AppsAccessSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Add a person or group" }));
+    // Kids already has a role, so only Mum is offered.
+    expect(await screen.findByRole("button", { name: /Mum/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Kids/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Mum/ }));
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith(
+      "/api/apps/admin/access/games/grants",
+      { method: "POST", body: JSON.stringify({ subjectType: "user", subjectId: "mum", role: "member" }) }
+    ));
+    expect(await screen.findByLabelText("Role for Mum")).toHaveValue("member");
+  });
 });
 
 describe("Settings → Apps", () => {

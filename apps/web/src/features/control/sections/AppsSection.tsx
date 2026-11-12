@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Check, Copy, KeyRound, Link2Off, Plug, ShieldCheck } from "lucide-react";
+import { Check, Copy, KeyRound, Link2Off, Plug, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import { api } from "../../../api";
 import { followRoute, queryParam, replaceQuery } from "../../../router";
-import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
+import { ACCESS_NONE } from "../../../shared/AccessControl";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
-import { ActionRow, FieldRow, GroupedList, InfoRow, InputRow, PickerRow } from "../../../shared/GroupedList";
+import { ActionRow, AddRow, FieldRow, GroupedList, GroupedSearch, InfoRow, InputRow, NavRow, PickerRow, initials } from "../../../shared/GroupedList";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -301,6 +302,9 @@ export function GuestLinks() {
 
 // ── Access ──────────────────────────────────────────────────────────────────
 
+/** Someone who could be given access: a member (with their address) or a group. */
+interface Candidate { id: string; name: string; sub?: string }
+
 type AppRuleValue = "anywhere" | "trusted" | "home";
 
 /** GET /api/apps/admin/access/:id (modules/apps/access.ts). */
@@ -327,19 +331,25 @@ function useCapabilityWords() {
 }
 
 // Who may use each container and from where (docs/apps-platform-plan.md →
-// Access, Network rules). The member box is the one every access list wears
-// (shared/AccessControl); the rules are one select per capability.
+// Access, Network rules), as grouped rows (control panel v2): which application,
+// then who may use it — Everyone, and each person or group with their role (or
+// Remove) — then one rule per capability for where it is allowed from. Adding a
+// person or group opens a page of its own (?show=add) with a search. Every change
+// is saved at once and the page redrawn from what the server answers.
 export function AppsAccessSection() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
+  const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const appName = useAppName();
   const words = useCapabilityWords();
   const { apps, error: appsError } = useAppsStatus();
   const [chosen, setChosen] = useState<string | null>(() => queryParam("app"));
   const current = apps?.find((app) => app.id === chosen) ?? apps?.[0] ?? null;
   const [access, setAccess] = useState<AppAccess | null>(null);
-  const [people, setPeople] = useState<{ users: AccessCandidate[]; groups: AccessCandidate[] } | null>(null);
+  const [people, setPeople] = useState<{ users: Candidate[]; groups: Candidate[] } | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [show, go] = useQueryPage();
+  const adding = show === "add";
 
   useEffect(() => {
     if (!current) return;
@@ -357,7 +367,7 @@ export function AppsAccessSection() {
       api<{ groups: { id: string; name: string }[] }>("/api/groups")
     ])
       .then(([users, groups]) => setPeople({
-        users: users.users.map((user) => ({ id: user.id, name: `${user.displayName} (${user.email})` })),
+        users: users.users.map((user) => ({ id: user.id, name: user.displayName, sub: user.email })),
         groups: groups.groups.map((group) => ({ id: group.id, name: group.name }))
       }))
       .catch(() => setPeople({ users: [], groups: [] }));
@@ -369,27 +379,29 @@ export function AppsAccessSection() {
   };
 
   /** One change, and the page redrawn from what the server answers. */
-  const change = async (path: string, init: RequestInit) => {
-    if (!current) return;
+  const change = async (path: string, init: RequestInit): Promise<boolean> => {
+    if (!current) return false;
     setSaving(true);
     setError("");
     try {
       setAccess(await api<AppAccess>(`/api/apps/admin/access/${encodeURIComponent(current.id)}${path}`, init));
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : t("controlAdmin:apps.access.saveFailed"));
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const role = (value: string): AccessRole =>
+  const roleLabel = (value: string): string =>
     value === ACCESS_NONE
-      ? { value, label: t("controlAdmin:apps.access.roleNone"), tagline: t("controlAdmin:apps.access.roleNoneTagline"), dot: ACCESS_ROLE_DOT.none }
+      ? t("controlAdmin:apps.access.roleNone")
       : value === "manager"
-        ? { value, label: t("controlAdmin:apps.access.roleManager"), tagline: t("controlAdmin:apps.access.roleManagerTagline"), dot: ACCESS_ROLE_DOT.manager }
+        ? t("controlAdmin:apps.access.roleManager")
         : value === "deny"
-          ? { value, label: t("controlAdmin:apps.access.roleDeny"), tagline: t("controlAdmin:apps.access.roleDenyTagline"), dot: ACCESS_ROLE_DOT.deny }
-          : { value, label: t("controlAdmin:apps.access.roleMember"), tagline: t("controlAdmin:apps.access.roleMemberTagline"), dot: ACCESS_ROLE_DOT.member };
+          ? t("controlAdmin:apps.access.roleDeny")
+          : t("controlAdmin:apps.access.roleMember");
 
   const ruleOptions: { value: AppRuleValue; label: string }[] = [
     { value: "anywhere", label: t("controlAdmin:apps.access.ruleAnywhere") },
@@ -397,103 +409,139 @@ export function AppsAccessSection() {
     { value: "home", label: t("controlAdmin:apps.access.ruleHome") }
   ];
 
+  /** "Remove" is the last choice of a grant's role: picking it takes the row away. */
+  const REMOVE = "__remove";
+  const grantRole = (grant: AppAccess["grants"][number], value: string) => {
+    if (value === REMOVE) void change(`/grants/${grant.subjectType}/${encodeURIComponent(grant.subjectId)}`, { method: "DELETE" });
+    else void change("/grants", { method: "POST", body: JSON.stringify({ subjectType: grant.subjectType, subjectId: grant.subjectId, role: value }) });
+  };
+  const add = async (subjectType: "user" | "group", subjectId: string) => {
+    // A new grant starts as Member; its row changes it after.
+    if (await change("/grants", { method: "POST", body: JSON.stringify({ subjectType, subjectId, role: "member" }) })) {
+      setSearch("");
+      go(null);
+    }
+  };
+
+  const held = new Set(access?.grants.map((grant) => `${grant.subjectType}:${grant.subjectId}`) ?? []);
+  const query = search.trim().toLowerCase();
+  const matches = (candidate: Candidate) => !query || [candidate.name, candidate.sub ?? ""].some((text) => text.toLowerCase().includes(query));
+  const freeGroups = (people?.groups ?? []).filter((group) => !held.has(`group:${group.id}`) && matches(group));
+  const freeUsers = (people?.users ?? []).filter((user) => !held.has(`user:${user.id}`) && matches(user));
+
   return (
     <>
       <ControlSectionHead
         section="appsAccess"
         icon={<ShieldCheck size={30} />}
         iconClassName="blue"
-        description={t("controlAdmin:apps.access.description")}
+        description={adding ? undefined : t("controlAdmin:apps.access.description")}
+        title={adding ? t("common:access.grantTitle") : undefined}
+        back={adding ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
       />
       {appsError && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{appsError}</MessageBox>}
       {!apps && !appsError && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
 
-      {apps && current && apps.length > 1 && (
-        <div className="games-events-tools">
-          <SelectField
-            label={t("controlAdmin:apps.appLabel")}
-            value={current.id}
-            options={apps.map((app) => ({ value: app.id, label: appName(app.id) }))}
-            onChange={choose}
-            compact
-          />
+      {apps && current && (
+        <div className="grouped-page">
+          {error && <MessageBox tone="error" title={t("controlAdmin:apps.access.saveFailed")}>{error}</MessageBox>}
+
+          {adding ? (
+            // ── Give a person or a group access ────────────────────────────
+            <>
+              <GroupedSearch value={search} onChange={setSearch} label={t("controlAdmin:apps.access.searchPeople")} />
+              {freeGroups.length > 0 && (
+                <GroupedList title={t("common:access.groupsGroup")}>
+                  {freeGroups.map((group) => (
+                    <NavRow key={group.id} icon={<UsersRound size={17} />} iconShape="round" label={group.name} disabled={saving} onClick={() => void add("group", group.id)} />
+                  ))}
+                </GroupedList>
+              )}
+              {freeUsers.length > 0 && (
+                <GroupedList title={t("common:access.usersGroup")}>
+                  {freeUsers.map((user) => (
+                    <NavRow key={user.id} icon={initials(user.name)} iconShape="round" label={user.name} sub={user.sub} disabled={saving} onClick={() => void add("user", user.id)} />
+                  ))}
+                </GroupedList>
+              )}
+              {people && freeGroups.length === 0 && freeUsers.length === 0 && (
+                <p className="grouped-list-note">{t("controlAdmin:apps.access.nobodyLeft")}</p>
+              )}
+            </>
+          ) : (
+            <>
+              {apps.length > 1 && (
+                <GroupedList>
+                  <PickerRow
+                    label={t("controlAdmin:apps.appLabel")}
+                    value={current.id}
+                    options={apps.map((app) => ({ value: app.id, label: appName(app.id) }))}
+                    onChange={choose}
+                  />
+                </GroupedList>
+              )}
+
+              {access && (
+                <>
+                  <GroupedList
+                    id="app-access-who"
+                    title={t("controlAdmin:apps.access.whoTitle", { app: appName(current.id) })}
+                    note={access.grants.length === 0
+                      ? <>{t("controlAdmin:apps.access.noGrants")} {t("controlAdmin:apps.access.whoIntro")}</>
+                      : t("controlAdmin:apps.access.whoIntro")}
+                  >
+                    <PickerRow
+                      label={t("common:access.everyone")}
+                      sub={t("controlAdmin:apps.access.everyoneHint")}
+                      value={access.everyone ?? ACCESS_NONE}
+                      options={[ACCESS_NONE, "member", "manager"].map((value) => ({ value, label: roleLabel(value) }))}
+                      disabled={saving}
+                      onChange={(value) => void change("/everyone", { method: "PUT", body: JSON.stringify({ role: value }) })}
+                    />
+                    {access.grants.map((grant) => (
+                      <PickerRow
+                        key={`${grant.subjectType}:${grant.subjectId}`}
+                        label={<>{grant.name}{grant.missing && <> {t("common:access.deleted")}</>}</>}
+                        sub={grant.subjectType === "user" ? grant.email ?? t("common:access.userLabel") : t("common:access.groupLabel")}
+                        ariaLabel={t("common:access.roleFor", { name: grant.name })}
+                        value={grant.role}
+                        options={[
+                          ...["member", "manager", "deny"].map((value) => ({ value, label: roleLabel(value) })),
+                          { value: REMOVE, label: t("common:access.remove", { name: grant.name }) }
+                        ]}
+                        disabled={saving}
+                        onChange={(value) => grantRole(grant, value)}
+                      />
+                    ))}
+                    <AddRow icon={<UserPlus size={17} />} label={t("controlAdmin:apps.access.addRow")} onClick={() => { setSearch(""); go("add"); }} />
+                  </GroupedList>
+
+                  <GroupedList
+                    id="app-access-where"
+                    title={t("controlAdmin:apps.access.whereTitle")}
+                    note={<>{t("controlAdmin:apps.access.whereIntro")} {t("controlAdmin:apps.access.ruleHint")}</>}
+                  >
+                    {access.capabilities.map((capability) => {
+                      const said = words(current.id, capability.id);
+                      return (
+                        <PickerRow
+                          key={capability.id}
+                          label={said.name}
+                          sub={said.means || undefined}
+                          ariaLabel={t("controlAdmin:apps.access.ruleFor", { what: said.name })}
+                          value={capability.rule}
+                          options={ruleOptions}
+                          disabled={saving}
+                          onChange={(rule) => void change("/rules", { method: "PUT", body: JSON.stringify({ [capability.id]: rule }) })}
+                        />
+                      );
+                    })}
+                  </GroupedList>
+                </>
+              )}
+            </>
+          )}
         </div>
-      )}
-
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.access.saveFailed")}>{error}</MessageBox>}
-
-      {current && access && (
-        <>
-          <section className="config-block" id="app-access-who">
-            <h2>{t("controlAdmin:apps.access.whoTitle", { app: appName(current.id) })}</h2>
-            <p className="muted">{t("controlAdmin:apps.access.whoIntro")}</p>
-            <AccessControl
-              roles={["member", "manager", "deny"].map(role)}
-              defaultRole="member"
-              members={access.grants.map((grant) => ({
-                subjectType: grant.subjectType,
-                subjectId: grant.subjectId,
-                role: grant.role,
-                name: grant.name,
-                sub: grant.subjectType === "user" ? grant.email ?? undefined : undefined,
-                missing: grant.missing
-              }))}
-              candidates={people ?? undefined}
-              everyone={{
-                role: access.everyone,
-                hint: t("controlAdmin:apps.access.everyoneHint"),
-                options: [ACCESS_NONE, "member", "manager"].map(role),
-                onChange: (value) => void change("/everyone", { method: "PUT", body: JSON.stringify({ role: value }) }),
-                lockedHint: t("controlAdmin:apps.access.everyoneLocked"),
-                publicTag: false
-              }}
-              busy={saving}
-              emptyHint={t("controlAdmin:apps.access.noGrants")}
-              onGrant={(subjectType, subjectId, value) => void change("/grants", { method: "POST", body: JSON.stringify({ subjectType, subjectId, role: value }) })}
-              onRevoke={(subjectType, subjectId) => void change(`/grants/${subjectType}/${encodeURIComponent(subjectId)}`, { method: "DELETE" })}
-            />
-          </section>
-
-          <section className="config-block" id="app-access-where">
-            <h2>{t("controlAdmin:apps.access.whereTitle")}</h2>
-            <p className="muted">{t("controlAdmin:apps.access.whereIntro")}</p>
-            <div className="datagrid-wrap">
-              <table className="datagrid app-rules-table">
-                <thead>
-                  <tr>
-                    <th>{t("controlAdmin:apps.access.colWhat")}</th>
-                    <th>{t("controlAdmin:apps.access.colRule")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {access.capabilities.map((capability) => {
-                    const said = words(current.id, capability.id);
-                    return (
-                      <tr key={capability.id}>
-                        <td>
-                          <strong>{said.name}</strong>
-                          {said.means && <span className="datagrid-muted app-rule-means">{said.means}</span>}
-                        </td>
-                        <td>
-                          <SelectField
-                            label={t("controlAdmin:apps.access.ruleFor", { what: said.name })}
-                            value={capability.rule}
-                            options={ruleOptions}
-                            onChange={(rule) => void change("/rules", { method: "PUT", body: JSON.stringify({ [capability.id]: rule }) })}
-                            disabled={saving}
-                            compact
-                            hideLabel
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="muted">{t("controlAdmin:apps.access.ruleHint")}</p>
-          </section>
-        </>
       )}
     </>
   );

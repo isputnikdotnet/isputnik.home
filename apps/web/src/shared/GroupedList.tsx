@@ -287,7 +287,8 @@ export function PickerRow({
   value,
   options,
   onChange,
-  disabled = false
+  disabled = false,
+  ariaLabel
 }: {
   label: ReactNode;
   sub?: ReactNode;
@@ -295,6 +296,8 @@ export function PickerRow({
   options: { value: string; label: string }[];
   onChange: (next: string) => void;
   disabled?: boolean;
+  /** A fuller spoken name than the row's label ("Where Play is allowed from"). */
+  ariaLabel?: string;
 }) {
   const labelId = useId();
   return (
@@ -304,7 +307,7 @@ export function PickerRow({
         {sub && <small>{sub}</small>}
       </span>
       <span className="grouped-row-entry">
-        <select aria-labelledby={labelId} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        <select aria-labelledby={ariaLabel ? undefined : labelId} aria-label={ariaLabel} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
           {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
         <ChevronsUpDown className="grouped-row-chevron" size={15} aria-hidden="true" />

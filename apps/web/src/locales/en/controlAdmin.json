@@ -342,7 +342,10 @@
       "capVideoWatch": "Watch",
       "capVideoWatchMeans": "Playing a show or a film",
       "capVideoManage": "Manage",
-      "capVideoManageMeans": "Libraries, scans and the folder picker; its events and log"
+      "capVideoManageMeans": "Libraries, scans and the folder picker; its events and log",
+      "searchPeople": "Search members and groups",
+      "nobodyLeft": "Everyone here already has a role.",
+      "addRow": "Add a person or group"
     },
     "setup": {
       "description": "Pair a container with this server, or give it a new secret.",
