@@ -1,22 +1,26 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, HardDrive, Plus } from "lucide-react";
+import { Folder, HardDrive, Plus, Smartphone } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, followRoute } from "../../../router";
+import { controlHref } from "../../../router";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { ActionRow, AddRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
+import { formatBytes } from "../../../shared/utils";
 import type { StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { SystemDataPanel } from "./storage/SystemDataPanel";
 import { AppStoragePanel } from "./storage/AppStoragePanel";
-import { SpaceMeter, useDiskSpace } from "./storage/SpaceMeter";
+import { isLowSpace, useDiskSpace } from "./storage/SpaceMeter";
 
 // The Storage page — docs/system-data-plan.md.
 //
-// Three blocks: the library locations libraries may live in ("Digital Library
+// Library locations are grouped rows (control panel v2), each opening a page of its
+// own; System data and App storage keep their panels for now. Three blocks: the library locations libraries may live in ("Digital Library
 // containers" until 4.73 — "container" also meant the apps beside this server);
 // System data, the folder the app needs to run (thumbnails, backups, metadata); and
 // App storage, one switch for the Photo Inbox, App files, Renders and Map data. The
@@ -25,7 +29,7 @@ import { SpaceMeter, useDiskSpace } from "./storage/SpaceMeter";
 // personal library — and how big — on Device Sync, with phone backup.
 
 export function StorageSection() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
+  const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
   const [rootNameInput, setRootNameInput] = useState("");
   const [rootPathInput, setRootPathInput] = useState("");
@@ -64,22 +68,30 @@ export function StorageSection() {
     }
   };
 
-  const deleteStorageRoot = async (root: StorageRoot) => {
+  const deleteStorageRoot = async (root: StorageRoot): Promise<boolean> => {
     setDeletingRootId(root.id);
     setError("");
     try {
       await api(`/api/storage/roots/${root.id}`, { method: "DELETE" });
       await loadRoots();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : t("controlAdmin:storage.deleteContainerFailed"));
+      return false;
     } finally {
       setDeletingRootId("");
     }
   };
 
+  // A library location opens a page of its own (?show=location:<id>).
+  const [show, go] = useQueryPage();
+  const openRoot = show?.startsWith("location:") ? storageRoots.find((root) => root.id === show.slice(9)) ?? null : null;
+
   return (
     <>
       <ControlSectionHead
+        title={openRoot?.name}
+        back={openRoot ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
         section="storage"
         icon={<HardDrive size={30} />}
         iconClassName="storage"
@@ -101,77 +113,49 @@ export function StorageSection() {
 
       {error && <MessageBox tone="error" title={t("controlAdmin:storage.errorTitle")}>{error}</MessageBox>}
 
-      <section id="storage-containers" className="storage-section">
-        <div className="storage-section-head">
-          <div>
-            <h2>{t("controlAdmin:storage.containersTitle")}</h2>
-            <p>{t("controlAdmin:storage.containersDesc")}</p>
+      {openRoot ? (
+        <LocationPage
+          root={openRoot}
+          removing={deletingRootId === openRoot.id}
+          onRemove={() => { void deleteStorageRoot(openRoot).then((ok) => { if (ok) go(null); }); }}
+        />
+      ) : (
+        <>
+          <div className="grouped-page">
+            <GroupedList
+              id="storage-containers"
+              title={t("controlAdmin:storage.containersTitle")}
+              note={storageRoots.length === 0 ? t("controlAdmin:storage.noContainers") : t("controlAdmin:storage.containersDesc")}
+            >
+              {storageRoots.map((root) => (
+                <LocationRow key={root.id} root={root} onOpen={() => go(`location:${root.id}`)} />
+              ))}
+              <AddRow
+                icon={<Plus size={17} />}
+                label={t("controlAdmin:storage.addContainer")}
+                onClick={() => {
+                  setError("");
+                  setRootNameInput("");
+                  setRootPathInput("");
+                  setCreateStorageRootOpen(true);
+                }}
+              />
+            </GroupedList>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setError("");
-              setRootNameInput("");
-              setRootPathInput("");
-              setCreateStorageRootOpen(true);
-            }}
-            title={t("controlAdmin:storage.addContainerTitle")}
-          >
-            <Plus size={18} />
-            <span>{t("controlAdmin:storage.addContainer")}</span>
-          </Button>
-        </div>
 
-        {storageRoots.length === 0 ? (
-          <p className="management-empty">{t("controlAdmin:storage.noContainers")}</p>
-        ) : (
-          <div className="datagrid-wrap">
-            <table className="datagrid datagrid-phone-stack storage-locations-table">
-              <thead>
-                <tr>
-                  <th>{t("controlAdmin:storage.thName")}</th>
-                  <th className="col-num">{t("controlAdmin:storage.thLibraries")}</th>
-                  <th>{t("controlAdmin:storage.thFreeSpace")}</th>
-                  <th className="col-actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {storageRoots.map((root) => (
-                  <LocationRow
-                    key={root.id}
-                    root={root}
-                    removing={deletingRootId === root.id}
-                    onRemove={() => deleteStorageRoot(root)}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <SystemDataPanel refreshKey={refreshKey} onChanged={() => setRefreshKey((key) => key + 1)} />
+
+          <AppStoragePanel refreshKey={refreshKey} />
+
+          {/* Personal libraries' policy moved to Device Sync with phone backup (4.73):
+              one editable copy, there; this row leads to it. */}
+          <div className="grouped-page">
+            <GroupedList id="personal-libraries" title={t("controlAdmin:storage.personalTitle")} note={t("controlAdmin:storage.personalMoved")}>
+              <NavRow icon={<Smartphone size={17} />} label={t("controlAdmin:storage.openDeviceSync")} href={controlHref("phoneSync")} />
+            </GroupedList>
           </div>
-        )}
-      </section>
-
-      <SystemDataPanel refreshKey={refreshKey} onChanged={() => setRefreshKey((key) => key + 1)} />
-
-      <AppStoragePanel refreshKey={refreshKey} />
-
-      {/* Personal libraries' policy moved to Device Sync with phone backup (4.73):
-          one editable copy, there; this says where to find it. */}
-      <section id="personal-libraries" className="storage-section storage-pointer">
-        <div className="storage-section-head">
-          <div>
-            <h2>{t("controlAdmin:storage.personalTitle")}</h2>
-            <p>{t("controlAdmin:storage.personalMoved")}</p>
-          </div>
-          <a
-            className="secondary-button compact-button"
-            href={controlHref("phoneSync")}
-            onClick={(event) => followRoute(event, controlHref("phoneSync"))}
-          >
-            {t("controlAdmin:storage.openDeviceSync")}
-            <ArrowRight size={15} aria-hidden="true" />
-          </a>
-        </div>
-      </section>
+        </>
+      )}
 
       {createStorageRootOpen && (
         <Modal
@@ -199,39 +183,56 @@ export function StorageSection() {
   );
 }
 
-/** One library location: its name and folder, how many libraries use it, and the
- *  free space on its disk. Removing one leaves its files alone, so it is Remove,
- *  not Delete — and it waits until no library uses it. */
-function LocationRow({ root, removing, onRemove }: { root: StorageRoot; removing: boolean; onRemove: () => void }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
+/** One library location as a row: its name and folder, how many libraries use it,
+ *  and the free space on its disk (warned when low). */
+function LocationRow({ root, onOpen }: { root: StorageRoot; onOpen: () => void }) {
+  const { t } = useTranslation(["common", "controlAdmin", "control"]);
+  const space = useDiskSpace(root.path);
+  const low = isLowSpace(space);
+  return (
+    <NavRow
+      icon={<HardDrive size={17} />}
+      iconTone={low ? "warn" : undefined}
+      label={root.name}
+      sub={root.path}
+      value={space && space.total > 0
+        ? t("controlAdmin:systemData.spaceFree", { free: formatBytes(space.free), total: formatBytes(space.total) })
+        : t("control:appSetup.summaryLibraries", { count: root.libraryCount })}
+      valueTone={low ? "warn" : undefined}
+      onClick={onOpen}
+    />
+  );
+}
+
+/** One library location's page. Removing one leaves its files alone, so it is
+ *  Remove, not Delete — and it waits until no library uses it. */
+function LocationPage({ root, removing, onRemove }: { root: StorageRoot; removing: boolean; onRemove: () => void }) {
+  const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const space = useDiskSpace(root.path);
   return (
-    <tr>
-      <td>
-        <strong>{root.name}</strong>
-        <div className="datagrid-muted storage-path-cell"><code>{root.path}</code></div>
-      </td>
-      <td className="col-num" data-label={t("controlAdmin:storage.thLibraries")}>
-        {root.libraryCount > 0 ? (
-          <span className="count-badge">{root.libraryCount}</span>
-        ) : (
-          <span className="datagrid-muted">—</span>
-        )}
-      </td>
-      <td data-label={t("controlAdmin:storage.thFreeSpace")}>
-        <SpaceMeter space={space} />
-      </td>
-      <td className="col-actions">
-        <Button
-          variant="text"
-          danger
+    <div className="grouped-page">
+      <GroupedList>
+        <InfoRow icon={<Folder size={17} />} label={t("controlAdmin:storage.containerPath")} value={<code>{root.path}</code>} />
+        <InfoRow label={t("controlAdmin:storage.thLibraries")} value={root.libraryCount > 0 ? String(root.libraryCount) : "—"} />
+        <InfoRow
+          label={t("controlAdmin:storage.thFreeSpace")}
+          value={space && space.total > 0
+            ? t("controlAdmin:systemData.spaceFree", { free: formatBytes(space.free), total: formatBytes(space.total) })
+            : "—"}
+          valueTone={isLowSpace(space) ? "warn" : undefined}
+        />
+      </GroupedList>
+      {isLowSpace(space) && (
+        <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
+      )}
+      <GroupedList note={root.libraryCount > 0 ? t("controlAdmin:storage.deleteBlockedTitle") : t("controlAdmin:storage.removeLocationNote")}>
+        <ActionRow
+          tone="danger"
+          label={removing ? t("controlAdmin:storage.removing") : t("controlAdmin:storage.remove")}
           disabled={root.libraryCount > 0 || removing}
           onClick={onRemove}
-          title={root.libraryCount > 0 ? t("controlAdmin:storage.deleteBlockedTitle") : undefined}
-        >
-          {removing ? t("controlAdmin:storage.removing") : t("controlAdmin:storage.remove")}
-        </Button>
-      </td>
-    </tr>
+        />
+      </GroupedList>
+    </div>
   );
 }

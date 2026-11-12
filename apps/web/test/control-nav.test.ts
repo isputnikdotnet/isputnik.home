@@ -57,6 +57,8 @@ describe("control panel nav", () => {
 
   // One editor, several entry points: ?from= decides which workspace it sits in.
   it("places a shared page by the workspace it was opened from", () => {
+    expect(placeOf("categories", "shared")).toMatchObject({ app: null, selected: "applications", parent: "applications" });
+    expect(placeOf("tags", "shared")).toMatchObject({ app: null, selected: "applications", parent: "applications" });
     expect(placeOf("categories").app?.key).toBe("ebooks");
     expect(placeOf("categories", "audiobooks")).toMatchObject({ selected: "audiobooksOrganize", parent: "audiobooksOrganize" });
     expect(placeOf("categories", "audiobooks").app?.key).toBe("audiobooks");

@@ -9,7 +9,9 @@
     "add": "Add",
     "done": "Done",
     "never": "Never",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "back": "Back",
+    "retry": "Retry"
   },
   "nav": {
     "groups": {
@@ -27,21 +29,21 @@
       "audiobooks": "Audiobooks",
       "stories": "Stories",
       "familyTree": "Family Tree",
-      "shared": "Shared organization",
+      "shared": "Shared tools",
       "games": "Games"
     },
     "appDescriptions": {
-      "gallery": "Photos and home videos from cameras, scanners and phones.",
-      "videos": "Films and shows, played through the video engine.",
-      "ebooks": "Books to read in the browser or on a reader.",
-      "audiobooks": "Books to listen to, with chapters and progress.",
-      "stories": "Family stories, recipes and recordings.",
-      "familyTree": "People, families, sources and the tree chart.",
+      "gallery": "Photos, home videos and device sync.",
+      "videos": "Films, shows and video libraries.",
+      "ebooks": "Books and your browser reader.",
+      "audiobooks": "Audiobooks and listening.",
+      "stories": "Family stories and recordings.",
+      "familyTree": "People, relationships and family history.",
       "shared": "Tags used across applications, managed in one place.",
-      "games": "Board and arcade games, against the computer or each other."
+      "games": "Games to play together."
     },
     "workspace": {
-      "setup": "Setup",
+      "setup": "Overview",
       "deviceSync": "Device Sync",
       "organize": "Organize",
       "settings": "Settings"
@@ -86,13 +88,13 @@
       "videoStreaming": "Video streaming",
       "phoneSync": "Device Sync",
       "applications": "Applications",
-      "gallerySetup": "Setup",
-      "videosSetup": "Setup",
-      "ebooksSetup": "Setup",
-      "audiobooksSetup": "Setup",
-      "storiesSetup": "Setup",
-      "familyTreeSetup": "Setup",
-      "gamesSetup": "Setup",
+      "gallerySetup": "Overview",
+      "videosSetup": "Overview",
+      "ebooksSetup": "Overview",
+      "audiobooksSetup": "Overview",
+      "storiesSetup": "Overview",
+      "familyTreeSetup": "Overview",
+      "gamesSetup": "Overview",
       "galleryOrganize": "Organize",
       "ebooksOrganize": "Organize",
       "audiobooksOrganize": "Organize"
@@ -108,21 +110,25 @@
     "barAria": "Control panel shortcuts"
   },
   "applications": {
-    "description": "Choose an application to see its controls together. Activity, tasks and logs are in Infrastructure; library folders and scanning in Libraries & Scanning.",
+    "description": "Manage your apps and the services they use.",
     "open": "Open {{app}}",
-    "connection": "Connection"
+    "connection": "Connection",
+    "yourApps": "Your applications",
+    "sharedTools": "Shared tools",
+    "tagsScope": "Across applications"
   },
   "appSetup": {
     "description": "What {{app}} needs, whether it is on, and the libraries, connection, access and storage it uses — each linked to where it is managed.",
-    "loadFailed": "Unable to load",
+    "loadFailed": "Some application checks could not be loaded",
     "status": {
       "ready": "Ready",
       "needsSetup": "Needs setup",
-      "off": "Turned off"
+      "off": "Hidden from menu",
+      "unavailable": "Status unavailable"
     },
     "readyTitle": "{{app}} is ready",
     "readyBody": "It is on and has what it needs.",
-    "offTitle": "{{app}} is turned off",
+    "offTitle": "{{app}} is hidden from the menu",
     "offBody": "Nobody sees it in the menu, and links to it open the home page. Nothing is deleted; switch it on below.",
     "needsConnectionTitle": "{{app}} is not connected",
     "needsConnectionBody": "Its container is not paired with this server, or is not answering. Pair it and test the connection in Infrastructure › Services.",
@@ -132,8 +138,8 @@
     "summaryLibraries_other": "{{count}} libraries",
     "summaryConnected": "connected",
     "summaryNotConnected": "not connected",
-    "reviewSetup": "Review setup",
-    "openSetup": "Open Setup",
+    "reviewSetup": "Overview",
+    "openSetup": "Overview",
     "menuTitle": "In the menu",
     "menuSwitch": "Show {{app}} in the menu",
     "menuHint": "Switched off, it leaves the menu, the home feed and Tags for everyone; nothing is deleted, and the Control panel still shows its libraries. One application always stays on.",
@@ -179,11 +185,21 @@
     "guestBody": "Invite someone without an account into one match.",
     "guestLink": "Invites",
     "viewActivity": "View {{app}} activity",
-    "activityTitle": "Activity, tasks and logs",
+    "activityTitle": "Activity & troubleshooting",
     "activityBody": "One page each in Infrastructure, for everything on this server. These open them showing {{app}} only.",
     "activityLink": "Activity",
     "tasksLink": "Tasks",
-    "logsLink": "Logs"
+    "logsLink": "Logs",
+    "unavailableBody": "We could not check the current status. Try again to refresh it.",
+    "noLibraries": "No libraries",
+    "serviceUnavailable": "Service unavailable",
+    "notConnected": "Not connected",
+    "setupTitle": "Setup",
+    "librarySummary": "Folders and scanning rules",
+    "optionalService": "Face recognition · optional",
+    "manageTitle": "Manage",
+    "backupContainer": "Back up this application's data.",
+    "backupHome": "Settings and metadata are included in Home backups; original media files are not."
   },
   "services": {
     "description": "This server and each container beside it: whether it is up, how fast it answers and what uses it. Pairing — a container's address and secret — is behind its card.",
@@ -289,10 +305,26 @@
     "savedBody": "Default theme updated.",
     "sections": "Sections",
     "sectionsGamesHint": "Games also needs the games container to be set up (Infrastructure → Services); without it there is no Games entry whatever this switch says.",
-    "sectionsMoved": "Which applications this household uses is now set on each application's Setup tab, under Applications.",
+    "sectionsMoved": "Which applications this household uses is now set on each application's Overview tab, under Applications.",
     "sectionsMovedLink": "Open Applications"
   },
   "backup": {
+    "unavailable": "Unavailable",
+    "back": "Back",
+    "latestAvailable": "Latest available backup",
+    "nextScheduled": "Next scheduled backup",
+    "scheduleOff": "Off",
+    "storageTitle": "Backup storage",
+    "retentionTitle": "Retention",
+    "retentionSummary": "Full / minimal / database copies",
+    "recentTitle": "Recent backups",
+    "viewAll": "All backups",
+    "applicationsTitle": "Application backups",
+    "notConnected": "Not connected",
+    "createAction": "Create",
+    "fileName": "File name",
+    "coverageNote": "Media files are not included. Full and minimal backups also include the application databases you select below.",
+    "summaryNote": "Home backups, including uploaded files. Separate application backups are listed below.",
     "eyebrow": "System Settings",
     "title": "Backup",
     "intro": "Creates a consistent snapshot of the application database (accounts, libraries, metadata, listening progress, bookmarks, saved lists) while the server keeps running, with its two-factor key beside it. Media files are never modified. A minimal backup adds the pictures a rescan could not put back — covers you uploaded or fetched, author portraits, category tiles; a full one adds the whole thumbnail store, rendered previews included; a quick copy is the database file alone.",
@@ -1162,5 +1194,17 @@
     "openDuplicates": "Open duplicate cleanup",
     "missingBody": "Photos whose files are no longer on disk.",
     "openMissing": "Open missing photos"
+  },
+  "appStorage": {
+    "title": "Disk usage",
+    "measured": "Measured usage",
+    "media": "Library media",
+    "container": "Application data",
+    "unknown": "Not measured",
+    "atLeast": "At least {{size}}",
+    "partial": "Some sizes are unavailable; the total includes only measured files.",
+    "containerUnknown": "This service does not report its disk usage yet.",
+    "note": "Media sizes come from library scans. App files are grouped by purpose; linked media stays with its library. Shared database, thumbnails, caches and backups are excluded.",
+    "retry": "Retry app-file measurements"
   }
 }

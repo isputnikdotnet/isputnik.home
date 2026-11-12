@@ -8,7 +8,7 @@ import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { ActionRow, AddRow, GroupedList, GroupedSearch, InfoRow, NavRow } from "../../../shared/GroupedList";
-import { PageBack, PageTitle, useQueryPage } from "../../../shared/useQueryPage";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedInvite } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -125,6 +125,8 @@ export function InvitesSection() {
   return (
     <>
       <ControlSectionHead
+        title={openInvite ? t("control:invites.inviteRow", { role: inviteRoleLabel(openInvite.role) }) : undefined}
+        back={show ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
         section="invites"
         icon={<UserPlus size={30} />}
         iconClassName="invites"
@@ -149,8 +151,6 @@ export function InvitesSection() {
         {error && <MessageBox tone="error" title={t("control:invites.errorTitle")}>{error}</MessageBox>}
         {openInvite ? (
           <>
-            <PageBack label={t("control:nav.tabs.invites")} onBack={() => go(null)} />
-            <PageTitle>{t("control:invites.inviteRow", { role: inviteRoleLabel(openInvite.role) })}</PageTitle>
             <GroupedList>
               <InfoRow label={t("control:invites.thStatus")} value={inviteStatusLabel(openInvite.status)} valueTone={statusTone(openInvite.status)} />
               <InfoRow label={t("control:invites.thExpires")} value={formatManagedDate(openInvite.expiresAt)} />

@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { InfoHint } from "../../../../shared/InfoHint";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
 
-// One feature on the Maps page: what it does in a line, a switch, and the same
-// three facts every card gives — where the data comes from, how it gets here, and
-// what it costs. Anything the feature needs beyond the switch sits under them.
+// One feature on the Maps page, as a group of rows like a phone's Settings (control
+// panel v2): the switch row, then the same three facts every feature gives — where
+// the data comes from, how it gets here, and what it costs — then anything else the
+// feature needs as rows of its own; what it does is the line under the group.
 export function MapFeatureCard({
   id,
   icon,
@@ -33,27 +34,28 @@ export function MapFeatureCard({
   children?: ReactNode;
 }) {
   return (
-    <section id={id} className="map-feature">
-      <div className="map-feature-head">
-        <span className="map-feature-icon" aria-hidden="true">{icon}</span>
-        <div className="map-feature-title">
-          <h2>
-            {title}
-            <InfoHint label={infoLabel}>{info}</InfoHint>
-          </h2>
-          <p>{description}</p>
+    <section id={id} className="map-feature grouped-list" aria-label={title}>
+      <div className="grouped-list-rows">
+        <div className="grouped-row map-feature-head">
+          <span className="grouped-row-icon" aria-hidden="true">{icon}</span>
+          <span className="grouped-row-label map-feature-title">
+            {/* A heading, so the page reads as its features (and search and tests find them). */}
+            <h3 className="map-feature-name">
+              {title}
+              <InfoHint label={infoLabel}>{info}</InfoHint>
+            </h3>
+          </span>
+          <ToggleSwitch checked={checked} disabled={disabled} onChange={onToggle} ariaLabel={title} />
         </div>
-        <ToggleSwitch checked={checked} disabled={disabled} onChange={onToggle} ariaLabel={title} />
-      </div>
-      <dl className="map-feature-facts">
         {facts.map((fact) => (
-          <div key={fact.label}>
-            <dt>{fact.label}</dt>
-            <dd>{fact.value}</dd>
+          <div key={fact.label} className="grouped-row map-feature-fact">
+            <span className="grouped-row-label"><strong>{fact.label}</strong></span>
+            <span className="map-feature-fact-value">{fact.value}</span>
           </div>
         ))}
-      </dl>
-      {children}
+        {children}
+      </div>
+      <p className="grouped-list-note">{description}</p>
     </section>
   );
 }
@@ -92,8 +94,8 @@ export function MapFeaturePart({
   children?: ReactNode;
 }) {
   return (
-    <div className="map-feature-part">
-      {icon && <span className="map-feature-part-icon" aria-hidden="true">{icon}</span>}
+    <div className="grouped-row map-feature-part">
+      {icon && <span className="grouped-row-icon" aria-hidden="true">{icon}</span>}
       <div className="map-feature-part-text">
         <strong>{title}{info}</strong>
         <small>{detail}</small>

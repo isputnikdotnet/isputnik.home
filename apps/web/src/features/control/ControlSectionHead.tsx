@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
-import { controlHref, followRoute, type ControlSection } from "../../router";
-import { currentFrom, parentTab, sectionEyebrow, sectionTitle, tabLabel } from "./nav";
+import { useTranslation } from "react-i18next";
+import { controlHref, type ControlSection } from "../../router";
+import { currentFrom, placeOf, sectionEyebrow, sectionTitle } from "./nav";
+import { PageBack } from "../../shared/useQueryPage";
 
 // The header every control-panel page opens with. The eyebrow is the nav group
 // and the title is the tab, both read straight from nav.ts — so a page can
@@ -19,6 +20,8 @@ export function ControlSectionHead({
   icon,
   iconClassName,
   description,
+  title,
+  back,
   className,
   children
 }: {
@@ -28,17 +31,23 @@ export function ControlSectionHead({
   /** Accent modifier on the icon tile, e.g. "blue", "logs", "invites". */
   iconClassName?: string;
   description?: ReactNode;
+  /** Detail pages keep the section's identity with their own title. */
+  title?: ReactNode;
+  /** History-aware Back, with a natural parent for direct links. */
+  back?: { href: string; label: ReactNode };
   /** Extra classes on the head row, for page-specific layout. */
   className?: string;
   children?: ReactNode;
 }) {
   // A shared page (Book categories, Tags) follows the workspace it was opened from.
   const from = currentFrom();
-  const parent = parentTab(section, from);
+  const { t } = useTranslation(["control"]);
+  const place = placeOf(section, from);
+  const parent = place.parent ?? (place.app ? "applications" : place.group?.tabs[0].section);
   const copy = (
     <div className={icon ? "admin-heading-copy" : undefined}>
       <p className="eyebrow">{sectionEyebrow(section, from)}</p>
-      <h1>{sectionTitle(section)}</h1>
+      <h1>{title ?? sectionTitle(section)}</h1>
       {description && <p className="section-description">{description}</p>}
     </div>
   );
@@ -59,14 +68,12 @@ export function ControlSectionHead({
     </div>
   );
 
-  if (!parent) return head;
-  const parentHref = controlHref(parent);
+  if (back) return <><PageBack {...back} />{head}</>;
+  if (section === "dashboard") return head;
+  const parentHref = controlHref(parent && parent !== section ? parent : "dashboard");
   return (
     <>
-      <a className="text-button control-page-back" href={parentHref} onClick={(event) => followRoute(event, parentHref)}>
-        <ArrowLeft size={15} aria-hidden="true" />
-        {tabLabel(parent)}
-      </a>
+      <PageBack href={parentHref} label={t("control:ui.back")} />
       {head}
     </>
   );

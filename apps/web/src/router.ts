@@ -1072,7 +1072,9 @@ export function replaceNavigate(path: string) {
 // visitor navigated here inside the app, else go to the page's natural parent.
 export function goBack(fallback: string) {
   if (window.history.state?.appNav) window.history.back();
-  else navigate(fallback);
+  // A direct link has no in-app parent to pop. Replace it so the next Back
+  // cannot reopen the detail the visitor just left.
+  else replaceNavigate(fallback);
 }
 
 // A Back button that names ONE page (the player's arrow beside the film's title)

@@ -26,7 +26,7 @@ type Tone = "ok" | "warn" | "danger" | "muted";
 interface RowText {
   /** A small square icon on the left. */
   icon?: ReactNode;
-  iconTone?: Tone;
+  iconTone?: Tone | "blue" | "gold" | "rose";
   /** `round` for a person or a group: their picture or initials in a circle. */
   iconShape?: "square" | "round";
   label: ReactNode;
@@ -54,18 +54,60 @@ function RowBody({ icon, iconTone, iconShape, label, sub, value, valueTone, chev
 }
 
 /** A row that leads somewhere: to another address (`href`) or a step in the page (`onClick`). */
-export function NavRow({ href, onClick, disabled = false, ...text }: RowText & { href?: string; onClick?: () => void; disabled?: boolean }) {
+export function NavRow({ href, onClick, disabled = false, summary = false, ...text }: RowText & { href?: string; onClick?: () => void; disabled?: boolean; /** Room for a description and status; the status moves below it on phones. */ summary?: boolean }) {
+  const className = `grouped-row${summary ? " grouped-row-summary" : ""}`;
   if (href) {
     return (
-      <a className="grouped-row" href={href} onClick={(event) => followRoute(event, href)}>
+      <a className={className} href={href} onClick={(event) => followRoute(event, href)}>
         <RowBody {...text} chevron />
       </a>
     );
   }
   return (
-    <Button variant="bare" className="grouped-row" onClick={onClick} disabled={disabled}>
+    <Button variant="bare" className={className} onClick={onClick} disabled={disabled}>
       <RowBody {...text} chevron />
     </Button>
+  );
+}
+
+/** A row that opens a page of its own AND has a switch, so the most common change
+ *  (on/off) needs no trip into the page: the row's text is one target, the switch
+ *  beside it another, never one inside the other. */
+export function NavToggleRow({
+  href,
+  onClick,
+  checked,
+  onToggle,
+  toggleLabel,
+  disabled = false,
+  ...text
+}: RowText & {
+  href?: string;
+  onClick?: () => void;
+  checked: boolean;
+  onToggle: (next: boolean) => void;
+  /** The switch's accessible name: "<thing>: on/off" reads better than the label alone. */
+  toggleLabel: string;
+  disabled?: boolean;
+}) {
+  const main = href
+    ? <a className="grouped-row-main" href={href} onClick={(event) => followRoute(event, href)}><RowBody {...text} chevron /></a>
+    : <Button variant="bare" className="grouped-row-main" onClick={onClick}><RowBody {...text} chevron /></Button>;
+  return (
+    <div className="grouped-row grouped-row-split">
+      {main}
+      <Button
+        variant="bare"
+        className="grouped-row-switch"
+        role="switch"
+        aria-checked={checked}
+        aria-label={toggleLabel}
+        disabled={disabled}
+        onClick={() => onToggle(!checked)}
+      >
+        <span className={`grouped-switch${checked ? " is-on" : ""}`} aria-hidden="true"><i /></span>
+      </Button>
+    </div>
   );
 }
 

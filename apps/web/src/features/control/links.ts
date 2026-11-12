@@ -1,4 +1,5 @@
 import type { AppKey } from "./nav";
+import type { LibraryType } from "./applications";
 import { controlHref, groupHref, libraryManageHref, memberHref, type MemberPageTab } from "../../router";
 
 // Addresses that land on a control page already narrowed to what you were looking
@@ -15,6 +16,11 @@ function withQuery(path: string, params: Record<string, string | undefined>): st
   }
   const suffix = query.toString();
   return suffix ? `${path}?${suffix}` : path;
+}
+
+/** Backup overview, or one application's backup details. */
+export function backupHref(app?: string): string {
+  return withQuery(controlHref("backup"), { show: app ? `app:${app}` : undefined });
 }
 
 /** Security › App access or Infrastructure › Services, opened on one container (`?app=`). */
@@ -51,8 +57,13 @@ export function blockIpHref(ip: string): string {
 
 /** One library's Manage page under Libraries & Scanning › Libraries (it was the list, scrolled to
  *  the library's row, until the Manage page took over the row's dialogs in 4.73). */
-export function libraryRowHref(libraryId: string): string {
-  return libraryManageHref(libraryId);
+export function libraryRowHref(libraryId: string, type?: LibraryType | "all"): string {
+  return withQuery(libraryManageHref(libraryId), { type: type === "all" ? undefined : type });
+}
+
+/** Libraries & Scanning, showing only one application's media type. */
+export function librariesHref(type?: LibraryType | "all" | null): string {
+  return withQuery(controlHref("libraries"), { type: type && type !== "all" ? type : undefined });
 }
 
 /** System Settings › Storage, scrolled to one of its cards. */

@@ -17,7 +17,7 @@ import type { AppKey } from "./nav";
 // minute, so moving between a workspace's tabs does not refetch it each time.
 
 export type LibraryType = "gallery" | "video" | "ebook" | "audiobook";
-export type ApplicationStatus = "ready" | "needsSetup" | "off";
+export type ApplicationStatus = "ready" | "needsSetup" | "off" | "unavailable";
 /** Why an application needs setup — the first thing missing. */
 export type SetupGap = "connection" | "libraries";
 
@@ -33,8 +33,9 @@ export interface AppLibrary {
 
 export interface ApplicationsData {
   sections: Sections;
-  containers: AppStatus[];
-  libraries: Record<LibraryType, AppLibrary[]>;
+  /** null means the check failed; an empty list means it succeeded with no entries. */
+  containers: AppStatus[] | null;
+  libraries: Record<LibraryType, AppLibrary[] | null>;
 }
 
 /** What each application is made of. `container` is required for it to work
@@ -66,24 +67,28 @@ export interface ApplicationState {
   libraries: AppLibrary[] | null;
   sizeBytes: number | null;
   container: AppStatus | null;
+  sizeComplete: boolean;
 }
 
 export function applicationState(key: AppKey, data: ApplicationsData): ApplicationState {
   const parts = APP_PARTS[key];
   const libraries = parts.libraryType ? data.libraries[parts.libraryType] : null;
-  const container = parts.container ? data.containers.find((app) => app.id === parts.container) ?? null : null;
+  const container = parts.container ? data.containers?.find((app) => app.id === parts.container) ?? null : null;
   const sized = libraries?.filter((library) => library.sizeBytes !== null) ?? [];
-  const sizeBytes = sized.length ? sized.reduce((sum, library) => sum + (library.sizeBytes ?? 0), 0) : null;
+  const sizeComplete = libraries !== null && sized.length === libraries.length;
+  const sizeBytes = sized.length || libraries?.length === 0 ? sized.reduce((sum, library) => sum + (library.sizeBytes ?? 0), 0) : null;
 
   let status: ApplicationStatus | null = null;
   let gap: SetupGap | null = null;
   if (parts.section) {
     if (!data.sections[parts.section]) status = "off";
+    else if ((parts.container && !parts.containerOptional && data.containers === null)
+      || (parts.libraryType && libraries === null)) status = "unavailable";
     else if (parts.container && !parts.containerOptional && !containerRunning(container)) { status = "needsSetup"; gap = "connection"; }
     else if (libraries && libraries.length === 0) { status = "needsSetup"; gap = "libraries"; }
     else status = "ready";
   }
-  return { status, gap, libraries, sizeBytes, container };
+  return { status, gap, libraries, sizeBytes, sizeComplete, container };
 }
 
 interface ManagedRow {
@@ -95,10 +100,12 @@ interface ManagedRow {
   scanStatus?: "idle" | "scanning" | "error";
   lastScannedAt?: string | null;
   personal?: unknown;
+  role?: "inbox" | "app-files" | null;
 }
 
 function toLibraries(rows: ManagedRow[], sizes: Map<string, { items: number; sizeBytes: number }>): AppLibrary[] {
-  return rows.map((row) => {
+  // System libraries are shared app storage, not an application's ordinary libraries.
+  return rows.filter((row) => !row.role).map((row) => {
     const sized = sizes.get(row.id);
     return {
       id: row.id,
@@ -113,17 +120,16 @@ function toLibraries(rows: ManagedRow[], sizes: Map<string, { items: number; siz
 }
 
 async function fetchApplicationsData(): Promise<ApplicationsData> {
-  // Each part is optional: a container that does not answer or a list that fails
-  // leaves that part empty rather than the whole page blank.
-  const soft = <T,>(promise: Promise<T>, fallback: T) => promise.catch(() => fallback);
+  // A failed read is unknown, never evidence that the user has no libraries.
+  const soft = <T,>(promise: Promise<T>) => promise.catch(() => null);
   const [config, containers, audiobook, ebook, gallery, video, status] = await Promise.all([
     api<{ config: { sections: Sections } }>("/api/config"),
-    soft(api<{ apps: AppStatus[] }>("/api/apps/admin/status"), { apps: [] as AppStatus[] }),
-    soft(api<{ libraries: ManagedRow[] }>("/api/library/audiobook-libraries?manage=1"), { libraries: [] as ManagedRow[] }),
-    soft(api<{ libraries: ManagedRow[] }>("/api/library/ebook-libraries?manage=1"), { libraries: [] as ManagedRow[] }),
-    soft(api<{ libraries: ManagedRow[] }>("/api/library/gallery-libraries?manage=1"), { libraries: [] as ManagedRow[] }),
-    soft(api<{ libraries: ManagedRow[] }>("/api/library/video-libraries?manage=1"), { libraries: [] as ManagedRow[] }),
-    soft(api<{ status: SystemStatus }>("/api/status").then((payload) => payload.status), null)
+    soft(api<{ apps: AppStatus[] }>("/api/apps/admin/status")),
+    soft(api<{ libraries: ManagedRow[] }>("/api/library/audiobook-libraries?manage=1")),
+    soft(api<{ libraries: ManagedRow[] }>("/api/library/ebook-libraries?manage=1")),
+    soft(api<{ libraries: ManagedRow[] }>("/api/library/gallery-libraries?manage=1")),
+    soft(api<{ libraries: ManagedRow[] }>("/api/library/video-libraries?manage=1")),
+    soft(api<{ status: SystemStatus }>("/api/status").then((payload) => payload.status))
   ]);
 
   const sizes = new Map<string, { items: number; sizeBytes: number }>();
@@ -133,12 +139,12 @@ async function fetchApplicationsData(): Promise<ApplicationsData> {
 
   return {
     sections: config.config.sections,
-    containers: containers.apps,
+    containers: containers?.apps ?? null,
     libraries: {
-      audiobook: toLibraries(audiobook.libraries, sizes),
-      ebook: toLibraries(ebook.libraries, sizes),
-      gallery: toLibraries(gallery.libraries, sizes),
-      video: toLibraries(video.libraries, sizes)
+      audiobook: audiobook ? toLibraries(audiobook.libraries, sizes) : null,
+      ebook: ebook ? toLibraries(ebook.libraries, sizes) : null,
+      gallery: gallery ? toLibraries(gallery.libraries, sizes) : null,
+      video: video ? toLibraries(video.libraries, sizes) : null
     }
   };
 }
@@ -158,14 +164,17 @@ function load(force: boolean): Promise<ApplicationsData> {
 export function useApplicationsData() {
   const [data, setData] = useState<ApplicationsData | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const reload = useCallback((force = false) => {
-    load(force)
+    setLoading(true);
+    return load(force)
       .then((next) => { setData(next); setError(""); })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err: unknown) => { setData(null); setError(err instanceof Error ? err.message : String(err)); })
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => reload(false), [reload]);
+  useEffect(() => { void reload(false); }, [reload]);
 
   /** Switch an application on or off in the menu — the save Appearance's Sections
    *  card made until v2. Applied at once, so the menu beside the page changes with
@@ -193,7 +202,7 @@ export function useApplicationsData() {
     }
   }, [data]);
 
-  return { data, error, reload, setSection };
+  return { data, error, loading, reload, setSection };
 }
 
 /** Tests: forget what was read, so each starts from the server. */

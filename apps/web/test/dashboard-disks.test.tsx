@@ -77,11 +77,11 @@ describe("each container's last backup", () => {
   const draw = (appBackups?: AppBackupSummary[]) =>
     render(<Overview status={status} overview={{ ...overview, disks: [] }} apps={[]} lastBackup={undefined} appErrors={{}} appDisks={[]} appBackups={appBackups} />);
 
-  it("gives a row to each container, linked to its card", () => {
+  it("gives a row to each container, linked to its backup page", () => {
     draw([{ ...base, files: [{ createdAt: now, source: "own" }] }, { ...base, id: "video", files: [{ createdAt: now, source: "minimal" }] }]);
-    expect(screen.getByRole("link", { name: /^Games/ })).toHaveAttribute("href", expect.stringMatching(/#container-backup-games$/));
+    expect(screen.getByRole("link", { name: /^Games/ })).toHaveAttribute("href", "/control/settings/backups?show=app%3Agames");
     expect(screen.getByText(/Its own backup/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^Video/ })).toHaveAttribute("href", expect.stringMatching(/#container-backup-video$/));
+    expect(screen.getByRole("link", { name: /^Video/ })).toHaveAttribute("href", "/control/settings/backups?show=app%3Avideo");
     expect(screen.queryByText(/has no backup/)).not.toBeInTheDocument();
   });
 

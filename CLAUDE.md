@@ -129,8 +129,9 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   groups: Infrastructure (Services, Video streaming, Tasks, Scheduled jobs, Logs,
   Activity) · Libraries & Scanning · Applications · Security & Members · System Settings.
   Five is the budget. Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
-  Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, Shared organization, each with
-  only the tabs it needs from Setup · Device Sync · Organize · Settings, opening on Setup.
+  Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, with Shared tools below the directory. Each workspace has
+  only the tabs it needs from Overview · Device Sync · Organize · Settings, opening on Overview
+  (internal setup keys and /setup URLs stay stable).
   System-wide pages go in a group; an application's own controls go in its workspace,
   which SHOWS and LINKS to what it uses (libraries, connection, access, storage —
   `features/control/applications.ts`) but owns none of it; Infrastructure's Tasks, Logs

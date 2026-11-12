@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import { useVideoAvailable } from "../../../app/useVideoAvailable";
 import { api } from "../../../api";
-import { controlHref, followRoute, libraryManageHref, navigate } from "../../../router";
-import { tasksHref } from "../links";
+import { controlHref, followRoute, navigate } from "../../../router";
+import { initialParam, librariesHref, libraryRowHref, tasksHref } from "../links";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
@@ -54,6 +54,7 @@ import {
   phoneLinkable,
   rowTypeLabel,
   typeFilterLabel,
+  libraryTypeFilter,
   typeLabel,
   type ManagedLibrary,
   type ManagedLibraryType
@@ -76,7 +77,19 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
   const [selectedRootId, setSelectedRootId] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | ManagedLibraryType>("all");
+  const [typeFilter, setTypeFilter] = useState(() => libraryTypeFilter(initialParam("type")));
+  useEffect(() => {
+    const readFilter = () => setTypeFilter(libraryTypeFilter(initialParam("type")));
+    window.addEventListener("popstate", readFilter);
+    return () => window.removeEventListener("popstate", readFilter);
+  }, []);
+  const changeTypeFilter = (next: "all" | ManagedLibraryType) => {
+    setTypeFilter(next);
+    const query = new URLSearchParams(window.location.search);
+    if (next === "all") query.delete("type");
+    else query.set("type", next);
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${query.size ? `?${query}` : ""}${window.location.hash}`);
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [rescanTarget, setRescanTarget] = useState<ManagedLibrary | null>(null);
@@ -316,7 +329,7 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
       await api(`${apiBase(deleteConfirmLibrary)}/${deleteConfirmLibrary.id}`, { method: "DELETE" });
       setDeleteConfirmLibrary(null);
       // Deleted from its own Manage page: back to the list it is no longer in.
-      if (libraryId) navigate(controlHref("libraries"));
+      if (libraryId) navigate(librariesHref(typeFilter));
       await loadLibraries();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("control:libraries.unableToDeleteLibrary"));
@@ -380,9 +393,9 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
   );
 
   const setupReady = Boolean(librarySettings?.thumbnailPathReady) && storageRoots.length > 0;
-  const scanningLibraries = libraries.filter((library) => library.scanStatus === "scanning");
+  const scanningLibraries = libraries.filter((library) => !library.role && library.scanStatus === "scanning" && (typeFilter === "all" || library.type === typeFilter));
   const managed = libraryId ? libraries.find((library) => library.id === libraryId) ?? null : null;
-  const listHref = controlHref("libraries");
+  const listHref = librariesHref(typeFilter);
 
   return (
     <>
@@ -467,7 +480,7 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
           {t("control:libraries.storageSetupBody")}
         </MessageBox>
       )}
-      {videoEngineDown && (
+      {videoEngineDown && (typeFilter === "all" || typeFilter === "video") && (
         <MessageBox tone="warning" title={t("control:libraries.typeVideo")}>
           {t("control:libraries.video.engineDown")}
         </MessageBox>
@@ -496,7 +509,7 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
           className="library-type-filter"
           value={typeFilter}
           label={t("control:libraries.filterByType")}
-          onChange={setTypeFilter}
+          onChange={changeTypeFilter}
           options={TYPE_FILTER_VALUES.map((value) => ({
             value,
             label: typeFilterLabel(value),
@@ -542,7 +555,7 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
                 const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
                 // Someone else's personal library: whose it is and its size, no actions.
                 const othersPersonal = library.personal != null && !library.canManageLibrary;
-                const manageHref = libraryManageHref(library.id);
+                const manageHref = libraryRowHref(library.id, typeFilter);
                 return (
                   <tr key={library.id} id={`library-${library.id}`}>
                     <td>

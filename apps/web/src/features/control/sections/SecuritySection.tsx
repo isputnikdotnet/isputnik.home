@@ -27,7 +27,7 @@ import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
 import { ActionRow, AddRow, CheckRow, GroupedList, InfoRow, InputRow, NavRow, ToggleRow } from "../../../shared/GroupedList";
-import { PageBack, PageTitle, useQueryPage } from "../../../shared/useQueryPage";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -470,10 +470,21 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   const blockCurrent = Math.min(blockPage, blockTotalPages);
   const blockedPage = blockedRows.slice((blockCurrent - 1) * BLOCK_PAGE_SIZE, blockCurrent * BLOCK_PAGE_SIZE);
 
+  // A network's or an address's page names it in the head, with one Back.
+  const detailOpen = (activeTab === "trusted" && Boolean(show?.startsWith("network:")))
+    || (activeTab === "blocked" && Boolean(show?.startsWith("ip:")));
+  const detailTitle = !detailOpen || !data
+    ? undefined
+    : activeTab === "trusted"
+      ? (() => { const network = data.trustedNetworks.find((candidate) => candidate.id === show?.slice(8)); return network ? network.label || network.cidr : undefined; })()
+      : show?.slice(3);
+
   return (
     <>
       <ControlSectionHead
         section={section}
+        title={detailTitle}
+        back={detailOpen ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
         icon={<ShieldCheck size={30} />}
         iconClassName="blue"
         description={t(`controlAdmin:security.${HEAD_DESCRIPTION_KEYS[activeTab]}`)}
@@ -850,18 +861,15 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               hidden={activeTab !== "trusted"}
             >
               {activeTab === "trusted" && (() => {
-                const back = <PageBack label={t("control:nav.tabs.securityTrusted")} onBack={() => go(null)} />;
                 const errorBox = trustedError && !trustedOpen && (
                   <MessageBox tone="error" title={t("controlAdmin:security.updateTrustedFailed")}>{trustedError}</MessageBox>
                 );
                 // ── One network ─────────────────────────────────────────────────
                 if (show?.startsWith("network:")) {
                   const network = data.trustedNetworks.find((candidate) => candidate.id === show.slice(8));
-                  if (!network) return <div className="grouped-page">{back}<p className="muted">{t("controlAdmin:security.networkGone")}</p></div>;
+                  if (!network) return <div className="grouped-page"><p className="muted">{t("controlAdmin:security.networkGone")}</p></div>;
                   return (
                     <div className="grouped-page">
-                      {back}
-                      <PageTitle>{network.label || network.cidr}</PageTitle>
                       {errorBox}
                       <GroupedList>
                         <InfoRow label={t("controlAdmin:security.thRange")} value={<code>{network.cidr}</code>} />
@@ -935,7 +943,6 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               hidden={activeTab !== "blocked"}
             >
               {activeTab === "blocked" && (() => {
-                const back = <PageBack label={t("control:nav.tabs.securityBlocked")} onBack={() => go(null)} />;
                 const errorBox = blockError && !blockOpen && (
                   <MessageBox tone="error" title={t("controlAdmin:security.updateBlockedFailed")}>{blockError}</MessageBox>
                 );
@@ -943,15 +950,13 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 // ── One address ─────────────────────────────────────────────────
                 if (show?.startsWith("ip:")) {
                   const entry = data.blockedIps.find((candidate) => candidate.ip === show.slice(3));
-                  if (!entry) return <div className="grouped-page">{back}<p className="muted">{t("controlAdmin:security.blockGone")}</p></div>;
+                  if (!entry) return <div className="grouped-page"><p className="muted">{t("controlAdmin:security.blockGone")}</p></div>;
                   const place = entry.reputation
                     ? [countryName(entry.reputation.countryCode), entry.reputation.isp].filter(Boolean).join(" · ")
                     : "";
                   const checking = checkingIp === entry.ip;
                   return (
                     <div className="grouped-page">
-                      {back}
-                      <PageTitle>{entry.ip}</PageTitle>
                       {errorBox}
                       <GroupedList>
                         <InfoRow icon={<Ban size={17} />} iconTone={kindTone(entry)} label={t("controlAdmin:security.dtKind")} value={entry.auto ? t("controlAdmin:security.kindAuto") : t("controlAdmin:security.kindManual")} />

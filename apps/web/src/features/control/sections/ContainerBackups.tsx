@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DatabaseBackup, Download, RotateCcw, Trash2, Undo2, UploadCloud } from "lucide-react";
+import { DatabaseBackup, RotateCcw, Trash2, Undo2, UploadCloud } from "lucide-react";
 import { api } from "../../../api";
 import { appPageHref } from "../links";
-import { followRoute } from "../../../router";
+import { controlHref, followRoute } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { FileUpload } from "../../../shared/FileUpload";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
-import { ToggleSwitch } from "../../../shared/ToggleSwitch";
+import { ActionRow, CommandRow, GroupedList, InfoRow, InputRow, NavRow, ToggleRow } from "../../../shared/GroupedList";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
+import { ControlSectionHead } from "../ControlSectionHead";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { useAppName } from "./AppsSection";
 
-// A card per container on the Backup page: back it up, download it and restore it
+// A row per container, opening its own backup page: back it up, download it and restore it
 // apart from Home and from the other containers (server: backups/app-backups.ts).
 // Its backups are its own files and the copies inside Home's full and minimal zips;
 // both download and restore alike, and only its own files can be deleted here.
@@ -40,8 +42,9 @@ interface AppBackupView {
 const apiPath = (id: string) => `/api/backups/apps/${encodeURIComponent(id)}`;
 const filePath = (id: string, name: string) => `${apiPath(id)}/files/${encodeURIComponent(name)}`;
 
-export function ContainerBackups() {
+export function ContainerBackups({ appId, onOpen }: { appId?: string; onOpen: (id: string) => void }) {
   const { t } = useTranslation(["common", "control"]);
+  const appName = useAppName();
   const [apps, setApps] = useState<AppBackupView[] | null>(null);
   const [loadError, setLoadError] = useState("");
 
@@ -54,21 +57,29 @@ export function ContainerBackups() {
     load().catch((err) => setLoadError(err instanceof Error ? err.message : t("control:containerBackup.loadFailed")));
   }, [load, t]);
 
-  if (loadError) return <MessageBox tone="error" title={t("control:containerBackup.loadFailed")}>{loadError}</MessageBox>;
-  if (!apps) return null;
+  const app = apps?.find((candidate) => candidate.id === appId);
+  if (app) return <ContainerDetail key={app.id} app={app} reload={load} />;
 
   return (
-    <div id="container-backups" className="container-backups">
-      <div className="container-backups-head">
-        <h2>{t("control:containerBackup.title")}</h2>
-        <p className="muted">{t("control:containerBackup.intro")}</p>
-      </div>
-      {apps.map((app) => <ContainerCard key={app.id} app={app} reload={load} />)}
-    </div>
+    <>
+      {appId && <ControlSectionHead section="backup" title={appName(appId)} back={{ href: controlHref("backup"), label: t("control:backup.back") }} />}
+      {loadError ? <MessageBox tone="error" title={t("control:containerBackup.loadFailed")}>{loadError}</MessageBox>
+        : appId ? <p className="muted">{apps ? t("control:backup.gone") : t("control:ui.loading")}</p>
+          : <GroupedList id="container-backups" title={t("control:backup.applicationsTitle")}>
+            {!apps && <InfoRow label={t("control:ui.loading")} />}
+            {apps?.map((item) => {
+              const latest = [...item.files].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+              return <NavRow key={item.id} label={appName(item.id)}
+                sub={item.configured && item.restoreSupported === null ? t("control:containerBackup.noAnswerTitle") : undefined}
+                value={!item.configured ? t("control:backup.notConnected") : latest ? formatManagedDate(latest.createdAt) : t("control:backup.emptyTitle")}
+                onClick={() => onOpen(item.id)} />;
+            })}
+          </GroupedList>}
+    </>
   );
 }
 
-function ContainerCard({ app, reload }: { app: AppBackupView; reload: () => Promise<void> }) {
+function ContainerDetail({ app, reload }: { app: AppBackupView; reload: () => Promise<void> }) {
   const { t } = useTranslation(["common", "control"]);
   const appName = useAppName();
   const name = appName(app.id);
@@ -83,6 +94,9 @@ function ContainerCard({ app, reload }: { app: AppBackupView; reload: () => Prom
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [fileKey, openFile] = useQueryPage("file");
+  const fileKeyOf = (file: AppBackupFile) => JSON.stringify([file.source, file.name]);
+  const selectedFile = app.files.find((file) => fileKeyOf(file) === fileKey);
 
   useEffect(() => { setKeep(app.keep); }, [app.keep]);
 
@@ -163,7 +177,7 @@ function ContainerCard({ app, reload }: { app: AppBackupView; reload: () => Prom
       () => api(filePath(app.id, file.name), { method: "DELETE" }),
       t("control:containerBackup.deleted", { name: file.name }),
       t("control:containerBackup.deleteFailed"),
-      () => setPendingDelete(null)
+      () => { setPendingDelete(null); openFile(null); }
     );
 
   const sourceLabel = (file: AppBackupFile) =>
@@ -176,20 +190,10 @@ function ContainerCard({ app, reload }: { app: AppBackupView; reload: () => Prom
   const setupHref = appPageHref("appsSetup", app.id);
 
   return (
-    <section id={`container-backup-${app.id}`} className="backup-card backup-list-card container-backup-card">
-      <div className="backup-list-head">
-        <h2>{name}</h2>
-        <div className="row-actions">
-          <Button variant="primary" compact disabled={!app.configured || backingUp} onClick={() => void backUp()}>
-            <DatabaseBackup size={15} />
-            <span>{backingUp ? t("control:backup.backingUp") : t("control:containerBackup.backUpNow")}</span>
-          </Button>
-          <Button variant="secondary" compact onClick={() => { clear(); setUploadOpen(true); }}>
-            <UploadCloud size={15} />
-            <span>{t("control:containerBackup.upload")}</span>
-          </Button>
-        </div>
-      </div>
+    <>
+      <ControlSectionHead section="backup" title={selectedFile ? `${name} · ${formatManagedDate(selectedFile.createdAt)}` : name}
+        back={{ href: fileKey ? queryPageHref(null, "file") : controlHref("backup"), label: t("control:backup.back") }} />
+      <div className="grouped-page">
 
       {!app.configured && (
         <MessageBox tone="info" title={t("control:containerBackup.notSetUpTitle", { app: name })}>
@@ -210,86 +214,50 @@ function ContainerCard({ app, reload }: { app: AppBackupView; reload: () => Prom
       {error && <MessageBox tone="error" title={t("control:backup.errorTitle")}>{error}</MessageBox>}
       {notice && <MessageBox tone="success" title={t("control:containerBackup.doneTitle")}>{notice}</MessageBox>}
 
-      {app.undo && (
-        <div className="container-backup-undo">
-          <span className="muted">{t("control:containerBackup.undoNote", { date: formatManagedDate(app.undo.takenAt) })}</span>
-          <Button variant="secondary" compact onClick={() => { clear(); setUndoOpen(true); }}>
-            <Undo2 size={15} />
-            <span>{t("control:containerBackup.undoOpen")}</span>
-          </Button>
-        </div>
-      )}
-
-      <div className="container-backup-settings">
-        <ToggleSwitch
-          checked={app.include}
-          disabled={saving}
-          label={t("control:containerBackup.includeLabel")}
-          onChange={(next) => void saveSettings({ include: next })}
-        />
-        <label className="backup-keep-inline">
-          <span>{t("control:containerBackup.keepLabel")}</span>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={keep}
-            disabled={saving}
-            onChange={(event) => setKeep(Number(event.target.value))}
-            onBlur={commitKeep}
-            onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-          />
-        </label>
-      </div>
-
-      {app.files.length === 0 ? (
-        <p className="muted">{t("control:containerBackup.empty")}</p>
-      ) : (
-        <div className="datagrid-wrap">
-          <table className="datagrid datagrid-phone-stack stack-actions-below">
-            <thead>
-              <tr>
-                <th>{t("control:containerBackup.thCreated")}</th>
-                <th>{t("control:containerBackup.thFrom")}</th>
-                <th>{t("control:containerBackup.thVersion")}</th>
-                <th className="col-num">{t("control:backup.thSize")}</th>
-                <th className="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {app.files.map((file) => (
-                <tr key={`${file.source}:${file.name}`}>
-                  <td title={file.name}><strong>{formatManagedDate(file.createdAt)}</strong></td>
-                  <td className="datagrid-muted">{sourceLabel(file)}</td>
-                  <td className="datagrid-muted">{file.version ?? "—"}</td>
-                  <td className="col-num datagrid-muted">{formatBytes(file.sizeBytes)}</td>
-                  <td className="col-actions">
-                    <div className="row-actions">
-                      <Button
-                        variant="secondary"
-                        compact
-                        disabled={!canRestore}
-                        title={t("control:containerBackup.restoreTitle", { app: name })}
-                        onClick={() => { clear(); setPendingRestore(file); }}
-                      >
-                        <RotateCcw size={14} /> {t("control:backup.restore")}
-                      </Button>
-                      <a className="icon-button" title={t("control:containerBackup.downloadTitle")} href={`${filePath(app.id, file.name)}/download`} download>
-                        <Download size={15} />
-                      </a>
-                      {file.source === "own" && (
-                        <Button variant="icon" danger title={t("control:backup.deleteTitle")} aria-label={t("control:backup.deleteTitle")} onClick={() => { clear(); setPendingDelete(file); }}>
-                          <Trash2 size={15} />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+      {fileKey ? selectedFile ? (
+        <>
+          <GroupedList>
+            <InfoRow label={t("control:backup.fileName")} sub={selectedFile.name} />
+            <InfoRow label={t("control:containerBackup.thFrom")} value={sourceLabel(selectedFile)} />
+            <InfoRow label={t("control:containerBackup.thVersion")} value={selectedFile.version ?? "—"} />
+            <InfoRow label={t("control:backup.thSize")} value={formatBytes(selectedFile.sizeBytes)} />
+          </GroupedList>
+          <GroupedList>
+            <ActionRow label={t("control:backup.restore")} disabled={!canRestore} onClick={() => { clear(); setPendingRestore(selectedFile); }} />
+            <ActionRow label={t("control:backup.download")} href={filePath(app.id, selectedFile.name) + "/download"} download />
+          </GroupedList>
+          {selectedFile.source === "own" && <GroupedList>
+            <ActionRow tone="danger" label={t("control:backup.deleteConfirmLabel")} onClick={() => { clear(); setPendingDelete(selectedFile); }} />
+          </GroupedList>}
+        </>
+      ) : <p className="muted">{t("control:backup.gone")}</p> : (
+        <>
+          <GroupedList note={t("control:containerBackup.intro")}>
+            <CommandRow icon={<DatabaseBackup size={17} />} label={t("control:containerBackup.backUpNow")}
+              value={backingUp ? t("control:backup.backingUp") : t("control:backup.createAction")}
+              disabled={!app.configured || backingUp} onClick={() => void backUp()} />
+            <ActionRow label={t("control:containerBackup.upload")} onClick={() => { clear(); setUploadOpen(true); }} />
+          </GroupedList>
+          <GroupedList>
+            <ToggleRow checked={app.include} disabled={saving} label={t("control:containerBackup.includeLabel")}
+              onChange={(next) => void saveSettings({ include: next })} />
+            <InputRow label={t("control:containerBackup.keepLabel")} type="number" min={1} max={100}
+              value={Number.isNaN(keep) ? "" : String(keep)} disabled={saving}
+              onChange={(value) => setKeep(value === "" ? Number.NaN : Number(value))} onCommit={commitKeep} />
+          </GroupedList>
+          {app.undo && <GroupedList note={t("control:containerBackup.undoNote", { date: formatManagedDate(app.undo.takenAt) })}>
+            <ActionRow label={t("control:containerBackup.undoOpen")} onClick={() => { clear(); setUndoOpen(true); }} />
+          </GroupedList>}
+          <GroupedList title={t("control:backup.listTitle")}>
+            {app.files.length === 0 ? <InfoRow label={t("control:containerBackup.empty")} />
+              : [...app.files].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((file) => (
+                <NavRow key={fileKeyOf(file)} label={formatManagedDate(file.createdAt)} sub={sourceLabel(file)}
+                  value={formatBytes(file.sizeBytes)} onClick={() => openFile(fileKeyOf(file))} />
               ))}
-            </tbody>
-          </table>
-        </div>
+          </GroupedList>
+        </>
       )}
+      </div>
 
       {pendingRestore && (
         <ConfirmDialog
@@ -372,6 +340,6 @@ function ContainerCard({ app, reload }: { app: AppBackupView; reload: () => Prom
           </div>
         </Modal>
       )}
-    </section>
+    </>
   );
 }

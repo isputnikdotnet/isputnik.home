@@ -8,9 +8,9 @@ import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Field } from "../../../../shared/Field";
 import { InfoHint } from "../../../../shared/InfoHint";
+import { PickerRow } from "../../../../shared/GroupedList";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
-import { SelectField } from "../../../../shared/SelectField";
 import { forgetMapConfig } from "../../../../shared/map/map-style";
 import { relativeTime } from "../../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../../shared/utils";
@@ -333,24 +333,23 @@ export function MapFeatures() {
           ...(settings.cache ? [serviceFact(service, t)].filter((fact) => fact !== null) : [])
         ]}
       >
-        <div className="map-feature-row">
-          <SelectField
-            label={t("controlAdmin:mapFeatures.limitLabel")}
-            value={String(settings.cacheLimitMb) as `${CacheLimitMb}`}
-            options={CACHE_LIMITS_MB.map((mb) => ({ value: String(mb) as `${CacheLimitMb}`, label: limitLabel(mb) }))}
-            onChange={(value) => setLimit(Number(value) as CacheLimitMb)}
-            disabled={busy !== null}
-            compact
-          />
-          {settings.cache && (
+        <PickerRow
+          label={t("controlAdmin:mapFeatures.limitLabel")}
+          value={String(settings.cacheLimitMb)}
+          options={CACHE_LIMITS_MB.map((mb) => ({ value: String(mb), label: limitLabel(mb) }))}
+          onChange={(value) => setLimit(Number(value) as CacheLimitMb)}
+          disabled={busy !== null}
+        />
+        {settings.cache && (
+          <div className="map-feature-row">
             <MapFeatureMeter
               used={cache.bytes}
               limit={cache.limitBytes}
               usedLabel={t("controlAdmin:mapFeatures.meterUsed", { used: formatBytes(cache.bytes) })}
               limitLabel={limitLabel(settings.cacheLimitMb)}
             />
-          )}
-        </div>
+          </div>
+        )}
       </MapFeatureCard>
 
       <MapFeatureCard

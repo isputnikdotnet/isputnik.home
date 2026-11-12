@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Check, Copy, KeyRound, Link2Off, Save, ShieldCheck } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, followRoute, queryParam, replaceQuery } from "../../../router";
+import { followRoute, queryParam, replaceQuery } from "../../../router";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -14,6 +14,7 @@ import { SelectField } from "../../../shared/SelectField";
 import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { backupHref } from "../links";
 
 // The containers beside this server (docs/apps-platform-plan.md), as the control
 // panel's pages show them since the Apps group was folded into the rest
@@ -1206,8 +1207,8 @@ export function AppsSetupSection() {
                 <>
                   {" "}
                   <a
-                    href={`${controlHref("backup")}#container-backup-${current.id}`}
-                    onClick={(event) => followRoute(event, `${controlHref("backup")}#container-backup-${current.id}`)}
+                    href={backupHref(current.id)}
+                    onClick={(event) => followRoute(event, backupHref(current.id))}
                   >
                     {t("controlAdmin:apps.setup.backupsLink")}
                   </a>

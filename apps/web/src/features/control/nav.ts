@@ -278,6 +278,9 @@ export interface ControlPlace {
 }
 
 export function placeOf(section: ControlSection, from?: string | null): ControlPlace {
+  if ((section === "categories" || section === "tags") && from === "shared") {
+    return { group: APPLICATIONS_GROUP, app: null, selected: "applications", parent: "applications" };
+  }
   const shared = SHARED_PAGE_PARENTS[section];
   if (shared && isAppKey(from)) {
     const parent = shared[from];
@@ -363,7 +366,7 @@ export function sectionEyebrow(section: ControlSection, from?: string | null): s
   // A page under a tab names that tab, as its row reads ("… · Organize"); a tab
   // itself is selected in the row right above, so its eyebrow stops at the group
   // or the application.
-  if (place.parent) {
+  if (place.parent && place.parent !== "applications") {
     const parentDef = tabRowFor(place).find((tab) => tab.section === place.parent);
     parts.push(parentDef ? rowLabel(parentDef) : tabLabel(place.parent));
   }

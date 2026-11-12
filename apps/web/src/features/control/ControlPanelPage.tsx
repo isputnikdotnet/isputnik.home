@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Gauge, Home, ListChecks, Menu, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { CONTROL_ALIAS_QUERY, controlHref, followRoute } from "../../router";
+import { CONTROL_ALIAS_QUERY, controlHref, followRoute, followReplace } from "../../router";
 import type { ControlSection, MemberPageTab } from "../../router";
 import {
   APPLICATIONS,
@@ -170,6 +170,7 @@ export function ControlPanelPage({
           {!subPage && !isMobile && tabs.length > 1 && (
             <ControlTabs
               tabs={tabs}
+              replaceVisit={!!place.app && !place.parent}
               selected={place.selected}
               label={t("control:nav.tabsAria", { group: place.app ? appLabel(place.app.key) : place.group ? groupLabel(place.group.key) : "" })}
             />
@@ -304,10 +305,10 @@ function ControlPanelNav({ place, section, onSearch }: { place: ControlPlace; se
           // The group you are in opens here and lists its pages — the sidebar has the
           // height a tab row across the page did not (Security & Members has ten).
           // Applications lists the applications; a workspace keeps its own short row.
-          const pages = !active
+          const pages = !active || (group.key === "applications" && !place.app)
             ? []
             : group.key === "applications"
-              ? APPLICATIONS.map((app) => ({ key: app.key, label: appLabel(app.key), section: app.tabs[0].section, current: place.app?.key === app.key }))
+              ? APPLICATIONS.map((app) => ({ key: app.key, label: app.key === "shared" ? tabLabel("tags") : appLabel(app.key), section: app.tabs[0].section, current: place.app?.key === app.key }))
               : group.tabs.map((tab) => ({ key: tab.section, label: tabLabel(tab.section), section: tab.section, current: tab.section === place.selected }));
           return (
             <div key={group.key} className="control-nav-group">
@@ -390,8 +391,8 @@ function ControlPanelPhoneStrip({
         onClick={onMenu}
       >
         <ActiveIcon size={17} aria-hidden="true" />
-        <small>{where}</small>
-        <ChevronRight className="control-phone-menu-sep" size={14} aria-hidden="true" />
+        {where !== tabLabel(section) && <><small>{where}</small>
+          <ChevronRight className="control-phone-menu-sep" size={14} aria-hidden="true" /></>}
         <strong>{tabLabel(section)}</strong>
         <ChevronDown className="control-phone-menu-chevron" size={16} aria-hidden="true" />
       </Button>
@@ -476,7 +477,8 @@ function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSe
               onClose();
               return;
             }
-            followRoute(event, href);
+            const sameWorkspace = place.app && !place.parent && place.app.tabs.some((tab) => tab.section === target);
+            (sameWorkspace ? followReplace : followRoute)(event, href);
           }}
         >
           {label}
@@ -506,7 +508,7 @@ function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSe
                     the application alone when it has one tab. */}
                 {group.key === "applications" && APPLICATIONS.flatMap((app) => app.tabs.map((tab) => entry(
                   tab.section,
-                  app.tabs.length > 1 && tab.kind ? `${appLabel(app.key)} · ${kindLabel(tab.kind)}` : appLabel(app.key),
+                  app.key === "shared" ? tabLabel("tags") : app.tabs.length > 1 && tab.kind ? `${appLabel(app.key)} · ${kindLabel(tab.kind)}` : appLabel(app.key),
                   place.app?.key === app.key && tab.section === place.selected
                 )))}
               </ul>
@@ -524,12 +526,14 @@ function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSe
 function ControlTabs({
   tabs,
   selected,
-  label
+  label,
+  replaceVisit
 }: {
   tabs: ControlTabDef[];
   /** The tab to light: the page's own, or the one it is a page of. */
   selected: ControlSection;
   label: string;
+  replaceVisit: boolean;
 }) {
   return (
     <div className="control-tabs" role="tablist" aria-label={label}>
@@ -543,7 +547,7 @@ function ControlTabs({
             aria-selected={active}
             className={active ? "active" : undefined}
             href={href}
-            onClick={(event) => followRoute(event, href)}
+            onClick={(event) => (replaceVisit ? followReplace : followRoute)(event, href)}
           >
             {rowLabel(tab)}
           </a>

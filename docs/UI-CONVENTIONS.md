@@ -420,6 +420,13 @@ this order:
 
 ## Control panel structure
 
+Applications uses a grouped directory: one summary row per app, followed by Shared
+tools (Tags and Book categories). Keep app status distinct from a failed check:
+unknown checks show Status unavailable with Retry, never No libraries. Workspace
+tabs replace the current visit; linked detail pages push a visit, and Back follows
+history with a parent fallback. The directory does not repeat its app list in the
+desktop sidebar.
+
 The control panel's shape lives in one file: `features/control/nav.ts`
 (docs/control-panel-v2-plan.md). Adding an admin page means adding one tab entry
 there — nothing else keeps a parallel list.
@@ -432,7 +439,7 @@ there — nothing else keeps a parallel list.
   workspace.** `APPLICATIONS` in `nav.ts` lists each workspace's tabs, each with a
   `kind` from one vocabulary — `setup` · `deviceSync` · `organize` · `settings` —
   and an application gets only the tabs it needs (one tab: no row). Every workspace
-  opens on Setup. A new media type or container adds an `APPLICATIONS` entry and a
+  opens on Overview (internal `setup` keys and canonical `/setup` URLs stay stable). A new media type or container adds an `APPLICATIONS` entry and a
   Setup; it never brings back a group of its own.
 - **An application shows and links; it does not own.** Libraries & Scanning owns
   folders, scanning rules and schedules; Infrastructure owns service connections,
@@ -480,6 +487,12 @@ there — nothing else keeps a parallel list.
   parent tab) and `<h1>` (tab) from `nav.ts`, so a page can't disagree with the nav about
   where it lives.
   Pass `description` for the one-line summary and `children` for header actions.
+- **Back follows the visit.** Pages reached from several places, such as Backup,
+  pass `back` to `ControlSectionHead`: the previous in-app page wins, with the
+  supplied parent as a fallback for direct links. Use `title` for a detail's name
+  instead of adding a second heading. `useQueryPage` records detail visits through
+  the shared router; returning to a list must not push a duplicate history entry.
+  Keep the sidebar's section selection independent of this return path.
 - **New settings get search keywords.** Add the terms someone would actually type
   to `TAB_KEYWORDS` in `features/control/search-index.ts`, and a `SETTING_ENTRIES`
   row for anything notable buried inside a page. When that page has several cards,

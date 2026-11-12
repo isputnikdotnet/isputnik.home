@@ -1,60 +1,40 @@
 import { useTranslation } from "react-i18next";
-import { ArrowRight, LayoutGrid } from "lucide-react";
-import { controlHref, followRoute } from "../../../router";
+import { LayoutGrid, Shapes, Tags } from "lucide-react";
+import { controlHref, controlHrefFrom } from "../../../router";
+import { Button } from "../../../shared/Button";
+import { GroupedList, NavRow } from "../../../shared/GroupedList";
+import { MessageBox } from "../../../shared/MessageBox";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { APPLICATIONS, appDescription, appLabel, rowLabel } from "../nav";
+import { APPLICATIONS, appDescription, appLabel } from "../nav";
 import { applicationState, useApplicationsData } from "../applications";
 import { ApplicationStatusPill } from "./AppSetupSection";
 
-// Applications (control panel v2, docs/control-panel-v2-plan.md): the directory.
-// One card per application with what it is and the way into each tab of its
-// workspace, so everything about Gallery is found by choosing Gallery rather than
-// by knowing which group a setting was filed under. Each card says whether its
-// application is ready (applications.ts), as its Setup tab does.
 export function ApplicationsSection() {
-  const { t } = useTranslation(["common", "control"]);
-  // Each card says whether its application is ready; the cards draw before that
-  // arrives, and stay without it if it cannot be read.
-  const { data } = useApplicationsData();
-
+  const { t } = useTranslation(["control"]);
+  const { data, error, loading, reload } = useApplicationsData();
+  const unavailable = data && APPLICATIONS.some((app) => applicationState(app.key, data).status === "unavailable");
   return (
     <>
       <ControlSectionHead section="applications" icon={<LayoutGrid size={30} />} description={t("control:applications.description")} />
-      <div className="organization-grid">
-        {APPLICATIONS.map((app) => {
-          const Icon = app.icon;
-          const first = controlHref(app.tabs[0].section);
-          return (
-            <section key={app.key} className="organization-card">
-              <div className="organization-card-top">
-                <span className="organization-card-icon" aria-hidden="true"><Icon size={20} /></span>
-                <div>
-                  <h2>
-                    <a href={first} onClick={(event) => followRoute(event, first)}>{appLabel(app.key)}</a>
-                  </h2>
-                  <p>{appDescription(app.key)}</p>
-                </div>
-              </div>
-              {data && app.key !== "shared" && <ApplicationStatusPill status={applicationState(app.key, data).status} />}
-              {/* The workspace's own tabs, by their row's words — or one way in. */}
-              <div className="organization-actions">
-                {app.tabs.length > 1 ? app.tabs.map((tab) => {
-                  const href = controlHref(tab.section);
-                  return (
-                    <a key={tab.section} className="secondary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
-                      {rowLabel(tab)}
-                    </a>
-                  );
-                }) : (
-                  <a className="secondary-button compact-button" href={first} onClick={(event) => followRoute(event, first)}>
-                    {t("control:applications.open", { app: appLabel(app.key) })}
-                    <ArrowRight size={15} aria-hidden="true" />
-                  </a>
-                )}
-              </div>
-            </section>
-          );
-        })}
+      <div className="grouped-page">
+        {(error || unavailable) && <MessageBox tone="warning" title={t("control:appSetup.loadFailed")}>
+          <p>{error || t("control:appSetup.unavailableBody")}</p>
+          <Button variant="secondary" compact disabled={loading} onClick={() => void reload(true)}>{t(loading ? "control:ui.loading" : "control:ui.retry")}</Button>
+        </MessageBox>}
+        <GroupedList title={t("control:applications.yourApps")}>
+          {APPLICATIONS.filter((app) => app.key !== "shared").map((app) => {
+            const Icon = app.icon;
+            const state = data ? applicationState(app.key, data) : null;
+            return <NavRow key={app.key} summary icon={<Icon size={22} />}
+              iconTone={app.key === "videos" || app.key === "stories" ? "rose" : app.key === "ebooks" || app.key === "audiobooks" ? "gold" : app.key === "familyTree" ? "ok" : "blue"}
+              label={appLabel(app.key)} sub={appDescription(app.key)} href={controlHref(app.tabs[0].section)}
+              value={loading ? t("control:ui.loading") : <ApplicationStatusPill status={state?.status ?? "unavailable"} gap={state?.gap} container={state?.container} />} />;
+          })}
+        </GroupedList>
+        <GroupedList title={t("control:applications.sharedTools")}>
+          <NavRow icon={<Tags size={18} />} label={t("control:nav.tabs.tags")} sub={t("control:applications.tagsScope")} href={controlHrefFrom("tags", "shared")} />
+          <NavRow icon={<Shapes size={18} />} label={t("control:nav.tabs.categories")} sub={t("control:organization.categoriesAppliesTo")} href={controlHrefFrom("categories", "shared")} />
+        </GroupedList>
       </div>
     </>
   );

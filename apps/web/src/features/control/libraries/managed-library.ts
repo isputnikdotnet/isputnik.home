@@ -66,6 +66,10 @@ export function rowTypeLabel(library: ManagedLibrary): string {
 
 export const TYPE_FILTER_VALUES: ("all" | ManagedLibraryType)[] = ["all", "audiobook", "ebook", "gallery", "video"];
 
+export function libraryTypeFilter(value: string | null): "all" | ManagedLibraryType {
+  return TYPE_FILTER_VALUES.find((type) => type === value) ?? "all";
+}
+
 export function typeFilterLabel(value: "all" | ManagedLibraryType): string {
   return value === "all" ? i18n.t("control:libraries.filterAll") : typeLabel(value);
 }

@@ -39,6 +39,15 @@ function data(over: Partial<ApplicationsData> = {}): ApplicationsData {
 }
 
 describe("applicationState", () => {
+  it("keeps failed checks distinct from empty results, including optional services", () => {
+    const unknown = data({ containers: null, libraries: { gallery: [library("g1")], video: [], ebook: null, audiobook: [] } });
+    expect(applicationState("ebooks", unknown)).toMatchObject({ status: "unavailable", gap: null });
+    expect(applicationState("videos", unknown)).toMatchObject({ status: "unavailable", gap: null });
+    expect(applicationState("gallery", unknown).status).toBe("ready");
+    expect(applicationState("audiobooks", unknown)).toMatchObject({ status: "needsSetup", gap: "libraries" });
+    unknown.sections.video = false;
+    expect(applicationState("videos", unknown).status).toBe("off");
+  });
   it("says turned off before anything it is missing", () => {
     const state = applicationState("videos", data({ sections: { ...ALL_SECTIONS_ON, video: false } }));
     expect(state).toMatchObject({ status: "off", gap: null });

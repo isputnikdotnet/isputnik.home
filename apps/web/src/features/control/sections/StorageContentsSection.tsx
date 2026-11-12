@@ -74,7 +74,7 @@ interface AppFilePage extends AppFileFolder {
 const FOLDER_KEYS: FolderKey[] = ["recordings", "voiceNotes", "music", "movies", "familyTree", "other"];
 const isFolderKey = (value: string): value is FolderKey => (FOLDER_KEYS as string[]).includes(value);
 
-interface Contents {
+export interface Contents {
   path: string | null;
   rooms: RoomContents[];
   staging: { files: number; bytes: number; complete: boolean; path: string | null };

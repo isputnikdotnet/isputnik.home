@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ArrowRight, Pencil, RefreshCw, Trash2 } from "lucide-react";
-import { controlHref, followRoute, type ControlSection } from "../../../router";
+import { controlHref, followRoute, followBack, type ControlSection } from "../../../router";
+import { initialParam, librariesHref } from "../links";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
@@ -18,6 +19,7 @@ import {
   rowTypeLabel,
   scanStatusLabel,
   typeLabel,
+  libraryTypeFilter,
   type ManagedLibrary
 } from "./managed-library";
 import { LibraryStatus } from "./LibraryStatus";
@@ -61,7 +63,7 @@ export function LibraryManagePage({
 }) {
   const { t } = useTranslation(["common", "control"]);
   const TypeIcon = TYPE_ICON[library.type];
-  const listHref = controlHref("libraries");
+  const listHref = librariesHref(libraryTypeFilter(initialParam("type")));
   const books = library.type === "audiobook" || library.type === "ebook";
   const gallery = library.type === "gallery";
 
@@ -146,7 +148,7 @@ export function LibraryManagePage({
 
   return (
     <div className="library-manage-page">
-      <a className="text-button control-page-back" href={listHref} onClick={(event) => followRoute(event, listHref)}>
+      <a className="text-button control-page-back" href={listHref} onClick={(event) => followBack(event, listHref)}>
         <ArrowLeft size={15} aria-hidden="true" />
         {tabLabel("libraries")}
       </a>

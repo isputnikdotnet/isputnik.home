@@ -3,10 +3,10 @@ import { Trans, useTranslation } from "react-i18next";
 import { CalendarClock, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
-import { ActionRow, GroupedList, InfoRow, NavRow, ToggleRow } from "../../../shared/GroupedList";
+import { ActionRow, GroupedList, InfoRow, NavToggleRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { PageBack, PageTitle, useQueryPage } from "../../../shared/useQueryPage";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { JobScheduleRows, useScheduleSummary, type JobFrequency, type JobScheduleFields } from "../JobScheduleControls";
 import { formatManagedDate } from "../../../shared/utils";
@@ -207,15 +207,21 @@ export function ScheduledJobsSection() {
   // ── One job ────────────────────────────────────────────────────────────────
   if (show) {
     const job = jobs.find((candidate) => candidate.key === show);
-    const back = <PageBack label={t("control:nav.tabs.scheduledJobs")} onBack={() => go(null)} />;
-    if (!job) return <>{head}<div className="grouped-page">{back}<p className="muted">{t("controlAdmin:scheduledJobs.gone")}</p></div></>;
+    // A job's page keeps the section's identity, names the job, and has one Back.
+    const jobHead = (
+      <ControlSectionHead
+        section="scheduledJobs"
+        icon={<CalendarClock size={30} />}
+        title={job?.label}
+        back={{ href: queryPageHref(null), label: t("control:ui.back") }}
+      />
+    );
+    if (!job) return <>{jobHead}<div className="grouped-page"><p className="muted">{t("controlAdmin:scheduledJobs.gone")}</p></div></>;
     const running = busyKey === job.key;
     return (
       <>
-        {head}
+        {jobHead}
         <div className="grouped-page">
-          {back}
-          <PageTitle>{job.label}</PageTitle>
           {notices}
           <GroupedList note={job.description}>
             <ToggleRow
@@ -260,12 +266,14 @@ export function ScheduledJobsSection() {
           return (
             <GroupedList key={category} title={t(`controlAdmin:scheduledJobs.${CATEGORY_LABEL_KEYS[category]}`)}>
               {inCategory.map((job) => (
-                <NavRow
+                // The switch is on the row itself: turning a job on or off needs no
+                // trip into its page; the rest of the row opens it.
+                <NavToggleRow
                   key={job.key}
                   icon={job.lastStatus === "error" ? <XCircle size={17} /> : busyKey === job.key ? <Clock size={17} /> : <CalendarClock size={17} />}
                   iconTone={job.lastStatus === "error" ? "danger" : job.enabled ? undefined : "muted"}
                   label={job.label}
-                  sub={scheduleSummary(job)}
+                  sub={scheduleSummary({ ...job, enabled: true })}
                   value={busyKey === job.key
                     ? t("controlAdmin:scheduledJobs.running")
                     : job.lastStatus === "error"
@@ -273,6 +281,12 @@ export function ScheduledJobsSection() {
                       : undefined}
                   valueTone={job.lastStatus === "error" ? "danger" : undefined}
                   onClick={() => go(job.key)}
+                  checked={job.enabled}
+                  disabled={saving || busyKey === job.key}
+                  onToggle={(next) => void save(job, { enabled: next })}
+                  toggleLabel={job.enabled
+                    ? t("controlAdmin:scheduledJobs.ariaToggleOn", { label: job.label })
+                    : t("controlAdmin:scheduledJobs.ariaToggleOff", { label: job.label })}
                 />
               ))}
             </GroupedList>

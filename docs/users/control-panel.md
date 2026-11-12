@@ -12,7 +12,7 @@ brings you back to. Under it are five groups:
 |---|---|
 | **Infrastructure** | Services (the containers beside this server), Video streaming, Tasks, Scheduled jobs, Logs, Activity |
 | **Libraries & Scanning** | Libraries — their folders, scanning rules and schedules — and Library statistics |
-| **Applications** | Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games and Shared organization, each with everything about it in one place |
+| **Applications** | Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games and Shared tools, each with everything about it in one place |
 | **Security & Members** | Users, Groups, Invite links, Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs, App access |
 | **System Settings** | Appearance, Email, Notifications, Storage, Backup, Recycle Bin, Quotes, About |
 
@@ -160,7 +160,7 @@ Libraries page while a scan runs — opens straight onto that library's tasks, a
 how a filtered view can be bookmarked.
 
 **Application** narrows the page to one application — its running tasks too — the
-way an application's Setup opens it.
+way an application's Overview opens it.
 
 ### Scheduled jobs
 
@@ -242,7 +242,7 @@ when it gets blocked automatically or when you ask for a check; without a key,
 none is.
 
 **Application**, in the filter, narrows the log to one application's events; an
-application's Setup opens it that way.
+application's Overview opens it that way.
 
 ### Activity
 
@@ -299,8 +299,12 @@ it names the place to go rather than the library it is somewhere inside.
 ## Applications
 
 Choose an application to see everything about it together. The directory lists each
-one with what it is and whether it is **Ready**, **Needs setup** or **Turned off**;
-choosing one opens its workspace, with a row of tabs from **Setup · Device Sync ·
+one in a grouped row with a short description and status: **Ready**, **No libraries**,
+**Not connected**, **Service unavailable**, or **Hidden from menu**. A failed status
+check says **Status unavailable** and offers Retry. Shared tools — Tags and Book
+categories — sit below the application list.
+
+Choosing an application opens its workspace, with a row of tabs from **Overview · Device Sync ·
 Organize · Settings** — only the ones it needs, so an application with a single page
 has no row.
 
@@ -308,26 +312,37 @@ An application shows the libraries, connection, access and storage it uses, and
 links to where each is managed rather than keeping copies. Changing a library's
 folders or scan schedule is a Libraries task; backing up phone photos is a Gallery task.
 
-### Setup
+### Application overview
 
-Every application opens on Setup:
+Every application opens on Overview:
 
 - **Whether it is ready** — or the first thing it is missing: its container not
   connected, or no library yet.
 - **In the menu** — whether the household sees the application at all. Switched off,
   it leaves the menu, the home feed and Tags for everyone; nothing is deleted, and this
   panel still shows its libraries. One application always stays on.
-- **Libraries** — each library it shows, with its size and last scan, leading to the
-  library's own page.
+- **Libraries** — a count and a link to Libraries & Scanning for folders and scan rules.
+  It opens with only this application’s library type selected. Choose All types to
+  see everything; the filter survives refresh and returning from a library’s Manage page.
 - **Connection** — for Videos, Games and Gallery's face recognition: whether its
   container answers, leading to [Services](#services).
 - **Who can use it** — leading to where that is decided: each library's own page, App
   access, or each member's page.
-- **Storage used**, and **Activity, tasks and logs** — Infrastructure's pages, opened
+- **Disk usage** — measured library media and app files, with links to their details.
+  Story recordings and family-tree files are attributed separately from Gallery.
+  Shared database, thumbnails, caches and backups are excluded. Incomplete totals
+  say “At least”; unavailable measurements never appear as zero. Games does not yet
+  report its usage.
+- **Manage** — access and Backup. Videos and Games open their own
+  backup details; other applications open Home backups. Original media files need
+  their own backup.
+- **Activity & troubleshooting** — Infrastructure's Activity, Tasks and Logs, opened
   already narrowed to this application.
 
 On its other tabs, a line at the top says whether the application is ready, with the
-way back to Setup.
+way back to Overview. Switching tabs keeps one workspace visit in history. Back
+returns to where you came from, including the selected tab after visiting a shared
+editor or Backup. A direct link falls back to its natural parent.
 
 ### Gallery
 
@@ -485,7 +500,7 @@ covers both.
 **Organize** has **Book categories** — the shelves the scanner sorts books onto, by
 keyword rules — and **Tags**. Categories are one set shared by both, so Audiobooks
 opens the same editor, which then stays in Audiobooks: its tab, title and back link
-follow where you came from. **Re-match all books**, on the card, sorts every book again.
+follow where you came from. **Re-match all books**, in the categories editor, sorts every book again.
 
 ### Stories, Family Tree and Games
 
@@ -493,11 +508,11 @@ follow where you came from. **Re-match all books**, on the card, sorts every boo
   library narration goes to (App files, shown here, not chosen). Narration recorded
   before recordings lived in the gallery moves into App files by itself once App
   storage is on; the page says how many recordings are still waiting.
-- **Family Tree** — Setup. Importing, exporting and the tree's own settings are in
+- **Family Tree** — Overview. Importing, exporting and the tree's own settings are in
   Family Tree itself.
-- **Games** — Setup: whether the games container answers, who may play, and guest links.
+- **Games** — Overview: whether the games container answers, who may play, and guest links.
 
-### Shared organization
+### Shared tools
 
 **Tags** for the whole install: books, Gallery photos (and video clips), albums,
 slideshows, stories and family-tree people. Rename, merge and delete there; **Remove
@@ -790,7 +805,7 @@ live and how much room they take, and backups and recovery.
 
 - **Appearance** — the default theme for new accounts. Everyone can override it in
   their own profile. Which applications the household uses is set on each
-  application's [Setup](#setup).
+  application's [Overview](#application-overview).
 - **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
   to e-reader. It has [its own guide](email.md).
 - **Notifications** — whether members are emailed when something is shared with
@@ -829,6 +844,11 @@ What is using App storage, whose it is, and files nothing uses any more —
 
 Worth setting up on the day you install, not the day you need it.
 
+The summary shows the latest available Home backup (including uploaded files), the
+next scheduled run, and the space used by Home backups. Open **Backup storage** for
+the server folder and storage settings. **Back** returns to the page you came from,
+including an application or Dashboard; a direct bookmark falls back to System Settings.
+
 ![The Backup page: three ways to make one, the two schedules, and the list of existing backups](images/63-backup.png)
 
 There are three kinds, and the file name says which is which:
@@ -854,7 +874,7 @@ restore has nothing left to re-render — and that is what makes it so much larg
 
 Media files are never in a backup, and never touched.
 
-- The three buttons at the top make one now, of the kind you name. A backup runs in
+- The three **Back up now** rows make one now, of the kind you name. A backup runs in
   the background, and the page reports when the file is ready.
 - **Scheduled backups** are two rows, one for full and one for minimal, and each is
   a scheduled job like any other: every day, every week on a weekday, or every
@@ -862,19 +882,24 @@ Media files are never in a backup, and never touched.
   it. Both start off. A change is saved as you make it, and the same two rows sit on
   the Scheduled jobs page, where **Run now** works for them too. A daily minimal
   backup with a weekly full one is a sensible pair.
-- **Keep**, under each row's time, is how many of that kind stay. Every kind is
+- **Retention** opens the counts for all three kinds. Each schedule's detail page
+  also offers its own count. Every kind is
   counted and pruned on its own, so a nightly minimal backup never pushes the weekly
   full ones out: when a new one is made, older ones *of that same kind* beyond the
   number are removed. The count covers the ones you make by hand too, not only the
   scheduled runs. Keeping a fortnight of the small nightly ones and two of the big
   weekly ones is a sensible pair of numbers.
-- **Database copies** get a count of their own below, with no schedule beside it —
+- **Database copies** get a count of their own under Retention, with no schedule —
   nothing ever makes one on a timer. You take one before trying something, a restore
   leaves one behind of the database it replaced, and an uploaded `.sqlite` joins
   them; they pile up like anything else, so they are capped like anything else. The
   automatic pre-upgrade copies below are not counted here at all.
 - You can **upload** a backup from your computer; it joins the list ready to
   restore, filed by what it holds.
+- **Recent backups** shows the newest three, labeled by date, type, and size.
+  **All backups** opens the longer list when there are more. Open a backup to see
+  its file name and to download, restore, or delete it. A file still being written
+  cannot be opened or restored. Back returns to the list you opened it from.
 
 **A copy before every upgrade, made for you.** The first time a new version of the
 app starts, it saves the database as it was before that version changes anything,
@@ -886,7 +911,7 @@ each one. It is the database only, no covers and no key, which is all it needs t
 put this server back the way it was if an upgrade goes wrong — see
 [Upgrading and rolling back](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/rollback.md).
 
-**Where they land.** The page shows the folder the server writes to. In Docker that's
+**Where they land.** Open **Backup storage** for the folder the server writes to. In Docker that's
 a path *inside the container* — `/config/backups` — which on the host is the `backups`
 folder inside whatever you mapped to `/config`. On Unraid with the stock template that
 means `/mnt/user/appdata/isputnik/backups`.
@@ -926,7 +951,8 @@ older later and need to go back.
 
 #### Containers
 
-Games and Video each have a card of their own at the bottom of this page, so one can
+Games and Video each have a row under **Application backups**. Open one to manage
+its settings and backups on a separate page, so one can
 be backed up and put back without touching Home or the other. A container's backup
 is its database: matches, chat and scores for Games; the catalog, watch progress and
 settings for Video. Video files are never included, and neither are Video's poster
@@ -935,7 +961,8 @@ images, which are fetched again.
 - **Back up now** saves the database as one `.sqlite` file in the backups folder.
   **Keep newest** says how many of these to keep.
 - **Include in Full and Minimal backups** takes the database along in those backups,
-  on by default. Those copies are listed on the card too, and restore the same way.
+  on by default. Those copies are listed on the application's backup page too,
+  and restore the same way. Open a dated row for download and restore actions.
 - **Download** gives you that one database, and **Upload** adds a downloaded file back
   to the list. Treat a download with care: the file is not encrypted, and the Games
   one holds chat messages.
@@ -946,7 +973,7 @@ images, which are fetched again.
   only until the next restore.
 
 The container must be running to restore, and must be up to date: an older one says
-so on its card, and a backup from a newer version than the container is refused. Video
+so on its backup page, and a backup from a newer version than the container is refused. Video
 also refuses a restore while a scan is running.
 
 If you ever rebuild everything, restore Home first, then each container.

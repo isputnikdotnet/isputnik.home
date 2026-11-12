@@ -15,7 +15,7 @@ import { MessageBox } from "../../../../shared/MessageBox";
 import { formatBytes, formatManagedDate, formatUptime } from "../../../../shared/utils";
 import { relativeTime } from "../../../../shared/relativeTime";
 import { formatNumber } from "../../../../shared/dates";
-import { appPageHref, logsHref, storageHref, tasksHref } from "../../links";
+import { appPageHref, backupHref, logsHref, storageHref, tasksHref } from "../../links";
 import { signInsHref } from "./SignInsView";
 import type { AppStatus } from "../AppsSection";
 import type { SystemStatus } from "../../types";
@@ -70,7 +70,7 @@ function useAppName() {
 
 const APP_ICONS: Record<string, LucideIcon> = { games: Gamepad2, video: Tv, faces: ScanFace };
 
-const containerBackupHref = (id: string) => `${controlHref("backup")}#container-backup-${id}`;
+const containerBackupHref = backupHref;
 
 /** One filesystem and the folders mapped from it, in every container: one bar, since
  *  they all show the same numbers. Within a container the device id says it is one

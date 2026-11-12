@@ -10,12 +10,30 @@
   max-width: 820px;
 }
 
-.map-feature {
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
+/* Control panel v2: each feature is a group of rows (shared/GroupedList styles);
+   these rules only fit the feature's own pieces into those rows. */
+.map-feature .map-feature-name { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-size: inherit; font-weight: 550; }
+.map-feature-fact .grouped-row-label { flex: 0 1 40%; }
+
+.map-feature-fact-value {
+  flex: 1 1 60%;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-md);
+  text-align: right;
+  overflow-wrap: anywhere;
 }
+
+/* Whatever else a feature holds (a meter, a build's state, the routes form) is a
+   row of its own inside the group. */
+.map-feature .grouped-list-rows > :not(.grouped-row) {
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.map-feature .grouped-list-rows > .map-feature-strip { border-radius: 0; background: transparent; }
+.map-feature .grouped-list-rows > .map-feature-part { margin: 0; padding: 9px 16px; flex-wrap: wrap; }
 
 .map-feature-head {
   display: flex;
