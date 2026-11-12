@@ -585,7 +585,12 @@
     "authorizing": "Authorizing…",
     "authorize": "Authorize device",
     "refusing": "Refusing…",
-    "deny": "Deny"
+    "deny": "Deny",
+    "signInLead": "Sign in to link it. This phone stays signed in to iSputnik afterwards.",
+    "signInAndLink": "Sign in and link",
+    "signingIn": "Signing in…",
+    "linking": "Linking…",
+    "signedInButFailed": "You are signed in, but the device was not linked"
   },
   "install": {
     "eyebrow": "First run",

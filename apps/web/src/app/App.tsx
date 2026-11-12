@@ -11,7 +11,7 @@ import { clearPrivateRuntimeCaches } from "../pwa/cache";
 import { AppLoading, Shell } from "./Shell";
 import { SessionContext, type Session } from "./SessionContext";
 import { LoadErrorBoundary } from "../shared/LoadErrorBoundary";
-import { useRoute, navigate, rememberPathAfterSignIn } from "../router";
+import { useRoute, navigate } from "../router";
 import { rememberSections, routeAllowed, useSections } from "./sections";
 
 // Eager: the shell, the ways in, and the page you land on. Everything on the
@@ -295,14 +295,10 @@ export function App() {
 
     // deviceLink is here for the same reason login is: the display asking to be
     // linked has nobody to be signed in as yet, and sending it to /login is
-    // sending it back to the keyboard it hasn't got.
-    if (!session.requiresSetup && !session.user && !["login", "invite", "share", "drop", "deviceLink"].includes(route.name)) {
-      // Scanning the QR on a phone that isn't signed in lands here. Remember the
-      // errand before sending them to sign in, or approving a device turns into
-      // "sign in, arrive at the home page, wonder what happened to the code".
-      if (route.name === "deviceLinkConfirm") {
-        rememberPathAfterSignIn(`${window.location.pathname}${window.location.search}`);
-      }
+    // sending it back to the keyboard it hasn't got. deviceLinkConfirm too: a phone
+    // that scanned the QR signed out signs in ON that page and links in one go
+    // (owner, 2026-11-11), instead of a sign-in page and then the password again.
+    if (!session.requiresSetup && !session.user && !["login", "invite", "share", "drop", "deviceLink", "deviceLinkConfirm"].includes(route.name)) {
       navigate("/login");
       return;
     }
@@ -424,14 +420,14 @@ export function App() {
       return <DeviceLinkPage onSignedIn={refreshSession} />;
     }
 
-    if (!session.user) {
-      return <Shell><p className="status">Preparing sign in...</p></Shell>;
+    // Signed in or out: signed out, the page signs in itself (the real sign-in
+    // endpoints, so lockouts and MFA apply) and then approves with that password.
+    if (route.name === "deviceLinkConfirm") {
+      return <DeviceLinkConfirmPage userCode={route.userCode} signedIn={Boolean(session.user)} onSignedIn={refreshSession} />;
     }
 
-    // Below the signed-out gate: approving needs an account, and an anonymous
-    // visitor has already been sent to sign in with this path remembered.
-    if (route.name === "deviceLinkConfirm") {
-      return <DeviceLinkConfirmPage userCode={route.userCode} />;
+    if (!session.user) {
+      return <Shell><p className="status">Preparing sign in...</p></Shell>;
     }
 
     if (route.name === "control") {
