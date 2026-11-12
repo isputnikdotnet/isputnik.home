@@ -124,27 +124,31 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   story editor (`keepSidebar`) stay on the sidebar, phones on their four-tab bar. It
   wears every theme, so colours come from tokens. Classic is a temporary per-browser
   choice on Profile (`app/layoutChoice.ts`).
-- **Control panel**: its whole shape (6 nav groups × their tabs — Overview, Library,
-  Members, Security, Maintenance, Settings; six is the budget. Apps was a seventh in
-  4.38–4.44 and was folded into the rest — `docs/dashboard-and-backups-plan.md`; a
-  container's pages join those groups, they never bring a group back) is declared in
-  `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
-  via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
-  and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.
-  **Every group is the same shape**: a nav link to its first tab over ONE row of its
-  tabs. Retired in 4.15 and not to be brought back: fold-out branches inside a group
-  (Utilities → Gallery/Widgets), a group of one page (Maps), and a second row of views
-  inside a page (the Dashboard's six views; Duplicates before that) — the reasons are
-  in `nav.ts` and `docs/control-panel-navigation-review.md`. Two kinds of sub-page
-  are allowed (4.73): a tab's **pages** (`pages` on its `nav.ts` entry — Library ›
-  Organization's Book categories, Tags, Video genres) keep their own address and
-  search entry, keep the tab selected, and open with a back link (`ControlSectionHead`
-  draws it); a **page of one thing** (a member, a group, a library's Manage page at
-  `libraryManageHref()`) has its own route outside the table and drops the tab row.
-  Neither is a second row. Library's tabs each answer one question: Libraries ·
-  Organization · Device Sync (phone backup, personal libraries) · Storage · App storage
-  contents. Retired addresses stay
-  in `CONTROL_ALIASES` (and the Dashboard's `?view=` in `LEGACY_DASHBOARD_VIEWS`);
+- **Control panel** (v2, `docs/control-panel-v2-plan.md`): its whole shape is declared in
+  `features/control/nav.ts` — the Dashboard (its own nav entry, in no group) and FIVE
+  groups: Infrastructure (Services, Video streaming, Tasks, Scheduled jobs, Logs,
+  Activity) · Libraries & Scanning · Applications · Security & Members · System Settings.
+  Five is the budget. Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
+  Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, Shared organization, each with
+  only the tabs it needs from Setup · Device Sync · Organize · Settings, opening on Setup.
+  System-wide pages go in a group; an application's own controls go in its workspace,
+  which SHOWS and LINKS to what it uses (libraries, connection, access, storage —
+  `features/control/applications.ts`) but owns none of it; Infrastructure's Tasks, Logs
+  and Activity take `?application=<app>` (the server sees generic filters only). A new
+  media type or container adds an `APPLICATIONS` entry, never a group. Canonical URLs
+  in `CONTROL_PATHS` (`router.ts`), linked via `controlHref()`. Every tab is a real
+  route — no `useState` tab rows — and pages open with `ControlSectionHead`, which takes
+  eyebrow + title from `nav.ts`. **Every group and workspace is the same shape**: a link
+  to its first tab over ONE row of tabs — never a row of applications over a row of their
+  tabs, no fold-out branches, no group of one page, no second row of views inside a page.
+  Two kinds of sub-page are allowed: a tab's **pages** (`pages` on its `nav.ts` entry —
+  Gallery › Organize's Duplicate cleanup and Missing photos) keep their own address and
+  search entry, keep the tab selected, and open with a back link; a **page of one thing**
+  (a member, a group, a library's Manage page at `libraryManageHref()`) has its own route
+  outside the table and drops the tab row. A **shared page** (Book categories, Tags) has
+  ONE address; opened from a workspace it carries `?from=<app>` (`controlHrefFrom`,
+  `placeOf`), never a second copy. The v1 six groups (4.15–4.86) and every older address
+  stay in `CONTROL_ALIASES` (and the Dashboard's `?view=` in `LEGACY_DASHBOARD_VIEWS`);
   `ControlPanelPage` rewrites them to the canonical path.
   New settings get search terms in `features/control/search-index.ts`; a setting on a
   page of several cards gets an `anchor` (the card's `id`) so search scrolls to it.

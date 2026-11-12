@@ -36,7 +36,7 @@ install each one like any other container, then connect it to iSputnik in
 - **Games is an app, Video is an engine.** Games draws its own pages. Video has no
   pages of its own: iSputnik shows its libraries, shows and movies, and the video
   engine scans the folders, keeps the catalog and plays the files. Video
-  libraries are added and shared on **Library → Libraries** like every other
+  libraries are added and shared on **Libraries & Scanning → Libraries** like every other
   library.
 
 ## 1. Put the containers where iSputnik can reach them
@@ -62,7 +62,7 @@ iSputnik must be able to reach each app by address. Either:
 On Unraid, install **isputnik-games** from Community Applications (or add the
 template from the [isputnik.games repository](https://github.com/isputnikdotnet/isputnik.games)).
 Its **Gateway Secret** field is required, so make the secret first: open
-**Control panel → Settings → Apps → Games**, press **Generate secret** and
+**Control panel → Infrastructure → Services → Games**, press **Generate secret** and
 **Copy** (it is shown once), and paste it into the field. Keep **Config & Data**
 (`/config`) on your appdata share; it holds the matches, scores and the games'
 own log of events. Then come back to the same page for step 3: the address is
@@ -82,7 +82,7 @@ container:
 | `/media` | your video folder, **read-only** (for example `/mnt/user/data/video`) |
 | `/config` | an appdata folder: the catalog database and poster cache |
 | Network | the Unraid template publishes port 4300 on `bridge`, so the address is `http://<your Unraid IP>:4300`; a shared network or a fixed IP work too |
-| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Settings → Apps → Video → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
+| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Infrastructure → Services → Video → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
 | `/transcode` | optional: where ffmpeg writes each piece of a film being converted before the engine takes it into memory, and where pieces past a viewer's memory share stay ([Converting video](#converting-video)); left out, a folder inside the container |
 
 Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
@@ -100,7 +100,7 @@ backup. Give its container:
 |---|---|
 | Image | `ghcr.io/isputnikdotnet/isputnik.faces` (on Unraid, **isputnik-faces** from Community Applications, or the template `isputnik-faces.xml` in the [isputnik.faces repository](https://github.com/isputnikdotnet/isputnik.faces)) |
 | Network | the Unraid template publishes port 4400 on `bridge`, so the address is `http://<your Unraid IP>:4400`; a shared network or a fixed IP work too |
-| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Settings → Apps → Faces → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
+| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Infrastructure → Services → Faces → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
 | CPU threads | optional: all cores but one by default, so the box stays responsive during a scan |
 
 Without a paired Faces container there is no face recognition (since 4.65.1
@@ -110,10 +110,10 @@ names and faces already found are kept and keep working — only finding new
 faces needs the container. Once it is paired, the next scan uses it, and nothing
 is scanned again.
 
-## 3. Connect them on Settings → Apps
+## 3. Connect them on Infrastructure → Services
 
 Everything on iSputnik's side is done here: nothing to change on the iSputnik
-container, and no restart. Open **Control panel → Settings → Apps** and choose
+container, and no restart. Open **Control panel → Infrastructure → Services** and choose
 the app.
 
 1. Under **Where the container is**, type the app's **Address** and press **Save
@@ -142,13 +142,13 @@ off for everyone until it is paired again.
 > the address as `GAMES_URL` / `VIDEO_URL`, the secret as `GAMES_GATEWAY_SECRET`
 > / `VIDEO_GATEWAY_SECRET` (a long random string, e.g. `openssl rand -hex 32`,
 > and the same value as the app's `GATEWAY_SECRET`). A value set this way always
-> wins, and Settings → Apps then shows it as *Set in this container's environment*. All of
+> wins, and Infrastructure → Services then shows it as *Set in this container's environment*. All of
 > them are in the
 > [configuration reference](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md#apps).
 
 ## 4. Choose who may use it, and from where
 
-**Control panel → Security → App access**, for the chosen app:
+**Control panel → Security & Members → App access**, for the chosen app:
 
 - **Who may use it.** Everyone signed in is a member until you change something.
   Grant people or groups **Member** (uses the app) or **Manager** (also looks
@@ -166,10 +166,10 @@ For Video, which libraries each person sees is set on each library, on **Library
 
 ## 5. Check that it's healthy
 
-- **Overview → Dashboard** — iSputnik with a branch to each app: running or
+- **Dashboard** — iSputnik with a branch to each app: running or
   not, its version, its address, whether it accepts iSputnik's secret and how
   long it takes to answer. Anything wrong is listed at the top.
-- **Overview → Logs**, with the app chosen under **Source** — **Events** is what
+- **Infrastructure → Logs**, with the app chosen under **Source** — **Events** is what
   the app recorded about itself (refused callers, matches, scans, errors);
   **Server log** is the newest lines of its own log, what `docker logs` would
   show, without a shell on the host.
@@ -179,7 +179,7 @@ containers (Unraid's Docker page, or compose). iSputnik only watches.
 
 ## Video libraries
 
-Once Video is paired, **Library → Libraries → Add library** offers **Video**.
+Once Video is paired, **Libraries & Scanning → Libraries → Add library** offers **Video**.
 Choose whether the library holds **Shows** or **Movies**, then pick its folder:
 the picker shows the folders mounted into the video engine, not iSputnik's own.
 The engine scans the library straight away; its counts and scan state appear on
@@ -195,7 +195,7 @@ go on its next sync.
 A film a browser can't play as it is (an `.mkv`, sound in AC3 or DTS, an HEVC
 picture) is converted while someone watches: the sound alone when the picture
 is fine, both when it isn't. The engine keeps a few minutes ready ahead of the
-player. **Settings → Video → Converting video** sets how:
+player. **Applications → Videos → Settings → Converting video** sets how:
 
 - **People watching converted video at once** (3 to start with). Each one runs a
   conversion of their own, and re-encoding a picture keeps a processor core
@@ -252,7 +252,7 @@ Pictures saved beside the video files are always shown: `poster.jpg` and
 film, `<episode file name>-thumb.jpg` beside an episode.
 
 For the rest, give the engine a key from a free TMDB account (themoviedb.org →
-Settings → API) on **Settings → Video → Posters and descriptions**. It is checked
+Settings → API) on **Applications → Videos → Settings → Posters and descriptions**. It is checked
 with TMDB before it is kept and never shown again. After every scan the engine
 then fetches posters, backdrops and episode pictures, and fills in descriptions
 and episode names where the `.nfo` files have none — an `.nfo`'s own words
@@ -267,7 +267,7 @@ Admins have **Edit** on every film's and show's page. Its tabs:
   gave it; type over it to change it, or leave it empty to keep what was found.
   Edits stay through every rescan; **Use what was found** hands a field back.
 - **Genres**: pick the title's genres from the list kept on **Control panel →
-  Library → Organization → Video genres**. With none picked it keeps the genres that were found.
+  Applications → Videos → Organize**. With none picked it keeps the genres that were found.
 - **Set** (films): which set the film is in. **As found** keeps the `.nfo`
   file's set, else TMDB's collection; **In this set** puts it into one by name
   (pick one that is there, or type a new name to make a set) at the place you
@@ -292,7 +292,7 @@ Admins have **Edit** on every film's and show's page. Its tabs:
 
 Films and shows arrive with genres from their `.nfo` files and from TMDB, often
 in two languages and several spellings ("Comedy", "Комедия", "Sci-Fi & Fantasy").
-**Control panel → Library → Organization → Video genres** keeps one list of your own, the way
+**Control panel → Applications → Videos → Organize** keeps one list of your own, the way
 Categories does for books, and decides what each genre a film arrives with
 becomes. There are four cases:
 
@@ -395,7 +395,7 @@ The player knows where they are from, in this order:
   A season takes about 15 minutes the first time, most of it reading each
   episode's picture once, so a large library is a while being covered; it is
   looked at once, and again only when its files change. **Control panel →
-  Settings → Video → Intros, recaps and credits** turns this off for a server
+  Applications → Videos → Settings → Intros, recaps and credits** turns this off for a server
   that would rather not spend the time; what was found before still counts.
 
 An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
@@ -511,7 +511,7 @@ has its own.
 
 ### Copies for download
 
-**Settings → Video → Copies for download** is where an admin sets how much room
+**Applications → Videos → Settings → Copies for download** is where an admin sets how much room
 the prepared copies may take together (20 GB to start with) and sees what they
 take now. Past that size, the copies used longest ago are removed; a copy of a
 file that has since changed is made again. **Remove all copies** empties it;
@@ -539,7 +539,7 @@ language chosen last is picked again for the next episode.
 
 ## Backups
 
-**Full** and **minimal** backups (Control panel → Maintenance → Backup) also ask
+**Full** and **minimal** backups (Control panel → System Settings → Backup) also ask
 each paired app for a copy of its database and keep it inside the same zip — the
 games' matches and scores, the video catalog and watch progress. Media files and
 an app's caches are never included. If an app can't hand its database over, the
@@ -547,9 +547,9 @@ backup still finishes and its log line says which app was left out and why.
 
 ## Turning an app off
 
-- **For the menu only:** Control panel → Settings → Appearance → Sections, switch
-  **Games** or **Video** off. The app disappears for everyone; nothing is deleted.
-- **For good:** on Settings → Apps, clear the app's address and press **Forget
+- **For the menu only:** Control panel → Applications → **Games** or **Videos** → Setup,
+  and switch **In the menu** off. The app disappears for everyone; nothing is deleted.
+- **For good:** on Infrastructure → Services, clear the app's address and press **Forget
   secret** (or remove `GAMES_URL` / `VIDEO_URL` from the iSputnik container if
   you set it there), then remove the app's container.
 
@@ -558,17 +558,17 @@ backup still finishes and its log line says which app was left out and why.
 | What you see | What it means |
 |---|---|
 | Dashboard: **Not answering** | iSputnik can't reach the address. Check the container is running, the address and port, and that both are on the same network (not Docker's default `bridge`). |
-| Dashboard: **Secret refused**, or members see "Not signed in" in the games | The two secrets differ. Generate a new one on Settings → Apps, paste it into the app's `GATEWAY_SECRET` and restart the app. |
-| Settings → Apps: **Set in this container's environment** | The address (`GAMES_URL` / `VIDEO_URL`) or the secret (`GAMES_GATEWAY_SECRET` / `VIDEO_GATEWAY_SECRET`) is set on iSputnik and wins. Keep it, or remove it and restart iSputnik to set it on Settings → Apps. |
+| Dashboard: **Secret refused**, or members see "Not signed in" in the games | The two secrets differ. Generate a new one on Infrastructure → Services, paste it into the app's `GATEWAY_SECRET` and restart the app. |
+| Infrastructure → Services: **Set in this container's environment** | The address (`GAMES_URL` / `VIDEO_URL`) or the secret (`GAMES_GATEWAY_SECRET` / `VIDEO_GATEWAY_SECRET`) is set on iSputnik and wins. Keep it, or remove it and restart iSputnik to set it on Infrastructure → Services. |
 | A rule refuses everyone from outside | Behind a reverse proxy whose trust isn't set up, every visitor counts as outside. Set `TRUST_PROXY` — see [Exposing your library to the internet](exposing-to-the-internet.md). |
 
 ## Checklist
 
 ```
 [ ] App container where iSputnik can reach it: its published port, a shared network or a fixed IP
-[ ] Settings → Apps: address saved, and the Container line says it answers
-[ ] Settings → Apps: secret generated, pasted into the app's GATEWAY_SECRET, app restarted
-[ ] Settings → Apps: Test connection says Paired
-[ ] Security → App access: who may use it, and from where
-[ ] Video: media folder mounted read-only, libraries added on Library → Libraries
+[ ] Infrastructure → Services: address saved, and the Container line says it answers
+[ ] Infrastructure → Services: secret generated, pasted into the app's GATEWAY_SECRET, app restarted
+[ ] Infrastructure → Services: Test connection says Paired
+[ ] Security & Members → App access: who may use it, and from where
+[ ] Video: media folder mounted read-only, libraries added on Libraries & Scanning → Libraries
 ```

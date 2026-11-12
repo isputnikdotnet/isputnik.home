@@ -1,9 +1,9 @@
 # Control panel v2 — five groups and application workspaces
 
-Status: **proposed** (2026-11-11). Replaces the six-group design described in
-`features/control/nav.ts`, `docs/control-panel-navigation-review.md` and the
-"Control panel" paragraph of `CLAUDE.md`. Those rules are retired on purpose
-by this effort; they get rewritten in the last phase, not argued with.
+Status: **built** on `preview/control-panel-v2` (2026-11-12), phases 1–5; not yet
+released. It replaced the six-group design of 4.15–4.86
+(`docs/control-panel-navigation-review.md`); `features/control/nav.ts`, the
+"Control panel" paragraph of `CLAUDE.md` and `docs/UI-CONVENTIONS.md` now describe v2.
 
 ## Why
 
@@ -319,7 +319,8 @@ and bookmarks must not break.
    category breakdown and "Other files"; Needs attention fed by low-space,
    unavailable/read-only, failed-task and security checks; Cancel where
    supported. Then the daily storage measurement and the Growth view.
-5. **Docs and rules.** Rewrite the nav.ts header comment, CLAUDE.md's control
+5. **Docs and rules.** *(Done 2026-11-12: CLAUDE.md, UI-CONVENTIONS, the user guides,
+   the older plans marked superseded, control-panel screenshots retaken on the demo site.)* Rewrite the nav.ts header comment, CLAUDE.md's control
    panel paragraph, `docs/UI-CONVENTIONS.md`, the user guides in `docs/users/`
    (25 mention the panel) and their screenshots; update `control-nav.test.ts`
    and `router.test.ts`.

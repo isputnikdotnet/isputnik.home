@@ -3,7 +3,7 @@
 The server can send mail, but it doesn't have to. Nothing breaks without it — a
 handful of features simply stay unavailable.
 
-Everything here lives in **Control panel → Settings → Email**, and it's admin-only.
+Everything here lives in **Control panel → System Settings → Email**, and it's admin-only.
 
 ## What email is used for
 
@@ -11,7 +11,7 @@ Everything here lives in **Control panel → Settings → Email**, and it's admi
 |---|---|---|
 | **Two-factor codes** | Lets people choose "Email" as their second factor and receive a 6-digit code per sign-in | The Email option is hidden. An authenticator app still works, and is the stronger choice anyway — see [Two-factor authentication](two-factor-authentication.md) |
 | **Security alerts** | Warns you about locked accounts, auto-blocked addresses, a new admin, two-factor being turned off, repeated wrong codes, and sign-ins from a network an account has never used | The events are still recorded in the activity log — nobody is told about them as they happen |
-| **Share notifications** | Tells someone that a photo, book, or album was shared with them, and links them to **Shared with me**. Off until switched on, under **Settings → Notifications** | Sharing still works — the recipient finds it the next time they open the app |
+| **Share notifications** | Tells someone that a photo, book, or album was shared with them, and links them to **Shared with me**. Off until switched on, under **System Settings → Notifications** | Sharing still works — the recipient finds it the next time they open the app |
 | **Send to e-reader** | Mails an ebook to a Kindle or Kobo address | The button explains that mail isn't set up |
 
 Account owners also get told when their own login email, password, or two-factor

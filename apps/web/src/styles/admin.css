@@ -3478,3 +3478,17 @@ tr.control-anchor-flash > td {
 .dash-growth { display: grid; gap: 8px; min-width: 0; }
 .dash-growth p { margin: 0; }
 .dash-growth-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Control panel v2: Security & Members has ten tabs. A label never breaks inside a
+   word ("Sign- ins"); when the row is wider than the page it scrolls sideways,
+   staying ONE row. */
+.control-work > .control-tabs {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.control-work > .control-tabs a {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding-inline: 12px;
+}

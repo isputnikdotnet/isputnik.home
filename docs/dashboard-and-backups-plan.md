@@ -1,5 +1,9 @@
 # Dashboard and per-service backups — plan
 
+> **Dashboard reshaped by control panel v2** ([control-panel-v2-plan.md](control-panel-v2-plan.md),
+> "Dashboard"): Needs attention, Running services, Storage, Usage, Current work. The per-service
+> backups below stand; the Apps group and Overview it refers to are gone.
+
 Status: agreed direction 2026-10-28, not built. Mockup (both pages, clickable):
 https://claude.ai/artifact/BZ8TFK1XdntA7RSU5fERYH — private to the owner.
 

@@ -52,11 +52,11 @@ const SHOTS = [
   { name: "01-login", url: "login", auth: false, state: "signed out, at least one account" },
   { name: "02-home", url: "" },
 
-  { name: "10-storage-empty", url: "control/storage", state: "before storage is configured" },
-  { name: "11-storage-configured", url: "control/storage" },
+  { name: "10-storage-empty", url: "control/settings/storage", state: "before storage is configured" },
+  { name: "11-storage-configured", url: "control/settings/storage" },
   {
     name: "12-storage-add-container",
-    url: "control/storage",
+    url: "control/settings/storage",
     setup: `button(document, "Add container").click(); await sleep(500); "opened";`
   },
 
@@ -235,13 +235,13 @@ const SHOTS = [
   // The control panel and the user's own pages. These need a library with some
   // history behind it — an install with nothing in it photographs as empty boxes.
   { name: "60-dashboard", url: "control", state: "libraries scanned" },
-  { name: "61-duplicate-cleanup", url: "control/maintenance/duplicate-cleanup", state: "a cleanup job in review" },
+  { name: "61-duplicate-cleanup", url: "control/apps/gallery/organize/duplicate-cleanup", state: "a cleanup job in review" },
   {
     // The header shot above says what the scan found; this one shows a result
     // card, which is the thing the guide spends most of its length explaining —
     // what was matched, which copy is kept and why, and the three buttons.
     name: "68-duplicate-result",
-    url: "control/maintenance/duplicate-cleanup",
+    url: "control/apps/gallery/organize/duplicate-cleanup",
     state: "a cleanup job in review",
     wait: 4000,
     setup: `
@@ -266,10 +266,10 @@ const SHOTS = [
   // been testing with. Empty it, delete one demo item, then capture. Delete a copy
   // out of Photos/Re-saved: those exist only to be duplicates, so the library
   // loses nothing, and removing one is the flow duplicate-cleanup.md describes.
-  { name: "62-recycle-bin", url: "control/maintenance/recycle-bin", state: "only demo content in the bin" },
+  { name: "62-recycle-bin", url: "control/settings/recycle-bin", state: "only demo content in the bin" },
   // Taller than the default: each schedule row carries its retention under the
   // time now, and the count for database copies sits under both.
-  { name: "63-backup", url: "control/maintenance/backup", height: 1260 },
+  { name: "63-backup", url: "control/settings/backups", height: 1260 },
   { name: "64-security-overview", url: "control/security" },
   { name: "65-members", url: "control/members" },
   { name: "66-groups", url: "control/members/groups", state: "at least one group" },
@@ -323,7 +323,7 @@ const SHOTS = [
   },
   {
     name: "84-inbox-check-results",
-    url: "control/maintenance/duplicate-cleanup",
+    url: "control/apps/gallery/organize/duplicate-cleanup",
     state: "an Inbox check in review",
     height: 1000
   },
@@ -331,7 +331,7 @@ const SHOTS = [
     // Scrolled to the near-identical section: a set where the incoming scan is a
     // different file from the library's, with Replace on offer.
     name: "88-inbox-check-near",
-    url: "control/maintenance/duplicate-cleanup",
+    url: "control/apps/gallery/organize/duplicate-cleanup",
     state: "an Inbox check in review with a near-identical set",
     setup: `
       const heading = [...document.querySelectorAll("h2, h3")]
@@ -582,14 +582,14 @@ const SHOTS = [
   {
     // The Contents page beside Storage: parts with sizes, App files by folder.
     name: "107-storage-contents",
-    url: "control/libraries/storage/contents",
+    url: "control/settings/storage/contents",
     state: "App storage on, an App files library with something in it",
     height: 1100
   },
   {
     // The Photo Inbox row's Reviewers: who besides the admins reviews, and how far.
     name: "114-inbox-reviewers",
-    url: "control/libraries/storage",
+    url: "control/settings/storage",
     state: "App storage on, a reviewer named",
     setup: `
       const reviewers = button(document, "Reviewers");
@@ -599,7 +599,7 @@ const SHOTS = [
     height: 1000
   },
   // Maps (docs/users/control-panel.md → Maps, library-gallery.md, first-run.md).
-  { name: "108-maps-setup", url: "control/settings/maps", wait: 3500, height: 1500 },
+  { name: "108-maps-setup", url: "control/apps/gallery/settings", wait: 3500, height: 1500 },
   { name: "111-gallery-places", url: "gallery/places", wait: 4000, state: "named places built, photos with GPS" },
   {
     // The viewer's Map tab: the pin, and the town the photo was taken in.
@@ -679,7 +679,7 @@ const SHOTS = [
   {
     // Below the networks and the address: every member's phones.
     name: "122-phone-sync",
-    url: "control/security/phone-sync",
+    url: "control/apps/gallery/device-sync",
     state: "personal libraries and phone sync set up",
     setup: `
       const head = [...document.querySelectorAll("h2, h3")].find((h) => /phones/i.test(h.textContent) && !/networks/i.test(h.textContent));
@@ -689,7 +689,7 @@ const SHOTS = [
   },
   {
     name: "123-personal-libraries",
-    url: "control/storage",
+    url: "control/settings/storage",
     state: "personal libraries and phone sync set up",
     setup: `
       const card = document.getElementById("personal-libraries")

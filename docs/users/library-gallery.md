@@ -206,7 +206,7 @@ have internet access — the same place the map's tiles come from. Plus Codes ar
 worked out on the server itself, though a short one still needs that lookup for
 the place beside it. Without any internet, dropping the pin by hand still works.
 
-When an admin has turned on **Photo place names** ([Control panel → Settings → Maps](control-panel.md#maps)),
+When an admin has turned on **Photo place names** ([Control panel → Applications → Gallery → Settings](control-panel.md#maps)),
 a photo with a location also knows the town it was taken in, in your own
 language: the viewer shows "Verona, Veneto, Italy" where the place goes, or under
 it when someone has written the place in their own words — what a person wrote
@@ -254,7 +254,7 @@ Portraits the app cut out of a photo never show, so the same face doesn't appear
 twice. A photo placed
 in a story, an album or a slideshow keeps showing there for those people, and opens
 in the viewer as any other. To see everything it holds, open **Control panel →
-Library → App storage contents**.
+System Settings → Storage → App storage contents**.
 
 ## Photo Inbox
 

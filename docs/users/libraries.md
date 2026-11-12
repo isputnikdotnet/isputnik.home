@@ -4,7 +4,7 @@ A **library** points the app at one folder and says what kind of media is in it.
 You can have as many as you like — one per drive, one per person, one per
 collection — and they can be shared with everyone or kept to yourself.
 
-Libraries live in **Control panel → Library → Libraries**. If **Add library** is greyed
+Libraries live in **Control panel → Libraries & Scanning → Libraries**. If **Add library** is greyed
 out, [storage](storage.md) isn't set up yet.
 
 ## The wizard
@@ -117,7 +117,7 @@ went wrong. Beside it are **Manage** and a **⋯** menu:
     [phone backup](phone-backup-linking.md) doesn't store them twice.
 
   Below them: the shared sets the library is organized with (Book categories, Tags
-  or Video genres, on **Library › Organization**), everything about it at a glance,
+  or Video genres, each on its application's **Organize** tab), everything about it at a glance,
   and **Delete library**.
 
 ## Next

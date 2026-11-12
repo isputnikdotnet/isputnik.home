@@ -91,7 +91,7 @@ they need to run the server.
 ## How do I back up my data?
 <!-- admin -->
 
-**Control panel → Maintenance → Backup** makes one now or on a schedule. A full
+**Control panel → System Settings → Backup** makes one now or on a schedule. A full
 backup holds the database, the two-factor key and every cover; a minimal one
 leaves out what a rescan can make again. Your media files are never in a
 backup, and never touched.

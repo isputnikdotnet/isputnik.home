@@ -1,5 +1,9 @@
 # Improving control panel libraries
 
+> **Superseded by control panel v2** ([control-panel-v2-plan.md](control-panel-v2-plan.md)):
+> Library became Libraries & Scanning; Organization's editors and Device Sync moved into the
+> application workspaces, Storage into System Settings.
+
 Reviewed November 6, 2026. Proposal only; no application behavior changed.
 
 ## Interactive mockup

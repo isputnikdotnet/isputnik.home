@@ -54,7 +54,7 @@ after the first backup. A photo edited on the phone is new to the server and is 
 ## Linking a phone
 <!-- admin -->
 
-1. Open **Library › Libraries** in the control panel and **Manage** the library that already
+1. Open **Libraries & Scanning › Libraries** in the control panel and **Manage** the library that already
    holds the member's photos.
 2. **Edit** its **Phone backups**. It lists the phones of the members who can open this library.
 3. Tick the member's phone and save.
@@ -65,4 +65,4 @@ Only members who can open that library are offered, and a link stops counting if
 access: the tab says so beside the phone. Each phone is linked on its own: a phone set up again
 (a new entry on Profile › My library) starts unlinked, so tick it again.
 
-**Library › Device Sync** shows, under each phone, the libraries it is linked to.
+**Applications › Gallery › Device Sync** shows, under each phone, the libraries it is linked to.

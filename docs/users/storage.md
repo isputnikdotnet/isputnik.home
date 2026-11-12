@@ -1,7 +1,7 @@
 # Storage
 
 Before you can add a library, the server needs to know where things live. It all
-sits in **Control panel → Library → Storage**, in three parts:
+sits in **Control panel → System Settings → Storage**, in three parts:
 
 | | What it is | Why it's needed |
 |---|---|---|
@@ -199,7 +199,7 @@ location databases move back beside the database.
 
 ### What it holds: the Contents page
 
-**Library → App storage contents**, the tab beside Storage, answers the other question
+**System Settings → Storage → App storage contents**, a page under Storage, answers the other question
 about App storage: what is in it, and why. The top table gives every part a count
 and a size, counted from the app's own records where it keeps them (the two
 libraries) and from the disk where it does not (renders, map data), plus the hidden
@@ -258,7 +258,7 @@ them has it off.
 ## Personal libraries
 
 A **personal library** is a private photo library that belongs to one member. Only that member
-can open it — administrators included. **Library › Device Sync** decides, in its **Personal
+can open it — administrators included. **Applications › Gallery › Device Sync** decides, in its **Personal
 libraries** card (it was at the bottom of Storage until 4.73, and Storage still says where
 they are kept):
 

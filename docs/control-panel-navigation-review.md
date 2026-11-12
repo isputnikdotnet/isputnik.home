@@ -1,5 +1,10 @@
 # Control panel navigation review
 
+> **Superseded by control panel v2** ([control-panel-v2-plan.md](control-panel-v2-plan.md)):
+> five groups and application workspaces replaced the six groups this review shaped. Kept for
+> the reasoning behind rules v2 still follows — one row of tabs, no fold-out branches, no
+> group of one page.
+
 Reviewed September 10, 2026, against app version 3.90.0.
 
 > **Status (2026-09-16, in-code for 4.15):** steps 1 and 2 are implemented, with two

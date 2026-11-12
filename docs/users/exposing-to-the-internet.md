@@ -75,7 +75,7 @@ when you know the proxy's address; if both are set, `TRUST_PROXY` wins.
 
 ## 3. Strongly recommended
 
-**Control panel → Security → Overview** scores how the server is currently
+**Control panel → Security & Members → Overview** scores how the server is currently
 protected, and the toggle switches the scoring between a home network and one
 reachable from the internet — the same settings are judged far more harshly on
 the second:

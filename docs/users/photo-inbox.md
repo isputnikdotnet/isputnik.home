@@ -1,6 +1,6 @@
 # The Photo Inbox
 
-**Gallery → Photo Inbox** · part of App storage, under **Control panel → Library → Storage**
+**Gallery → Photo Inbox** · part of App storage, under **Control panel → System Settings → Storage**
 
 Some photos are not part of the collection yet. A box of prints you are feeding
 through a scanner, most of which you scanned once before at a worse resolution.
@@ -21,7 +21,7 @@ This guide walks the whole process from the scanner box to a tidy library.
 ## 1. Set up an Inbox
 
 The Photo Inbox is part of **App storage**: switching App storage on in
-**Control panel → Library → Storage** makes it, in its own `Photo Inbox` folder
+**Control panel → System Settings → Storage** makes it, in its own `Photo Inbox` folder
 ([Storage](storage.md)). There is one Inbox per server, and it is a system library:
 the app keeps its name and it is not listed among your libraries.
 
@@ -199,7 +199,7 @@ mode**, one photo at a time, four questions, and nothing else to learn.
 
 **Setting it up** is one grant. Give her an account as an ordinary member
 ([Your account](your-account.md)), open **Reviewers** on the Inbox's row under
-**Control panel → Library → Storage**, and add her as **Can add details**. She can
+**Control panel → System Settings → Storage**, and add her as **Can add details**. She can
 write on the photos but cannot Keep or Discard, so she can answer without being
 able to move anything, and she sees nothing outside the Inbox unless you have
 shared other libraries with her. If she reads Russian,

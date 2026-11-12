@@ -200,6 +200,6 @@ Those are usually the part worth keeping.
 
 By default, none of this sends any email; it all happens inside the app. An
 administrator can switch on a notification under
-**Control panel → Settings → Notifications**, which needs an outgoing mail server
+**Control panel → System Settings → Notifications**, which needs an outgoing mail server
 first ([guide](email.md)). Even then, the message only says who sent what and
 links back to the app — it never carries the file.

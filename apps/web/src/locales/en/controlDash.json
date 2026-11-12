@@ -1,6 +1,6 @@
 {
   "dash": {
-    "description": "Home and the apps beside it at a glance: services, what needs a look, security, disks and the last backup.",
+    "description": "What needs you, what is running, how much room is left, how the server is used and what it is doing now — each leading to the page that acts on it.",
     "loadFailed": "Unable to load dashboard",
     "refreshFailed": "Unable to refresh dashboard",
     "errorTitle": "Dashboard error",

@@ -420,30 +420,43 @@ this order:
 
 ## Control panel structure
 
-The control panel's shape lives in one file: `features/control/nav.ts`. It defines
-six nav groups, each holding a row of tabs. Adding an admin page means adding one
-tab entry there — nothing else keeps a parallel list.
+The control panel's shape lives in one file: `features/control/nav.ts`
+(docs/control-panel-v2-plan.md). Adding an admin page means adding one tab entry
+there — nothing else keeps a parallel list.
 
-- **Six groups is the budget** — Overview, Library, Members, Security, Maintenance,
-  Settings. A seventh almost always means the new page belongs as a tab inside an
-  existing group. A long left nav is what this structure exists to prevent.
-- **Every group is the same shape**: a nav link to its first tab, over one row of
-  its tabs. No fold-out branches inside a group, no group of a single page, and no
-  second row of views inside a page (all three were tried and retired in 4.15 —
-  the reasons are in `nav.ts` and `docs/control-panel-navigation-review.md`).
-  Content that wants splitting becomes tabs.
+- **Five groups, and the Dashboard on its own nav entry** — Infrastructure,
+  Libraries & Scanning, Applications, Security & Members, System Settings. A sixth
+  almost always means the new page belongs as a tab in an existing group, or in an
+  application's workspace. The Dashboard is in no group.
+- **System-wide pages go in the groups; an application's own controls go in its
+  workspace.** `APPLICATIONS` in `nav.ts` lists each workspace's tabs, each with a
+  `kind` from one vocabulary — `setup` · `deviceSync` · `organize` · `settings` —
+  and an application gets only the tabs it needs (one tab: no row). Every workspace
+  opens on Setup. A new media type or container adds an `APPLICATIONS` entry and a
+  Setup; it never brings back a group of its own.
+- **An application shows and links; it does not own.** Libraries & Scanning owns
+  folders, scanning rules and schedules; Infrastructure owns service connections,
+  Tasks, Logs and Activity; Security & Members owns permissions; System Settings owns
+  storage. A workspace shows what it uses (`features/control/applications.ts`) and
+  links to the owner, narrowed with `?application=<app>` where the owner filters.
+- **Every group and workspace is the same shape**: a link to its first tab over ONE
+  row of tabs. Never a row of applications over a row of their tabs, no fold-out
+  branches, no group of a single page, no second row of views inside a page.
 - **Sub-pages come in two kinds, and neither is a second row** (4.73).
-  - A tab's **pages**: list them in `pages` on the tab's `nav.ts` entry (Library ›
-    Organization owns Book categories, Tags and Video genres). Each keeps its own
+  - A tab's **pages**: list them in `pages` on the tab's `nav.ts` entry (Gallery ›
+    Organize owns Duplicate cleanup and Missing photos). Each keeps its own
     `CONTROL_PATHS` address and search entry; the tab row stays up with the parent
     selected, and `ControlSectionHead` adds a link back to the tab and names it in the
-    eyebrow ("Library · Organization"). Use this when several editors share one
-    question and each would otherwise read as an equal of the group's other tabs.
+    eyebrow ("Applications · Gallery · Organize").
   - A **page of one thing** — a member, a group, a library's Manage page
     (`libraryManageHref()`) — has its own route matched after the table in
-    `getRoute()`, drops the tab row, and opens with its own back link. Use this
-    instead of a dialog when one thing has more to set than a dialog holds.
-- **A row offers one way in.** A list of things to manage (Library › Libraries) gives
+    `getRoute()`, drops the tab row, and opens with its own back link.
+- **A shared page has one address and several ways in.** Book categories (Ebooks and
+  Audiobooks) and Tags (every application's Organize, and Shared organization) are one
+  editor each. Opened from a workspace it carries `?from=<app>` (`controlHrefFrom`),
+  and `placeOf(section, from)` puts its eyebrow, selected tab and back link there; list
+  it in `SHARED_PAGE_PARENTS`. Never a second copy of the editor.
+- **A row offers one way in.** A list of things to manage (Libraries & Scanning › Libraries) gives
   each row a **Manage** link to its page and a **⋯** `ActionMenu` for the quick
   actions (Rescan, Delete); not an icon per dialog.
 - **Personal things live in Profile, not here.** The control panel is admin-only;
@@ -459,8 +472,9 @@ tab entry there — nothing else keeps a parallel list.
   two panels are one page's worth of reading, so they stay local state; a
   two-factor setup or a device address is somewhere you go back to, so it gets an
   address.
-- **Pages open with `ControlSectionHead`.** It reads the eyebrow (group) and `<h1>`
-  (tab) from `nav.ts`, so a page can't disagree with the nav about where it lives.
+- **Pages open with `ControlSectionHead`.** It reads the eyebrow (group, application,
+  parent tab) and `<h1>` (tab) from `nav.ts`, so a page can't disagree with the nav about
+  where it lives.
   Pass `description` for the one-line summary and `children` for header actions.
 - **New settings get search keywords.** Add the terms someone would actually type
   to `TAB_KEYWORDS` in `features/control/search-index.ts`, and a `SETTING_ENTRIES`
@@ -472,8 +486,8 @@ tab entry there — nothing else keeps a parallel list.
   `blockIpHref`, `storageHref`…) and have the target page seed its filters from the
   query (`initialParam`). Links, never copies of another page's form.
 - **Phones get one row and a menu.** At the mobile breakpoint `ControlPanelPage`
-  swaps the nav for Home · current page (opens every group and page in a `Modal`) ·
-  search, and drops the tab row. Both are drawn from `nav.ts`, so there is nothing
+  swaps the nav for Home · current page (opens every group, and each application's
+  pages as "Gallery · Organize", in a `Modal`) · search, and drops every tab row. Both are drawn from `nav.ts`, so there is nothing
   to keep in step.
 
 ---

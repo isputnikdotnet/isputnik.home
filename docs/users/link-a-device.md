@@ -46,7 +46,7 @@ approving it.
 
 If you need to set up a screen somewhere else — a tablet at a holiday house, a
 display at a relative's — ask whoever runs the server to **allow it for you**. They
-turn it on for your account from Control panel → Members → Users, and then:
+turn it on for your account from Control panel → Security & Members → Users, and then:
 
 - you have **however long they set** — anything from a minute to an hour;
 - it works for **one device** — the first screen you link closes it again;

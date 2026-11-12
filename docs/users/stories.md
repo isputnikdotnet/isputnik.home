@@ -174,7 +174,7 @@ opens a dialog of the kinds with a line each on what they put on the page:
   by plane, by boat — and that shows as a small icon on the leg and between the
   names in the caption ("Bolzano → Ortisei → Cortina d'Ampezzo").
   Walking, cycling, driving and bus legs **follow real roads** if an admin has
-  turned on **Road routes** (Control panel → Settings → Maps); they are drawn solid,
+  turned on **Road routes** (Control panel → Applications → Gallery → Settings); they are drawn solid,
   and everything else stays a dashed line. A flight is drawn as the curve a
   plane actually flies, which is why a long one bends north. The roads are
   fetched once, when you save, and kept with the story — so the map opens
@@ -240,7 +240,7 @@ that draws the recording's wave and lets you jump around in it, and someone
 opening the story at a share link gets the same card.
 
 Recordings are not stored inside the story: they land in the **App files**
-library, part of App storage (Control panel → Library → Storage), in its `Story
+library, part of App storage (Control panel → System Settings → Storage), in its `Story
 recordings` folder, as ordinary audio. That is why they ride along in backups
 and outlive their story. Until App storage is switched on, the Narration button
 simply isn't offered; if you're an admin, the Storage page is where to turn it
@@ -315,7 +315,7 @@ the family version of a recipe is rarely the printed one. The app reads only
 that page's text (never its pictures; choose a photo of your own dish for the
 cover) and keeps nothing except what lands in the story. Most recipe sites
 work; a page with no recipe data simply says so, and you carry on by hand.
-An admin can switch this off (Control panel → Settings → Stories) if they'd
+An admin can switch this off (Control panel → Applications → Stories → Settings) if they'd
 rather the app never visited other sites on a member's behalf.
 
 The app deliberately keeps recipes as writing: there's no ingredient
@@ -340,7 +340,7 @@ already reference — there's nothing to maintain.
 ## Deleting — and the way back
 
 Deleting a story doesn't destroy it. It goes to the **Recycle Bin** — the
-same one deleted photos wait in (Control panel → Maintenance → Recycle
+same one deleted photos wait in (Control panel → System Settings → Recycle
 bin) — and an administrator can restore it from there, whole: chapters,
 text, tags, stars, favorites, guest links, everything. In the bin it sits
 as a tile among the deleted files, and the bin's **Stories** filter finds

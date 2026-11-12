@@ -24,7 +24,7 @@ month (or a month without a year) is pointed out rather than quietly dropped.
 
 **Place** takes whatever you type — a country, a parish, a village no map
 knows. As you type it offers real places only: towns from the place list
-(Control panel → Settings → Maps → Photo place names), and places in the tree that were
+(Control panel → Applications → Gallery → Settings → Photo place names), and places in the tree that were
 picked from it before. Picking one fills the place in and pins it on the map;
 changing the words afterwards removes the pin. When nothing matches, the box
 says so and keeps your words as typed. Towns there have 500 or more people; for
@@ -118,7 +118,7 @@ viewer over the family page, so closing one brings you back to the tree rather
 than dropping you in the gallery.
 
 **Uploading new photos** works from the same picker's *Upload* tab, once App
-storage is switched on (Control panel → Library → Storage), for anyone who may
+storage is switched on (Control panel → System Settings → Storage), for anyone who may
 edit part of the tree. Files are added to the App files library, in its
 `Family tree` folder, and attached in one step; every member can see them. Every
 photo picker lists them again (Folders → *Family tree*), so you can use them for

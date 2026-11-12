@@ -5,37 +5,33 @@ right of the top bar, beside the menu with your name on it, and only administrat
 see it. Inside the panel that link steps aside; **Home** at the top of the panel's
 own nav is the way back out.
 
-The left-hand nav has six sections. Each opens on its first tab, with a row of tabs
-across the top of the page. This guide walks them in order; where a page already has
-a guide of its own, it points there rather than repeating it.
+It opens on the **Dashboard**, which **Dashboard** at the top of the nav always
+brings you back to. Under it are five groups:
 
-| Section | Tabs |
+| Group | What it holds |
 |---|---|
-| **Overview** | Dashboard, Activity, Library statistics, Logs |
-| **Library** | Libraries, Organization, Device Sync, Storage, App storage contents |
-| **Members** | Users, Groups, Invite links |
-| **Security** | Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs |
-| **Maintenance** | Tasks, Scheduled jobs, Backup, Recycle Bin, Duplicate cleanup, Missing photos, Videos |
-| **Settings** | Appearance, Quotes, Maps, Stories, Email, Notifications, About |
+| **Infrastructure** | Services (the containers beside this server), Video streaming, Tasks, Scheduled jobs, Logs, Activity |
+| **Libraries & Scanning** | Libraries — their folders, scanning rules and schedules — and Library statistics |
+| **Applications** | Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games and Shared organization, each with everything about it in one place |
+| **Security & Members** | Users, Groups, Invite links, Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs, App access |
+| **System Settings** | Appearance, Email, Notifications, Storage, Backup, Recycle Bin, Quotes, About |
 
-Every tab has its own address, so any page here can be bookmarked, linked to, or
+Every page has its own address, so any page here can be bookmarked, linked to, or
 opened in a new tab.
 
-> **Rearranged in 4.15.** The Dashboard's row of views became tabs where they
-> belong — Sign-ins and Sign-in locations under Security, Tasks under Maintenance,
-> Activity and Library statistics under Overview. Utilities is gone: Duplicate
-> cleanup and Missing photos are under Maintenance, Quotes under Settings. Maps is
-> a Settings tab again. **Reader access** moved to your own Profile, since the
-> tokens are yours, which also means every member can now make them. Old
-> bookmarks still land on the right page.
+> **Rearranged.** The panel used to sort pages by kind, so Gallery's duplicate
+> cleanup was under Maintenance, its maps under Settings and its phone backup under
+> Library. Now each application keeps everything about it in one place, and the
+> system-wide pages are grouped by what they are about. Old bookmarks still land on
+> the right page.
 
 ## Finding things
 
 **Search…** under the nav — or **Ctrl+K** (**⌘K** on a Mac) from anywhere in
 the control panel — searches every page *and* the settings on them. Typing `smtp`
-goes to Settings → Email; `lockout` goes to Security → Policies and scrolls to the
+goes to System Settings → Email; `lockout` goes to Security & Members → Policies and scrolls to the
 lockout card, which flashes so you can see which one it means; `duplicate` goes to
-Maintenance → Duplicate cleanup. Arrow keys move through the results, Enter opens one.
+Applications → Gallery → Organize → Duplicate cleanup. Arrow keys move through the results, Enter opens one.
 
 Use it rather than hunting through tabs. It's usually faster even when you know
 where a setting lives.
@@ -53,46 +49,144 @@ its pages, scrolled to where you are.
 
 ---
 
-## Overview
+## Dashboard
 
-### Dashboard
-
-Is the server well? The panel opens here.
+Is the server well, and is anything waiting on you? The panel opens here.
 
 ![The Dashboard](images/60-dashboard.png)
 
-Is the server well? From the top: anything that needs a look, Home and each
-container with how they connect, then security and the last day's problems. Come
-here first when something feels wrong.
+Five sections, from the top, each leading to the page that acts on it:
 
-**Storage** has one bar per drive (green until a fifth is left, amber below that,
-red below a tenth). When several folders sit on one drive, even across containers,
-they share its bar and each is listed under it with what it holds.
+1. **Needs attention** — what wants you, worst first: a container down, a drive
+   running low, no recent backup, failed tasks, errors in a container's log, a run of
+   failed sign-ins. Each row has the button that deals with it (**Open connection**,
+   **Inspect storage**, **Open backups**…). When nothing does, one line says so.
+2. **Running services** — iSputnik and each container beside it, how they connect
+   and their versions, with the server's memory, database size and uptime. Each card
+   links to its connection and its logs.
+3. **Storage** — one bar per drive. Folders on the same drive, even in different
+   containers, share its bar and are named on it, so a drive never appears twice. The
+   bar is split by what uses it: library media, app data, thumbnails and cache,
+   backups, the Recycle Bin, and **Other files** — space on the drive this server does
+   not manage, since a disk may hold anything. Choose a drive to see each of those with
+   its size (each leads to its page), the folders and libraries on it, and **Growth**:
+   how much it filled over 30 days or 12 months, from a measurement the server takes
+   once a day, shown once two days have been measured. A library's size comes from its
+   scans; other folders are counted in the background, so right after a start the page
+   may say some are still being measured. Low space turns a drive's numbers amber, then
+   red, and adds it to Needs attention. Below the drives, **Last backup** has a row for
+   Home and one for each container, each a door to its backups. Where files live, and
+   the rules for them, are set on [Storage](#storage).
+4. **Usage** — what was opened and uploaded over 7 days, 30 days or 12 months, for
+   everything or one application, and the most active members; a member opens their
+   own log, for that application if one is chosen. **Usage by member and application**
+   opens [Activity](#activity).
+5. **Current work** — scans, syncs, imports and backups running or queued, with their
+   progress. **Progress and logs** opens them on Tasks; **Cancel** stops one.
 
-**Last backup** has a row for Home and one for each container, each a door to its
-backups. A container with no backup, or none in the last week, joins the list at the
-top, unless you have left it out of Full and Minimal backups.
+---
 
-### Activity
+## Infrastructure
 
-What the household has been doing with the library, over the
-window you pick with the same date toolbar as Security → Sign-ins: cards for uploads,
-downloads and deletes (each compared with the stretch before) and storage used;
-two charts (uploads, downloads and deletes; and what was played, read or
-viewed); the content events themselves; and what's currently in progress for
-every member — a snapshot that doesn't follow the range, since a book's reading
-position is overwritten as you go rather than logged session by session.
+What runs, whether it is connected, and what it has been doing — one page each for
+the whole server. Every application links to Tasks, Logs and Activity already
+narrowed to itself.
 
-### Library statistics
+### Services
 
-What's *in* the catalogue, every media type on one page: a card
-each for audiobooks, ebooks and photos & videos, and one for the total on disk;
-every library in one table, biggest first, with its share of the storage drawn
-beside it; and four short lists, paired two by two. People first — top authors
-across both book types, top narrators by hours — then what is on the disk: the
-biggest gallery files, and the folders holding the most photos. That last one
-counts the folder each photo actually sits in, not its subfolders rolled up, so
-it names the place to go rather than the library it is somewhere inside.
+The containers beside this server — Games, Video, Faces: where each one is, its
+pairing secret, and **Test connection**. Setting them up has [its own guide](apps.md).
+
+### Video streaming
+
+
+Videos that are slower to start than they need to be.
+
+An MP4 keeps a small index of itself — where every frame is — and most phones and
+video editors write that index at the *end* of the file, after the picture. Nothing
+can start playing until a player has it, so before the first frame appears the
+player has to reach all the way to the end of the file and fetch it. At home you
+may not notice. Over the internet, or on a phone, it is a pause before anything
+happens, on every video, every time.
+
+This page lists the videos in that state, the ones that can be fixed first and the
+biggest of those at the top, and **Optimise** rewrites one with its index at the
+front. The picture and the sound are copied across
+exactly as they are — nothing is re-encoded, nothing loses quality, and the file
+stays the same size. It takes a minute or two for a large video and runs in the
+background, yielding to any scan already going; follow it on **Tasks**.
+
+This is the one thing in the app that changes an original file, so it only ever
+happens when you ask for it — there is no schedule. The new file is checked against
+the old one first (same tracks, same running time, index in front) and only then
+replaces it; if any check fails, the original is kept exactly as it was. A video in
+a [locked folder](libraries.md) or in a library the app only reads is listed with
+the reason, and left alone.
+
+A rewrite can also fail. Some cameras write a track an optimised copy cannot keep,
+and the app won't drop a track to make a file fit. Such a video is marked **Couldn't
+be rewritten** with the reason beneath its name, and **Optimise all** passes over
+it from then on; **Try again** asks for that one video. Choose **Can't be optimised**
+in the menu above the list to see them all together.
+
+Videos already written this way never appear here, and nothing new needs doing
+after a video is optimised once.
+
+### Tasks
+
+Scans and other background work. Four cards say what is running,
+what is queued, how many tasks failed this week, and when the last one
+finished; a row under them says when the next scheduled run is due and opens
+Infrastructure → Scheduled jobs. Running and queued tasks sit in their own tables
+with live progress and a cancel button. The finished history can be narrowed
+to failures only, to one kind of task, or to one library — so "which scans
+failed, and where?" is a filter, not a scroll. A failed row's error opens
+underneath it, with links to where a failure is usually put right: the library
+the task was working on, and Scheduled jobs.
+
+The filters live in the page's address, which is how **Follow on Tasks** — on the
+Libraries page while a scan runs — opens straight onto that library's tasks, and
+how a filtered view can be bookmarked.
+
+**Application** narrows the page to one application — its running tasks too — the
+way an application's Setup opens it.
+
+### Scheduled jobs
+
+The recurring work, one row each: scanning each library type for new files, scanning
+new photos for faces, looking for duplicate photos, purging missing photos, cleaning
+task history, purging expired recycle bin items, converting unplayable videos,
+tidying the thumbnail store, and the two backups — full and minimal — that the
+Backup page shows as well.
+Sensible defaults ship enabled, except the two backups, which are off until you
+choose one; the face scan runs after the nightly library scans so the day's new
+photos are already cataloged.
+
+None of them ever removes something ahead of its time. **Purge expired recycle bin
+items** takes only what has outlived the window it was given when it was deleted —
+emptying the bin outright stays a button on the Recycle Bin page, where you can see
+what you're about to lose.
+
+Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
+system chores — and each carries a matching tag, so the library scans sit together
+instead of being scattered through the list. Hover a job's **i** for the full
+description of what it does.
+
+Each row carries how often it runs and at what time, when it last ran and when it
+runs next, an on/off switch, and **Run now**. There's no Save button: a change to
+the cadence, the day, the time or the switch is saved as you make it, and the "next
+run" beside it updates to match.
+
+**Run now** starts a job immediately, whatever its schedule says — and keeps
+reporting until the work is genuinely finished. That matters because most of these
+jobs don't do the work themselves; they queue it. A photo library scan hands off to
+the scanner and returns in milliseconds, while the scan itself may run for an hour.
+So the button stays spinning, and the message above the table says what was queued
+with a link straight to **Infrastructure → Tasks**, where you can watch the progress bars.
+When the last queued task finishes, the message says so. Jobs that do their work on
+the spot — purging expired recycle bin items, purging missing photos — simply report their
+result and are done. Only one job can be started by hand at a time; several of them
+skip themselves anyway when another heavy task is already running.
 
 ### Logs
 
@@ -114,7 +208,7 @@ large enough to be worth it.
 **What the app records about visitors.** Most entries here carry the address the
 request came from, and that includes people without an account: a guest who opens
 or downloads from a share link, or sends photos through a drop link, is logged
-with their address like everyone else. Sign-in attempts (what Security → Sign-ins
+with their address like everyone else. Sign-in attempts (what Security & Members → Sign-ins
 reads) and signed-in devices keep their addresses too. Two things to know if you
 share links outside the house:
 
@@ -132,16 +226,33 @@ share links outside the house:
   [configuration reference](https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/configuration.md).
 
 Addresses are placed on the map from a database on your own server. With an
-AbuseIPDB key set under Security → Policies, an address is also sent to AbuseIPDB
+AbuseIPDB key set under Security & Members → Policies, an address is also sent to AbuseIPDB
 when it gets blocked automatically or when you ask for a check; without a key,
 none is.
 
+**Application**, in the filter, narrows the log to one application's events; an
+application's Setup opens it that way.
+
+### Activity
+
+What the household has been doing with the library, over the
+window you pick with the same date toolbar as Security & Members → Sign-ins: cards for uploads,
+downloads and deletes (each compared with the stretch before) and storage used;
+two charts (uploads, downloads and deletes; and what was played, read or
+viewed); the content events themselves; and what's currently in progress for
+every member — a snapshot that doesn't follow the range, since a book's reading
+position is overwritten as you go rather than logged session by session.
+
+**Application**, beside the dates, narrows the cards, the charts and the list to one
+application.
+
 ---
 
-## Library
+## Libraries & Scanning
 
-Each tab answers one question: what libraries there are, how content is labelled,
-whether phones can back up, where files are kept, and what is using App storage.
+Which folders supply content, how they are scanned, and when. Everything else about an
+application — its phone backup, its tags, its cleanup — is in its workspace under
+[Applications](#applications).
 
 ### Libraries
 
@@ -161,27 +272,61 @@ a Gallery library; the folder and language of a Video library. Below are the sha
 sets it is organized with, everything the old details window showed, and **Delete
 library**. Back to the list is the **Libraries** link at the top.
 
-### Organization
+### Library statistics
 
-How content is labelled and grouped — **Book categories**, **Tags** and **Video
-genres** — one card each, saying what it applies to:
+What's *in* the catalogue, every media type on one page: a card
+each for audiobooks, ebooks and photos & videos, and one for the total on disk;
+every library in one table, biggest first, with its share of the storage drawn
+beside it; and four short lists, paired two by two. People first — top authors
+across both book types, top narrators by hours — then what is on the disk: the
+biggest gallery files, and the folders holding the most photos. That last one
+counts the folder each photo actually sits in, not its subfolders rolled up, so
+it names the place to go rather than the library it is somewhere inside.
 
-| | Applies to |
-|---|---|
-| **Book categories** | Ebooks and audiobooks — the shelves the scanner sorts books onto |
-| **Tags** | Books, Gallery photos (and video clips), albums, slideshows, stories and family-tree people |
-| **Video genres** | Films and shows in Video libraries |
+---
 
-Each card shows its numbers and the action you most often come for — **Re-match all
-books** for categories, **Remove unused** for tags (a tag counts as used if anything
-at all carries it). **Manage** opens the editor, a page under Organization: rename,
-merge and delete there, across the whole install. Each is one shared set, so a change
-applies everywhere, whichever library you came from.
+## Applications
 
-### Device Sync
+Choose an application to see everything about it together. The directory lists each
+one with what it is and whether it is **Ready**, **Needs setup** or **Turned off**;
+choosing one opens its workspace, with a row of tabs from **Setup · Device Sync ·
+Organize · Settings** — only the ones it needs, so an application with a single page
+has no row.
 
-Everything about members backing up their phones, on one page (until 4.73 it was
-split between Security › Phone sync and the bottom of Storage). Setting it up step
+An application shows the libraries, connection, access and storage it uses, and
+links to where each is managed rather than keeping copies. Changing a library's
+folders or scan schedule is a Libraries task; backing up phone photos is a Gallery task.
+
+### Setup
+
+Every application opens on Setup:
+
+- **Whether it is ready** — or the first thing it is missing: its container not
+  connected, or no library yet.
+- **In the menu** — whether the household sees the application at all. Switched off,
+  it leaves the menu, the home feed and Tags for everyone; nothing is deleted, and this
+  panel still shows its libraries. One application always stays on.
+- **Libraries** — each library it shows, with its size and last scan, leading to the
+  library's own page.
+- **Connection** — for Videos, Games and Gallery's face recognition: whether its
+  container answers, leading to [Services](#services).
+- **Who can use it** — leading to where that is decided: each library's own page, App
+  access, or each member's page.
+- **Storage used**, and **Activity, tasks and logs** — Infrastructure's pages, opened
+  already narrowed to this application.
+
+On its other tabs, a line at the top says whether the application is ready, with the
+way back to Setup.
+
+### Gallery
+
+**Device Sync**, **Organize** — Tags, Duplicate cleanup and Missing photos — and
+**Settings**, which is Maps.
+
+#### Device Sync
+
+
+Everything about members backing up their phones, on one page. Setting it up step
 by step has [its own guide](phone-sync-setup.md).
 
 **Phone-backup networks** are where members' phones may back up photos from (into
@@ -198,7 +343,7 @@ outside the networks on the list.
 **Phones** lists every member's phones: last contact, the address and network each
 last came from, and its state — backing up, refused, no contact for a week, or a
 library nearly full. A phone refused from an address on no list offers **Add** for
-that address's /24; **See in Logs** opens the phone's history in Overview › Logs
+that address's /24; **See in Logs** opens the phone's history in Infrastructure › Logs
 (the *photo_sync* event). Under each phone are the libraries it is linked to — set
 on that library's **Manage › Phone backups**, so photos already there aren't backed
 up twice. What a phone sent — files, counts, types — stays with its owner.
@@ -206,30 +351,152 @@ up twice. What a phone sent — files, counts, types — stays with its owner.
 **Personal libraries**, at the bottom, decides who may have a private photo library,
 which library location holds them and how big each may grow.
 
-### Storage
+#### Duplicate cleanup
 
-Which folders libraries may use, and where the app keeps its own files. Has [its own
-guide](storage.md).
 
-**Library locations** are the folders on this server that libraries are allowed to
-use, each with how many libraries use it and the free space on its disk. **System
-data** is the folder the app needs to run: thumbnails, backups and metadata, the
-first two of which can each have a folder of their own. **App storage** is one
-optional switch for the Photo Inbox, the App files library, renders and map data,
-kept together in one folder. Each block leads with its folder, its free space and
-**Change**; **What's inside** unfolds the details, and opens by itself when a move is
-running or something needs attention. Every change is confirmed with the exact folder
-before it happens. The **Recycle Bin location** is set on the Recycle Bin page;
-changing it moves what is in the bin in the background.
+A folder imported twice, a phone backup copied in beside the originals, a whole
+library copied into a subfolder of itself — all of it leaves the same pictures in the
+library more than once. A cleanup finds them, holds what it found, and lets you work
+through it whenever you like.
 
-### App storage contents
+It has [its own guide](duplicate-cleanup.md), which is worth reading before the first
+one: what it looks for, how sure it is of each answer, and what happens when you
+confirm.
 
-What is using App storage, whose it is, and files nothing uses any more —
-[Storage](storage.md#what-it-holds-the-contents-page) explains it.
+Once a cleanup has removed anything, its card links to **the copies it removed in
+the Recycle Bin** — the bin opened on cleanup removals only, and on the one library
+when the cleanup covered one. While it scans, **Follow it on Tasks** opens the scan
+among the other background work.
+
+> **Experimental.** Duplicate detection is still being proven. Look at what a set
+> contains before removing anything, and start with a few rather than the bulk action.
+> Everything removed goes to the Recycle Bin, so it can be undone until you empty it —
+> but check, test, and check again first.
+
+Two earlier pages, **Duplicate photos** and **Duplicate folders**, did some of this
+and are gone as of 3.0.0. They were two views of a single install-wide scan that was
+rebuilt every time anyone opened either one, so the list renumbered itself underneath
+you and nothing you decided survived the next rebuild. The cleanup answers everything
+they answered, and remembers. Old links to them land here.
+
+#### Missing photos
+
+
+Files the catalog knows about that are no longer on disk. Usually a drive that
+didn't mount, which is why they aren't removed automatically.
+
+Each row shows the photo's last known thumbnail, where it was, and when it went
+missing. Restore the drive and the next library scan clears the row on its own.
+Photos missing longer than the window at the top are purged automatically — catalog
+entry, thumbnail and all — and **Purge eligible now** does it immediately.
+
+#### Maps
+
+
+The maps across the app — the gallery map, a photo's location, a story's route,
+Security & Members → Sign-in locations — and what this server keeps for them. It is one page
+of four cards. Each says in a line what it does, where its data comes from, how that
+gets here and how much space it takes, with a switch to turn it on or off. Turning
+one on says what will be downloaded, how big it is and where it goes before it does
+anything; turning one off says what it frees. The ⓘ beside each name says more about
+the source, with a link to it. Maps work with every card off.
+
+![The Maps page: offline maps, photo place names, sign-in locations and road routes](images/108-maps-setup.png)
+
+- **Offline maps** — maps come through this server and are kept, so places you've
+  viewed draw without internet, and OpenFreeMap (the map provider) no longer sees
+  where you look. An area nobody has viewed still needs the internet the first time.
+  **Keep up to** sets how much is kept, from 100 MB to 2 GB (200 MB to start); when
+  it is full, what was viewed longest ago goes first, and lowering it trims the cache
+  there and then. Turning it off deletes what was kept; maps carry on, straight
+  from OpenFreeMap.
+- **Photo place names** — the town each photo was taken in, worked out from its
+  location on this server and shown in each person's own language: "Verona,
+  Veneto, Italy" in the photo viewer, and a **Places** view and filter in the
+  gallery. Turning it on downloads about 220 MB from [GeoNames](https://www.geonames.org)
+  once and builds a 27 MB database in the background, which takes a few minutes;
+  the card, and **Infrastructure → Tasks**, show how far it has got. **Update** builds it
+  again from GeoNames' latest, and the names already shown stay until the new one is
+  ready. No photo's location is ever sent out. Turn it off and the names go with
+  it — the photos' locations, and anything people typed as the place, stay.
+
+  The place list holds towns of 500 or more people. **Every village in…** on the
+  same card adds every village of the countries you choose (Belarus, Ukraine…),
+  so a small village of the family's past can be found when typing a place in the
+  family tree. Villages are only for that search: photos keep being named after
+  towns. **Save and rebuild** builds the list again with them, downloading the
+  usual GeoNames files plus one file per country.
+- **Sign-in locations** — where each sign-in came from, on Security →
+  Sign-in locations. It is used for nothing else. Two parts:
+  - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when
+    you turn the card on. **Update** fetches the latest; addresses move between
+    networks, so every few months is worth it.
+  - **Towns** (optional) — a city-level database you download yourself: the ⓘ
+    links to DB-IP City Lite (free, no account) and MaxMind GeoLite2 City (free
+    account). **Upload** the file, or **Link** to paste its download address and
+    let the server fetch it; a `.mmdb` or `.mmdb.gz` both work. Once added, each
+    sign-in also gets its region, town and a dot on the map. The app cannot fetch
+    this file for you, so removing it cannot be undone from here.
+
+  Turning the card off deletes both. None of these databases are in backups: the
+  country one can be fetched again, a towns one has to come from your own copy.
+- **Road routes** — whether a route in a [story](stories.md) follows real roads.
+  Turn it on and paste a free **OpenRouteService** key (the ⓘ links to the sign-up;
+  the service is run by a research institute at Heidelberg University, not the
+  similarly named delivery-planning company a search may turn up), then **Save and
+  test**. Legs travelled on foot, by bike, by car or by bus are then drawn along the
+  roads they actually took; without a key they stay straight lines between the
+  stops. The service is asked only when a route is **saved**, and only the two
+  coordinates of each leg go to it — never the story, the place names, or who is
+  asking. What comes back is stored with the story, so reading one never calls out,
+  a shared link works for a guest, and the map still draws if the key later lapses.
+  Under **Use your own routing server** you can point it at your own
+  OpenRouteService container instead, if you would rather nothing left the house.
+  Turning the card off removes the key; routes already saved keep their roads.
+
+Everything the cards keep is in the **Map data** part of App storage
+([Storage](#storage)), named at the bottom of the page. Offline maps and place names
+wait while App storage is off: their switches are disabled, with a link to Storage.
+
+### Videos
+
+**Organize** is **Video genres**: one list of your own that films and shows are filed
+under. **Settings** is how videos are converted, matched and played. [Apps](apps.md)
+covers both.
+
+### Ebooks and Audiobooks
+
+**Organize** has **Book categories** — the shelves the scanner sorts books onto, by
+keyword rules — and **Tags**. Categories are one set shared by both, so Audiobooks
+opens the same editor, which then stays in Audiobooks: its tab, title and back link
+follow where you came from. **Re-match all books**, on the card, sorts every book again.
+
+### Stories, Family Tree and Games
+
+- **Stories** — **Settings**: whether members may start a recipe from a link, and which
+  library narration goes to (App files, shown here, not chosen). Narration recorded
+  before recordings lived in the gallery moves into App files by itself once App
+  storage is on; the page says how many recordings are still waiting.
+- **Family Tree** — Setup. Importing, exporting and the tree's own settings are in
+  Family Tree itself.
+- **Games** — Setup: whether the games container answers, who may play, and guest links.
+
+### Shared organization
+
+**Tags** for the whole install: books, Gallery photos (and video clips), albums,
+slideshows, stories and family-tree people. Rename, merge and delete there; **Remove
+unused** clears tags nothing carries. An application's Organize tab opens the same
+editor within that application, but a tag is still one tag: renaming or merging it
+changes it everywhere it is used.
 
 ---
 
-## Members
+## Security & Members
+
+Who the people are, then who got in, from where, and the rules that decide who may.
+
+### Members, groups and invites
+
 
 Three tabs: the people, the groups you gather them into, and the invite links
 that bring new ones in.
@@ -265,11 +532,11 @@ that bring new ones in.
 
 ![The Invite links tab: one active link, unused, with its expiry](images/67-invites.png)
 
-Signed-in devices are on Security → Sign-ins, which lists every
+Signed-in devices are on Security & Members → Sign-ins, which lists every
 session with the ability to revoke any of them — where you go when a laptop is
 lost, or when a sign-in alert names a device you don't recognise.
 
-### Everything one person can reach
+#### Everything one person can reach
 
 Click a person's name — or ⋮ → **Edit user** — to open
 their page: who they are at the top, with **Preview as …**, a ⋮ menu of the
@@ -299,7 +566,7 @@ group, so changing it is a choice you make on the group, for everyone in it. The
 same settings still live where they always did — a library's Members, a
 collection's Access, the tree's branch editors — and both places show the same.
 
-### Sharing photos by person
+#### Sharing photos by person
 
 Instead of a whole library, a relative can be given **the people in the photos**:
 on **Photos of people**, **Share photos of** someone. From then on they see every
@@ -336,9 +603,8 @@ but a member only ever sees the ones they could already see themselves. Guest li
 (for people without an account) are never made for these photos: a link shows only
 photos from libraries its maker looks after.
 
----
+### Security
 
-## Security
 
 This is the section that matters if your library is reachable from the internet —
 pair it with [Exposing your library to the
@@ -391,7 +657,7 @@ internet](exposing-to-the-internet.md).
   person under it (for a failed attempt, the account whose name was typed), the
   device it came from, the method as an icon (hover for its name), the result
   (**Locked out** when the lockout refused the attempt before checking anything),
-  and — with an AbuseIPDB key set under Security → Policies — a
+  and — with an AbuseIPDB key set under Security & Members → Policies — a
   coloured reputation light: one shield whose colour is the signal: green for a
   clean address, amber for one with some history, red for one the community calls
   abusive, an outlined shield for an address nobody has checked, and a muted
@@ -412,14 +678,14 @@ internet](exposing-to-the-internet.md).
   whose name was typed, so the person someone is guessing at shows up with their
   failures beside them; a name that matches no account gathers under "Not signed
   in" rather than being hidden. When the lockout has shut an account, its row says
-  **Locked out now** and offers an unlock button, the same rescue as Members → Users.
+  **Locked out now** and offers an unlock button, the same rescue as Security & Members → Users.
   **Names tried** appears when a stranger has been guessing: the sign-in names
   they tried that belong to no account here.
 
   **Narrowing it.** Everything above answers one scope at a time, shown as a chip
   at the top: everything by default, or one country, town, address or person.
   **Filter** sets it by hand, and the arrow at the end of any row on this page —
-  or on the Sign-in locations tables, the Logs page, or Security → Blocked IPs — dives
+  or on the Sign-in locations tables, the Logs page, or Security & Members → Blocked IPs — dives
   into that address or person. The scope lives in the address bar, so a dive can
   be sent to somebody, and Back walks up out of it. The ✕ on the chip returns to
   everything.
@@ -480,7 +746,7 @@ internet](exposing-to-the-internet.md).
   household devices don't trip the protection meant for strangers. The **In use**
   column counts the live sessions inside each range — a range with none is
   either a spare or a typo. The networks phones may back up from are a separate
-  list, on **Library › Device Sync**.
+  list, on **Applications › Gallery › Device Sync**.
 - **Blocked IPs** — what's been blocked, and where you unblock it, add a block by
   hand, or make a temporary automatic block permanent (the ∞ button on rows that
   would otherwise expire). The chips above the list count and filter running,
@@ -501,60 +767,47 @@ The alerts these produce only reach you if email is set up.
 
 ---
 
-## Maintenance
+## System Settings
 
-### Tasks
+What is set once for the whole server: how it looks and sends mail, where its files
+live and how much room they take, and backups and recovery.
 
-Scans and other background work. Four cards say what is running,
-what is queued, how many tasks failed this week, and when the last one
-finished; a row under them says when the next scheduled run is due and opens
-Maintenance → Scheduled jobs. Running and queued tasks sit in their own tables
-with live progress and a cancel button. The finished history can be narrowed
-to failures only, to one kind of task, or to one library — so "which scans
-failed, and where?" is a filter, not a scroll. A failed row's error opens
-underneath it, with links to where a failure is usually put right: the library
-the task was working on, and Scheduled jobs.
+- **Appearance** — the default theme for new accounts. Everyone can override it in
+  their own profile. Which applications the household uses is set on each
+  application's [Setup](#setup).
+- **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
+  to e-reader. It has [its own guide](email.md).
+- **Notifications** — whether members are emailed when something is shared with
+  them or sent to them by a family member. Off until you turn them on, and they
+  need Email set up first.
+- **Quotes** — the house's quotes for the home page's Quote of the day: import a
+  pack, and take one back out. It has [its own guide](quotes.md).
+- **About** — version, credits, and what changed in each release.
 
-The filters live in the page's address, which is how **Follow on Tasks** — on the
-Libraries page while a scan runs — opens straight onto that library's tasks, and
-how a filtered view can be bookmarked.
+**Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
+Thorium) browse your ebooks — is under **Profile → Security**. Each person
+makes tokens for their own devices: one per device, read-only, removable at any time.
 
-### Scheduled jobs
+### Storage
 
-The recurring work, one row each: scanning each library type for new files, scanning
-new photos for faces, looking for duplicate photos, purging missing photos, cleaning
-task history, purging expired recycle bin items, converting unplayable videos,
-tidying the thumbnail store, and the two backups — full and minimal — that the
-Backup page shows as well.
-Sensible defaults ship enabled, except the two backups, which are off until you
-choose one; the face scan runs after the nightly library scans so the day's new
-photos are already cataloged.
+Which folders libraries may use, and where the app keeps its own files. Has [its own
+guide](storage.md).
 
-None of them ever removes something ahead of its time. **Purge expired recycle bin
-items** takes only what has outlived the window it was given when it was deleted —
-emptying the bin outright stays a button on the Recycle Bin page, where you can see
-what you're about to lose.
+**Library locations** are the folders on this server that libraries are allowed to
+use, each with how many libraries use it and the free space on its disk. **System
+data** is the folder the app needs to run: thumbnails, backups and metadata, the
+first two of which can each have a folder of their own. **App storage** is one
+optional switch for the Photo Inbox, the App files library, renders and map data,
+kept together in one folder. Each block leads with its folder, its free space and
+**Change**; **What's inside** unfolds the details, and opens by itself when a move is
+running or something needs attention. Every change is confirmed with the exact folder
+before it happens. The **Recycle Bin location** is set on the Recycle Bin page;
+changing it moves what is in the bin in the background.
 
-Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
-system chores — and each carries a matching tag, so the library scans sit together
-instead of being scattered through the list. Hover a job's **i** for the full
-description of what it does.
+### App storage contents
 
-Each row carries how often it runs and at what time, when it last ran and when it
-runs next, an on/off switch, and **Run now**. There's no Save button: a change to
-the cadence, the day, the time or the switch is saved as you make it, and the "next
-run" beside it updates to match.
-
-**Run now** starts a job immediately, whatever its schedule says — and keeps
-reporting until the work is genuinely finished. That matters because most of these
-jobs don't do the work themselves; they queue it. A photo library scan hands off to
-the scanner and returns in milliseconds, while the scan itself may run for an hour.
-So the button stays spinning, and the message above the table says what was queued
-with a link straight to **Maintenance → Tasks**, where you can watch the progress bars.
-When the last queued task finishes, the message says so. Jobs that do their work on
-the spot — purging expired recycle bin items, purging missing photos — simply report their
-result and are done. Only one job can be started by hand at a time; several of them
-skip themselves anyway when another heavy task is already running.
+What is using App storage, whose it is, and files nothing uses any more —
+[Storage](storage.md#what-it-holds-the-contents-page) explains it.
 
 ### Backup
 
@@ -682,7 +935,6 @@ also refuses a restore while a scan is running.
 
 If you ever rebuild everything, restore Home first, then each container.
 
-
 ### Recycle Bin
 
 Deleting from the app moves things here rather than erasing them. They keep their
@@ -770,178 +1022,16 @@ Note that the search box and the source/retention filters narrow the *tiles*, no
 the action. Empty and Restore all always work on the whole library you have picked,
 which is why their dialogs count that rather than what is on screen.
 
-### Duplicate cleanup
-
-A folder imported twice, a phone backup copied in beside the originals, a whole
-library copied into a subfolder of itself — all of it leaves the same pictures in the
-library more than once. A cleanup finds them, holds what it found, and lets you work
-through it whenever you like.
-
-It has [its own guide](duplicate-cleanup.md), which is worth reading before the first
-one: what it looks for, how sure it is of each answer, and what happens when you
-confirm.
-
-Once a cleanup has removed anything, its card links to **the copies it removed in
-the Recycle Bin** — the bin opened on cleanup removals only, and on the one library
-when the cleanup covered one. While it scans, **Follow it on Tasks** opens the scan
-among the other background work.
-
-> **Experimental.** Duplicate detection is still being proven. Look at what a set
-> contains before removing anything, and start with a few rather than the bulk action.
-> Everything removed goes to the Recycle Bin, so it can be undone until you empty it —
-> but check, test, and check again first.
-
-Two earlier pages, **Duplicate photos** and **Duplicate folders**, did some of this
-and are gone as of 3.0.0. They were two views of a single install-wide scan that was
-rebuilt every time anyone opened either one, so the list renumbered itself underneath
-you and nothing you decided survived the next rebuild. The cleanup answers everything
-they answered, and remembers. Old links to them land here.
-
-### Missing photos
-
-Files the catalog knows about that are no longer on disk. Usually a drive that
-didn't mount, which is why they aren't removed automatically.
-
-Each row shows the photo's last known thumbnail, where it was, and when it went
-missing. Restore the drive and the next library scan clears the row on its own.
-Photos missing longer than the window at the top are purged automatically — catalog
-entry, thumbnail and all — and **Purge eligible now** does it immediately.
-
-### Videos
-
-Videos that are slower to start than they need to be.
-
-An MP4 keeps a small index of itself — where every frame is — and most phones and
-video editors write that index at the *end* of the file, after the picture. Nothing
-can start playing until a player has it, so before the first frame appears the
-player has to reach all the way to the end of the file and fetch it. At home you
-may not notice. Over the internet, or on a phone, it is a pause before anything
-happens, on every video, every time.
-
-This page lists the videos in that state, the ones that can be fixed first and the
-biggest of those at the top, and **Optimise** rewrites one with its index at the
-front. The picture and the sound are copied across
-exactly as they are — nothing is re-encoded, nothing loses quality, and the file
-stays the same size. It takes a minute or two for a large video and runs in the
-background, yielding to any scan already going; follow it on **Tasks**.
-
-This is the one thing in the app that changes an original file, so it only ever
-happens when you ask for it — there is no schedule. The new file is checked against
-the old one first (same tracks, same running time, index in front) and only then
-replaces it; if any check fails, the original is kept exactly as it was. A video in
-a [locked folder](libraries.md) or in a library the app only reads is listed with
-the reason, and left alone.
-
-A rewrite can also fail. Some cameras write a track an optimised copy cannot keep,
-and the app won't drop a track to make a file fit. Such a video is marked **Couldn't
-be rewritten** with the reason beneath its name, and **Optimise all** passes over
-it from then on; **Try again** asks for that one video. Choose **Can't be optimised**
-in the menu above the list to see them all together.
-
-Videos already written this way never appear here, and nothing new needs doing
-after a video is optimised once.
-
----
-
-## Settings
-
-- **Appearance** — the default theme for new accounts. Everyone can override it in
-  their own profile.
-- **Quotes** — the house's quotes for the home page's Quote of the day: import a
-  pack, and take one back out. It has [its own guide](quotes.md).
-- **Maps** — below.
-- **Stories** — whether members may start a recipe from a link, and which library
-  narration goes to (App files, shown here, not chosen). Narration recorded
-  before recordings lived in the gallery moves into App files by itself once App
-  storage is on; the page says how many recordings are still waiting.
-- **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
-  to e-reader. It has [its own guide](email.md).
-- **Notifications** — whether members are emailed when something is shared with
-  them or sent to them by a family member. Off until you turn them on, and they
-  need Email set up first.
-- **About** — version, credits, and what changed in each release.
-
-**Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
-Thorium) browse your ebooks — is under **Profile → Security** now. Each person
-makes tokens for their own devices: one per device, read-only, removable at any time.
-
-### Maps
-
-The maps across the app — the gallery map, a photo's location, a story's route,
-Security → Sign-in locations — and what this server keeps for them. It is one page
-of four cards. Each says in a line what it does, where its data comes from, how that
-gets here and how much space it takes, with a switch to turn it on or off. Turning
-one on says what will be downloaded, how big it is and where it goes before it does
-anything; turning one off says what it frees. The ⓘ beside each name says more about
-the source, with a link to it. Maps work with every card off.
-
-![The Maps page: offline maps, photo place names, sign-in locations and road routes](images/108-maps-setup.png)
-
-- **Offline maps** — maps come through this server and are kept, so places you've
-  viewed draw without internet, and OpenFreeMap (the map provider) no longer sees
-  where you look. An area nobody has viewed still needs the internet the first time.
-  **Keep up to** sets how much is kept, from 100 MB to 2 GB (200 MB to start); when
-  it is full, what was viewed longest ago goes first, and lowering it trims the cache
-  there and then. Turning it off deletes what was kept; maps carry on, straight
-  from OpenFreeMap.
-- **Photo place names** — the town each photo was taken in, worked out from its
-  location on this server and shown in each person's own language: "Verona,
-  Veneto, Italy" in the photo viewer, and a **Places** view and filter in the
-  gallery. Turning it on downloads about 220 MB from [GeoNames](https://www.geonames.org)
-  once and builds a 27 MB database in the background, which takes a few minutes;
-  the card, and **Maintenance → Tasks**, show how far it has got. **Update** builds it
-  again from GeoNames' latest, and the names already shown stay until the new one is
-  ready. No photo's location is ever sent out. Turn it off and the names go with
-  it — the photos' locations, and anything people typed as the place, stay.
-
-  The place list holds towns of 500 or more people. **Every village in…** on the
-  same card adds every village of the countries you choose (Belarus, Ukraine…),
-  so a small village of the family's past can be found when typing a place in the
-  family tree. Villages are only for that search: photos keep being named after
-  towns. **Save and rebuild** builds the list again with them, downloading the
-  usual GeoNames files plus one file per country.
-- **Sign-in locations** — where each sign-in came from, on Security →
-  Sign-in locations. It is used for nothing else. Two parts:
-  - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when
-    you turn the card on. **Update** fetches the latest; addresses move between
-    networks, so every few months is worth it.
-  - **Towns** (optional) — a city-level database you download yourself: the ⓘ
-    links to DB-IP City Lite (free, no account) and MaxMind GeoLite2 City (free
-    account). **Upload** the file, or **Link** to paste its download address and
-    let the server fetch it; a `.mmdb` or `.mmdb.gz` both work. Once added, each
-    sign-in also gets its region, town and a dot on the map. The app cannot fetch
-    this file for you, so removing it cannot be undone from here.
-
-  Turning the card off deletes both. None of these databases are in backups: the
-  country one can be fetched again, a towns one has to come from your own copy.
-- **Road routes** — whether a route in a [story](stories.md) follows real roads.
-  Turn it on and paste a free **OpenRouteService** key (the ⓘ links to the sign-up;
-  the service is run by a research institute at Heidelberg University, not the
-  similarly named delivery-planning company a search may turn up), then **Save and
-  test**. Legs travelled on foot, by bike, by car or by bus are then drawn along the
-  roads they actually took; without a key they stay straight lines between the
-  stops. The service is asked only when a route is **saved**, and only the two
-  coordinates of each leg go to it — never the story, the place names, or who is
-  asking. What comes back is stored with the story, so reading one never calls out,
-  a shared link works for a guest, and the map still draws if the key later lapses.
-  Under **Use your own routing server** you can point it at your own
-  OpenRouteService container instead, if you would rather nothing left the house.
-  Turning the card off removes the key; routes already saved keep their roads.
-
-Everything the cards keep is in the **Map data** part of App storage
-([Storage](#storage)), named at the bottom of the page. Offline maps and place names
-wait while App storage is off: their switches are disabled, with a link to Storage.
-
 ---
 
 ## A sensible first pass
 
 On a new install, in this order:
 
-1. **Library → Storage**, then **Library → Libraries** — nothing works before these
-   ([storage](storage.md), [libraries](libraries.md)).
-2. **Maintenance → Backup** — schedule it now.
-3. **Settings → Email** ([guide](email.md)) — so alerts can reach you.
-4. **Security → Trusted networks** — add your home network.
-5. **Members → Invite links** — bring in the household.
+1. **System Settings → Storage**, then **Libraries & Scanning → Libraries** — nothing
+   works before these ([storage](storage.md), [libraries](libraries.md)).
+2. **System Settings → Backup** — schedule it now.
+3. **System Settings → Email** ([guide](email.md)) — so alerts can reach you.
+4. **Security & Members → Trusted networks** — add your home network.
+5. **Security & Members → Invite links** — bring in the household.
 6. Your own [two-factor](two-factor-authentication.md), especially as an admin.
