@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { followRoute } from "../router";
 import { Button } from "./Button";
 
@@ -97,4 +97,30 @@ export function AddRow({ label, onClick, icon }: { label: ReactNode; onClick: ()
 /** Whatever a row holds that is not one of the above (a field, a form). */
 export function FieldRow({ children }: { children: ReactNode }) {
   return <div className="grouped-row grouped-row-field">{children}</div>;
+}
+
+/** An on/off switch, the whole row its target; it saves when it is moved. */
+export function ToggleRow({ label, sub, checked, onChange, disabled = false }: { label: ReactNode; sub?: ReactNode; checked: boolean; onChange: (next: boolean) => void; disabled?: boolean }) {
+  return (
+    <Button variant="bare" className="grouped-row" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)}>
+      <span className="grouped-row-label">
+        <strong>{label}</strong>
+        {sub && <small>{sub}</small>}
+      </span>
+      <span className={`grouped-switch${checked ? " is-on" : ""}`} aria-hidden="true"><i /></span>
+    </Button>
+  );
+}
+
+/** One choice of several, ticked when it is the one; choosing it saves. */
+export function CheckRow({ label, sub, checked, onSelect, disabled = false }: { label: ReactNode; sub?: ReactNode; checked: boolean; onSelect: () => void; disabled?: boolean }) {
+  return (
+    <Button variant="bare" className="grouped-row" aria-pressed={checked} disabled={disabled} onClick={onSelect}>
+      <span className="grouped-row-label">
+        <strong>{label}</strong>
+        {sub && <small>{sub}</small>}
+      </span>
+      {checked && <Check className="grouped-row-check" size={18} aria-hidden="true" />}
+    </Button>
+  );
 }

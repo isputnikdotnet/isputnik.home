@@ -1700,7 +1700,16 @@
     "phonesCount_few": "{{count}} телефона",
     "phonesCount_many": "{{count}} телефонов",
     "phonesCount_other": "{{count}} телефона",
-    "thPhones": "Телефоны"
+    "thPhones": "Телефоны",
+    "chosenTitle": "Участники и группы, которым можно",
+    "limitTitle": "Ограничение размера для каждой",
+    "limitNote": "Участники видят, насколько заполнена их библиотека; когда она заполнена, телефону отказывают.",
+    "limitEach": "{{size}} ГБ каждая",
+    "limitOther": "Другое ограничение (ГБ)",
+    "limitOtherPlaceholder": "Введите число и нажмите Enter",
+    "ownerlessTitle": "Её участник удалён",
+    "handOverRow": "Передать другому участнику",
+    "deleteRow": "Удалить библиотеку"
   },
   "phoneSync": {
     "heading": "Сети для копий с телефонов",

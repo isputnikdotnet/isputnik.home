@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { ActionRow, GroupedList, InfoRow, NavRow } from "../src/shared/GroupedList";
+import { ActionRow, CheckRow, GroupedList, InfoRow, NavRow, ToggleRow } from "../src/shared/GroupedList";
 
 // shared/GroupedList — the phone-Settings layout Device Sync is built from: the
 // whole row is the target, a row that leads somewhere ends in a chevron, and its
@@ -28,5 +28,24 @@ describe("GroupedList", () => {
     expect(screen.queryByRole("button", { name: /Added/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Remove this phone" }));
     expect(act).toHaveBeenCalledOnce();
+  });
+
+  it("switches and ticks: the whole row is the control, saying its state", async () => {
+    const toggle = vi.fn();
+    const pick = vi.fn();
+    render(
+      <GroupedList>
+        <ToggleRow label="Members may have one" checked={false} onChange={toggle} />
+        <CheckRow label="Every member" checked onSelect={pick} />
+        <CheckRow label="Only the members chosen" checked={false} onSelect={pick} />
+      </GroupedList>
+    );
+    const sw = screen.getByRole("switch", { name: "Members may have one" });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(sw);
+    expect(toggle).toHaveBeenCalledWith(true);
+    expect(screen.getByRole("button", { name: "Every member" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Only the members chosen" }));
+    expect(pick).toHaveBeenCalledOnce();
   });
 });

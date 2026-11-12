@@ -101,3 +101,49 @@ button.grouped-row:focus-visible { outline: 2px solid var(--accent); outline-off
 @media (max-width: 740px) {
   .grouped-row-value { max-width: 42%; }
 }
+
+/* ToggleRow's switch and CheckRow's tick. */
+.grouped-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 28px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+  transition: background 0.15s;
+}
+
+.grouped-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition: left 0.15s;
+}
+
+.grouped-switch.is-on { background: var(--accent); }
+.grouped-switch.is-on i { left: 21px; }
+.grouped-row-check { flex: 0 0 auto; color: var(--accent); }
+button.grouped-row:disabled { cursor: default; opacity: 0.6; }
+
+/* A typed value inside a group (FieldRow): label above, the input across the row. */
+.grouped-field { display: grid; gap: 6px; }
+.grouped-field span { color: var(--muted); font-size: var(--text-sm); }
+
+.grouped-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field, var(--surface));
+  color: var(--ink);
+  font: inherit;
+}
+
+.grouped-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.grouped-field.is-chosen span { color: var(--accent); font-weight: 600; }

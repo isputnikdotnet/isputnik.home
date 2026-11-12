@@ -1575,7 +1575,16 @@
     "librariesCount_other": "{{count}} personal libraries",
     "phonesCount_one": "{{count}} phone",
     "phonesCount_other": "{{count}} phones",
-    "thPhones": "Phones"
+    "thPhones": "Phones",
+    "chosenTitle": "Members and groups who may",
+    "limitTitle": "Size limit for each",
+    "limitNote": "Members see how full theirs is; a phone is refused once its library is full.",
+    "limitEach": "{{size}} GB each",
+    "limitOther": "Another limit (GB)",
+    "limitOtherPlaceholder": "Type a number, then press Enter",
+    "ownerlessTitle": "Its member was removed",
+    "handOverRow": "Hand it over to another member",
+    "deleteRow": "Delete library"
   },
   "phoneSync": {
     "heading": "Phone-backup networks",

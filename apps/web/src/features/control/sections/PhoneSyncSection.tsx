@@ -356,7 +356,7 @@ export function PhoneSyncSection() {
   // ── Personal libraries ─────────────────────────────────────────────────────
   if (show.page === "personal") {
     return (
-      <div className="device-sync device-sync-wide">
+      <div className="device-sync">
         {backToList}
         {errors}
         {storageRoots ? <PersonalLibrariesPanel storageRoots={storageRoots} /> : <p className="access-muted">{t("controlAdmin:access.loading")}</p>}
