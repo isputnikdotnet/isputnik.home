@@ -178,7 +178,8 @@ export function ToggleRow({ label, sub, checked, onChange, disabled = false }: {
 /** One choice of several, ticked when it is the one; choosing it saves. */
 export function CheckRow({ label, sub, checked, onSelect, disabled = false }: { label: ReactNode; sub?: ReactNode; checked: boolean; onSelect: () => void; disabled?: boolean }) {
   return (
-    <Button variant="bare" className="grouped-row" aria-pressed={checked} disabled={disabled} onClick={onSelect}>
+    // A radio: one of several, announced as such (and found as such by tests).
+    <Button variant="bare" className="grouped-row" role="radio" aria-checked={checked} disabled={disabled} onClick={onSelect}>
       <span className="grouped-row-label">
         <strong>{label}</strong>
         {sub && <small>{sub}</small>}

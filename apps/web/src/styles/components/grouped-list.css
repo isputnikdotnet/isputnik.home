@@ -276,10 +276,18 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
 .grouped-row-value.is-muted { color: var(--muted); opacity: 0.8; }
 .grouped-page > .control-page-back { justify-self: start; }
 
-/* Storage: the System data and App storage panels keep their own layout for now,
-   but share the grouped rows' column. */
-#system-data.system-data-panel,
-#app-storage.system-data-panel { max-width: 760px; box-sizing: border-box; }
+/* Storage: System data and App storage as grouped rows (storage/*Panel.tsx). */
+.storage-rows { display: grid; gap: 6px; max-width: 760px; min-width: 0; }
+.storage-rows + .storage-rows { margin-top: 10px; }
+.storage-rows-title { display: flex; align-items: center; gap: 8px; }
+.storage-rows-title .count-badge { text-transform: none; letter-spacing: 0; }
+.storage-row-folder { overflow-wrap: anywhere; font-size: var(--text-md); }
+.storage-row-path { display: block; margin-top: 2px; overflow-wrap: anywhere; }
+.storage-row-path code { font-size: var(--text-xs); }
+.storage-part-name { display: inline-flex; align-items: center; gap: 4px; }
+.grouped-list-rows > .storage-part:first-child > .grouped-row:first-child { border-top: 0; }
+.grouped-list-rows.is-off .storage-part-row { opacity: 0.7; }
+.storage-rows .space-meter { margin-top: 4px; }
 
 /* NavToggleRow: the row's text opens its page; the switch beside it is its own target. */
 .grouped-row-split { gap: 0; padding: 0; }
@@ -319,3 +327,5 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
 }
 
 .grouped-row-switch:disabled { opacity: 0.6; cursor: default; }
+/* "Change" on a folder row stays whole; the folder's name wraps instead. */
+.storage-rows .grouped-row-value { flex-shrink: 0; max-width: none; }

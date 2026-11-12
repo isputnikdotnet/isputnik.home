@@ -98,8 +98,8 @@ describe("once system data is set", () => {
   it("gives backups a folder of their own after a confirmation naming it", async () => {
     const user = userEvent.setup();
     mount(set, { free: 3000, total: 4000 });
-    const row = (await screen.findByText("D:\\iSputnikData\\backups")).closest("tr") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: "Change" }));
+    // The backups row is the way to change where they go.
+    await user.click((await screen.findByText("D:\\iSputnikData\\backups")).closest("button") as HTMLElement);
 
     const chooser = await screen.findByRole("dialog");
     await user.click(within(chooser).getByText("A folder of their own"));
@@ -115,8 +115,8 @@ describe("once system data is set", () => {
   it("browses to a folder on another drive and puts it in the field", async () => {
     const user = userEvent.setup();
     mount(set, { free: 3000, total: 4000 });
-    const row = (await screen.findByText("D:\\iSputnikData\\backups")).closest("tr") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: "Change" }));
+    // The backups row is the way to change where they go.
+    await user.click((await screen.findByText("D:\\iSputnikData\\backups")).closest("button") as HTMLElement);
     await user.click(within(await screen.findByRole("dialog")).getByText("A folder of their own"));
     await user.click(screen.getByRole("button", { name: "Browse" }));
 
@@ -137,8 +137,8 @@ describe("once system data is set", () => {
   it("opens the browser at the top when the typed folder does not exist yet", async () => {
     const user = userEvent.setup();
     mount(set, { free: 3000, total: 4000 });
-    const row = (await screen.findByText("D:\\iSputnikData\\backups")).closest("tr") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: "Change" }));
+    // The backups row is the way to change where they go.
+    await user.click((await screen.findByText("D:\\iSputnikData\\backups")).closest("button") as HTMLElement);
     await user.click(within(await screen.findByRole("dialog")).getByText("A folder of their own"));
     await user.type(screen.getByLabelText("Folder"), "Z:\\nothing");
     await user.click(screen.getByRole("button", { name: "Browse" }));

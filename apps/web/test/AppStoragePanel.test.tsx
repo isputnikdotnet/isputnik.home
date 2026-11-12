@@ -138,7 +138,7 @@ describe("while on", () => {
     mount(on);
     expect(await screen.findByText(root)).toBeInTheDocument();
     expect(screen.getByText("7 photos waiting · admins review")).toBeInTheDocument();
-    const house = screen.getByText("D:\\Media\\Photos").closest("tr") as HTMLElement;
+    const house = screen.getByText("D:\\Media\\Photos").closest(".storage-part") as HTMLElement;
     expect(within(house).getByText("Outside App storage")).toBeInTheDocument();
     // No access rules on either system library: App files follows its owners.
     expect(within(house).queryByRole("link", { name: "Access" })).toBeNull();
@@ -159,7 +159,7 @@ describe("while on", () => {
   it("names the Inbox reviewers instead of opening library access", async () => {
     const user = userEvent.setup();
     mount({ ...on, parts: on.parts.map((p) => p.part === "inbox" ? { ...p, counts: { waiting: 7, reviewers: 1 } } : p) });
-    const inbox = (await screen.findByText("7 photos waiting · 1 reviewer")).closest("tr") as HTMLElement;
+    const inbox = (await screen.findByText("7 photos waiting · 1 reviewer")).closest(".storage-part") as HTMLElement;
     expect(within(inbox).queryByRole("link", { name: "Access" })).toBeNull();
     await user.click(within(inbox).getByRole("button", { name: "Reviewers" }));
     const dialog = await screen.findByRole("dialog");
@@ -172,7 +172,7 @@ describe("while on", () => {
   it("opens the Inbox's Scanning settings and saves them with its other settings untouched", async () => {
     const user = userEvent.setup();
     mount(on);
-    const inbox = (await screen.findByText("7 photos waiting · admins review")).closest("tr") as HTMLElement;
+    const inbox = (await screen.findByText("7 photos waiting · admins review")).closest(".storage-part") as HTMLElement;
     await user.click(within(inbox).getByRole("button", { name: "Scanning" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Photo Inbox scanning")).toBeInTheDocument();
@@ -201,7 +201,8 @@ describe("while on", () => {
   it("moves it to another folder after a confirmation naming it", async () => {
     const user = userEvent.setup();
     mount({ ...on, where: "custom" });
-    await user.click(await screen.findByRole("button", { name: "Change" }));
+    // The folder's row is the way to change it.
+    await user.click(await screen.findByRole("button", { name: /Change$/ }));
     const chooser = await screen.findByRole("dialog");
     await user.click(within(chooser).getByRole("radio", { name: /In system data/ }));
     await user.click(within(chooser).getByRole("button", { name: "Continue" }));
@@ -216,7 +217,7 @@ describe("the Storage page", () => {
   it("shows containers, then System data, then App storage", async () => {
     mount(off, StorageSection);
     await screen.findByRole("switch", { name: "App storage" });
-    const headings = Array.from(document.querySelectorAll("h2")).map((h) => h.textContent ?? "");
+    const headings = Array.from(document.querySelectorAll("h2, h3")).map((h) => h.textContent ?? "");
     const at = (text: string) => headings.findIndex((heading) => heading.startsWith(text));
     expect(at("Digital Library containers")).toBeLessThan(at("System data"));
     expect(at("System data")).toBeLessThan(at("App storage"));

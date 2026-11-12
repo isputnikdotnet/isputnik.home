@@ -5,19 +5,21 @@
 // data, or a custom folder); on, it shows the folder with Change. Under it the four
 // parts are listed, not switched: where each is, what it holds, and — for a part
 // left outside App storage — Move in. Every change is confirmed with the exact folder
-// first, and a Storage page and the setup guide show this same block.
+// first, and a Storage page and the setup guide show this same block. Drawn as
+// grouped rows (control panel v2): the switch and the folder, then the four parts,
+// each a row with its own actions as rows under it.
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Clapperboard, FolderHeart, HardDrive, Inbox, Map as MapIcon } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref, followRoute } from "../../../../router";
+import { controlHref } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Field } from "../../../../shared/Field";
+import { ActionRow, CheckRow, FieldRow, InputRow, NavRow, ToggleRow } from "../../../../shared/GroupedList";
 import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
-import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
-import { StorageFold } from "./StorageFold";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 import { InboxReviewersModal } from "./InboxReviewersModal";
 import { InboxScanningModal } from "./InboxScanningModal";
@@ -218,194 +220,183 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
     return "";
   };
 
-  const link = (href: string, label: string) => (
-    <a href={href} onClick={(event) => followRoute(event, href)}>{label}</a>
-  );
-
   const copy = pendingCopy();
 
+  const partIcon: Record<Part, React.ReactNode> = {
+    inbox: <Inbox size={17} />,
+    house: <FolderHeart size={17} />,
+    renders: <Clapperboard size={17} />,
+    maps: <MapIcon size={17} />
+  };
+  const toggle = (on: boolean) => {
+    setSaveError("");
+    if (on) askOn();
+    else setPending({ kind: "off" });
+  };
+
   return (
-    <section id="app-storage" className="system-data-panel app-storage-block">
-      <div className="app-storage-head">
-        <div>
-          <h2 className="system-data-title">
-            <span>{t("controlAdmin:appStorage.title")}</span>
-            <span className="count-badge">{view.enabled ? t("controlAdmin:appStorage.on") : t("controlAdmin:appStorage.optional")}</span>
-            <InfoHint label={t("controlAdmin:appStorage.infoLabel")}>
-              <strong>{t("controlAdmin:appStorage.infoWhatTitle")}</strong>
-              <span>{t("controlAdmin:appStorage.infoWhat")}</span>
-              <strong>{t("controlAdmin:appStorage.infoGrowthTitle")}</strong>
-              <span>{t("controlAdmin:appStorage.infoGrowth")}</span>
-            </InfoHint>
-          </h2>
-          <p>{t("controlAdmin:appStorage.desc")}</p>
-        </div>
-        <ToggleSwitch
+    <section id="app-storage" className="storage-rows">
+      <h3 className="grouped-list-title storage-rows-title">
+        <span>{t("controlAdmin:appStorage.title")}</span>
+        <span className="count-badge">{view.enabled ? t("controlAdmin:appStorage.on") : t("controlAdmin:appStorage.optional")}</span>
+        <InfoHint label={t("controlAdmin:appStorage.infoLabel")}>
+          <strong>{t("controlAdmin:appStorage.infoWhatTitle")}</strong>
+          <span>{t("controlAdmin:appStorage.infoWhat")}</span>
+          <strong>{t("controlAdmin:appStorage.infoGrowthTitle")}</strong>
+          <span>{t("controlAdmin:appStorage.infoGrowth")}</span>
+        </InfoHint>
+      </h3>
+
+      <div className="grouped-list-rows">
+        <ToggleRow
+          label={t("controlAdmin:appStorage.switchAria")}
           checked={view.enabled}
-          ariaLabel={t("controlAdmin:appStorage.switchAria")}
           disabled={saving || view.moving || (!view.enabled && !view.systemDataSet)}
-          onChange={(on) => {
-            setSaveError("");
-            if (on) askOn();
-            else setPending({ kind: "off" });
-          }}
+          onChange={toggle}
         />
+        {view.enabled ? (
+          // The folder itself: tapping it is Change.
+          <NavRow
+            icon={<HardDrive size={17} />}
+            iconTone={isLowSpace(view.space) ? "warn" : "ok"}
+            label={<code className="storage-row-folder">{view.folder}</code>}
+            sub={<SpaceMeter space={view.space} />}
+            value={t("controlAdmin:appStorage.change")}
+            disabled={view.moving}
+            onClick={() => { setSaveError(""); setChanging({ where: view.where, path: view.customPath ?? "" }); }}
+          />
+        ) : (
+          // Off: where it will live once switched on.
+          <>
+            <CheckRow
+              label={t("controlAdmin:appStorage.whereSystem")}
+              sub={view.systemFolder ? t("controlAdmin:appStorage.whereSystemHint", { path: view.systemFolder }) : t("controlAdmin:appStorage.needsSystemData")}
+              checked={where === "system"}
+              disabled={!view.systemDataSet}
+              onSelect={() => setWhere("system")}
+            />
+            <CheckRow
+              label={t("controlAdmin:appStorage.whereCustom")}
+              sub={t("controlAdmin:appStorage.whereCustomHint")}
+              checked={where === "custom"}
+              onSelect={() => setWhere("custom")}
+            />
+            {where === "custom" && (
+              <InputRow label={t("controlAdmin:appStorage.folderLabel")} value={customPath} onChange={setCustomPath} wide />
+            )}
+            {typedSpace && <FieldRow><SpaceMeter space={typedSpace} /></FieldRow>}
+          </>
+        )}
       </div>
+      <p className="grouped-list-note">
+        {view.moving
+          ? t("controlAdmin:appStorage.movingTitle")
+          : view.enabled && view.where === "system" ? t("controlAdmin:appStorage.sharesDisk") : t("controlAdmin:appStorage.desc")}
+      </p>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:appStorage.saveFailed")}>{error}</MessageBox>}
       {!view.systemDataSet && !view.enabled && (
         <MessageBox tone="info" title={t("controlAdmin:appStorage.needsSystemDataTitle")}>{t("controlAdmin:appStorage.needsSystemData")}</MessageBox>
       )}
-
-      {!view.enabled ? (
-        <div className="system-data-choose app-storage-where">
-          <span className="app-storage-question">{t("controlAdmin:appStorage.whereQuestion")}</span>
-          <label className="app-storage-option">
-            <input type="radio" name="app-storage-where" checked={where === "system"} disabled={!view.systemDataSet} onChange={() => setWhere("system")} />
-            <span>
-              <strong>{t("controlAdmin:appStorage.whereSystem")}</strong>
-              <small className="datagrid-muted">{view.systemFolder ? t("controlAdmin:appStorage.whereSystemHint", { path: view.systemFolder }) : t("controlAdmin:appStorage.needsSystemData")}</small>
-            </span>
-          </label>
-          <label className="app-storage-option">
-            <input type="radio" name="app-storage-where" checked={where === "custom"} onChange={() => setWhere("custom")} />
-            <span>
-              <strong>{t("controlAdmin:appStorage.whereCustom")}</strong>
-              <small className="datagrid-muted">{t("controlAdmin:appStorage.whereCustomHint")}</small>
-            </span>
-          </label>
-          {where === "custom" && (
-            <Field label={t("controlAdmin:appStorage.folderLabel")} value={customPath} onChange={setCustomPath} required={false} />
-          )}
-          <SpaceMeter space={typedSpace} />
-          {isLowSpace(typedSpace) && (
-            <MessageBox tone="warning" title={t("controlAdmin:appStorage.lowTitle")}>{t("controlAdmin:appStorage.lowBody")}</MessageBox>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="system-data-summary has-action">
-            <strong>{view.folder}</strong>
-            {view.where === "system" && <span className="datagrid-muted">{t("controlAdmin:appStorage.sharesDisk")}</span>}
-            <SpaceMeter space={view.space} />
-            <Button
-              variant="secondary"
-              compact
-              className="system-data-change"
-              disabled={view.moving}
-              title={view.moving ? t("controlAdmin:appStorage.movingTitle") : undefined}
-              onClick={() => { setSaveError(""); setChanging({ where: view.where, path: view.customPath ?? "" }); }}
-            >
-              {t("controlAdmin:appStorage.change")}
-            </Button>
-          </div>
-          {isLowSpace(view.space) && (
-            <MessageBox tone="warning" title={t("controlAdmin:appStorage.lowTitle")}>{t("controlAdmin:appStorage.lowBodyOn")}</MessageBox>
-          )}
-        </>
+      {isLowSpace(view.enabled ? view.space : typedSpace) && (
+        <MessageBox tone="warning" title={t("controlAdmin:appStorage.lowTitle")}>
+          {view.enabled ? t("controlAdmin:appStorage.lowBodyOn") : t("controlAdmin:appStorage.lowBody")}
+        </MessageBox>
       )}
 
-      <StorageFold
-        summary={view.enabled ? t("controlAdmin:appStorage.insideSummary") : t("controlAdmin:appStorage.insideSummaryOff")}
-        attention={view.enabled && view.parts.some((entry) => !entry.inside || entry.move.running || entry.move.failed.length > 0 || Boolean(entry.renameTo) || (entry.counts.unowned ?? 0) > 0)}
-      >
-      <div className="datagrid-wrap system-data-rows">
-        <table className="datagrid datagrid-phone-stack">
-          <thead>
-            <tr>
-              <th>{t("controlAdmin:appStorage.thPart")}</th>
-              <th>{t("controlAdmin:appStorage.thFolder")}</th>
-              <th>{t("controlAdmin:appStorage.thUsing")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PARTS.map((name) => view.parts.find((entry) => entry.part === name)).filter((entry): entry is PartView => Boolean(entry)).map((entry) => {
-              const outside = view.enabled && !entry.inside;
-              const using = usingText(entry);
-              return (
-                <tr key={entry.part} className={view.enabled ? undefined : "is-off"}>
-                  <td>
-                    <span className="app-storage-part-name">
+      {/* Its four parts, listed rather than switched: where each is, what it holds,
+          and what can be done with it. */}
+      <h3 className="grouped-list-title">{view.enabled ? t("controlAdmin:appStorage.insideSummary") : t("controlAdmin:appStorage.insideSummaryOff")}</h3>
+      <div className={`grouped-list-rows${view.enabled ? "" : " is-off"}`}>
+        {PARTS.map((name) => view.parts.find((entry) => entry.part === name)).filter((entry): entry is PartView => Boolean(entry)).map((entry) => {
+          const outside = view.enabled && !entry.inside;
+          const using = usingText(entry);
+          const canMove = entry.library || entry.part === "renders" || entry.part === "maps";
+          const actions = view.enabled && (
+            (outside && !entry.move.running) || (entry.renameTo && !entry.move.running) || (entry.part === "inbox" && entry.library)
+          );
+          return (
+            <div key={entry.part} className="storage-part">
+              <div className="grouped-row storage-part-row">
+                <span className={`grouped-row-icon${outside ? " is-warn" : view.enabled ? "" : " is-muted"}`} aria-hidden="true">{partIcon[entry.part]}</span>
+                <span className="grouped-row-label">
+                  <strong className="storage-part-name">
+                    {partName[entry.part]}
+                    <InfoHint label={t("controlAdmin:appStorage.aboutPart", { name: partName[entry.part] })}>
                       <strong>{partName[entry.part]}</strong>
-                      <InfoHint label={t("controlAdmin:appStorage.aboutPart", { name: partName[entry.part] })}>
-                        <strong>{partName[entry.part]}</strong>
-                        <span>{t(`controlAdmin:appStorage.about.${entry.part}`)}</span>
-                        <span><strong>{t("controlAdmin:appStorage.spaceLabel")}</strong> {t(`controlAdmin:appStorage.space.${entry.part}`)}</span>
-                        <span><strong>{t("controlAdmin:appStorage.offLabel")}</strong> {t(`controlAdmin:appStorage.off.${entry.part}`)}</span>
-                      </InfoHint>
+                      <span>{t(`controlAdmin:appStorage.about.${entry.part}`)}</span>
+                      <span><strong>{t("controlAdmin:appStorage.spaceLabel")}</strong> {t(`controlAdmin:appStorage.space.${entry.part}`)}</span>
+                      <span><strong>{t("controlAdmin:appStorage.offLabel")}</strong> {t(`controlAdmin:appStorage.off.${entry.part}`)}</span>
+                    </InfoHint>
+                  </strong>
+                  <small>
+                    {t(`controlAdmin:appStorage.hint.${entry.part}`)}
+                    <span className="storage-row-path">
+                      {entry.folder ? <code>{entry.folder}</code> : t("controlAdmin:appStorage.insideWhenOn")}
                     </span>
-                    <div className="datagrid-muted app-storage-hint">{t(`controlAdmin:appStorage.hint.${entry.part}`)}</div>
-                  </td>
-                  <td className="storage-path-cell">
-                    {entry.folder
-                      ? <code className="app-storage-path">{entry.folder}</code>
-                      : <span className="datagrid-muted">{t("controlAdmin:appStorage.insideWhenOn")}</span>}
-                    {entry.part === "house" && (entry.counts.unowned ?? 0) > 0 && (
-                      <div className="system-data-note">
-                        {t("controlAdmin:appStorage.unowned", { count: entry.counts.unowned ?? 0 })}
-                      </div>
-                    )}
-                    {outside && <div className="system-data-note">{entry.library || entry.part === "renders" || entry.part === "maps" ? t("controlAdmin:appStorage.outside") : t("controlAdmin:appStorage.missing")}</div>}
-                    {entry.move.running && (
-                      <div className="app-storage-move">
-                        <span>{t("controlAdmin:appStorage.moving", { moved: entry.move.done, total: entry.move.done + entry.move.pending })}</span>
-                        <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", entry.part)}>
-                          {t("controlAdmin:storage.moveCancel")}
-                        </Button>
-                      </div>
-                    )}
-                    {!entry.move.running && entry.move.failed.length > 0 && (
-                      <div className="app-storage-move needs-attention">
-                        <span title={entry.move.failed.map((f) => `${f.title ?? f.name}: ${f.error}`).join("\n")}>
-                          {t("controlAdmin:appStorage.moveFailed", { count: entry.move.failed.length })}
-                        </span>
-                        <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("POST", entry.part)}>
-                          {t("controlAdmin:storage.moveRetry")}
-                        </Button>
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <div className="app-storage-using">
-                      {using && <span>{using}</span>}
-                      {view.enabled && (
-                        <span className="app-storage-links">
-                          {outside && !entry.move.running && (
-                            <Button variant="secondary" compact disabled={view.moving} onClick={() => { setSaveError(""); setPending({ kind: "moveIn", part: entry }); }}>
-                              {entry.library || entry.part === "renders" || entry.part === "maps" ? t("controlAdmin:appStorage.moveIn") : t("controlAdmin:appStorage.make")}
-                            </Button>
-                          )}
-                          {entry.renameTo && !entry.move.running && (
-                            <Button variant="text" compact title={t("controlAdmin:storage.renameFolderTitle", { name: entry.renameTo.split(/[\\/]/).pop() ?? "" })} onClick={() => { setSaveError(""); setPending({ kind: "rename", part: entry }); }}>
-                              {t("controlAdmin:storage.renameFolder")}
-                            </Button>
-                          )}
-                          {entry.part === "house" && entry.library && link(controlHref("storageContents"), t("controlAdmin:appStorage.contents"))}
-                          {/* Neither system library has access rules (phase 4): the Inbox has
-                              reviewers, and App files' files follow what owns them. The Inbox is
-                              not on the Libraries page either, so its Scanning tab (scan sources
-                              and the back-sides rule) opens from here. */}
-                          {entry.part === "inbox" && entry.library && (
-                            <>
-                              <Button variant="text" compact onClick={() => setReviewersOpen(true)}>{t("controlAdmin:appStorage.reviewers.button")}</Button>
-                              <Button variant="text" compact onClick={() => setScanningFor(entry.library?.id ?? null)}>{t("controlAdmin:appStorage.scanning.button")}</Button>
-                            </>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </small>
+                </span>
+                {using && <span className="grouped-row-value">{using}</span>}
+              </div>
+              {entry.part === "house" && (entry.counts.unowned ?? 0) > 0 && (
+                <FieldRow><div className="system-data-note">{t("controlAdmin:appStorage.unowned", { count: entry.counts.unowned ?? 0 })}</div></FieldRow>
+              )}
+              {outside && (
+                <FieldRow><div className="system-data-note">{canMove ? t("controlAdmin:appStorage.outside") : t("controlAdmin:appStorage.missing")}</div></FieldRow>
+              )}
+              {entry.move.running && (
+                <FieldRow>
+                  <div className="app-storage-move">
+                    <span>{t("controlAdmin:appStorage.moving", { moved: entry.move.done, total: entry.move.done + entry.move.pending })}</span>
+                    <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", entry.part)}>
+                      {t("controlAdmin:storage.moveCancel")}
+                    </Button>
+                  </div>
+                </FieldRow>
+              )}
+              {!entry.move.running && entry.move.failed.length > 0 && (
+                <FieldRow>
+                  <div className="app-storage-move needs-attention">
+                    <span title={entry.move.failed.map((f) => `${f.title ?? f.name}: ${f.error}`).join("\n")}>
+                      {t("controlAdmin:appStorage.moveFailed", { count: entry.move.failed.length })}
+                    </span>
+                    <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("POST", entry.part)}>
+                      {t("controlAdmin:storage.moveRetry")}
+                    </Button>
+                  </div>
+                </FieldRow>
+              )}
+              {/* A part's own actions, each a row of its own like a phone's
+                  Settings: Move in (or Make it), Rename folder, and the Inbox's
+                  reviewers and scanning (it is not on the Libraries page). */}
+              {actions && (
+                <>
+                  {outside && !entry.move.running && (
+                    <ActionRow
+                      label={canMove ? t("controlAdmin:appStorage.moveIn") : t("controlAdmin:appStorage.make")}
+                      disabled={view.moving}
+                      onClick={() => { setSaveError(""); setPending({ kind: "moveIn", part: entry }); }}
+                    />
+                  )}
+                  {entry.renameTo && !entry.move.running && (
+                    <ActionRow label={t("controlAdmin:storage.renameFolder")} onClick={() => { setSaveError(""); setPending({ kind: "rename", part: entry }); }} />
+                  )}
+                  {entry.part === "inbox" && entry.library && (
+                    <>
+                      <NavRow label={t("controlAdmin:appStorage.reviewers.button")} onClick={() => setReviewersOpen(true)} />
+                      <NavRow label={t("controlAdmin:appStorage.scanning.button")} onClick={() => setScanningFor(entry.library?.id ?? null)} />
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
-      </StorageFold>
       {view.enabled && (
-        <p className="storage-block-links">
-          {link(controlHref("storageContents"), t("controlAdmin:appStorage.viewContents"))}
-        </p>
+        <div className="grouped-list-rows">
+          <NavRow label={t("controlAdmin:appStorage.viewContents")} href={controlHref("storageContents")} />
+        </div>
       )}
 
       {changing && (

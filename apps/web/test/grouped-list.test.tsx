@@ -44,8 +44,10 @@ describe("GroupedList", () => {
     expect(sw).toHaveAttribute("aria-checked", "false");
     await userEvent.click(sw);
     expect(toggle).toHaveBeenCalledWith(true);
-    expect(screen.getByRole("button", { name: "Every member" })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(screen.getByRole("button", { name: "Only the members chosen" }));
+    // A choice of one is a radio, checked when it is the one.
+    expect(screen.getByRole("radio", { name: "Every member" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Only the members chosen" })).not.toBeChecked();
+    await userEvent.click(screen.getByRole("radio", { name: "Only the members chosen" }));
     expect(pick).toHaveBeenCalledOnce();
   });
 });

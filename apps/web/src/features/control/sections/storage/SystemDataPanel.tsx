@@ -4,19 +4,21 @@
 // first library, with the folders that live in it listed below — the database
 // (fixed at install), thumbnails and backups (each can have a folder of its own)
 // and metadata. Every change goes chooser → confirmation naming the folder → save;
-// whatever has to move follows as a task.
+// whatever has to move follows as a task. Drawn as grouped rows (control panel v2):
+// the folder (tap to change), then what lives in it, one row each.
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Archive, Database, FileText, HardDrive, Images } from "lucide-react";
 import { api } from "../../../../api";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Field } from "../../../../shared/Field";
+import { ActionRow, FieldRow, InfoRow, NavRow } from "../../../../shared/GroupedList";
 import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { formatBytes } from "../../../../shared/utils";
 import { ServerFolderPicker } from "./ServerFolderPicker";
-import { StorageFold } from "./StorageFold";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 // The panel's stylesheet: it arrives with the panel, on the Storage page and in the setup guide (docs/css-map.md).
 import "../../../../styles/system-data.css";
@@ -224,147 +226,122 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
     </div>
   );
 
+  // A move's progress or failure, as a row under the part it belongs to.
+  const moveRow = (move: StorageMove, room: MoveRoom) => (move.running || move.failed.length > 0) && (
+    <FieldRow>{moveLine(move, room)}</FieldRow>
+  );
+  const pathSub = (hint: string, path: string, meta?: string) => (
+    <>
+      {hint}
+      <span className="storage-row-path"><code>{path}</code>{meta && <> · {meta}</>}</span>
+    </>
+  );
+
   return (
-    <section id="system-data" className="library-settings-panel storage-settings-panel system-data-panel">
-      <div>
-        <h2 className="system-data-title">
-          <span>{t("controlAdmin:systemData.title")}</span>
-          <span className="count-badge">{t("controlAdmin:systemData.required")}</span>
-          <InfoHint label={t("controlAdmin:systemData.spaceInfoTitle")}>
-            <strong>{t("controlAdmin:systemData.spaceInfoTitle")}</strong>
-            <span>{t("controlAdmin:systemData.spaceInfoThumbnails")}</span>
-            <span>{t("controlAdmin:systemData.spaceInfoBackups")}</span>
-            <span>{t("controlAdmin:systemData.spaceInfoMetadata")}</span>
-          </InfoHint>
-        </h2>
-        <p>{view.path ? t("controlAdmin:systemData.desc") : t("controlAdmin:systemData.descUnset")}</p>
-      </div>
+    <section id="system-data" className="storage-rows">
+      <h3 className="grouped-list-title storage-rows-title">
+        <span>{t("controlAdmin:systemData.title")}</span>
+        <span className="count-badge">{t("controlAdmin:systemData.required")}</span>
+        <InfoHint label={t("controlAdmin:systemData.spaceInfoTitle")}>
+          <strong>{t("controlAdmin:systemData.spaceInfoTitle")}</strong>
+          <span>{t("controlAdmin:systemData.spaceInfoThumbnails")}</span>
+          <span>{t("controlAdmin:systemData.spaceInfoBackups")}</span>
+          <span>{t("controlAdmin:systemData.spaceInfoMetadata")}</span>
+        </InfoHint>
+      </h3>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:systemData.loadFailed")}>{error}</MessageBox>}
 
       {!view.path ? (
-        <div className="system-data-choose">
-          {folderField(input, setInput, view.suggested)}
-          <p className="datagrid-muted">{t("controlAdmin:systemData.suggestion", { path: view.suggested })}</p>
-          <SpaceMeter space={typedSpace} />
+        <>
+          <div className="grouped-list-rows">
+            <FieldRow>
+              <div className="system-data-choose">
+                {folderField(input, setInput, view.suggested)}
+                <p className="datagrid-muted">{t("controlAdmin:systemData.suggestion", { path: view.suggested })}</p>
+                <SpaceMeter space={typedSpace} />
+              </div>
+            </FieldRow>
+            <ActionRow
+              label={t("controlAdmin:systemData.useFolder")}
+              onClick={() => { setSaveError(""); setPending({ target: "system", path: input.trim() || view.suggested }); }}
+            />
+          </div>
+          <p className="grouped-list-note">{t("controlAdmin:systemData.descUnset")}</p>
           {isLowSpace(typedSpace) && (
             <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
           )}
           <MessageBox tone="warning" title={t("controlAdmin:systemData.noLibraryTitle")}>{t("controlAdmin:systemData.noLibraryBody")}</MessageBox>
-          <div className="library-settings-actions">
-            <Button variant="primary" onClick={() => { setSaveError(""); setPending({ target: "system", path: input.trim() || view.suggested }); }}>
-              {t("controlAdmin:systemData.useFolder")}
-            </Button>
-          </div>
-        </div>
+        </>
       ) : (
         <>
-          <div className="storage-path-summary system-data-summary has-action">
-            <strong>{view.path}</strong>
-            <SpaceMeter space={view.space} />
-            <Button
-              variant="secondary"
-              compact
-              className="system-data-change"
+          {/* The folder itself: tapping it is Change. */}
+          <div className="grouped-list-rows">
+            <NavRow
+              icon={<HardDrive size={17} />}
+              iconTone={view.problem ? "danger" : isLowSpace(view.space) ? "warn" : "ok"}
+              label={<code className="storage-row-folder">{view.path}</code>}
+              sub={<SpaceMeter space={view.space} />}
+              value={t("controlAdmin:systemData.change")}
               disabled={view.moving}
-              title={view.moving ? t("controlAdmin:systemData.movingTitle") : undefined}
               onClick={() => openEditor("system")}
-            >
-              {t("controlAdmin:systemData.change")}
-            </Button>
+            />
           </div>
+          <p className="grouped-list-note">{view.moving ? t("controlAdmin:systemData.movingTitle") : t("controlAdmin:systemData.desc")}</p>
           {view.problem && <MessageBox tone="error" title={t("controlAdmin:systemData.problemTitle")}>{view.problem}</MessageBox>}
           {isLowSpace(view.space) && (
             <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
           )}
 
-          <StorageFold
-            summary={t("controlAdmin:systemData.insideSummary")}
-            attention={Boolean(view.thumbnails.problem) || [view.thumbnails.move, view.backups.move, view.metadata.move].some((move) => move.running || move.failed.length > 0)}
-          >
-          <div className="datagrid-wrap system-data-rows">
-            <table className="datagrid datagrid-phone-stack">
-              <thead>
-                <tr>
-                  <th>{t("controlAdmin:systemData.thWhat")}</th>
-                  <th>{t("controlAdmin:systemData.thWhere")}</th>
-                  <th className="col-actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>
-                    <strong>{t("controlAdmin:systemData.database")}</strong>
-                    <div className="datagrid-muted app-storage-hint">{t("controlAdmin:systemData.databaseHint")}</div>
-                  </td>
-                  <td className="storage-path-cell">
-                    <code className="app-storage-path">{view.database}</code>
-                    <div className="datagrid-muted app-storage-from">{t("controlAdmin:systemData.databaseFixed")}</div>
-                  </td>
-                  <td className="col-actions"></td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>{t("controlAdmin:systemData.thumbnails")}</strong>
-                    <div className="datagrid-muted app-storage-hint">{t("controlAdmin:systemData.thumbnailsHint")}</div>
-                  </td>
-                  <td className="storage-path-cell">
-                    <code className="app-storage-path">{view.thumbnails.path ?? t("controlAdmin:systemData.thumbnailsNowhere")}</code>
-                    <div className="datagrid-muted app-storage-from">
-                      {[view.thumbnails.source ? thumbnailSource[view.thumbnails.source] : "", thumbnailCount].filter(Boolean).join(" · ")}
-                    </div>
-                    {view.thumbnails.problem && (
-                      <div className="app-storage-move needs-attention"><span>{view.thumbnails.problem}</span></div>
-                    )}
-                    {moveLine(view.thumbnails.move, "thumbnails")}
-                  </td>
-                  <td className="col-actions">
-                    <Button variant="secondary" compact disabled={view.thumbnails.move.running} onClick={() => openEditor("thumbnails")}>
-                      {t("controlAdmin:systemData.change")}
-                    </Button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>{t("controlAdmin:systemData.backups")}</strong>
-                    <div className="datagrid-muted app-storage-hint">{t("controlAdmin:systemData.backupsHint")}</div>
-                  </td>
-                  <td className="storage-path-cell">
-                    <code className="app-storage-path">{view.backups.path}</code>
-                    <div className="datagrid-muted app-storage-from">
-                      {[backupSource[view.backups.source], backupCount].join(" · ")}
-                    </div>
-                    {view.backups.sameDiskAsDatabase && (
-                      <div className="system-data-note">{t("controlAdmin:systemData.sameDisk")}</div>
-                    )}
-                    {moveLine(view.backups.move, "backups")}
-                  </td>
-                  <td className="col-actions">
-                    <Button variant="secondary" compact disabled={view.backups.move.running} onClick={() => openEditor("backups")}>
-                      {t("controlAdmin:systemData.change")}
-                    </Button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>{t("controlAdmin:systemData.metadata")}</strong>
-                    <div className="datagrid-muted app-storage-hint">{t("controlAdmin:systemData.metadataHint")}</div>
-                  </td>
-                  <td className="storage-path-cell">
-                    <code className="app-storage-path">{view.metadata.path ?? t("controlAdmin:systemData.metadataNowhere")}</code>
-                    {view.metadata.source && (
-                      <div className="datagrid-muted app-storage-from">
-                        {view.metadata.source === "env" ? t("controlAdmin:systemData.sourceEnvMetadata") : t("controlAdmin:systemData.sourceSystem")}
-                      </div>
-                    )}
-                    {moveLine(view.metadata.move, "metadata")}
-                  </td>
-                  <td className="col-actions"></td>
-                </tr>
-              </tbody>
-            </table>
+          {/* What lives in it: the database (fixed), thumbnails and backups (each can
+              have a folder of its own — tap to change), and metadata. */}
+          <div className="grouped-list-rows">
+            <InfoRow
+              icon={<Database size={17} />}
+              iconTone="muted"
+              label={t("controlAdmin:systemData.database")}
+              sub={pathSub(t("controlAdmin:systemData.databaseHint"), view.database, t("controlAdmin:systemData.databaseFixed"))}
+            />
+            <NavRow
+              icon={<Images size={17} />}
+              iconTone={view.thumbnails.problem ? "danger" : undefined}
+              label={t("controlAdmin:systemData.thumbnails")}
+              sub={pathSub(
+                t("controlAdmin:systemData.thumbnailsHint"),
+                view.thumbnails.path ?? t("controlAdmin:systemData.thumbnailsNowhere"),
+                [view.thumbnails.source ? thumbnailSource[view.thumbnails.source] : "", thumbnailCount].filter(Boolean).join(" · ")
+              )}
+              disabled={view.thumbnails.move.running}
+              onClick={() => openEditor("thumbnails")}
+            />
+            {view.thumbnails.problem && (
+              <FieldRow><div className="app-storage-move needs-attention"><span>{view.thumbnails.problem}</span></div></FieldRow>
+            )}
+            {moveRow(view.thumbnails.move, "thumbnails")}
+            <NavRow
+              icon={<Archive size={17} />}
+              iconTone={view.backups.sameDiskAsDatabase ? "warn" : undefined}
+              label={t("controlAdmin:systemData.backups")}
+              sub={pathSub(t("controlAdmin:systemData.backupsHint"), view.backups.path, [backupSource[view.backups.source], backupCount].join(" · "))}
+              disabled={view.backups.move.running}
+              onClick={() => openEditor("backups")}
+            />
+            {view.backups.sameDiskAsDatabase && (
+              <FieldRow><div className="system-data-note">{t("controlAdmin:systemData.sameDisk")}</div></FieldRow>
+            )}
+            {moveRow(view.backups.move, "backups")}
+            <InfoRow
+              icon={<FileText size={17} />}
+              iconTone="muted"
+              label={t("controlAdmin:systemData.metadata")}
+              sub={pathSub(
+                t("controlAdmin:systemData.metadataHint"),
+                view.metadata.path ?? t("controlAdmin:systemData.metadataNowhere"),
+                view.metadata.source ? (view.metadata.source === "env" ? t("controlAdmin:systemData.sourceEnvMetadata") : t("controlAdmin:systemData.sourceSystem")) : undefined
+              )}
+            />
+            {moveRow(view.metadata.move, "metadata")}
           </div>
-          </StorageFold>
         </>
       )}
 
