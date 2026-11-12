@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Server } from "lucide-react";
 import { controlHref, followRoute } from "../../../router";
@@ -9,6 +9,9 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import { appPageHref, logsHref } from "../links";
 import { isRunning, useAppName, useAppsStatus, type AppStatus } from "./AppsSection";
 import { useSystemStatus } from "./dashboard/useSystemStatus";
+import { ServicesDiagram } from "./dashboard/Overview";
+import type { DashboardOverview } from "./dashboard/useDashboardOverview";
+import { api } from "../../../api";
 
 // Infrastructure › Services (control panel v2): one card per service — this server
 // and each container beside it — saying whether it is up, how fast it answers and
@@ -57,6 +60,11 @@ export function ServicesSection() {
   // Which cards have been tested since the page opened: the result shows on them.
   const [tested, setTested] = useState<Record<string, boolean>>({});
   const [testing, setTesting] = useState<string | null>(null);
+  // Home's own addresses and port, for the diagram (the Dashboard reads the same).
+  const [overview, setOverview] = useState<DashboardOverview | null>(null);
+  useEffect(() => {
+    api<DashboardOverview>("/api/dashboard/overview").then(setOverview).catch(() => setOverview(null));
+  }, []);
 
   const test = async (id: string) => {
     setTesting(id);
@@ -77,9 +85,12 @@ export function ServicesSection() {
     <>
       <ControlSectionHead section="services" icon={<Server size={30} />} description={t("control:services.description")} />
       {error && <MessageBox tone="error" title={t("control:services.loadFailed")}>{error}</MessageBox>}
+      {/* How the pieces connect: Home, its gateway and a branch per container (the
+          Dashboard showed this until it took compact tiles instead). */}
+      {status && <ServicesDiagram status={status} overview={overview} apps={apps} onServicesPage />}
 
       <div className="organization-grid">
-        <section className="organization-card app-setup-card">
+        <section className="organization-card app-setup-card" id="service-home">
           <div className="service-card-head">
             <h2>{t("control:services.home")}</h2>
             <span className="app-status-pill is-ready">{t("control:services.state.running")}</span>
@@ -115,7 +126,7 @@ export function ServicesSection() {
           }
           const pairingHref = appPageHref("appsSetup", app.id);
           return (
-            <section key={app.id} className="organization-card app-setup-card">
+            <section key={app.id} id={`service-${app.id}`} className="organization-card app-setup-card">
               <div className="service-card-head">
                 <h2>{appName(app.id)}</h2>
                 <span className={`app-status-pill ${state === "running" ? "is-ready" : state === "unset" ? "is-off" : "is-needsSetup"}`}>

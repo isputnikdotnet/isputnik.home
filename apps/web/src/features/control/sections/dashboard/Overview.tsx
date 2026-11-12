@@ -2,12 +2,9 @@ import { useTranslation } from "react-i18next";
 import {
   Archive,
   ChevronRight,
-  Clock3,
-  Database,
   Gamepad2,
   House,
   KeyRound,
-  MemoryStick,
   ScanFace,
   Tv,
   type LucideIcon
@@ -102,10 +99,15 @@ const folderNames = (group: DiskGroup) => [...new Set(group.folders.map((folder)
 
 interface Issue {
   tone: Tone;
+  /** The row's bold line: what is wrong. */
   text: string;
+  /** One line under it: the number or the place that says how bad. */
+  detail?: string;
   href: string;
   /** The button that acts on it: "Open connection", "Open sign-ins". */
   action: string;
+  /** A second way to deal with it: the logs, the recycle bin, the block list. */
+  second?: { href: string; label: string };
 }
 
 export function Overview({
@@ -132,8 +134,8 @@ export function Overview({
   const issues: Issue[] = [];
   for (const app of apps ?? []) {
     const state = appState(app);
-    if (state === "down") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppDown", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id), action: t("controlDash:dashboard.actionConnection") });
-    if (state === "secret") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppSecret", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id), action: t("controlDash:dashboard.actionConnection") });
+    if (state === "down") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppDown", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id), action: t("controlDash:dashboard.actionConnection"), detail: app.url ? t("controlDash:dashboard.detailAppDown", { url: app.url }) : undefined, second: { href: logsHref({ app: app.id }), label: t("controlDash:dashboard.actionLogs") } });
+    if (state === "secret") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppSecret", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id), action: t("controlDash:dashboard.actionConnection"), second: { href: logsHref({ app: app.id }), label: t("controlDash:dashboard.actionLogs") } });
   }
   const disks = groupDisks(overview, appDisks);
   for (const disk of disks) {
@@ -143,7 +145,9 @@ export function Overview({
         tone,
         text: t("controlDash:overview.issueDiskLow", { mount: folderNames(disk), share: Math.round((disk.freeBytes / disk.totalBytes) * 100) }),
         href: storageHref(),
-        action: t("controlDash:dashboard.actionStorage")
+        action: t("controlDash:dashboard.actionStorage"),
+        detail: t("controlDash:dashboard.detailDisk", { free: formatBytes(disk.freeBytes), total: formatBytes(disk.totalBytes) }),
+        second: { href: controlHref("recycleBin"), label: t("controlDash:dashboard.actionRecycle") }
       });
     }
   }
@@ -163,14 +167,14 @@ export function Overview({
     }
   }
   if (overview && overview.failedTasks24h > 0) {
-    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedTasks", { count: overview.failedTasks24h }), href: tasksHref({ status: "failed" }), action: t("controlDash:dashboard.actionTasks") });
+    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedTasks", { count: overview.failedTasks24h }), href: tasksHref({ status: "failed" }), action: t("controlDash:dashboard.actionTasks"), detail: t("controlDash:dashboard.detailLastDay") });
   }
   for (const app of apps ?? []) {
     const errors = appErrors[app.id];
-    if (errors) issues.push({ tone: "warning", text: t("controlDash:overview.issueAppErrors", { app: appName(app.id), count: errors }), href: logsHref({ app: app.id, level: "error" }), action: t("controlDash:dashboard.actionLogs") });
+    if (errors) issues.push({ tone: "warning", text: t("controlDash:overview.issueAppErrors", { app: appName(app.id), count: errors }), href: logsHref({ app: app.id, level: "error" }), action: t("controlDash:dashboard.actionLogs"), detail: t("controlDash:dashboard.detailLastDay") });
   }
   if (overview && overview.failedSignIns24h >= FAILED_SIGN_INS_NOTICE) {
-    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedSignIns", { count: overview.failedSignIns24h }), href: signInsHref({}), action: t("controlDash:dashboard.actionSignIns") });
+    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedSignIns", { count: overview.failedSignIns24h }), href: signInsHref({}), action: t("controlDash:dashboard.actionSignIns"), detail: t("controlDash:dashboard.detailLastDay"), second: { href: controlHref("securityBlocked"), label: t("controlDash:dashboard.actionBlocked") } });
   }
   issues.sort((a, b) => (a.tone === b.tone ? 0 : a.tone === "danger" ? -1 : 1));
 
@@ -199,12 +203,24 @@ export function Overview({
           <ul className="dash-attention">
             {issues.map((issue) => (
               <li key={issue.text}>
-                <span className={`dash-dot tone-${issue.tone}`} aria-hidden="true" />
-                <span className="dash-issue-text">{issue.text}</span>
-                <a href={issue.href} className="secondary-button compact-button" onClick={(event) => followRoute(event, issue.href)}>
-                  {issue.action}
-                  <ChevronRight size={15} aria-hidden="true" />
-                </a>
+                <span className={`dash-severity tone-${issue.tone}`}>
+                  {issue.tone === "danger" ? t("controlDash:dashboard.severity.urgent") : t("controlDash:dashboard.severity.warning")}
+                </span>
+                <span className="dash-issue-text">
+                  <strong>{issue.text}</strong>
+                  {issue.detail && <small>{issue.detail}</small>}
+                </span>
+                <span className="dash-issue-actions">
+                  {issue.second && (
+                    <a href={issue.second.href} className="secondary-button compact-button" onClick={(event) => followRoute(event, issue.second!.href)}>
+                      {issue.second.label}
+                    </a>
+                  )}
+                  <a href={issue.href} className="primary-button compact-button" onClick={(event) => followRoute(event, issue.href)}>
+                    {issue.action}
+                    <ChevronRight size={15} aria-hidden="true" />
+                  </a>
+                </span>
               </li>
             ))}
           </ul>
@@ -215,12 +231,7 @@ export function Overview({
         )}
       </section>
 
-      <Services status={status} overview={overview} apps={apps} />
-      <dl className="dash-stats dash-stats-row">
-        <Stat icon={MemoryStick} label={t("controlDash:system.memory")} value={formatBytes(status.memory.rssBytes)} />
-        <Stat icon={Database} label={t("controlDash:system.database")} value={formatBytes(status.databaseBytes)} />
-        <Stat icon={Clock3} label={t("controlDash:system.uptime")} value={formatUptime(status.uptimeSeconds)} />
-      </dl>
+      <ServiceTiles status={status} overview={overview} apps={apps} />
 
       <section className="dash-section" aria-labelledby="dash-storage">
         <DashSectionHead id="dash-storage" icon={DASH_ICONS.storage} title={t("controlDash:overview.storageTitle")} link={{ href: storageHref(), label: t("controlDash:dashboard.storageSettingsLink") }} />
@@ -259,7 +270,85 @@ export function Overview({
 
 // ── Services: Home, its gateway, a branch per container ──────────────────────
 
-function Services({ status, overview, apps }: { status: SystemStatus; overview: DashboardOverview | null; apps: AppStatus[] | null }) {
+/** The Dashboard's Running services: a tile per service — its state, version, where
+ *  it is (addresses with their ports) and how fast it answers. A tile opens that
+ *  service's card on Infrastructure › Services. */
+function ServiceTiles({ status, overview, apps }: { status: SystemStatus; overview: DashboardOverview | null; apps: AppStatus[] | null }) {
+  const { t } = useTranslation(["common", "controlDash"]);
+  const appName = useAppName();
+  const servicesHref = controlHref("services");
+  const lan = overview?.home.addresses.length
+    ? overview.home.addresses.map((address) => `${address}:${overview.home.port}`).join(", ")
+    : overview ? `:${overview.home.port}` : "…";
+  const homeHref = `${servicesHref}#service-home`;
+  return (
+    <section className="dash-section" aria-labelledby="dash-services">
+      <div className="dash-section-head">
+        <h2 id="dash-services">{t("controlDash:dashboard.servicesTitle")}</h2>
+        <a href={servicesHref} onClick={(event) => followRoute(event, servicesHref)}>{t("controlDash:dashboard.servicesDetail")}</a>
+      </div>
+      <div className="dash-tiles">
+        <a className="dash-tile" href={homeHref} onClick={(event) => followRoute(event, homeHref)}>
+          <span className="dash-tile-head">
+            <House size={18} aria-hidden="true" />
+            <strong>{t("controlDash:overview.homeName")}</strong>
+            <StateLabel tone="success" label={t("controlDash:overview.stateRunning")} />
+          </span>
+          <dl className="dash-facts dash-tile-facts">
+            <Fact label={t("controlDash:overview.ipAddress")} value={lan} line />
+            {overview?.home.publicUrl && <Fact label={t("controlDash:overview.publicAddress")} value={overview.home.publicUrl} line />}
+            <Fact label={t("controlDash:dashboard.version")} value={`v${status.version}`} />
+            <Fact label={t("controlDash:system.uptime")} value={formatUptime(status.uptimeSeconds)} />
+            <Fact label={t("controlDash:overview.signedIn")} value={formatNumber(status.activeSessions)} />
+            <Fact label={t("controlDash:system.memory")} value={formatBytes(status.memory.rssBytes)} />
+            <Fact label={t("controlDash:system.database")} value={formatBytes(status.databaseBytes)} />
+          </dl>
+        </a>
+        {apps === null && <p className="muted">{t("controlDash:overview.appsLoading")}</p>}
+        {(apps ?? []).map((app) => {
+          const state = appState(app);
+          const tone = STATE_TONE[state];
+          const Icon = APP_ICONS[app.id] ?? House;
+          const href = `${servicesHref}#service-${app.id}`;
+          const label = {
+            running: t("controlDash:overview.stateRunning"),
+            down: t("controlDash:overview.stateDown"),
+            secret: t("controlDash:overview.stateSecret"),
+            unset: t("controlDash:overview.stateUnset")
+          }[state];
+          return (
+            <a key={app.id} className={`dash-tile tone-${tone}`} href={href} onClick={(event) => followRoute(event, href)}>
+              <span className="dash-tile-head">
+                <Icon size={18} aria-hidden="true" />
+                <strong>{appName(app.id)}</strong>
+                <StateLabel tone={tone} label={label} />
+              </span>
+              {state === "unset" ? (
+                <span className="muted">{t("controlDash:overview.unsetNote")}</span>
+              ) : (
+                <dl className="dash-facts dash-tile-facts">
+                  <Fact label={t("controlDash:overview.address")} value={app.url ?? "—"} line />
+                  <Fact label={t("controlDash:dashboard.membersReach")} value={app.prefix} />
+                  <Fact label={t("controlDash:dashboard.version")} value={app.server?.version ? `v${app.server.version}` : "—"} />
+                  <Fact
+                    label={t("controlDash:dashboard.answersIn")}
+                    value={app.server?.roundTripMs != null ? `${app.server.roundTripMs} ms` : t("controlDash:overview.branchNoReply")}
+                    tone={app.server?.ok ? undefined : "warning"}
+                  />
+                </dl>
+              )}
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/** Home, its gateway and a branch per container, wired up — how the pieces connect.
+ *  Infrastructure › Services opens with it (control panel v2); the Dashboard keeps
+ *  the compact ServiceTiles below. */
+export function ServicesDiagram({ status, overview, apps, onServicesPage = false }: { status: SystemStatus; overview: DashboardOverview | null; apps: AppStatus[] | null; onServicesPage?: boolean }) {
   const { t } = useTranslation(["common", "controlDash"]);
   const homeAddress = overview?.home.addresses.length
     ? overview.home.addresses.map((address) => `${address}:${overview.home.port}`).join(", ")
@@ -268,9 +357,9 @@ function Services({ status, overview, apps }: { status: SystemStatus; overview: 
   return (
     <section className="dash-section" aria-labelledby="dash-services">
       <div className="dash-section-head">
-        <h2 id="dash-services">{t("controlDash:overview.servicesTitle")}</h2>
+        <h2 id="dash-services">{onServicesPage ? t("controlDash:dashboard.diagramTitle") : t("controlDash:overview.servicesTitle")}</h2>
         <span className="muted">{t("controlDash:overview.servicesNote")}</span>
-        <a href={controlHref("services")}>{t("controlDash:overview.servicesLink")}</a>
+        {!onServicesPage && <a href={controlHref("services")}>{t("controlDash:overview.servicesLink")}</a>}
       </div>
       <div className="dash-diagram">
         <article className="dash-node dash-home">
@@ -431,15 +520,6 @@ function Fact({ label, value, line, tone, title }: { label: string; value: strin
       >
         {value}
       </dd>
-    </div>
-  );
-}
-
-function Stat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
-  return (
-    <div>
-      <dt><Icon size={14} aria-hidden="true" />{label}</dt>
-      <dd>{value}</dd>
     </div>
   );
 }

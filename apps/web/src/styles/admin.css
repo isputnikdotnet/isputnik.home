@@ -3551,3 +3551,52 @@ tr.control-anchor-flash > td {
 
 .service-facts dt { color: var(--muted); }
 .service-facts dd { margin: 0; text-align: right; }
+
+/* Dashboard (control panel v2): Needs attention rows carry a severity, a title with
+   a detail line, and up to two actions. */
+.dash-severity {
+  flex: 0 0 auto;
+  padding: 1px 9px;
+  border: 1px solid var(--tone);
+  border-radius: 999px;
+  color: var(--tone);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+
+.dash-attention .dash-issue-text { display: grid; gap: 2px; }
+.dash-attention .dash-issue-text small { color: var(--muted); font-size: var(--text-xs); }
+.dash-issue-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dash-issue-actions a { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Running services: a tile per service, its addresses and ports on it. */
+.dash-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.dash-tile {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: inherit;
+  text-decoration: none;
+}
+
+.dash-tile:hover,
+.dash-tile:focus-visible { border-color: var(--accent); outline: 0; }
+
+.dash-tile-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dash-tile-head strong { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-tile-head > svg { flex: 0 0 auto; color: var(--muted); }
+.dash-tile-facts { gap: 8px 18px; }
+.dash-tile { grid-template-columns: minmax(0, 1fr); }
+/* Addresses are why the tile is there: shown whole, wrapping, never cut. */
+.dash-tile .dash-fact-line dd { white-space: normal; overflow-wrap: anywhere; }
+.dash-tiles { align-items: start; }

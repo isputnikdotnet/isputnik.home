@@ -60,11 +60,16 @@ Five sections, from the top, each leading to the page that acts on it:
 
 1. **Needs attention** — what wants you, worst first: a container down, a drive
    running low, no recent backup, failed tasks, errors in a container's log, a run of
-   failed sign-ins. Each row has the button that deals with it (**Open connection**,
-   **Inspect storage**, **Open backups**…). When nothing does, one line says so.
-2. **Running services** — iSputnik and each container beside it, how they connect
-   and their versions, with the server's memory, database size and uptime. Each card
-   links to its connection and its logs.
+   failed sign-ins. Each row says how urgent it is, what is wrong with a line of detail
+   under it, and the button that deals with it (**Open connection**, **Inspect
+   storage**, **Open backups**…) — with a second where there is one (a container's
+   **Logs**, the **Recycle bin** for a full drive, **Blocked IPs** after failed
+   sign-ins). When nothing needs you, one line says so.
+2. **Running services** — a tile for iSputnik and one for each container. iSputnik's
+   shows its addresses on your network with the port, its public address, version,
+   uptime, how many are signed in, memory and database size; a container's shows the
+   address iSputnik reaches it on, the path members use (`/video`), its version and
+   how fast it answered. A tile opens that service's card on [Services](#services).
 3. **Storage** — one bar per drive. Folders on the same drive, even in different
    containers, share its bar and are named on it, so a drive never appears twice. The
    bar is split by what uses it: library media, app data, thumbnails and cache,
@@ -95,7 +100,9 @@ narrowed to itself.
 
 ### Services
 
-A card for this server and one for each container beside it — Video, Faces, Games:
+It opens with how the pieces connect — iSputnik, the gateway that signs every
+request, and a branch to each container with its address and how it answers — then
+a card for this server and one for each container beside it — Video, Faces, Games:
 whether it is up, its version, how fast it answers and what uses it, with **Test
 connection** and its **Logs**. **Pairing** on a card opens that container's own page:
 its address, its pairing secret, and **Forget**. Setting them up has

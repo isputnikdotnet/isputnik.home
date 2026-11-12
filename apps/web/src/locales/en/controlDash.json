@@ -989,6 +989,21 @@
     "allTasks": "All tasks",
     "grew": "Grew by {{amount}} since {{since}}",
     "shrank": "Shrank by {{amount}} since {{since}}",
-    "usedGb": "Used (GB)"
+    "usedGb": "Used (GB)",
+    "servicesTitle": "Running services",
+    "servicesDetail": "Infrastructure › Services",
+    "version": "Version",
+    "membersReach": "Members reach it at",
+    "answersIn": "Answers in",
+    "severity": {
+      "urgent": "Urgent",
+      "warning": "Warning"
+    },
+    "detailAppDown": "Home cannot reach it at {{url}}",
+    "detailDisk": "{{free}} free of {{total}}",
+    "detailLastDay": "In the last 24 hours",
+    "actionRecycle": "Recycle bin",
+    "actionBlocked": "Blocked IPs",
+    "diagramTitle": "How they connect"
   }
 }

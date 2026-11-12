@@ -1128,6 +1128,21 @@
     "allTasks": "Все задачи",
     "grew": "Выросло на {{amount}} с {{since}}",
     "shrank": "Уменьшилось на {{amount}} с {{since}}",
-    "usedGb": "Занято (ГБ)"
+    "usedGb": "Занято (ГБ)",
+    "servicesTitle": "Работающие службы",
+    "servicesDetail": "Инфраструктура › Службы",
+    "version": "Версия",
+    "membersReach": "Участники открывают по адресу",
+    "answersIn": "Отвечает за",
+    "severity": {
+      "urgent": "Срочно",
+      "warning": "Внимание"
+    },
+    "detailAppDown": "Home не может связаться с ним по адресу {{url}}",
+    "detailDisk": "Свободно {{free}} из {{total}}",
+    "detailLastDay": "За последние 24 часа",
+    "actionRecycle": "Корзина",
+    "actionBlocked": "Заблокированные IP",
+    "diagramTitle": "Как они связаны"
   }
 }
