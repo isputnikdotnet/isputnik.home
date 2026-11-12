@@ -11,6 +11,7 @@ export type ControlSection =
   | "libraries" | "libraryStats"
   // Applications: the directory, then each application's workspace tabs and pages
   | "applications"
+  | "gallerySetup" | "videosSetup" | "ebooksSetup" | "audiobooksSetup" | "storiesSetup" | "familyTreeSetup" | "gamesSetup"
   | "phoneSync" | "galleryOrganize" | "duplicateCleanup" | "missingPhotos" | "mapSetup"
   | "genres" | "videoSettings"
   | "ebooksOrganize" | "audiobooksOrganize" | "categories"
@@ -44,6 +45,15 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
 
   // Applications: the directory, then /control/apps/<app>/<tab>[/<page>].
   applications: "/control/apps",
+  // Each workspace opens on Setup: what it needs, whether it is on, and links to
+  // the libraries, connection, access and storage it uses.
+  gallerySetup: "/control/apps/gallery/setup",
+  videosSetup: "/control/apps/videos/setup",
+  ebooksSetup: "/control/apps/ebooks/setup",
+  audiobooksSetup: "/control/apps/audiobooks/setup",
+  storiesSetup: "/control/apps/stories/setup",
+  familyTreeSetup: "/control/apps/family-tree/setup",
+  gamesSetup: "/control/apps/games/setup",
   // Device Sync. The section keeps its first name (Security › Phone sync until 4.73).
   phoneSync: "/control/apps/gallery/device-sync",
   galleryOrganize: "/control/apps/gallery/organize",
@@ -165,12 +175,14 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/settings/stories": "storySettings",
   "/control/settings/apps": "appsSetup",
   "/control/settings/video": "videoSettings",
-  // A workspace's own address opens its first tab.
-  "/control/apps/gallery": "phoneSync",
-  "/control/apps/videos": "genres",
-  "/control/apps/ebooks": "ebooksOrganize",
-  "/control/apps/audiobooks": "audiobooksOrganize",
-  "/control/apps/stories": "storySettings",
+  // A workspace's own address opens its first tab, Setup.
+  "/control/apps/gallery": "gallerySetup",
+  "/control/apps/videos": "videosSetup",
+  "/control/apps/ebooks": "ebooksSetup",
+  "/control/apps/audiobooks": "audiobooksSetup",
+  "/control/apps/stories": "storiesSetup",
+  "/control/apps/family-tree": "familyTreeSetup",
+  "/control/apps/games": "gamesSetup",
   "/control/apps/shared/tags": "tags",
   "/control/infrastructure/services": "appsSetup",
 

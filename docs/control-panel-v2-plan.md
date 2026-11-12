@@ -283,8 +283,12 @@ and bookmarks must not break.
   it; empty tabs drop out. Applications whose container isn't installed or whose
   section is turned off still appear in the directory, with that status.
 - Setup cards need a summary per application (libraries of that type,
-  connection state, storage use). Likely one `GET /api/control/apps` returning
-  status for every application — the directory needs the same data.
+  connection state, storage use). Built in phase 2 WITHOUT a new endpoint:
+  `features/control/applications.ts` reads what the owning pages already read
+  (`/api/config` sections, `/api/apps/admin/status`, the four `?manage=1`
+  library lists, `/api/status` sizes), shared for a minute between pages. Status:
+  turned off → needs its container (Gallery's face engine is optional) → needs a
+  library → ready.
 - Search (`search-index.ts`) entries gain the application, so a search for
   "duplicates" shows "Applications › Gallery › Organize".
 - `ControlSectionHead` eyebrow: "Applications · Gallery" inside a workspace.
@@ -297,9 +301,12 @@ and bookmarks must not break.
    directory and workspaces hosting the existing pages unchanged, new addresses
    + aliases, search index re-pointed. Activity moves to Infrastructure;
    applications link to Activity, Tasks and Logs with today's filters.
-2. **Setup cards and directory status.** The summary endpoint, status cards,
-   the "shows and links" panels (libraries, connection, access, storage use),
-   the Sections switch moved into Setup.
+2. **Setup cards and directory status.** *(Built 2026-11-12 on
+   `preview/control-panel-v2`.)* Every application opens on Setup — status
+   banner, In the menu switch (Appearance's Sections card moved here), libraries,
+   connection, access, storage use, each linking to its owner. Family Tree and
+   Games became workspaces (Setup only). The directory shows each status; other
+   tabs carry a one-line Ready strip linking back to Setup.
 3. **Application facet** for Logs, Tasks and Activity on the server; "View
    Gallery logs" links.
 4. **Dashboard.** The five sections; drives grouped by filesystem with the

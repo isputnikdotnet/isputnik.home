@@ -35,9 +35,16 @@ describe("control panel nav", () => {
     expect(parentTab("galleryOrganize")).toBeNull();
   });
 
-  it("gives Gallery its workspace row: Device Sync · Organize · Settings", () => {
+  it("gives Gallery its workspace row: Setup · Device Sync · Organize · Settings", () => {
     const gallery = APPLICATIONS.find((app) => app.key === "gallery");
-    expect(gallery?.tabs.map((tab) => tab.kind)).toEqual(["deviceSync", "organize", "settings"]);
+    expect(gallery?.tabs.map((tab) => tab.kind)).toEqual(["setup", "deviceSync", "organize", "settings"]);
+  });
+
+  // Every application opens on Setup; Shared organization is not an application.
+  it("starts every application workspace on Setup", () => {
+    for (const app of APPLICATIONS.filter((candidate) => candidate.key !== "shared")) {
+      expect(app.tabs[0].kind, app.key).toBe("setup");
+    }
   });
 
   // One editor, several entry points: ?from= decides which workspace it sits in.

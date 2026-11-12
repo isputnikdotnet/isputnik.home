@@ -3179,3 +3179,98 @@ tr.control-anchor-flash > td {
   white-space: normal;
   line-height: 1.2;
 }
+
+/* Control panel v2, phase 2: an application's status (Applications directory,
+   Setup, the line above a workspace's other tabs) and Setup's cards. */
+.app-status-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.app-status-pill.is-ready { color: var(--success); }
+.app-status-pill.is-needsSetup { color: var(--warning); }
+.app-status-pill.is-off { color: var(--muted); }
+
+.workspace-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--success) 7%, transparent);
+  font-size: var(--text-sm);
+}
+
+.workspace-status-line.is-needsSetup { background: color-mix(in srgb, var(--warning) 9%, transparent); }
+.workspace-status-line.is-off { background: var(--surface-2); }
+
+.workspace-status-line > span:not(.app-status-pill) {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.workspace-status-line > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.app-setup-card > h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.app-setup-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-setup-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.app-setup-list li > a { font-weight: 600; }
+
+.app-setup-list li > small {
+  flex: 1 0 100%;
+  color: var(--muted);
+}
+
+.app-setup-tag {
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--text-2xs);
+}
+
+.app-setup-ok { color: var(--success); font-weight: 600; }
+.app-setup-warn { color: var(--warning); font-weight: 600; }
+.app-setup-list li > small.app-setup-warn { color: var(--warning); }
+
+.app-setup-figure {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}

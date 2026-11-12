@@ -51,6 +51,14 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать управлять состояние",
   applications: "applications apps workspace gallery videos ebooks audiobooks stories games shared organization organize " +
     "приложения рабочее пространство галерея видео электронные книги аудиокниги истории игры общее упорядочивание",
+  gallerySetup: "setup gallery photos libraries face engine faces turn on off menu storage access " +
+    "настройка галерея фото библиотеки распознавание лиц включить выключить меню хранилище доступ",
+  videosSetup: "setup videos films shows libraries video engine connection turn on off menu storage access " +
+    "настройка видео фильмы сериалы библиотеки видеодвижок подключение включить выключить меню хранилище доступ",
+  familyTreeSetup: "setup family tree turn on off menu import export gedcom " +
+    "настройка семейное древо включить выключить меню импорт экспорт",
+  gamesSetup: "setup games container pairing connection turn on off menu guest links access " +
+    "настройка игры контейнер связать подключение включить выключить меню гостевые ссылки доступ",
   galleryOrganize: "organize organise gallery photos tags duplicates missing cleanup " +
     "упорядочить галерея фото теги дубликаты пропавшие очистка",
   ebooksOrganize: "organize organise ebooks books categories tags re-match " +
@@ -191,7 +199,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "scheduledBackups", section: "backup", anchor: "scheduled-backups", keywords: "automatic nightly weekly monthly full minimal keep how many retention of each kind автоматическая резервная копия расписание еженедельно ежемесячно полная минимальная хранение" },
   { titleKey: "containerBackups", section: "backup", anchor: "container-backups", keywords: "container games video restore download upload undo database back up one apart individually контейнер игры видео восстановить скачать загрузить отменить отдельно копия базы" },
   { titleKey: "defaultTheme", section: "appearance", keywords: "new members sign-in screen look тема по умолчанию новые участники экран входа" },
-  { titleKey: "sections", section: "appearance", anchor: "sections", keywords: "menu sections hide show switch off on audiobooks ebooks gallery family tree stories games navigation entries household uses разделы меню скрыть показать выключить включить аудиокниги книги галерея семейное древо истории игры навигация" },
+  { titleKey: "sections", section: "applications", keywords: "menu sections hide show switch off on audiobooks ebooks gallery family tree stories games navigation entries household uses разделы меню скрыть показать выключить включить аудиокниги книги галерея семейное древо истории игры навигация" },
   { titleKey: "gamesIntegration", section: "appsSetup", anchor: "app-setup-address", keywords: "games server container reachable version url gateway secret environment variables members showing игры сервер контейнер доступен версия адрес шлюз секрет переменные окружения участники" },
   { titleKey: "gamesEvents", section: "logs", keywords: "games events log refused gateway rejected invitations matches errors audit container record игры события журнал отклонённые шлюз приглашения партии ошибки запись контейнер" },
   { titleKey: "gamesLog", section: "logs", keywords: "games server log docker logs lines tail container output игры журнал сервера строки контейнер вывод" },

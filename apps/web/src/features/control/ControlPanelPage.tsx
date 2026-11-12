@@ -36,6 +36,8 @@ import { useIsMobile } from "../../shared/useIsMobile";
 const UsersSection = lazy(() => import("./sections/UsersSection").then((m) => ({ default: m.UsersSection })));
 const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) => ({ default: m.InvitesSection })));
 const AppOrganizeSection = lazy(() => import("./sections/OrganizationSection").then((m) => ({ default: m.AppOrganizeSection })));
+const AppSetupSection = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.AppSetupSection })));
+const WorkspaceStatusLine = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.WorkspaceStatusLine })));
 const ApplicationsSection = lazy(() => import("./sections/ApplicationsSection").then((m) => ({ default: m.ApplicationsSection })));
 const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
@@ -172,6 +174,11 @@ export function ControlPanelPage({
               chunk is on its way — or, offline, fails to arrive. */}
           <LoadErrorBoundary resetKey={`${section}:${categoryId ?? ""}:${libraryId ?? ""}:${member?.userId ?? ""}:${group?.groupId ?? ""}`}>
             <Suspense fallback={<p className="muted">{t("control:ui.loading")}</p>}>
+              {/* In a workspace, past Setup: whether the application is ready, in
+                  one line, with the way back to Setup. */}
+              {!subPage && place.app && place.app.key !== "shared" && tabs.find((tab) => tab.section === place.selected)?.kind !== "setup" && (
+                <WorkspaceStatusLine app={place.app.key} />
+              )}
               <ControlSectionBody section={section} categoryId={categoryId} libraryId={libraryId} member={member} group={group} currentUser={user} />
             </Suspense>
           </LoadErrorBoundary>
@@ -207,6 +214,13 @@ function ControlSectionBody({
 
     case "libraries":       return <LibrariesSection libraryId={libraryId} />;
     case "applications":    return <ApplicationsSection />;
+    case "gallerySetup":    return <AppSetupSection app="gallery" />;
+    case "videosSetup":     return <AppSetupSection app="videos" />;
+    case "ebooksSetup":     return <AppSetupSection app="ebooks" />;
+    case "audiobooksSetup": return <AppSetupSection app="audiobooks" />;
+    case "storiesSetup":    return <AppSetupSection app="stories" />;
+    case "familyTreeSetup": return <AppSetupSection app="familyTree" />;
+    case "gamesSetup":      return <AppSetupSection app="games" />;
     case "galleryOrganize": return <AppOrganizeSection app="gallery" />;
     case "ebooksOrganize":  return <AppOrganizeSection app="ebooks" />;
     case "audiobooksOrganize": return <AppOrganizeSection app="audiobooks" />;

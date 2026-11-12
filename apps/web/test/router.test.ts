@@ -149,8 +149,9 @@ describe("getRoute", () => {
     ["/control/settings/maps", "mapSetup"],
     ["/control/settings/apps", "appsSetup"],
     ["/control/settings/video", "videoSettings"],
-    ["/control/apps/gallery", "phoneSync"],
-    ["/control/apps/stories", "storySettings"]
+    ["/control/apps/gallery", "gallerySetup"],
+    ["/control/apps/family-tree", "familyTreeSetup"],
+    ["/control/apps/stories", "storiesSetup"]
   ])("sends the v1 address %s to %s", (path, section) => {
     at(path);
     expect(getRoute()).toEqual({ name: "control", section });

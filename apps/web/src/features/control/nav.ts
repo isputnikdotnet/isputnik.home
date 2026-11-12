@@ -3,6 +3,7 @@ import {
   Clapperboard,
   Gamepad2,
   Headphones,
+  Network,
   Images,
   LayoutGrid,
   LibraryBig,
@@ -60,7 +61,7 @@ import i18n from "../../i18n";
 // (placeOf below). Without ?from= it sits where its canonical entry puts it.
 
 export type GroupKey = "infrastructure" | "libraries" | "applications" | "security" | "settings";
-export type AppKey = "gallery" | "videos" | "ebooks" | "audiobooks" | "stories" | "shared";
+export type AppKey = "gallery" | "videos" | "ebooks" | "audiobooks" | "stories" | "familyTree" | "games" | "shared";
 /** The workspace vocabulary. A workspace tab is labelled by its kind; its page's
  *  <h1> is still the section's own name (Settings › "Maps"). */
 export type WorkspaceTabKind = "setup" | "deviceSync" | "organize" | "settings";
@@ -161,6 +162,7 @@ export const APPLICATIONS: ApplicationDef[] = [
     key: "gallery",
     icon: Images,
     tabs: [
+      { section: "gallerySetup", kind: "setup" },
       // "Back up my phone photos" is a Gallery task; the libraries it feeds stay in
       // Libraries & Scanning.
       { section: "phoneSync", kind: "deviceSync" },
@@ -172,6 +174,7 @@ export const APPLICATIONS: ApplicationDef[] = [
     key: "videos",
     icon: Clapperboard,
     tabs: [
+      { section: "videosSetup", kind: "setup" },
       { section: "genres", kind: "organize" },
       { section: "videoSettings", kind: "settings" }
     ]
@@ -180,17 +183,39 @@ export const APPLICATIONS: ApplicationDef[] = [
     key: "ebooks",
     icon: BookOpen,
     // Book categories' canonical home; Audiobooks opens the same editor with ?from=.
-    tabs: [{ section: "ebooksOrganize", kind: "organize", pages: ["categories"] }]
+    tabs: [
+      { section: "ebooksSetup", kind: "setup" },
+      { section: "ebooksOrganize", kind: "organize", pages: ["categories"] }
+    ]
   },
   {
     key: "audiobooks",
     icon: Headphones,
-    tabs: [{ section: "audiobooksOrganize", kind: "organize" }]
+    tabs: [
+      { section: "audiobooksSetup", kind: "setup" },
+      { section: "audiobooksOrganize", kind: "organize" }
+    ]
   },
   {
     key: "stories",
     icon: NotebookPen,
-    tabs: [{ section: "storySettings", kind: "settings" }]
+    tabs: [
+      { section: "storiesSetup", kind: "setup" },
+      { section: "storySettings", kind: "settings" }
+    ]
+  },
+  {
+    // Import, export and the tree's own settings live in Family Tree itself;
+    // Setup links there.
+    key: "familyTree",
+    icon: Network,
+    tabs: [{ section: "familyTreeSetup", kind: "setup" }]
+  },
+  {
+    // A container: Setup shows its connection and links to Infrastructure › Services.
+    key: "games",
+    icon: Gamepad2,
+    tabs: [{ section: "gamesSetup", kind: "setup" }]
   },
   {
     // Not an application: what crosses them. Today, the one tag manager.
@@ -198,12 +223,6 @@ export const APPLICATIONS: ApplicationDef[] = [
     icon: Tags,
     tabs: [{ section: "tags", kind: "organize" }]
   }
-];
-
-/** Applications the directory lists that have no workspace yet — reached through
- *  the page that serves them today. Games is paired on Infrastructure › Services. */
-export const DIRECTORY_EXTRAS: { key: "games"; icon: LucideIcon }[] = [
-  { key: "games", icon: Gamepad2 }
 ];
 
 /** Shared pages, and the workspace tab each application opens them under. */
@@ -303,12 +322,12 @@ export function groupLabel(key: GroupKey): string {
 }
 
 /** An application's name. */
-export function appLabel(key: AppKey | "games"): string {
+export function appLabel(key: AppKey): string {
   return i18n.t(`control:nav.apps.${key}`);
 }
 
 /** One line on what an application is, for the directory. */
-export function appDescription(key: AppKey | "games"): string {
+export function appDescription(key: AppKey): string {
   return i18n.t(`control:nav.appDescriptions.${key}`);
 }
 
