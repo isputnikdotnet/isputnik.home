@@ -336,31 +336,36 @@ way back to Setup.
 
 #### Device Sync
 
+Everything about members backing up their phones, laid out like a phone's Settings:
+one column of rows, each showing its value, and a tap opens it. Setting it up step by
+step has [its own guide](phone-sync-setup.md).
 
-Everything about members backing up their phones, on one page. Setting it up step
-by step has [its own guide](phone-sync-setup.md).
+- **At the top**, one line says whether phone backup is on — how many phones, and when
+  the last backup came in. While it is off, that line is the steps that turn it on: a
+  network, the address phones use, then a phone.
+- **Phones** — every member's phones, whose they are, and one word for each: backed up
+  when, waiting for first contact, not seen for some days, a library nearly full, or
+  *Needs attention*. A phone opens its own page: its member, last contact, the network
+  and address it came from, what is wrong now and what went wrong before, the libraries
+  it is linked to (set on each library's **Manage › Phone backups**, so photos already
+  there aren't backed up twice), its history in the logs, and **Remove this phone**. A
+  phone refused from an address on no list offers **Allow 192.168.12.0/24 for phone
+  backup** — the /24 it came from.
+- **Where phones may back up from** — the phone-backup networks. It is a list of its
+  own: it relaxes nothing about signing in, so a VPN range can go here without skipping
+  two-factor sign-in or lockout for it. **Add network** opens a short page for the range
+  (with its size, `192.168.12.0/24` — a bare address would mean that one address) and a
+  name, or **Copy trusted networks** in one go; after that the two lists are kept apart.
+  A network opens its range, name and **Remove network**.
+- **Address phones use** — this server's address on your home network with its port
+  (`http://192.168.2.10:4000`), typed once; the phone setup card in Profile › My
+  library shows it to members. The row warns if it is outside the networks on the list.
+- **Personal libraries** — whether members may have a private photo library, and each
+  one with its size. The first row opens who may have one, which library location holds
+  them and how big each may grow.
+- **All phone backup history** opens Infrastructure › Logs on the *photo_sync* event.
 
-**Phone-backup networks** are where members' phones may back up photos from (into
-their personal library). It is a list of its own: it relaxes nothing about signing
-in, so a VPN range can go here without skipping two-factor sign-in or lockout for
-it. Type a range with its size (`192.168.12.0/24`); a bare `192.168.12.0` is
-refused, since it would mean that one address. **Copy trusted networks** adds the
-trusted ones in one go; after that the two lists are kept apart. While it is empty,
-phone backup is off. **Address phones use** is this server's address on your home
-network with its port (`http://192.168.2.10:4000`), typed once; the phone setup card
-in Profile › My library shows it to members. A warning appears if the address is
-outside the networks on the list.
-
-**Phones** lists every member's phones: last contact, the address and network each
-last came from, and its state — backing up, refused, no contact for a week, or a
-library nearly full. A phone refused from an address on no list offers **Add** for
-that address's /24; **See in Logs** opens the phone's history in Infrastructure › Logs
-(the *photo_sync* event). Under each phone are the libraries it is linked to — set
-on that library's **Manage › Phone backups**, so photos already there aren't backed
-up twice. What a phone sent — files, counts, types — stays with its owner.
-
-**Personal libraries**, at the bottom, decides who may have a private photo library,
-which library location holds them and how big each may grow.
+What a phone sent — files, counts, types — stays with its owner.
 
 #### Duplicate cleanup
 

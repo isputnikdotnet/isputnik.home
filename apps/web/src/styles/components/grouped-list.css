@@ -1,0 +1,103 @@
+/* shared/GroupedList — grouped rows like a phone's Settings app. One column of
+   rounded groups, each row the whole tap target, values on the right. */
+.grouped-list { display: grid; gap: 6px; min-width: 0; }
+
+.grouped-list-title {
+  margin: 18px 14px 2px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.grouped-list-rows {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+
+.grouped-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  box-sizing: border-box;
+  padding: 9px 16px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.grouped-list-rows > .grouped-row:first-child { border-top: 0; }
+
+a.grouped-row,
+button.grouped-row { cursor: pointer; }
+
+a.grouped-row:hover,
+button.grouped-row:hover:not(:disabled) { background: var(--surface-2); }
+
+a.grouped-row:focus-visible,
+button.grouped-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.grouped-row-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+.grouped-row-icon.is-ok { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.grouped-row-icon.is-warn { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.grouped-row-icon.is-danger { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+
+.grouped-row-label { display: grid; flex: 1 1 auto; gap: 2px; min-width: 0; }
+.grouped-row-label strong { font-weight: 550; overflow-wrap: anywhere; }
+.grouped-row-label small { color: var(--muted); font-size: var(--text-sm); }
+
+.grouped-row-value {
+  flex: 0 1 auto;
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-md);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grouped-row-value.is-ok { color: var(--success); }
+.grouped-row-value.is-warn { color: var(--warning); }
+.grouped-row-value.is-danger { color: var(--danger); }
+
+.grouped-row-chevron { flex: 0 0 auto; color: var(--muted); }
+
+.grouped-row-action { justify-content: center; font-weight: 650; }
+.grouped-row-action.is-accent { color: var(--accent); }
+.grouped-row-action.is-danger { color: var(--danger); }
+.grouped-row-action:disabled { opacity: 0.55; cursor: default; }
+.grouped-row-add .grouped-row-label strong { color: var(--accent); }
+
+.grouped-row-field { display: block; padding: 12px 16px; }
+
+.grouped-list-note {
+  margin: 2px 14px 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+@media (max-width: 740px) {
+  .grouped-row-value { max-width: 42%; }
+}

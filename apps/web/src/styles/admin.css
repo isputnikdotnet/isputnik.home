@@ -3600,3 +3600,11 @@ tr.control-anchor-flash > td {
 /* Addresses are why the tile is there: shown whole, wrapping, never cut. */
 .dash-tile .dash-fact-line dd { white-space: normal; overflow-wrap: anywhere; }
 .dash-tiles { align-items: start; }
+
+/* Applications › Gallery › Device Sync (control panel v2): one column of grouped
+   rows, like a phone's Settings app (shared/GroupedList). */
+.device-sync { display: grid; gap: 10px; max-width: 760px; }
+.device-sync-wide { max-width: none; }
+.device-sync-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 4px 0 6px; }
+.device-sync-title h1 { margin: 0; font-size: var(--text-2xl); }
+.device-sync > .control-page-back { justify-self: start; }

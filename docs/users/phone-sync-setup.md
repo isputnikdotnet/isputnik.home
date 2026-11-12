@@ -34,7 +34,8 @@ own phones, and you see how each phone is doing, never what it sent.
 
 ## Allowing personal libraries
 
-1. Open **Applications › Gallery › Device Sync** in the control panel and find **Personal libraries**.
+1. Open **Applications › Gallery › Device Sync** in the control panel and, under **Personal libraries**,
+   open **Members may have one**.
 2. Turn them on, choose the folder they are made in, and who may have one.
 3. Set a **size limit** if you want one. Members see how full they are; phones are refused once
    a library is full.
@@ -49,10 +50,11 @@ into each. More in [Storage](storage.md#personal-libraries).
 Phones are refused unless they come from a **phone-backup network**.
 
 1. Open **Applications › Gallery › Device Sync**.
-2. Add your home network, for example `192.168.2.0/24`. **Copy trusted networks** is a starting
-   point.
-3. Fill in **Address phones use**: the address phones on that network reach the server at, such
-   as `http://192.168.2.10:4000`. Members are shown it when they add a phone.
+2. Under **Where phones may back up from**, press **Add network** and add your home network, for
+   example `192.168.2.0/24`. **Copy trusted networks**, on the same page, is a starting point.
+3. Open **Address phones use** and type the address phones on that network reach the server at,
+   such as `http://192.168.2.10:4000`. Members are shown it when they add a phone. Once both are
+   set, the line at the top of the page says phone backup is on.
 
 The list is separate from Trusted networks, so adding a VPN range for phones does not relax
 sign-in for it.
@@ -71,15 +73,16 @@ address.
 - For **WireGuard** it is often `10.6.0.0/24`; for **Tailscale** `100.64.0.0/10`.
 
 The VPN must route to the server without hiding the phone's address (UniFi's VPN server does).
-A phone that tries from an unlisted network shows on **Device Sync** with an
-**Add 192.168.12.0/24** button (the /24 it came from).
+A phone that tries from an unlisted network shows on **Device Sync** as *Needs attention*; its
+page offers **Allow 192.168.12.0/24 for phone backup** (the /24 it came from).
 
 ## Watching the phones
 
-**Applications › Gallery › Device Sync** lists every member's phones on one page: whose, last contact, the
-address and network it last came from, what is wrong now (refused, no contact for a week, or a
-library nearly full), and under each phone the libraries it is linked to.
-**See in Logs** opens that phone's history.
+**Applications › Gallery › Device Sync** lists every member's phones, with one word each for how it
+stands: backed up when, not seen for some days, a library nearly full, or *Needs attention*. A
+phone opens its own page: its member, last contact, the address and network it last came from,
+what is wrong now, the libraries it is linked to, **This phone's history** in the logs, and
+**Remove this phone**.
 
 ![Applications › Gallery › Device Sync: the networks, the address phones use, and every member's phones with their last contact](images/122-phone-sync.png)
 

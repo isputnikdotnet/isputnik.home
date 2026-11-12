@@ -11,6 +11,7 @@
 @import "./components/admin-pages.css";
 @import "./components/library-wizard.css";
 @import "./components/member-access.css";
+@import "./components/grouped-list.css";
 @import "./components/upload.css";
 @import "./components/data-display.css";
 @import "./components/shared-rules.css";
