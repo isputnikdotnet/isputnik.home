@@ -1280,6 +1280,7 @@
     "profiles": {
       "tab": "Profiles",
       "watchingAs": "Watching as",
+      "everyone": "Everyone",
       "intro": "The household's ways of watching: Kids, Russian, Classic. Every TV and browser can choose one under Watching as. A profile only narrows what the person signed in may see: fewer libraries, and its own rows (set on its tab here). Photos, books and the rest of the app aren't affected.",
       "saveFailed": "Unable to save the profile",
       "deleteFailed": "Unable to delete the profile",

@@ -88,15 +88,17 @@ Back always returns to the card you left. In the player:
 If the TV can't play a file directly, it switches to the server's converted copy by itself.
 You may notice a pause of a few seconds.
 
-## Several people on one TV
+## One account per TV
 
-Choose your name at the top right, then **Add a person**, and link them with their own phone
-in the same way. From then on the app asks **Who's watching?** when it opens. Each person
-gets their own place, their own Continue watching, and only the libraries they can open.
+A TV is linked with one account: whoever approved it. Everyone in the room watches through it,
+and **Everyone** is what the TV shows when no profile is chosen: all that account may see.
+To tell people apart (Kids, Grandma, Russian), an administrator creates **profiles**, below;
+each has its own Continue watching and watched marks.
 
-There's no PIN on that screen. Anyone holding the remote can choose anyone linked on this TV.
-If a child's account is limited, those limits only hold while no less limited account is linked
-here.
+To put a different account on the TV, unlink it (the gear at the top right, then **Unlink this
+TV**) and link again. A TV that had several people linked by an older version keeps the one
+in use when it updates; the others are signed out, and their own watching is kept on their
+accounts.
 
 ## Profiles: Kids, Russian, Classic
 
@@ -108,18 +110,17 @@ and a colour, and can only show less than the person signed in may see:
 - **Its own rows**: on the same **Customize**, choose the profile's tab. Until rows are saved
   there, a profile shows the household's rows, from its own libraries only.
 
-Every TV offers the same profiles. When the app opens, **Who's watching?** shows the name the
-TV is linked with and each profile. To change later, choose the name at the top right. The TV
-remembers the profile it's left in, even after a restart. In a browser, the video page has the
-same choice under **Watching as**; there it changes only Video, never photos, books or the rest
-of the site.
+Every TV offers the same profiles. When the app opens, **Who's watching?** shows **Everyone**
+and each profile; with no profiles set up, it doesn't ask. To change later, choose the round
+button beside the gear at the top right. The TV remembers the profile it's left in, even after
+a restart. In a browser, the video page has the same choice under **Watching as**; there it
+changes only Video, never photos, books or the rest of the site.
 
 A **restricted** profile is meant for children. The app doesn't ask who's watching when it
 opens in one. To keep it closed, the administrator sets a **PIN** on the same Profiles tab
 (4 to 8 digits; it costs their password). Getting into Kids is free; getting out needs the PIN.
-On the TV that covers switching to another profile or to the linked name, choosing another
-person linked on the TV, linking someone new, and unlinking the TV; tiles that need it wear a
-lock. After 5 wrong tries entry locks for 15 minutes. Forgot the PIN? Set a new one on the
+On the TV that covers switching to another profile or to Everyone, and unlinking the TV; tiles
+that need it wear a lock. After 5 wrong tries entry locks for 15 minutes. Forgot the PIN? Set a new one on the
 website. The TV can also be removed from **Profile › Security** on your own device at any time.
 
 Without a PIN, anyone can switch away from a restricted profile, and the Profiles tab warns
@@ -153,8 +154,8 @@ The check goes to GitHub, and sends nothing about you or your server.
 
 ## Taking a TV out of use
 
-- **To sign one person out:** choose your name at the top right, then **Unlink … from this TV**,
-  and press it a second time to confirm. Anyone else linked here stays.
+- **To unlink it:** choose the gear at the top right, then **Unlink this TV** (in red), and
+  press it a second time to confirm. The TV shows a new code for linking again.
 - **From elsewhere,** if the TV is gone: **Profile → Security** lists it as a linked device.
   **Revoke device** signs it out straight away. Do this if a TV is sold or lost.
 - **To remove the app,** uninstall it from the TV's settings. That forgets everyone on it.

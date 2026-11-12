@@ -1,9 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowDown, ArrowUp, KeyRound, Lock, Pencil, Plus, Trash2, UserRound } from "lucide-react";
+import { ArrowDown, ArrowUp, KeyRound, Lock, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { ApiError, api } from "../../api";
-import { useSession } from "../../app/SessionContext";
 import { Button } from "../../shared/Button";
 import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -76,11 +75,10 @@ function pinError(err: unknown, t: TFunction): string {
 
 // ── Watching as: the video page's switch ─────────────────────────────────────
 
-/** Who's watching on this browser: the account itself, or one of the household's
- *  profiles. Leaving a locked profile asks for the PIN. Shown only when there are any. */
+/** Who's watching on this browser: Everyone (all the account may see, no profile), or one
+ *  of the household's profiles. Named as the TV names it (one account per TV, 2026-11-11). Leaving a locked profile asks for the PIN. Shown only when there are any. */
 export function WatchingAs({ answer, onSwitched }: { answer: ProfilesAnswer; onSwitched: (next: ProfilesAnswer) => void }) {
   const { t } = useTranslation();
-  const { user } = useSession();
   const [pending, setPending] = useState<string | null | undefined>(undefined);
   const current = answer.profiles.find((profile) => profile.id === answer.current) ?? null;
   const ME = "";
@@ -103,10 +101,10 @@ export function WatchingAs({ answer, onSwitched }: { answer: ProfilesAnswer; onS
         presentation="labelled"
         value={answer.current ?? ME}
         ariaLabel={t("video.profiles.watchingAs")}
-        icon={current ? <ProfileAvatar name={current.name} avatar={current.avatar} size={20} /> : <UserRound size={18} aria-hidden="true" />}
+        icon={current ? <ProfileAvatar name={current.name} avatar={current.avatar} size={20} /> : <Users size={18} aria-hidden="true" />}
         onChange={choose}
         options={[
-          { value: ME, label: user.displayName },
+          { value: ME, label: t("video.profiles.everyone") },
           ...answer.profiles.map((profile) => ({ value: profile.id, label: profile.restricted && answer.pinSet ? `${profile.name} 🔒` : profile.name }))
         ]}
       />

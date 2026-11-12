@@ -9,6 +9,25 @@ Status, 2026-11-08:
 - **Own history per profile (P3)**: built 2026-11-09.
 - **Released 2026-11-09** together: isputnik.video 0.30.0, home 4.76.0 ("Who's watching"),
   iSputnik TV 0.9.0. With an older engine a profile shares its person's history.
+- **One account per TV, "Everyone"** (owner, 2026-11-11), built for TV 0.14.0 + the next home:
+  see below.
+
+## One account per TV (2026-11-11)
+
+The owner found linking extra people ("Add a person", each signing in on a phone) unnecessary
+once the household has profiles. So:
+
+- A TV holds **one account**, whoever linked it. Add a person, the people picker and switching
+  between people are gone from the app; the menu's Unlink reads **Unlink this TV**.
+- **Everyone** is the name for that account with no profile worn: all it may see, its own
+  history. It is not a row in `viewing_profiles`; it is `profile_id IS NULL`, as before, only
+  named. The web's **Watching as** uses the same word.
+- **Who's watching?** at startup only when the household has profiles (unchanged rule).
+- A TV an older version left with several people keeps the one in use; on the first start the
+  others are signed out on the server with their own cookies (`ApiClient.keepOnlyActive`),
+  then forgotten, so they also leave each person's Profile › Devices.
+- Decision 4 below ("Linking is unchanged") still holds: any account can link a TV. Personal
+  history on a shared TV is now a profile's, made by an admin.
 
 ## What the owner asked for
 
