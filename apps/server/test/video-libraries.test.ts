@@ -188,6 +188,30 @@ describe("watching through the gateway", () => {
   });
 });
 
+// A title the browser would not decode: the engine served it all, so only the
+// player knows why — it reports here, and the reason lands in this app's log.
+describe("a title the browser could not play", () => {
+  const failed = () => db.prepare("SELECT actor_user_id AS who, target_id AS item, detail FROM activity_logs WHERE event = 'library.video.playback_failed'").all() as { who: string; item: string; detail: string }[];
+  const report = async (who: string, payload: unknown) =>
+    booted.app.inject({ method: "POST", url: "/api/video/playback-failed", payload: payload as never, headers: { cookie: await booted.signIn(who) } });
+
+  it("logs the browser's words, once an hour per person and title", async () => {
+    const error = "PIPELINE_ERROR_DECODE: Failed to send video packet for decoding";
+    expect((await report("mum", { itemId: "m1", error, mode: "remux", at: 697.4 })).statusCode).toBe(204);
+    expect((await report("mum", { itemId: "m1", error })).statusCode).toBe(204);
+    expect(failed()).toHaveLength(1);
+    expect(failed()[0]).toMatchObject({ who: "mum", item: "m1" });
+    expect(failed()[0].detail).toContain("m1 (remux) at 697 s: PIPELINE_ERROR_DECODE");
+  });
+
+  it("turns away a report with no reason, and anyone while Video is off", async () => {
+    expect((await report("mum", { itemId: "m1", error: " " })).statusCode).toBe(400);
+    setSections({ ...ALL_SECTIONS_ON, video: false }, "admin");
+    expect((await report("mum", { itemId: "m1", error: "x" })).statusCode).toBe(404);
+    expect(failed()).toEqual([]);
+  });
+});
+
 describe("changing and deleting", () => {
   it("passes a new folder on, and puts the row back when the engine refuses it", async () => {
     const id = (await create({})).json().library.id as string;

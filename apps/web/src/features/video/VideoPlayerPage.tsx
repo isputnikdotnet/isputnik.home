@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { ChevronLeft, Flag, Info, RotateCcw, SkipForward, X } from "lucide-react";
 import { api, csrfToken } from "../../api";
 import { useSession } from "../../app/SessionContext";
-import { followBack, navigate } from "../../router";
+import { followLeaveTo, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
@@ -179,6 +179,12 @@ export function VideoPlayerPage({ id }: { id: string }) {
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState("");
   const [cannotPlay, setCannotPlay] = useState(false);
+  /** Why the browser gave up, in its own words — sent to the log (see below). */
+  const failure = useRef<string | null>(null);
+  const giveUp = useCallback((reason: string) => {
+    failure.current ??= reason;
+    setCannotPlay(true);
+  }, []);
   const [resumedAt, setResumedAt] = useState(0);
   const [nextIn, setNextIn] = useState<number | null>(null);
   const [preparing, setPreparing] = useState(false);
@@ -223,6 +229,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
     setLocal(null);
     setError("");
     setCannotPlay(false);
+    failure.current = null;
     setResumedAt(0);
     setNextIn(null);
     setPreparing(false);
@@ -425,7 +432,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
       if (!Hls.isSupported()) {
         // The browser's own HLS reads the network only: not a copy kept here.
         if (!local && element.canPlayType("application/vnd.apple.mpegurl")) element.src = url;
-        else setCannotPlay(true);
+        else giveUp("This browser has neither Media Source nor its own HLS");
         return;
       }
       const player = new Hls({
@@ -440,15 +447,25 @@ export function VideoPlayerPage({ id }: { id: string }) {
       });
       hls = player;
       player.on(Hls.Events.MANIFEST_PARSED, () => setPreparing(false));
+      // A picture the decoder refuses fails again on every recovery: two tries,
+      // then the browser has said no (and why, on the element).
+      let recoveries = 0;
       player.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal) return;
+        const reason = element.error?.message || `${data.type}/${data.details}${data.error?.message ? `: ${data.error.message}` : ""}`;
         if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          player.recoverMediaError();
+          if (recoveries < 2) {
+            recoveries += 1;
+            player.recoverMediaError();
+            return;
+          }
+          setPreparing(false);
+          giveUp(reason);
           return;
         }
         setPreparing(false);
         if (local) {
-          setCannotPlay(true);
+          giveUp(reason);
           return;
         }
         // Turned away because every place to convert was taken meanwhile? The
@@ -459,23 +476,33 @@ export function VideoPlayerPage({ id }: { id: string }) {
           (payload) => {
             if (!live) return;
             if (payload.playback.busy) setInfo((current) => (current && current.id === payload.id ? { ...current, playback: payload.playback } : current));
-            else setCannotPlay(true);
+            else giveUp(reason);
           },
-          () => { if (live) setCannotPlay(true); }
+          () => { if (live) giveUp(reason); }
         );
       });
       player.loadSource(url);
       player.attachMedia(element);
-    }, () => { if (live) setCannotPlay(true); });
+    }, () => { if (live) giveUp("The HLS player did not load"); });
     return () => {
       live = false;
       hls?.destroy();
     };
-  }, [info, isHls, playback?.url, busy, local]);
+  }, [info, isHls, playback?.url, busy, local, giveUp]);
 
   // Leaving the film stops the engine converting it (a change of sound track
   // replaces the conversion on the engine by itself): another page or a closed
   // tab. After the effect above, so hls.js has hung up before the engine hears.
+  // The browser gave up: say why in the log, where the engine's own has nothing
+  // (it served every segment). Once per give-up; the server keeps it to one an hour.
+  useEffect(() => {
+    const reason = failure.current;
+    if (!cannotPlay || !info || !reason || !navigator.onLine) return;
+    const mode = info.playback.mode === "none" ? null : info.playback.mode;
+    const at = video.current && Number.isFinite(video.current.currentTime) ? video.current.currentTime : null;
+    void api(`/api/video/playback-failed`, { method: "POST", body: JSON.stringify({ itemId: info.id, error: reason, mode, at }) }).catch(() => undefined);
+  }, [cannotPlay, info]);
+
   const convertingId = info && isHls && !busy && !local ? info.id : null;
   useEffect(() => {
     if (!convertingId) return;
@@ -601,6 +628,8 @@ export function VideoPlayerPage({ id }: { id: string }) {
     : info ? (info.show ? videoHref("shows", info.show.id) : videoHref("movies", info.id)) : VIDEO_OVERVIEW_HREF;
   const code = info && info.season !== null && info.episode !== null ? t("video.episodeCode", episodeCodeValues(info.season!, info.episode!)) : null;
   const heading = info ? (info.show ? info.show.title : info.title) : "";
+  // The arrow sits beside the title and opens its page, so it says so.
+  const backLabel = info && back !== "/downloads" ? t("video.backTo", { title: heading }) : t("video.back");
   const subheading = info?.show ? [code, info.title].filter(Boolean).join(" · ") : null;
   const unplayable = info ? !info.available || info.playback.mode === "none" || cannotPlay : false;
   const staged = Boolean(info && playback && playback.mode !== "none" && !busy && !cannotPlay);
@@ -676,7 +705,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
     >
       <div className="video-player-frame">
         <header className={`video-player-top video-player-chrome${chromeShown ? "" : " is-hidden"}`}>
-          <a className="video-player-back" href={back} aria-label={t("video.back")} title={t("video.back")} onClick={(event) => followBack(event, back)}>
+          <a className="video-player-back" href={back} aria-label={backLabel} title={backLabel} onClick={(event) => followLeaveTo(event, back)}>
             <ChevronLeft size={34} strokeWidth={1.75} aria-hidden="true" />
           </a>
           {info && (
@@ -771,7 +800,7 @@ export function VideoPlayerPage({ id }: { id: string }) {
               onWaiting={() => setWaiting(true)}
               onPlaying={() => setWaiting(false)}
               onCanPlay={() => setWaiting(false)}
-              onError={() => setCannotPlay(true)}
+              onError={(event) => giveUp(event.currentTarget.error?.message || `Media error ${event.currentTarget.error?.code ?? ""}`.trim())}
             >
               {subtitleTracks.filter((track) => track.kind === "text" && track.url).map((track, position) => (
                 <track

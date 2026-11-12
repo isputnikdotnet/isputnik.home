@@ -970,8 +970,13 @@ export function getReferrer(): string | null {
 // page was the landing point" (a deep link, a new tab — Back must navigate to a
 // fallback or it would leave the app / do nothing). window.history.length can't
 // make that call: it counts the previous site's entries too.
-function nextHistoryState(): { appNav: number } {
-  return { appNav: (window.history.state?.appNav ?? 0) + 1 };
+// `from` is the page this entry was pushed from, so leaveTo() can tell whether
+// stepping back would land on the page it means to open.
+function nextHistoryState(): { appNav: number; from: string } {
+  return {
+    appNav: (window.history.state?.appNav ?? 0) + 1,
+    from: `${window.location.pathname}${window.location.search}`
+  };
 }
 
 // Push a path with the depth stamp but without dispatching popstate — for pages
@@ -1001,6 +1006,24 @@ export function replaceNavigate(path: string) {
 export function goBack(fallback: string) {
   if (window.history.state?.appNav) window.history.back();
   else navigate(fallback);
+}
+
+// A Back button that names ONE page (the player's arrow beside the film's title)
+// must open that page, not whatever came before. Step back when the previous
+// entry IS that page (no duplicate in the trail); otherwise swap this entry for
+// it, so the browser's own Back still leaves to where the visitor was before.
+export function leaveTo(target: string) {
+  if (window.history.state?.appNav && window.history.state?.from === target) window.history.back();
+  else replaceNavigate(target);
+}
+
+export function followLeaveTo(event: React.MouseEvent<HTMLAnchorElement>, target: string) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+  leaveTo(target);
 }
 
 // goBack for anchor-shaped Back buttons: a plain left click steps back through

@@ -27,7 +27,7 @@ import { canReadCollectionRow, registerVideoListRoutes } from "./lists.js";
 import { registerCopyNotices } from "./copy-notices.js";
 import { VIDEO_ENTITY_TYPES, forgetVideoLibrary, refreshVideoRefs } from "./refs.js";
 import { setSubjectPreparer } from "../../social/subjects.js";
-import { notePlayResponse } from "./play-log.js";
+import { notePlaybackFailed, notePlayResponse } from "./play-log.js";
 import {
   VideoLibraryError,
   deleteVideoLibraryRow,
@@ -142,6 +142,22 @@ export async function videoPlugin(app: FastifyInstance, opts: VideoPluginOptions
     }
     return profile;
   };
+
+  // The player gave up on a title this browser can't decode (play-log.ts).
+  const playbackFailedSchema = z.object({
+    itemId: z.string().trim().min(1).max(64),
+    error: z.string().trim().min(1).transform((value) => value.slice(0, 500)),
+    mode: z.enum(["direct", "remux", "transcode"]).nullish(),
+    at: z.number().min(0).max(1_000_000).nullish()
+  });
+  app.post("/api/video/playback-failed", { preHandler: app.authenticate }, async (request, reply) => {
+    const refused = videoGate(request, reply);
+    if (refused) return refused;
+    const parsed = parseBody(playbackFailedSchema, request.body);
+    if (parsed.error) return reply.code(400).send({ error: "Invalid playback report", details: parsed.error });
+    notePlaybackFailed(request, parsed.data);
+    return reply.code(204).send();
+  });
 
   app.get("/api/video/home", { preHandler: app.authenticate }, async (request, reply) => {
     const refused = videoGate(request, reply);
