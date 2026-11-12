@@ -147,3 +147,54 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
 
 .grouped-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .grouped-field.is-chosen span { color: var(--accent); font-weight: 600; }
+
+/* A page made of grouped lists: one readable column. */
+.grouped-page { display: grid; gap: 10px; max-width: 760px; }
+.grouped-page > .message-box { margin: 0; }
+
+/* InputRow: label left, the value typed in on the right, as on a phone. */
+.grouped-row-input { cursor: text; }
+.grouped-row-input.is-disabled { opacity: 0.6; cursor: default; }
+.grouped-row-input .grouped-row-label { flex: 1 1 50%; }
+
+.grouped-row-entry {
+  display: flex;
+  flex: 0 1 46%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.grouped-row-input.is-wide .grouped-row-entry { flex-basis: 60%; }
+
+.grouped-row-entry input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+
+.grouped-row-entry input[type="number"] { flex: 0 0 auto; width: 7ch; }
+.grouped-row-entry input:hover:not(:disabled) { border-color: var(--line); }
+
+.grouped-row-entry input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  background: var(--field, var(--surface));
+  text-align: left;
+}
+
+.grouped-row-entry input[type="number"]:focus-visible { text-align: right; }
+.grouped-row-unit { flex: 0 0 auto; color: var(--muted); font-size: var(--text-md); white-space: nowrap; }
+
+@media (max-width: 740px) {
+  .grouped-row-input { flex-wrap: wrap; }
+  .grouped-row-input.is-wide .grouped-row-entry { flex-basis: 100%; }
+}

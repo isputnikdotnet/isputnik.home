@@ -1,9 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Mail } from "lucide-react";
 import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
-import { Field } from "../../../shared/Field";
+import { ActionRow, GroupedList, InputRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ControlSectionHead } from "../ControlSectionHead";
 
@@ -17,25 +16,51 @@ interface MailDto {
   hasPassword: boolean;
 }
 
-// Admin SMTP settings for outgoing mail (powers "Send to e-reader"). The password
-// is write-only: the server never returns it, only whether one is stored, so the
-// field stays blank and an empty save keeps the existing secret.
+interface MailForm {
+  host: string;
+  port: string;
+  secure: boolean;
+  username: string;
+  fromAddress: string;
+  fromName: string;
+}
+
+const toForm = (mail: MailDto): MailForm => ({
+  host: mail.host,
+  port: String(mail.port || 587),
+  secure: mail.secure,
+  username: mail.username,
+  fromAddress: mail.fromAddress,
+  fromName: mail.fromName
+});
+
+const sameForm = (a: MailForm, b: MailForm) =>
+  a.host.trim() === b.host.trim() &&
+  (Number(a.port) || 587) === (Number(b.port) || 587) &&
+  a.secure === b.secure &&
+  a.username.trim() === b.username.trim() &&
+  a.fromAddress.trim() === b.fromAddress.trim() &&
+  a.fromName.trim() === b.fromName.trim();
+
+// Admin SMTP settings for outgoing mail (powers "Send to e-reader"), laid out as
+// grouped rows — Server · Account · Sender — like a phone's mail account page.
+// Unlike the other grouped pages this one keeps a Save: half-typed relay settings
+// saved field by field would break sending in between, so the page saves them
+// together, and the test (which uses what is saved) waits until there is nothing
+// unsaved. The password is write-only: the server never returns it, only whether
+// one is stored, so the field stays blank and an empty save keeps the secret.
 export function MailSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const [host, setHost] = useState("");
-  const [port, setPort] = useState("587");
-  const [secure, setSecure] = useState(false);
-  const [username, setUsername] = useState("");
+  const [saved, setSavedForm] = useState<MailForm | null>(null);
+  const [form, setForm] = useState<MailForm | null>(null);
   const [password, setPassword] = useState("");
   const [hasPassword, setHasPassword] = useState(false);
-  const [fromAddress, setFromAddress] = useState("");
-  const [fromName, setFromName] = useState("");
 
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
 
   const [testing, setTesting] = useState(false);
@@ -43,12 +68,9 @@ export function MailSection() {
   const [testError, setTestError] = useState("");
 
   const applyDto = (mail: MailDto) => {
-    setHost(mail.host);
-    setPort(String(mail.port || 587));
-    setSecure(mail.secure);
-    setUsername(mail.username);
-    setFromAddress(mail.fromAddress);
-    setFromName(mail.fromName);
+    const next = toForm(mail);
+    setSavedForm(next);
+    setForm(next);
     setHasPassword(mail.hasPassword);
     setPassword("");
   };
@@ -60,21 +82,28 @@ export function MailSection() {
       .finally(() => setLoading(false));
   }, [t]);
 
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
+  const dirty = Boolean(form && saved && (!sameForm(form, saved) || password));
+  const edit = (patch: Partial<MailForm>) => {
+    setForm((current) => (current ? { ...current, ...patch } : current));
+    setJustSaved(false);
+    setTested(false);
+  };
+
+  const save = async () => {
+    if (!form) return;
     setSaving(true);
-    setSaved(false);
+    setJustSaved(false);
     setSaveError("");
     setTested(false);
     setTestError("");
     try {
       const body: Record<string, unknown> = {
-        host: host.trim(),
-        port: Number(port) || 587,
-        secure,
-        username: username.trim(),
-        fromAddress: fromAddress.trim(),
-        fromName: fromName.trim()
+        host: form.host.trim(),
+        port: Number(form.port) || 587,
+        secure: form.secure,
+        username: form.username.trim(),
+        fromAddress: form.fromAddress.trim(),
+        fromName: form.fromName.trim()
       };
       // Only send the password when the admin typed a new one — blank keeps the stored value.
       if (password) body.password = password;
@@ -83,7 +112,7 @@ export function MailSection() {
         body: JSON.stringify(body)
       });
       applyDto(payload.mail);
-      setSaved(true);
+      setJustSaved(true);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : t("controlAdmin:mail.saveFailed"));
     } finally {
@@ -114,56 +143,101 @@ export function MailSection() {
         description={t("controlAdmin:mail.headDescription")}
       />
 
-      <section className="config-block">
-        <p className="muted">
-          {t("controlAdmin:mail.intro")}
-        </p>
-
+      <div className="grouped-page">
         {loadError && <MessageBox tone="error" title={t("controlAdmin:mail.settingsTitle")}>{loadError}</MessageBox>}
 
-        {loading ? (
-          <p className="muted">{t("controlAdmin:ui.loading")}</p>
+        {loading || !form ? (
+          !loadError && <p className="muted">{t("controlAdmin:ui.loading")}</p>
         ) : (
-          <form className="mail-form" onSubmit={save}>
-            <Field label={t("controlAdmin:mail.smtpHost")} value={host} onChange={setHost} placeholder="smtp.example.com" autoComplete="off" required={false} />
-            <Field label={t("controlAdmin:mail.port")} value={port} onChange={setPort} type="number" placeholder="587" autoComplete="off" required={false} />
+          <form
+            className="grouped-page"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (dirty && !saving) void save();
+            }}
+          >
+            <GroupedList title={t("controlAdmin:mail.groupServer")}>
+              <InputRow
+                label={t("controlAdmin:mail.smtpHost")}
+                value={form.host}
+                onChange={(host) => edit({ host })}
+                placeholder="smtp.example.com"
+                wide
+              />
+              <InputRow
+                label={t("controlAdmin:mail.port")}
+                type="number"
+                value={form.port}
+                onChange={(port) => edit({ port })}
+                placeholder="587"
+                min={1}
+                max={65535}
+              />
+              <ToggleRow
+                label={t("controlAdmin:mail.tlsLabel")}
+                sub={t("controlAdmin:mail.implicitTls")}
+                checked={form.secure}
+                onChange={(secure) => edit({ secure })}
+              />
+            </GroupedList>
 
-            <label className="mail-check">
-              <input type="checkbox" checked={secure} onChange={(event) => setSecure(event.target.checked)} />
-              <span>{t("controlAdmin:mail.implicitTls")}</span>
-            </label>
+            <GroupedList title={t("controlAdmin:mail.groupAccount")} note={t("controlAdmin:mail.intro")}>
+              <InputRow
+                label={t("controlAdmin:ui.username")}
+                value={form.username}
+                onChange={(username) => edit({ username })}
+                placeholder="login@example.com"
+                wide
+              />
+              <InputRow
+                label={t("common.password")}
+                type="password"
+                value={password}
+                onChange={(next) => { setPassword(next); setJustSaved(false); }}
+                placeholder={hasPassword ? t("controlAdmin:mail.passwordUnchanged") : t("controlAdmin:mail.passwordPlaceholder")}
+                autoComplete="new-password"
+                wide
+              />
+            </GroupedList>
 
-            <Field label={t("controlAdmin:ui.username")} value={username} onChange={setUsername} placeholder="login@example.com" autoComplete="off" required={false} />
-            <Field
-              label={t("common.password")}
-              value={password}
-              onChange={setPassword}
-              type="password"
-              placeholder={hasPassword ? t("controlAdmin:mail.passwordUnchanged") : t("controlAdmin:mail.passwordPlaceholder")}
-              autoComplete="new-password"
-              required={false}
-            />
-
-            <Field label={t("controlAdmin:mail.fromAddress")} value={fromAddress} onChange={setFromAddress} type="email" placeholder="library@example.com" autoComplete="off" required={false} />
-            <Field label={t("controlAdmin:mail.fromName")} value={fromName} onChange={setFromName} placeholder={t("controlAdmin:mail.fromNamePlaceholder")} autoComplete="off" required={false} />
+            <GroupedList title={t("controlAdmin:mail.groupSender")}>
+              <InputRow
+                label={t("controlAdmin:mail.fromAddress")}
+                type="email"
+                value={form.fromAddress}
+                onChange={(fromAddress) => edit({ fromAddress })}
+                placeholder="library@example.com"
+                wide
+              />
+              <InputRow
+                label={t("controlAdmin:mail.fromName")}
+                value={form.fromName}
+                onChange={(fromName) => edit({ fromName })}
+                placeholder={t("controlAdmin:mail.fromNamePlaceholder")}
+                wide
+              />
+            </GroupedList>
 
             {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
-            {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:mail.savedBody")}</MessageBox>}
+            {justSaved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:mail.savedBody")}</MessageBox>}
             {testError && <MessageBox tone="error" title={t("controlAdmin:mail.testFailedTitle")}>{testError}</MessageBox>}
             {tested && <MessageBox tone="success" title={t("controlAdmin:mail.testSentTitle")}>{t("controlAdmin:mail.testSentBody")}</MessageBox>}
 
-            <div className="mail-actions">
-              <Button variant="primary" type="submit" disabled={saving}>
-                {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:ui.save")}
-              </Button>
-              <Button variant="secondary" type="button" onClick={sendTest} disabled={testing || saving}>
-                {testing ? t("controlAdmin:mail.sending") : t("controlAdmin:mail.sendTest")}
-              </Button>
-            </div>
-            <p className="muted">{t("controlAdmin:mail.testNote")}</p>
+            <GroupedList note={t("controlAdmin:mail.testNote")}>
+              <ActionRow
+                label={saving ? t("controlAdmin:ui.saving") : t("controlAdmin:ui.save")}
+                onClick={() => void save()}
+                disabled={!dirty || saving}
+              />
+              <ActionRow
+                label={testing ? t("controlAdmin:mail.sending") : t("controlAdmin:mail.sendTest")}
+                onClick={() => void sendTest()}
+                disabled={dirty || testing || saving}
+              />
+            </GroupedList>
           </form>
         )}
-      </section>
+      </div>
     </>
   );
 }

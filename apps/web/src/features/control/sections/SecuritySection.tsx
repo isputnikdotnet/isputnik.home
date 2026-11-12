@@ -14,7 +14,6 @@ import {
   MailWarning,
   MonitorSmartphone,
   Plus,
-  Save,
   ShieldCheck,
   ShieldQuestion,
   Sparkles,
@@ -30,6 +29,7 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
+import { ActionRow, CheckRow, GroupedList, InputRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -117,6 +117,7 @@ interface SecurityData {
 
 type SecurityTab = "overview" | "policies" | "trusted" | "blocked";
 type PolicyScope = "thresholds" | "alerts" | "mfa" | "devices" | "reputation" | "deletes";
+type PolicyNumberField = "lockoutThreshold" | "lockoutMinutes" | "ipFailThreshold" | "ipFailWindowMinutes" | "ipAutoblockMinutes" | "reputationEscalateThreshold";
 
 type SecuritySectionKey = Extract<ControlSection, "security" | "securityPolicies" | "securityTrusted" | "securityBlocked">;
 
@@ -151,12 +152,10 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   // Both policy cards write the same blob, so each tracks its own busy/result flags.
   const [savingPolicy, setSavingPolicy] = useState<PolicyScope | null>(null);
   const [policyError, setPolicyError] = useState<{ scope: PolicyScope; message: string } | null>(null);
-  const [policySaved, setPolicySaved] = useState<PolicyScope | null>(null);
 
   const [pwForm, setPwForm] = useState<PasswordPolicy | null>(null);
   const [savingPw, setSavingPw] = useState(false);
   const [pwError, setPwError] = useState("");
-  const [pwSaved, setPwSaved] = useState(false);
 
   const [cidr, setCidr] = useState("");
   const [label, setLabel] = useState("");
@@ -202,29 +201,29 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     load();
   }, [load]);
 
-  const savePolicy = async (event: FormEvent, scope: PolicyScope) => {
-    event.preventDefault();
+  // Policies save as they change, like a phone's Settings (control panel v2): a
+  // switch or choice the moment it moves, a number when its field is left. Every
+  // card writes the same blob, so each save sends the whole form with the change
+  // folded in; a failed save puts the stored value back and says why.
+  const savePolicy = async (scope: PolicyScope, patch: Partial<SecurityPolicy> = {}, abuseKey?: string) => {
     if (!policyForm) return;
+    const next = { ...policyForm, ...patch };
+    setPolicyForm(next);
     setSavingPolicy(scope);
     setPolicyError(null);
-    setPolicySaved(null);
     try {
-      // Send a new key only from the reputation card, and only when one was
-      // typed; every other card omits it so a threshold save can't wipe it
-      // (the server reads blank/absent as "keep the stored key").
-      const body =
-        scope === "reputation" && abuseKeyInput.trim()
-          ? { ...policyForm, abuseIpdbKey: abuseKeyInput.trim() }
-          : policyForm;
+      // Send a new key only when one was typed; every other save omits it so it
+      // can't wipe it (the server reads blank/absent as "keep the stored key").
+      const body = abuseKey ? { ...next, abuseIpdbKey: abuseKey } : next;
       const res = await api<{ policy: SecurityPolicy }>("/api/security/policy", {
         method: "PATCH",
         body: JSON.stringify(body)
       });
       setPolicyForm(res.policy);
-      if (scope === "reputation") setAbuseKeyInput("");
-      setPolicySaved(scope);
+      if (abuseKey) setAbuseKeyInput("");
       await load();
     } catch (err) {
+      if (data) setPolicyForm({ ...data.policy });
       const fallback =
         scope === "alerts"
           ? t("controlAdmin:security.saveAlertsFailed")
@@ -241,12 +240,24 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     }
   };
 
+  // A number row is saved when it is left — and only when it changed. A blank or
+  // out-of-range value goes back to what is stored instead of being sent.
+  const commitNumber = (scope: PolicyScope, field: PolicyNumberField, min: number, max = Number.MAX_SAFE_INTEGER) => {
+    if (!policyForm || !data) return;
+    const value = policyForm[field];
+    if (value === data.policy[field]) return;
+    if (!Number.isInteger(value) || value < min || value > max) {
+      setPolicyForm({ ...policyForm, [field]: data.policy[field] });
+      return;
+    }
+    void savePolicy(scope);
+  };
+
   // Blank means "keep the stored key", so removing it needs its own explicit call.
   const removeAbuseKey = async () => {
     if (!policyForm) return;
     setSavingPolicy("reputation");
     setPolicyError(null);
-    setPolicySaved(null);
     try {
       const res = await api<{ policy: SecurityPolicy }>("/api/security/policy", {
         method: "PATCH",
@@ -254,7 +265,6 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       });
       setPolicyForm(res.policy);
       setAbuseKeyInput("");
-      setPolicySaved("reputation");
       await load();
     } catch (err) {
       setPolicyError({ scope: "reputation", message: err instanceof Error ? err.message : t("controlAdmin:security.removeKeyFailed") });
@@ -263,25 +273,35 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     }
   };
 
-  const savePwPolicy = async (event: FormEvent) => {
-    event.preventDefault();
+  const savePwPolicy = async (patch: Partial<PasswordPolicy> = {}) => {
     if (!pwForm) return;
+    const next = { ...pwForm, ...patch };
+    setPwForm(next);
     setSavingPw(true);
     setPwError("");
-    setPwSaved(false);
     try {
       const res = await api<{ passwordPolicy: PasswordPolicy }>("/api/security/password-policy", {
         method: "PATCH",
-        body: JSON.stringify(pwForm)
+        body: JSON.stringify(next)
       });
       setPwForm(res.passwordPolicy);
-      setPwSaved(true);
       await load();
     } catch (err) {
+      if (data) setPwForm({ ...data.passwordPolicy });
       setPwError(err instanceof Error ? err.message : t("controlAdmin:security.savePwFailed"));
     } finally {
       setSavingPw(false);
     }
+  };
+
+  const commitPwMin = () => {
+    if (!pwForm || !data) return;
+    if (pwForm.minLength === data.passwordPolicy.minLength) return;
+    if (!Number.isInteger(pwForm.minLength) || pwForm.minLength < 8 || pwForm.minLength > 128) {
+      setPwForm({ ...pwForm, minLength: data.passwordPolicy.minLength });
+      return;
+    }
+    void savePwPolicy();
   };
 
   const closeTrustedModal = () => {
@@ -581,151 +601,86 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               id="security-panel-policies"
               hidden={activeTab !== "policies"}
             >
-              <section id="lockout" className="security-block security-policy-card" aria-labelledby="policy-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <ShieldCheck size={24} />
-                  </span>
-                  <div>
-                    <h2 id="policy-heading">{t("controlAdmin:security.thresholdsTitle")}</h2>
-                    <p className="section-description">{t("controlAdmin:security.thresholdsDesc")}</p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "thresholds")}>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.lockAfterLabel")}</span>
-                        <span className="security-setting-help">{t("controlAdmin:security.lockAfterHelp")}</span>
-                      </span>
-                      <input
+              {policyForm && pwForm && (() => {
+                const busy = savingPolicy !== null;
+                const num = (field: PolicyNumberField) => (Number.isNaN(policyForm[field]) ? "" : String(policyForm[field]));
+                const setNum = (field: PolicyNumberField) => (value: string) =>
+                  setPolicyForm({ ...policyForm, [field]: value === "" ? Number.NaN : Number(value) });
+                const errorFor = (scope: PolicyScope) =>
+                  policyError?.scope === scope && <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>;
+                const emailLink = <a href={controlHref("email")} onClick={(event) => followRoute(event, controlHref("email"))} />;
+                const proxyUnset = data.proxy.forwardedHeaderSeen && !data.proxy.configured;
+                return (
+                  <div className="grouped-page">
+                    <GroupedList id="lockout" title={t("controlAdmin:security.thresholdsTitle")} note={t("controlAdmin:security.thresholdsDesc")}>
+                      <InputRow
+                        label={t("controlAdmin:security.lockAfterRow")}
+                        sub={t("controlAdmin:security.lockAfterHelp")}
                         type="number"
                         min={1}
-                        value={policyForm.lockoutThreshold}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, lockoutThreshold: Number(event.target.value) })
-                        }
+                        value={num("lockoutThreshold")}
+                        unit={t("controlAdmin:security.unitFailures", { count: policyForm.lockoutThreshold || 0 })}
+                        onChange={setNum("lockoutThreshold")}
+                        onCommit={() => commitNumber("thresholds", "lockoutThreshold", 1)}
                       />
-                    </label>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.lockoutDurationLabel")}</span>
-                        <span className="security-setting-help">{t("controlAdmin:security.lockoutDurationHelp")}</span>
-                      </span>
-                      <input
+                      <InputRow
+                        label={t("controlAdmin:security.lockoutDurationRow")}
+                        sub={t("controlAdmin:security.lockoutDurationHelp")}
                         type="number"
                         min={1}
-                        value={policyForm.lockoutMinutes}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, lockoutMinutes: Number(event.target.value) })
-                        }
+                        value={num("lockoutMinutes")}
+                        unit={t("controlAdmin:security.unitMinutes")}
+                        onChange={setNum("lockoutMinutes")}
+                        onCommit={() => commitNumber("thresholds", "lockoutMinutes", 1)}
                       />
-                    </label>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.autoblockAfterLabel")}</span>
-                        <span className="security-setting-help">{t("controlAdmin:security.autoblockAfterHelp")}</span>
-                      </span>
-                      <input
+                      <InputRow
+                        label={t("controlAdmin:security.autoblockAfterRow")}
+                        sub={t("controlAdmin:security.autoblockAfterHelp")}
                         type="number"
                         min={1}
-                        value={policyForm.ipFailThreshold}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, ipFailThreshold: Number(event.target.value) })
-                        }
+                        value={num("ipFailThreshold")}
+                        unit={t("controlAdmin:security.unitFailures", { count: policyForm.ipFailThreshold || 0 })}
+                        onChange={setNum("ipFailThreshold")}
+                        onCommit={() => commitNumber("thresholds", "ipFailThreshold", 1)}
                       />
-                    </label>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.failWindowLabel")}</span>
-                        <span className="security-setting-help">{t("controlAdmin:security.failWindowHelp")}</span>
-                      </span>
-                      <input
+                      <InputRow
+                        label={t("controlAdmin:security.failWindowRow")}
+                        sub={t("controlAdmin:security.failWindowHelp")}
                         type="number"
                         min={1}
-                        value={policyForm.ipFailWindowMinutes}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, ipFailWindowMinutes: Number(event.target.value) })
-                        }
+                        value={num("ipFailWindowMinutes")}
+                        unit={t("controlAdmin:security.unitMinutes")}
+                        onChange={setNum("ipFailWindowMinutes")}
+                        onCommit={() => commitNumber("thresholds", "ipFailWindowMinutes", 1)}
                       />
-                    </label>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.autoblockDurationLabel")}</span>
-                        <span className="security-setting-help">{t("controlAdmin:security.autoblockDurationHelp")}</span>
-                      </span>
-                      <input
+                      <InputRow
+                        label={t("controlAdmin:security.autoblockDurationRow")}
+                        sub={t("controlAdmin:security.autoblockDurationHelp")}
                         type="number"
                         min={1}
-                        value={policyForm.ipAutoblockMinutes}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, ipAutoblockMinutes: Number(event.target.value) })
-                        }
+                        value={num("ipAutoblockMinutes")}
+                        unit={t("controlAdmin:security.unitMinutes")}
+                        onChange={setNum("ipAutoblockMinutes")}
+                        onCommit={() => commitNumber("thresholds", "ipAutoblockMinutes", 1)}
                       />
-                    </label>
-                    {policyError?.scope === "thresholds" && (
-                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "thresholds" && (
-                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.thresholdsSaved")}</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "thresholds" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveThresholds")}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
+                    </GroupedList>
+                    {errorFor("thresholds")}
 
-              <section id="two-factor" className="security-block security-policy-card" aria-labelledby="mfa-outside-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <ShieldCheck size={24} />
-                  </span>
-                  <div>
-                    <h2 id="mfa-outside-heading">{t("controlAdmin:security.mfaTitle")}</h2>
-                    <p className="section-description">
-                      {t("controlAdmin:security.mfaDesc")}
-                    </p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "mfa")}>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
+                    <GroupedList id="two-factor" title={t("controlAdmin:security.mfaTitle")} note={t("controlAdmin:security.mfaDesc")}>
+                      <ToggleRow
+                        label={t("controlAdmin:security.mfaLabel")}
+                        sub={t("controlAdmin:security.mfaHelp")}
                         checked={policyForm.requireMfaOutside}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, requireMfaOutside: event.target.checked })
-                        }
+                        disabled={busy}
+                        onChange={(next) => void savePolicy("mfa", { requireMfaOutside: next })}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">
-                          {t("controlAdmin:security.mfaLabel")}
-                        </span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.mfaHelp")}
-                        </span>
-                      </span>
-                    </label>
-
+                    </GroupedList>
+                    {errorFor("mfa")}
                     {policyForm.requireMfaOutside && !data.mailConfigured && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
-                        <Trans
-                          i18nKey="security.mfaNoMailBody"
-                          ns="controlAdmin"
-                          components={{ lnk: <a href={controlHref("email")} onClick={(event) => followRoute(event, controlHref("email"))} /> }}
-                        />
+                        <Trans i18nKey="security.mfaNoMailBody" ns="controlAdmin" components={{ lnk: emailLink }} />
                       </MessageBox>
                     )}
-
                     {policyForm.requireMfaOutside && data.usersWithoutMfa.length > 0 && (
                       <MessageBox tone="info" title={t("controlAdmin:security.usersWithoutTitle")}>
                         {data.mailConfigured
@@ -733,392 +688,157 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           : t("controlAdmin:security.usersWithoutNoMail", { count: data.usersWithoutMfa.length, list: data.usersWithoutMfa.join(", ") })}
                       </MessageBox>
                     )}
-
-                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+                    {proxyUnset && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.proxyAsksTitle")}>
                         <Trans i18nKey="security.proxyAsksBody" ns="controlAdmin" components={{ cd: <code /> }} />
                       </MessageBox>
                     )}
 
-                    {policyError?.scope === "mfa" && (
-                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "mfa" && (
-                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.mfaSaved")}</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "mfa" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveMfa")}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-
-              <section id="sign-in-alerts" className="security-block security-policy-card" aria-labelledby="signin-alert-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <MailWarning size={24} />
-                  </span>
-                  <div>
-                    <h2 id="signin-alert-heading">{t("controlAdmin:security.alertsTitle")}</h2>
-                    <p className="section-description">
-                      {t("controlAdmin:security.alertsDesc")}
-                    </p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "alerts")}>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
+                    <GroupedList id="sign-in-alerts" title={t("controlAdmin:security.alertsTitle")} note={t("controlAdmin:security.alertsDesc")}>
+                      <ToggleRow
+                        label={t("controlAdmin:security.alertsLabel")}
+                        sub={t("controlAdmin:security.alertsHelp")}
                         checked={policyForm.alertNewIpSignIn}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, alertNewIpSignIn: event.target.checked })
-                        }
+                        disabled={busy}
+                        onChange={(next) => void savePolicy("alerts", { alertNewIpSignIn: next })}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.alertsLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.alertsHelp")}
-                        </span>
-                      </span>
-                    </label>
-
+                    </GroupedList>
+                    {errorFor("alerts")}
                     {!data.mailConfigured && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
-                        <Trans
-                          i18nKey="security.alertsNoMailBody"
-                          ns="controlAdmin"
-                          components={{ lnk: <a href={controlHref("email")} onClick={(event) => followRoute(event, controlHref("email"))} /> }}
-                        />
+                        <Trans i18nKey="security.alertsNoMailBody" ns="controlAdmin" components={{ lnk: emailLink }} />
                       </MessageBox>
                     )}
-
-                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+                    {proxyUnset && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.ipsInaccurateTitle")}>
                         <Trans i18nKey="security.ipsInaccurateBody" ns="controlAdmin" components={{ cd: <code /> }} />
                       </MessageBox>
                     )}
 
-                    {policyError?.scope === "alerts" && (
-                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "alerts" && (
-                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.alertsSaved")}</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "alerts" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveAlerts")}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-
-              <section id="deletion-protection" className="security-block security-policy-card" aria-labelledby="deletes-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <Trash2 size={24} />
-                  </span>
-                  <div>
-                    <h2 id="deletes-heading">{t("controlAdmin:security.deletesTitle")}</h2>
-                    <p className="section-description">
-                      {t("controlAdmin:security.deletesDesc")}
-                    </p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "deletes")}>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
+                    <GroupedList id="deletion-protection" title={t("controlAdmin:security.deletesTitle")} note={t("controlAdmin:security.deletesDesc")}>
+                      <ToggleRow
+                        label={t("controlAdmin:security.deletesLabel")}
+                        sub={t("controlAdmin:security.deletesHelp")}
                         checked={policyForm.trustedDeletesOnly}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, trustedDeletesOnly: event.target.checked })
-                        }
+                        disabled={busy}
+                        onChange={(next) => void savePolicy("deletes", { trustedDeletesOnly: next })}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.deletesLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.deletesHelp")}
-                        </span>
-                      </span>
-                    </label>
+                    </GroupedList>
+                    {errorFor("deletes")}
                     {policyForm.trustedDeletesOnly && data.trustedNetworks.length === 0 && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.noTrustedTitle")}>
                         {t("controlAdmin:security.noTrustedBody")}
                       </MessageBox>
                     )}
-                    {policyError?.scope === "deletes" && (
-                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "deletes" && (
-                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.deletesSaved")}</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "deletes" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveDeletes")}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-              <section id="device-linking" className="security-block security-policy-card" aria-labelledby="device-link-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <MonitorSmartphone size={24} />
-                  </span>
-                  <div>
-                    <h2 id="device-link-heading">{t("controlAdmin:security.devicesTitle")}</h2>
-                    <p className="section-description">
-                      {t("controlAdmin:security.devicesDesc")}
-                    </p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "devices")}>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="radio"
-                        name="device-link-scope"
+
+                    <GroupedList id="device-linking" title={t("controlAdmin:security.devicesTitle")} note={t("controlAdmin:security.devicesDesc")}>
+                      <CheckRow
+                        label={t("controlAdmin:security.devicesLocalLabel")}
+                        sub={t("controlAdmin:security.devicesLocalHelp")}
                         checked={policyForm.deviceLinkScope === "local"}
-                        onChange={() => setPolicyForm({ ...policyForm, deviceLinkScope: "local" })}
+                        disabled={busy}
+                        onSelect={() => { if (policyForm.deviceLinkScope !== "local") void savePolicy("devices", { deviceLinkScope: "local" }); }}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.devicesLocalLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.devicesLocalHelp")}
-                        </span>
-                      </span>
-                    </label>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="radio"
-                        name="device-link-scope"
+                      <CheckRow
+                        label={t("controlAdmin:security.devicesAnyLabel")}
+                        sub={t("controlAdmin:security.devicesAnyHelp")}
                         checked={policyForm.deviceLinkScope === "any"}
-                        onChange={() => setPolicyForm({ ...policyForm, deviceLinkScope: "any" })}
+                        disabled={busy}
+                        onSelect={() => { if (policyForm.deviceLinkScope !== "any") void savePolicy("devices", { deviceLinkScope: "any" }); }}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.devicesAnyLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.devicesAnyHelp")}
-                        </span>
-                      </span>
-                    </label>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
+                    </GroupedList>
+                    <GroupedList>
+                      <ToggleRow
+                        label={t("controlAdmin:security.devicesAlertLabel")}
+                        sub={t("controlAdmin:security.devicesAlertHelp")}
                         checked={policyForm.alertAdminsDeviceLinked}
-                        onChange={(event) => setPolicyForm({ ...policyForm, alertAdminsDeviceLinked: event.target.checked })}
+                        disabled={busy}
+                        onChange={(next) => void savePolicy("devices", { alertAdminsDeviceLinked: next })}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.devicesAlertLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.devicesAlertHelp")}
-                        </span>
-                      </span>
-                    </label>
+                    </GroupedList>
+                    {errorFor("devices")}
                     {policyForm.alertAdminsDeviceLinked && !data.mailConfigured && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.noMailTitle")}>
-                        <Trans
-                          i18nKey="security.alertsNoMailBody"
-                          ns="controlAdmin"
-                          components={{ lnk: <a href={controlHref("email")} onClick={(event) => followRoute(event, controlHref("email"))} /> }}
-                        />
+                        <Trans i18nKey="security.alertsNoMailBody" ns="controlAdmin" components={{ lnk: emailLink }} />
                       </MessageBox>
                     )}
-
-                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+                    {proxyUnset && (
                       <MessageBox tone="warning" title={t("controlAdmin:security.linkRefusedTitle")}>
                         <Trans i18nKey="security.linkRefusedBody" ns="controlAdmin" components={{ cd: <code /> }} />
                       </MessageBox>
                     )}
 
-                    {policyError?.scope === "devices" && (
-                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "devices" && (
-                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.devicesSaved")}</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "devices" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveDevices")}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-
-              <section id="password-policy" className="security-block security-policy-card" aria-labelledby="pw-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <LockKeyhole size={24} />
-                  </span>
-                  <div>
-                    <h2 id="pw-heading">{t("controlAdmin:security.pwTitle")}</h2>
-                    <p className="section-description">
-                      {t("controlAdmin:security.pwDesc")}
-                    </p>
-                  </div>
-                </div>
-                {pwForm && (
-                  <form className="security-policy-form" onSubmit={savePwPolicy}>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.pwMinLabel")}</span>
-                        <span className="security-setting-help">{t("controlAdmin:security.pwMinHelp")}</span>
-                      </span>
-                      <input
+                    <GroupedList id="password-policy" title={t("controlAdmin:security.pwTitle")} note={t("controlAdmin:security.pwDesc")}>
+                      <InputRow
+                        label={t("controlAdmin:security.pwMinLabel")}
+                        sub={t("controlAdmin:security.pwMinHelp")}
                         type="number"
                         min={8}
                         max={128}
-                        value={pwForm.minLength}
-                        onChange={(event) => setPwForm({ ...pwForm, minLength: Number(event.target.value) })}
+                        value={Number.isNaN(pwForm.minLength) ? "" : String(pwForm.minLength)}
+                        unit={t("controlAdmin:security.unitChars", { count: pwForm.minLength || 0 })}
+                        disabled={savingPw}
+                        onChange={(value) => setPwForm({ ...pwForm, minLength: value === "" ? Number.NaN : Number(value) })}
+                        onCommit={commitPwMin}
                       />
-                    </label>
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
+                      <ToggleRow
+                        label={t("controlAdmin:security.pwMixLabel")}
+                        sub={t("controlAdmin:security.pwMixHelp")}
                         checked={pwForm.requireComplexity}
-                        onChange={(event) => setPwForm({ ...pwForm, requireComplexity: event.target.checked })}
+                        disabled={savingPw}
+                        onChange={(next) => void savePwPolicy({ requireComplexity: next })}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">
-                          {t("controlAdmin:security.pwMixLabel")}
-                        </span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.pwMixHelp")}
-                        </span>
-                      </span>
-                    </label>
+                    </GroupedList>
                     {pwError && <MessageBox tone="error" title={t("errors.unableToSave")}>{pwError}</MessageBox>}
-                    {pwSaved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.pwSaved")}</MessageBox>}
-                    <div className="security-policy-actions">
-                      <Button variant="primary" className="security-save-button" type="submit" disabled={savingPw}>
-                        <Save size={16} />
-                        {savingPw ? t("controlAdmin:ui.saving") : t("controlAdmin:security.savePw")}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
 
-              <section id="ip-reputation" className="security-block security-policy-card" aria-labelledby="reputation-heading">
-                <div className="security-policy-card-head">
-                  <span className="security-policy-icon" aria-hidden="true">
-                    <ShieldQuestion size={24} />
-                  </span>
-                  <div>
-                    <h2 id="reputation-heading">{t("controlAdmin:security.repTitle")}</h2>
-                    <p className="section-description">
-                      {t("controlAdmin:security.repDesc")}
-                    </p>
-                  </div>
-                </div>
-                {policyForm && (
-                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "reputation")}>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.repKeyLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.repKeyHelp")}
-                          {policyForm.hasAbuseIpdbKey && t("controlAdmin:security.repKeySavedNote")}
-                        </span>
-                      </span>
-                      <input
+                    <GroupedList
+                      id="ip-reputation"
+                      title={t("controlAdmin:security.repTitle")}
+                      note={<>{t("controlAdmin:security.repDesc")} {t("controlAdmin:security.repKeyHelp")}</>}
+                    >
+                      <InputRow
+                        label={t("controlAdmin:security.repKeyLabel")}
                         type="password"
-                        autoComplete="off"
-                        spellCheck={false}
-                        placeholder={policyForm.hasAbuseIpdbKey ? t("controlAdmin:security.repKeyPlaceholder") : ""}
                         value={abuseKeyInput}
-                        onChange={(event) => setAbuseKeyInput(event.target.value)}
+                        placeholder={policyForm.hasAbuseIpdbKey ? t("controlAdmin:security.repKeyPlaceholder") : ""}
+                        onChange={setAbuseKeyInput}
+                        wide
                       />
-                    </label>
-                    {policyForm.hasAbuseIpdbKey && (
-                      <div className="security-setting-row">
-                        <Button type="button" variant="text" onClick={removeAbuseKey} disabled={savingPolicy !== null}>
-                          {t("controlAdmin:security.removeSavedKey")}
-                        </Button>
-                      </div>
-                    )}
-                    <label className="security-setting-row security-setting-row-checkbox">
-                      <input
-                        type="checkbox"
+                      {abuseKeyInput.trim() && (
+                        <ActionRow
+                          label={savingPolicy === "reputation" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.repKeySave")}
+                          disabled={busy}
+                          onClick={() => void savePolicy("reputation", {}, abuseKeyInput.trim())}
+                        />
+                      )}
+                      {policyForm.hasAbuseIpdbKey && !abuseKeyInput.trim() && (
+                        <ActionRow tone="danger" label={t("controlAdmin:security.removeSavedKey")} disabled={busy} onClick={() => void removeAbuseKey()} />
+                      )}
+                    </GroupedList>
+                    <GroupedList>
+                      <ToggleRow
+                        label={t("controlAdmin:security.repEscalateLabel")}
+                        sub={t("controlAdmin:security.repEscalateHelp")}
                         checked={policyForm.reputationAutoEscalate}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, reputationAutoEscalate: event.target.checked })
-                        }
+                        disabled={busy}
+                        onChange={(next) => void savePolicy("reputation", { reputationAutoEscalate: next })}
                       />
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.repEscalateLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.repEscalateHelp")}
-                        </span>
-                      </span>
-                    </label>
-                    <label className="security-setting-row">
-                      <span className="security-setting-copy">
-                        <span className="security-setting-label">{t("controlAdmin:security.repThresholdLabel")}</span>
-                        <span className="security-setting-help">
-                          {t("controlAdmin:security.repThresholdHelp")}
-                        </span>
-                      </span>
-                      <input
+                      <InputRow
+                        label={t("controlAdmin:security.repThresholdRow")}
+                        sub={t("controlAdmin:security.repThresholdHelp")}
                         type="number"
                         min={50}
                         max={100}
-                        value={policyForm.reputationEscalateThreshold}
-                        onChange={(event) =>
-                          setPolicyForm({ ...policyForm, reputationEscalateThreshold: Number(event.target.value) })
-                        }
+                        value={num("reputationEscalateThreshold")}
+                        unit={t("controlAdmin:security.unitScore")}
+                        onChange={setNum("reputationEscalateThreshold")}
+                        onCommit={() => commitNumber("reputation", "reputationEscalateThreshold", 50, 100)}
                       />
-                    </label>
-                    {policyError?.scope === "reputation" && (
-                      <MessageBox tone="error" title={t("errors.unableToSave")}>{policyError.message}</MessageBox>
-                    )}
-                    {policySaved === "reputation" && (
-                      <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:security.repSaved")}</MessageBox>
-                    )}
-                    <div className="security-policy-actions">
-                      <Button
-                        variant="primary"
-                        className="security-save-button"
-                        type="submit"
-                        disabled={savingPolicy !== null}
-                      >
-                        <Save size={16} />
-                        {savingPolicy === "reputation" ? t("controlAdmin:ui.saving") : t("controlAdmin:security.saveRep")}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-
+                    </GroupedList>
+                    {errorFor("reputation")}
+                  </div>
+                );
+              })()}
             </div>
 
             <div

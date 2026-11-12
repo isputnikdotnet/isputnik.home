@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { Check, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { followRoute } from "../router";
 import { Button } from "./Button";
 
@@ -122,5 +123,92 @@ export function CheckRow({ label, sub, checked, onSelect, disabled = false }: { 
       </span>
       {checked && <Check className="grouped-row-check" size={18} aria-hidden="true" />}
     </Button>
+  );
+}
+
+/** A typed value on one line, the way a phone lays out a field: the label on the
+ *  left, the value on the right (with its `unit` after it). `onCommit` runs when the
+ *  field is left or Enter is pressed — pages that save as you go save there. */
+export function InputRow({
+  label,
+  sub,
+  value,
+  onChange,
+  onCommit,
+  type = "text",
+  unit,
+  placeholder,
+  min,
+  max,
+  autoComplete = "off",
+  disabled = false,
+  wide = false,
+  trailing
+}: {
+  label: ReactNode;
+  sub?: ReactNode;
+  value: string;
+  onChange: (next: string) => void;
+  onCommit?: () => void;
+  type?: "text" | "number" | "email" | "password";
+  unit?: ReactNode;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  autoComplete?: string;
+  disabled?: boolean;
+  /** A long value (an address, a host name): the field takes more of the row. */
+  wide?: boolean;
+  /** Something after the field (a show-password button). */
+  trailing?: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const [revealed, setRevealed] = useState(false);
+  const isPassword = type === "password";
+  return (
+    <label className={`grouped-row grouped-row-input${wide ? " is-wide" : ""}${disabled ? " is-disabled" : ""}`}>
+      <span className="grouped-row-label">
+        <strong>{label}</strong>
+        {sub && <small>{sub}</small>}
+      </span>
+      <span className="grouped-row-entry">
+        <input
+          type={isPassword && revealed ? "text" : type}
+          value={value}
+          placeholder={placeholder}
+          min={min}
+          max={max}
+          inputMode={type === "number" ? "numeric" : undefined}
+          autoComplete={autoComplete}
+          spellCheck={false}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          // A number is replaced rather than edited, as on a phone: entering the
+          // field selects what is there.
+          onFocus={type === "number" ? (event) => event.target.select() : undefined}
+          onBlur={onCommit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && onCommit) {
+              event.preventDefault();
+              (event.target as HTMLInputElement).blur();
+            }
+          }}
+        />
+        {unit && <span className="grouped-row-unit">{unit}</span>}
+        {isPassword && (
+          <Button
+            variant="icon"
+            className="grouped-row-reveal"
+            onClick={() => setRevealed((shown) => !shown)}
+            aria-label={revealed ? t("common.hidePassword") : t("common.showPassword")}
+            aria-pressed={revealed}
+            tabIndex={-1}
+          >
+            {revealed ? <EyeOff size={17} /> : <Eye size={17} />}
+          </Button>
+        )}
+        {trailing}
+      </span>
+    </label>
   );
 }

@@ -33,7 +33,11 @@
     "testSentBody": "A test email was sent to your account address. Check your inbox.",
     "sendTest": "Send test email",
     "sending": "Sending…",
-    "testNote": "The test uses the last saved settings, so save before testing."
+    "testNote": "The test uses the last saved settings, so save before testing.",
+    "groupServer": "Server",
+    "groupAccount": "Account",
+    "groupSender": "Sender",
+    "tlsLabel": "Implicit TLS"
   },
   "missingPhotos": {
     "headDescription": "Photos whose files have vanished from disk. They're hidden from the gallery but kept here — with their metadata and last-known thumbnail — in case the file comes back. Unmatched after the grace window, they're permanently removed by the weekly cleanup. If a drive was just offline, rescan the library and they revive.",
@@ -216,7 +220,11 @@
     "pendingAuto_one": "{{count}} recording made before this setting is still kept inside the app. It moves into the library by itself, shortly.",
     "pendingAuto_other": "{{count}} recordings made before this setting are still kept inside the app. They move into the library by themselves, shortly.",
     "pendingWaiting_one": "{{count}} recording made before this setting is kept inside the app, and moves into the library by itself once one is set.",
-    "pendingWaiting_other": "{{count}} recordings made before this setting are kept inside the app, and move into the library by themselves once one is set."
+    "pendingWaiting_other": "{{count}} recordings made before this setting are kept inside the app, and move into the library by themselves once one is set.",
+    "recordingsGroup": "Narration",
+    "recipesGroup": "Recipes",
+    "recordingsRow": "Recordings go to",
+    "notSet": "Not set — recording is off"
   },
   "apps": {
     "loadFailed": "Unable to read the apps",
@@ -526,7 +534,9 @@
     "shareDesc": "Email someone when a photo, book, or album is shared with them. The message says who shared what and links to “Shared with me”; it never carries the file itself.",
     "sendToLegend": "Send to",
     "recommendDesc": "Email someone when a family member sends them a book, photo or person. They see it in the app either way — this is only for households that would rather not have to look.",
-    "savedBody": "Notification settings updated."
+    "savedBody": "Notification settings updated.",
+    "shareLabel": "Email when something is shared",
+    "recommendLabel": "Email when a family member sends something"
   },
   "opds": {
     "title": "Reader access",
@@ -1258,7 +1268,20 @@
     "reasonLabel": "Reason (optional)",
     "reasonPlaceholder": "Why it's blocked",
     "blockFailedTitle": "Unable to block",
-    "blockIpFailed": "Unable to block IP"
+    "blockIpFailed": "Unable to block IP",
+    "lockAfterRow": "Lock account after",
+    "autoblockAfterRow": "Block address after",
+    "failWindowRow": "Count failures over",
+    "lockoutDurationRow": "Keep account locked for",
+    "autoblockDurationRow": "Keep address blocked for",
+    "repThresholdRow": "Escalate at score",
+    "unitFailures_one": "failed sign-in",
+    "unitFailures_other": "failed sign-ins",
+    "unitMinutes": "min",
+    "unitScore": "of 100",
+    "unitChars_one": "character",
+    "unitChars_other": "characters",
+    "repKeySave": "Save key"
   },
   "storageContents": {
     "description": "What App storage holds: each part's count and size, and the App files library file by file with what owns each file.",

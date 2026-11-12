@@ -1,10 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { BellRing } from "lucide-react";
 import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
+import { GroupedList, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
-import { controlHref } from "../../../router";
+import { controlHref, followRoute } from "../../../router";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 interface NotificationsDto {
@@ -17,48 +17,44 @@ interface NotificationsDto {
 // one is consent, whether it SHOULD. An admin who set up SMTP for two-factor
 // codes has not thereby agreed to mail the household about routine activity.
 //
-// Everything here needs a working relay, so with none configured the whole tab
-// is read-only and says where to go. The server refuses the same combination, so
-// this is the explanation rather than the enforcement.
+// Each switch saves when it is moved, as on a phone (control panel v2's grouped
+// rows). Everything here needs a working relay, so with none configured the
+// switches are off and locked, and the page says where to go. The server refuses
+// the same combination, so this is the explanation rather than the enforcement.
 export function NotificationsSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [mailConfigured, setMailConfigured] = useState(false);
-
-  const [shareNotifications, setShareNotifications] = useState(false);
-  const [recommendationNotifications, setRecommendationNotifications] = useState(false);
-
+  const [settings, setSettings] = useState<NotificationsDto>({ shareNotifications: false, recommendationNotifications: false });
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     api<{ notifications: NotificationsDto; mailConfigured: boolean }>("/api/config/notifications")
       .then((payload) => {
-        setShareNotifications(payload.notifications.shareNotifications);
-        setRecommendationNotifications(payload.notifications.recommendationNotifications);
+        setSettings(payload.notifications);
         setMailConfigured(payload.mailConfigured);
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("controlAdmin:notifications.loadFailed")))
       .finally(() => setLoading(false));
   }, [t]);
 
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
+  const change = async (patch: Partial<NotificationsDto>) => {
+    const previous = settings;
+    const next = { ...settings, ...patch };
+    setSettings(next);
     setSaving(true);
-    setSaved(false);
     setSaveError("");
     try {
       const payload = await api<{ notifications: NotificationsDto; mailConfigured: boolean }>(
         "/api/config/notifications",
-        { method: "PUT", body: JSON.stringify({ shareNotifications, recommendationNotifications }) }
+        { method: "PUT", body: JSON.stringify(next) }
       );
-      setShareNotifications(payload.notifications.shareNotifications);
-      setRecommendationNotifications(payload.notifications.recommendationNotifications);
+      setSettings(payload.notifications);
       setMailConfigured(payload.mailConfigured);
-      setSaved(true);
     } catch (err) {
+      setSettings(previous);
       setSaveError(err instanceof Error ? err.message : t("controlAdmin:notifications.saveFailed"));
     } finally {
       setSaving(false);
@@ -66,6 +62,7 @@ export function NotificationsSection() {
   };
 
   const locked = !mailConfigured;
+  const emailHref = controlHref("email");
 
   return (
     <>
@@ -76,66 +73,46 @@ export function NotificationsSection() {
         description={t("controlAdmin:notifications.headDescription")}
       />
 
-      <section className="config-block">
-        <p className="muted">
-          {t("controlAdmin:notifications.intro")}
-        </p>
-
+      <div className="grouped-page">
         {loadError && <MessageBox tone="error" title={t("controlAdmin:notifications.settingsTitle")}>{loadError}</MessageBox>}
+        {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
 
         {loading ? (
           <p className="muted">{t("controlAdmin:ui.loading")}</p>
         ) : (
-          <form className="mail-form" onSubmit={save}>
+          <>
             {locked && (
               <MessageBox tone="warning" title={t("controlAdmin:notifications.noMailTitle")}>
                 <Trans
                   i18nKey="notifications.noMailBody"
                   ns="controlAdmin"
-                  components={{ lnk: <a href={controlHref("email")} /> }}
+                  components={{ lnk: <a href={emailHref} onClick={(event) => followRoute(event, emailHref)} /> }}
                 />
               </MessageBox>
             )}
 
-            <fieldset className="notify-fieldset" disabled={locked || saving}>
-              <legend className="mail-subhead">{t("controlAdmin:notifications.sharingLegend")}</legend>
-              <label className="mail-check">
-                <input
-                  type="checkbox"
-                  checked={shareNotifications && !locked}
-                  onChange={(event) => setShareNotifications(event.target.checked)}
-                />
-                <span>
-                  {t("controlAdmin:notifications.shareDesc")}
-                </span>
-              </label>
-            </fieldset>
+            <GroupedList title={t("controlAdmin:notifications.sharingLegend")} note={t("controlAdmin:notifications.shareDesc")}>
+              <ToggleRow
+                label={t("controlAdmin:notifications.shareLabel")}
+                checked={settings.shareNotifications && !locked}
+                disabled={locked || saving}
+                onChange={(next) => void change({ shareNotifications: next })}
+              />
+            </GroupedList>
 
-            <fieldset className="notify-fieldset" disabled={locked || saving}>
-              <legend className="mail-subhead">{t("controlAdmin:notifications.sendToLegend")}</legend>
-              <label className="mail-check">
-                <input
-                  type="checkbox"
-                  checked={recommendationNotifications && !locked}
-                  onChange={(event) => setRecommendationNotifications(event.target.checked)}
-                />
-                <span>
-                  {t("controlAdmin:notifications.recommendDesc")}
-                </span>
-              </label>
-            </fieldset>
+            <GroupedList title={t("controlAdmin:notifications.sendToLegend")} note={t("controlAdmin:notifications.recommendDesc")}>
+              <ToggleRow
+                label={t("controlAdmin:notifications.recommendLabel")}
+                checked={settings.recommendationNotifications && !locked}
+                disabled={locked || saving}
+                onChange={(next) => void change({ recommendationNotifications: next })}
+              />
+            </GroupedList>
 
-            {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
-            {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:notifications.savedBody")}</MessageBox>}
-
-            <div className="mail-actions">
-              <Button variant="primary" type="submit" disabled={saving || locked}>
-                {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:ui.save")}
-              </Button>
-            </div>
-          </form>
+            <p className="grouped-list-note">{t("controlAdmin:notifications.intro")}</p>
+          </>
         )}
-      </section>
+      </div>
     </>
   );
 }
