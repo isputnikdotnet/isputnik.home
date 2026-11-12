@@ -16,22 +16,22 @@ function withQuery(path: string, params: Record<string, string | undefined>): st
   return suffix ? `${path}?${suffix}` : path;
 }
 
-/** Security › App access or Settings › Apps, opened on one container (`?app=`). */
+/** Security › App access or Infrastructure › Services, opened on one container (`?app=`). */
 export function appPageHref(section: "appsAccess" | "appsSetup", app: string): string {
   return withQuery(controlHref(section), { app });
 }
 
-/** Maintenance › Tasks, filtered. `library` is a library id, `type` a job type. */
+/** Infrastructure › Tasks, filtered. `library` is a library id, `type` a job type. */
 export function tasksHref(filters: { library?: string; status?: "failed" | "completed"; type?: string } = {}): string {
   return withQuery(controlHref("tasks"), filters);
 }
 
-/** Maintenance › Recycle Bin, filtered. `source` is how an item was removed ("duplicate_cleanup"). */
+/** System Settings › Recycle Bin, filtered. `source` is how an item was removed ("duplicate_cleanup"). */
 export function recycleBinHref(filters: { library?: string; source?: string } = {}): string {
   return withQuery(controlHref("recycleBin"), filters);
 }
 
-/** Overview › Logs, filtered to one address or one person (`user` is an account
+/** Infrastructure › Logs, filtered to one address or one person (`user` is an account
  *  id) — or opened on a container (`app`): its events, at one `level`, or its
  *  server log (`log: "server"`). */
 export function logsHref(filters: { ip?: string; user?: string; event?: string; q?: string; app?: string; level?: "error" | "warn"; log?: "server" } = {}): string {
@@ -43,13 +43,13 @@ export function blockIpHref(ip: string): string {
   return withQuery(controlHref("securityBlocked"), { block: ip });
 }
 
-/** One library's Manage page under Library › Libraries (it was the list, scrolled to
+/** One library's Manage page under Libraries & Scanning › Libraries (it was the list, scrolled to
  *  the library's row, until the Manage page took over the row's dialogs in 4.73). */
 export function libraryRowHref(libraryId: string): string {
   return libraryManageHref(libraryId);
 }
 
-/** Library › Storage, scrolled to one of its cards. */
+/** System Settings › Storage, scrolled to one of its cards. */
 export function storageHref(card?: "storage-containers" | "system-data" | "app-storage"): string {
   return card ? `${controlHref("storage")}#${card}` : controlHref("storage");
 }

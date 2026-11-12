@@ -406,7 +406,7 @@
     "expiresOn": "Expires {{date}}"
   },
   "audio": {
-    "needsLibraryHint": "Choose a recordings library first — Control panel → Settings → Stories",
+    "needsLibraryHint": "Choose a recordings library first — Control panel → Applications → Stories",
     "title": "Add narration",
     "intro": "Record someone telling this part of the story, or upload a recording you already have.",
     "defaultTitle": "Narration",

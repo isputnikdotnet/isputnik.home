@@ -3,22 +3,25 @@ import { useState, useEffect, startTransition } from "react";
 // Every leaf destination in the control panel — one value per tab. The nav
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
-  // Overview
-  | "dashboard" | "activity" | "libraryStats" | "logs"
-  // Library
-  | "libraries" | "organization" | "phoneSync" | "storage" | "storageContents"
-  // Library › Organization's editors: pages under that tab, not tabs of their own
-  | "categories" | "tags" | "genres"
-  // Members
+  // The panel's landing page, opened from its title — not in a group
+  | "dashboard"
+  // Infrastructure
+  | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "activity"
+  // Libraries & Scanning
+  | "libraries" | "libraryStats"
+  // Applications: the directory, then each application's workspace tabs and pages
+  | "applications"
+  | "phoneSync" | "galleryOrganize" | "duplicateCleanup" | "missingPhotos" | "mapSetup"
+  | "genres" | "videoSettings"
+  | "ebooksOrganize" | "audiobooksOrganize" | "categories"
+  | "storySettings"
+  | "tags"
+  // Security & Members
   | "users" | "groups" | "invites"
-  // Security
   | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   | "appsAccess"
-  // Maintenance
-  | "tasks" | "scheduledJobs" | "backup" | "recycleBin" | "duplicateCleanup" | "missingPhotos"
-  | "videoStreaming"
-  // Settings
-  | "appearance" | "quotes" | "mapSetup" | "storySettings" | "email" | "notifications" | "appsSetup" | "videoSettings" | "about";
+  // System Settings
+  | "appearance" | "email" | "notifications" | "storage" | "storageContents" | "backup" | "recycleBin" | "quotes" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -26,20 +29,37 @@ export type ControlSection =
 // in the control panel is reachable only by clicking, which is what lets search
 // jump straight to a setting.
 export const CONTROL_PATHS: Record<ControlSection, string> = {
-  dashboard: "/control/overview",
-  activity: "/control/overview/activity",
-  libraryStats: "/control/overview/statistics",
-  logs: "/control/overview/logs",
+  dashboard: "/control",
+
+  // Infrastructure. Services is the containers' pairing page (Settings › Apps until v2).
+  appsSetup: "/control/infrastructure",
+  videoStreaming: "/control/infrastructure/video-streaming",
+  tasks: "/control/infrastructure/tasks",
+  scheduledJobs: "/control/infrastructure/scheduled-jobs",
+  logs: "/control/infrastructure/logs",
+  activity: "/control/infrastructure/activity",
 
   libraries: "/control/libraries",
-  organization: "/control/libraries/organization",
-  categories: "/control/libraries/organization/categories",
-  tags: "/control/libraries/organization/tags",
-  genres: "/control/libraries/organization/genres",
-  // Device Sync. The section keeps its first name; the page was Security › Phone sync until 4.73.
-  phoneSync: "/control/libraries/device-sync",
-  storage: "/control/libraries/storage",
-  storageContents: "/control/libraries/storage/contents",
+  libraryStats: "/control/libraries/statistics",
+
+  // Applications: the directory, then /control/apps/<app>/<tab>[/<page>].
+  applications: "/control/apps",
+  // Device Sync. The section keeps its first name (Security › Phone sync until 4.73).
+  phoneSync: "/control/apps/gallery/device-sync",
+  galleryOrganize: "/control/apps/gallery/organize",
+  duplicateCleanup: "/control/apps/gallery/organize/duplicate-cleanup",
+  missingPhotos: "/control/apps/gallery/organize/missing-photos",
+  mapSetup: "/control/apps/gallery/settings",
+  genres: "/control/apps/videos/organize",
+  videoSettings: "/control/apps/videos/settings",
+  ebooksOrganize: "/control/apps/ebooks/organize",
+  audiobooksOrganize: "/control/apps/audiobooks/organize",
+  // One editor for both book applications: Audiobooks opens it with ?from=audiobooks.
+  categories: "/control/apps/ebooks/organize/categories",
+  storySettings: "/control/apps/stories/settings",
+  // Shared organization: tags cross every application. An app's Organize page opens
+  // it with ?from=<app>.
+  tags: "/control/apps/shared",
 
   users: "/control/members",
   groups: "/control/members/groups",
@@ -53,24 +73,24 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   securityBlocked: "/control/security/blocked-ips",
   appsAccess: "/control/security/apps",
 
-  tasks: "/control/maintenance/tasks",
-  scheduledJobs: "/control/maintenance/scheduled-jobs",
-  backup: "/control/maintenance/backup",
-  recycleBin: "/control/maintenance/recycle-bin",
-  duplicateCleanup: "/control/maintenance/duplicate-cleanup",
-  missingPhotos: "/control/maintenance/missing-photos",
-  videoStreaming: "/control/maintenance/videos",
-
   appearance: "/control/settings",
-  quotes: "/control/settings/quotes",
-  mapSetup: "/control/settings/maps",
-  storySettings: "/control/settings/stories",
   email: "/control/settings/email",
   notifications: "/control/settings/notifications",
-  appsSetup: "/control/settings/apps",
-  videoSettings: "/control/settings/video",
+  storage: "/control/settings/storage",
+  storageContents: "/control/settings/storage/contents",
+  backup: "/control/settings/backups",
+  recycleBin: "/control/settings/recycle-bin",
+  quotes: "/control/settings/quotes",
   about: "/control/settings/about"
 };
+
+/** A shared page (Book categories, Tags) opened from one application's workspace:
+ *  the same address, with ?from=<app> so its eyebrow, selected tab and back link
+ *  follow where it was opened from (docs/control-panel-v2-plan.md). */
+export function controlHrefFrom(section: ControlSection, from: string | null | undefined): string {
+  const href = CONTROL_PATHS[section];
+  return from ? `${href}?from=${encodeURIComponent(from)}` : href;
+}
 
 export function controlHref(section: ControlSection): string {
   return CONTROL_PATHS[section];
@@ -119,8 +139,41 @@ export function storyEditorHref(storyId: string, chapterId?: string): string {
 // bookmarks, docs links and the odd typed URL still land somewhere sensible —
 // the panel has been reorganised more than once and old links outlive it.
 const CONTROL_ALIASES: Record<string, ControlSection> = {
-  "/control": "dashboard",
   "/admin": "dashboard",
+
+  // v1's six groups (4.15–4.86): Overview, Library, Members, Security, Maintenance,
+  // Settings. Their addresses that moved in v2 (docs/control-panel-v2-plan.md).
+  "/control/overview": "dashboard",
+  "/control/overview/activity": "activity",
+  "/control/overview/statistics": "libraryStats",
+  "/control/overview/logs": "logs",
+  "/control/libraries/organization": "applications",
+  "/control/libraries/organization/categories": "categories",
+  "/control/libraries/organization/tags": "tags",
+  "/control/libraries/organization/genres": "genres",
+  "/control/libraries/device-sync": "phoneSync",
+  "/control/libraries/storage": "storage",
+  "/control/libraries/storage/contents": "storageContents",
+  "/control/maintenance/tasks": "tasks",
+  "/control/maintenance/scheduled-jobs": "scheduledJobs",
+  "/control/maintenance/backup": "backup",
+  "/control/maintenance/recycle-bin": "recycleBin",
+  "/control/maintenance/duplicate-cleanup": "duplicateCleanup",
+  "/control/maintenance/missing-photos": "missingPhotos",
+  "/control/maintenance/videos": "videoStreaming",
+  "/control/settings/maps": "mapSetup",
+  "/control/settings/stories": "storySettings",
+  "/control/settings/apps": "appsSetup",
+  "/control/settings/video": "videoSettings",
+  // A workspace's own address opens its first tab.
+  "/control/apps/gallery": "phoneSync",
+  "/control/apps/videos": "genres",
+  "/control/apps/ebooks": "ebooksOrganize",
+  "/control/apps/audiobooks": "audiobooksOrganize",
+  "/control/apps/stories": "storySettings",
+  "/control/apps/shared/tags": "tags",
+  "/control/infrastructure/services": "appsSetup",
+
   "/control/status": "dashboard",
   "/control/database": "dashboard",
   "/control/maintenance/database": "dashboard",
@@ -231,7 +284,6 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   // status to the Dashboard, events and log to Logs (?app= picks the source),
   // access to Security, pairing and the video settings to Settings.
   "/control/settings/games": "dashboard",
-  "/control/apps": "dashboard",
   "/control/apps/installed": "dashboard",
   "/control/apps/access": "appsAccess",
   "/control/apps/events": "logs",
@@ -879,8 +931,9 @@ export function getRoute(): Route {
       return { name: "control", section };
     }
 
-    // Under Organization since 4.73; under Library and the panel's root before that.
-    const categoryEditMatch = path.match(/^\/control\/(?:libraries\/(?:organization\/)?)?categories\/([^/]+)$/);
+    // Under Ebooks › Organize since v2; under Library › Organization (4.73), Library
+    // and the panel's root before that.
+    const categoryEditMatch = path.match(/^\/control\/(?:apps\/ebooks\/organize\/|libraries\/(?:organization\/)?)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
     }

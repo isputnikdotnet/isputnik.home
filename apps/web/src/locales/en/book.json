@@ -97,8 +97,8 @@
     "removeEbookDownloadBody": "This ebook is removed from this device. You can download it again at any time.",
     "deleteConfirmTitle": "Move \"{{title}}\" to the Recycle Bin?",
     "moving": "Moving…",
-    "deleteEbookBody": "This ebook moves into the Recycle Bin and leaves the library for everyone. An administrator can restore it from Control panel → Maintenance → Recycle Bin.",
-    "deleteAudiobookBody": "This audiobook moves into the Recycle Bin and leaves the library for everyone (any shares stop working). An administrator can restore it from Control panel → Maintenance → Recycle Bin."
+    "deleteEbookBody": "This ebook moves into the Recycle Bin and leaves the library for everyone. An administrator can restore it from Control panel → System Settings → Recycle Bin.",
+    "deleteAudiobookBody": "This audiobook moves into the Recycle Bin and leaves the library for everyone (any shares stop working). An administrator can restore it from Control panel → System Settings → Recycle Bin."
   },
   "editions": {
     "title": "Editions",

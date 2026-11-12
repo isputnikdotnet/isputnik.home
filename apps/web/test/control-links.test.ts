@@ -11,14 +11,14 @@ beforeEach(() => at("/"));
 
 describe("control page links", () => {
   it.each([
-    [tasksHref({ library: "lib1" }), "/control/maintenance/tasks?library=lib1", "tasks"],
-    [tasksHref({ library: undefined, type: "SCAN_GALLERY_DUPLICATES" }), "/control/maintenance/tasks?type=SCAN_GALLERY_DUPLICATES", "tasks"],
-    [tasksHref(), "/control/maintenance/tasks", "tasks"],
-    [recycleBinHref({ source: "duplicate_cleanup", library: undefined }), "/control/maintenance/recycle-bin?source=duplicate_cleanup", "recycleBin"],
-    [logsHref({ ip: "203.0.113.9" }), "/control/overview/logs?ip=203.0.113.9", "logs"],
-    [logsHref({ user: "acct_123" }), "/control/overview/logs?user=acct_123", "logs"],
+    [tasksHref({ library: "lib1" }), "/control/infrastructure/tasks?library=lib1", "tasks"],
+    [tasksHref({ library: undefined, type: "SCAN_GALLERY_DUPLICATES" }), "/control/infrastructure/tasks?type=SCAN_GALLERY_DUPLICATES", "tasks"],
+    [tasksHref(), "/control/infrastructure/tasks", "tasks"],
+    [recycleBinHref({ source: "duplicate_cleanup", library: undefined }), "/control/settings/recycle-bin?source=duplicate_cleanup", "recycleBin"],
+    [logsHref({ ip: "203.0.113.9" }), "/control/infrastructure/logs?ip=203.0.113.9", "logs"],
+    [logsHref({ user: "acct_123" }), "/control/infrastructure/logs?user=acct_123", "logs"],
     [blockIpHref("203.0.113.9"), "/control/security/blocked-ips?block=203.0.113.9", "securityBlocked"],
-    [storageHref("app-storage"), "/control/libraries/storage#app-storage", "storage"]
+    [storageHref("app-storage"), "/control/settings/storage#app-storage", "storage"]
   ])("%s", (href, expected, section) => {
     expect(href).toBe(expected);
     at(href);
@@ -26,13 +26,15 @@ describe("control page links", () => {
   });
 
   // A library's Manage page (4.73) sits under the Libraries address, after the
-  // Library tabs that share its prefix — a tab must never read as a library id.
+  // Libraries tabs and the v1 addresses that share its prefix — neither may read as
+  // a library id.
   it("opens a library's Manage page, behind the Library tabs", () => {
     expect(libraryRowHref("lib1")).toBe("/control/libraries/lib1");
     at(libraryRowHref("lib1"));
     expect(getRoute()).toEqual({ name: "controlLibrary", libraryId: "lib1" });
     for (const [path, section] of [
-      ["/control/libraries/organization", "organization"],
+      ["/control/libraries/statistics", "libraryStats"],
+      ["/control/libraries/organization", "applications"],
       ["/control/libraries/device-sync", "phoneSync"],
       ["/control/libraries/storage", "storage"],
       ["/control/libraries/storage/contents", "storageContents"]
@@ -42,8 +44,8 @@ describe("control page links", () => {
     }
   });
 
-  // Organization's editors are pages under it; their old tab addresses, and Phone
-  // sync's under Security, still land on them.
+  // The shared editors' old addresses (Library tabs, then pages under Library ›
+  // Organization), and Phone sync's under Security, still land on them.
   it.each([
     ["/control/libraries/organization/categories", "categories"],
     ["/control/libraries/organization/tags", "tags"],
@@ -57,7 +59,9 @@ describe("control page links", () => {
     expect(getRoute()).toEqual({ name: "control", section });
   });
 
-  it("finds the category editor at its new address and its old one", () => {
+  it("finds the category editor at its new address and its old ones", () => {
+    at("/control/apps/ebooks/organize/categories/cat1");
+    expect(getRoute()).toEqual({ name: "controlCategoryEditor", categoryId: "cat1" });
     at("/control/libraries/organization/categories/cat1");
     expect(getRoute()).toEqual({ name: "controlCategoryEditor", categoryId: "cat1" });
     at("/control/libraries/categories/new");
@@ -99,7 +103,7 @@ describe("control page links", () => {
   });
 
   it("reads a parameter as it was on arrival, or an empty string", () => {
-    at("/control/maintenance/tasks?library=lib1");
+    at("/control/infrastructure/tasks?library=lib1");
     expect(initialParam("library")).toBe("lib1");
     expect(initialParam("status")).toBe("");
   });

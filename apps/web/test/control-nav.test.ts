@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { CONTROL_PATHS, type ControlSection } from "../src/router";
-import { ALL_TABS, CONTROL_GROUPS, parentTab, selectedTab } from "../src/features/control/nav";
+import { ALL_TABS, APPLICATIONS, CONTROL_GROUPS, parentTab, placeOf, selectedTab } from "../src/features/control/nav";
 
-// nav.ts is the control panel's whole shape. A section with an address but no tab
-// is a page nothing links to; a section on two tabs has two eyebrows.
+// nav.ts is the control panel's whole shape (docs/control-panel-v2-plan.md). A
+// section with an address but no tab is a page nothing links to; a section on two
+// tabs has two eyebrows.
 describe("control panel nav", () => {
-  it("puts every addressable section on exactly one tab", () => {
-    const sections = Object.keys(CONTROL_PATHS) as ControlSection[];
+  it("puts every addressable section but the Dashboard on exactly one tab", () => {
+    const sections = (Object.keys(CONTROL_PATHS) as ControlSection[]).filter((section) => section !== "dashboard");
     const counts = new Map<ControlSection, number>();
     for (const tab of ALL_TABS) counts.set(tab.section, (counts.get(tab.section) ?? 0) + 1);
     for (const section of sections) {
@@ -15,25 +16,41 @@ describe("control panel nav", () => {
     expect(ALL_TABS).toHaveLength(sections.length);
   });
 
-  // A page under a tab (4.73) keeps that tab selected and names it in its eyebrow;
-  // a tab is its own selection and has no parent.
-  it("keeps Organization selected on its editor pages", () => {
-    for (const page of ["categories", "tags", "genres"] as const) {
-      expect(parentTab(page)).toBe("organization");
-      expect(selectedTab(page)).toBe("organization");
+  it("keeps the Dashboard out of every group: the panel's title opens it", () => {
+    expect(placeOf("dashboard").group).toBeNull();
+  });
+
+  it("has five groups", () => {
+    expect(CONTROL_GROUPS.map((group) => group.key)).toEqual(["infrastructure", "libraries", "applications", "security", "settings"]);
+  });
+
+  // A page under a tab keeps that tab selected and names it in its eyebrow; a tab is
+  // its own selection and has no parent.
+  it("keeps Organize selected on Gallery's cleanup pages", () => {
+    for (const page of ["duplicateCleanup", "missingPhotos"] as const) {
+      expect(parentTab(page)).toBe("galleryOrganize");
+      expect(selectedTab(page)).toBe("galleryOrganize");
+      expect(placeOf(page).app?.key).toBe("gallery");
     }
-    expect(parentTab("organization")).toBeNull();
-    expect(selectedTab("storage")).toBe("storage");
+    expect(parentTab("galleryOrganize")).toBeNull();
   });
 
-  it("gives Library one row of five tabs, each answering one question", () => {
-    const library = CONTROL_GROUPS.find((group) => group.key === "library");
-    expect(library?.tabs.map((tab) => tab.section)).toEqual(["libraries", "organization", "phoneSync", "storage", "storageContents"]);
+  it("gives Gallery its workspace row: Device Sync · Organize · Settings", () => {
+    const gallery = APPLICATIONS.find((app) => app.key === "gallery");
+    expect(gallery?.tabs.map((tab) => tab.kind)).toEqual(["deviceSync", "organize", "settings"]);
   });
 
-  // Six until Apps joined (docs/apps-platform-plan.md); raising it again is a
-  // decision for nav.ts's comment, not a number to bump here.
-  it("keeps to the seven-group budget", () => {
-    expect(CONTROL_GROUPS.length).toBeLessThanOrEqual(7);
+  // One editor, several entry points: ?from= decides which workspace it sits in.
+  it("places a shared page by the workspace it was opened from", () => {
+    expect(placeOf("categories").app?.key).toBe("ebooks");
+    expect(placeOf("categories", "audiobooks")).toMatchObject({ selected: "audiobooksOrganize", parent: "audiobooksOrganize" });
+    expect(placeOf("categories", "audiobooks").app?.key).toBe("audiobooks");
+
+    expect(placeOf("tags").app?.key).toBe("shared");
+    expect(placeOf("tags").parent).toBeNull();
+    expect(placeOf("tags", "gallery")).toMatchObject({ selected: "galleryOrganize", parent: "galleryOrganize" });
+    // A ?from= that is not an application, or one that does not use the page, is ignored.
+    expect(placeOf("tags", "nonsense").app?.key).toBe("shared");
+    expect(placeOf("categories", "gallery").app?.key).toBe("ebooks");
   });
 });

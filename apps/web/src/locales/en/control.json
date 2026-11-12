@@ -13,11 +13,35 @@
   },
   "nav": {
     "groups": {
-      "overview": "Overview",
-      "library": "Library",
-      "members": "Members",
-      "security": "Security",
-      "maintenance": "Maintenance",
+      "infrastructure": "Infrastructure",
+      "libraries": "Libraries & Scanning",
+      "applications": "Applications",
+      "security": "Security & Members",
+      "settings": "System Settings"
+    },
+    "dashboard": "Dashboard",
+    "apps": {
+      "gallery": "Gallery",
+      "videos": "Videos",
+      "ebooks": "Ebooks",
+      "audiobooks": "Audiobooks",
+      "stories": "Stories",
+      "shared": "Shared organization",
+      "games": "Games"
+    },
+    "appDescriptions": {
+      "gallery": "Photos and home videos from cameras, scanners and phones.",
+      "videos": "Films and shows, played through the video engine.",
+      "ebooks": "Books to read in the browser or on a reader.",
+      "audiobooks": "Books to listen to, with chapters and progress.",
+      "stories": "Family stories, recipes and recordings.",
+      "shared": "Tags used across applications, managed in one place.",
+      "games": "Board and arcade games. The games container is paired on Infrastructure › Services."
+    },
+    "workspace": {
+      "setup": "Setup",
+      "deviceSync": "Device Sync",
+      "organize": "Organize",
       "settings": "Settings"
     },
     "tabs": {
@@ -26,7 +50,6 @@
       "libraryStats": "Library statistics",
       "logs": "Logs",
       "libraries": "Libraries",
-      "organization": "Organization",
       "storage": "Storage",
       "storageContents": "App storage contents",
       "categories": "Book categories",
@@ -50,15 +73,19 @@
       "appearance": "Appearance",
       "quotes": "Quotes",
       "mapSetup": "Maps",
-      "storySettings": "Stories",
+      "storySettings": "Story settings",
       "appsAccess": "App access",
-      "appsSetup": "Apps",
-      "videoSettings": "Video",
+      "appsSetup": "Services",
+      "videoSettings": "Video settings",
       "email": "Email",
       "notifications": "Notifications",
       "about": "About",
-      "videoStreaming": "Videos",
-      "phoneSync": "Device Sync"
+      "videoStreaming": "Video streaming",
+      "phoneSync": "Device Sync",
+      "applications": "Applications",
+      "galleryOrganize": "Organize",
+      "ebooksOrganize": "Organize",
+      "audiobooksOrganize": "Organize"
     },
     "exit": "Home",
     "aria": "Control panel",
@@ -69,6 +96,11 @@
     "menu": "Menu",
     "search": "Search",
     "barAria": "Control panel shortcuts"
+  },
+  "applications": {
+    "description": "Choose an application to see its controls together. Activity, tasks and logs are in Infrastructure; library folders and scanning in Libraries & Scanning.",
+    "open": "Open {{app}}",
+    "connection": "Connection"
   },
   "search": {
     "title": "Search the control panel",
@@ -142,11 +174,11 @@
     "savedBody": "Default theme updated.",
     "sections": "Sections",
     "sectionsHint": "Which parts of the app this household uses. A section switched off leaves the menu, the home feed and Tags for everyone, and a link to it opens the home page instead; nothing is deleted, and the Control panel still shows every library. One section always stays on.",
-    "sectionsGamesHint": "Games also needs the games container to be set up (Settings → Apps); without it there is no Games entry whatever this switch says.",
+    "sectionsGamesHint": "Games also needs the games container to be set up (Infrastructure → Services); without it there is no Games entry whatever this switch says.",
     "sectionsSavedBody": "The menu changes for everyone the next time they open a page."
   },
   "backup": {
-    "eyebrow": "Maintenance",
+    "eyebrow": "System Settings",
     "title": "Backup",
     "intro": "Creates a consistent snapshot of the application database (accounts, libraries, metadata, listening progress, bookmarks, saved lists) while the server keeps running, with its two-factor key beside it. Media files are never modified. A minimal backup adds the pictures a rescan could not put back — covers you uploaded or fetched, author portraits, category tiles; a full one adds the whole thumbnail store, rendered previews included; a quick copy is the database file alone.",
     "pathTitle": "Where the server writes backups. In Docker this is a path inside the container — it sits under the folder you mapped to /config.",
@@ -186,7 +218,7 @@
     "keepAriaMinimal": "How many minimal backups to keep",
     "keepDatabase": "Database copies",
     "noThumbnailStore": "No thumbnail store yet — set one under",
-    "storageLink": "Library → Storage",
+    "storageLink": "System Settings → Storage",
     "retentionNote": "Each kind has its own count and is pruned on its own, manual and scheduled alike: when a new one is made, older ones of that same kind beyond its number are removed. A nightly minimal backup can therefore keep a fortnight without touching the two full ones beside it. Database copies have no schedule because they are never made on a timer — you take one before trying something, and a restore leaves one behind of the database it replaced — but they pile up like anything else, so they get a count too. The automatic copies taken before an upgrade are not counted here at all: they always keep their own newest two.",
     "emptyTitle": "No backups yet",
     "emptyBody": "Choose \"Full backup\" or \"Minimal backup\" to make one.",
@@ -441,7 +473,7 @@
     "deleteBody2": "Existing user accounts and accepted invites are not changed.",
     "joinsGroups": "Joins these groups",
     "joinsHint": "When they sign up they are added to these groups, and get everything the groups are given.",
-    "noGroups": "No groups yet. Create one in Members → Groups to give an invite access.",
+    "noGroups": "No groups yet. Create one in Security & Members → Groups to give an invite access.",
     "joinsRow": "Joins {{names}}"
   },
   "libraries": {
@@ -659,7 +691,7 @@
     "unableToBrowseStorage": "Unable to browse the library location",
     "useThisFolder": "Use this folder",
     "containerLabel": "Location",
-    "noContainersYet": "No library locations yet — add one on Library › Storage, and its folders can be browsed here.",
+    "noContainersYet": "No library locations yet — add one on System Settings › Storage, and its folders can be browsed here.",
     "up": "Up",
     "noChildFolders": "No child folders found. The current folder can still be used.",
     "folderBrowserAria": "Folder browser",
@@ -791,7 +823,7 @@
     "followOnTasks": "Follow on Tasks",
     "personalBadge": "Personal — {{name}}",
     "personalOrphaned": "Personal — {{name}} (member removed)",
-    "personalNote": "Only its owner can open it. Who may have one is set on Library › Device Sync.",
+    "personalNote": "Only its owner can open it. Who may have one is set on Applications › Gallery › Device Sync.",
     "contentsFiles_one": "{{formatted}} file",
     "contentsFiles_other": "{{formatted}} files",
     "manageAction": "Manage",
@@ -886,7 +918,7 @@
     "viewEvents": "Events",
     "viewServer": "Server log",
     "sourceUnavailableTitle": "{{app}} isn't answering",
-    "sourceUnavailableBody": "Its logs are read from the container itself, so they show while it answers. The Dashboard says how it stands; Settings › Apps tests the connection."
+    "sourceUnavailableBody": "Its logs are read from the container itself, so they show while it answers. The Dashboard says how it stands; Infrastructure › Services tests the connection."
   },
   "genres": {
     "description": "The genres your family browses films and shows by. Films arrive with genres from their .nfo files and from TMDB, often in two languages and several spellings; this list decides what each of those becomes.",
@@ -959,12 +991,11 @@
     "helpNote": "Nothing here changes your files: the genres they carry are only read. Changes show at once everywhere, with no rescan."
   },
   "organization": {
-    "description": "How content is labelled and grouped. Each is one shared set, used by the kinds of content listed on it.",
     "errorTitle": "Unable to update",
     "doneTitle": "Done",
     "loadFailed": "Unable to load",
     "appliesTo": "Applies to",
-    "sharedNote": "A change in one of these applies everywhere it is used, whichever library you came from. Gallery video clips take tags; films and shows in Video libraries use video genres.",
+    "sharedNote": "Tags and book categories are shared: a change applies everywhere they are used, whichever application you opened them from.",
     "categoriesBody": "The shelves books are sorted onto, by keyword rules.",
     "categoriesAppliesTo": "Ebooks · Audiobooks",
     "categoryCount_one": "{{formatted}} category",
@@ -998,6 +1029,11 @@
     "unsortedWords_other": "{{count}} words to sort",
     "manageGenres": "Manage genres",
     "videoNotSetUp": "Video isn't connected to this server.",
-    "videoDown": "The video engine isn't answering, so genres can't be edited until it is back."
+    "videoDown": "The video engine isn't answering, so genres can't be edited until it is back.",
+    "appDescription": "Organization and cleanup tools for {{app}}. Shared ones open the one editor every application uses.",
+    "duplicatesBody": "Find the same photo kept twice and choose which copy stays.",
+    "openDuplicates": "Open duplicate cleanup",
+    "missingBody": "Photos whose files are no longer on disk.",
+    "openMissing": "Open missing photos"
   }
 }

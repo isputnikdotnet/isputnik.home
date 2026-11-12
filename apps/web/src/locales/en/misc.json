@@ -118,7 +118,7 @@
     "methodEmailLabel": "Email",
     "methodEmailDesc": "A one-time code sent to {{email}} each time you sign in. Nothing to install.",
     "methodEmailNoteAvailable": "Less secure: codes travel by email, so anyone who can read that inbox can get in.",
-    "methodEmailNoteUnavailable": "Unavailable — this server can't send email. An administrator sets it up in Control panel → Settings → Email.",
+    "methodEmailNoteUnavailable": "Unavailable — this server can't send email. An administrator sets it up in Control panel → System Settings → Email.",
     "continueErrorTitle": "Unable to continue",
     "unableToStartSetup": "Unable to start setup",
     "checkingBusy": "Checking…",

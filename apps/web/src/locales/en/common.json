@@ -75,7 +75,7 @@
         "email_taken": "That email address is already in use."
       },
       "video": {
-        "tmdb_no_key": "The video container has no TMDB key yet. An admin adds one on Control panel → Apps.",
+        "tmdb_no_key": "The video container has no TMDB key yet. An admin adds one on Control panel → Applications → Videos → Settings.",
         "tmdb_refused": "TMDB refused this key. Check it was copied whole.",
         "tmdb_unreachable": "TMDB did not answer the video container. Check it can reach the internet, then try again."
       }
@@ -689,15 +689,15 @@
     "backupPathNote": "Archives are written to <code>{{path}}</code>. Worth copying somewhere off this machine as well — a backup on the same disk as the thing it is backing up survives a mistake, but not a failed drive.",
     "backupSavedDaily": "Backing up daily at {{time}}, keeping the last {{count}}.",
     "backupSavedOff": "Scheduled backups are off.",
-    "backupSavedMore": "Change it any time in Control panel → Maintenance → Backup, where you can also make one now or restore from one.",
+    "backupSavedMore": "Change it any time in Control panel → System Settings → Backup, where you can also make one now or restore from one.",
     "backupSaveFailed": "Unable to save the backup schedule",
     "mapsHeading": "Maps",
-    "mapsNote": "Maps work without any of this. Each part can be turned on or off here or later under Control panel → Settings → Maps.",
+    "mapsNote": "Maps work without any of this. Each part can be turned on or off here or later under Control panel → Applications → Gallery → Settings.",
     "alertsHeading": "Tell me about sign-ins",
     "alertsIntro": "The app can write to you when an account signs in from a network it has not seen before — the earliest sign that a password has been guessed, phished or reused.",
     "alertsToggle": "Email me about sign-ins from a new network",
     "alertsTestNote": "Worth sending yourself a test on the previous step first — an alert that cannot arrive reads exactly like nothing having happened.",
-    "alertsSavedBody": "Change it any time in Control panel → Security.",
+    "alertsSavedBody": "Change it any time in Control panel → Security & Members.",
     "alertsSaveFailed": "Unable to save the alert setting",
     "emailHeading": "Email",
     "emailIntro": "Optional, and worth doing: two-factor codes, invite links, security alerts and Send to e-reader all travel this way. Without it they simply never arrive.",
@@ -723,7 +723,7 @@
     "finishAnyway": "Finish anyway",
     "appStorageStepHeading": "App storage",
     "appStorageStepIntro": "Recommended, not required. One switch makes a place for what the family records and uploads in the app, the Photo Inbox that scans wait in, slideshow movies and kept maps.",
-    "appStorageStepNote": "While it is off, In system data is already chosen, so switching it on is one click. In a household with a lot of video, a custom folder on your media disk is the better home. It can be switched on, moved or switched off later from Library → Storage."
+    "appStorageStepNote": "While it is off, In system data is already chosen, so switching it on is one click. In a household with a lot of video, a custom folder on your media disk is the better home. It can be switched on, moved or switched off later from System Settings → Storage."
   },
   "partialDate": {
     "formatHint": "Year, year-month, or full date (1971, 1971-09, 1971-09-01)",
@@ -748,7 +748,7 @@
     "clear": "Clear place",
     "showPlaces": "Show places",
     "noMatch": "No town called “{{text}}” in the place list. It is kept as you typed it, without a map pin.",
-    "unavailable": "There is no place list to search yet (an admin can switch on Photo place names under Control panel → Settings → Maps). What you type is kept as written.",
+    "unavailable": "There is no place list to search yet (an admin can switch on Photo place names under Control panel → Applications → Gallery → Settings). What you type is kept as written.",
     "noneYet": "No places picked yet. Type a town to search the place list.",
     "online": "Search online for “{{text}}”",
     "onlineBusy": "Searching online…",
@@ -953,7 +953,7 @@
     "cantPlayTitle": "This can't play here",
     "fileMissing": "The file is no longer where the video app found it. A rescan of the library will tidy this up.",
     "cantPlayFormat": "A browser can't play this file as it is, and the video app can't convert it: ffmpeg isn't available in its container.",
-    "cantPlayBrowser": "This browser couldn't play it. Try again or another browser; if it keeps happening, Control panel → Overview → Logs says why.",
+    "cantPlayBrowser": "This browser couldn't play it. Try again or another browser; if it keeps happening, Control panel → Infrastructure → Logs says why.",
     "busyTitle": "Too many people are watching right now",
     "busyBody_one": "This one is converted as it plays, and {{count}} person is already watching converted video: as many as this server allows at once. Try again in a little while.",
     "busyBody_other": "This one is converted as it plays, and {{count}} people are already watching converted video: as many as this server allows at once. Try again in a little while.",

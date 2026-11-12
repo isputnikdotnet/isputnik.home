@@ -335,7 +335,7 @@
     "photosHint": "Photos and videos uploaded from the family tree are added to the house's “App files” gallery library, in its “Family tree” folder, filed by the date they were taken. Attaching photos the gallery already holds works from any library and doesn't need this.",
     "photosHouseIs": "Uploads go to: {{name}}",
     "photosHouseUnset": "No “App files” library is set, so uploading from the tree is off.",
-    "photosHouseLink": "Choose it under Control panel → Library → Storage",
+    "photosHouseLink": "Choose it under Control panel → System Settings → Storage",
     "saved": "Saved.",
     "startHint": "Opening the family tree centres the chart on this person, for everyone. Without one it starts on whoever happens to come first, which is rarely the person you'd choose. Following a link to a particular person still opens on them.",
     "noOneYetTitle": "No one in the tree yet",
@@ -835,7 +835,7 @@
     "notCarried": {
       "galleryLinks": "Links to face clusters in the Gallery — they are per server.",
       "branchEditors": "Who may edit which branch — accounts are per server.",
-      "photosNoStorage": "Photos — App storage is off on this server, so they cannot be imported. Switch it on under Control panel → Library → Storage and import again."
+      "photosNoStorage": "Photos — App storage is off on this server, so they cannot be imported. Switch it on under Control panel → System Settings → Storage and import again."
     },
     "result": {
       "title_one": "Added {{count}} person",

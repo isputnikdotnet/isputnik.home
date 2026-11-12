@@ -130,6 +130,39 @@ describe("getRoute", () => {
     expect(getRoute()).toEqual({ name: "control", section: "dashboard" });
   });
 
+  // Control panel v2 replaced the six groups; every v1 address still lands on its page.
+  it.each([
+    ["/control/overview", "dashboard"],
+    ["/control/overview/logs", "logs"],
+    ["/control/overview/activity", "activity"],
+    ["/control/libraries/organization", "applications"],
+    ["/control/libraries/organization/categories", "categories"],
+    ["/control/libraries/organization/tags", "tags"],
+    ["/control/libraries/organization/genres", "genres"],
+    ["/control/libraries/device-sync", "phoneSync"],
+    ["/control/libraries/storage", "storage"],
+    ["/control/libraries/storage/contents", "storageContents"],
+    ["/control/maintenance/tasks", "tasks"],
+    ["/control/maintenance/backup", "backup"],
+    ["/control/maintenance/duplicate-cleanup", "duplicateCleanup"],
+    ["/control/maintenance/videos", "videoStreaming"],
+    ["/control/settings/maps", "mapSetup"],
+    ["/control/settings/apps", "appsSetup"],
+    ["/control/settings/video", "videoSettings"],
+    ["/control/apps/gallery", "phoneSync"],
+    ["/control/apps/stories", "storySettings"]
+  ])("sends the v1 address %s to %s", (path, section) => {
+    at(path);
+    expect(getRoute()).toEqual({ name: "control", section });
+  });
+
+  it("opens the category editor at its v2 address and its old ones", () => {
+    for (const path of ["/control/apps/ebooks/organize/categories/abc", "/control/libraries/organization/categories/abc", "/control/categories/abc"]) {
+      at(path);
+      expect(getRoute(), path).toEqual({ name: "controlCategoryEditor", categoryId: "abc" });
+    }
+  });
+
   it("sends the old control-panel Reader access address to Profile, where members can reach it", () => {
     at("/control/settings/reader-access");
     expect(getRoute()).toEqual({ name: "profile", tab: "security" });

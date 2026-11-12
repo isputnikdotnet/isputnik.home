@@ -49,8 +49,14 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 
   libraries: "add library scan sources folders paths extensions uploads access members wizard rescan manage status " +
     "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать управлять состояние",
-  organization: "organize organise labels categories tags genres shared sets applies to remove unused re-match " +
-    "упорядочить метки категории теги жанры общие наборы применяется убрать неиспользуемые пересопоставить",
+  applications: "applications apps workspace gallery videos ebooks audiobooks stories games shared organization organize " +
+    "приложения рабочее пространство галерея видео электронные книги аудиокниги истории игры общее упорядочивание",
+  galleryOrganize: "organize organise gallery photos tags duplicates missing cleanup " +
+    "упорядочить галерея фото теги дубликаты пропавшие очистка",
+  ebooksOrganize: "organize organise ebooks books categories tags re-match " +
+    "упорядочить электронные книги категории теги пересопоставить",
+  audiobooksOrganize: "organize organise audiobooks books categories tags re-match " +
+    "упорядочить аудиокниги категории теги пересопоставить",
   storage: "thumbnails cache path library locations containers approved folders disk location free space recycle bin trash folder " +
     "миниатюры кэш путь места библиотек контейнеры разрешённые папки диск расположение свободное место корзина папка",
   storageContents: "app storage contents what is in it size on disk parts app files recordings voice notes music movies family tree orphans orphaned files delete other files move folder " +

@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { controlHref, followRoute, type ControlSection } from "../../router";
-import { parentTab, sectionEyebrow, sectionTitle, tabLabel } from "./nav";
+import { currentFrom, parentTab, sectionEyebrow, sectionTitle, tabLabel } from "./nav";
 
 // The header every control-panel page opens with. The eyebrow is the nav group
 // and the title is the tab, both read straight from nav.ts — so a page can
 // never disagree with the nav about where it lives, which is how the old panel
 // ended up with "Maintenance" pages sitting under "Digital Library".
 //
-// A page under a tab (Tags under Organization) also opens with a link back to that
+// A page under a tab (Duplicate cleanup under Gallery › Organize) also opens with a link back to that
 // tab, and its eyebrow names it: the tab row above stays on the tab, so this is
 // where the page says it is one step down.
 //
@@ -32,10 +32,12 @@ export function ControlSectionHead({
   className?: string;
   children?: ReactNode;
 }) {
-  const parent = parentTab(section);
+  // A shared page (Book categories, Tags) follows the workspace it was opened from.
+  const from = currentFrom();
+  const parent = parentTab(section, from);
   const copy = (
     <div className={icon ? "admin-heading-copy" : undefined}>
-      <p className="eyebrow">{sectionEyebrow(section)}</p>
+      <p className="eyebrow">{sectionEyebrow(section, from)}</p>
       <h1>{sectionTitle(section)}</h1>
       {description && <p className="section-description">{description}</p>}
     </div>

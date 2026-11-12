@@ -1,17 +1,22 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Home, ListChecks, Menu, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Gauge, Home, ListChecks, Menu, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { CONTROL_ALIAS_QUERY, controlHref, followRoute } from "../../router";
 import type { ControlSection, MemberPageTab } from "../../router";
 import {
+  APPLICATIONS,
   CONTROL_GROUPS,
-  groupForSection,
+  appLabel,
+  currentFrom,
   groupLabel,
-  sectionEyebrow,
-  selectedTab,
+  kindLabel,
+  placeOf,
+  rowLabel,
   tabLabel,
+  tabRowFor,
+  type ControlPlace,
   type ControlTabDef
 } from "./nav";
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
@@ -30,7 +35,8 @@ import { useIsMobile } from "../../shared/useIsMobile";
 // any one tab. The page itself is now just the nav and the tab row.
 const UsersSection = lazy(() => import("./sections/UsersSection").then((m) => ({ default: m.UsersSection })));
 const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) => ({ default: m.InvitesSection })));
-const OrganizationSection = lazy(() => import("./sections/OrganizationSection").then((m) => ({ default: m.OrganizationSection })));
+const AppOrganizeSection = lazy(() => import("./sections/OrganizationSection").then((m) => ({ default: m.AppOrganizeSection })));
+const ApplicationsSection = lazy(() => import("./sections/ApplicationsSection").then((m) => ({ default: m.ApplicationsSection })));
 const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
 const AboutSection = lazy(() => import("./sections/AboutSection").then((m) => ({ default: m.AboutSection })));
@@ -130,7 +136,10 @@ export function ControlPanelPage({
     window.history.replaceState(window.history.state, "", `${canonical}${query ? `?${query}` : ""}${window.location.hash}`);
   }, [section, categoryId, libraryId, member, group]);
 
-  const tabs = groupForSection(section).tabs;
+  // Where the page sits — a shared page (Tags, Book categories) by the ?from= it
+  // was opened with — and so which row to draw: the workspace's, or the group's.
+  const place = placeOf(section, currentFrom());
+  const tabs = tabRowFor(place);
   // On a phone the menu lists every page, and its button names the one you are on,
   // so the tab row would be a third copy squeezed into 375px.
   const isMobile = useIsMobile();
@@ -140,8 +149,8 @@ export function ControlPanelPage({
       active="control"
       sideNav={
         isMobile
-          ? <ControlPanelPhoneStrip section={section} menuOpen={menuOpen} onMenu={openMenu} />
-          : <ControlPanelNav section={section} onSearch={openSearch} />
+          ? <ControlPanelPhoneStrip section={section} place={place} menuOpen={menuOpen} onMenu={openMenu} />
+          : <ControlPanelNav place={place} section={section} onSearch={openSearch} />
       }
       bottomNav={
         isMobile
@@ -151,12 +160,12 @@ export function ControlPanelPage({
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
-          {/* A group of one page draws no row. */}
+          {/* A group or workspace of one page draws no row. */}
           {!subPage && !isMobile && tabs.length > 1 && (
             <ControlTabs
               tabs={tabs}
-              section={section}
-              label={t("control:nav.tabsAria", { group: sectionEyebrow(section) })}
+              selected={place.selected}
+              label={t("control:nav.tabsAria", { group: place.app ? appLabel(place.app.key) : place.group ? groupLabel(place.group.key) : "" })}
             />
           )}
           {/* Inside the page, so the nav and tab row stay up while a section's
@@ -169,7 +178,7 @@ export function ControlPanelPage({
         </section>
       </div>
 
-      {isMobile && menuOpen && <ControlPanelPhoneMenu section={section} onClose={closeMenu} />}
+      {isMobile && menuOpen && <ControlPanelPhoneMenu section={section} place={place} onClose={closeMenu} />}
       {searchOpen && <ControlSearch onClose={() => setSearchOpen(false)} />}
     </DashboardShell>
   );
@@ -197,7 +206,10 @@ function ControlSectionBody({
     case "logs":            return <LogsSection />;
 
     case "libraries":       return <LibrariesSection libraryId={libraryId} />;
-    case "organization":    return <OrganizationSection />;
+    case "applications":    return <ApplicationsSection />;
+    case "galleryOrganize": return <AppOrganizeSection app="gallery" />;
+    case "ebooksOrganize":  return <AppOrganizeSection app="ebooks" />;
+    case "audiobooksOrganize": return <AppOrganizeSection app="audiobooks" />;
     case "phoneSync":       return <PhoneSyncSection />;
     case "storage":         return <StorageSection />;
     case "storageContents": return <StorageContentsSection />;
@@ -240,9 +252,10 @@ function ControlSectionBody({
   }
 }
 
-function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
+function ControlPanelNav({ place, section, onSearch }: { place: ControlPlace; section: ControlSection; onSearch: () => void }) {
   const { t } = useTranslation(["common", "control"]);
-  const activeGroup = groupForSection(section);
+  const dashboardHref = controlHref("dashboard");
+  const onDashboard = section === "dashboard";
 
   return (
     <nav className="home-control-nav" aria-label={t("control:nav.aria")}>
@@ -254,9 +267,19 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
       </a>
 
       <div className="home-control-group">
+        {/* The panel's own name opens the Dashboard, which is in no group. */}
+        <a
+          className={`home-nav-link control-nav-title${onDashboard ? " is-active" : ""}`}
+          href={dashboardHref}
+          aria-current={onDashboard ? "page" : undefined}
+          onClick={(event) => followRoute(event, dashboardHref)}
+        >
+          <Gauge size={21} aria-hidden="true" />
+          <span>{t("control:nav.dashboard")}</span>
+        </a>
         {CONTROL_GROUPS.map((group) => {
           const Icon = group.icon;
-          const active = group.key === activeGroup.key;
+          const active = group.key === place.group?.key;
           // Each group links to its first tab, which is its landing page.
           const href = controlHref(group.tabs[0].section);
           return (
@@ -293,16 +316,20 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
 //   * the menu: every group and page in one list, rising from the bottom.
 function ControlPanelPhoneStrip({
   section,
+  place,
   menuOpen,
   onMenu
 }: {
   section: ControlSection;
+  place: ControlPlace;
   menuOpen: boolean;
   onMenu: () => void;
 }) {
   const { t } = useTranslation(["common", "control"]);
-  const activeGroup = groupForSection(section);
-  const ActiveIcon = activeGroup.icon;
+  const ActiveIcon = place.app?.icon ?? place.group?.icon ?? Gauge;
+  // Where you are: the application inside Applications, else the group, else the
+  // panel itself (the Dashboard).
+  const where = place.app ? appLabel(place.app.key) : place.group ? groupLabel(place.group.key) : t("control:nav.aria");
 
   return (
     <nav className="home-control-nav control-phone-nav" aria-label={t("control:nav.aria")}>
@@ -311,11 +338,11 @@ function ControlPanelPhoneStrip({
         className="control-phone-menu-trigger"
         aria-haspopup="dialog"
         aria-expanded={menuOpen}
-        aria-label={t("control:nav.menuOpen", { page: `${groupLabel(activeGroup.key)} › ${tabLabel(section)}` })}
+        aria-label={t("control:nav.menuOpen", { page: `${where} › ${tabLabel(section)}` })}
         onClick={onMenu}
       >
         <ActiveIcon size={17} aria-hidden="true" />
-        <small>{groupLabel(activeGroup.key)}</small>
+        <small>{where}</small>
         <ChevronRight className="control-phone-menu-sep" size={14} aria-hidden="true" />
         <strong>{tabLabel(section)}</strong>
         <ChevronDown className="control-phone-menu-chevron" size={16} aria-hidden="true" />
@@ -378,17 +405,44 @@ function ControlPanelPhoneBar({
   );
 }
 
-function ControlPanelPhoneMenu({ section, onClose }: { section: ControlSection; onClose: () => void }) {
+function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSection; place: ControlPlace; onClose: () => void }) {
   const { t } = useTranslation(["common", "control"]);
 
-  // Thirty-odd pages is taller than a phone: open on the one you are on.
+  // Forty-odd pages is taller than a phone: open on the one you are on.
   useEffect(() => {
     document.querySelector(".control-phone-menu [aria-current='page']")?.scrollIntoView({ block: "center" });
   }, []);
 
+  // One entry: lit for a page under it too, but only the tab itself is "here".
+  const entry = (target: ControlSection, label: string, current: boolean) => {
+    const href = controlHref(target);
+    return (
+      <li key={target}>
+        <a
+          href={href}
+          className={current ? "is-active" : undefined}
+          aria-current={current ? "page" : undefined}
+          onClick={(event) => {
+            if (target === section) {
+              event.preventDefault();
+              onClose();
+              return;
+            }
+            followRoute(event, href);
+          }}
+        >
+          {label}
+        </a>
+      </li>
+    );
+  };
+
   return (
     <Modal variant="panel" className="control-phone-menu" title={t("control:nav.aria")} onClose={onClose}>
       <div className="control-phone-menu-groups">
+        <section className="control-phone-menu-group" aria-label={t("control:nav.dashboard")}>
+          <ul>{entry("dashboard", t("control:nav.dashboard"), section === "dashboard")}</ul>
+        </section>
         {CONTROL_GROUPS.map((group) => {
           const Icon = group.icon;
           const headingId = `control-phone-menu-${group.key}`;
@@ -399,30 +453,14 @@ function ControlPanelPhoneMenu({ section, onClose }: { section: ControlSection; 
                 {groupLabel(group.key)}
               </h2>
               <ul>
-                {group.tabs.map((tab) => {
-                  const href = controlHref(tab.section);
-                  const current = tab.section === selectedTab(section);
-                  return (
-                    <li key={tab.section}>
-                      <a
-                        href={href}
-                        className={current ? "is-active" : undefined}
-                        aria-current={current ? "page" : undefined}
-                        onClick={(event) => {
-                          // Lit for a page under it too, but only the tab itself is "here".
-                          if (tab.section === section) {
-                            event.preventDefault();
-                            onClose();
-                            return;
-                          }
-                          followRoute(event, href);
-                        }}
-                      >
-                        {tabLabel(tab.section)}
-                      </a>
-                    </li>
-                  );
-                })}
+                {group.tabs.map((tab) => entry(tab.section, tabLabel(tab.section), !place.app && tab.section === place.selected))}
+                {/* Applications lists each workspace tab: "Gallery · Organize", or
+                    the application alone when it has one tab. */}
+                {group.key === "applications" && APPLICATIONS.flatMap((app) => app.tabs.map((tab) => entry(
+                  tab.section,
+                  app.tabs.length > 1 && tab.kind ? `${appLabel(app.key)} · ${kindLabel(tab.kind)}` : appLabel(app.key),
+                  place.app?.key === app.key && tab.section === place.selected
+                )))}
               </ul>
             </section>
           );
@@ -432,24 +470,24 @@ function ControlPanelPhoneMenu({ section, onClose }: { section: ControlSection; 
   );
 }
 
-// The in-page tab row for the active group. Each tab is a real link, so every
-// destination in the control panel is bookmarkable and the search palette can
-// jump straight to it.
+// The in-page tab row for the active group or workspace. Each tab is a real link,
+// so every destination in the control panel is bookmarkable and the search palette
+// can jump straight to it.
 function ControlTabs({
   tabs,
-  section,
+  selected,
   label
 }: {
   tabs: ControlTabDef[];
-  section: ControlSection;
+  /** The tab to light: the page's own, or the one it is a page of. */
+  selected: ControlSection;
   label: string;
 }) {
   return (
     <div className="control-tabs" role="tablist" aria-label={label}>
       {tabs.map((tab) => {
         const href = controlHref(tab.section);
-        // A page under a tab (Tags under Organization) keeps that tab selected.
-        const active = tab.section === selectedTab(section);
+        const active = tab.section === selected;
         return (
           <a
             key={tab.section}
@@ -459,7 +497,7 @@ function ControlTabs({
             href={href}
             onClick={(event) => followRoute(event, href)}
           >
-            {tabLabel(tab.section)}
+            {rowLabel(tab)}
           </a>
         );
       })}

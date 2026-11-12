@@ -207,7 +207,7 @@
     "intro": "Recordings made in the story editor are saved into the house's “App files” library, under “Story recordings”. They become ordinary audio in that library — visible in the gallery, included in backups, and kept even if their story is deleted. Until that library is chosen, the story editor offers no recording at all.",
     "houseLibraryIs": "Recordings go to: {{name}}",
     "houseLibraryUnset": "No “App files” library is set, so recording is off.",
-    "houseLibraryLink": "Choose it under Library → Storage",
+    "houseLibraryLink": "Choose it under System Settings → Storage",
     "settingsTitle": "Unable to load story settings",
     "loadFailed": "Unable to load story settings",
     "savedBody": "Story settings saved.",
@@ -270,7 +270,7 @@
       "gpuNoneTitle": "Converting on the CPU",
       "gpuNoneBody": "No GPU the video app can use.",
       "gpuSetAsideTitle": "The GPU is set aside",
-      "gpuSetAsideBody": "{{where}} failed three times within an hour, so videos are converted on the CPU until you check again. Control panel → Overview → Logs, with Video as the source, says why.",
+      "gpuSetAsideBody": "{{where}} failed three times within an hour, so videos are converted on the CPU until you check again. Control panel → Infrastructure → Logs, with Video as the source, says why.",
       "gpuOffTitle": "Converting on the CPU only",
       "gpuOffBody": "Chosen below. The GPU isn't tried.",
       "onGpu": "GPU",
@@ -283,7 +283,7 @@
     },
     "card": {
       "introGames": "The family games, in a container of their own, reached through this server at /games, which signs people in for them.",
-      "introVideo": "The engine behind the video libraries: it scans the shows and movies and keeps their catalog, reached through this server at /video. The libraries themselves are managed on Library → Libraries.",
+      "introVideo": "The engine behind the video libraries: it scans the shows and movies and keeps their catalog, reached through this server at /video. The libraries themselves are managed on Libraries & Scanning → Libraries.",
       "onTitle": "{{app}}: running",
       "onBody": "The container answers, version {{version}}.",
       "unreachableTitle": "{{app}}: not answering",
@@ -411,7 +411,7 @@
       "notAnswering": "These settings are kept in the video engine, and it isn't answering right now.",
       "notSetUp": "Video isn't set up yet. Pair it with this server first.",
       "openDashboard": "See how it stands",
-      "openSetup": "Open Settings › Apps"
+      "openSetup": "Open Infrastructure › Services"
     },
     "copies": {
       "title": "Copies for download",
@@ -521,7 +521,7 @@
     "saveFailed": "Unable to save notification settings",
     "settingsTitle": "Notification settings",
     "noMailTitle": "No email server yet",
-    "noMailBody": "Notifications need somewhere to send from. Set up an outgoing mail server under <lnk>Settings → Email</lnk>, then come back here.",
+    "noMailBody": "Notifications need somewhere to send from. Set up an outgoing mail server under <lnk>System Settings → Email</lnk>, then come back here.",
     "sharingLegend": "Sharing",
     "shareDesc": "Email someone when a photo, book, or album is shared with them. The message says who shared what and links to “Shared with me”; it never carries the file itself.",
     "sendToLegend": "Send to",
@@ -1092,7 +1092,7 @@
     "mfaLabel": "Require a second factor outside trusted networks",
     "mfaHelp": "Even a stolen or guessed password is then not enough to get in from the internet. Accounts with two-factor set up use their usual method; accounts without get a one-time code emailed to their sign-in address. Passkey sign-ins already count as two factors. At home — on a trusted network — nothing changes.",
     "noMailTitle": "Email is not set up",
-    "mfaNoMailBody": "The emailed-code fallback needs SMTP, configured under <lnk>Settings → Email</lnk>. Without it, accounts that haven't set up two-factor cannot sign in from outside at all until they enroll from home.",
+    "mfaNoMailBody": "The emailed-code fallback needs SMTP, configured under <lnk>System Settings → Email</lnk>. Without it, accounts that haven't set up two-factor cannot sign in from outside at all until they enroll from home.",
     "usersWithoutTitle": "Accounts without two-factor set up",
     "usersWithoutMail_one": "{{list}} — this account will get a code by email when signing in from outside.",
     "usersWithoutMail_other": "{{list}} — these accounts will get a code by email when signing in from outside.",
@@ -1107,7 +1107,7 @@
     "alertsDesc": "Warn about a successful sign-in from somewhere the account has never been used.",
     "alertsLabel": "Email on a sign-in from a new network",
     "alertsHelp": "The account owner and the admins are emailed. Networks are matched loosely (the /24 for IPv4, the /64 for IPv6) so a changing home or mobile address doesn't alert every time. Sign-ins from trusted networks never alert.",
-    "alertsNoMailBody": "These alerts are sent over SMTP. Configure it under <lnk>Settings → Email</lnk>, or this setting has no effect.",
+    "alertsNoMailBody": "These alerts are sent over SMTP. Configure it under <lnk>System Settings → Email</lnk>, or this setting has no effect.",
     "ipsInaccurateTitle": "Client IPs aren't accurate yet",
     "ipsInaccurateBody": "Requests arrive through a proxy but neither <cd>TRUST_PROXY</cd> nor <cd>TRUST_PROXY_HOPS</cd> is set, so every visitor looks like the proxy address. Until you set one, a new network is never detected.",
     "alertsSaved": "Sign-in alerts updated.",
@@ -2161,7 +2161,7 @@
     }
   },
   "phoneSyncPage": {
-    "description": "Where phones may back up from, and how each member's phones are doing. What happened, and when, is in Overview › Logs.",
+    "description": "Where phones may back up from, and how each member's phones are doing. What happened, and when, is in Infrastructure › Logs.",
     "phonesHeading": "Phones",
     "phonesDesc": "Every member's phones: whose they are, where they last connected from, and anything wrong now. What a phone sent stays with its owner.",
     "loadFailed": "Unable to load phones",
@@ -2189,6 +2189,6 @@
     "skipsLibraryNoAccess": "Linked to {{library}}, which the member can't open: not used",
     "seeInLogsAria": "See {{phone}} in Logs",
     "allInLogs": "All phone backup history in Logs",
-    "movedNote": "Phone-backup networks are on <link>Library › Device Sync</link>."
+    "movedNote": "Phone-backup networks are on <link>Applications › Gallery › Device Sync</link>."
   }
 }

@@ -8,8 +8,16 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { MessageBox } from "../../../shared/MessageBox";
 import { SelectField } from "../../../shared/SelectField";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { currentFrom } from "../nav";
 import { CategoryIcon, CATEGORY_ICON_KEYS } from "../../audiobooks/categoryIcons";
 import type { TagSummary } from "../../audiobooks/types";
+
+// The editor is shared by Ebooks and Audiobooks: moving between its list and a
+// category keeps the ?from= it was opened with, so the page stays in that workspace.
+function categoriesHref(suffix = ""): string {
+  const from = currentFrom();
+  return `${controlHref("categories")}${suffix}${from ? `?from=${encodeURIComponent(from)}` : ""}`;
+}
 
 interface ManageCategory {
   id: string;
@@ -122,7 +130,7 @@ export function CategoriesSection() {
     <>
       <ControlSectionHead section="categories" icon={<Shapes size={30} />} description={t("control:categories.description")}>
         <div className="category-head-actions">
-          <Button variant="primary" onClick={() => navigate(`${controlHref("categories")}/new`)}>
+          <Button variant="primary" onClick={() => navigate(categoriesHref("/new"))}>
             <Plus size={16} /> {t("control:categories.addCategory")}
           </Button>
           <Button variant="secondary" onClick={rematch} disabled={rematching} title={t("control:categories.rematchTitle")}>
@@ -213,7 +221,7 @@ export function CategoriesSection() {
                       >
                         <Check size={14} /> {t("control:categories.saveOrder")}
                       </Button>
-                      <Button variant="secondary" compact onClick={() => navigate(`${controlHref("categories")}/${category.id}`)}>
+                      <Button variant="secondary" compact onClick={() => navigate(categoriesHref(`/${category.id}`))}>
                         <Pencil size={14} /> {t("control:categories.edit")}
                       </Button>
                     </div>
@@ -423,7 +431,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       }
 
       if (isNew && id) {
-        navigate(`${controlHref("categories")}/${id}`);
+        navigate(categoriesHref(`/${id}`));
         return;
       }
       setImageFile(null);
@@ -444,7 +452,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
     setDeleteError("");
     try {
       await api<{ movedBooks: number }>(`/api/library/manage/categories/${category.id}`, { method: "DELETE" });
-      navigate(controlHref("categories"));
+      navigate(categoriesHref());
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : t("control:categories.unableToDeleteCategory"));
     } finally {
@@ -524,14 +532,14 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
   return (
     <div className="category-editor-page">
       <div className="category-editor-page-head">
-        <Button variant="text" className="category-editor-back" onClick={() => navigate(controlHref("categories"))}>
+        <Button variant="text" className="category-editor-back" onClick={() => navigate(categoriesHref())}>
           <ArrowLeft size={15} />
           {t("control:categories.backToCategories")}
         </Button>
         <div className="category-editor-title-row">
           <h1>{isNew ? t("control:categories.addCategoryTitle") : t("control:categories.editCategoryTitle")}</h1>
           <div className="category-head-actions">
-            <Button variant="secondary" onClick={() => navigate(controlHref("categories"))} disabled={saving || deleting}>
+            <Button variant="secondary" onClick={() => navigate(categoriesHref())} disabled={saving || deleting}>
               {t("control:ui.cancel")}
             </Button>
             <Button variant="primary" onClick={saveCategory} disabled={saving || deleting || !name.trim()}>

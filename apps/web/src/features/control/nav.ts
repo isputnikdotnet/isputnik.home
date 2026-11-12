@@ -1,68 +1,76 @@
 import {
-  Activity,
+  BookOpen,
+  Clapperboard,
+  Gamepad2,
+  Headphones,
+  Images,
+  LayoutGrid,
   LibraryBig,
+  NotebookPen,
+  Server,
   Settings,
   ShieldCheck,
-  UsersRound,
-  Wrench,
+  Tags,
   type LucideIcon } from "lucide-react";
 import { controlHref, type ControlSection } from "../../router";
 // Plain module-level data + lookup functions, not components — they call i18n.t()
 // directly rather than the useTranslation() hook (see docs/i18n-plan.md's
-// namespace-key typing pitfall #3). `group.key` and `tab.section` are both
-// literal string unions, so the template-literal keys below type-check against
-// the declared `control:nav.groups.*` / `control:nav.tabs.*` keys (pitfall #4).
+// namespace-key typing pitfall #3). `group.key`, `app.key`, `tab.kind` and
+// `tab.section` are literal string unions, so the template-literal keys below
+// type-check against the declared `control:nav.*` keys (pitfall #4).
 import i18n from "../../i18n";
 
-// The shape of the control panel, in one place. The left nav renders the groups,
-// the tab row renders the tabs of the group you are standing in, each page takes
-// its eyebrow from the group and its <h1> from the tab label, and the search
-// palette indexes the lot. Adding a control page means adding one tab here —
-// there is nowhere else to keep in sync.
+// The shape of the control panel, in one place (docs/control-panel-v2-plan.md).
+// The left nav renders the groups, the tab row renders the tabs of the group — or
+// of the application workspace — you are standing in, each page takes its eyebrow
+// and <h1> from here, and the search palette indexes the lot. Adding a control
+// page means adding one tab here; there is nowhere else to keep in sync.
 //
-// Six groups, and that is the budget. A new page almost always belongs as a tab
-// inside an existing group rather than as a seventh: a long left nav is what this
-// structure exists to prevent, and the tab row is free to grow where the nav isn't.
-// Apps was a seventh (4.38–4.44): everything about the containers beside this
-// server in one group. That meant knowing whether a thing ran in home or in a
-// container before knowing where to look, so its pages went to the groups whose
-// question they answer (docs/dashboard-and-backups-plan.md) — how each stands to
-// the Dashboard, its events and log to Logs, who may use it to Security, pairing
-// and the video settings to Settings. A new container joins those pages; it does
-// not bring a group back.
+// FIVE groups, opened from the panel's title by the Dashboard, which is in none:
 //
-// Every group is the same thing — a link to its first tab, over one row of its
-// tabs — and nothing else. Two exceptions were tried and retired in 4.15
-// (docs/control-panel-navigation-review.md):
+//   * Infrastructure — running services and containers, their connections and
+//     health, tasks, logs and activity.
+//   * Libraries & Scanning — which folders supply content, how and when they are
+//     scanned.
+//   * Applications — a directory of the applications; choosing one opens its
+//     WORKSPACE, which holds everything about that application.
+//   * Security & Members — people, access, sign-ins.
+//   * System Settings — storage, backups and recovery, email, appearance.
 //
-//   * Utilities folded out into "Gallery" and "Widgets" branches, each with a tab
-//     row of its own. It was the one group you had to learn; its pages were a
-//     cleanup job and a widget's content, which are Maintenance and Settings.
-//   * Maps was a group of one page (4.4–4.14): four cards with a switch on each.
-//     A page of switches is what Settings is, and a group of one draws no tab row,
-//     so it read differently from every other group.
+// v2 replaced the six groups of 4.15–4.86 (Overview, Library, Members, Security,
+// Maintenance, Settings), which sorted a feature's controls by KIND: Gallery's
+// duplicate cleanup was in Maintenance, its maps in Settings, its phone backup in
+// Library. To find everything about Gallery you had to know the taxonomy first.
 //
-// ONE row of tabs, and only one. A second row under it was tried twice — for the
-// duplicate pages, and as the Dashboard's six views — and both times it was more
-// chrome than the relationship was worth. A page whose content wants to be split
-// is split into tabs; a view switch inside a page is for views of one task.
+// Every group is a link to its first tab over ONE row of its tabs. Applications is
+// the one group whose page is a directory: its workspaces each draw their own ONE
+// row (Setup · Device Sync · Organize · Settings — a shared vocabulary, not
+// mandatory tabs: an application gets only the tabs it needs, and one with a
+// single tab draws no row). Never a row of applications over a row of their tabs.
 //
-// A tab may own PAGES (4.73): destinations one step down from it that are not tabs
-// of their own. Organization's three editors are the case — Book categories, Tags
-// and Video genres were three tabs that read as equals of Libraries and Storage
-// while each applied to only some content; under Organization they keep their own
-// addresses and search entries, the tab row stays up with Organization selected,
-// and the page opens with a link back (ControlSectionHead does both). A page of one
-// thing — a member, a group, a library's Manage page — is the other kind of
-// sub-page: it has its own route outside this table and drops the tab row.
-// Pages are not a second row and never become one.
+// A tab may own PAGES (4.73): destinations one step down that keep their own
+// address and search entry while the tab row stays on their tab, and that open
+// with a link back (ControlSectionHead). A page of one thing — a member, a group, a
+// library's Manage page — has its own route outside this table and drops the row.
+//
+// A SHARED page is reached from several workspaces without becoming several
+// implementations: Book categories from Ebooks and Audiobooks, Tags from every
+// application that uses them. It has ONE address; opened from a workspace it
+// carries ?from=<app>, and its eyebrow, selected tab and back link follow that
+// (placeOf below). Without ?from= it sits where its canonical entry puts it.
 
-export type GroupKey = "overview" | "library" | "members" | "security" | "maintenance" | "settings";
+export type GroupKey = "infrastructure" | "libraries" | "applications" | "security" | "settings";
+export type AppKey = "gallery" | "videos" | "ebooks" | "audiobooks" | "stories" | "shared";
+/** The workspace vocabulary. A workspace tab is labelled by its kind; its page's
+ *  <h1> is still the section's own name (Settings › "Maps"). */
+export type WorkspaceTabKind = "setup" | "deviceSync" | "organize" | "settings";
 
 export interface ControlTabDef {
   section: ControlSection;
   /** Pages under this tab: their own addresses, this tab's row and selection. */
   pages?: ControlSection[];
+  /** In an application workspace: which word of the vocabulary the tab is. */
+  kind?: WorkspaceTabKind;
 }
 
 export interface ControlGroupDef {
@@ -71,53 +79,53 @@ export interface ControlGroupDef {
   tabs: ControlTabDef[];
 }
 
+export interface ApplicationDef {
+  key: AppKey;
+  icon: LucideIcon;
+  tabs: ControlTabDef[];
+}
+
 export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
-    key: "overview",
-    icon: Activity,
-    // What state the server is in and what has been happening. The Dashboard is
-    // the health page; the analysis that used to hang off it as views is here as
-    // tabs, or went to the group whose question it answers (sign-ins to Security,
-    // tasks to Maintenance).
+    key: "infrastructure",
+    icon: Server,
+    // What runs, whether it is connected, and what it has been doing. Services is
+    // the containers' pairing; each application links to Activity, Tasks and Logs
+    // with its filter already selected rather than keeping copies of them.
     tabs: [
-      { section: "dashboard" },
-      { section: "activity" },
-      { section: "libraryStats" },
-      { section: "logs" }
+      { section: "appsSetup" },
+      { section: "videoStreaming" },
+      { section: "tasks" },
+      { section: "scheduledJobs" },
+      { section: "logs" },
+      { section: "activity" }
     ]
   },
   {
-    key: "library",
+    key: "libraries",
     icon: LibraryBig,
-    // Each tab answers one question (4.73, from the Library control-panel review):
-    // what libraries there are; how content is labelled; whether phones can back up;
-    // where files are kept; what is using app-managed space.
+    // Which folders supply content, how they are scanned, and when — each library's
+    // Manage page holds its folders, rules and schedule.
     tabs: [
       { section: "libraries" },
-      // Book categories, Tags and the video engine's genres, each saying what it applies to.
-      { section: "organization", pages: ["categories", "tags", "genres"] },
-      // Phone backup in one place: personal libraries, the networks phones may use,
-      // the address they use, and every member's phones. Was Security › Phone sync.
-      { section: "phoneSync" },
-      { section: "storage" },
-      { section: "storageContents" }
+      { section: "libraryStats" }
     ]
   },
   {
-    key: "members",
-    icon: UsersRound,
-    tabs: [
-      { section: "users" },
-      { section: "groups" },
-      { section: "invites" }
-    ]
+    key: "applications",
+    icon: LayoutGrid,
+    // The directory. The workspaces are in APPLICATIONS below.
+    tabs: [{ section: "applications" }]
   },
   {
     key: "security",
     icon: ShieldCheck,
-    // Investigate access, then configure protection: who got in and from where
-    // sit beside the policies and lists that decide who may — the apps' too.
+    // Who the people are, then who got in, from where, and the rules that decide
+    // who may — the applications' access too.
     tabs: [
+      { section: "users" },
+      { section: "groups" },
+      { section: "invites" },
       { section: "security" },
       { section: "signIns" },
       { section: "signInLocations" },
@@ -128,71 +136,164 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     ]
   },
   {
-    key: "maintenance",
-    icon: Wrench,
-    // Follow work, recover data, clean up. Tasks leads: it is where a scan, a
-    // backup or a cleanup job is followed, whichever page started it.
-    tabs: [
-      { section: "tasks" },
-      { section: "scheduledJobs" },
-      { section: "backup" },
-      { section: "recycleBin" },
-      { section: "duplicateCleanup" },
-      { section: "missingPhotos" },
-      { section: "videoStreaming" }
-    ]
-  },
-  {
     key: "settings",
     icon: Settings,
-    // How the app looks and what it can do. Quotes is the home widget's content,
-    // Maps a page of feature switches. Reader access left for Profile in 4.15:
-    // the tokens are the signed-in person's own, not the server's. Apps is where a
-    // container is paired with this server; Video, the engine's own settings.
+    // System-wide: how the app looks and mails, where its files live and how much
+    // room they take, backups and recovery. Quotes is the home widget's content.
     tabs: [
       { section: "appearance" },
-      { section: "quotes" },
-      { section: "mapSetup" },
-      { section: "storySettings" },
       { section: "email" },
       { section: "notifications" },
-      { section: "appsSetup" },
-      { section: "videoSettings" },
+      { section: "storage", pages: ["storageContents"] },
+      { section: "backup" },
+      { section: "recycleBin" },
+      { section: "quotes" },
       { section: "about" }
     ]
   }
 ];
 
+// Each application's workspace. Order is the directory's. An application shows its
+// libraries, connections, access and storage use and LINKS to their owners
+// (Libraries, Infrastructure, Security, System Settings); it does not own them.
+export const APPLICATIONS: ApplicationDef[] = [
+  {
+    key: "gallery",
+    icon: Images,
+    tabs: [
+      // "Back up my phone photos" is a Gallery task; the libraries it feeds stay in
+      // Libraries & Scanning.
+      { section: "phoneSync", kind: "deviceSync" },
+      { section: "galleryOrganize", kind: "organize", pages: ["duplicateCleanup", "missingPhotos"] },
+      { section: "mapSetup", kind: "settings" }
+    ]
+  },
+  {
+    key: "videos",
+    icon: Clapperboard,
+    tabs: [
+      { section: "genres", kind: "organize" },
+      { section: "videoSettings", kind: "settings" }
+    ]
+  },
+  {
+    key: "ebooks",
+    icon: BookOpen,
+    // Book categories' canonical home; Audiobooks opens the same editor with ?from=.
+    tabs: [{ section: "ebooksOrganize", kind: "organize", pages: ["categories"] }]
+  },
+  {
+    key: "audiobooks",
+    icon: Headphones,
+    tabs: [{ section: "audiobooksOrganize", kind: "organize" }]
+  },
+  {
+    key: "stories",
+    icon: NotebookPen,
+    tabs: [{ section: "storySettings", kind: "settings" }]
+  },
+  {
+    // Not an application: what crosses them. Today, the one tag manager.
+    key: "shared",
+    icon: Tags,
+    tabs: [{ section: "tags", kind: "organize" }]
+  }
+];
+
+/** Applications the directory lists that have no workspace yet — reached through
+ *  the page that serves them today. Games is paired on Infrastructure › Services. */
+export const DIRECTORY_EXTRAS: { key: "games"; icon: LucideIcon }[] = [
+  { key: "games", icon: Gamepad2 }
+];
+
+/** Shared pages, and the workspace tab each application opens them under. */
+const SHARED_PAGE_PARENTS: Partial<Record<ControlSection, Partial<Record<AppKey, ControlSection>>>> = {
+  categories: { ebooks: "ebooksOrganize", audiobooks: "audiobooksOrganize" },
+  tags: { gallery: "galleryOrganize", ebooks: "ebooksOrganize", audiobooks: "audiobooksOrganize" }
+};
+
 /** Every destination there is: each tab, then the pages under it — what search
  *  indexes and what page titles come from. */
-export const ALL_TABS: ControlTabDef[] = CONTROL_GROUPS.flatMap((group) =>
-  group.tabs.flatMap((tab) => [tab, ...(tab.pages ?? []).map((section) => ({ section }))])
-);
+export const ALL_TABS: ControlTabDef[] = [
+  ...CONTROL_GROUPS.flatMap((group) => group.tabs),
+  ...APPLICATIONS.flatMap((app) => app.tabs)
+].flatMap((tab) => [tab, ...(tab.pages ?? []).map((section) => ({ section }))]);
 
-const GROUP_BY_SECTION = new Map<ControlSection, ControlGroupDef>(
-  CONTROL_GROUPS.flatMap((group) => group.tabs.flatMap((tab) =>
-    [tab.section, ...(tab.pages ?? [])].map((section) => [section, group] as const)))
-);
+const GROUP_BY_SECTION = new Map<ControlSection, ControlGroupDef>();
+const APP_BY_SECTION = new Map<ControlSection, ApplicationDef>();
+const PARENT_TAB = new Map<ControlSection, ControlSection>();
+const APPLICATIONS_GROUP = CONTROL_GROUPS.find((group) => group.key === "applications")!;
 
-const PARENT_TAB = new Map<ControlSection, ControlSection>(
-  CONTROL_GROUPS.flatMap((group) => group.tabs.flatMap((tab) =>
-    (tab.pages ?? []).map((section) => [section, tab.section] as const)))
-);
+for (const group of CONTROL_GROUPS) {
+  for (const tab of group.tabs) {
+    for (const section of [tab.section, ...(tab.pages ?? [])]) GROUP_BY_SECTION.set(section, group);
+    for (const page of tab.pages ?? []) PARENT_TAB.set(page, tab.section);
+  }
+}
+for (const app of APPLICATIONS) {
+  for (const tab of app.tabs) {
+    for (const section of [tab.section, ...(tab.pages ?? [])]) {
+      GROUP_BY_SECTION.set(section, APPLICATIONS_GROUP);
+      APP_BY_SECTION.set(section, app);
+    }
+    for (const page of tab.pages ?? []) PARENT_TAB.set(page, tab.section);
+  }
+}
 
-/** The tab a page sits under (Tags → Organization), or null for a tab itself. */
-export function parentTab(section: ControlSection): ControlSection | null {
-  return PARENT_TAB.get(section) ?? null;
+function isAppKey(value: string | null | undefined): value is AppKey {
+  return APPLICATIONS.some((app) => app.key === value);
+}
+
+/** Where a section sits — given the ?from= it was opened with, for a shared page. */
+export interface ControlPlace {
+  /** Null for the Dashboard, which is in no group. */
+  group: ControlGroupDef | null;
+  /** The workspace it is in, if any. */
+  app: ApplicationDef | null;
+  /** The tab to show selected: the section's own, or the one it is a page of. */
+  selected: ControlSection;
+  /** The tab it is a page of, or null for a tab itself. */
+  parent: ControlSection | null;
+}
+
+export function placeOf(section: ControlSection, from?: string | null): ControlPlace {
+  const shared = SHARED_PAGE_PARENTS[section];
+  if (shared && isAppKey(from)) {
+    const parent = shared[from];
+    const app = APPLICATIONS.find((candidate) => candidate.key === from)!;
+    if (parent) return { group: APPLICATIONS_GROUP, app, selected: parent, parent };
+  }
+  const parent = PARENT_TAB.get(section) ?? null;
+  return {
+    group: GROUP_BY_SECTION.get(section) ?? null,
+    app: APP_BY_SECTION.get(section) ?? null,
+    selected: parent ?? section,
+    parent
+  };
+}
+
+/** The ?from= of the current address — read where a shared page is drawn. */
+export function currentFrom(): string | null {
+  return new URLSearchParams(window.location.search).get("from");
+}
+
+/** The tab a page sits under (Storage contents → Storage), or null for a tab. */
+export function parentTab(section: ControlSection, from?: string | null): ControlSection | null {
+  return placeOf(section, from).parent;
 }
 
 /** The tab to show selected: the section's own, or the one it is a page of. */
-export function selectedTab(section: ControlSection): ControlSection {
-  return PARENT_TAB.get(section) ?? section;
+export function selectedTab(section: ControlSection, from?: string | null): ControlSection {
+  return placeOf(section, from).selected;
 }
 
-export function groupForSection(section: ControlSection): ControlGroupDef {
-  // Every section is on exactly one tab, so the lookup can't miss; Overview is
-  // the safe landing spot if a future section is ever added without a tab.
-  return GROUP_BY_SECTION.get(section) ?? CONTROL_GROUPS[0];
+export function groupForSection(section: ControlSection): ControlGroupDef | null {
+  return GROUP_BY_SECTION.get(section) ?? null;
+}
+
+/** The workspace's tab row, or the group's: what ControlTabs draws. */
+export function tabRowFor(place: ControlPlace): ControlTabDef[] {
+  return place.app?.tabs ?? place.group?.tabs ?? [];
 }
 
 /** The displayed word for a nav group. Called at render/build time (never cached
@@ -201,9 +302,29 @@ export function groupLabel(key: GroupKey): string {
   return i18n.t(`control:nav.groups.${key}`);
 }
 
+/** An application's name. */
+export function appLabel(key: AppKey | "games"): string {
+  return i18n.t(`control:nav.apps.${key}`);
+}
+
+/** One line on what an application is, for the directory. */
+export function appDescription(key: AppKey | "games"): string {
+  return i18n.t(`control:nav.appDescriptions.${key}`);
+}
+
+/** A workspace tab's word. */
+export function kindLabel(kind: WorkspaceTabKind): string {
+  return i18n.t(`control:nav.workspace.${kind}`);
+}
+
 /** The displayed word for a tab — also the page's own <h1>. */
 export function tabLabel(section: ControlSection): string {
   return i18n.t(`control:nav.tabs.${section}`);
+}
+
+/** What a tab reads as in its row: its kind in a workspace, else its own name. */
+export function rowLabel(tab: ControlTabDef): string {
+  return tab.kind ? kindLabel(tab.kind) : tabLabel(tab.section);
 }
 
 /** The page's own name — its <h1>. The eyebrow above carries the rest of the path. */
@@ -211,12 +332,21 @@ export function sectionTitle(section: ControlSection): string {
   return tabLabel(section);
 }
 
-/** Where the page sits: its group's name, and for a page under a tab that tab's too
- *  ("Library · Organization"). */
-export function sectionEyebrow(section: ControlSection): string {
-  const group = groupLabel(groupForSection(section).key);
-  const parent = parentTab(section);
-  return parent ? `${group} · ${tabLabel(parent)}` : group;
+/** Where the page sits: "System Settings · Storage", "Applications · Gallery ·
+ *  Organize", or the panel's own name for the Dashboard. */
+export function sectionEyebrow(section: ControlSection, from?: string | null): string {
+  const place = placeOf(section, from);
+  if (!place.group) return i18n.t("control:nav.aria");
+  const parts = [groupLabel(place.group.key)];
+  if (place.app) parts.push(appLabel(place.app.key));
+  // A page under a tab names that tab, as its row reads ("… · Organize"); a tab
+  // itself is selected in the row right above, so its eyebrow stops at the group
+  // or the application.
+  if (place.parent) {
+    const parentDef = tabRowFor(place).find((tab) => tab.section === place.parent);
+    parts.push(parentDef ? rowLabel(parentDef) : tabLabel(place.parent));
+  }
+  return parts.join(" · ");
 }
 
 export function sectionHref(section: ControlSection): string {

@@ -3171,3 +3171,11 @@ tr.control-anchor-flash > td {
   margin-top: 14px;
   font-size: var(--text-sm);
 }
+
+/* Control panel v2's group names ("Libraries & Scanning", "Security & Members")
+   are longer than the sidebar's 238px allows on one line: let them wrap rather
+   than cut off with an ellipsis, which hid half of what the group is. */
+.home-control-group > .home-nav-link span {
+  white-space: normal;
+  line-height: 1.2;
+}

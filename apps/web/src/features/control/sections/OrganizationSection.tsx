@@ -1,40 +1,55 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Drama, Eraser, RefreshCw, Shapes, Tag, Tags } from "lucide-react";
+import { ArrowRight, Copy, Eraser, ImageOff, RefreshCw, Shapes, Tag, Tags } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, followRoute, type ControlSection } from "../../../router";
+import { controlHrefFrom, followRoute, type ControlSection } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatNumber } from "../../../shared/dates";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { isRunning, useAppsStatus } from "./AppsSection";
+import { appLabel } from "../nav";
 
-// Library › Organization (4.73): how content is labelled and grouped. Book
-// categories, Tags and Video genres used to be three Library tabs that read as
-// equals of Libraries and Storage, though each applies to only some content. Here
-// each is a card that says what it applies to, shows its live numbers and offers
-// the action people most often come for; its editor is a page under this tab
-// (nav.ts `pages`), reached from the card, from search, or from a library's
-// Manage page.
+// An application's Organize tab (control panel v2, docs/control-panel-v2-plan.md):
+// its organization and cleanup tools as described destinations — never another
+// row of tabs. Each card says what it applies to, shows its live numbers and
+// offers the action people most often come for; its editor is a page under this
+// tab (nav.ts `pages`) or, for a shared one (Tags, Book categories), the one
+// shared editor opened with ?from=<app>. Library › Organization (4.73) held the
+// shared editors before the workspaces did. Tools go here only when they exist.
 
 interface CategoryRow { id: string; bookCount: number }
 interface TagRow { id: string; libraryItemCount: number; otherCount: number }
-interface GenresOverview { genres: unknown[]; words: { state: string }[] }
 
-export function OrganizationSection() {
+type OrganizeApp = "gallery" | "ebooks" | "audiobooks";
+const ORGANIZE_SECTION: Record<OrganizeApp, ControlSection> = {
+  gallery: "galleryOrganize",
+  ebooks: "ebooksOrganize",
+  audiobooks: "audiobooksOrganize"
+};
+
+export function AppOrganizeSection({ app }: { app: OrganizeApp }) {
   const { t } = useTranslation(["common", "control"]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   return (
     <>
-      <ControlSectionHead section="organization" icon={<Tags size={30} />} description={t("control:organization.description")} />
+      <ControlSectionHead section={ORGANIZE_SECTION[app]} icon={<Tags size={30} />} description={t("control:organization.appDescription", { app: appLabel(app) })} />
       {error && <MessageBox tone="error" title={t("control:organization.errorTitle")}>{error}</MessageBox>}
       {notice && <MessageBox tone="success" title={t("control:organization.doneTitle")}>{notice}</MessageBox>}
       <div className="organization-grid">
-        <CategoriesCard onError={setError} onNotice={setNotice} />
-        <TagsCard onError={setError} onNotice={setNotice} />
-        <GenresCard />
+        {app === "gallery" ? (
+          <>
+            <TagsCard from={app} onError={setError} onNotice={setNotice} />
+            <ToolCard editor="duplicateCleanup" icon={<Copy size={20} />} body={t("control:organization.duplicatesBody")} editorLabel={t("control:organization.openDuplicates")} />
+            <ToolCard editor="missingPhotos" icon={<ImageOff size={20} />} body={t("control:organization.missingBody")} editorLabel={t("control:organization.openMissing")} />
+          </>
+        ) : (
+          <>
+            <CategoriesCard from={app} onError={setError} onNotice={setNotice} />
+            <TagsCard from={app} onError={setError} onNotice={setNotice} />
+          </>
+        )}
       </div>
       <p className="organization-footnote muted">{t("control:organization.sharedNote")}</p>
     </>
@@ -42,6 +57,8 @@ export function OrganizationSection() {
 }
 
 interface CardProps {
+  /** The workspace the shared editor is opened from. */
+  from: OrganizeApp;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
 }
@@ -53,20 +70,23 @@ function OrganizationCard({
   appliesTo,
   stats,
   editor,
+  from,
   editorLabel,
   extra
 }: {
   icon: ReactNode;
   title: string;
   body: string;
-  appliesTo: string;
-  stats: ReactNode;
+  appliesTo?: string;
+  stats?: ReactNode;
   editor: ControlSection;
+  /** For a shared editor: the workspace it is opened from (?from=). */
+  from?: OrganizeApp;
   editorLabel: string;
   extra?: ReactNode;
 }) {
   const { t } = useTranslation(["control"]);
-  const href = controlHref(editor);
+  const href = controlHrefFrom(editor, from);
   return (
     <section className="organization-card">
       <div className="organization-card-top">
@@ -76,11 +96,13 @@ function OrganizationCard({
           <p>{body}</p>
         </div>
       </div>
-      <div className="organization-applies">
-        <small>{t("control:organization.appliesTo")}</small>
-        {appliesTo}
-      </div>
-      <div className="organization-stats">{stats}</div>
+      {appliesTo && (
+        <div className="organization-applies">
+          <small>{t("control:organization.appliesTo")}</small>
+          {appliesTo}
+        </div>
+      )}
+      {stats && <div className="organization-stats">{stats}</div>}
       <div className="organization-actions">
         <a className="secondary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
           {editorLabel}
@@ -92,7 +114,7 @@ function OrganizationCard({
   );
 }
 
-function CategoriesCard({ onError, onNotice }: CardProps) {
+function CategoriesCard({ from, onError, onNotice }: CardProps) {
   const { t } = useTranslation(["common", "control"]);
   const [rows, setRows] = useState<CategoryRow[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -132,6 +154,7 @@ function CategoriesCard({ onError, onNotice }: CardProps) {
         </>
       )}
       editor="categories"
+      from={from}
       editorLabel={t("control:organization.manageCategories")}
       extra={
         <Button variant="text" compact disabled={busy} onClick={() => void rematch()}>
@@ -143,7 +166,7 @@ function CategoriesCard({ onError, onNotice }: CardProps) {
   );
 }
 
-function TagsCard({ onError, onNotice }: CardProps) {
+function TagsCard({ from, onError, onNotice }: CardProps) {
   const { t } = useTranslation(["common", "control"]);
   const [rows, setRows] = useState<TagRow[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -187,6 +210,7 @@ function TagsCard({ onError, onNotice }: CardProps) {
         </>
       )}
       editor="tags"
+      from={from}
       editorLabel={t("control:organization.manageTags")}
       extra={unused > 0 && (
         <Button variant="text" compact disabled={busy} onClick={() => void prune()}>
@@ -198,43 +222,9 @@ function TagsCard({ onError, onNotice }: CardProps) {
   );
 }
 
-function GenresCard() {
-  const { t } = useTranslation(["common", "control"]);
-  const { apps } = useAppsStatus();
-  const video = apps?.find((app) => app.id === "video") ?? null;
-  const running = video ? isRunning(video) : false;
-  const [overview, setOverview] = useState<GenresOverview | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    if (!video || !running) return;
-    api<GenresOverview>(`${video.prefix}/api/admin/genres`)
-      .then((payload) => { setOverview(payload); setFailed(false); })
-      .catch(() => setFailed(true));
-  }, [video, running]);
-
-  const unsorted = overview?.words.filter((word) => word.state === "unsorted").length ?? 0;
-  let stats: ReactNode;
-  if (!apps) stats = <span>{t("control:ui.loading")}</span>;
-  else if (!video?.configured) stats = <span>{t("control:organization.videoNotSetUp")}</span>;
-  else if (!running || failed) stats = <span className="is-warning">{t("control:organization.videoDown")}</span>;
-  else if (!overview) stats = <span>{t("control:ui.loading")}</span>;
-  else stats = (
-    <>
-      <span>{t("control:organization.genreCount", { count: overview.genres.length, formatted: formatNumber(overview.genres.length) })}</span>
-      {unsorted > 0 && <span className="is-warning">{t("control:organization.unsortedWords", { count: unsorted })}</span>}
-    </>
-  );
-
-  return (
-    <OrganizationCard
-      icon={<Drama size={20} />}
-      title={t("control:nav.tabs.genres")}
-      body={t("control:organization.genresBody")}
-      appliesTo={t("control:organization.genresAppliesTo")}
-      stats={stats}
-      editor="genres"
-      editorLabel={t("control:organization.manageGenres")}
-    />
-  );
+// A tool that is a page of this tab (Duplicate cleanup, Missing photos): its own
+// name, what it does, and the way in.
+function ToolCard({ editor, icon, body, editorLabel }: { editor: ControlSection; icon: ReactNode; body: string; editorLabel: string }) {
+  const { t } = useTranslation(["control"]);
+  return <OrganizationCard icon={icon} title={t(`control:nav.tabs.${editor as "duplicateCleanup" | "missingPhotos"}`)} body={body} editor={editor} editorLabel={editorLabel} />;
 }
