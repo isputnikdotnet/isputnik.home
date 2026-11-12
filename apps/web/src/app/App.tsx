@@ -84,7 +84,7 @@ type Theme = PublicUser["theme"];
 const DEFAULT_THEME_KEY = "isputnik-default-theme";
 
 function cachedDefaultTheme(): Theme {
-  try { return (localStorage.getItem(DEFAULT_THEME_KEY) as Theme | null) ?? "minimalist"; } catch { return "minimalist"; }
+  try { return (localStorage.getItem(DEFAULT_THEME_KEY) as Theme | null) ?? "orbit"; } catch { return "orbit"; }
 }
 
 interface SessionState {
@@ -132,7 +132,7 @@ async function checkSession(): Promise<SessionCheck> {
       passkeysAvailable?: boolean;
       deviceLinkAvailable?: boolean;
     };
-    const defaultTheme = setup.defaultTheme ?? "minimalist";
+    const defaultTheme = setup.defaultTheme ?? "orbit";
     const passkeysAvailable = Boolean(setup.passkeysAvailable);
     const deviceLinkAvailable = Boolean(setup.deviceLinkAvailable);
     // Which sections the household uses rides on this call (core/sections.ts), so

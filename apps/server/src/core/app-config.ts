@@ -15,11 +15,11 @@ const configSchema = z.object({
 }).refine((data) => data.defaultTheme !== undefined || data.sections !== undefined, { message: "Nothing to save" });
 
 /** App-wide default theme used for the sign-in screen and new accounts.
-    Until an admin picks one, the site defaults to Minimalist. */
+    Until an admin picks one, the site defaults to Orbit, the iSputnik theme. */
 export function getDefaultTheme(): ThemePreference {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(DEFAULT_THEME_KEY) as Pick<AppSettingRow, "value"> | undefined;
   const value = row?.value ?? "";
-  return (THEME_PREFERENCES as readonly string[]).includes(value) ? (value as ThemePreference) : "minimalist";
+  return (THEME_PREFERENCES as readonly string[]).includes(value) ? (value as ThemePreference) : "orbit";
 }
 
 export async function appConfigPlugin(app: FastifyInstance) {

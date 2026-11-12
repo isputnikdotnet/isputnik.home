@@ -382,7 +382,8 @@
       "replaceTitle": "Replace the secret for {{app}}?",
       "replaceBody": "The current secret stops working at once: members cannot use {{app}} until {{variable}} on its container is set to the new one and it restarts. Its data is not affected.",
       "forgetTitle": "Forget the secret for {{app}}?",
-      "forgetBody": "{{app}} stays off for everyone until it is paired again or a secret is set in the environment. Its data is not affected."
+      "forgetBody": "{{app}} stays off for everyone until it is paired again or a secret is set in the environment. Its data is not affected.",
+      "testing": "Testing…"
     },
     "detection": {
       "title": "Intros, recaps and credits",
@@ -419,7 +420,25 @@
       "notAnswering": "These settings are kept in the video engine, and it isn't answering right now.",
       "notSetUp": "Video isn't set up yet. Pair it with this server first.",
       "openDashboard": "See how it stands",
-      "openSetup": "Open Infrastructure › Services"
+      "openSetup": "Open Infrastructure › Services",
+      "groupPlayback": "Playback",
+      "groupLibrary": "Catalogue",
+      "groupDownloads": "Downloads",
+      "groupLimits": "Limits",
+      "conversionGpu": "On the GPU",
+      "conversionCpu": "On the CPU",
+      "conversionNone": "Not available",
+      "atOnce": "up to {{limit}} at once",
+      "watching": "{{now}} watching",
+      "remoteQualityNote": "The most someone watching from outside your network gets; they can pick less in the player. At home everyone gets the file as it is.",
+      "metadataSub": "Fetched from TMDB with a key",
+      "tmdbSet": "Key set",
+      "tmdbNone": "No key",
+      "copiesSub": "Smaller copies made for phones and tablets",
+      "copiesValue": "{{used}} of {{limit}}",
+      "detectionOff": "Off",
+      "detectionWorking": "Looking at {{title}}",
+      "detectionIdle": "On · nothing waiting"
     },
     "copies": {
       "title": "Copies for download",
@@ -1868,7 +1887,9 @@
     "deleteFailed": "Unable to delete this import.",
     "doneTitle": "Done",
     "deleted_one": "Deleted {{count}} quote.",
-    "deleted_other": "Deleted {{count}} quotes."
+    "deleted_other": "Deleted {{count}} quotes.",
+    "quotesRow": "Quotes",
+    "gone": "This import is no longer there."
   },
   "videoStreaming": {
     "headDescription": "Videos that are slow to start, because their index sits at the end of the file. They still play, but a big one takes a moment, longer over the internet or on a phone. Optimising moves the index to the front: the picture and sound are copied untouched, so nothing loses quality. A video that can't be rewritten says why.",

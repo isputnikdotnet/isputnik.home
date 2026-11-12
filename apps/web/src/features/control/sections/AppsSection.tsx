@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Check, Copy, KeyRound, Link2Off, Save, ShieldCheck } from "lucide-react";
+import { Check, Copy, KeyRound, Link2Off, Plug, ShieldCheck } from "lucide-react";
 import { api } from "../../../api";
 import { followRoute, queryParam, replaceQuery } from "../../../router";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessCandidate, type AccessRole } from "../../../shared/AccessControl";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
-import { Field } from "../../../shared/Field";
+import { ActionRow, FieldRow, GroupedList, InfoRow, InputRow, PickerRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectField } from "../../../shared/SelectField";
-import { ToggleSwitch } from "../../../shared/ToggleSwitch";
-import { formatBytes, formatManagedDate } from "../../../shared/utils";
+import { formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { backupHref } from "../links";
 
@@ -300,574 +299,6 @@ export function GuestLinks() {
   );
 }
 
-/** GET/PUT /video/api/admin/conversion: the engine's limits on converting video
- *  while someone watches, and who is converting now (isputnik.video hls.ts). */
-interface ConversionSettings {
-  memoryPerViewerMb: number;
-  maxViewers: number;
-  whenFull: "disk" | "wait";
-  /** Engine 0.20+: where a picture is re-encoded (isputnik.video hardware.ts). */
-  hardware?: HardwareMode;
-  /** Engine 0.31+: the most a viewer on the internet gets, and their default
-   *  (docs/video-quality-plan.md); null is the file as it is. */
-  remoteQuality?: 1080 | 720 | 480 | null;
-}
-
-type HardwareMode = "auto" | "cpu" | "gpu";
-/** The quality setting as the form holds it. */
-type RemoteQuality = "original" | "1080" | "720" | "480";
-const REMOTE_QUALITIES: RemoteQuality[] = ["original", "1080", "720", "480"];
-
-/** What the engine found the GPU does (engine 0.20+). */
-interface HardwareState {
-  mode: HardwareMode;
-  device: string | null;
-  driver: string | null;
-  encode: boolean;
-  decode: string[];
-  /** Engine 0.25+: HDR tone-mapped on the GPU, and subtitles drawn there. */
-  tonemap?: boolean;
-  overlay?: boolean;
-  error: string | null;
-  checking: boolean;
-  /** Automatic gave up on the GPU after failures, until Check again. */
-  setAside: boolean;
-}
-
-interface ConversionState {
-  available: boolean;
-  settings: ConversionSettings;
-  usage: {
-    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; hdr?: boolean; rung?: number | null; converting: boolean; memoryBytes: number; diskBytes: number }[];
-    memoryBytes: number;
-    diskBytes: number;
-  };
-  hardware?: HardwareState | null;
-}
-
-/** The decode test's codec names as people know them; not words to translate. */
-const CODEC_NAMES: Record<string, string> = {
-  h264: "H.264", hevc: "HEVC", hevc10: "HEVC 10-bit", vp9: "VP9", vp9_10: "VP9 10-bit", av1: "AV1", mpeg2video: "MPEG-2", vc1: "VC-1"
-};
-
-/** What the GPU does here, in a line: found and used, set aside, or not there. */
-function HardwareStatus({ hardware, checking, onCheck }: { hardware: HardwareState; checking: boolean; onCheck: () => void }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const action = (
-    <Button variant="secondary" disabled={checking || hardware.checking} onClick={onCheck}>
-      {checking || hardware.checking ? t("controlAdmin:apps.conversion.checking") : t("controlAdmin:apps.conversion.checkAgain")}
-    </Button>
-  );
-  if (hardware.mode === "cpu") {
-    return <MessageBox tone="info" title={t("controlAdmin:apps.conversion.gpuOffTitle")} action={action}>{t("controlAdmin:apps.conversion.gpuOffBody")}</MessageBox>;
-  }
-  if (hardware.checking && !hardware.encode && !hardware.error) {
-    return <MessageBox tone="info" title={t("controlAdmin:apps.conversion.checking")}>{t("controlAdmin:apps.conversion.gpuCheckingBody")}</MessageBox>;
-  }
-  if (!hardware.encode) {
-    return (
-      <MessageBox tone={hardware.mode === "gpu" ? "warning" : "info"} title={t("controlAdmin:apps.conversion.gpuNoneTitle")} action={action}>
-        {hardware.error ?? t("controlAdmin:apps.conversion.gpuNoneBody")}
-      </MessageBox>
-    );
-  }
-  const codecs = hardware.decode.map((codec) => CODEC_NAMES[codec] ?? codec).join(", ");
-  const where = [hardware.device, hardware.driver].filter(Boolean).join(" · ");
-  if (hardware.setAside) {
-    return <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.gpuSetAsideTitle")} action={action}>{t("controlAdmin:apps.conversion.gpuSetAsideBody", { where })}</MessageBox>;
-  }
-  return (
-    <MessageBox tone="success" title={t("controlAdmin:apps.conversion.gpuFoundTitle")} action={action}>
-      {where}
-      <br />
-      {codecs ? t("controlAdmin:apps.conversion.gpuDecodes", { codecs }) : t("controlAdmin:apps.conversion.gpuDecodesNone")}
-      {/* An engine before 0.25 says nothing of either: no line. */}
-      {hardware.tonemap !== undefined && (
-        <>
-          <br />
-          {hardware.tonemap ? t("controlAdmin:apps.conversion.gpuTonemap") : t("controlAdmin:apps.conversion.gpuTonemapCpu")}
-        </>
-      )}
-      {hardware.overlay !== undefined && (
-        <>
-          <br />
-          {hardware.overlay ? t("controlAdmin:apps.conversion.gpuOverlay") : t("controlAdmin:apps.conversion.gpuOverlayCpu")}
-        </>
-      )}
-    </MessageBox>
-  );
-}
-
-// Films a browser can't play as they are get converted as they play. Each
-// viewer's segments are kept in the engine's memory up to a share set here, then
-// on the disk (or the conversion waits); only so many people convert at once,
-// the next is told to try later. Saved in the engine, read through the gateway.
-export function VideoConversion({ prefix }: { prefix: string }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const [state, setState] = useState<ConversionState | null>(null);
-  const [form, setForm] = useState<{ memory: string; viewers: string; whenFull: ConversionSettings["whenFull"]; hardware: HardwareMode | null; remoteQuality: RemoteQuality | null } | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [error, setError] = useState("");
-  const [saveError, setSaveError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const url = `${prefix}/api/admin/conversion`;
-
-  const load = useCallback(
-    () =>
-      api<ConversionState>(url)
-        .then((payload) => { setState(payload); setError(""); return payload; })
-        .catch((err: unknown) => { setError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.loadFailed")); throw err; }),
-    [t, url]
-  );
-
-  useEffect(() => {
-    load()
-      .then((payload) => setForm({
-        memory: String(payload.settings.memoryPerViewerMb),
-        viewers: String(payload.settings.maxViewers),
-        whenFull: payload.settings.whenFull,
-        // An engine from before 0.20 has no GPU setting: none is offered.
-        hardware: payload.settings.hardware ?? null,
-        // …and one from before 0.31 no quality away from home.
-        remoteQuality: payload.settings.remoteQuality === undefined ? null : payload.settings.remoteQuality === null ? "original" : String(payload.settings.remoteQuality) as RemoteQuality
-      }))
-      .catch(() => undefined);
-  }, [load]);
-
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!form) return;
-    setSaving(true);
-    setSaved(false);
-    setSaveError("");
-    try {
-      const body: ConversionSettings = {
-        memoryPerViewerMb: Number(form.memory), maxViewers: Number(form.viewers), whenFull: form.whenFull,
-        ...(form.hardware ? { hardware: form.hardware } : {}),
-        ...(form.remoteQuality ? { remoteQuality: form.remoteQuality === "original" ? null : Number(form.remoteQuality) as 1080 | 720 | 480 } : {})
-      };
-      setState(await api<ConversionState>(url, { method: "PUT", body: JSON.stringify(body) }));
-      setSaved(true);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.saveFailed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Check again: the engine tries the GPU afresh (and forgets its failures).
-  const check = async () => {
-    setChecking(true);
-    try {
-      setState(await api<ConversionState>(`${url}/check`, { method: "POST" }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.loadFailed"));
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const memoryMb = form ? Number(form.memory) : 0;
-  const viewers = form ? Number(form.viewers) : 0;
-  const usage = state?.usage;
-
-  return (
-    <section className="config-block" id="video-conversion">
-      <h3>{t("controlAdmin:apps.conversion.title")}</h3>
-      <p className="muted">{t("controlAdmin:apps.conversion.intro")}</p>
-
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.conversion.loadFailed")}>{error}</MessageBox>}
-      {state && !state.available && (
-        <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
-      )}
-
-      {state?.hardware && <HardwareStatus hardware={state.hardware} checking={checking} onCheck={() => void check()} />}
-
-      {usage && (
-        <>
-          <dl className="games-status" aria-label={t("controlAdmin:apps.conversion.nowLabel")}>
-            <div>
-              <dt>{t("controlAdmin:apps.conversion.watching")}</dt>
-              <dd>{t("controlAdmin:apps.conversion.watchingValue", { now: usage.viewers.length, limit: state.settings.maxViewers })}</dd>
-            </div>
-            <div>
-              <dt>{t("controlAdmin:apps.conversion.inMemory")}</dt>
-              <dd>{formatBytes(usage.memoryBytes)}</dd>
-            </div>
-            <div>
-              <dt>{t("controlAdmin:apps.conversion.onDisk")}</dt>
-              <dd>{formatBytes(usage.diskBytes)}</dd>
-            </div>
-          </dl>
-          {usage.viewers.length > 0 && (
-            <div className="datagrid-wrap games-events-wrap">
-              <table className="datagrid games-events-table video-conversion-table">
-                <thead>
-                  <tr>
-                    <th>{t("controlAdmin:apps.conversion.colWho")}</th>
-                    <th>{t("controlAdmin:apps.conversion.colWhat")}</th>
-                    <th>{t("controlAdmin:apps.conversion.colHow")}</th>
-                    <th>{t("controlAdmin:apps.conversion.inMemory")}</th>
-                    <th>{t("controlAdmin:apps.conversion.onDisk")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usage.viewers.map((viewer, index) => (
-                    <tr key={`${viewer.user}-${index}`}>
-                      <td>{viewer.user}</td>
-                      <td>{viewer.title}</td>
-                      <td className="datagrid-muted">
-                        {viewer.mode === "transcode" ? t("controlAdmin:apps.conversion.modeTranscode") : t("controlAdmin:apps.conversion.modeRemux")}
-                        {viewer.converter && ` · ${viewer.converter === "gpu" ? t("controlAdmin:apps.conversion.onGpu") : t("controlAdmin:apps.conversion.onCpu")}`}
-                        {viewer.hdr && ` · ${t("controlAdmin:apps.conversion.hdr")}`}
-                        {viewer.rung && ` · ${t("controlAdmin:apps.conversion.rung", { height: viewer.rung })}`}
-                        {!viewer.converting && ` · ${t("controlAdmin:apps.conversion.paused")}`}
-                      </td>
-                      <td>{formatBytes(viewer.memoryBytes)}</td>
-                      <td>{formatBytes(viewer.diskBytes)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="games-events-tools">
-            <RefreshButton onRefresh={() => load().then(() => undefined)} label={t("controlAdmin:games.refresh")} compact={false} />
-          </div>
-        </>
-      )}
-
-      {form && (
-        <form className="security-policy-form" onSubmit={(event) => void save(event)}>
-          {form.hardware && (
-            <div className="security-setting-row">
-              <span className="security-setting-copy">
-                <span className="security-setting-label">{t("controlAdmin:apps.conversion.hardwareLabel")}</span>
-                <span className="security-setting-help">{t("controlAdmin:apps.conversion.hardwareHelp")}</span>
-              </span>
-              <SelectField<HardwareMode>
-                label={t("controlAdmin:apps.conversion.hardwareLabel")}
-                hideLabel
-                value={form.hardware}
-                options={[
-                  { value: "auto", label: t("controlAdmin:apps.conversion.hardwareAuto") },
-                  { value: "cpu", label: t("controlAdmin:apps.conversion.hardwareCpu") },
-                  { value: "gpu", label: t("controlAdmin:apps.conversion.hardwareGpu") }
-                ]}
-                onChange={(value) => setForm({ ...form, hardware: value })}
-              />
-            </div>
-          )}
-          {form.remoteQuality && (
-            <div className="security-setting-row">
-              <span className="security-setting-copy">
-                <span className="security-setting-label">{t("controlAdmin:apps.conversion.remoteQualityLabel")}</span>
-                <span className="security-setting-help">{t("controlAdmin:apps.conversion.remoteQualityHelp")}</span>
-              </span>
-              <SelectField<RemoteQuality>
-                label={t("controlAdmin:apps.conversion.remoteQualityLabel")}
-                hideLabel
-                value={form.remoteQuality}
-                options={REMOTE_QUALITIES.map((value) => ({
-                  value,
-                  label: value === "original" ? t("controlAdmin:apps.conversion.qualityOriginal") : t("controlAdmin:apps.conversion.qualityUpTo", { height: Number(value) })
-                }))}
-                onChange={(value) => setForm({ ...form, remoteQuality: value })}
-              />
-            </div>
-          )}
-          <label className="security-setting-row">
-            <span className="security-setting-copy">
-              <span className="security-setting-label">{t("controlAdmin:apps.conversion.viewersLabel")}</span>
-              <span className="security-setting-help">{t("controlAdmin:apps.conversion.viewersHelp")}</span>
-            </span>
-            <input type="number" min={1} max={50} required value={form.viewers} onChange={(event) => setForm({ ...form, viewers: event.target.value })} />
-          </label>
-          <label className="security-setting-row">
-            <span className="security-setting-copy">
-              <span className="security-setting-label">{t("controlAdmin:apps.conversion.memoryLabel")}</span>
-              <span className="security-setting-help">{t("controlAdmin:apps.conversion.memoryHelp")}</span>
-            </span>
-            <input type="number" min={0} max={16384} step={50} required value={form.memory} onChange={(event) => setForm({ ...form, memory: event.target.value })} />
-          </label>
-          <div className="security-setting-row">
-            <span className="security-setting-copy">
-              <span className="security-setting-label">{t("controlAdmin:apps.conversion.whenFullLabel")}</span>
-              <span className="security-setting-help">{t("controlAdmin:apps.conversion.whenFullHelp")}</span>
-            </span>
-            <SelectField
-              label={t("controlAdmin:apps.conversion.whenFullLabel")}
-              hideLabel
-              value={form.whenFull}
-              disabled={memoryMb === 0}
-              options={[
-                { value: "disk", label: t("controlAdmin:apps.conversion.whenFullDisk") },
-                { value: "wait", label: t("controlAdmin:apps.conversion.whenFullWait") }
-              ]}
-              onChange={(value) => setForm({ ...form, whenFull: value })}
-            />
-          </div>
-          <p className="muted">
-            {memoryMb === 0
-              ? t("controlAdmin:apps.conversion.totalDiskOnly")
-              : t("controlAdmin:apps.conversion.total", { memory: formatBytes(memoryMb * viewers * 1024 * 1024) })}
-          </p>
-          {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
-          {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{t("controlAdmin:apps.conversion.saved")}</MessageBox>}
-          <div className="security-policy-actions">
-            <Button variant="primary" type="submit" disabled={saving}>
-              <Save size={16} aria-hidden="true" />
-              {saving ? t("controlAdmin:ui.saving") : t("controlAdmin:apps.conversion.save")}
-            </Button>
-          </div>
-        </form>
-      )}
-    </section>
-  );
-}
-
-/** GET/PUT /video/api/admin/metadata: whether the engine has a TMDB key (never the key). */
-interface MetadataState {
-  hasKey: boolean;
-  keyHint: string | null;
-}
-
-// Posters and descriptions: art beside the files is always used; with a key from
-// the admin's own TMDB account the engine fetches the rest. The engine checks a
-// key with TMDB before keeping it, and never hands it back.
-export function VideoMetadata({ prefix }: { prefix: string }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const [state, setState] = useState<MetadataState | null>(null);
-  const [key, setKey] = useState("");
-  const [error, setError] = useState("");
-  const [saveError, setSaveError] = useState("");
-  const [busy, setBusy] = useState<"save" | "remove" | null>(null);
-  const [saved, setSaved] = useState("");
-  const url = `${prefix}/api/admin/metadata`;
-
-  useEffect(() => {
-    api<MetadataState>(url)
-      .then((payload) => { setState(payload); setError(""); })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("controlAdmin:apps.metadata.loadFailed")));
-  }, [t, url]);
-
-  const put = async (tmdbKey: string | null) => {
-    setBusy(tmdbKey ? "save" : "remove");
-    setSaved("");
-    setSaveError("");
-    try {
-      setState(await api<MetadataState>(url, { method: "PUT", body: JSON.stringify({ tmdbKey }) }));
-      setKey("");
-      setSaved(tmdbKey ? t("controlAdmin:apps.metadata.savedKey") : t("controlAdmin:apps.metadata.removedKey"));
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.metadata.saveFailed"));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <section className="config-block" id="video-metadata">
-      <h3>{t("controlAdmin:apps.metadata.title")}</h3>
-      <p className="muted">{t("controlAdmin:apps.metadata.intro")}</p>
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.metadata.loadFailed")}>{error}</MessageBox>}
-      {state && (
-        <form className="security-policy-form" onSubmit={(event) => { event.preventDefault(); if (key.trim()) void put(key.trim()); }}>
-          <p>
-            {state.hasKey
-              ? t("controlAdmin:apps.metadata.hasKey", { hint: state.keyHint })
-              : t("controlAdmin:apps.metadata.noKey")}
-          </p>
-          <label className="security-setting-row">
-            <span className="security-setting-copy">
-              <span className="security-setting-label">{state.hasKey ? t("controlAdmin:apps.metadata.replaceLabel") : t("controlAdmin:apps.metadata.keyLabel")}</span>
-              <span className="security-setting-help">
-                <Trans
-                  i18nKey="apps.metadata.keyHelp"
-                  ns="controlAdmin"
-                  components={{ link: <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer noopener" /> }}
-                />
-              </span>
-            </span>
-            <input type="password" autoComplete="off" spellCheck={false} value={key} onChange={(event) => setKey(event.target.value)} />
-          </label>
-          {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
-          {saved && <MessageBox tone="success" title={t("controlAdmin:ui.saved")}>{saved}</MessageBox>}
-          <div className="security-policy-actions">
-            {state.hasKey && (
-              <Button variant="secondary" disabled={busy !== null} onClick={() => void put(null)}>
-                {busy === "remove" ? t("controlAdmin:apps.metadata.removing") : t("controlAdmin:apps.metadata.remove")}
-              </Button>
-            )}
-            <Button variant="primary" type="submit" disabled={busy !== null || !key.trim()}>
-              <KeyRound size={16} aria-hidden="true" />
-              {busy === "save" ? t("controlAdmin:apps.metadata.checking") : t("controlAdmin:apps.metadata.save")}
-            </Button>
-          </div>
-        </form>
-      )}
-    </section>
-  );
-}
-
-interface DetectionState {
-  enabled: boolean;
-  /** false where the engine has no ffmpeg, so nothing can be found. */
-  available: boolean;
-  /** What it is looking at now, "Counterpart · season 2" (engine 0.18.1+); null when idle. */
-  working?: string | null;
-}
-
-/** GET/PUT/DELETE /video/api/admin/copies (engine 0.33+, its copies.ts). */
-interface CopiesState {
-  settings: { limitGb: number };
-  folder: string;
-  usedBytes: number;
-  copies: { itemId: string; quality: number; title: string; state: "queued" | "running" | "ready" | "failed"; sizeBytes: number }[];
-}
-
-// Copies made for download (engine 0.33+): a smaller MP4 of a film, prepared when
-// someone asks to keep it on a phone or tablet, and kept for whoever asks next.
-// Here: how much room they may take together, what they take now, and Clear.
-export function VideoCopies({ prefix }: { prefix: string }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const [state, setState] = useState<CopiesState | null>(null);
-  const [limit, setLimit] = useState("");
-  const [error, setError] = useState("");
-  const [saveError, setSaveError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const url = `${prefix}/api/admin/copies`;
-
-  const took = (payload: CopiesState) => {
-    setState(payload);
-    setLimit(String(payload.settings.limitGb));
-  };
-
-  useEffect(() => {
-    api<CopiesState>(url)
-      .then((payload) => { took(payload); setError(""); })
-      // An engine from before 0.33 makes no copies: no card.
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("controlAdmin:apps.copies.loadFailed")));
-  }, [t, url]);
-
-  const run = async (work: () => Promise<CopiesState>) => {
-    setBusy(true);
-    setSaveError("");
-    try {
-      took(await work());
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.copies.saveFailed"));
-    } finally {
-      setBusy(false);
-      setClearing(false);
-    }
-  };
-
-  if (error || !state) return null;
-  const wanted = Number(limit);
-  const valid = Number.isInteger(wanted) && wanted >= 1 && wanted <= 10_000;
-  const ready = state.copies.filter((copy) => copy.state === "ready").length;
-  const waiting = state.copies.filter((copy) => copy.state === "queued" || copy.state === "running").length;
-  const making = state.copies.find((copy) => copy.state === "running");
-  const save = (event: FormEvent) => {
-    event.preventDefault();
-    if (valid) void run(() => api<CopiesState>(url, { method: "PUT", body: JSON.stringify({ limitGb: wanted }) }));
-  };
-
-  return (
-    <section className="config-block" id="video-copies">
-      <h3>{t("controlAdmin:apps.copies.title")}</h3>
-      <p className="muted">{t("controlAdmin:apps.copies.intro")}</p>
-      <form className="video-copies-limit" onSubmit={save}>
-        <Field label={t("controlAdmin:apps.copies.limitLabel")} type="number" min={1} max={10000} value={limit} onChange={setLimit} />
-        <Button variant="primary" type="submit" disabled={busy || !valid || wanted === state.settings.limitGb}>
-          <Save size={16} aria-hidden="true" />
-          <span>{busy ? t("controlAdmin:apps.copies.saving") : t("controlAdmin:apps.copies.save")}</span>
-        </Button>
-      </form>
-      <p className="muted">
-        {t("controlAdmin:apps.copies.usage", { count: ready, used: formatBytes(state.usedBytes), limit: `${state.settings.limitGb} GB` })}
-        {waiting > 0 && ` ${making ? t("controlAdmin:apps.copies.making", { title: making.title, count: waiting }) : t("controlAdmin:apps.copies.waiting", { count: waiting })}`}
-      </p>
-      <p className="muted">{t("controlAdmin:apps.copies.folder", { folder: state.folder })}</p>
-      {state.copies.length > 0 && (
-        <Button variant="secondary" danger disabled={busy} onClick={() => setClearing(true)}>{t("controlAdmin:apps.copies.clear")}</Button>
-      )}
-      {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
-      {clearing && (
-        <ConfirmDialog
-          title={t("controlAdmin:apps.copies.clearTitle")}
-          confirmLabel={t("controlAdmin:apps.copies.clearConfirm")}
-          busyLabel={t("controlAdmin:apps.copies.clearing")}
-          busy={busy}
-          danger
-          onConfirm={() => void run(() => api<CopiesState>(url, { method: "DELETE" }))}
-          onCancel={() => setClearing(false)}
-        >
-          {t("controlAdmin:apps.copies.clearBody")}
-        </ConfirmDialog>
-      )}
-    </section>
-  );
-}
-
-// Finding intros, recaps and credits by itself (engine 0.18.0+): the engine reads
-// every episode's sound and picture once, after each scan. On unless turned off
-// here; marks set by hand, .edl files and chapters count either way.
-export function VideoDetection({ prefix }: { prefix: string }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const [state, setState] = useState<DetectionState | null>(null);
-  const [error, setError] = useState("");
-  const [saveError, setSaveError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const url = `${prefix}/api/admin/detection`;
-
-  useEffect(() => {
-    api<DetectionState>(url)
-      .then((payload) => { setState(payload); setError(""); })
-      // An engine from before 0.18.0 has no such setting: no card.
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("controlAdmin:apps.detection.loadFailed")));
-  }, [t, url]);
-
-  const change = async (enabled: boolean) => {
-    setBusy(true);
-    setSaveError("");
-    try {
-      setState(await api<DetectionState>(url, { method: "PUT", body: JSON.stringify({ enabled }) }));
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t("controlAdmin:apps.detection.saveFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (error) return null;
-  return (
-    <section className="config-block" id="video-detection">
-      <h3>{t("controlAdmin:apps.detection.title")}</h3>
-      <p className="muted">{t("controlAdmin:apps.detection.intro")}</p>
-      {state && (
-        <>
-          <ToggleSwitch
-            checked={state.enabled && state.available}
-            disabled={busy || !state.available}
-            onChange={(enabled) => void change(enabled)}
-            label={t("controlAdmin:apps.detection.label")}
-          />
-          {!state.available && <MessageBox tone="info" title={t("controlAdmin:apps.detection.unavailableTitle")}>{t("controlAdmin:apps.detection.unavailable")}</MessageBox>}
-          {state.available && !state.enabled && <p className="muted">{t("controlAdmin:apps.detection.offHint")}</p>}
-          {state.available && state.enabled && (
-            <p className="muted">{state.working ? t("controlAdmin:apps.detection.working", { title: state.working }) : t("controlAdmin:apps.detection.idle")}</p>
-          )}
-          {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
-        </>
-      )}
-    </section>
-  );
-}
-
 // ── Access ──────────────────────────────────────────────────────────────────
 
 type AppRuleValue = "anywhere" | "trusted" | "home";
@@ -1074,6 +505,9 @@ export function AppsAccessSection() {
 // where it is (saved here), the secret both sides sign with (made here, shown
 // once), what to set on the container, and a test. An address or a secret in
 // this container's environment wins, and that half of Setup stays off while it is set.
+// Infrastructure › Services › Pairing as grouped rows (control panel v2): which
+// container, where it is and whether it answers, the shared secret, what to set on
+// the container, and a test.
 export function AppsSetupSection() {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const appName = useAppName();
@@ -1164,9 +598,15 @@ export function AppsSetupSection() {
     }
   };
 
-  const test = async () => {
-    await load();
-    setTested(true);
+  const [testing, setTesting] = useState(false);
+  const runTest = async () => {
+    setTesting(true);
+    try {
+      await load();
+      setTested(true);
+    } finally {
+      setTesting(false);
+    }
   };
 
   const dash = "—";
@@ -1183,153 +623,147 @@ export function AppsSetupSection() {
       {appsError && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{appsError}</MessageBox>}
       {!apps && !appsError && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
 
-      {apps && current && apps.length > 1 && (
-        <div className="games-events-tools">
-          <SelectField
-            label={t("controlAdmin:apps.appLabel")}
-            value={current.id}
-            options={apps.map((app) => ({ value: app.id, label: appName(app.id) }))}
-            onChange={choose}
-            compact
-          />
-        </div>
-      )}
+      {apps && current && (
+        <div className="grouped-page">
+          {apps.length > 1 && (
+            <GroupedList>
+              <PickerRow
+                label={t("controlAdmin:apps.appLabel")}
+                value={current.id}
+                options={apps.map((app) => ({ value: app.id, label: appName(app.id) }))}
+                onChange={choose}
+              />
+            </GroupedList>
+          )}
 
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.setup.pairFailed")}>{error}</MessageBox>}
+          {error && <MessageBox tone="error" title={t("controlAdmin:apps.setup.pairFailed")}>{error}</MessageBox>}
 
-      {current && (
-        <>
-          <section className="config-block" id="app-setup-address">
-            <h2>{t("controlAdmin:apps.setup.addressTitle")}</h2>
-            <p className="muted">
+          {/* Where the container is: its address (saved here unless the environment
+              sets it), and whether it answers there. */}
+          <GroupedList
+            id="app-setup-address"
+            title={t("controlAdmin:apps.setup.addressTitle")}
+            note={<>
               {t("controlAdmin:apps.setup.addressIntro")}
               {!current.stateless && (
                 <>
                   {" "}
-                  <a
-                    href={backupHref(current.id)}
-                    onClick={(event) => followRoute(event, backupHref(current.id))}
-                  >
+                  <a href={backupHref(current.id)} onClick={(event) => followRoute(event, backupHref(current.id))}>
                     {t("controlAdmin:apps.setup.backupsLink")}
                   </a>
                 </>
               )}
-            </p>
-
+            </>}
+          >
             {current.urlSource === "environment" ? (
-              <MessageBox tone="info" title={t("controlAdmin:apps.setup.fromEnvironmentTitle")}>
-                <Trans i18nKey="apps.setup.addressFromEnvironmentBody" ns="controlAdmin" values={{ variable: current.variables.url }} components={{ code: <code /> }} />
-              </MessageBox>
+              <InfoRow label={t("controlAdmin:apps.setup.addressLabel")} value={current.url ? <code>{current.url}</code> : t("controlAdmin:apps.setup.addressUnset")} />
             ) : (
-              <form
-                className="app-setup-address"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void saveAddress();
-                }}
-              >
-                <Field
+              <>
+                <InputRow
                   label={t("controlAdmin:apps.setup.addressLabel")}
                   value={address}
                   onChange={setAddress}
                   placeholder={current.exampleUrl}
-                  autoComplete="off"
-                  required={false}
                   disabled={savingAddress}
+                  wide
                 />
-                <Button type="submit" variant="primary" disabled={savingAddress || address.trim() === (current.url ?? "")}>
-                  {savingAddress ? t("controlAdmin:apps.setup.addressSaving") : t("controlAdmin:apps.setup.addressSave")}
-                </Button>
-              </form>
+                <ActionRow
+                  label={savingAddress ? t("controlAdmin:apps.setup.addressSaving") : t("controlAdmin:apps.setup.addressSave")}
+                  disabled={savingAddress || address.trim() === (current.url ?? "")}
+                  onClick={() => void saveAddress()}
+                />
+              </>
             )}
-            {addressError && <MessageBox tone="error" title={t("controlAdmin:apps.setup.addressSaveFailed")}>{addressError}</MessageBox>}
+            <InfoRow
+              icon={<Plug size={17} />}
+              iconTone={!current.server ? "muted" : current.server.ok ? "ok" : "warn"}
+              label={t("controlAdmin:apps.card.container")}
+              value={!current.server
+                ? t("controlAdmin:games.serverNotAsked")
+                : current.server.ok
+                  ? t("controlAdmin:games.serverVersion", { version: current.server.version ?? dash })
+                  : current.server.error ?? t("controlAdmin:games.serverDown")}
+              valueTone={current.server && !current.server.ok ? "warn" : undefined}
+            />
+          </GroupedList>
+          {current.urlSource === "environment" && (
+            <MessageBox tone="info" title={t("controlAdmin:apps.setup.fromEnvironmentTitle")}>
+              <Trans i18nKey="apps.setup.addressFromEnvironmentBody" ns="controlAdmin" values={{ variable: current.variables.url }} components={{ code: <code /> }} />
+            </MessageBox>
+          )}
+          {addressError && <MessageBox tone="error" title={t("controlAdmin:apps.setup.addressSaveFailed")}>{addressError}</MessageBox>}
 
-            <dl className="games-status">
-              <div>
-                <dt>{t("controlAdmin:apps.setup.addressLabel")}</dt>
-                <dd>{current.url ? <code>{current.url}</code> : t("controlAdmin:apps.setup.addressUnset")}</dd>
-              </div>
-              <div>
-                <dt>{t("controlAdmin:apps.card.container")}</dt>
-                <dd>
-                  {!current.server
-                    ? t("controlAdmin:games.serverNotAsked")
-                    : current.server.ok
-                      ? t("controlAdmin:games.serverVersion", { version: current.server.version ?? dash })
-                      : current.server.error ?? t("controlAdmin:games.serverDown")}
-                </dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="config-block" id="app-setup-secret">
-            <h2>{t("controlAdmin:apps.setup.secretTitle")}</h2>
-            <p className="muted">{t("controlAdmin:apps.setup.secretIntro")}</p>
-
+          {/* The shared secret: made here (shown once) unless the environment sets it. */}
+          <GroupedList id="app-setup-secret" title={t("controlAdmin:apps.setup.secretTitle")} note={t("controlAdmin:apps.setup.secretIntro")}>
             {current.secretSource === "environment" && (
-              <MessageBox tone="info" title={t("controlAdmin:apps.setup.fromEnvironmentTitle")}>
-                <Trans i18nKey="apps.setup.fromEnvironmentBody" ns="controlAdmin" values={{ variable: current.variables.secret }} components={{ code: <code /> }} />
-              </MessageBox>
+              <InfoRow icon={<KeyRound size={17} />} iconTone="ok" label={<code>{current.variables.secret}</code>} />
             )}
             {current.secretSource === "paired" && current.pairing && !shown && (
-              <p>{t("controlAdmin:apps.setup.pairedOn", { date: formatManagedDate(current.pairing.pairedAt), name: current.pairing.pairedBy ?? dash })}</p>
+              <InfoRow icon={<KeyRound size={17} />} iconTone="ok" label={t("controlAdmin:apps.setup.pairedOn", { date: formatManagedDate(current.pairing.pairedAt), name: current.pairing.pairedBy ?? dash })} />
             )}
-            {current.secretSource === "none" && !shown && <p>{t("controlAdmin:apps.setup.noSecret")}</p>}
-
+            {current.secretSource === "none" && !shown && (
+              <InfoRow icon={<KeyRound size={17} />} iconTone="warn" label={t("controlAdmin:apps.setup.noSecret")} />
+            )}
             {shown && (
-              <div className="app-secret-once">
-                <p><strong>{t("controlAdmin:apps.setup.shownOnce")}</strong></p>
-                <div className="app-secret-row">
-                  <code className="app-secret-value">{shown}</code>
-                  <Button variant="secondary" onClick={() => void copy(shown)}>
-                    {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
-                    {copied ? t("controlAdmin:games.copied") : t("controlAdmin:games.copy")}
-                  </Button>
+              <FieldRow>
+                <div className="app-secret-once">
+                  <p><strong>{t("controlAdmin:apps.setup.shownOnce")}</strong></p>
+                  <div className="app-secret-row">
+                    <code className="app-secret-value">{shown}</code>
+                    <Button variant="secondary" onClick={() => void copy(shown)}>
+                      {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+                      {copied ? t("controlAdmin:games.copied") : t("controlAdmin:games.copy")}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </FieldRow>
             )}
-
             {current.secretSource !== "environment" && (
-              <div className="mail-actions">
-                <Button
-                  variant="primary"
-                  disabled={busy}
-                  onClick={() => (current.secretSource === "paired" ? setConfirm("replace") : void generate())}
-                >
-                  {busy ? t("controlAdmin:apps.setup.generating") : current.secretSource === "paired" ? t("controlAdmin:apps.setup.replace") : t("controlAdmin:apps.setup.generate")}
-                </Button>
-                {current.secretSource === "paired" && (
-                  <Button variant="danger" disabled={busy} onClick={() => setConfirm("forget")}>{t("controlAdmin:apps.setup.forget")}</Button>
-                )}
-              </div>
+              <ActionRow
+                label={busy ? t("controlAdmin:apps.setup.generating") : current.secretSource === "paired" ? t("controlAdmin:apps.setup.replace") : t("controlAdmin:apps.setup.generate")}
+                disabled={busy}
+                onClick={() => (current.secretSource === "paired" ? setConfirm("replace") : void generate())}
+              />
             )}
-          </section>
-
-          <section className="config-block" id="app-setup-container">
-            <h2>{t("controlAdmin:apps.setup.containerTitle", { app: appName(current.id) })}</h2>
-            <p className="muted">{t("controlAdmin:apps.setup.containerIntro")}</p>
-            <dl className="games-status">
-              <div>
-                <dt><code>{current.variables.container}</code></dt>
-                <dd>{current.secretSource === "environment" ? t("controlAdmin:apps.setup.containerSameAsEnv", { variable: current.variables.secret }) : t("controlAdmin:apps.setup.containerSecret")}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="config-block" id="app-setup-test">
-            <h2>{t("controlAdmin:apps.setup.testTitle")}</h2>
-            <div className="mail-actions">
-              <RefreshButton onRefresh={test} label={t("controlAdmin:apps.setup.test")} compact={false} />
-            </div>
-            {tested && (
-              current.configured && current.server?.ok && current.secretAccepted === true
-                ? <MessageBox tone="success" title={t("controlAdmin:apps.setup.testOkTitle")}>{t("controlAdmin:apps.setup.testOkBody", { app: appName(current.id) })}</MessageBox>
-                : current.configured && current.server?.ok && current.secretAccepted === false
-                  ? <MessageBox tone="error" title={t("controlAdmin:games.refusedTitle")}>{t("controlAdmin:apps.setup.testRefusedBody", { variable: current.variables.container })}</MessageBox>
-                  : <MessageBox tone="warning" title={t("controlAdmin:apps.setup.testFailedTitle")}>{current.reason ?? current.server?.error ?? t("controlAdmin:games.serverDown")}</MessageBox>
+            {current.secretSource === "paired" && (
+              <ActionRow tone="danger" label={t("controlAdmin:apps.setup.forget")} disabled={busy} onClick={() => setConfirm("forget")} />
             )}
-          </section>
-        </>
+          </GroupedList>
+          {current.secretSource === "environment" && (
+            <MessageBox tone="info" title={t("controlAdmin:apps.setup.fromEnvironmentTitle")}>
+              <Trans i18nKey="apps.setup.fromEnvironmentBody" ns="controlAdmin" values={{ variable: current.variables.secret }} components={{ code: <code /> }} />
+            </MessageBox>
+          )}
+
+          {/* What to set on the container itself. */}
+          <GroupedList
+            id="app-setup-container"
+            title={t("controlAdmin:apps.setup.containerTitle", { app: appName(current.id) })}
+            note={t("controlAdmin:apps.setup.containerIntro")}
+          >
+            <InfoRow
+              label={<code>{current.variables.container}</code>}
+              value={current.secretSource === "environment"
+                ? t("controlAdmin:apps.setup.containerSameAsEnv", { variable: current.variables.secret })
+                : t("controlAdmin:apps.setup.containerSecret")}
+            />
+          </GroupedList>
+
+          <GroupedList id="app-setup-test">
+            <ActionRow
+              label={testing ? t("controlAdmin:apps.setup.testing") : t("controlAdmin:apps.setup.test")}
+              disabled={testing}
+              onClick={() => void runTest()}
+            />
+          </GroupedList>
+          {tested && (
+            current.configured && current.server?.ok && current.secretAccepted === true
+              ? <MessageBox tone="success" title={t("controlAdmin:apps.setup.testOkTitle")}>{t("controlAdmin:apps.setup.testOkBody", { app: appName(current.id) })}</MessageBox>
+              : current.configured && current.server?.ok && current.secretAccepted === false
+                ? <MessageBox tone="error" title={t("controlAdmin:games.refusedTitle")}>{t("controlAdmin:apps.setup.testRefusedBody", { variable: current.variables.container })}</MessageBox>
+                : <MessageBox tone="warning" title={t("controlAdmin:apps.setup.testFailedTitle")}>{current.reason ?? current.server?.error ?? t("controlAdmin:games.serverDown")}</MessageBox>
+          )}
+        </div>
       )}
 
       {current && confirm === "replace" && (

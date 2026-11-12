@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Settings → Video → Converting video: what the engine found the GPU does
-// (isputnik.video 0.20+, hardware.ts), Check again, and where to convert.
+// Applications › Videos › Settings: the Converting video page — what the engine found
+// the GPU does (isputnik.video 0.20+, hardware.ts), Check again, where to convert —
+// and the overview, where the quality away from home is chosen. Changes save at once.
 
 vi.mock("../src/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/api")>();
@@ -11,7 +12,7 @@ vi.mock("../src/api", async (importOriginal) => {
 });
 
 const { api } = await import("../src/api");
-const { VideoConversion } = await import("../src/features/control/sections/AppsSection");
+const { VideoSettings } = await import("../src/features/control/sections/VideoSettingsSection");
 const mockApi = vi.mocked(api);
 
 const usage = { viewers: [{ user: "Mum", title: "Loud Film", mode: "transcode", converter: "gpu", converting: true, memoryBytes: 0, diskBytes: 0 }], memoryBytes: 0, diskBytes: 0 };
@@ -28,7 +29,7 @@ beforeEach(() => mockApi.mockReset());
 describe("converting on the GPU", () => {
   it("says what the GPU does and who it converts for", async () => {
     mockApi.mockResolvedValue(state(kabyLake) as never);
-    render(<VideoConversion prefix="/video" />);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
     expect(await screen.findByText("Converting on the GPU")).toBeInTheDocument();
     expect(screen.getByText(/HEVC 10-bit/)).toBeInTheDocument();
     expect(screen.getByText(/\/dev\/dri\/renderD128 · Intel iHD driver 24\.1/)).toBeInTheDocument();
@@ -38,7 +39,7 @@ describe("converting on the GPU", () => {
   it("says whether HDR is tone-mapped and subtitles drawn on the GPU, and marks HDR films (engine 0.25+)", async () => {
     const hdrUsage = { ...usage, viewers: [{ ...usage.viewers[0], title: "Bright Night", hdr: true }] };
     mockApi.mockResolvedValue({ ...state({ ...kabyLake, tonemap: false, overlay: true }), usage: hdrUsage } as never);
-    render(<VideoConversion prefix="/video" />);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
     expect(await screen.findByText(/HDR films are tone-mapped to normal colours on the CPU/)).toBeInTheDocument();
     expect(screen.getByText(/Draws picture subtitles \(Blu-ray, DVD\) on the GPU/)).toBeInTheDocument();
     expect(screen.getByText(/· GPU · HDR/)).toBeInTheDocument();
@@ -51,13 +52,12 @@ describe("converting on the GPU", () => {
       if (options?.method === "POST") return state({ ...kabyLake, encode: false, decode: [], error: "No GPU: /dev/dri is not passed to the container" });
       return state(kabyLake);
     }) as never);
-    render(<VideoConversion prefix="/video" />);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
     await userEvent.click(await screen.findByRole("button", { name: "Check again" }));
     expect(await screen.findByText("No GPU: /dev/dri is not passed to the container")).toBeInTheDocument();
     expect(calls.some((call) => call.method === "POST" && call.path === "/video/api/admin/conversion/check")).toBe(true);
 
     await userEvent.selectOptions(screen.getByLabelText("Where to convert"), "cpu");
-    await userEvent.click(screen.getByRole("button", { name: /Save/ }));
     await waitFor(() => expect(calls.find((call) => call.method === "PUT")).toBeDefined());
     expect(JSON.parse(calls.find((call) => call.method === "PUT")!.body!)).toMatchObject({ hardware: "cpu" });
   });
@@ -69,19 +69,21 @@ describe("converting on the GPU", () => {
       calls.push({ method: options?.method ?? "GET", body: options?.body as string | undefined });
       return { ...state(kabyLake, { remoteQuality: 720 }), usage: rungUsage };
     }) as never);
-    render(<VideoConversion prefix="/video" />);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
     expect(await screen.findByText(/· GPU · 720p/)).toBeInTheDocument();
-    const field = screen.getByLabelText("Quality away from home");
+    cleanup();
+    // The quality is chosen on the overview, and saved as it is chosen.
+    render(<VideoSettings prefix="/video" page={null} go={() => undefined} />);
+    const field = await screen.findByLabelText("Quality away from home");
     expect(field).toHaveValue("720");
     await userEvent.selectOptions(field, "original");
-    await userEvent.click(screen.getByRole("button", { name: /Save/ }));
     await waitFor(() => expect(calls.find((call) => call.method === "PUT")).toBeDefined());
     expect(JSON.parse(calls.find((call) => call.method === "PUT")!.body!)).toMatchObject({ remoteQuality: null });
   });
 
   it("offers no GPU setting to an engine from before it had one", async () => {
     mockApi.mockResolvedValue(state(undefined) as never);
-    render(<VideoConversion prefix="/video" />);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
     expect(await screen.findByLabelText("People watching converted video at once", { exact: false })).toBeInTheDocument();
     expect(screen.queryByLabelText("Where to convert")).toBeNull();
     expect(screen.queryByLabelText("Quality away from home")).toBeNull();

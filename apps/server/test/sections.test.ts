@@ -43,7 +43,7 @@ describe("sections", () => {
     const status = await booted.app.inject({ method: "GET", url: "/api/setup/status" });
     expect(status.json()).toMatchObject({ sections: ALL_SECTIONS_ON });
     const config = await booted.app.inject({ method: "GET", url: "/api/config", headers: { cookie: await booted.signIn("admin") } });
-    expect(config.json()).toMatchObject({ config: { defaultTheme: "minimalist", sections: ALL_SECTIONS_ON } });
+    expect(config.json()).toMatchObject({ config: { defaultTheme: "orbit", sections: ALL_SECTIONS_ON } });
   });
 
   it("are saved by an admin on their own, leaving the default theme alone", async () => {

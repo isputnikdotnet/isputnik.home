@@ -17,10 +17,9 @@ import {
 import { versionLabel } from "../shared/appVersion";
 import { api, type PublicUser } from "../api";
 import { Button } from "../shared/Button";
-import { Field } from "../shared/Field";
+import { ActionRow, GroupedList, InfoRow, InputRow, NavRow, ToggleRow } from "../shared/GroupedList";
 import { MessageBox } from "../shared/MessageBox";
 import { ThemePicker, type Theme } from "../shared/ThemePicker";
-import { ToggleSwitch } from "../shared/ToggleSwitch";
 import { FolderPickerModal } from "../features/control/libraries/FolderPickerModal";
 import { MapFeatures } from "../features/control/sections/maps/MapFeatures";
 import { SystemDataPanel } from "../features/control/sections/storage/SystemDataPanel";
@@ -147,6 +146,14 @@ export function WelcomePage({ user, onDone }: {
   const [backup, setBackup] = useState<BackupSettings | null>(null);
   const [backupPath, setBackupPath] = useState("");
   const [backupSaved, setBackupSaved] = useState("");
+  // The time and keep-count as typed, saved when their field is left.
+  const [backupTime, setBackupTime] = useState("");
+  const [backupKeep, setBackupKeep] = useState("");
+  useEffect(() => {
+    if (!backup) return;
+    setBackupTime(backup.time);
+    setBackupKeep(String(backup.retention));
+  }, [backup]);
 
   // Email
   const [mail, setMail] = useState<MailSettings | null>(null);
@@ -157,7 +164,7 @@ export function WelcomePage({ user, onDone }: {
   const [alertsSaved, setAlertsSaved] = useState(false);
 
   // Appearance
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("orbit");
 
   useEffect(() => {
     // One read per step, once, in parallel: this page is only ever opened by an admin,
@@ -390,20 +397,14 @@ export function WelcomePage({ user, onDone }: {
               <p className="welcome-note">
                 {t("welcome.containersNote")}
               </p>
-              {roots.length > 0 && (
-                <ul className="welcome-list">
-                  {roots.map((root) => (
-                    <li key={root.id}><strong>{root.name}</strong><span>{root.path}</span></li>
-                  ))}
-                </ul>
-              )}
-              <div className="welcome-field-row">
-                <Field label={t("welcome.containerName")} value={rootName} onChange={setRootName} />
-                <Field label={t("welcome.containerPath")} value={rootPath} onChange={setRootPath} />
-                <Button variant="secondary" disabled={busy || !rootPath.trim() || !rootName.trim()} onClick={() => void addContainer()}>
-                  {t("welcome.add")}
-                </Button>
-              </div>
+              <GroupedList>
+                {roots.map((root) => (
+                  <InfoRow key={root.id} icon={<HardDrive size={17} />} iconTone="ok" label={root.name} sub={root.path} />
+                ))}
+                <InputRow label={t("welcome.containerName")} value={rootName} onChange={setRootName} wide />
+                <InputRow label={t("welcome.containerPath")} value={rootPath} onChange={setRootPath} wide />
+                <ActionRow label={t("welcome.add")} disabled={busy || !rootPath.trim() || !rootName.trim()} onClick={() => void addContainer()} />
+              </GroupedList>
 
               {/* System data is the one answer this step cannot be left without: no
                   library can be added until thumbnails have somewhere to go. The
@@ -428,30 +429,19 @@ export function WelcomePage({ user, onDone }: {
                 <MessageBox tone="info" title={t("welcome.storageFirstTitle")}>{lockedReason("bin")}</MessageBox>
               ) : (
                 <>
-                  <div className="field source-folder-field">
-                    <span>{t("welcome.binFieldLabel")}</span>
-                    <div className="source-folder-control">
-                      <Folder size={19} aria-hidden="true" />
-                      <span>{binPath || t("welcome.binDefault")}</span>
-                      <Button
-                        variant="secondary"
-                        compact
-                        disabled={busy || !binEditable}
-                        title={binEditable ? undefined : t("welcome.binBrowseLocked")}
-                        onClick={() => { setError(""); setBinPickerOpen(true); }}
-                      >
-                        {t("welcome.binBrowse")}
-                      </Button>
-                      {binPath && (
-                        <Button variant="text" disabled={busy || !binEditable} onClick={() => void saveBin(null)}>
-                          {t("welcome.binClear")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <p className="welcome-note">
-                    {t("welcome.binPathNote")}
-                  </p>
+                  <GroupedList note={binEditable ? t("welcome.binPathNote") : t("welcome.binBrowseLocked")}>
+                    <NavRow
+                      icon={<Folder size={17} />}
+                      label={t("welcome.binFieldLabel")}
+                      sub={binPath || t("welcome.binDefault")}
+                      value={t("welcome.binBrowse")}
+                      disabled={busy || !binEditable}
+                      onClick={() => { setError(""); setBinPickerOpen(true); }}
+                    />
+                    {binPath && (
+                      <ActionRow tone="danger" label={t("welcome.binClear")} disabled={busy || !binEditable} onClick={() => void saveBin(null)} />
+                    )}
+                  </GroupedList>
                   {binSaved && <MessageBox tone="success" title={t("welcome.savedTitle")}>{t("welcome.binSaved")}</MessageBox>}
                 </>
               )}
@@ -477,37 +467,43 @@ export function WelcomePage({ user, onDone }: {
                 {t("welcome.backupNote")}
               </p>
 
-              <div className="welcome-toggle">
-                <ToggleSwitch
+              <GroupedList>
+                <ToggleRow
+                  label={t("welcome.backupToggle")}
                   checked={Boolean(backup?.enabled)}
                   disabled={busy || !backup}
                   onChange={(on) => void saveBackup({ enabled: on })}
-                  label={t("welcome.backupToggle")}
                 />
-              </div>
-
-              {/* Only once it is on. A time and a keep-count are answers to "when" and
-                  "how many", and neither question exists while the answer to "at all?"
-                  is no. */}
-              {backup?.enabled && (
-                <div className="welcome-field-row">
-                  <Field
-                    label={t("welcome.backupTime")}
-                    type="time"
-                    value={backup.time}
-                    onChange={(next) => setBackup({ ...backup, time: next })}
-                  />
-                  <Field
-                    label={t("welcome.backupKeepLast")}
-                    type="number"
-                    value={String(backup.retention)}
-                    onChange={(next) => setBackup({ ...backup, retention: Number(next) || 0 })}
-                  />
-                  <Button variant="secondary" disabled={busy} onClick={() => void saveBackup({})}>
-                    {t("welcome.save")}
-                  </Button>
-                </div>
-              )}
+                {/* Only once it is on. A time and a keep-count are answers to "when" and
+                    "how many", and neither question exists while the answer to "at all?"
+                    is no. Each saves when its field is left. */}
+                {backup?.enabled && (
+                  <>
+                    <InputRow
+                      label={t("welcome.backupTime")}
+                      type="time"
+                      value={backupTime}
+                      disabled={busy}
+                      onChange={setBackupTime}
+                      onCommit={() => { if (backupTime && backupTime !== backup.time) void saveBackup({ time: backupTime }); else setBackupTime(backup.time); }}
+                    />
+                    <InputRow
+                      label={t("welcome.backupKeepLast")}
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={backupKeep}
+                      disabled={busy}
+                      onChange={setBackupKeep}
+                      onCommit={() => {
+                        const wanted = Number(backupKeep);
+                        if (Number.isInteger(wanted) && wanted >= 1 && wanted <= 100) { if (wanted !== backup.retention) void saveBackup({ retention: wanted }); }
+                        else setBackupKeep(String(backup.retention));
+                      }}
+                    />
+                  </>
+                )}
+              </GroupedList>
 
               {backupPath && (
                 <p className="welcome-note">
@@ -542,14 +538,14 @@ export function WelcomePage({ user, onDone }: {
                 <MessageBox tone="info" title={t("welcome.emailFirstTitle")}>{lockedReason("alerts")}</MessageBox>
               ) : (
                 <>
-                  <div className="welcome-toggle">
-                    <ToggleSwitch
+                  <GroupedList>
+                    <ToggleRow
+                      label={t("welcome.alertsToggle")}
                       checked={Boolean(policy?.alertNewIpSignIn)}
                       disabled={busy || !policy}
                       onChange={(on) => void setSignInAlerts(on)}
-                      label={t("welcome.alertsToggle")}
                     />
-                  </div>
+                  </GroupedList>
                   {!testSent && (
                     <p className="welcome-note">
                       {t("welcome.alertsTestNote")}
@@ -572,33 +568,31 @@ export function WelcomePage({ user, onDone }: {
                 {t("welcome.emailIntro")}
               </p>
 
-              <div className="welcome-grid">
-                <Field label={t("welcome.smtpHost")} value={mail.host} onChange={(host) => setMail({ ...mail, host })} />
-                <Field label={t("welcome.port")} value={String(mail.port)} onChange={(port) => setMail({ ...mail, port: Number(port) || 0 })} />
-                <Field label={t("welcome.username")} value={mail.username} onChange={(username) => setMail({ ...mail, username })} />
-                <Field
+              <GroupedList title={t("controlAdmin:mail.groupServer")}>
+                <InputRow label={t("welcome.smtpHost")} value={mail.host} onChange={(host) => setMail({ ...mail, host })} placeholder="smtp.example.com" wide />
+                <InputRow label={t("welcome.port")} type="number" value={String(mail.port)} onChange={(port) => setMail({ ...mail, port: Number(port) || 0 })} />
+                <ToggleRow label={t("welcome.useTls")} checked={mail.secure} onChange={(secure) => setMail({ ...mail, secure })} />
+              </GroupedList>
+              <GroupedList title={t("controlAdmin:mail.groupAccount")}>
+                <InputRow label={t("welcome.username")} value={mail.username} onChange={(username) => setMail({ ...mail, username })} wide />
+                <InputRow
                   label={t("common.password")}
                   type="password"
                   value={password}
                   onChange={setPassword}
-                  required={false}
                   placeholder={mail.hasPassword ? t("welcome.passwordStored") : ""}
+                  autoComplete="new-password"
+                  wide
                 />
-                <Field label={t("welcome.fromAddress")} value={mail.fromAddress} onChange={(fromAddress) => setMail({ ...mail, fromAddress })} />
-                <Field label={t("welcome.fromName")} value={mail.fromName} onChange={(fromName) => setMail({ ...mail, fromName })} />
-              </div>
-              <label className="welcome-toggle">
-                <ToggleSwitch checked={mail.secure} onChange={(secure) => setMail({ ...mail, secure })} label={t("welcome.useTls")} />
-              </label>
-
-              <div className="welcome-actions-inline">
-                <Button variant="secondary" disabled={busy} onClick={() => void saveMail()}>
-                  {busy ? t("profile.account.saving") : t("welcome.save")}
-                </Button>
-                <Button variant="secondary" disabled={busy || !mailReady} onClick={() => void sendTest()}>
-                  {t("welcome.sendTestTo", { email: user.email })}
-                </Button>
-              </div>
+              </GroupedList>
+              <GroupedList title={t("controlAdmin:mail.groupSender")}>
+                <InputRow label={t("welcome.fromAddress")} type="email" value={mail.fromAddress} onChange={(fromAddress) => setMail({ ...mail, fromAddress })} wide />
+                <InputRow label={t("welcome.fromName")} value={mail.fromName} onChange={(fromName) => setMail({ ...mail, fromName })} wide />
+              </GroupedList>
+              <GroupedList>
+                <ActionRow label={busy ? t("profile.account.saving") : t("welcome.save")} disabled={busy} onClick={() => void saveMail()} />
+                <ActionRow label={t("welcome.sendTestTo", { email: user.email })} disabled={busy || !mailReady} onClick={() => void sendTest()} />
+              </GroupedList>
               {mailSaved && !testSent && <MessageBox tone="info" title={t("welcome.savedTitle")}>{t("welcome.sendTestHint")}</MessageBox>}
 
               {testSent && (

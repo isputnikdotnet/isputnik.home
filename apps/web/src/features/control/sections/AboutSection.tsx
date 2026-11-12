@@ -3,9 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Compass, Info } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
-import { Button } from "../../../shared/Button";
+import { GroupedList, NavRow } from "../../../shared/GroupedList";
 import { AboutDetails, type AboutInfo } from "../../../shared/AboutDetails";
-import { navigate } from "../../../router";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 export function AboutSection() {
@@ -28,18 +27,11 @@ export function AboutSection() {
       {/* The way back into the setup guide. It opens itself once, for the first
           administrator, and skipping is a real answer — so without this the only way
           back would be typing the address. */}
-      <section className="library-settings-panel storage-settings-panel">
-        <div>
-          <h2>{t("control:about.setupGuideTitle")}</h2>
-          <p>{t("control:about.setupGuideBody")}</p>
-        </div>
-        <div className="library-settings-actions">
-          <Button variant="secondary" compact onClick={() => navigate("/welcome")}>
-            <Compass size={16} aria-hidden="true" />
-            <span>{t("control:about.runSetupGuide")}</span>
-          </Button>
-        </div>
-      </section>
+      <div className="grouped-page">
+        <GroupedList title={t("control:about.setupGuideTitle")} note={t("control:about.setupGuideBody")}>
+          <NavRow icon={<Compass size={17} />} label={t("control:about.runSetupGuide")} href="/welcome" />
+        </GroupedList>
+      </div>
 
       {about && <AboutDetails about={about} />}
     </>

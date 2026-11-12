@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileUp, Quote as QuoteIcon, Trash2 } from "lucide-react";
+import { FileUp, FileText, Quote as QuoteIcon } from "lucide-react";
 import { formatDateTime } from "../../../shared/dates";
 import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { ActionRow, AddRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { QuoteImportModal } from "../../library/QuoteImportModal";
 
@@ -16,7 +17,9 @@ import { QuoteImportModal } from "../../library/QuoteImportModal";
 // page is where everyone reads and writes their own.
 //
 // Each import is kept as the event it was, so a pack that turned out to be full
-// of rubbish can be undone in one go instead of one quote at a time.
+// of rubbish can be undone in one go instead of one quote at a time. Grouped rows
+// (control panel v2): the packs as rows ending in "Import a pack", each opening a
+// page of its own (?show=import:<id>) with Delete.
 interface QuoteImport {
   id: string;
   fileName: string | null;
@@ -32,13 +35,14 @@ function formatWhen(value: string): string {
 }
 
 export function QuotesSection() {
-  const { t } = useTranslation(["common", "user", "controlAdmin"]);
+  const { t } = useTranslation(["common", "user", "controlAdmin", "control"]);
   const [imports, setImports] = useState<QuoteImport[] | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [deleting, setDeleting] = useState<QuoteImport | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [show, go] = useQueryPage();
 
   const load = useCallback(() =>
     api<{ imports: QuoteImport[] }>("/api/library/quotes/imports")
@@ -57,6 +61,7 @@ export function QuotesSection() {
       });
       await load();
       setDeleting(null);
+      go(null);
       setNotice(t("controlAdmin:quotes.deleted", { count: deleted }));
       window.setTimeout(() => setNotice(""), 4000);
     } catch (err) {
@@ -66,57 +71,61 @@ export function QuotesSection() {
     }
   };
 
+  const nameOf = (entry: QuoteImport) => entry.fileName || t("controlAdmin:quotes.unnamedFile");
+  // What is left, not what arrived — quotes can be deleted singly.
+  const countOf = (entry: QuoteImport) => entry.remainingCount === entry.importedCount
+    ? t("controlAdmin:quotes.quoteCount", { count: entry.remainingCount })
+    : t("controlAdmin:quotes.quoteCountOf", { remaining: entry.remainingCount, imported: entry.importedCount });
+
+  const open = show?.startsWith("import:") ? imports?.find((entry) => entry.id === show.slice(7)) ?? null : null;
+
   return (
     <>
       <ControlSectionHead
         section="quotes"
         className="control-head-compact"
         icon={<QuoteIcon size={30} />}
-        description={t("controlAdmin:quotes.headDescription")}
+        description={open ? undefined : t("controlAdmin:quotes.headDescription")}
+        title={open ? nameOf(open) : undefined}
+        back={show ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
       >
-        {/* Refresh last, at the right edge — the position it holds on every
-            other page in this group. */}
-        <div className="row-actions control-head-actions">
-          <Button variant="primary" compact onClick={() => setImportOpen(true)}>
-            <FileUp size={16} />
-            <span>{t("controlAdmin:quotes.import")}</span>
-          </Button>
-          <RefreshButton onRefresh={load} />
-        </div>
+        {!show && <RefreshButton onRefresh={load} />}
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title={t("user:common.unableToLoad")}>{error}</MessageBox>}
-      {notice && <MessageBox tone="success" title={t("controlAdmin:quotes.doneTitle")}>{notice}</MessageBox>}
+      <div className="grouped-page">
+        {error && <MessageBox tone="error" title={t("user:common.unableToLoad")}>{error}</MessageBox>}
+        {notice && <MessageBox tone="success" title={t("controlAdmin:quotes.doneTitle")}>{notice}</MessageBox>}
 
-      {imports === null ? (
-        <p className="management-empty">{t("controlAdmin:ui.loading")}</p>
-      ) : imports.length === 0 ? (
-        <p className="management-empty">{t("controlAdmin:quotes.empty")}</p>
-      ) : (
-        <div className="quote-import-list">
-          {imports.map((entry) => (
-            <article className="quote-import-row" key={entry.id}>
-              <div className="quote-import-copy">
-                <strong>{entry.fileName || t("controlAdmin:quotes.unnamedFile")}</strong>
-                <span className="muted">
-                  {formatWhen(entry.createdAt)}
-                  {" · "}
-                  {/* What is left, not what arrived — quotes can be deleted singly. */}
-                  {entry.remainingCount === entry.importedCount
-                    ? t("controlAdmin:quotes.quoteCount", { count: entry.remainingCount })
-                    : t("controlAdmin:quotes.quoteCountOf", {
-                        remaining: entry.remainingCount,
-                        imported: entry.importedCount
-                      })}
-                </span>
-              </div>
-              <Button variant="secondary" danger compact onClick={() => setDeleting(entry)}>
-                <Trash2 size={15} /> {t("controlAdmin:quotes.delete")}
-              </Button>
-            </article>
-          ))}
-        </div>
-      )}
+        {imports === null ? (
+          <p className="muted">{t("controlAdmin:ui.loading")}</p>
+        ) : show ? (
+          open ? (
+            <>
+              <GroupedList>
+                <InfoRow icon={<FileText size={17} />} label={nameOf(open)} sub={formatWhen(open.createdAt)} />
+                <InfoRow label={t("controlAdmin:quotes.quotesRow")} value={countOf(open)} />
+              </GroupedList>
+              <GroupedList note={t("controlAdmin:quotes.deleteBody", { count: open.remainingCount })}>
+                <ActionRow tone="danger" label={t("controlAdmin:quotes.deleteConfirm")} onClick={() => setDeleting(open)} />
+              </GroupedList>
+            </>
+          ) : <p className="muted">{t("controlAdmin:quotes.gone")}</p>
+        ) : (
+          <GroupedList note={imports.length === 0 ? t("controlAdmin:quotes.empty") : undefined}>
+            {imports.map((entry) => (
+              <NavRow
+                key={entry.id}
+                icon={<FileText size={17} />}
+                label={nameOf(entry)}
+                sub={formatWhen(entry.createdAt)}
+                value={countOf(entry)}
+                onClick={() => go(`import:${entry.id}`)}
+              />
+            ))}
+            <AddRow icon={<FileUp size={17} />} label={t("controlAdmin:quotes.import")} onClick={() => setImportOpen(true)} />
+          </GroupedList>
+        )}
+      </div>
 
       {importOpen && (
         <QuoteImportModal
@@ -132,9 +141,7 @@ export function QuotesSection() {
 
       {deleting && (
         <ConfirmDialog
-          title={t("controlAdmin:quotes.deleteTitle", {
-            name: deleting.fileName || t("controlAdmin:quotes.unnamedFile")
-          })}
+          title={t("controlAdmin:quotes.deleteTitle", { name: nameOf(deleting) })}
           confirmLabel={t("controlAdmin:quotes.deleteConfirm")}
           busyLabel={t("user:actions.deleting")}
           danger
