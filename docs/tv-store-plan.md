@@ -181,6 +181,20 @@ steps are in `D:/Demo/README.md` → "The public demo on Unraid".
   `tv-app-plan.md` → "Installing and updating".
 - Revoke the Amazon reviewer's sessions after approval (the nightly reset does it anyway).
 
+**A1–A4 as done (2026-11-12).** Submitted TV 0.14.0 (version code 1400, the `store` APK from
+the release run, signed with the real key) to the Amazon Appstore. Category Movies & TV ›
+On-Demand Movie Streaming; English and Russian; DRM no; all countries; 18+; content rating
+all None, "account/personal info" Yes (sign-in), everything else No; privacy policy
+`PRIVACY.md` on GitHub. Devices: Fire TV 81 of 100 (the rest are below API 26, plus Vega OS,
+which runs no Android apps), all Fire Tablets and Automotive deselected by hand: Amazon had
+pre-selected 12 tablets and 2 cars despite `leanback` required. Listing art in
+`isputnik.tv/store` (Fire TV icon 1280×720, background 1920×1080, featured logo/background,
+seven screenshots). Testing instructions = the reviewer notes in `store/README.md` with the
+Amazon reviewer member's password and the household PIN. Support contact
+`support@isputnik.net` is a Cloudflare Email Routing forward. Learned on the way: a
+**sideloaded** app's Fire TV launcher tile is the square icon on grey whatever the banner
+says; only store installs get the wide tile, from the listing's 1280×720 image.
+
 ## G — Google Play (Android TV, Google TV)
 
 ### G1. The account, a decision before anything else
