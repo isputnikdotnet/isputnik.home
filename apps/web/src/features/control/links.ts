@@ -1,3 +1,4 @@
+import type { AppKey } from "./nav";
 import { controlHref, groupHref, libraryManageHref, memberHref, type MemberPageTab } from "../../router";
 
 // Addresses that land on a control page already narrowed to what you were looking
@@ -22,7 +23,7 @@ export function appPageHref(section: "appsAccess" | "appsSetup", app: string): s
 }
 
 /** Infrastructure › Tasks, filtered. `library` is a library id, `type` a job type. */
-export function tasksHref(filters: { library?: string; status?: "failed" | "completed"; type?: string } = {}): string {
+export function tasksHref(filters: { library?: string; status?: "failed" | "completed"; type?: string; application?: AppKey } = {}): string {
   return withQuery(controlHref("tasks"), filters);
 }
 
@@ -34,8 +35,13 @@ export function recycleBinHref(filters: { library?: string; source?: string } = 
 /** Infrastructure › Logs, filtered to one address or one person (`user` is an account
  *  id) — or opened on a container (`app`): its events, at one `level`, or its
  *  server log (`log: "server"`). */
-export function logsHref(filters: { ip?: string; user?: string; event?: string; q?: string; app?: string; level?: "error" | "warn"; log?: "server" } = {}): string {
+export function logsHref(filters: { ip?: string; user?: string; event?: string; q?: string; app?: string; level?: "error" | "warn"; log?: "server"; application?: AppKey } = {}): string {
   return withQuery(controlHref("logs"), filters);
+}
+
+/** Infrastructure › Activity, narrowed to one application (`?application=`). */
+export function activityHref(filters: { application?: AppKey } = {}): string {
+  return withQuery(controlHref("activity"), filters);
 }
 
 /** Security › Blocked IPs with the Block dialog open for `ip`. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALL_SECTIONS_ON } from "../src/app/sections";
-import { applicationState, type ApplicationsData, type AppLibrary } from "../src/features/control/applications";
+import { APP_LOG_PREFIXES, APP_TASK_SCOPE, applicationParam, applicationState, type ApplicationsData, type AppLibrary } from "../src/features/control/applications";
 import type { AppStatus } from "../src/features/control/sections/AppsSection";
 
 // What the Applications directory and each Setup tab say about an application:
@@ -68,5 +68,22 @@ describe("applicationState", () => {
   it("is ready when on, for an application with no libraries or container", () => {
     expect(applicationState("familyTree", data()).status).toBe("ready");
     expect(applicationState("shared", data()).status).toBeNull();
+  });
+});
+
+describe("application filters", () => {
+  it("reads ?application= only as an application the page can filter by", () => {
+    expect(applicationParam("gallery", APP_TASK_SCOPE)).toBe("gallery");
+    // Games has a log but no tasks of its own.
+    expect(applicationParam("games", APP_TASK_SCOPE)).toBe("");
+    expect(applicationParam("games", APP_LOG_PREFIXES)).toBe("games");
+    expect(applicationParam("toString", APP_LOG_PREFIXES)).toBe("");
+    expect(applicationParam(null, APP_LOG_PREFIXES)).toBe("");
+  });
+
+  // The server takes only [a-z_.] prefixes (core/logs.ts) and [A-Za-z_-] job types.
+  it("sends the server only prefixes and job types it will accept", () => {
+    for (const prefixes of Object.values(APP_LOG_PREFIXES)) for (const prefix of prefixes ?? []) expect(prefix).toMatch(/^[a-z_.]{1,60}$/);
+    for (const scope of Object.values(APP_TASK_SCOPE)) for (const type of scope?.types ?? []) expect(type).toMatch(/^[A-Za-z_-]{1,60}$/);
   });
 });

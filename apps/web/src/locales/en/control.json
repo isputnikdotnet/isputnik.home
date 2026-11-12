@@ -176,7 +176,13 @@
     "storiesLink": "Story settings",
     "guestTitle": "Guest links",
     "guestBody": "Invite someone without an account into one match.",
-    "guestLink": "Invites"
+    "guestLink": "Invites",
+    "viewActivity": "View {{app}} activity",
+    "activityTitle": "Activity, tasks and logs",
+    "activityBody": "One page each in Infrastructure, for everything on this server. These open them showing {{app}} only.",
+    "activityLink": "Activity",
+    "tasksLink": "Tasks",
+    "logsLink": "Logs"
   },
   "search": {
     "title": "Search the control panel",
@@ -994,7 +1000,8 @@
     "viewEvents": "Events",
     "viewServer": "Server log",
     "sourceUnavailableTitle": "{{app}} isn't answering",
-    "sourceUnavailableBody": "Its logs are read from the container itself, so they show while it answers. The Dashboard says how it stands; Infrastructure › Services tests the connection."
+    "sourceUnavailableBody": "Its logs are read from the container itself, so they show while it answers. The Dashboard says how it stands; Infrastructure › Services tests the connection.",
+    "facetApplication": "Application"
   },
   "genres": {
     "description": "The genres your family browses films and shows by. Films arrive with genres from their .nfo files and from TMDB, often in two languages and several spellings; this list decides what each of those becomes.",

@@ -5,6 +5,8 @@ import { AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, ListTodo, Loa
 import { api } from "../../../../api";
 import { controlHref, followRoute, navigate } from "../../../../router";
 import { initialParam, libraryRowHref } from "../../links";
+import { APP_TASK_SCOPE, applicationParam } from "../../applications";
+import { appLabel, type AppKey } from "../../nav";
 import { Button } from "../../../../shared/Button";
 import { KpiCard } from "../../../../shared/KpiCard";
 import { MessageBox } from "../../../../shared/MessageBox";
@@ -115,10 +117,12 @@ export function TasksView() {
   const [status, setStatus] = useState(() => (["failed", "completed"].includes(initialParam("status")) ? initialParam("status") : ""));
   const [type, setType] = useState(() => initialParam("type"));
   const [library, setLibrary] = useState(() => initialParam("library"));
+  // One application's tasks, from its workspace ("All Gallery tasks").
+  const [application, setApplication] = useState<AppKey | "">(() => applicationParam(initialParam("application"), APP_TASK_SCOPE));
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
-    for (const [key, value] of [["status", status], ["type", type], ["library", library]] as const) {
+    for (const [key, value] of [["status", status], ["type", type], ["library", library], ["application", application]] as const) {
       if (value) query.set(key, value);
       else query.delete(key);
     }
@@ -126,7 +130,7 @@ export function TasksView() {
     if (next !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState(window.history.state, "", next);
     }
-  }, [status, type, library]);
+  }, [status, type, library, application]);
   const [nextScheduled, setNextScheduled] = useState<ScheduledSummary | null | undefined>(undefined);
 
   const loadTasks = useCallback(async () => {
@@ -134,10 +138,15 @@ export function TasksView() {
     if (status) query.set("status", status);
     if (type) query.set("type", type);
     if (library) query.set("library", library);
+    const scope = application ? APP_TASK_SCOPE[application] : undefined;
+    if (scope) {
+      if (scope.types.length) query.set("types", scope.types.join(","));
+      query.set("libraryType", scope.libraryType);
+    }
     const payload = await api<TasksPayload>(`/api/jobs?${query}`);
     setData(payload);
     setPage(payload.page);
-  }, [page, status, type, library]);
+  }, [page, status, type, library, application]);
 
   useEffect(() => {
     loadTasks().catch((err) => setError(err instanceof Error ? err.message : t("controlDash:tasks.loadFailed")));
@@ -185,7 +194,11 @@ export function TasksView() {
   const running = tasks.filter((t) => t.status === "running");
   const queued = tasks.filter((t) => t.status === "pending");
   const finished = tasks.filter((t) => t.status === "completed" || t.status === "failed");
-  const filtered = Boolean(status || type || library);
+  const filtered = Boolean(status || type || library || application);
+  const applicationOptions = [
+    { value: "", label: t("controlDash:tasks.applicationAll") },
+    ...(Object.keys(APP_TASK_SCOPE) as AppKey[]).map((key) => ({ value: key, label: appLabel(key) }))
+  ];
 
   const typeOptions = [
     { value: "", label: t("controlDash:tasks.everyKind") },
@@ -414,10 +427,16 @@ export function TasksView() {
             <span>{filtered ? t("controlDash:tasks.historyCountMatch", { count: data?.total ?? 0 }) : t("controlDash:tasks.historyCount", { count: data?.total ?? 0 })}</span>
           </div>
 
-          {/* Three narrowings that AND together. Each is a menu rather than a
+          {/* Four narrowings that AND together. Each is a menu rather than a
               facet panel because the lists are short and the choice is usually
               one thing: failed, this kind, this library. */}
           <div className="task-filter-row">
+            <SelectMenu
+              value={application}
+              options={applicationOptions}
+              label={t("controlDash:tasks.application")}
+              onChange={(value) => { setApplication(applicationParam(value, APP_TASK_SCOPE)); setPage(1); }}
+            />
             <SelectMenu
               value={status}
               options={STATUS_OPTIONS}
@@ -437,7 +456,7 @@ export function TasksView() {
               onChange={(value) => { setLibrary(value); setPage(1); }}
             />
             {filtered && (
-              <Button variant="text" onClick={() => { setStatus(""); setType(""); setLibrary(""); setPage(1); }}>
+              <Button variant="text" onClick={() => { setStatus(""); setType(""); setLibrary(""); setApplication(""); setPage(1); }}>
                 {t("controlDash:tasks.clearFilters")}
               </Button>
             )}

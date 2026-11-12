@@ -419,6 +419,31 @@ describe("tasks view", () => {
     expect(new Date(task.startedAt!).getTime()).toBeGreaterThan(new Date(task.createdAt).getTime());
   });
 
+  // Control panel v2: "Gallery tasks" — its job types, or any job on a gallery
+  // library — applies to the tasks in flight as well as the history.
+  it("narrows to one application by job type or library type, active tasks too", () => {
+    makeUser("boss", "admin");
+    makeLibrary("photos", { createdBy: "boss", type: "gallery" });
+    makeLibrary("books", { createdBy: "boss", type: "ebook" });
+    insertTask("faces", "SCAN_GALLERY_FACES", "running", {}, 50);
+    insertTask("ebook-run", "SCAN_EBOOK_LIBRARY", "running", { libraryId: "books" }, 40);
+    insertTask("scan-photos", "SCAN_GALLERY_LIBRARY", "completed", { libraryId: "photos" }, 30);
+    insertTask("other-on-photos", "MOVE_STORAGE", "failed", { libraryId: "photos" }, 20);
+    insertTask("ebook-done", "SCAN_EBOOK_LIBRARY", "completed", { libraryId: "books" }, 10);
+
+    const gallery = listTasks(1, 25, { scope: { types: ["SCAN_GALLERY_FACES"], libraryType: "gallery" } });
+    expect(gallery.jobs.map((t) => t.id).sort()).toEqual(["faces", "other-on-photos", "scan-photos"]);
+    expect(gallery.total).toBe(2);
+
+    // ANDs with the other filters.
+    const failed = listTasks(1, 25, { status: "failed", scope: { types: [], libraryType: "gallery" } });
+    expect(failed.jobs.filter((t) => t.status === "failed").map((t) => t.id)).toEqual(["other-on-photos"]);
+
+    // A malformed type or library type is ignored rather than sent to SQL.
+    const junk = listTasks(1, 25, { scope: { types: ["x'; DROP"], libraryType: "Gallery!" } });
+    expect(junk.jobs).toHaveLength(5);
+  });
+
   it("lists active tasks first (oldest first), then finished ones newest first", () => {
     insertTask("done-old", "SCAN_EBOOK_LIBRARY", "completed", { result: { books: 3 } }, 300);
     insertTask("done-new", "SCAN_EBOOK_LIBRARY", "completed", { result: { books: 7 } }, 100);

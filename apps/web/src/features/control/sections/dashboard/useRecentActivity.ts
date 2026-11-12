@@ -13,7 +13,7 @@ export type ActivitySort = "time" | "user" | "event" | "ip";
 export function useRecentActivity(
   events: string[],
   pageSize = 10,
-  options: { from?: string; to?: string; page?: number; sort?: ActivitySort; dir?: "asc" | "desc" } = {}
+  options: { from?: string; to?: string; page?: number; sort?: ActivitySort; dir?: "asc" | "desc"; eventPrefixes?: string[] } = {}
 ) {
   const { t } = useTranslation(["common", "controlDash"]);
   const [logs, setLogs] = useState<LogEvent[]>([]);
@@ -21,20 +21,23 @@ export function useRecentActivity(
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState("");
   const eventsKey = events.join(",");
-  const { from = "", to = "", page = 1, sort = "time", dir = "desc" } = options;
+  const { from = "", to = "", page = 1, sort = "time", dir = "desc", eventPrefixes = [] } = options;
+  // One application's events (Activity narrowed from a workspace), ANDed with `events`.
+  const prefixesKey = eventPrefixes.join(",");
 
   const load = useCallback(async () => {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize), sort, dir });
     events.forEach((event) => query.append("event", event));
+    eventPrefixes.forEach((prefix) => query.append("eventPrefix", prefix));
     if (from) query.set("from", from);
     if (to) query.set("to", to);
     const payload = await api<{ logs: LogEvent[]; total: number; totalPages: number }>(`/api/logs?${query}`);
     setLogs(payload.logs);
     setTotal(payload.total);
     setTotalPages(payload.totalPages);
-    // eventsKey stands in for the events array, which every caller builds inline.
+    // eventsKey and prefixesKey stand in for the arrays, which callers build inline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventsKey, pageSize, from, to, page, sort, dir]);
+  }, [eventsKey, prefixesKey, pageSize, from, to, page, sort, dir]);
 
   useEffect(() => {
     setError("");

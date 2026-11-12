@@ -8,10 +8,12 @@ import { formatDateTime, formatNumber } from "../../../shared/dates";
 import { formatBytes } from "../../../shared/utils";
 import { SECTION_KEYS } from "../../../app/sections";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { appPageHref, storageHref } from "../links";
+import { activityHref, appPageHref, logsHref, storageHref, tasksHref } from "../links";
 import { appLabel, type AppKey } from "../nav";
 import {
+  APP_LOG_PREFIXES,
   APP_PARTS,
+  APP_TASK_SCOPE,
   applicationState,
   containerRunning,
   useApplicationsData,
@@ -72,6 +74,12 @@ export function WorkspaceStatusLine({ app }: { app: Exclude<AppKey, "shared"> })
     <div className={`workspace-status-line is-${state.status ?? "ready"}`}>
       <ApplicationStatusPill status={state.status} />
       <span>{summary(app, state)}</span>
+      {APP_LOG_PREFIXES[app] && (
+        <a href={activityHref({ application: app })} onClick={(event) => followRoute(event, activityHref({ application: app }))}>
+          {t("control:appSetup.viewActivity", { app: appLabel(app) })}
+          <ArrowRight size={14} aria-hidden="true" />
+        </a>
+      )}
       <a href={href} onClick={(event) => followRoute(event, href)}>
         {state.status === "ready" ? t("control:appSetup.reviewSetup") : t("control:appSetup.openSetup")}
         <ArrowRight size={14} aria-hidden="true" />
@@ -210,6 +218,23 @@ export function AppSetupSection({ app }: { app: Exclude<AppKey, "shared"> }) {
           >
             <p className="app-setup-figure">{state.sizeBytes !== null ? formatBytes(state.sizeBytes) : t("control:appSetup.storageUnknown")}</p>
             <p className="muted">{t("control:appSetup.storageBody")}</p>
+          </SetupCard>
+        )}
+
+        {/* Activity, tasks and logs are one page each in Infrastructure; this
+            opens them already narrowed to this application (phase 3). */}
+        {APP_LOG_PREFIXES[app] && (
+          <SetupCard
+            title={t("control:appSetup.activityTitle")}
+            actions={
+              <>
+                <Link href={activityHref({ application: app })}>{t("control:appSetup.activityLink")}</Link>
+                {APP_TASK_SCOPE[app] && <Link href={tasksHref({ application: app })}>{t("control:appSetup.tasksLink")}</Link>}
+                <Link href={logsHref({ application: app })}>{t("control:appSetup.logsLink")}</Link>
+              </>
+            }
+          >
+            <p className="muted">{t("control:appSetup.activityBody", { app: name })}</p>
           </SetupCard>
         )}
 

@@ -224,21 +224,43 @@ export interface TaskFilters {
   status?: string;
   type?: string;
   libraryId?: string;
+  /** One application's tasks: these job types, OR any job on a library of this
+   *  type. The control panel maps an application to them (it applies to the
+   *  tasks in flight too, so "Gallery tasks" never lists a video conversion). */
+  scope?: { types: string[]; libraryType?: string };
+}
+
+/** The application scope as SQL over `jobs`, binding into `params`. */
+function scopeCondition(scope: TaskFilters["scope"], params: Record<string, string>): string | null {
+  if (!scope) return null;
+  const parts: string[] = [];
+  const types = scope.types.filter((type) => /^[A-Za-z_-]{1,60}$/.test(type));
+  if (types.length) {
+    parts.push(`jobs.type IN (${types.map((type, i) => { params[`scopeType${i}`] = type; return `@scopeType${i}`; }).join(", ")})`);
+  }
+  if (scope.libraryType && /^[a-z]{1,20}$/.test(scope.libraryType)) {
+    params.scopeLibraryType = scope.libraryType;
+    parts.push("json_extract(jobs.payload, '$.libraryId') IN (SELECT id FROM libraries WHERE type = @scopeLibraryType)");
+  }
+  return parts.length ? `(${parts.join(" OR ")})` : null;
 }
 
 export function listTasks(page = 1, pageSize = 25, filters: TaskFilters = {}) {
   // Everything in flight (however old) is always returned; only the finished
   // history is paged. The paging metadata therefore describes the history grid.
+  const scopeParams: Record<string, string> = {};
+  const scope = scopeCondition(filters.scope, scopeParams);
   const activeRows = db.prepare(`
     SELECT ${TASK_COLUMNS}
     FROM jobs
     LEFT JOIN libraries ON libraries.id = json_extract(jobs.payload, '$.libraryId')
-    WHERE jobs.status IN ('pending', 'running')
+    WHERE jobs.status IN ('pending', 'running')${scope ? ` AND ${scope}` : ""}
     ORDER BY jobs.created_at ASC
-  `).all() as TaskRow[];
+  `).all(scopeParams) as TaskRow[];
 
   const conditions = ["jobs.status IN ('completed', 'failed')"];
-  const params: Record<string, string> = {};
+  const params: Record<string, string> = { ...scopeParams };
+  if (scope) conditions.push(scope);
   if (filters.status === "failed" || filters.status === "completed") {
     conditions.push("jobs.status = @status");
     params.status = filters.status;

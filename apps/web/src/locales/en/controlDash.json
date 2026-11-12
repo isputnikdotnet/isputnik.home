@@ -112,7 +112,9 @@
     "inProgressNote": "Where each person is right now — a snapshot, not bound to the range above",
     "audiobook": "Audiobook",
     "ebook": "Ebook",
-    "nobodyInProgress": "Nobody has an audiobook or ebook in progress right now."
+    "nobodyInProgress": "Nobody has an audiobook or ebook in progress right now.",
+    "application": "Application",
+    "applicationAll": "All applications"
   },
   "homeLoc": {
     "title": "Where is home?",
@@ -483,7 +485,9 @@
     "showSkipped": "Show skipped items",
     "openLibrary": "Open {{name}} in Libraries",
     "openSchedule": "Scheduled jobs",
-    "typeFaststart": "Video streaming fix"
+    "typeFaststart": "Video streaming fix",
+    "application": "Application",
+    "applicationAll": "All applications"
   },
   "dupes": {
     "status": {

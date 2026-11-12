@@ -12,6 +12,7 @@ import {
 } from "../../core/geoip.js";
 import { currentSessionHash } from "../../auth.js";
 import { isPrivateIp } from "../../core/cidr.js";
+import { eventPrefixCondition } from "../../core/logs.js";
 import { describeUserAgent, deviceType } from "../../core/device-link.js";
 import { isAccountLocked } from "../../core/security.js";
 import { getHomeLocation, homeLocationSchema, setHomeLocation } from "./home-location.js";
@@ -126,6 +127,11 @@ const databaseUrlSchema = z.object({
 const rangeQuerySchema = z.object({
   from: isoInstant,
   to: isoInstant
+});
+
+// Activity's window, optionally narrowed to event-name prefixes (one application).
+const activityQuerySchema = rangeQuerySchema.extend({
+  eventPrefix: z.union([z.string().max(60), z.array(z.string().max(60)).max(10)]).optional()
 });
 
 // The Sign-in details page: the same window, narrowed to at most one scope.
@@ -885,7 +891,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
   // for this window and the equal-length one before it so each card can say how
   // it compares.
   app.get("/api/dashboard/activity", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(rangeQuerySchema, request.query);
+    const parsed = parseBody(activityQuerySchema, request.query);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid activity query", details: parsed.error });
     }
@@ -898,6 +904,12 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     const bucket: "hour" | "day" = to.getTime() - from.getTime() <= HOURLY_MAX_SPAN_MS ? "hour" : "day";
     const bucketFormat = bucket === "hour" ? "%Y-%m-%dT%H:00:00.000Z" : "%Y-%m-%dT00:00:00.000Z";
     const range = { from: from.toISOString(), to: to.toISOString() };
+    // Narrowed to one application's events when the page asks (?eventPrefix=,
+    // the same prefixes the Logs page sends — core/logs.ts).
+    const prefixParams: Record<string, string> = {};
+    const prefixes = parsed.data.eventPrefix === undefined ? [] : [parsed.data.eventPrefix].flat();
+    const prefixCondition = eventPrefixCondition(prefixes, prefixParams, "event");
+    const narrowed = prefixCondition ? ` AND ${prefixCondition}` : "";
 
     const ACTIVITY_CASE_SQL = `
       SUM(CASE WHEN event IN (${UPLOAD_EVENTS}) THEN 1 ELSE 0 END) AS uploads,
@@ -920,9 +932,9 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     const rows = db.prepare(`
       SELECT strftime('${bucketFormat}', created_at) AS bucket, ${ACTIVITY_CASE_SQL}
       FROM activity_logs
-      WHERE created_at >= @from AND created_at <= @to
+      WHERE created_at >= @from AND created_at <= @to${narrowed}
       GROUP BY bucket
-    `).all(range) as ({ bucket: string } & ActivityCounts)[];
+    `).all({ ...range, ...prefixParams }) as ({ bucket: string } & ActivityCounts)[];
     const byBucket = new Map(rows.map((row) => [row.bucket, clean(row)]));
 
     // Every bucket in the window is emitted, empty ones included — a gap in the
@@ -939,7 +951,7 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
 
     const totalsStatement = db.prepare(`
       SELECT ${ACTIVITY_CASE_SQL} FROM activity_logs
-      WHERE created_at >= @from AND created_at <= @to
+      WHERE created_at >= @from AND created_at <= @to${narrowed}
     `);
     const previousRange = {
       from: new Date(from.getTime() - (to.getTime() - from.getTime())).toISOString(),
@@ -952,8 +964,8 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       bucket,
       buckets,
       series,
-      totals: clean(totalsStatement.get(range) as ActivityCounts),
-      previous: clean(totalsStatement.get(previousRange) as ActivityCounts)
+      totals: clean(totalsStatement.get({ ...range, ...prefixParams }) as ActivityCounts),
+      previous: clean(totalsStatement.get({ ...previousRange, ...prefixParams }) as ActivityCounts)
     });
   });
 

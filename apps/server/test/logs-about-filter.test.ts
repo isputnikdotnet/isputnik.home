@@ -63,4 +63,16 @@ describe("GET /api/logs about filter", () => {
   it("ANDs with the other filters", async () => {
     expect((await get("about=sam&user=boss")).total).toBe(1);
   });
+
+  // Control panel v2: "View Gallery logs" sends its event prefixes. "_" in a
+  // prefix matches itself, not any one character.
+  it("narrows to event-name prefixes, matching underscores literally", async () => {
+    for (const [id, event] of [["p1", "photo_sync.connected"], ["p2", "photoXsync.connected"], ["p3", "library.gallery.uploaded"]] as const) {
+      db.prepare("INSERT INTO activity_logs (id, event, detail, created_at) VALUES (?, ?, ?, ?)").run(id, event, id, new Date().toISOString());
+    }
+    expect((await get("eventPrefix=photo_sync.")).logs.map((row) => row.detail)).toEqual(["p1"]);
+    expect((await get("eventPrefix=photo_sync.&eventPrefix=library.gallery.")).total).toBe(2);
+    // A prefix outside [a-z_.] is ignored rather than matched.
+    expect((await get("eventPrefix=%25")).total).toBe((await get("")).total);
+  });
 });

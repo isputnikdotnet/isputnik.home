@@ -87,4 +87,18 @@ describe("GET /api/dashboard/activity", () => {
     const forbidden = await activity(hoursAgo(24), new Date(), await signIn(member));
     expect(forbidden.status).toBe(403);
   });
+
+  // Control panel v2: an application links here with its event prefixes.
+  it("narrows every count to the event prefixes asked for", async () => {
+    log("library.gallery.uploaded", 2);
+    log("library.ebook.book_uploaded", 2);
+    log("photo_sync.connected", 2);
+    log("photoXsync.connected", 2);
+    const session = await signIn(admin);
+    const query = new URLSearchParams({ from: hoursAgo(5).toISOString(), to: new Date().toISOString() });
+    query.append("eventPrefix", "library.gallery.");
+    const res = await app.inject({ method: "GET", url: `/api/dashboard/activity?${query}`, headers: { cookie: session } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().totals.uploads).toBe(1);
+  });
 });

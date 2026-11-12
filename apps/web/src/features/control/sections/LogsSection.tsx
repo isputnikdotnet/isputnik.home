@@ -23,6 +23,8 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import { signInsHref } from "./dashboard/SignInsView";
 import { formatNumber } from "../../../shared/dates";
 import { AppEvents, AppLog, isRunning, useAppName, useAppsStatus } from "./AppsSection";
+import { APP_LOG_PREFIXES } from "../applications";
+import { appLabel, type AppKey } from "../nav";
 
 // Overview › Logs — the activity archive. Everything the server has recorded,
 // searchable and filterable, with a date toolbar, sortable columns, a row that
@@ -35,10 +37,13 @@ import { AppEvents, AppLog, isRunning, useAppName, useAppsStatus } from "./AppsS
 // log (?log=server) — two views of one task, reading what it recorded. They were
 // the Apps group's Events and Logs tabs until that group was folded in.
 
-type LogFilterKey = "event" | "user" | "ip";
+// `application` is one of the control panel's applications; it reaches the server
+// as that application's event-name prefixes (applications.ts).
+type LogFilterKey = "application" | "event" | "user" | "ip";
 type LogSort = "time" | "user" | "event" | "ip";
 
-const EMPTY_LOG_FILTERS: Record<LogFilterKey, string[]> = { event: [], user: [], ip: [] };
+const EMPTY_LOG_FILTERS: Record<LogFilterKey, string[]> = { application: [], event: [], user: [], ip: [] };
+const LOG_APPLICATIONS = Object.keys(APP_LOG_PREFIXES) as AppKey[];
 
 // The person filter's value for rows no account did (scans, schedules) — the
 // server's own sentinel, shown under the page's word for it.
@@ -140,6 +145,7 @@ export function LogsSection() {
 function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
   const { t } = useTranslation(["common", "control"]);
   const LOG_FACET_ORDER: FacetDef<LogFilterKey>[] = [
+    { key: "application", title: t("control:logs.facetApplication"), searchable: false, fixed: LOG_APPLICATIONS.map((key) => ({ value: key, label: appLabel(key) })) },
     { key: "event", title: t("control:logs.facetEvent"), searchable: true },
     { key: "user", title: t("control:logs.facetUser"), searchable: true },
     { key: "ip", title: t("control:logs.facetIp"), searchable: true }
@@ -157,12 +163,20 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
   // that address, or that person, did. ?event= is an event category (photo_sync).
   const [filters, setFilters] = useState<Record<LogFilterKey, string[]>>(() => {
     const params = new URLSearchParams(window.location.search);
-    return { ...EMPTY_LOG_FILTERS, ip: params.getAll("ip"), user: params.getAll("user"), event: params.getAll("event") };
+    return {
+      ...EMPTY_LOG_FILTERS,
+      // ?application= arrives from an application's workspace ("View Gallery logs").
+      application: params.getAll("application").filter((key) => (LOG_APPLICATIONS as string[]).includes(key)),
+      ip: params.getAll("ip"),
+      user: params.getAll("user"),
+      event: params.getAll("event")
+    };
   });
   // The person filter works on account ids (two people can share a name); this is
   // what each id is called, from the server, plus the automated rows' own word.
   const [accountNames, setAccountNames] = useState<Record<string, string>>({});
   const personLabels = { [SYSTEM_ACTOR]: t("control:logs.system"), ...accountNames };
+  const applicationLabels = Object.fromEntries(LOG_APPLICATIONS.map((key) => [key, appLabel(key)]));
 
   // 4.15.1 linked here with ?user=<display name>. Once the names are known, such
   // a value becomes the account (or accounts) called that, so an old link still
@@ -184,7 +198,7 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
   // address saying otherwise, and a reload or bookmark shows the same rows.
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
-    for (const key of ["ip", "user", "event"] as const) {
+    for (const key of ["application", "ip", "user", "event"] as const) {
       query.delete(key);
       filters[key].forEach((value) => query.append(key, value));
     }
@@ -215,6 +229,10 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
     const query = new URLSearchParams({ sort, dir });
     if (logSearch) query.set("q", logSearch);
     (Object.keys(filters) as LogFilterKey[]).forEach((key) => {
+      if (key === "application") {
+        filters.application.forEach((app) => (APP_LOG_PREFIXES[app as AppKey] ?? []).forEach((prefix) => query.append("eventPrefix", prefix)));
+        return;
+      }
       filters[key].forEach((value) => query.append(key, value));
     });
     if (range.from) query.set("from", range.from);
@@ -360,7 +378,7 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
         <FacetFilterButton
           order={LOG_FACET_ORDER}
           facets={facets}
-          labels={{ user: personLabels }}
+          labels={{ user: personLabels, application: applicationLabels }}
           value={filters}
           onChange={changeFilters}
           empty={EMPTY_LOG_FILTERS}
@@ -406,7 +424,7 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
         </div>
       </div>
 
-      <FacetFilterChips value={filters} onChange={changeFilters} empty={EMPTY_LOG_FILTERS} labels={personLabels} />
+      <FacetFilterChips value={filters} onChange={changeFilters} empty={EMPTY_LOG_FILTERS} labels={{ ...personLabels, ...applicationLabels }} />
 
       {logs.length > 0 ? (
         <>

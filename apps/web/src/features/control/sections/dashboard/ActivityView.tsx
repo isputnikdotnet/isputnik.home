@@ -15,6 +15,10 @@ import { Pager } from "../../../../shared/Pager";
 import { formatBytes, formatManagedDate } from "../../../../shared/utils";
 import type { DashboardActivity, DashboardInProgressEntry, SystemStatus } from "../../types";
 import { CONTENT_EVENTS } from "./activityEvents";
+import { SelectMenu } from "../../../../shared/SelectMenu";
+import { initialParam } from "../../links";
+import { APP_LOG_PREFIXES, applicationParam } from "../../applications";
+import { appLabel, type AppKey } from "../../nav";
 import { DashboardChart, DashboardChartLegend } from "./DashboardChart";
 import { useRecentActivity } from "./useRecentActivity";
 import { formatDate, formatNumber, formatTime } from "../../../../shared/dates";
@@ -71,19 +75,33 @@ export function ActivityView({ status }: { status: SystemStatus }) {
   const [inProgress, setInProgress] = useState<DashboardInProgressEntry[]>([]);
   const [inProgressError, setInProgressError] = useState("");
 
-  const recent = useRecentActivity(CONTENT_EVENTS, PAGE_SIZE, { from: range.from, to: range.to, page });
+  // One application's activity, from its workspace ("View Gallery activity"), kept
+  // in the address like the other filters so a reload shows the same thing.
+  const [application, setApplication] = useState<AppKey | "">(() => applicationParam(initialParam("application"), APP_LOG_PREFIXES));
+  const prefixes = application ? APP_LOG_PREFIXES[application] ?? [] : [];
+  const prefixesKey = prefixes.join(",");
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (application) query.set("application", application);
+    else query.delete("application");
+    const next = `${window.location.pathname}${query.size ? `?${query}` : ""}`;
+    if (next !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", next);
+  }, [application]);
+
+  const recent = useRecentActivity(CONTENT_EVENTS, PAGE_SIZE, { from: range.from, to: range.to, page, eventPrefixes: prefixes });
 
   useEffect(() => {
     setPage(1);
-  }, [range.from, range.to]);
+  }, [range.from, range.to, application]);
 
   useEffect(() => {
     const query = new URLSearchParams({ from: range.from, to: range.to });
+    prefixesKey.split(",").filter(Boolean).forEach((prefix) => query.append("eventPrefix", prefix));
     setError("");
     api<DashboardActivity>(`/api/dashboard/activity?${query}`)
       .then(setActivity)
       .catch((err) => setError(err instanceof Error ? err.message : t("controlDash:activity.loadFailed")));
-  }, [range.from, range.to, t]);
+  }, [range.from, range.to, prefixesKey, t]);
 
   useEffect(() => {
     api<{ inProgress: DashboardInProgressEntry[] }>("/api/dashboard/in-progress")
@@ -165,6 +183,15 @@ export function ActivityView({ status }: { status: SystemStatus }) {
         <div className="status-range-row">
           <DateRangePicker value={range} onChange={setRange} label={t("controlDash:activity.rangeLabel")} />
           <span className="status-range-label">{formatRangeLabel(range)}</span>
+          <SelectMenu
+            value={application}
+            options={[
+              { value: "", label: t("controlDash:activity.applicationAll") },
+              ...(Object.keys(APP_LOG_PREFIXES) as AppKey[]).map((key) => ({ value: key, label: appLabel(key) }))
+            ]}
+            label={t("controlDash:activity.application")}
+            onChange={(value) => setApplication(applicationParam(value, APP_LOG_PREFIXES))}
+          />
         </div>
 
         {activity && (

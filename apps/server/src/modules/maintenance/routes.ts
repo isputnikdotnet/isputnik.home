@@ -21,7 +21,10 @@ const jobsQuerySchema = z.object({
   pageSize: z.string().optional(),
   status: z.string().optional(),
   type: z.string().optional(),
-  library: z.string().optional()
+  library: z.string().optional(),
+  // One application: comma-separated job types, and/or a library type (OR'd).
+  types: z.string().max(400).optional(),
+  libraryType: z.string().max(20).optional()
 });
 
 // Comma-separated task ids.
@@ -39,7 +42,10 @@ export function registerMaintenanceRoutes(app: FastifyInstance) {
     return listTasks(page, pageSize, {
       status: query.status?.trim() || undefined,
       type: query.type?.trim() || undefined,
-      libraryId: query.library?.trim() || undefined
+      libraryId: query.library?.trim() || undefined,
+      scope: query.types || query.libraryType
+        ? { types: (query.types ?? "").split(",").map((type) => type.trim()).filter(Boolean), libraryType: query.libraryType?.trim() || undefined }
+        : undefined
     });
   });
 

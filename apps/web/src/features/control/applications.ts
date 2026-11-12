@@ -200,3 +200,41 @@ export function useApplicationsData() {
 export function resetApplicationsCache(): void {
   cached = null;
 }
+
+// ---- Activity, Tasks and Logs, narrowed to one application (phase 3) ----
+//
+// Those three pages live in Infrastructure, one for everything; an application
+// links to them with its filter already chosen (?application=<key>). What an
+// application IS to each of them is product knowledge, so it is mapped here, in
+// the control panel, and the server only ever sees generic filters: event-name
+// prefixes for the log (core/logs.ts) and job types / a library type for tasks.
+
+/** Its log events, by name prefix. Stories, Family Tree and Games log under their
+ *  own; Gallery also owns phone backup, maps and its albums and slideshows. */
+export const APP_LOG_PREFIXES: Partial<Record<AppKey, string[]>> = {
+  gallery: ["library.gallery.", "gallery.", "photo_sync.", "maps."],
+  videos: ["library.video."],
+  ebooks: ["library.ebook."],
+  audiobooks: ["library.audiobook."],
+  stories: ["story."],
+  familyTree: ["familytree."],
+  games: ["games."]
+};
+
+/** Its tasks: these job types, or any job on one of its libraries. Videos'
+ *  scanning runs in its engine, so only jobs on a video library land here. */
+export const APP_TASK_SCOPE: Partial<Record<AppKey, { types: string[]; libraryType: LibraryType }>> = {
+  gallery: {
+    types: ["SCAN_GALLERY_LIBRARY", "SCAN_GALLERY_FACES", "SCAN_GALLERY_DUPLICATES", "TRANSCODE_GALLERY_VIDEO", "FASTSTART_GALLERY_VIDEO", "gallery-slideshow-render", "BUILD_PLACES"],
+    libraryType: "gallery"
+  },
+  videos: { types: [], libraryType: "video" },
+  ebooks: { types: ["SCAN_EBOOK_LIBRARY"], libraryType: "ebook" },
+  audiobooks: { types: ["SCAN_AUDIOBOOK_LIBRARY"], libraryType: "audiobook" }
+};
+
+/** ?application= as an application the page can filter by, or "". */
+export function applicationParam(value: string | null, map: Partial<Record<AppKey, unknown>>): AppKey | "" {
+  // Own keys only: `in` would also take "toString" and the rest of the prototype.
+  return value && Object.prototype.hasOwnProperty.call(map, value) ? (value as AppKey) : "";
+}

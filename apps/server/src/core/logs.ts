@@ -26,6 +26,10 @@ const logQuerySchema = z.object({
   // Ids, not display names, since 4.15.2: two accounts can share a name, and a
   // name filter showed both people's rows as one person's.
   event: multiParam,
+  // Event-name prefixes ("library.gallery.", "photo_sync."), OR'd: how a page
+  // narrows the log to one part of the product without this file knowing its
+  // parts — the control panel maps an application to its prefixes.
+  eventPrefix: multiParam,
   user: multiParam,
   ip: multiParam,
   // Everything by OR about an account (id): what they did, and what was done to
@@ -46,6 +50,19 @@ const logQuerySchema = z.object({
 });
 
 const SYSTEM_ACTOR = "System";
+
+/** "(event LIKE @pre0 OR …)" for event-name prefixes, binding them into `params`.
+ *  Only [a-z_.] prefixes are taken, and "_" is escaped (with "!", which such a
+ *  prefix cannot contain) so it matches itself rather than any one character. Shared with the Dashboard's Activity counts. */
+export function eventPrefixCondition(prefixes: string[], params: Record<string, string>, column = "activity_logs.event"): string | null {
+  const valid = prefixes.filter((prefix) => /^[a-z_.]{1,60}$/.test(prefix));
+  if (!valid.length) return null;
+  const clauses = valid.map((prefix, i) => {
+    params[`pre${i}`] = `${prefix.replace(/_/g, "!_")}%`;
+    return `${column} LIKE @pre${i} ESCAPE '!'`;
+  });
+  return `(${clauses.join(" OR ")})`;
+}
 
 // Whitelisted sort expressions — the column never comes from the query string
 // itself, only the key that selects one of these.
@@ -96,6 +113,9 @@ function buildLogQuery(data: z.infer<typeof logQuerySchema>) {
       });
       conditions.push(`(${clauses.join(" OR ")})`);
     }
+
+    const prefixCondition = eventPrefixCondition(toArray(data.eventPrefix), filterParams);
+    if (prefixCondition) conditions.push(prefixCondition);
 
     if (usersFilter.length) {
       const accounts = usersFilter.filter((id) => id !== SYSTEM_ACTOR);

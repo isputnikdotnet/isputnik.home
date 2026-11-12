@@ -307,8 +307,12 @@ and bookmarks must not break.
    connection, access, storage use, each linking to its owner. Family Tree and
    Games became workspaces (Setup only). The directory shows each status; other
    tabs carry a one-line Ready strip linking back to Setup.
-3. **Application facet** for Logs, Tasks and Activity on the server; "View
-   Gallery logs" links.
+3. **Application facet** for Logs, Tasks and Activity. *(Built 2026-11-12.)*
+   `?application=<app>` on all three pages. The server stays generic: logs and
+   Activity take `eventPrefix` (core/logs.ts `eventPrefixCondition`), tasks take
+   `types` + `libraryType` and apply them to tasks in flight too; the
+   application → prefixes / job types map is `features/control/applications.ts`.
+   Setup has an "Activity, tasks and logs" card; the Ready strip links Activity.
 4. **Dashboard.** The five sections; drives grouped by filesystem with the
    category breakdown and "Other files"; Needs attention fed by low-space,
    unavailable/read-only, failed-task and security checks; Cancel where
