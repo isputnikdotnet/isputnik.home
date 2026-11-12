@@ -28,8 +28,10 @@ export interface FeedResponse {
 
 export type FeedMode = "recent" | "continue";
 
-export function fetchFeed(mode: FeedMode, limit: number, offset = 0): Promise<FeedResponse> {
+/** `days`: Recently added keeps to what arrived in the last so many days. */
+export function fetchFeed(mode: FeedMode, limit: number, offset = 0, days?: number): Promise<FeedResponse> {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (days !== undefined) params.set("days", String(days));
   return api<FeedResponse>(`/api/library/feed/${mode}?${params.toString()}`);
 }
 

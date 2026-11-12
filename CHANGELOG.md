@@ -3,6 +3,14 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.86.0 — Continue watching, tidied; Recently added, kept recent
+
+- **Take something off Continue watching.** Each card in the row now has a ⋮ menu with Resume, Details and **Remove from Continue watching**. Removing an episode takes the whole show off; removing a film takes off every part of it. It’s only for you, your place in it is kept, and playing it again brings it back. Before, a film you gave up halfway or a show you never meant to go on with stayed there for good. Needs the video engine 0.34.
+- **Every card in Continue watching has its picture.** Only the first eight cards fetched one, so on a long row the last few showed the placeholder art. The same went for the In progress row on Home.
+- **Recently added means the last 30 days.** On Home and on the video page, Recently added now shows only what arrived in the last 30 days, and the row is left out when nothing that new has come. Before, it always showed the newest titles, however old, so a film added a year ago still read as new. **View all** still lists everything by the date it came, and the photos card keeps its own week.
+- **Books and video are in date order together.** Home’s Recently added row used to take a book, then a film, then a book, because the video app didn’t say when a title came. They are now sorted by date, newest first.
+- **A new season makes a show new again.** A show moves back to the top of Recently added when an episode it didn’t have arrives. Renaming or moving a file doesn’t count. With the video engine 0.34, counting from the episodes it finds after the update.
+
 ## 4.85.1 — Back to the film, and why it won’t play
 
 - **The player’s back arrow opens the film.** The arrow beside a film’s or show’s title in the player used to step back to whatever page you were on before, which could be anywhere. It now always opens that title’s page, and its tooltip says so: *Back to* followed by the title. Your browser’s own Back button still returns to where you were before you started watching.

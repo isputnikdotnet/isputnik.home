@@ -10,7 +10,9 @@ import { Button } from "../../shared/Button";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { authorLine, feedHref, fetchFeed, type FeedItem } from "../library/feed";
 import {
+  RECENTLY_ADDED_DAYS,
   VIDEO_API,
+  addedRecently,
   episodeCodeValues,
   videoHref,
   watchHref,
@@ -24,10 +26,6 @@ import type { HomeCard, MemoryCard, PhotosAddedCard } from "./feed";
 // The top layout's Home (app/layoutChoice.ts): what you were doing and what this day holds
 // on top, rows of what is new under it, and the family's feed last. It takes the
 // same cards as the normal Home; only the arrangement differs.
-
-// The engine's continue list has no pictures, so each costs a request of its own.
-// A row shows about this many before it clips.
-const POSTERS_ASKED = 8;
 
 // SQLite writes ISO with Z on newer rows and the space form on older ones.
 function timeOf(stamp: string | null | undefined): number {
@@ -254,13 +252,14 @@ export function OrbitHome({
   const [recent, setRecent] = useState<FeedItem[]>([]);
   const [watching, setWatching] = useState<VideoContinueItem[]>([]);
   const [posters, setPosters] = useState<Record<string, string | null>>({});
-  const [newVideo, setNewVideo] = useState<Tile[]>([]);
+  /** New films and shows, each with when it came, to sit among the books by date. */
+  const [newVideo, setNewVideo] = useState<{ at: number; tile: Tile }[]>([]);
   const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     let live = true;
     fetchFeed("continue", 12).then((payload) => { if (live) setBooks(payload.items); }).catch(() => undefined);
-    fetchFeed("recent", 24).then((payload) => { if (live) setRecent(payload.items); }).catch(() => undefined);
+    fetchFeed("recent", 24, 0, RECENTLY_ADDED_DAYS).then((payload) => { if (live) setRecent(payload.items); }).catch(() => undefined);
     return () => { live = false; };
   }, []);
 
@@ -271,8 +270,9 @@ export function OrbitHome({
       .then(async ({ items }) => {
         if (!live) return;
         setWatching(items);
-        // The engine's continue list carries no pictures; ask each title for its own.
-        const pictures = await Promise.allSettled(items.slice(0, POSTERS_ASKED).map(async (item) => {
+        // The engine's continue list carries no pictures; ask each title for its own —
+        // every one, so the cards at the end of the row aren't left blank.
+        const pictures = await Promise.allSettled(items.map(async (item) => {
           const path = item.show ? `shows/${item.show.id}` : `movies/${item.id}`;
           const detail = await api<{ show?: { poster?: string | null }; movie?: { poster?: string | null }; poster?: string | null }>(`${VIDEO_API}/${path}`);
           return [item.id, detail.show?.poster ?? detail.movie?.poster ?? detail.poster ?? null] as const;
@@ -286,20 +286,17 @@ export function OrbitHome({
       api<VideoPage<T>>(`${VIDEO_API}/${kind}?sort=added&pageSize=12`).then((page) => page.items).catch(() => [] as T[]);
     void Promise.all([newest<VideoMovieSummary>("movies"), newest<VideoShowSummary>("shows")]).then(([movies, shows]) => {
       if (!live) return;
-      const tiles: Tile[] = [];
-      for (let i = 0; i < Math.max(movies.length, shows.length); i += 1) {
-        const movie = movies[i];
-        const show = shows[i];
-        if (movie) {
-          const href = videoHref("movies", movie.id);
-          tiles.push({ key: `m-${movie.id}`, href, title: movie.title, sub: movie.year ? String(movie.year) : t("video.movies"), cover: movie.poster ?? DEFAULT_COVERS.movie ?? null, shape: "tall", fallback: Film });
-        }
-        if (show) {
-          const href = videoHref("shows", show.id);
-          tiles.push({ key: `s-${show.id}`, href, title: show.title, sub: show.year ? String(show.year) : t("video.shows"), cover: show.poster ?? DEFAULT_COVERS.show ?? null, shape: "tall", fallback: Tv });
-        }
-      }
-      setNewVideo(tiles);
+      // Only what came inside the window: an old film is not new because nothing came after it.
+      setNewVideo([
+        ...movies.filter((movie) => addedRecently(movie)).map((movie) => ({
+          at: timeOf(movie.addedAt),
+          tile: { key: `m-${movie.id}`, href: videoHref("movies", movie.id), title: movie.title, sub: movie.year ? String(movie.year) : t("video.movies"), cover: movie.poster ?? DEFAULT_COVERS.movie ?? null, shape: "tall" as const, fallback: Film }
+        })),
+        ...shows.filter((show) => addedRecently(show)).map((show) => ({
+          at: timeOf(show.addedAt),
+          tile: { key: `s-${show.id}`, href: videoHref("shows", show.id), title: show.title, sub: show.year ? String(show.year) : t("video.shows"), cover: show.poster ?? DEFAULT_COVERS.show ?? null, shape: "tall" as const, fallback: Tv }
+        }))
+      ]);
     });
     return () => { live = false; };
   }, [videoOn, t]);
@@ -338,14 +335,12 @@ export function OrbitHome({
   const heroVideo = started[0]?.video ?? null;
   const inProgress: Tile[] = started.slice(1).map((entry) => (entry.book ? bookTile(entry.book, resumeBook) : videoTile(entry.video!)));
 
-  // Books and video, turn about: each list is newest first, but the engine's titles
-  // carry no date to sort the two together by.
-  const bookTiles = recent.map((item) => bookTile(item));
-  const recentlyAdded: Tile[] = [];
-  for (let i = 0; i < Math.max(bookTiles.length, newVideo.length); i += 1) {
-    if (bookTiles[i]) recentlyAdded.push(bookTiles[i]);
-    if (newVideo[i]) recentlyAdded.push(newVideo[i]);
-  }
+  // Books and video of the last RECENTLY_ADDED_DAYS, newest first whichever they
+  // are; with nothing that new, no row at all.
+  const recentlyAdded: Tile[] = [
+    ...recent.map((item) => ({ at: timeOf(item.discoveredAt), tile: bookTile(item) })),
+    ...newVideo
+  ].sort((a, b) => b.at - a.at).map((entry) => entry.tile);
 
   const hasContinue = Boolean(heroBook || heroVideo);
   const topClass = hasContinue && memory ? "orbit-top" : "orbit-top is-single";

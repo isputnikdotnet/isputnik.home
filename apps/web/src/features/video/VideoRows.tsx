@@ -7,11 +7,13 @@ import { PosterRow, type PosterItem } from "./VideoPoster";
 import { useTitleCards } from "./VideoTitleCards";
 import { useWatchedStamp } from "./watched";
 import { rowKindUnder, rowName, titlesRowPath, type VideoCollectionRow, type VideoRow, type VideoRowKind, type VideoTitlesRow } from "./rows";
-import { videoSetHref, yearSpan, type VideoPage, type VideoSetSummary, type VideoTitleSummary } from "./types";
+import { addedRecently, videoSetHref, yearSpan, type VideoPage, type VideoSetSummary, type VideoTitleSummary } from "./types";
 
 // The video page's rows as the household set them, under the page's
 // All · Movies · Shows switch. Each titles row asks the engine for its own
-// titles; a row with nothing in it for this person is not drawn.
+// titles; a row with nothing in it for this person is not drawn. A row in the
+// order things came (Recently added) keeps to the last RECENTLY_ADDED_DAYS: with
+// nothing that new, it is not drawn either — its View all still has everything.
 export function VideoRows({ rows, kind, libraryNames, sets, viewAll }: {
   rows: VideoRow[];
   kind: VideoRowKind;
@@ -58,13 +60,13 @@ function TitlesRow({ row, kind, title, action }: { row: VideoTitlesRow; kind: Vi
     api<VideoPage<VideoTitleSummary>>(path)
       .then((page) => {
         if (!live) return;
-        setItems(page.items);
+        setItems(row.sort === "added" ? page.items.filter((item) => addedRecently(item)) : page.items);
         setTracked(page.watch === true);
       })
       // A row that cannot be read is simply not shown.
       .catch(() => { if (live) setItems([]); });
     return () => { live = false; };
-  }, [path, marked]);
+  }, [path, marked, row.sort]);
 
   return (
     <>

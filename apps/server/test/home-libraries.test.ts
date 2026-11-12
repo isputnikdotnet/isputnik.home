@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db, THEME_PREFERENCES } from "../src/db.js";
 import { identityHeaders } from "../src/modules/apps/gateway.js";
 import { homePlugin } from "../src/modules/home/index.js";
-import { inProgress } from "../src/modules/library/feed.js";
+import { inProgress, recentlyAdded } from "../src/modules/library/feed.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { grant, makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
@@ -74,6 +74,18 @@ describe("the Continue feed", () => {
       ["a2", "2026-10-02T10:00:00.000Z"],
       ["a1", "2026-10-01T10:00:00.000Z"]
     ]);
+  });
+});
+
+describe("the Recently added feed", () => {
+  it("keeps to the last so many days when asked, and lists everything when not", () => {
+    const found = db.prepare("UPDATE library_items SET discovered_at = ? WHERE id = ?");
+    found.run(new Date(Date.now() - 2 * 86_400_000).toISOString(), "a1");
+    found.run(new Date(Date.now() - 45 * 86_400_000).toISOString(), "a2");
+    found.run(new Date(Date.now() - 400 * 86_400_000).toISOString(), "e1");
+    const dad = { id: "dad", role: "member" };
+    expect(recentlyAdded(dad, 10, 0, 30)).toMatchObject({ total: 1, items: [{ id: "a1" }] });
+    expect(recentlyAdded(dad, 10, 0).items.map((item) => item.id)).toEqual(["a1", "a2", "e1"]);
   });
 });
 

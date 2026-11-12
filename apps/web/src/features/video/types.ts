@@ -35,6 +35,8 @@ export interface VideoShowSummary extends VideoArt {
   title: string;
   year: number | null;
   imdbId: string | null;
+  /** When the engine first found it (engine 0.34+). */
+  addedAt?: string | null;
   genres: string[];
   seasons: number;
   episodes: number;
@@ -51,6 +53,8 @@ export interface VideoMovieSummary extends VideoArt {
   title: string;
   year: number | null;
   imdbId: string | null;
+  /** When the engine first found it (engine 0.34+). */
+  addedAt?: string | null;
   genres: string[];
   runtimeMinutes: number | null;
   /** Where this person is in it (engine 0.32+), a film in parts counting as one,
@@ -60,6 +64,19 @@ export interface VideoMovieSummary extends VideoArt {
 }
 
 /** A card of the one list of films and shows (engine 0.19.0+), saying which it is. */
+/** How far back "Recently added" reaches, on Home and the video page: past this,
+ *  a title isn't new however long nothing has come after it, and the row is not
+ *  drawn. "View all" still lists everything by the date it came. */
+export const RECENTLY_ADDED_DAYS = 30;
+
+/** Arrived inside that window. A card without a date (an engine before 0.34)
+ *  counts as new, as it did before there was a window. */
+export function addedRecently(item: { addedAt?: string | null }, now = Date.now()): boolean {
+  if (!item.addedAt) return true;
+  const at = Date.parse(item.addedAt);
+  return Number.isNaN(at) || now - at <= RECENTLY_ADDED_DAYS * 86_400_000;
+}
+
 export type VideoTitleSummary =
   | (VideoMovieSummary & { kind: "movies" })
   | (VideoShowSummary & { kind: "shows" });

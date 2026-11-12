@@ -128,25 +128,29 @@ export function crossTypeBooksByFilter(
   return rows.map(mapRow);
 }
 
-// Newest additions across audiobooks + ebooks.
-export function recentlyAdded(user: { id: string; role: string }, limit: number, offset: number): { items: FeedItem[]; total: number } {
+// Newest additions across audiobooks + ebooks. `days`: only what arrived in the
+// last so many days — Home's row, which says nothing rather than call old books new.
+export function recentlyAdded(user: { id: string; role: string }, limit: number, offset: number, days: number | null = null): { items: FeedItem[]; total: number } {
   const libIds = bookLibraryIds(user);
   if (libIds.length === 0) return { items: [], total: 0 };
   const inLibs = placeholders(libIds.length);
+  const since = days === null ? null : new Date(Date.now() - days * 86_400_000).toISOString();
+  const window = since === null ? "" : "AND library_items.discovered_at >= ?";
+  const windowParams = since === null ? [] : [since];
 
   const rows = db.prepare(`
     SELECT ${FEED_COLUMNS}, NULL AS pct, NULL AS completed_at
     ${FEED_JOINS}
-    WHERE library_items.deleted_at IS NULL AND library_items.library_id IN (${inLibs})
+    WHERE library_items.deleted_at IS NULL AND library_items.library_id IN (${inLibs}) ${window}
     GROUP BY library_items.id
     ORDER BY library_items.discovered_at DESC, library_items.id
     LIMIT ? OFFSET ?
-  `).all(...libIds, limit, offset) as FeedRow[];
+  `).all(...libIds, ...windowParams, limit, offset) as FeedRow[];
 
   const total = (db.prepare(`
     SELECT COUNT(*) AS n FROM library_items
-    WHERE library_items.deleted_at IS NULL AND library_items.library_id IN (${inLibs})
-  `).get(...libIds) as { n: number }).n;
+    WHERE library_items.deleted_at IS NULL AND library_items.library_id IN (${inLibs}) ${window}
+  `).get(...libIds, ...windowParams) as { n: number }).n;
 
   return { items: rows.map(mapRow), total };
 }
@@ -185,7 +189,7 @@ export function inProgress(user: { id: string; role: string }, limit: number, of
 
 export function registerFeedRoutes(app: FastifyInstance) {
   // Strings, not numbers: junk falls back to the defaults, as it always has.
-  const pagingQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional() });
+  const pagingQuerySchema = z.object({ limit: z.string().optional(), offset: z.string().optional(), days: z.string().regex(/^[0-9]{1,4}$/).optional() });
 
   const paging = (query: unknown) => {
     const parsed = parseQuery(pagingQuerySchema, query);
@@ -193,7 +197,9 @@ export function registerFeedRoutes(app: FastifyInstance) {
     const q = parsed.data;
     const limit = Math.min(Math.max(parseInt(q.limit ?? "24", 10) || 24, 1), 100);
     const offset = Math.max(parseInt(q.offset ?? "0", 10) || 0, 0);
-    return { limit, offset };
+    // Only the last so many days (Home's row); left out, everything.
+    const days = q.days ? Math.max(1, parseInt(q.days, 10)) : null;
+    return { limit, offset, days };
   };
 
   app.get("/api/library/feed/recent", { preHandler: app.authenticate }, async (request, reply) => {
@@ -201,7 +207,7 @@ export function registerFeedRoutes(app: FastifyInstance) {
     if ("error" in page) {
       return reply.code(400).send({ error: "Invalid query", details: page.error });
     }
-    return recentlyAdded(request.user!, page.limit, page.offset);
+    return recentlyAdded(request.user!, page.limit, page.offset, page.days);
   });
 
   app.get("/api/library/feed/continue", { preHandler: app.authenticate }, async (request, reply) => {

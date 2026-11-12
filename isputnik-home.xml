@@ -27,7 +27,14 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794484800</Date>
   <Changes>
-### 2026.11.12 — 4.85.1 Back to the film, and why it won’t play
+### 2026.11.12 — 4.86.0 Continue watching, tidied; Recently added, kept recent
+- **Take something off Continue watching.** Each card in the row now has a ⋮ menu with Resume, Details and **Remove from Continue watching**. Removing an episode takes the whole show off; removing a film takes off every part of it. It’s only for you, your place in it is kept, and playing it again brings it back. Before, a film you gave up halfway or a show you never meant to go on with stayed there for good. Needs the video engine 0.34.
+- **Every card in Continue watching has its picture.** Only the first eight cards fetched one, so on a long row the last few showed the placeholder art. The same went for the In progress row on Home.
+- **Recently added means the last 30 days.** On Home and on the video page, Recently added now shows only what arrived in the last 30 days, and the row is left out when nothing that new has come. Before, it always showed the newest titles, however old, so a film added a year ago still read as new. **View all** still lists everything by the date it came, and the photos card keeps its own week.
+- **Books and video are in date order together.** Home’s Recently added row used to take a book, then a film, then a book, because the video app didn’t say when a title came. They are now sorted by date, newest first.
+- **A new season makes a show new again.** A show moves back to the top of Recently added when an episode it didn’t have arrives. Renaming or moving a file doesn’t count. With the video engine 0.34, counting from the episodes it finds after the update.
+
+### 2026.11.11 — 4.85.1 Back to the film, and why it won’t play
 - **The player’s back arrow opens the film.** The arrow beside a film’s or show’s title in the player used to step back to whatever page you were on before, which could be anywhere. It now always opens that title’s page, and its tooltip says so: *Back to* followed by the title. Your browser’s own Back button still returns to where you were before you started watching.
 - **Logs now say why a film can’t play in the browser.** When a browser can’t decode a film, the player showed *This can’t play here* and sent you to Logs, but nothing was written there: the server had sent the film without any error. The player now writes the browser’s own reason to Home’s log, once an hour per person and film. It also gives up after two retries instead of downloading the same part of the film over and over.
 
@@ -41,14 +48,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 ### 2026.11.11 — 4.83.1 Video progress, easier to see
 - **Clearer watch progress.** Movie and episode cards now have thicker, rounded progress bars set slightly inside the artwork, with an opaque track and outline. Season counts, resume actions and the home banner use the same treatment.
 - **Progress and watched checks follow your theme.** Both use the current theme's accent color. Contrasting tracks and outlined check badges keep them visible over artwork in every theme, including Minimalist.
-
-### 2026.11.10 — 4.83.0 Video pages, tidied
-- **A poster's menu is beside its name.** The ⋮ now sits under the poster, next to the title, on every film and show: always there, never over the picture, and the same with a finger as with a mouse. Before, it appeared over the art only when you pointed at it. The menu also has **Add to My list** and, for a film, **Download**.
-- **Marks in the corner.** The watched check and a show's "8 unwatched" are in the picture's top-right corner; a film left part-way has a gold bar along its foot.
-- **One row of buttons on a film's or show's page.** Play, My list, Download for a film, and a ⋮ with the rest: Mark as watched or unwatched, Reset progress, Add to collection and, for admins, Edit. Before, they ran to two rows.
-- **The season row says where you are.** The season tabs now share one row with "5 of 10 watched", a bar, and the season's ⋮, which marks the whole season and holds **Download season**.
-- **Episodes.** Each episode's ⋮ is beside its name: Play episode, Mark as watched, Download episode. Its line says how long it runs, and *On this device* once it is downloaded.
-- Continue watching says how long is left in minutes: *47 min left*.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

@@ -175,6 +175,49 @@ describe("the overview", () => {
     }
   });
 
+  it("gives every card of a long row its picture, and takes one off by hand", async () => {
+    resetVideoAvailable();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ enabled: true }), { status: 200 }));
+    const films = Array.from({ length: 10 }, (_, n) => ({
+      id: `c${n}`, type: "movie", title: `Film ${n}`, show: null, season: null, episode: null, position: 600, duration: 1800, resume: true, updatedAt: "2026-11-01T00:00:00.000Z"
+    }));
+    const pictures = Object.fromEntries(films.map((film) => [`/video/api/movies/${film.id}`, { ...movie, id: film.id, title: film.title, poster: null, backdrop: `/video/api/art/${film.id}/backdrop` }]));
+    try {
+      answer({ "/video/api/continue": { items: films }, ...pictures, "/video/api/continue/c9": { removed: 1 } });
+      renderSignedIn(<VideoHomePage />);
+      const row = (await screen.findByRole("heading", { name: "Continue watching" })).closest("section")!;
+      // Past the first screenful too: the tenth card is not left blank.
+      await waitFor(() => expect(row.querySelectorAll("img[src$='/backdrop']")).toHaveLength(10));
+
+      await userEvent.click(within(row).getByRole("button", { name: "More for Film 9" }));
+      await userEvent.click(await screen.findByRole("menuitem", { name: "Remove from Continue watching" }));
+      expect(mockApi).toHaveBeenCalledWith("/video/api/continue/c9", { method: "DELETE" });
+      await waitFor(() => expect(within(row).queryByText("Film 9")).toBeNull());
+      expect(within(row).getByText("Film 8")).toBeInTheDocument();
+    } finally {
+      fetchSpy.mockRestore();
+      resetVideoAvailable();
+    }
+  });
+
+  it("keeps Recently added to the last 30 days, and leaves the row out when nothing is that new", async () => {
+    const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+    mockApi.mockImplementation((async (path: string) => {
+      if (path === "/video/api/continue") return { items: [] };
+      const rows = rowsAnswer(path, [
+        { id: "m1", title: "The General", year: 1926, addedAt: daysAgo(3) },
+        { id: "m2", title: "Metropolis", year: 1927, addedAt: daysAgo(90) }
+      ], [{ id: "s1", title: "Counterpart", year: 2017, seasons: 1, episodes: 2, addedAt: daysAgo(200) }]);
+      if (rows) return rows;
+      throw new Error("no banner here");
+    }) as never);
+    renderSignedIn(<VideoHomePage />);
+    const movies = (await screen.findByRole("heading", { name: "Recently added movies" })).closest("section")!;
+    expect(within(movies).getByRole("link", { name: /The General/ })).toBeInTheDocument();
+    expect(within(movies).queryByText("Metropolis")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Recently added shows" })).toBeNull();
+  });
+
   it("keeps its rows when the banner cannot be read", async () => {
     mockApi.mockImplementation((async (path: string) => {
       if (path === "/video/api/continue") return { items: [] };
