@@ -204,6 +204,11 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
       upstream: typeof upstream === "string" ? upstream : "",
       prefix,
       rewritePrefix: prefix,
+      // No retries here: @fastify/reply-from retries a GET's 503 ten times by
+      // default (maxRetriesOn503: 0 still means 10 — it reads `|| 10`) and takes
+      // Retry-After as milliseconds. A container's 503 — busy, too slow — is an
+      // answer for the client, which honours Retry-After itself (#103).
+      retryMethods: [],
       // Only a signed-in member the container's access admits — or whoever a hook
       // admits — reaches the container; anonymous gets this app's 401.
       // The proxy's hook is callback-style, so the async decorator is adapted: once

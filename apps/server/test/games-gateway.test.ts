@@ -16,6 +16,7 @@ const SECRET = "gateway-secret-for-tests";
 let upstream: FastifyInstance;
 let upstreamUrl: string;
 let booted: BootedApp;
+let busyHits = 0;
 
 beforeEach(async () => {
   resetDb();
@@ -23,6 +24,11 @@ beforeEach(async () => {
   db.prepare("UPDATE users SET display_name = ?, language = 'ru', theme = 'plain-dark' WHERE id = 'mum'").run("Мама");
 
   upstream = Fastify();
+  busyHits = 0;
+  upstream.get("/games/api/busy", async (_request, reply) => {
+    busyHits += 1;
+    return reply.code(503).header("retry-after", "2").send({ error: "Busy" });
+  });
   upstream.all("/games/*", async (request, reply) => reply.send({ url: request.url, headers: request.headers }));
   upstream.all("/games", async (request, reply) => reply.send({ url: request.url, headers: request.headers }));
   await upstream.listen({ host: "127.0.0.1", port: 0 });
@@ -173,6 +179,17 @@ describe("GET /games/*", () => {
     expect(body.headers["x-isputnik-gateway"]).toBe(SECRET);
     expect(body.headers["x-isputnik-client-ip"]).toBe("127.0.0.1");
     expect(body.headers["x-isputnik-request-id"]).not.toBe("forged");
+  });
+
+  // The proxy's default retried a GET's 503 ten times, reading Retry-After as
+  // milliseconds — one refused video segment restarted ffmpeg 21 times (#103).
+  // A container's 503 goes to the client once, Retry-After intact.
+  it("passes a container's 503 straight back, asking it once", async () => {
+    const cookie = await booted.signIn("mum");
+    const res = await booted.app.inject({ method: "GET", url: "/games/api/busy", headers: { cookie } });
+    expect(res.statusCode).toBe(503);
+    expect(res.headers["retry-after"]).toBe("2");
+    expect(busyHits).toBe(1);
   });
 
   it("reaches the bare prefix and the pages, not just the API", async () => {
