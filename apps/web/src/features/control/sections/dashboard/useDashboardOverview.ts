@@ -11,8 +11,15 @@ import type { AppStatus } from "../AppsSection";
 // that fails costs its part of the page, never the rest.
 
 export type DiskHolding =
-  | { kind: "database" | "thumbnails" | "backups" | "appFiles" | "trash" | "systemData" | "artwork" | "transcode"; path: string }
-  | { kind: "library"; name: string; libraryType?: string; path: string };
+  | {
+      kind: "database" | "thumbnails" | "backups" | "appFiles" | "trash" | "systemData" | "artwork" | "transcode";
+      path: string;
+      /** Home's places: the whole folder's size once counted (null while counting);
+       *  `partial` when the count stopped at its limit. The engine's carry neither. */
+      bytes?: number | null;
+      partial?: boolean;
+    }
+  | { kind: "library"; id?: string; name: string; libraryType?: string; path: string };
 
 /** One folder mapped into a container, as home (modules/dashboard/overview.ts)
  *  or the video engine (its /api/admin/disks) measured it. */

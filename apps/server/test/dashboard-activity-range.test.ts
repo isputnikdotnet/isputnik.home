@@ -101,4 +101,25 @@ describe("GET /api/dashboard/activity", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().totals.uploads).toBe(1);
   });
+
+  // Control panel v2's Usage: who did the counted things in the window, most first.
+  it("names the most active members in the window, narrowed like the counts", async () => {
+    const sam = makeUser("sam");
+    const log2 = (actor: string, event: string) => {
+      seq += 1;
+      db.prepare("INSERT INTO activity_logs (id, event, actor_user_id, detail, created_at) VALUES (?, ?, ?, ?, ?)")
+        .run(`m-${seq}`, event, actor, "test", new Date(Date.now() - 3_600_000).toISOString());
+    };
+    log2(sam, "library.gallery.viewed");
+    log2(sam, "library.gallery.viewed");
+    log2(sam, "auth.login");
+    log2(admin, "library.ebook.read");
+    const session = await signIn(admin);
+    const query = new URLSearchParams({ from: hoursAgo(5).toISOString(), to: new Date().toISOString() });
+    const all = await app.inject({ method: "GET", url: `/api/dashboard/activity?${query}`, headers: { cookie: session } });
+    expect(all.json().members).toEqual([{ id: sam, name: expect.any(String), events: 2 }, { id: admin, name: expect.any(String), events: 1 }]);
+    query.append("eventPrefix", "library.ebook.");
+    const books = await app.inject({ method: "GET", url: `/api/dashboard/activity?${query}`, headers: { cookie: session } });
+    expect(books.json().members.map((member: { id: string }) => member.id)).toEqual([admin]);
+  });
 });

@@ -12,11 +12,21 @@ import { config } from "../../config.js";
 import { getAppStoragePath } from "../../core/app-storage.js";
 import { getSystemDataPath, resolveBackupPath, systemDataFolder } from "../../core/system-data.js";
 import { getTrashRootSetting } from "../library/shared/trash-settings.js";
+import { cachedFolderStats } from "../library/app-storage.js";
 
 /** What a place on a disk holds. A library carries its name. */
 export type DiskHolding =
-  | { kind: "database" | "thumbnails" | "backups" | "appFiles" | "trash" | "systemData"; path: string }
-  | { kind: "library"; name: string; libraryType: string; path: string };
+  | {
+      kind: "database" | "thumbnails" | "backups" | "appFiles" | "trash" | "systemData";
+      path: string;
+      /** What the folder holds, all of it (nested places included — the page takes
+       *  those out); the database is its files alone. Null until the background
+       *  count (cachedFolderStats) has finished once; `partial` when it stopped at
+       *  its file limit, so this is a floor. Control panel v2's storage breakdown. */
+      bytes?: number | null;
+      partial?: boolean;
+    }
+  | { kind: "library"; id: string; name: string; libraryType: string; path: string };
 
 export interface DashboardDisk {
   /** The top folder of the mount as this server sees it (`/media`): in a
@@ -66,7 +76,7 @@ function mountOf(dir: string, dev: number): string {
 /** Every place Home keeps files. Video libraries live on the engine, not here:
  *  their folder is the engine's, and measuring it here would report Home's disk. */
 export function homeHoldings(): DiskHolding[] {
-  const holds: DiskHolding[] = [{ kind: "database", path: path.dirname(path.resolve(config.dbPath)) }];
+  const holds: DiskHolding[] = [{ kind: "database", path: path.dirname(path.resolve(config.dbPath)), bytes: databaseBytes() }];
   const systemData = getSystemDataPath();
   if (systemData) holds.push({ kind: "systemData", path: systemData });
   const thumbnails = config.thumbnailPath || systemDataFolder("thumbnails");
@@ -77,12 +87,37 @@ export function homeHoldings(): DiskHolding[] {
   const trash = getTrashRootSetting();
   if (trash) holds.push({ kind: "trash", path: trash });
   const libraries = db.prepare(
-    "SELECT name, type, source_path FROM libraries WHERE type != 'video' ORDER BY name COLLATE NOCASE"
-  ).all() as { name: string; type: string; source_path: string }[];
+    "SELECT id, name, type, source_path FROM libraries WHERE type != 'video' ORDER BY name COLLATE NOCASE"
+  ).all() as { id: string; name: string; type: string; source_path: string }[];
   for (const library of libraries) {
-    holds.push({ kind: "library", name: library.name, libraryType: library.type, path: library.source_path });
+    holds.push({ kind: "library", id: library.id, name: library.name, libraryType: library.type, path: library.source_path });
   }
   return holds;
+}
+
+/** The database's own files — not the folder it is in, which is usually /config
+ *  and holds everything else too. */
+function databaseBytes(): number | null {
+  if (config.dbPath === ":memory:") return null;
+  let total = 0;
+  for (const suffix of ["", "-wal", "-shm"]) {
+    try {
+      total += fs.statSync(`${config.dbPath}${suffix}`).size;
+    } catch {
+      // No WAL or SHM file right now: nothing to add.
+    }
+  }
+  return total;
+}
+
+/** Each folder place with what it holds, from the background count. The first ask
+ *  starts the count and returns null; the Dashboard says "measuring" until then. */
+export function measureHoldings(holds: DiskHolding[]): DiskHolding[] {
+  return holds.map((hold) => {
+    if (hold.kind === "library" || hold.kind === "database") return hold;
+    const stats = cachedFolderStats(hold.path);
+    return { ...hold, bytes: stats ? stats.bytes : null, partial: stats ? !stats.complete : false };
+  });
 }
 
 /** The holdings grouped by the mount they are on — one bar per folder mapped
@@ -144,7 +179,7 @@ export async function dashboardOverviewPlugin(app: FastifyInstance) {
     ).get() as { n: number };
     return {
       home: { addresses: homeAddresses(), port: config.port, publicUrl: config.appUrl },
-      disks: groupByDisk(homeHoldings()),
+      disks: groupByDisk(measureHoldings(homeHoldings())),
       failedSignIns24h: failedSignIns.n,
       failedTasks24h: failedTasks.n
     };

@@ -910,6 +910,10 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
     const prefixes = parsed.data.eventPrefix === undefined ? [] : [parsed.data.eventPrefix].flat();
     const prefixCondition = eventPrefixCondition(prefixes, prefixParams, "event");
     const narrowed = prefixCondition ? ` AND ${prefixCondition}` : "";
+    // The same condition over a joined query, where `event` must name its table; it
+    // binds the same parameters, so one set serves both.
+    const qualified = eventPrefixCondition(prefixes, {}, "activity_logs.event");
+    const narrowedQualified = qualified ? ` AND ${qualified}` : "";
 
     const ACTIVITY_CASE_SQL = `
       SUM(CASE WHEN event IN (${UPLOAD_EVENTS}) THEN 1 ELSE 0 END) AS uploads,
@@ -958,12 +962,27 @@ export async function dashboardRoutesPlugin(app: FastifyInstance) {
       to: range.from
     };
 
+    // Who did most of it: the members behind the counted events in this window
+    // (control panel v2's Usage, "usage by member and application").
+    const members = db.prepare(`
+      SELECT activity_logs.actor_user_id AS id, users.display_name AS name, COUNT(*) AS events
+      FROM activity_logs JOIN users ON users.id = activity_logs.actor_user_id
+      WHERE activity_logs.created_at >= @from AND activity_logs.created_at <= @to${narrowedQualified}
+        AND (activity_logs.event IN (${UPLOAD_EVENTS}, 'library.item_trashed', 'library.item_purged', 'library.audiobook.played',
+             'library.ebook.read', 'library.gallery.viewed', 'library.video.played', 'games.match_started')
+          OR activity_logs.event LIKE '%.downloaded' OR activity_logs.event LIKE '%.deleted')
+      GROUP BY activity_logs.actor_user_id
+      ORDER BY events DESC, users.display_name COLLATE NOCASE
+      LIMIT 5
+    `).all({ ...range, ...prefixParams }) as { id: string; name: string | null; events: number }[];
+
     return reply.send({
       from: range.from,
       to: range.to,
       bucket,
       buckets,
       series,
+      members: members.map((member) => ({ id: member.id, name: member.name ?? member.id, events: member.events })),
       totals: clean(totalsStatement.get({ ...range, ...prefixParams }) as ActivityCounts),
       previous: clean(totalsStatement.get({ ...previousRange, ...prefixParams }) as ActivityCounts)
     });

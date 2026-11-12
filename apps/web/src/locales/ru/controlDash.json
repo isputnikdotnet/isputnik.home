@@ -1072,5 +1072,59 @@
     "linkVideoSettings": "Настройки",
     "holdArtwork": "постеры",
     "holdTranscode": "папка преобразования"
+  },
+  "dashboard": {
+    "attentionTitle": "Требует внимания",
+    "actionConnection": "Открыть подключение",
+    "actionStorage": "Проверить хранилище",
+    "actionBackups": "Открыть резервные копии",
+    "actionTasks": "Открыть задачи",
+    "actionLogs": "Открыть журналы",
+    "actionSignIns": "Открыть входы",
+    "storageSettingsLink": "Места хранения и правила",
+    "lowSpace": "Мало места",
+    "whatUses": "Что занимает {{drive}}",
+    "category": {
+      "media": "Медиафайлы библиотек",
+      "appData": "Данные приложения",
+      "thumbnails": "Миниатюры и кэш",
+      "backups": "Резервные копии",
+      "trash": "Корзина",
+      "other": "Другие файлы"
+    },
+    "categoryHint": {
+      "media": "Собственные файлы библиотек",
+      "appData": "База данных, системные данные и файлы приложения",
+      "thumbnails": "Можно создать заново",
+      "backups": "Подробнее о хранении копий",
+      "trash": "Что можно восстановить или удалить",
+      "other": "На этом диске, но не под управлением isputnik.home"
+    },
+    "measuring": "Некоторые папки ещё измеряются; их доля появится после подсчёта.",
+    "foldersTitle": "Папки и библиотеки на этом диске",
+    "growthTitle": "Рост",
+    "growthPending": "Появится, когда накопятся ежедневные замеры.",
+    "usageTitle": "Использование",
+    "period": "Период",
+    "periods": {
+      "7d": "7 дней",
+      "30d": "30 дней",
+      "12m": "12 месяцев"
+    },
+    "usageDetail": "Использование по участникам и приложениям",
+    "membersTitle": "Самые активные участники",
+    "memberEvents_one": "{{formatted}} событие",
+    "memberEvents_few": "{{formatted}} события",
+    "memberEvents_many": "{{formatted}} событий",
+    "memberEvents_other": "{{formatted}} события",
+    "noMembers": "За этот период никто ничего не сделал.",
+    "workTitle": "Текущая работа",
+    "nothingRunning": "Ничего не выполняется и не ждёт в очереди.",
+    "queued": "В очереди",
+    "running": "Выполняется",
+    "progressAndLogs": "Ход и журналы",
+    "cancel": "Отменить",
+    "cancelling": "Отмена…",
+    "allTasks": "Все задачи"
   }
 }

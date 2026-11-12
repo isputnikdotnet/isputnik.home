@@ -5,17 +5,15 @@ import {
   Clock3,
   Database,
   Gamepad2,
-  HardDrive,
   House,
   KeyRound,
   MemoryStick,
   ScanFace,
-  ScrollText,
-  ShieldCheck,
   Tv,
   type LucideIcon
 } from "lucide-react";
-import { controlHref } from "../../../../router";
+import { controlHref, followRoute } from "../../../../router";
+import { CurrentWorkPanel, DASH_ICONS, DashSectionHead, StoragePanel, UsagePanel } from "./DashboardPanels";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { formatBytes, formatManagedDate, formatUptime } from "../../../../shared/utils";
 import { relativeTime } from "../../../../shared/relativeTime";
@@ -26,11 +24,11 @@ import type { AppStatus } from "../AppsSection";
 import type { SystemStatus } from "../../types";
 import { isStaleBackup, type AppBackupSummary, type DashboardDisk, type DashboardOverview, type DiskHolding, type LastBackup, type OwnedDisk } from "./useDashboardOverview";
 
-// Overview › Dashboard (docs/dashboard-and-backups-plan.md): Home and the
-// containers beside it on one page. It reads and points; every setting stays on
-// its own page. From the top: what needs a look (or one quiet line), Home with
-// its gateway and a branch per container, security and the last day's problems,
-// then the disks every container's files sit on and each one's last backup.
+// The Dashboard (docs/dashboard-and-backups-plan.md; reshaped in control panel v2,
+// docs/control-panel-v2-plan.md "Dashboard"): where an admin lands. It reads and
+// points; every setting stays on its own page. Needs attention (each with the
+// button that acts on it), Home with its gateway and a branch per container,
+// storage by drive and what uses it, usage, and the work in progress.
 
 type Tone = "success" | "warning" | "danger" | "muted";
 
@@ -106,6 +104,8 @@ interface Issue {
   tone: Tone;
   text: string;
   href: string;
+  /** The button that acts on it: "Open connection", "Open sign-ins". */
+  action: string;
 }
 
 export function Overview({
@@ -132,8 +132,8 @@ export function Overview({
   const issues: Issue[] = [];
   for (const app of apps ?? []) {
     const state = appState(app);
-    if (state === "down") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppDown", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id) });
-    if (state === "secret") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppSecret", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id) });
+    if (state === "down") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppDown", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id), action: t("controlDash:dashboard.actionConnection") });
+    if (state === "secret") issues.push({ tone: "danger", text: t("controlDash:overview.issueAppSecret", { app: appName(app.id) }), href: appPageHref("appsSetup", app.id), action: t("controlDash:dashboard.actionConnection") });
   }
   const disks = groupDisks(overview, appDisks);
   for (const disk of disks) {
@@ -142,142 +142,116 @@ export function Overview({
       issues.push({
         tone,
         text: t("controlDash:overview.issueDiskLow", { mount: folderNames(disk), share: Math.round((disk.freeBytes / disk.totalBytes) * 100) }),
-        href: storageHref()
+        href: storageHref(),
+        action: t("controlDash:dashboard.actionStorage")
       });
     }
   }
   if (lastBackup === null) {
-    issues.push({ tone: "warning", text: t("controlDash:overview.issueNoBackup"), href: controlHref("backup") });
+    issues.push({ tone: "warning", text: t("controlDash:overview.issueNoBackup"), href: controlHref("backup"), action: t("controlDash:dashboard.actionBackups") });
   } else if (lastBackup?.stale) {
-    issues.push({ tone: "warning", text: t("controlDash:overview.issueOldBackup", { when: relativeTime(lastBackup.createdAt) }), href: controlHref("backup") });
+    issues.push({ tone: "warning", text: t("controlDash:overview.issueOldBackup", { when: relativeTime(lastBackup.createdAt) }), href: controlHref("backup"), action: t("controlDash:dashboard.actionBackups") });
   }
   // A container left out of the backups on purpose has nothing to warn about.
   for (const app of appBackups ?? []) {
     if (!app.configured || !app.include) continue;
     const newest = app.files[0];
     if (!newest) {
-      issues.push({ tone: "warning", text: t("controlDash:overview.issueAppNoBackup", { app: appName(app.id) }), href: containerBackupHref(app.id) });
+      issues.push({ tone: "warning", text: t("controlDash:overview.issueAppNoBackup", { app: appName(app.id) }), href: containerBackupHref(app.id), action: t("controlDash:dashboard.actionBackups") });
     } else if (isStaleBackup(newest.createdAt)) {
-      issues.push({ tone: "warning", text: t("controlDash:overview.issueAppOldBackup", { app: appName(app.id), when: relativeTime(newest.createdAt) }), href: containerBackupHref(app.id) });
+      issues.push({ tone: "warning", text: t("controlDash:overview.issueAppOldBackup", { app: appName(app.id), when: relativeTime(newest.createdAt) }), href: containerBackupHref(app.id), action: t("controlDash:dashboard.actionBackups") });
     }
   }
   if (overview && overview.failedTasks24h > 0) {
-    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedTasks", { count: overview.failedTasks24h }), href: tasksHref({ status: "failed" }) });
+    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedTasks", { count: overview.failedTasks24h }), href: tasksHref({ status: "failed" }), action: t("controlDash:dashboard.actionTasks") });
   }
   for (const app of apps ?? []) {
     const errors = appErrors[app.id];
-    if (errors) issues.push({ tone: "warning", text: t("controlDash:overview.issueAppErrors", { app: appName(app.id), count: errors }), href: logsHref({ app: app.id, level: "error" }) });
+    if (errors) issues.push({ tone: "warning", text: t("controlDash:overview.issueAppErrors", { app: appName(app.id), count: errors }), href: logsHref({ app: app.id, level: "error" }), action: t("controlDash:dashboard.actionLogs") });
   }
   if (overview && overview.failedSignIns24h >= FAILED_SIGN_INS_NOTICE) {
-    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedSignIns", { count: overview.failedSignIns24h }), href: signInsHref({}) });
+    issues.push({ tone: "warning", text: t("controlDash:overview.issueFailedSignIns", { count: overview.failedSignIns24h }), href: signInsHref({}), action: t("controlDash:dashboard.actionSignIns") });
   }
   issues.sort((a, b) => (a.tone === b.tone ? 0 : a.tone === "danger" ? -1 : 1));
 
+  const folderOwner = (folder: OwnedDisk) => (folder.owner === "home" ? t("controlDash:overview.homeShort") : appName(folder.owner));
+  const holdingsOf = (folder: OwnedDisk) => describeHoldings(folder.holds, {
+    database: t("controlDash:overview.holdDatabase"),
+    systemData: t("controlDash:overview.holdSystemData"),
+    thumbnails: t("controlDash:overview.holdThumbnails"),
+    backups: t("controlDash:overview.holdBackups"),
+    appFiles: t("controlDash:overview.holdAppFiles"),
+    trash: t("controlDash:overview.holdTrash"),
+    artwork: t("controlDash:overview.holdArtwork"),
+    transcode: t("controlDash:overview.holdTranscode")
+  }, (names) => t("controlDash:overview.holdLibraries", { names }));
+
+  // Control panel v2 (phase 4): five sections in the order an admin asks them —
+  // what needs me, what is running, how much room is left, how it is used, what it
+  // is doing now. Every summary leads to the page that acts on it.
   return (
     <div className="dash">
-      {issues.length > 0 ? (
-        <MessageBox tone={issues[0].tone === "danger" ? "error" : "warning"} title={t("controlDash:overview.attentionTitle", { count: issues.length })}>
-          <ul className="dash-issues">
+      <section className="dash-section" aria-labelledby="dash-attention">
+        <div className="dash-section-head">
+          <h2 id="dash-attention">{t("controlDash:dashboard.attentionTitle")}{issues.length > 0 && <span className="dash-count">{issues.length}</span>}</h2>
+        </div>
+        {issues.length > 0 ? (
+          <ul className="dash-attention">
             {issues.map((issue) => (
               <li key={issue.text}>
-                <a href={issue.href} className="dash-issue">
-                  <span className={`dash-dot tone-${issue.tone}`} aria-hidden="true" />
-                  <span className="dash-issue-text">{issue.text}</span>
-                  <ChevronRight size={16} aria-hidden="true" />
+                <span className={`dash-dot tone-${issue.tone}`} aria-hidden="true" />
+                <span className="dash-issue-text">{issue.text}</span>
+                <a href={issue.href} className="secondary-button compact-button" onClick={(event) => followRoute(event, issue.href)}>
+                  {issue.action}
+                  <ChevronRight size={15} aria-hidden="true" />
                 </a>
               </li>
             ))}
           </ul>
-        </MessageBox>
-      ) : (
-        <MessageBox tone="success" title={t("controlDash:overview.allClearTitle")}>
-          {t("controlDash:overview.allClearBody")}
-        </MessageBox>
-      )}
+        ) : (
+          <MessageBox tone="success" title={t("controlDash:overview.allClearTitle")}>
+            {t("controlDash:overview.allClearBody")}
+          </MessageBox>
+        )}
+      </section>
 
       <Services status={status} overview={overview} apps={apps} />
+      <dl className="dash-stats dash-stats-row">
+        <Stat icon={MemoryStick} label={t("controlDash:system.memory")} value={formatBytes(status.memory.rssBytes)} />
+        <Stat icon={Database} label={t("controlDash:system.database")} value={formatBytes(status.databaseBytes)} />
+        <Stat icon={Clock3} label={t("controlDash:system.uptime")} value={formatUptime(status.uptimeSeconds)} />
+      </dl>
 
-      <div className="dash-pair">
-        <section className="dash-card" aria-labelledby="dash-security">
-          <div className="dash-card-head">
-            <ShieldCheck size={18} aria-hidden="true" />
-            <h2 id="dash-security">{t("controlDash:overview.securityTitle")}</h2>
-            <a href={controlHref("security")}>{t("controlDash:overview.securityLink")}</a>
-          </div>
-          <div className="dash-figures">
-            <Figure href={controlHref("users")} value={formatNumber(status.users)} label={t("controlDash:system.members")} />
-            <Figure href={signInsHref({})} value={formatNumber(status.activeSessions)} label={t("controlDash:system.devices")} />
-            <Figure href={controlHref("invites")} value={formatNumber(status.activeInvites)} label={t("controlDash:system.invites")} />
-            <Figure
-              href={signInsHref({})}
-              value={overview ? formatNumber(overview.failedSignIns24h) : "…"}
-              label={t("controlDash:overview.failedSignIns")}
-              tone={overview && overview.failedSignIns24h >= FAILED_SIGN_INS_NOTICE ? "warning" : undefined}
-            />
-          </div>
-        </section>
-
-        <section className="dash-card" aria-labelledby="dash-problems">
-          <div className="dash-card-head">
-            <ScrollText size={18} aria-hidden="true" />
-            <h2 id="dash-problems">{t("controlDash:overview.problemsTitle")}</h2>
-            <span className="muted">{t("controlDash:overview.auditEntries", { count: status.logEntries, formatted: formatNumber(status.logEntries) })}</span>
-          </div>
-          <ul className="dash-problems">
-            <ProblemRow
-              name={t("controlDash:overview.homeShort")}
-              what={t("controlDash:overview.problemsTasks")}
-              count={overview ? overview.failedTasks24h : null}
-              href={tasksHref({ status: "failed" })}
-            />
-            {(apps ?? []).filter((app) => app.configured).map((app) => (
-              <ProblemRow
-                key={app.id}
-                name={appName(app.id)}
-                what={t("controlDash:overview.problemsEvents")}
-                count={app.server?.ok ? (appErrors[app.id] ?? null) : null}
-                href={logsHref({ app: app.id, level: "error" })}
-              />
-            ))}
-          </ul>
-        </section>
-      </div>
-
-      <section className="dash-card" aria-labelledby="dash-storage">
-        <div className="dash-card-head">
-          <HardDrive size={18} aria-hidden="true" />
-          <h2 id="dash-storage">{t("controlDash:overview.storageTitle")}</h2>
-          <a href={storageHref()}>{t("controlDash:overview.storageLink")}</a>
+      <section className="dash-section" aria-labelledby="dash-storage">
+        <DashSectionHead id="dash-storage" icon={DASH_ICONS.storage} title={t("controlDash:overview.storageTitle")} link={{ href: storageHref(), label: t("controlDash:dashboard.storageSettingsLink") }} />
+        {overview === null
+          ? <p className="muted">{t("controlDash:overview.disksUnknown")}</p>
+          : <StoragePanel drives={disks} status={status} describe={holdingsOf} folderLabel={folderOwner} />}
+        <div className="dash-backup">
+          <span className="dash-backup-label"><Archive size={16} aria-hidden="true" />{t("controlDash:system.lastBackup")}</span>
+          <BackupRow
+            name={t("controlDash:overview.homeShort")}
+            href={controlHref("backup")}
+            when={lastBackup === undefined ? "…" : lastBackup ? relativeTime(lastBackup.createdAt) : t("controlDash:system.noneYet")}
+            stale={Boolean(lastBackup?.stale)}
+            detail={lastBackup
+              ? `${lastBackup.kind === "full" ? t("controlDash:system.fullBackup") : lastBackup.kind === "minimal" ? t("controlDash:overview.minimalBackup") : t("controlDash:system.databaseOnly")} · ${formatManagedDate(lastBackup.createdAt)}`
+              : t("controlDash:system.backupHint")}
+          />
+          {(appBackups ?? []).filter((app) => app.configured || app.files.length > 0).map((app) => (
+            <AppBackupRow key={app.id} app={app} />
+          ))}
         </div>
-        <div className="dash-storage">
-          <div className="dash-disks">
-            {overview === null && <p className="muted">{t("controlDash:overview.disksUnknown")}</p>}
-            {disks.map((disk) => <DiskRow key={disk.key} disk={disk} />)}
-            <p className="dash-note">{t("controlDash:overview.disksHelp")}</p>
-          </div>
-          <div className="dash-side">
-            <dl className="dash-stats">
-              <Stat icon={MemoryStick} label={t("controlDash:system.memory")} value={formatBytes(status.memory.rssBytes)} />
-              <Stat icon={Database} label={t("controlDash:system.database")} value={formatBytes(status.databaseBytes)} />
-              <Stat icon={Clock3} label={t("controlDash:system.uptime")} value={formatUptime(status.uptimeSeconds)} />
-            </dl>
-            <div className="dash-backup">
-              <span className="dash-backup-label"><Archive size={16} aria-hidden="true" />{t("controlDash:system.lastBackup")}</span>
-              <BackupRow
-                name={t("controlDash:overview.homeShort")}
-                href={controlHref("backup")}
-                when={lastBackup === undefined ? "…" : lastBackup ? relativeTime(lastBackup.createdAt) : t("controlDash:system.noneYet")}
-                stale={Boolean(lastBackup?.stale)}
-                detail={lastBackup
-                  ? `${lastBackup.kind === "full" ? t("controlDash:system.fullBackup") : lastBackup.kind === "minimal" ? t("controlDash:overview.minimalBackup") : t("controlDash:system.databaseOnly")} · ${formatManagedDate(lastBackup.createdAt)}`
-                  : t("controlDash:system.backupHint")}
-              />
-              {(appBackups ?? []).filter((app) => app.configured || app.files.length > 0).map((app) => (
-                <AppBackupRow key={app.id} app={app} />
-              ))}
-            </div>
-          </div>
-        </div>
+      </section>
+
+      <section className="dash-section" aria-labelledby="dash-usage">
+        <DashSectionHead id="dash-usage" icon={DASH_ICONS.usage} title={t("controlDash:dashboard.usageTitle")} />
+        <UsagePanel />
+      </section>
+
+      <section className="dash-section" aria-labelledby="dash-work">
+        <DashSectionHead id="dash-work" icon={DASH_ICONS.work} title={t("controlDash:dashboard.workTitle")} />
+        <CurrentWorkPanel />
       </section>
     </div>
   );
@@ -461,28 +435,6 @@ function Fact({ label, value, line, tone, title }: { label: string; value: strin
   );
 }
 
-function Figure({ href, value, label, tone }: { href: string; value: string; label: string; tone?: Tone }) {
-  return (
-    <a href={href} className="dash-figure">
-      <strong className={tone ? `tone-${tone}` : undefined}>{value}</strong>
-      <span>{label}</span>
-    </a>
-  );
-}
-
-function ProblemRow({ name, what, count, href }: { name: string; what: string; count: number | null; href: string }) {
-  return (
-    <li>
-      <a href={href} className="dash-problem">
-        <strong>{name}</strong>
-        <span className="muted">{what}</span>
-        <span className={`dash-problem-count${count ? " tone-warning" : ""}`}>{count === null ? "—" : formatNumber(count)}</span>
-        <ChevronRight size={16} aria-hidden="true" />
-      </a>
-    </li>
-  );
-}
-
 function Stat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <div>
@@ -523,67 +475,6 @@ function AppBackupRow({ app }: { app: AppBackupSummary }) {
       detail={newest ? `${source} · ${formatManagedDate(newest.createdAt)}` : app.include ? t("controlDash:overview.backupAppHint") : t("controlDash:overview.backupLeftOut")}
       note={app.undo ? t("controlDash:overview.backupRestored", { date: formatManagedDate(app.undo.takenAt) }) : undefined}
     />
-  );
-}
-
-function DiskRow({ disk }: { disk: DiskGroup }) {
-  const { t } = useTranslation(["common", "controlDash"]);
-  const appName = useAppName();
-  const ownerName = (owner: string) => (owner === "home" ? t("controlDash:overview.homeShort") : appName(owner));
-  const tone = diskTone(disk);
-  const usedShare = disk.totalBytes > 0 ? Math.min(100, Math.round(((disk.totalBytes - disk.freeBytes) / disk.totalBytes) * 100)) : 0;
-  const holdings = (folder: OwnedDisk) => describeHoldings(folder.holds, {
-    database: t("controlDash:overview.holdDatabase"),
-    systemData: t("controlDash:overview.holdSystemData"),
-    thumbnails: t("controlDash:overview.holdThumbnails"),
-    backups: t("controlDash:overview.holdBackups"),
-    appFiles: t("controlDash:overview.holdAppFiles"),
-    trash: t("controlDash:overview.holdTrash"),
-    artwork: t("controlDash:overview.holdArtwork"),
-    transcode: t("controlDash:overview.holdTranscode")
-  }, (names) => t("controlDash:overview.holdLibraries", { names }));
-  const [only] = disk.folders;
-  return (
-    <div className={`dash-disk tone-${tone}`}>
-      <div className="dash-disk-head">
-        {disk.folders.length === 1 ? (
-          <>
-            <code>{only.mount}</code>
-            <span className="dash-disk-owner">{ownerName(only.owner)}</span>
-          </>
-        ) : (
-          <span className="dash-disk-title">{t("controlDash:overview.diskFolders", { count: disk.folders.length })}</span>
-        )}
-        <span className={`dash-disk-free tone-${tone}`}>
-          {t("controlDash:overview.diskFree", { free: formatBytes(disk.freeBytes), total: formatBytes(disk.totalBytes) })}
-        </span>
-      </div>
-      <div
-        className="dash-disk-bar"
-        role="meter"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={usedShare}
-        aria-label={t("controlDash:overview.diskUsedLabel", { mount: folderNames(disk), share: usedShare })}
-      >
-        <span className={`tone-${tone}`} style={{ width: `${usedShare}%` }} />
-      </div>
-      {disk.folders.length === 1 ? (
-        <span className="muted">{holdings(only)}</span>
-      ) : (
-        <ul className="dash-disk-folders">
-          {disk.folders.map((folder) => (
-            <li key={`${folder.owner}:${folder.mount}`}>
-              <span className="dash-disk-folder">
-                <code>{folder.mount}</code>
-                <span className="dash-disk-owner">{ownerName(folder.owner)}</span>
-              </span>
-              <span className="muted">{holdings(folder)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 

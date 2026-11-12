@@ -38,7 +38,9 @@ describe("the Dashboard's disks", () => {
   it("draws one bar for a filesystem, however many containers map folders from it", () => {
     render(<Overview status={status} overview={overview} apps={[]} lastBackup={null} appErrors={{}} appDisks={videoDisks} />);
     expect(bars()).toHaveLength(1);
-    expect(screen.getByText("3 folders on this drive")).toBeInTheDocument();
+    // Control panel v2: the one bar names every folder on the drive, each once, and
+    // the drive's detail lists them by container.
+    expect(screen.getByText("/config, /media")).toBeInTheDocument();
     expect(screen.getByText("/config")).toBeInTheDocument();
     expect(screen.getAllByText("/media")).toHaveLength(2);
     expect(screen.getByText("Libraries: Audio English")).toBeInTheDocument();
@@ -62,8 +64,9 @@ describe("the Dashboard's disks", () => {
     const one: OwnedDisk[] = [{ ...videoDisks[0], filesystem: "99" }];
     render(<Overview status={status} overview={{ ...overview, disks: [] }} apps={[]} lastBackup={null} appErrors={{}} appDisks={one} />);
     expect(bars()).toHaveLength(1);
-    expect(screen.queryByText(/folders? on this drive/)).not.toBeInTheDocument();
-    expect(screen.getByText("/media")).toBeInTheDocument();
+    // Its bar and its one folder in the detail below.
+    expect(screen.getAllByText("/media")).toHaveLength(2);
+    expect(screen.queryByText((text) => text.includes(", /media"))).not.toBeInTheDocument();
   });
 });
 

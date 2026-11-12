@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
 import { db } from "../src/db.js";
@@ -39,7 +39,7 @@ afterEach(() => {
 describe("groupByDisk", () => {
   it("puts places on one device together and measures a folder not made yet by its parent", () => {
     const disks = groupByDisk([
-      { kind: "library", name: "Books", libraryType: "ebook", path: tmp },
+      { kind: "library", id: "lib-books", name: "Books", libraryType: "ebook", path: tmp },
       { kind: "backups", path: path.join(tmp, "not-yet", "backups") }
     ]);
     expect(disks).toHaveLength(1);
@@ -65,6 +65,22 @@ describe("GET /api/dashboard/overview", () => {
     expect(holds.some((hold) => hold.kind === "library" && hold.name === "Books")).toBe(true);
     expect(holds.some((hold) => hold.name === "Films")).toBe(false);
     expect(res.json().home.port).toBeTypeOf("number");
+    // Control panel v2: a library carries its id, so the page can match it to the
+    // size its scans recorded; the database is measured as its own files.
+    expect(holds.find((hold) => hold.kind === "library" && hold.name === "Books")).toMatchObject({ id: "lib-books" });
+  });
+
+  it("gives each folder place its size once the background count has run", async () => {
+    const { measureHoldings } = await import("../src/modules/dashboard/overview.js");
+    const folder = path.join(tmp, "measured");
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, "a.bin"), Buffer.alloc(1500));
+    const holds = [{ kind: "backups" as const, path: folder }, { kind: "library" as const, id: "x", name: "X", libraryType: "ebook", path: folder }];
+    // The first ask starts the count; it is not on the request's path.
+    expect(measureHoldings(holds)[0]).toMatchObject({ bytes: null });
+    await vi.waitFor(() => expect(measureHoldings(holds)[0]).toMatchObject({ bytes: 1500, partial: false }));
+    // A library is sized from its scans, not by walking its folder here.
+    expect(measureHoldings(holds)[1]).not.toHaveProperty("bytes");
   });
 
   it("counts failed sign-ins and failed tasks of the last day only", async () => {

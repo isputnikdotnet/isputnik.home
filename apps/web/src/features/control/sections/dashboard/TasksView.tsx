@@ -46,7 +46,7 @@ function taskTypeLabel(type: string, t: T) {
 }
 
 // "Face scan · batch 2/5" for jobs that are part of a pre-queued batch group.
-function taskLabel(task: Job, t: T) {
+export function taskLabel(task: Job, t: T) {
   const base = taskTypeLabel(task.type, t);
   return task.batch ? `${base} · ${t("controlDash:tasks.batch", { index: task.batch.index, total: task.batch.total })}` : base;
 }
@@ -74,7 +74,7 @@ function stalledText(seconds: number, t: T): string {
 
 // "3 of 12 books · 25% · about 2 min left" — mirrors the wording the
 // face-recognition window used before this moved here.
-function progressText(progress: NonNullable<Job["progress"]>, t: T): string {
+export function progressText(progress: NonNullable<Job["progress"]>, t: T): string {
   const parts = [t("controlDash:tasks.ofUnit", { processed: formatNumber(progress.processed), total: formatNumber(progress.total), unit: progress.unit })];
   if (progress.total > 0) parts.push(`${Math.round((progress.processed / progress.total) * 100)}%`);
   if (progress.etaSeconds != null) parts.push(formatEta(progress.etaSeconds));
