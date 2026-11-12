@@ -4,7 +4,7 @@ import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simp
 import { db, logActivity, publicUser, userAgentOf, type User } from "../db.js";
 import { lockedSignInDetail } from "./auth-routes.js";
 import { config } from "../config.js";
-import { hostCookieName } from "./cookies.js";
+import { clearAppCookie, hostCookieName } from "./cookies.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
@@ -125,7 +125,7 @@ export async function webauthnRoutes(app: FastifyInstance) {
     const challengeId = request.cookies[REGISTER_COOKIE];
     const challenge = challengeId ? resolveWebauthnChallenge(challengeId, "register") : null;
     if (!challenge || challenge.user_id !== request.user!.id) {
-      reply.clearCookie(REGISTER_COOKIE, { path: "/" });
+      clearAppCookie(reply, REGISTER_COOKIE, config.cookieSecure);
       return reply.code(400).send({ error: "That took too long. Start again to add a passkey." });
     }
 
@@ -139,7 +139,7 @@ export async function webauthnRoutes(app: FastifyInstance) {
       challenge.challenge
     );
     clearWebauthnChallenge(challenge.id);
-    reply.clearCookie(REGISTER_COOKIE, { path: "/" });
+    clearAppCookie(reply, REGISTER_COOKIE, config.cookieSecure);
     if (!verified) {
       return reply.code(400).send({ error: "That passkey couldn't be verified. Try again." });
     }
@@ -208,7 +208,7 @@ export async function webauthnRoutes(app: FastifyInstance) {
       const challengeId = request.cookies[LOGIN_COOKIE];
       const challenge = challengeId ? resolveWebauthnChallenge(challengeId, "login") : null;
       if (!challenge) {
-        reply.clearCookie(LOGIN_COOKIE, { path: "/" });
+        clearAppCookie(reply, LOGIN_COOKIE, config.cookieSecure);
         return reply.code(401).send({ error: "That sign-in expired. Try again." });
       }
 
@@ -227,7 +227,7 @@ export async function webauthnRoutes(app: FastifyInstance) {
         // credential, which is the conservative side to err on.
         flagAbusiveRequest(request, "token");
         clearWebauthnChallenge(challenge.id);
-        reply.clearCookie(LOGIN_COOKIE, { path: "/" });
+        clearAppCookie(reply, LOGIN_COOKIE, config.cookieSecure);
         return reply.code(401).send({ error: "That passkey isn't registered here." });
       }
 
@@ -236,14 +236,14 @@ export async function webauthnRoutes(app: FastifyInstance) {
         .get(passkey.user_id) as User | undefined;
       if (!user) {
         clearWebauthnChallenge(challenge.id);
-        reply.clearCookie(LOGIN_COOKIE, { path: "/" });
+        clearAppCookie(reply, LOGIN_COOKIE, config.cookieSecure);
         return reply.code(401).send({ error: "That account is no longer active." });
       }
 
       const trusted = isTrustedRequest(request);
       if (!trusted && isAccountLocked(user.email)) {
         clearWebauthnChallenge(challenge.id);
-        reply.clearCookie(LOGIN_COOKIE, { path: "/" });
+        clearAppCookie(reply, LOGIN_COOKIE, config.cookieSecure);
         logActivity({
           event: "auth.login_locked",
           targetType: "user",
@@ -257,7 +257,7 @@ export async function webauthnRoutes(app: FastifyInstance) {
 
       const verified = await verifyAssertion(assertion, challenge.challenge, passkey);
       clearWebauthnChallenge(challenge.id);
-      reply.clearCookie(LOGIN_COOKIE, { path: "/" });
+      clearAppCookie(reply, LOGIN_COOKIE, config.cookieSecure);
 
       // A verified assertion WITHOUT user verification is a bare presence tap: one
       // factor, not the two this route's skip-the-code promise rests on. Refused

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { config } from "../config.js";
+import { clearAppCookie } from "./cookies.js";
 
 // Double-submit CSRF protection. A JS-readable token cookie is issued on first
 // contact; the SPA echoes it in the X-CSRF-Token header on every state-changing
@@ -48,7 +49,7 @@ export function registerCsrf(app: FastifyInstance): void {
     // Retire a token left under the old bare name by a pre-__Host- version, so the
     // browser can't hold two and the SPA can't pick the stale one.
     if (CSRF_COOKIE !== LEGACY_CSRF_COOKIE && request.cookies[LEGACY_CSRF_COOKIE]) {
-      reply.clearCookie(LEGACY_CSRF_COOKIE, { path: "/" });
+      clearAppCookie(reply, LEGACY_CSRF_COOKIE, config.cookieSecure);
     }
 
     if (SAFE_METHODS.has(request.method)) return;

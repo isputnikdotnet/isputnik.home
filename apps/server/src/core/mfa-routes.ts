@@ -3,7 +3,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { db, logActivity, nowIso, publicUser, userAgentOf, type MfaMethod, type User } from "../db.js";
 import { config } from "../config.js";
-import { hostCookieName } from "./cookies.js";
+import { clearAppCookie, hostCookieName } from "./cookies.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
@@ -279,7 +279,7 @@ export function setMfaChallengeCookie(reply: FastifyReply, challengeId: string, 
 }
 
 export function clearMfaChallengeCookie(reply: FastifyReply): void {
-  reply.clearCookie(MFA_COOKIE, { path: "/" });
+  clearAppCookie(reply, MFA_COOKIE, config.cookieSecure);
 }
 
 // ── Delivering a code ────────────────────────────────────────────────────────

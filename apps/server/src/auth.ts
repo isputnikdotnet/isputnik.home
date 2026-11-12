@@ -3,9 +3,9 @@ import { nanoid } from "nanoid";
 import { config } from "./config.js";
 import { db, selfUser, type User } from "./db.js";
 import { sha256 } from "./crypto.js";
-import { hostCookieName } from "./core/cookies.js";
+import { clearAppCookie, hostCookieName } from "./core/cookies.js";
 import { registerViewerContext } from "./core/viewer-context.js";
-import { previewAllows, previewTargetOf } from "./core/preview.js";
+import { clearPreviewCookie, previewAllows, previewTargetOf } from "./core/preview.js";
 import { sessionGuardRefusal } from "./core/session-guards.js";
 import type { SessionRow } from "./db/rows.js";
 
@@ -78,16 +78,19 @@ export function issueSession(
     path: "/",
     expires: new Date(expiresAt)
   });
+  // A new session in this browser starts as whoever signed in, never inside a
+  // preview an earlier session began (#102).
+  clearPreviewCookie(reply);
 
   return sessionId;
 }
 
 export function clearSession(reply: FastifyReply) {
-  reply.clearCookie(cookieName, { path: "/" });
+  clearAppCookie(reply, cookieName, config.cookieSecure);
   // Also clear any cookie left under the bare pre-__Host- name, so a stale legacy
   // cookie can't keep a signed-out browser authenticating via the read fallback.
   if (cookieName !== LEGACY_SESSION_COOKIE) {
-    reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
+    clearAppCookie(reply, LEGACY_SESSION_COOKIE, config.cookieSecure);
   }
 }
 
