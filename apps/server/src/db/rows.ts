@@ -1249,6 +1249,15 @@ export interface StorageRootRow {
   updated_at: string;
 }
 
+/** `storage_samples` */
+export interface StorageSampleRow {
+  day: string;
+  mount: string;
+  total_bytes: number;
+  free_bytes: number;
+  holds_json: string;
+}
+
 /** `stories` */
 export interface StoryRow {
   id: string;
@@ -1717,6 +1726,7 @@ export interface TableRows {
   shared_person_seen: SharedPersonSeenRow;
   shares: ShareRow;
   storage_roots: StorageRootRow;
+  storage_samples: StorageSampleRow;
   stories: StoryRow;
   story_audio: StoryAudioRow;
   story_block_items: StoryBlockItemRow;

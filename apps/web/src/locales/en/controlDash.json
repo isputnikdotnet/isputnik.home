@@ -966,7 +966,7 @@
     "measuring": "Some folders are still being measured; their share shows once counted.",
     "foldersTitle": "Folders and libraries on this drive",
     "growthTitle": "Growth",
-    "growthPending": "Shown once daily measurements have been collected.",
+    "growthPending": "Shown once two days have been measured — home measures each drive once a day.",
     "usageTitle": "Usage",
     "period": "Period",
     "periods": {
@@ -986,6 +986,9 @@
     "progressAndLogs": "Progress and logs",
     "cancel": "Cancel",
     "cancelling": "Cancelling…",
-    "allTasks": "All tasks"
+    "allTasks": "All tasks",
+    "grew": "Grew by {{amount}} since {{since}}",
+    "shrank": "Shrank by {{amount}} since {{since}}",
+    "usedGb": "Used (GB)"
   }
 }

@@ -313,7 +313,9 @@ and bookmarks must not break.
    `types` + `libraryType` and apply them to tasks in flight too; the
    application → prefixes / job types map is `features/control/applications.ts`.
    Setup has an "Activity, tasks and logs" card; the Ready strip links Activity.
-4. **Dashboard.** The five sections; drives grouped by filesystem with the
+4. **Dashboard.** *(Built 2026-11-12: the sections in cbd4c582; Growth from a
+   daily `storage_samples` row per mount — a new table in schema.sql, no
+   migration — in the commit after.)* The five sections; drives grouped by filesystem with the
    category breakdown and "Other files"; Needs attention fed by low-space,
    unavailable/read-only, failed-task and security checks; Cancel where
    supported. Then the daily storage measurement and the Growth view.

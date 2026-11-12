@@ -2646,3 +2646,18 @@ CREATE TABLE IF NOT EXISTS tv_photo_picks (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tv_photo_picks_slideshow ON tv_photo_picks(slideshow_id) WHERE slideshow_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tv_photo_picks_album ON tv_photo_picks(album_id) WHERE album_id IS NOT NULL;
+
+-- One measurement a day of each folder home keeps files on (control panel v2's
+-- Dashboard, docs/control-panel-v2-plan.md "Storage on the dashboard"): how full the
+-- filesystem under it was, so the Dashboard can show how fast a drive is filling.
+-- `mount` is the folder as this container sees it; mounts of one filesystem record
+-- the same numbers. holds_json: [{kind, bytes}] for the places measured that day,
+-- bytes null while a folder had not been counted yet. Kept for 400 days.
+CREATE TABLE IF NOT EXISTS storage_samples (
+  day         TEXT NOT NULL,
+  mount       TEXT NOT NULL,
+  total_bytes INTEGER NOT NULL,
+  free_bytes  INTEGER NOT NULL,
+  holds_json  TEXT NOT NULL DEFAULT '[]',
+  PRIMARY KEY (day, mount)
+);

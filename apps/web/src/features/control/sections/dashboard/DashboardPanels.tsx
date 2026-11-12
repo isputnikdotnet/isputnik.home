@@ -162,12 +162,72 @@ export function StoragePanel({
               ))}
             </ul>
           </div>
-          <div>
-            <h4>{t("controlDash:dashboard.growthTitle")}</h4>
-            <p className="muted">{t("controlDash:dashboard.growthPending")}</p>
-          </div>
+          <GrowthPanel mounts={drive.folders.filter((folder) => folder.owner === "home").map((folder) => folder.mount)} />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Growth ──────────────────────────────────────────────────────────────────
+
+type GrowthPeriod = "30d" | "12m";
+const GROWTH_DAYS: Record<GrowthPeriod, number> = { "30d": 30, "12m": 365 };
+
+interface StorageSample { day: string; mount: string; totalBytes: number; usedBytes: number }
+
+/** How the selected drive has filled, from home's daily measurements of the folders
+ *  it keeps there (any one of them: they share the filesystem's numbers). Until two
+ *  days are measured there is no line, and it says so rather than guess. */
+function GrowthPanel({ mounts }: { mounts: string[] }) {
+  const { t } = useTranslation(["common", "controlDash"]);
+  const [period, setPeriod] = useState<GrowthPeriod>("30d");
+  const [samples, setSamples] = useState<StorageSample[] | null>(null);
+
+  useEffect(() => {
+    api<{ samples: StorageSample[] }>(`/api/dashboard/storage-history?days=${GROWTH_DAYS[period]}`)
+      .then((payload) => setSamples(payload.samples))
+      .catch(() => setSamples([]));
+  }, [period]);
+
+  const byDay = new Map<string, StorageSample>();
+  for (const sample of samples ?? []) {
+    if (mounts.includes(sample.mount) && !byDay.has(sample.day)) byDay.set(sample.day, sample);
+  }
+  const days = [...byDay.values()];
+  const first = days[0];
+  const last = days[days.length - 1];
+  const change = first && last ? last.usedBytes - first.usedBytes : 0;
+
+  return (
+    <div className="dash-growth">
+      <div className="dash-growth-head">
+        <h4>{t("controlDash:dashboard.growthTitle")}</h4>
+        <div className="dash-chips" role="group" aria-label={t("controlDash:dashboard.period")}>
+          {(Object.keys(GROWTH_DAYS) as GrowthPeriod[]).map((value) => (
+            <Button key={value} variant="chip" selected={period === value} aria-pressed={period === value} onClick={() => setPeriod(value)}>
+              {t(`controlDash:dashboard.periods.${value}`)}
+            </Button>
+          ))}
+        </div>
+      </div>
+      {samples === null ? null : days.length < 2 ? (
+        <p className="muted">{t("controlDash:dashboard.growthPending")}</p>
+      ) : (
+        <>
+          <p>
+            {change >= 0
+              ? t("controlDash:dashboard.grew", { amount: formatBytes(change), since: formatDate(first.day, "dayMonth") })
+              : t("controlDash:dashboard.shrank", { amount: formatBytes(-change), since: formatDate(first.day, "dayMonth") })}
+          </p>
+          <DashboardChart
+            type="line"
+            labels={days.map((sample) => formatDate(sample.day, "dayMonth"))}
+            series={[{ label: t("controlDash:dashboard.usedGb"), data: days.map((sample) => Math.round((sample.usedBytes / 1e9) * 10) / 10), colorVar: "--accent" }]}
+            height={140}
+          />
+        </>
+      )}
     </div>
   );
 }

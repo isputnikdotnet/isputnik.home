@@ -3474,3 +3474,7 @@ tr.control-anchor-flash > td {
 
 .dash-work-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .dash-work-actions a { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-sm); font-weight: 600; }
+
+.dash-growth { display: grid; gap: 8px; min-width: 0; }
+.dash-growth p { margin: 0; }
+.dash-growth-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }

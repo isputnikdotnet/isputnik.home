@@ -6,8 +6,10 @@
 import type { FastifyInstance } from "fastify";
 import { dashboardOverviewPlugin } from "./overview.js";
 import { dashboardRoutesPlugin } from "./routes.js";
+import { storageHistoryPlugin } from "./storage-history.js";
 
 export async function dashboardPlugin(app: FastifyInstance) {
   await app.register(dashboardRoutesPlugin);
   await app.register(dashboardOverviewPlugin);
+  await app.register(storageHistoryPlugin);
 }
