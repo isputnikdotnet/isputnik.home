@@ -27,7 +27,11 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794484800</Date>
   <Changes>
-### 2026.11.12 — 4.85.0 Link a TV in one step
+### 2026.11.12 — 4.85.1 Back to the film, and why it won’t play
+- **The player’s back arrow opens the film.** The arrow beside a film’s or show’s title in the player used to step back to whatever page you were on before, which could be anywhere. It now always opens that title’s page, and its tooltip says so: *Back to* followed by the title. Your browser’s own Back button still returns to where you were before you started watching.
+- **Logs now say why a film can’t play in the browser.** When a browser can’t decode a film, the player showed *This can’t play here* and sent you to Logs, but nothing was written there: the server had sent the film without any error. The player now writes the browser’s own reason to Home’s log, once an hour per person and film. It also gives up after two retries instead of downloading the same part of the film over and over.
+
+### 2026.11.11 — 4.85.0 Link a TV in one step
 - **Link a TV from any phone in one step.** Scanning the TV's code with a phone that wasn't signed in used to open the sign-in page, then ask for your password a second time to approve the TV. Now the link page itself signs you in and links the TV: your email and password, and the two-factor code if your account uses one. The usual sign-in protections apply. A phone that is already signed in still confirms with its password.
 - **"Everyone" in Watching as.** On the video page, watching without a profile is now called **Everyone**, as it is on the TV. iSputnik TV 0.14.0 links one account per TV and lets the household's profiles (Kids and the rest) tell people apart, so a TV no longer adds more people, each signing in on a phone.
 
@@ -45,14 +49,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **The season row says where you are.** The season tabs now share one row with "5 of 10 watched", a bar, and the season's ⋮, which marks the whole season and holds **Download season**.
 - **Episodes.** Each episode's ⋮ is beside its name: Play episode, Mark as watched, Download episode. Its line says how long it runs, and *On this device* once it is downloaded.
 - Continue watching says how long is left in minutes: *47 min left*.
-
-### 2026.11.10 — 4.82.0 Downloads you don't wait for
-- **Two ways to download a film or episode.** **Optimized for this device** is a smaller picture: 480p is suggested on a phone (about 0.7 GB for a two-hour film) and 720p on a tablet or computer (about 1.4 GB), and you can pick another. **Full copy** is the file as it is, and starts at once.
-- **The server prepares an optimized copy, and you don't have to wait for it.** The dialog says about how long it takes. Close iSputnik and come back later: the copy is waiting in Downloads and comes down by itself as soon as the app is open on that device, at the full speed of the connection. Before, the film was converted while the phone waited, which was slow, loaded the server throughout and needed the app open from start to finish.
-- **Email me when it is ready**, a tick box in the dialog where email is set up and your account has an address. One email per request, so a whole season sends one.
-- **A prepared copy is kept on the server**, so the next person who wants that film gets it at once. Control panel → Settings → Video → **Copies for download** sets how much room they may take together (20 GB to start with), shows what they take, and removes them all. Copies are made one at a time, on the GPU when the video container has one, and wait while anyone is watching.
-- A prepared copy is one ordinary MP4, so it plays on any iPhone or iPad; a converted download no longer needs iOS 17.1.
-- This needs the video container 0.33 or newer; update it with this release. With an older one, an optimized download is still converted while the app waits.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

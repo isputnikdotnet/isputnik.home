@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.85.1 — Back to the film, and why it won’t play
+
+- **The player’s back arrow opens the film.** The arrow beside a film’s or show’s title in the player used to step back to whatever page you were on before, which could be anywhere. It now always opens that title’s page, and its tooltip says so: *Back to* followed by the title. Your browser’s own Back button still returns to where you were before you started watching.
+- **Logs now say why a film can’t play in the browser.** When a browser can’t decode a film, the player showed *This can’t play here* and sent you to Logs, but nothing was written there: the server had sent the film without any error. The player now writes the browser’s own reason to Home’s log, once an hour per person and film. It also gives up after two retries instead of downloading the same part of the film over and over.
+
 ## 4.85.0 — Link a TV in one step
 
 - **Link a TV from any phone in one step.** Scanning the TV's code with a phone that wasn't signed in used to open the sign-in page, then ask for your password a second time to approve the TV. Now the link page itself signs you in and links the TV: your email and password, and the two-factor code if your account uses one. The usual sign-in protections apply. A phone that is already signed in still confirms with its password.

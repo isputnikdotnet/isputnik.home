@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.85.1",
+    "label": "Back to the film, and why it won’t play",
+    "changes": [
+      "**The player’s back arrow opens the film.** The arrow beside a film’s or show’s title in the player used to step back to whatever page you were on before, which could be anywhere. It now always opens that title’s page, and its tooltip says so: *Back to* followed by the title. Your browser’s own Back button still returns to where you were before you started watching.",
+      "**Logs now say why a film can’t play in the browser.** When a browser can’t decode a film, the player showed *This can’t play here* and sent you to Logs, but nothing was written there: the server had sent the film without any error. The player now writes the browser’s own reason to Home’s log, once an hour per person and film. It also gives up after two retries instead of downloading the same part of the film over and over."
+    ]
+  },
+  {
     "version": "4.85.0",
     "label": "Link a TV in one step",
     "changes": [
