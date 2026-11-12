@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { CalendarClock, CheckCircle2, Info, Play, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
-import { Button } from "../../../shared/Button";
+import { ActionRow, GroupedList, InfoRow, NavRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { PageBack, PageTitle, useQueryPage } from "../../../shared/useQueryPage";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { JobScheduleControls, type JobFrequency } from "../JobScheduleControls";
-import { ToggleSwitch } from "../../../shared/ToggleSwitch";
+import { JobScheduleRows, useScheduleSummary, type JobFrequency, type JobScheduleFields } from "../JobScheduleControls";
 import { formatManagedDate } from "../../../shared/utils";
 
-type Frequency = JobFrequency;
 type Category = "audiobooks" | "ebooks" | "gallery" | "system";
 
 interface ScheduledJob {
@@ -20,7 +19,7 @@ interface ScheduledJob {
   description: string;
   category: Category;
   enabled: boolean;
-  frequency: Frequency;
+  frequency: JobFrequency;
   time: string; // local clock time the job runs at, e.g. "01:00"
   dayOfWeek: number; // 0=Sunday..6=Saturday, used when frequency is weekly
   dayOfMonth: number; // 1..28, used when frequency is monthly
@@ -40,6 +39,7 @@ interface RunState {
   phase: "working" | "done" | "failed";
 }
 
+const CATEGORIES: Category[] = ["system", "gallery", "ebooks", "audiobooks"];
 const CATEGORY_LABEL_KEYS: Record<Category, "catAudiobooks" | "catEbooks" | "catGallery" | "catSystem"> = {
   audiobooks: "catAudiobooks",
   ebooks: "catEbooks",
@@ -49,11 +49,18 @@ const CATEGORY_LABEL_KEYS: Record<Category, "catAudiobooks" | "catEbooks" | "cat
 
 const POLL_MS = 2000;
 
+// Infrastructure › Scheduled jobs, laid out like a phone's Settings (control panel
+// v2): the jobs as rows grouped by what they look after, each saying when it runs;
+// a job opens its own page (?show=<job key>) with its switch, schedule, last and
+// next run, and Run now. Every change writes straight through.
 export function ScheduledJobsSection() {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const [jobs, setJobs] = useState<ScheduledJob[]>([]);
+  const { t } = useTranslation(["common", "controlAdmin", "control"]);
+  const [jobs, setJobs] = useState<ScheduledJob[] | null>(null);
   const [error, setError] = useState("");
   const [run, setRun] = useState<RunState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [show, go] = useQueryPage();
+  const scheduleSummary = useScheduleSummary();
 
   const load = useCallback(async () => {
     const payload = await api<{ jobs: ScheduledJob[] }>("/api/scheduled-jobs");
@@ -120,30 +127,53 @@ export function ScheduledJobsSection() {
     }
   };
 
+  // Every control writes straight through; the server's answer is then reloaded,
+  // which is what recomputes "next run".
+  const save = async (job: ScheduledJob, patch: Partial<JobScheduleFields> & { enabled?: boolean }) => {
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/scheduled-jobs/${job.key}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          enabled: job.enabled,
+          frequency: job.frequency,
+          time: job.time,
+          dayOfWeek: job.dayOfWeek,
+          dayOfMonth: job.dayOfMonth,
+          ...patch
+        })
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.saveFailed"));
+      await load().catch(() => undefined);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const busyKey = run?.phase === "working" ? run.jobKey : null;
 
-  return (
+  const head = (
+    <ControlSectionHead section="scheduledJobs" icon={<CalendarClock size={30} />}>
+      <RefreshButton
+        onRefresh={async () => {
+          setError("");
+          try {
+            await load();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.refreshFailed"));
+            throw err;
+          }
+        }}
+      />
+    </ControlSectionHead>
+  );
+
+  const notices = (
     <>
-      <ControlSectionHead section="scheduledJobs" icon={<CalendarClock size={30} />}>
-        <RefreshButton
-          onRefresh={async () => {
-            setError("");
-            try {
-              await load();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.refreshFailed"));
-              throw err;
-            }
-          }}
-        />
-      </ControlSectionHead>
-
-      <p className="scheduled-jobs-intro muted">
-        <Trans i18nKey="scheduledJobs.intro" ns="controlAdmin" components={{ bold: <strong /> }} />
-      </p>
-
       {error && <MessageBox tone="error" title={t("controlAdmin:scheduledJobs.errorTitle")}>{error}</MessageBox>}
-
       {run && (
         <MessageBox
           tone={run.phase === "working" ? "info" : run.phase === "failed" ? "warning" : "success"}
@@ -167,161 +197,113 @@ export function ScheduledJobsSection() {
           )}
         </MessageBox>
       )}
+    </>
+  );
 
-      <div className="datagrid-wrap scheduled-jobs-wrap">
-        <table className="datagrid datagrid-phone-stack scheduled-jobs-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("controlAdmin:scheduledJobs.thJob")}</th>
-              <th scope="col">{t("controlAdmin:scheduledJobs.thSchedule")}</th>
-              <th scope="col">{t("controlAdmin:scheduledJobs.thRun")}</th>
-              <th scope="col" className="scheduled-col-enabled">{t("controlAdmin:scheduledJobs.thEnabled")}</th>
-              <th scope="col" className="scheduled-col-actions">{t("controlAdmin:scheduledJobs.thActions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => (
-              <ScheduledJobRow
-                key={job.key}
-                job={job}
-                running={busyKey === job.key}
-                anyRunning={busyKey !== null}
-                onChanged={load}
-                onError={setError}
-                onRun={() => startRun(job)}
-              />
-            ))}
-          </tbody>
-        </table>
+  if (!jobs) {
+    return <>{head}{notices}{!error && <p className="muted">{t("controlAdmin:ui.loading")}</p>}</>;
+  }
+
+  // ── One job ────────────────────────────────────────────────────────────────
+  if (show) {
+    const job = jobs.find((candidate) => candidate.key === show);
+    const back = <PageBack label={t("control:nav.tabs.scheduledJobs")} onBack={() => go(null)} />;
+    if (!job) return <>{head}<div className="grouped-page">{back}<p className="muted">{t("controlAdmin:scheduledJobs.gone")}</p></div></>;
+    const running = busyKey === job.key;
+    return (
+      <>
+        {head}
+        <div className="grouped-page">
+          {back}
+          <PageTitle>{job.label}</PageTitle>
+          {notices}
+          <GroupedList note={job.description}>
+            <ToggleRow
+              label={t("controlAdmin:scheduledJobs.onRow")}
+              checked={job.enabled}
+              disabled={saving || running}
+              onChange={(next) => void save(job, { enabled: next })}
+            />
+          </GroupedList>
+          {job.enabled && (
+            <GroupedList title={t("controlAdmin:scheduledJobs.groupSchedule")}>
+              <JobScheduleRows schedule={job} disabled={saving || running} onChange={(patch) => void save(job, patch)} />
+            </GroupedList>
+          )}
+          <JobRunRows job={job} />
+          {/* One at a time: these jobs queue heavy work and several skip themselves
+              when another is already running, which would look like a dead button. */}
+          <GroupedList>
+            <ActionRow
+              label={running ? t("controlAdmin:scheduledJobs.running") : t("controlAdmin:scheduledJobs.runNow")}
+              disabled={saving || busyKey !== null}
+              onClick={() => void startRun(job)}
+            />
+          </GroupedList>
+        </div>
+      </>
+    );
+  }
+
+  // ── The list ───────────────────────────────────────────────────────────────
+  return (
+    <>
+      {head}
+      <div className="grouped-page">
+        <p className="grouped-list-note">
+          <Trans i18nKey="scheduledJobs.intro" ns="controlAdmin" components={{ bold: <strong /> }} />
+        </p>
+        {notices}
+        {CATEGORIES.map((category) => {
+          const inCategory = jobs.filter((job) => job.category === category);
+          if (inCategory.length === 0) return null;
+          return (
+            <GroupedList key={category} title={t(`controlAdmin:scheduledJobs.${CATEGORY_LABEL_KEYS[category]}`)}>
+              {inCategory.map((job) => (
+                <NavRow
+                  key={job.key}
+                  icon={job.lastStatus === "error" ? <XCircle size={17} /> : busyKey === job.key ? <Clock size={17} /> : <CalendarClock size={17} />}
+                  iconTone={job.lastStatus === "error" ? "danger" : job.enabled ? undefined : "muted"}
+                  label={job.label}
+                  sub={scheduleSummary(job)}
+                  value={busyKey === job.key
+                    ? t("controlAdmin:scheduledJobs.running")
+                    : job.lastStatus === "error"
+                      ? t("controlAdmin:scheduledJobs.lastFailed")
+                      : undefined}
+                  valueTone={job.lastStatus === "error" ? "danger" : undefined}
+                  onClick={() => go(job.key)}
+                />
+              ))}
+            </GroupedList>
+          );
+        })}
+        {jobs.length === 0 && <p className="muted">{t("controlAdmin:scheduledJobs.empty")}</p>}
       </div>
-
-      {jobs.length === 0 && <p className="management-empty">{t("controlAdmin:scheduledJobs.empty")}</p>}
     </>
   );
 }
 
-function ScheduledJobRow({
-  job,
-  running,
-  anyRunning,
-  onChanged,
-  onError,
-  onRun
-}: {
-  job: ScheduledJob;
-  running: boolean;
-  anyRunning: boolean;
-  onChanged: () => Promise<void>;
-  onError: (message: string) => void;
-  onRun: () => void;
-}) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
-  const [saving, setSaving] = useState(false);
-
-  // Every control writes straight through — the row has no Save button, so an
-  // edit that only lived in local state would silently not happen. The server's
-  // answer is then reloaded, which is what recomputes "next run".
-  const save = async (patch: Partial<Pick<ScheduledJob, "enabled" | "frequency" | "time" | "dayOfWeek" | "dayOfMonth">>) => {
-    setSaving(true);
-    onError("");
-    try {
-      await api(`/api/scheduled-jobs/${job.key}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          enabled: job.enabled,
-          frequency: job.frequency,
-          time: job.time,
-          dayOfWeek: job.dayOfWeek,
-          dayOfMonth: job.dayOfMonth,
-          ...patch
-        })
-      });
-      await onChanged();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : t("controlAdmin:scheduledJobs.saveFailed"));
-      await onChanged().catch(() => undefined);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const controlsDisabled = saving || running;
-
+/** Last run (how it went) and next run, as two rows — shared with Backup's job pages. */
+export function JobRunRows({ job }: { job: { enabled: boolean; nextRunAt: string | null; lastRunAt?: string | null; lastStatus?: "success" | "error" | null; lastMessage?: string | null } }) {
+  const { t } = useTranslation(["controlAdmin"]);
   return (
-    <tr className={job.enabled ? undefined : "scheduled-row-off"}>
-      <td>
-        <div className="scheduled-job-name">
-          <span>{job.label}</span>
-          <span className="scheduled-job-info" title={job.description}>
-            <Info size={15} aria-hidden="true" />
-            <span className="sr-only">{job.description}</span>
-          </span>
-        </div>
-        <span className={`scheduled-job-chip ${job.category}`}>{t(`controlAdmin:scheduledJobs.${CATEGORY_LABEL_KEYS[job.category]}`)}</span>
-      </td>
-
-      <td>
-        <JobScheduleControls
-          label={job.label}
-          schedule={job}
-          disabled={controlsDisabled}
-          onChange={(patch) => void save(patch)}
+    <GroupedList>
+      {job.lastRunAt !== undefined && (
+        <InfoRow
+          icon={job.lastStatus === "error" ? <XCircle size={17} /> : <CheckCircle2 size={17} />}
+          iconTone={job.lastRunAt ? (job.lastStatus === "error" ? "danger" : "ok") : "muted"}
+          label={t("controlAdmin:scheduledJobs.lastRun")}
+          sub={job.lastMessage ?? undefined}
+          value={job.lastRunAt ? formatManagedDate(job.lastRunAt) : t("controlAdmin:scheduledJobs.neverRun")}
         />
-      </td>
-
-      <td>
-        <div className="scheduled-job-runs">
-          {job.lastRunAt ? (
-            <span
-              className={`scheduled-job-run-line ${job.lastStatus ?? ""}`}
-              title={job.lastMessage ?? undefined}
-            >
-              {job.lastStatus === "error"
-                ? <XCircle size={15} aria-hidden="true" />
-                : <CheckCircle2 size={15} aria-hidden="true" />}
-              <span>{formatManagedDate(job.lastRunAt)}</span>
-            </span>
-          ) : (
-            <span className="scheduled-job-run-line muted">{t("controlAdmin:scheduledJobs.neverRun")}</span>
-          )}
-          {job.enabled && job.nextRunAt ? (
-            <span className="scheduled-job-run-line muted" title={t("controlAdmin:scheduledJobs.nextRun")}>
-              <CalendarClock size={15} aria-hidden="true" />
-              <span>{formatManagedDate(job.nextRunAt)}</span>
-            </span>
-          ) : (
-            <span className="scheduled-job-run-line muted">
-              <CalendarClock size={15} aria-hidden="true" />
-              <span>{t("controlAdmin:scheduledJobs.notScheduled")}</span>
-            </span>
-          )}
-        </div>
-      </td>
-
-      <td className="col-actions scheduled-col-enabled">
-        <ToggleSwitch
-          checked={job.enabled}
-          disabled={controlsDisabled}
-          onChange={(next) => void save({ enabled: next })}
-          ariaLabel={job.enabled ? t("controlAdmin:scheduledJobs.ariaToggleOn", { label: job.label }) : t("controlAdmin:scheduledJobs.ariaToggleOff", { label: job.label })}
-        />
-      </td>
-
-      <td className="col-actions scheduled-col-actions">
-        <Button
-          variant="icon"
-          onClick={onRun}
-          // One at a time: these jobs queue heavy work and several skip themselves
-          // when another is already running, which would look like a dead button.
-          disabled={saving || anyRunning}
-          aria-label={running ? t("controlAdmin:scheduledJobs.runningAria", { label: job.label }) : t("controlAdmin:scheduledJobs.runNowAria", { label: job.label })}
-          title={running ? t("controlAdmin:scheduledJobs.running") : t("controlAdmin:scheduledJobs.runNow")}
-        >
-          {running
-            ? <span className="icon-spin" aria-hidden="true"><Play size={16} /></span>
-            : <Play size={16} aria-hidden="true" />}
-        </Button>
-      </td>
-    </tr>
+      )}
+      <InfoRow
+        icon={<CalendarClock size={17} />}
+        iconTone="muted"
+        label={t("controlAdmin:scheduledJobs.nextRun")}
+        value={job.enabled && job.nextRunAt ? formatManagedDate(job.nextRunAt) : t("controlAdmin:scheduledJobs.notScheduled")}
+      />
+    </GroupedList>
   );
 }

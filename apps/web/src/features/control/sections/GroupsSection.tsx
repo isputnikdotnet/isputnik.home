@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Search, Trash2, Users, UsersRound } from "lucide-react";
+import { Plus, Users, UsersRound } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
-import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { AddRow, GroupedList, GroupedSearch, NavRow } from "../../../shared/GroupedList";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -12,8 +12,9 @@ import type { ManagedGroup } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { groupHref, navigate } from "../../../router";
 import { groupAccessHref, initialParam } from "../links";
-import { formatNumber } from "../../../shared/dates";
 
+// Members › Groups as rows (control panel v2): a search field over the groups,
+// each row opening the group's page — members, access, and Delete live there.
 export function GroupsSection() {
   const { t } = useTranslation(["common", "control"]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
@@ -23,8 +24,6 @@ export function GroupsSection() {
   const [creating, setCreating] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<ManagedGroup | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   // The Access dialog used to open over this list from ?group=&tab=; those links
   // land on the group's page instead (members/GroupPage).
@@ -75,21 +74,6 @@ export function GroupsSection() {
     }
   };
 
-  const deleteGroup = async () => {
-    if (!pendingDelete) return;
-    setDeleting(true);
-    setModalError("");
-    try {
-      await api(`/api/groups/${pendingDelete.id}`, { method: "DELETE" });
-      setPendingDelete(null);
-      await load();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : t("control:groups.unableToDelete"));
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   return (
     <>
       <ControlSectionHead
@@ -110,89 +94,30 @@ export function GroupsSection() {
               }
             }}
           />
-          <Button variant="primary" onClick={openCreate} title={t("control:groups.newGroup")}>
-            <Plus size={18} />
-            <span>{t("control:groups.newGroup")}</span>
-          </Button>
         </div>
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title={t("control:groups.errorTitle")}>{error}</MessageBox>}
 
-      <div className="admin-controls-bar">
-        <label className="search-field admin-search">
-          <Search size={17} aria-hidden="true" />
-          <span className="sr-only">{t("control:groups.searchAria")}</span>
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("control:groups.searchPlaceholder")}
-          />
-        </label>
+      <div className="grouped-page">
+        <GroupedSearch value={searchQuery} onChange={setSearchQuery} label={t("control:groups.searchAria")} placeholder={t("control:groups.searchPlaceholder")} />
+        <GroupedList note={visibleGroups.length === 0 ? (groups.length === 0 ? t("control:groups.emptyNone") : t("control:groups.emptyFiltered")) : undefined}>
+          {visibleGroups.map((group) => (
+            <NavRow
+              key={group.id}
+              icon={<UsersRound size={17} />}
+              iconShape="round"
+              label={group.name}
+              sub={t("control:groups.memberCount", { count: group.memberCount })}
+              value={t("control:groups.libraryCount", { count: group.libraryCount })}
+              href={groupHref(group.id)}
+            />
+          ))}
+          {!searchQuery.trim() && (
+            <AddRow icon={<Plus size={17} />} label={t("control:groups.newGroup")} onClick={openCreate} />
+          )}
+        </GroupedList>
       </div>
-
-      {visibleGroups.length === 0 ? (
-        <p className="management-empty">
-          {groups.length === 0 ? t("control:groups.emptyNone") : t("control:groups.emptyFiltered")}
-        </p>
-      ) : (
-        <div className="datagrid-wrap admin-table-wrap">
-          <table className="datagrid admin-table group-table">
-            <thead>
-              <tr>
-                <th>{t("control:groups.thGroup")}</th>
-                <th className="col-num">{t("control:groups.thMembers")}</th>
-                <th className="col-num">{t("control:groups.thLibraries")}</th>
-                <th className="col-actions">{t("control:groups.thActions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleGroups.map((group) => (
-                <tr key={group.id}>
-                  <td>
-                    <div className="user-account-cell">
-                      <span className="user-avatar-icon" aria-hidden="true">
-                        <UsersRound size={20} />
-                      </span>
-                      <div className="datagrid-primary">
-                        <Button variant="text" className="user-name-link" onClick={() => navigate(groupHref(group.id))}>
-                          <strong>{group.name}</strong>
-                        </Button>
-                        <small>{t("control:groups.memberCount", { count: group.memberCount })}</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="col-num datagrid-muted">{formatNumber(group.memberCount)}</td>
-                  <td className="col-num datagrid-muted">{formatNumber(group.libraryCount)}</td>
-                  <td className="col-actions">
-                    <div className="row-actions">
-                      <Button
-                        variant="secondary"
-                        compact
-                        onClick={() => navigate(groupHref(group.id))}
-                      >
-                        {t("control:groups.manage")}
-                      </Button>
-                      <Button
-                        variant="icon"
-                        danger
-                        title={t("control:groups.deleteGroupAria", { name: group.name })}
-                        aria-label={t("control:groups.deleteGroupAria", { name: group.name })}
-                        onClick={() => {
-                          setModalError("");
-                          setPendingDelete(group);
-                        }}
-                      >
-                        <Trash2 size={15} />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {createOpen && (
         <Modal
@@ -215,23 +140,6 @@ export function GroupsSection() {
         </Modal>
       )}
 
-      {pendingDelete && (
-        <ConfirmDialog
-          title={t("control:groups.deleteConfirmTitle", { name: pendingDelete.name })}
-          confirmLabel={t("control:groups.deleteConfirmLabel")}
-          busyLabel={t("control:ui.deleting")}
-          confirmIcon={<Trash2 size={15} />}
-          danger
-          rich
-          busy={deleting}
-          error={modalError}
-          onConfirm={deleteGroup}
-          onCancel={() => setPendingDelete(null)}
-        >
-          <p>{t("control:groups.deleteBody1")}</p>
-          <p><strong>{t("control:groups.deleteBody2")}</strong></p>
-        </ConfirmDialog>
-      )}
     </>
   );
 }

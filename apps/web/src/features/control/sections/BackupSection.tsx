@@ -1,17 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Archive, CalendarClock, Database, DatabaseBackup, Download, FileArchive, Folder, Trash2, RotateCcw, UploadCloud } from "lucide-react";
+import { Database, DatabaseBackup, FileArchive, Folder, Trash2, RotateCcw, UploadCloud } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, followRoute } from "../../../router";
 import { storageHref } from "../links";
+import { ActionRow, CommandRow, GroupedList, InfoRow, InputRow, NavRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
-import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { FileUpload } from "../../../shared/FileUpload";
+import { PageBack, PageTitle, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
-import { JobScheduleControls, type JobScheduleFields } from "../JobScheduleControls";
+import { ControlSectionHead } from "../ControlSectionHead";
+import { JobScheduleRows, useScheduleSummary, type JobScheduleFields } from "../JobScheduleControls";
+import { JobRunRows } from "./ScheduledJobsSection";
 import { ContainerBackups } from "./ContainerBackups";
 
 type BackupKind = "full" | "minimal" | "database";
@@ -42,13 +45,16 @@ interface BackupList {
   lastError: string | null;
 }
 
-// The two backup jobs as the Scheduled jobs page holds them; this page draws the
-// same two rows with the same controls, so a schedule set here is the one seen there.
+// The two backup jobs as the Scheduled jobs page holds them; this page edits them
+// with the same rows, so a schedule set here is the one seen there.
 interface ScheduledJob extends JobScheduleFields {
   key: string;
   label: string;
   enabled: boolean;
   nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastStatus: "success" | "error" | null;
+  lastMessage: string | null;
 }
 
 const SCHEDULED_KINDS: { key: string; kind: "full" | "minimal" }[] = [
@@ -56,7 +62,11 @@ const SCHEDULED_KINDS: { key: string; kind: "full" | "minimal" }[] = [
   { key: "backup_minimal", kind: "minimal" }
 ];
 
-
+// System Settings › Backup, laid out like a phone's Settings (control panel v2):
+// Back up now (one row per kind, and Upload), the two scheduled kinds as rows that
+// open their job (?show=job:<key>), how many quick copies to keep, and the backups
+// themselves as rows that open a page of their own (?show=backup:<name>) with
+// Restore, Download and Delete. The containers' cards follow.
 export function BackupSection() {
   const { t } = useTranslation(["common", "control", "controlAdmin"]);
   const [data, setData] = useState<BackupList | null>(null);
@@ -74,6 +84,8 @@ export function BackupSection() {
   const [restoring, setRestoring] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [show, go] = useQueryPage();
+  const scheduleSummary = useScheduleSummary();
 
   const load = useCallback(async () => {
     const payload = await api<BackupList>("/api/backups");
@@ -126,12 +138,11 @@ export function BackupSection() {
     }
   };
 
-  // How many of a kind to keep is written through on leaving the box, the way the
-  // schedule beside it writes through on change — one card, one way of saving. A
-  // box left empty or below 1 is not a number to save: it goes back to what the
+  // How many of a kind to keep is written through on leaving the field. A field
+  // left empty or out of 1–100 is not a number to save: it goes back to what the
   // server last said.
-  const commitRetention = async (kind: BackupKind, raw: string) => {
-    const wanted = Math.floor(Number(raw));
+  const commitRetention = async (kind: BackupKind) => {
+    const wanted = Math.floor(retention[kind]);
     const current = data?.settings.retention[kind];
     if (!Number.isFinite(wanted) || wanted < 1 || wanted > 100) {
       if (current != null) setRetention((state) => ({ ...state, [kind]: current }));
@@ -151,8 +162,8 @@ export function BackupSection() {
     }
   };
 
-  // Same write-through as the Scheduled jobs page: no Save button, the server's
-  // answer is reloaded and that is what recomputes "next run".
+  // Same write-through as the Scheduled jobs page: the server's answer is reloaded
+  // and that is what recomputes "next run".
   const saveJob = async (job: ScheduledJob, patch: Partial<JobScheduleFields> & { enabled?: boolean }) => {
     setSavingJob(job.key);
     setError("");
@@ -183,6 +194,7 @@ export function BackupSection() {
     try {
       await api(`/api/backups/${encodeURIComponent(pendingDelete.name)}`, { method: "DELETE" });
       setPendingDelete(null);
+      go(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("control:backup.unableToDelete"));
@@ -225,230 +237,222 @@ export function BackupSection() {
 
   const kindLabel = (kind: BackupKind) =>
     kind === "full" ? t("control:backup.kindFull") : kind === "minimal" ? t("control:backup.kindMinimal") : t("control:backup.kindDatabase");
+  const kindIcon = (kind: BackupKind) =>
+    kind === "full" ? <DatabaseBackup size={17} /> : kind === "minimal" ? <FileArchive size={17} /> : <Database size={17} />;
 
-  // Which button is busy: the one whose kind is being started, or the one whose
-  // kind is running (a scheduled run lights the matching button too).
+  // Which row is busy: the kind being started, or the kind running (a scheduled run
+  // lights the matching row too).
   const busyKind = creating ?? data?.runningKind ?? null;
   const anyBusy = creating !== null || running;
-  const createLabel = (kind: BackupKind, idle: string) => (busyKind === kind ? t("control:backup.backingUp") : idle);
+  // The file being written is already in the list and grows as we poll; it must not
+  // offer Restore/Download/Delete half-made.
+  const isWriting = (backup: BackupFile) => running && data?.runningSince != null && backup.createdAt >= data.runningSince;
 
-  return (
+  const head = <ControlSectionHead section="backup" icon={<DatabaseBackup size={30} />} />;
+  const notices = (
     <>
-      <div className="backup-page">
-        <div className="backup-hero">
-          <div className="backup-hero-copy">
-            {/* The same icon tile every other control page opens with
-                (ControlSectionHead) — this page keeps its own hero for the copy,
-                path pill and four actions, so it wears the tile by hand. */}
-            <div className="admin-title-wrap">
-              <span className="admin-page-icon" aria-hidden="true">
-                <DatabaseBackup size={30} />
-              </span>
-              <div className="admin-heading-copy">
-                <p className="eyebrow">{t("control:backup.eyebrow")}</p>
-                <h1>{t("control:backup.title")}</h1>
-              </div>
-            </div>
-            <p>
-              {t("control:backup.intro")}
-            </p>
-            {/* A path as the SERVER sees it. In Docker that's a path inside the
-                container, which is not where you'd look on the host — say so, or it
-                sends people hunting for a folder their machine doesn't have. */}
-            {data && (
-              <span
-                className="backup-path-pill"
-                title={t("control:backup.pathTitle")}
-              >
-                <Folder size={15} />
-                <code>{data.backupPath}</code>
-              </span>
-            )}
-          </div>
-          <div className="backup-hero-actions">
-            <Button variant="primary" onClick={() => createBackup("full")} disabled={anyBusy} title={t("control:backup.createFullTitle")}>
-              <DatabaseBackup size={18} />
-              <span>{createLabel("full", t("control:backup.createFull"))}</span>
-            </Button>
-            <Button variant="secondary" onClick={() => createBackup("minimal")} disabled={anyBusy} title={t("control:backup.createMinimalTitle")}>
-              <FileArchive size={18} />
-              <span>{createLabel("minimal", t("control:backup.createMinimal"))}</span>
-            </Button>
-            <Button variant="secondary" onClick={() => createBackup("database")} disabled={anyBusy} title={t("control:backup.createDatabaseTitle")}>
-              <Database size={18} />
-              <span>{createLabel("database", t("control:backup.createDatabase"))}</span>
-            </Button>
-            <Button variant="secondary" onClick={() => { setError(""); setNotice(""); setShowUpload(true); }} title={t("control:backup.uploadBackupTitle")}>
-              <UploadCloud size={18} />
-              <span>{t("control:backup.uploadBackup")}</span>
-            </Button>
-          </div>
-        </div>
+      {error && <MessageBox tone="error" title={t("control:backup.errorTitle")}>{error}</MessageBox>}
+      {notice && <MessageBox tone="success" title={t("control:backup.listTitle")}>{notice}</MessageBox>}
+    </>
+  );
+  const back = <PageBack label={t("control:nav.tabs.backup")} onBack={() => go(null)} />;
+  const unit = (count: number) => t("control:backup.unitBackups", { count: Number.isFinite(count) ? count : 0 });
+  const keepRow = (kind: BackupKind, label: string) => (
+    <InputRow
+      label={label}
+      type="number"
+      min={1}
+      max={100}
+      value={Number.isNaN(retention[kind]) ? "" : String(retention[kind])}
+      unit={unit(retention[kind])}
+      disabled={savingRetention === kind}
+      onChange={(value) => setRetention((state) => ({ ...state, [kind]: value === "" ? Number.NaN : Number(value) }))}
+      onCommit={() => void commitRetention(kind)}
+    />
+  );
 
-        {error && <MessageBox tone="error" title={t("control:backup.errorTitle")}>{error}</MessageBox>}
-        {notice && <MessageBox tone="success" title={t("control:backup.listTitle")}>{notice}</MessageBox>}
+  let body: ReactNode;
+  const jobKey = show?.startsWith("job:") ? show.slice(4) : null;
+  const backupName = show?.startsWith("backup:") ? show.slice(7) : null;
 
-        <section id="scheduled-backups" className="backup-card backup-settings">
-          <h2>{t("control:backup.scheduledTitle")}</h2>
-          <p className="muted backup-schedule-intro">
-            {t("control:backup.scheduleIntro")}{" "}
+  if (jobKey) {
+    // ── A scheduled kind ──────────────────────────────────────────────────────
+    const entry = SCHEDULED_KINDS.find((candidate) => candidate.key === jobKey);
+    const job = jobs[jobKey];
+    if (!entry || !job) {
+      body = <>{back}{!job && entry ? <p className="muted">{t("controlAdmin:ui.loading")}</p> : <p className="muted">{t("controlAdmin:scheduledJobs.gone")}</p>}</>;
+    } else {
+      const busy = savingJob === job.key;
+      body = (
+        <>
+          {back}
+          <PageTitle>{entry.kind === "full" ? t("control:backup.scheduleFull") : t("control:backup.scheduleMinimal")}</PageTitle>
+          {notices}
+          <GroupedList note={entry.kind === "full" ? t("control:backup.scheduleFullHint") : t("control:backup.scheduleMinimalHint")}>
+            <ToggleRow
+              label={t("controlAdmin:scheduledJobs.onRow")}
+              checked={job.enabled}
+              disabled={busy}
+              onChange={(next) => void saveJob(job, { enabled: next })}
+            />
+          </GroupedList>
+          {entry.kind === "full" && data && !data.coversAvailable && (
+            <MessageBox tone="warning" title={t("control:backup.noThumbnailStoreTitle")}>
+              {t("control:backup.noThumbnailStore")}{" "}
+              <a href={storageHref("system-data")} onClick={(event) => followRoute(event, storageHref("system-data"))}>
+                {t("control:backup.storageLink")}
+              </a>
+            </MessageBox>
+          )}
+          {job.enabled && (
+            <GroupedList title={t("controlAdmin:scheduledJobs.groupSchedule")}>
+              <JobScheduleRows schedule={job} disabled={busy} onChange={(patch) => void saveJob(job, patch)} />
+            </GroupedList>
+          )}
+          {/* With the schedule, because how many to keep belongs with how often they
+              are made — though it governs the ones made by hand just the same. */}
+          <GroupedList note={t("control:backup.keepKindNote")}>
+            {keepRow(entry.kind, t("control:backup.keepNewest"))}
+          </GroupedList>
+          <JobRunRows job={job} />
+          <p className="grouped-list-note">
             <a href={controlHref("scheduledJobs")} onClick={(event) => followRoute(event, controlHref("scheduledJobs"))}>
               {t("control:backup.allJobsLink")}
             </a>
           </p>
-          <div className="backup-schedule-rows">
-            {SCHEDULED_KINDS.map(({ key, kind }) => {
-              const job = jobs[key];
-              const disabled = !job || savingJob === key;
+        </>
+      );
+    }
+  } else if (backupName) {
+    // ── One backup ────────────────────────────────────────────────────────────
+    const backup = data?.backups.find((candidate) => candidate.name === backupName);
+    if (!data) {
+      body = <>{back}<p className="muted">{t("controlAdmin:ui.loading")}</p></>;
+    } else if (!backup) {
+      body = <>{back}{notices}<p className="muted">{t("control:backup.gone")}</p></>;
+    } else {
+      const writing = isWriting(backup);
+      body = (
+        <>
+          {back}
+          <PageTitle>{backup.name}</PageTitle>
+          {notices}
+          <GroupedList>
+            <InfoRow icon={kindIcon(backup.kind)} label={t("control:backup.thType")} value={writing ? t("control:backup.writingInProgress") : kindLabel(backup.kind)} />
+            <InfoRow label={t("control:backup.thCreated")} value={formatManagedDate(backup.createdAt)} />
+            <InfoRow label={t("control:backup.thSize")} value={formatBytes(backup.sizeBytes)} />
+          </GroupedList>
+          {!writing && (
+            <>
+              <GroupedList note={t("control:backup.restoreRowNote")}>
+                <ActionRow label={t("control:backup.restore")} onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }} />
+                <ActionRow label={t("control:backup.download")} href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download />
+              </GroupedList>
+              <GroupedList>
+                <ActionRow tone="danger" label={t("control:backup.deleteConfirmLabel")} onClick={() => setPendingDelete(backup)} />
+              </GroupedList>
+            </>
+          )}
+        </>
+      );
+    }
+  } else {
+    // ── The page ─────────────────────────────────────────────────────────────
+    body = (
+      <>
+        {notices}
+        <GroupedList title={t("control:backup.nowGroup")} note={t("control:backup.intro")}>
+          {(["full", "minimal", "database"] as const).map((kind) => (
+            <CommandRow
+              key={kind}
+              icon={kindIcon(kind)}
+              label={kind === "full" ? t("control:backup.createFull") : kind === "minimal" ? t("control:backup.createMinimal") : t("control:backup.createDatabase")}
+              sub={kind === "full" ? t("control:backup.createFullTitle") : kind === "minimal" ? t("control:backup.createMinimalTitle") : t("control:backup.createDatabaseTitle")}
+              value={busyKind === kind ? t("control:backup.backingUp") : undefined}
+              disabled={anyBusy}
+              onClick={() => void createBackup(kind)}
+            />
+          ))}
+          <CommandRow
+            icon={<UploadCloud size={17} />}
+            label={t("control:backup.uploadBackup")}
+            sub={t("control:backup.uploadBackupTitle")}
+            onClick={() => { setError(""); setNotice(""); setShowUpload(true); }}
+          />
+        </GroupedList>
+
+        {/* A path as the SERVER sees it. In Docker that's a path inside the
+            container, which is not where you'd look on the host — say so, or it
+            sends people hunting for a folder their machine doesn't have. */}
+        {data && (
+          <GroupedList note={t("control:backup.pathTitle")}>
+            <InfoRow icon={<Folder size={17} />} iconTone="muted" label={t("control:backup.savedIn")} value={<code>{data.backupPath}</code>} />
+          </GroupedList>
+        )}
+
+        <GroupedList
+          id="scheduled-backups"
+          title={t("control:backup.scheduledTitle")}
+          note={t("control:backup.scheduleIntro")}
+        >
+          {SCHEDULED_KINDS.map(({ key, kind }) => {
+            const job = jobs[key];
+            return (
+              <NavRow
+                key={key}
+                icon={kindIcon(kind)}
+                iconTone={job?.enabled ? undefined : "muted"}
+                label={kind === "full" ? t("control:backup.scheduleFull") : t("control:backup.scheduleMinimal")}
+                sub={job ? scheduleSummary(job) : undefined}
+                value={`${t("control:backup.keepInline")} ${data?.settings.retention[kind] ?? retention[kind]}`}
+                onClick={() => go(`job:${key}`)}
+              />
+            );
+          })}
+        </GroupedList>
+
+        {/* Quick database copies are the third kind and the only one with no job to
+            sit in: taken by hand (and by a restore, which keeps the database it
+            replaced), never on a timer. They still pile up, so they get a count. */}
+        <GroupedList title={t("control:backup.keepNewest")} note={t("control:backup.retentionNote")}>
+          {keepRow("database", t("control:backup.keepDatabase"))}
+        </GroupedList>
+
+        {data && (
+          <GroupedList
+            title={t("control:backup.listTitle")}
+            note={data.backups.length > 0
+              ? t("control:backup.totalSummary", { size: formatBytes(data.totalSizeBytes), count: data.backups.length })
+              : undefined}
+          >
+            {data.backups.length === 0 ? (
+              <InfoRow icon={<FileArchive size={17} />} iconTone="muted" label={t("control:backup.emptyTitle")} sub={t("control:backup.emptyBody")} />
+            ) : data.backups.map((backup) => {
+              const writing = isWriting(backup);
               return (
-                <div key={key} className={`backup-schedule-row${job && !job.enabled ? " off" : ""}`}>
-                  <div className="backup-schedule-name">
-                    <strong>{kind === "full" ? t("control:backup.scheduleFull") : t("control:backup.scheduleMinimal")}</strong>
-                    <small>
-                      {kind === "full" ? t("control:backup.scheduleFullHint") : t("control:backup.scheduleMinimalHint")}
-                      {kind === "full" && data && !data.coversAvailable && (
-                        <>
-                          {" "}{t("control:backup.noThumbnailStore")}{" "}
-                          <a href={storageHref("system-data")} onClick={(event) => followRoute(event, storageHref("system-data"))}>
-                            {t("control:backup.storageLink")}
-                          </a>
-                        </>
-                      )}
-                    </small>
-                  </div>
-                  <div className="backup-schedule-controls">
-                    <JobScheduleControls
-                      label={job?.label ?? key}
-                      schedule={job ?? { frequency: kind === "full" ? "weekly" : "daily", time: "03:00", dayOfWeek: 0, dayOfMonth: 1 }}
-                      disabled={disabled}
-                      onChange={(patch) => { if (job) void saveJob(job, patch); }}
-                    />
-                    {/* Under the time, because how many to keep belongs with how
-                        often they are made — even though it governs the ones you
-                        make by hand just the same. */}
-                    <label className="backup-keep-inline">
-                      <span>{t("control:backup.keepInline")}</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={retention[kind]}
-                        disabled={savingRetention === kind}
-                        aria-label={kind === "full" ? t("control:backup.keepAriaFull") : t("control:backup.keepAriaMinimal")}
-                        onChange={(e) => setRetention((state) => ({ ...state, [kind]: Number(e.target.value) }))}
-                        onBlur={(e) => { void commitRetention(kind, e.target.value); }}
-                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                      />
-                    </label>
-                  </div>
-                  <span className="scheduled-job-run-line muted backup-schedule-next" title={t("controlAdmin:scheduledJobs.nextRun")}>
-                    <CalendarClock size={15} aria-hidden="true" />
-                    <span>{job?.enabled && job.nextRunAt ? formatManagedDate(job.nextRunAt) : t("controlAdmin:scheduledJobs.notScheduled")}</span>
-                  </span>
-                  <ToggleSwitch
-                    checked={Boolean(job?.enabled)}
-                    disabled={disabled}
-                    onChange={(next) => { if (job) void saveJob(job, { enabled: next }); }}
-                    ariaLabel={job?.enabled
-                      ? t("controlAdmin:scheduledJobs.ariaToggleOn", { label: job.label })
-                      : t("controlAdmin:scheduledJobs.ariaToggleOff", { label: job?.label ?? key })}
-                  />
-                </div>
+                <NavRow
+                  key={backup.name}
+                  icon={kindIcon(backup.kind)}
+                  label={backup.name}
+                  sub={`${writing ? t("control:backup.writingInProgress") : kindLabel(backup.kind)} · ${formatManagedDate(backup.createdAt)}`}
+                  value={formatBytes(backup.sizeBytes)}
+                  disabled={writing}
+                  onClick={() => go(`backup:${backup.name}`)}
+                />
               );
             })}
-          </div>
-          <div className="backup-card-rule" />
-          <div className="backup-settings-footer">
-            {/* Quick database copies are the third kind and the only one with no job
-                to sit in: they are taken by hand (and by a restore, which keeps the
-                database it replaced), never on a timer. They still pile up, so they
-                still get a count. */}
-            <div className="backup-retention">
-              <span className="backup-retention-label">{t("control:backup.keepNewest")}</span>
-              <label className="field backup-field-keep">
-                <span>{t("control:backup.keepDatabase")}</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={retention.database}
-                  disabled={savingRetention === "database"}
-                  onChange={(e) => setRetention((state) => ({ ...state, database: Number(e.target.value) }))}
-                  onBlur={(e) => { void commitRetention("database", e.target.value); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                />
-              </label>
-            </div>
-            <p className="muted backup-retention-note">
-              {t("control:backup.retentionNote")}
-            </p>
-          </div>
-        </section>
-
-        {data && data.backups.length === 0 ? (
-          <section className="backup-card backup-empty-card">
-            <span className="backup-empty-icon" aria-hidden="true">
-              <Archive size={30} />
-            </span>
-            <h2>{t("control:backup.emptyTitle")}</h2>
-            <p className="muted">{t("control:backup.emptyBody")}</p>
-          </section>
-        ) : data && (
-          <section className="backup-card backup-list-card">
-            <div className="backup-list-head">
-              <h2>{t("control:backup.listTitle")}</h2>
-              <span>
-                {t("control:backup.totalSummary", { size: formatBytes(data.totalSizeBytes), count: data.backups.length })}
-              </span>
-            </div>
-            <div className="datagrid-wrap">
-              <table className="datagrid datagrid-phone-stack stack-actions-below">
-                <thead>
-                  <tr>
-                    <th>{t("control:backup.thBackup")}</th>
-                    <th>{t("control:backup.thType")}</th>
-                    <th className="col-scan">{t("control:backup.thCreated")}</th>
-                    <th className="col-num">{t("control:backup.thSize")}</th>
-                    <th className="col-actions"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.backups.map((backup) => {
-                    // The file being written is already in the list and grows as we
-                    // poll; it must not offer Restore/Download/Delete half-made.
-                    const writing = running && data.runningSince != null && backup.createdAt >= data.runningSince;
-                    return (
-                      <tr key={backup.name}>
-                        <td><strong>{backup.name}</strong></td>
-                        <td className="datagrid-muted">{writing ? t("control:backup.writingInProgress") : kindLabel(backup.kind)}</td>
-                        <td className="col-scan datagrid-muted">{formatManagedDate(backup.createdAt)}</td>
-                        <td className="col-num datagrid-muted">{formatBytes(backup.sizeBytes)}</td>
-                        <td className="col-actions">
-                          {!writing && (
-                            <div className="row-actions">
-                              <Button variant="secondary" compact title={t("control:backup.restoreTitle")} onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
-                                <RotateCcw size={14} /> {t("control:backup.restore")}
-                              </Button>
-                              <a className="icon-button" title={t("control:backup.downloadTitle")} href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
-                                <Download size={15} />
-                              </a>
-                              <Button variant="icon" danger title={t("control:backup.deleteTitle")} onClick={() => setPendingDelete(backup)}>
-                                <Trash2 size={15} />
-                              </Button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          </GroupedList>
         )}
 
         <ContainerBackups />
-      </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {head}
+      <div className="grouped-page">{body}</div>
 
       {pendingDelete && (
         <ConfirmDialog

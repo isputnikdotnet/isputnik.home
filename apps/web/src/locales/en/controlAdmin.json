@@ -980,7 +980,19 @@
     "runningAria": "Running {{label}}",
     "runNowAria": "Run {{label}} now",
     "running": "Running…",
-    "runNow": "Run now"
+    "runNow": "Run now",
+    "off": "Off",
+    "summaryDaily": "Daily, {{time}}",
+    "summaryWeekly": "Weekly on {{day}}, {{time}}",
+    "summaryMonthly": "Monthly on day {{day}}, {{time}}",
+    "repeatRow": "Repeat",
+    "dayRow": "Day",
+    "timeRow": "Time",
+    "gone": "This job is no longer there.",
+    "onRow": "Run on schedule",
+    "groupSchedule": "Schedule",
+    "lastRun": "Last run",
+    "lastFailed": "Failed"
   },
   "protection": {
     "labelProxy": "Proxy trust",
@@ -1281,7 +1293,10 @@
     "unitScore": "of 100",
     "unitChars_one": "character",
     "unitChars_other": "characters",
-    "repKeySave": "Save key"
+    "repKeySave": "Save key",
+    "networkGone": "This network is no longer trusted.",
+    "blockGone": "This address is no longer blocked.",
+    "removeTrustedNote": "Sign-ins from this range go back to the usual rate limits, lockout and two-factor."
   },
   "storageContents": {
     "description": "What App storage holds: each part's count and size, and the App files library file by file with what owns each file.",

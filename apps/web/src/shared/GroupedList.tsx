@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { Check, ChevronRight, ChevronsUpDown, Eye, EyeOff, Search } from "lucide-react";
 import { followRoute } from "../router";
 import { Button } from "./Button";
 
@@ -27,6 +27,8 @@ interface RowText {
   /** A small square icon on the left. */
   icon?: ReactNode;
   iconTone?: Tone;
+  /** `round` for a person or a group: their picture or initials in a circle. */
+  iconShape?: "square" | "round";
   label: ReactNode;
   /** A second, smaller line under the label. */
   sub?: ReactNode;
@@ -35,10 +37,10 @@ interface RowText {
   valueTone?: Tone;
 }
 
-function RowBody({ icon, iconTone, label, sub, value, valueTone, chevron }: RowText & { chevron: boolean }) {
+function RowBody({ icon, iconTone, iconShape, label, sub, value, valueTone, chevron }: RowText & { chevron: boolean }) {
   return (
     <>
-      {icon && <span className={`grouped-row-icon${iconTone ? ` is-${iconTone}` : ""}`} aria-hidden="true">{icon}</span>}
+      {icon && <span className={`grouped-row-icon${iconTone ? ` is-${iconTone}` : ""}${iconShape === "round" ? " is-round" : ""}`} aria-hidden="true">{icon}</span>}
       <span className="grouped-row-label">
         <strong>{label}</strong>
         {sub && <small>{sub}</small>}
@@ -52,7 +54,7 @@ function RowBody({ icon, iconTone, label, sub, value, valueTone, chevron }: RowT
 }
 
 /** A row that leads somewhere: to another address (`href`) or a step in the page (`onClick`). */
-export function NavRow({ href, onClick, ...text }: RowText & { href?: string; onClick?: () => void }) {
+export function NavRow({ href, onClick, disabled = false, ...text }: RowText & { href?: string; onClick?: () => void; disabled?: boolean }) {
   if (href) {
     return (
       <a className="grouped-row" href={href} onClick={(event) => followRoute(event, href)}>
@@ -61,8 +63,18 @@ export function NavRow({ href, onClick, ...text }: RowText & { href?: string; on
     );
   }
   return (
-    <Button variant="bare" className="grouped-row" onClick={onClick}>
+    <Button variant="bare" className="grouped-row" onClick={onClick} disabled={disabled}>
       <RowBody {...text} chevron />
+    </Button>
+  );
+}
+
+/** A row that does something where it stands (start a backup) — an icon, what it
+ *  does, and its state on the right, but no chevron, since it opens nothing. */
+export function CommandRow({ onClick, disabled = false, ...text }: RowText & { onClick: () => void; disabled?: boolean }) {
+  return (
+    <Button variant="bare" className="grouped-row grouped-row-command" onClick={onClick} disabled={disabled}>
+      <RowBody {...text} chevron={false} />
     </Button>
   );
 }
@@ -77,7 +89,15 @@ export function InfoRow(text: RowText) {
 }
 
 /** A centred action: `accent` for the thing to do, `danger` for removing. */
-export function ActionRow({ label, onClick, tone = "accent", disabled = false }: { label: ReactNode; onClick: () => void; tone?: "accent" | "danger"; disabled?: boolean }) {
+export function ActionRow({ label, onClick, tone = "accent", disabled = false, href, download }: { label: ReactNode; onClick?: () => void; tone?: "accent" | "danger"; disabled?: boolean; href?: string; download?: boolean }) {
+  // A file to save (a backup) is a plain link the browser downloads, not a route.
+  if (href) {
+    return (
+      <a className={`grouped-row grouped-row-action is-${tone}`} href={href} download={download || undefined}>
+        {label}
+      </a>
+    );
+  }
   return (
     <Button variant="bare" className={`grouped-row grouped-row-action is-${tone}`} onClick={onClick} disabled={disabled}>
       {label}
@@ -150,7 +170,7 @@ export function InputRow({
   value: string;
   onChange: (next: string) => void;
   onCommit?: () => void;
-  type?: "text" | "number" | "email" | "password";
+  type?: "text" | "number" | "email" | "password" | "time";
   unit?: ReactNode;
   placeholder?: string;
   min?: number;
@@ -164,15 +184,17 @@ export function InputRow({
 }) {
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
+  const labelId = useId();
   const isPassword = type === "password";
   return (
     <label className={`grouped-row grouped-row-input${wide ? " is-wide" : ""}${disabled ? " is-disabled" : ""}`}>
       <span className="grouped-row-label">
-        <strong>{label}</strong>
+        <strong id={labelId}>{label}</strong>
         {sub && <small>{sub}</small>}
       </span>
       <span className="grouped-row-entry">
         <input
+          aria-labelledby={labelId}
           type={isPassword && revealed ? "text" : type}
           value={value}
           placeholder={placeholder}
@@ -211,4 +233,57 @@ export function InputRow({
       </span>
     </label>
   );
+}
+
+/** One value picked from a few, as a phone shows it: the label on the left, the
+ *  choice on the right. A native select underneath, so a phone opens its own wheel.
+ *  Saves on change. */
+export function PickerRow({
+  label,
+  sub,
+  value,
+  options,
+  onChange,
+  disabled = false
+}: {
+  label: ReactNode;
+  sub?: ReactNode;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (next: string) => void;
+  disabled?: boolean;
+}) {
+  const labelId = useId();
+  return (
+    <label className={`grouped-row grouped-row-input grouped-row-picker${disabled ? " is-disabled" : ""}`}>
+      <span className="grouped-row-label">
+        <strong id={labelId}>{label}</strong>
+        {sub && <small>{sub}</small>}
+      </span>
+      <span className="grouped-row-entry">
+        <select aria-labelledby={labelId} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <ChevronsUpDown className="grouped-row-chevron" size={15} aria-hidden="true" />
+      </span>
+    </label>
+  );
+}
+
+/** The search field over a list of rows. */
+export function GroupedSearch({ value, onChange, label, placeholder }: { value: string; onChange: (next: string) => void; label: string; placeholder?: string }) {
+  return (
+    <label className="grouped-search">
+      <Search size={16} aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+      <input type="search" value={value} placeholder={placeholder ?? label} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+/** A person's initials for a round row icon. */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : parts;
+  return letters.map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
 }

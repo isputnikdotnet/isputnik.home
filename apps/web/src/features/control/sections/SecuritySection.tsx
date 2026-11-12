@@ -1,11 +1,9 @@
-import { Fragment, useState, useEffect, useCallback, type FormEvent } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { initialParam } from "../links";
 import { Trans, useTranslation } from "react-i18next";
 import {
   Ban,
-  ChevronDown,
   ChevronRight,
-  CircleOff,
   ExternalLink,
   KeyRound,
   Globe,
@@ -16,7 +14,6 @@ import {
   Plus,
   ShieldCheck,
   ShieldQuestion,
-  Sparkles,
   Trash2,
   UserRound
 } from "lucide-react";
@@ -29,7 +26,8 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
-import { ActionRow, CheckRow, GroupedList, InputRow, ToggleRow } from "../../../shared/GroupedList";
+import { ActionRow, AddRow, CheckRow, GroupedList, InfoRow, InputRow, NavRow, ToggleRow } from "../../../shared/GroupedList";
+import { PageBack, PageTitle, useQueryPage } from "../../../shared/useQueryPage";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -139,7 +137,7 @@ const HEAD_DESCRIPTION_KEYS: Record<SecurityTab, "descOverview" | "descPolicies"
 };
 
 export function SecuritySection({ section }: { section: SecuritySectionKey }) {
-  const { t } = useTranslation(["common", "controlAdmin"]);
+  const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const [data, setData] = useState<SecurityData | null>(null);
   const [error, setError] = useState("");
   const activeTab = TAB_FOR_SECTION[section];
@@ -173,7 +171,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   const [blockFilter, setBlockFilter] = useState<"all" | "live" | "permanent" | "lapsed">("all");
   const [blockPage, setBlockPage] = useState(1);
   const [pendingClearLapsed, setPendingClearLapsed] = useState(false);
-  const [expandedBlock, setExpandedBlock] = useState<string | null>(null);
+  // Trusted networks and Blocked IPs open a page per entry (?show=network:<id> | ip:<address>).
+  const [show, go] = useQueryPage();
   const [clearingLapsed, setClearingLapsed] = useState(false);
   const [makingPermanent, setMakingPermanent] = useState(false);
   const [permanentError, setPermanentError] = useState("");
@@ -331,13 +330,15 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     }
   };
 
-  const removeTrusted = async (id: string) => {
+  const removeTrusted = async (id: string): Promise<boolean> => {
     setTrustedError("");
     try {
       await api(`/api/security/trusted-networks/${id}`, { method: "DELETE" });
       await load();
+      return true;
     } catch (err) {
       setTrustedError(err instanceof Error ? err.message : t("controlAdmin:security.removeTrustedFailed"));
+      return false;
     }
   };
 
@@ -382,13 +383,15 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     }
   };
 
-  const unblock = async (value: string) => {
+  const unblock = async (value: string): Promise<boolean> => {
     setBlockError("");
     try {
       await api(`/api/security/blocked-ips/${encodeURIComponent(value)}`, { method: "DELETE" });
       await load();
+      return true;
     } catch (err) {
       setBlockError(err instanceof Error ? err.message : t("controlAdmin:security.unblockFailed"));
+      return false;
     }
   };
 
@@ -846,106 +849,84 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               id="security-panel-trusted"
               hidden={activeTab !== "trusted"}
             >
-              <section className="security-block security-network-view compact-tables" aria-labelledby="trusted-heading">
-                <div className="security-network-head">
-                  <h2 id="trusted-heading">{t("controlAdmin:security.trustedHeading")}</h2>
-                  <p className="section-description">
-                    {t("controlAdmin:security.trustedDesc")}
-                  </p>
-                </div>
-
-                <MessageBox tone="warning" title={t("controlAdmin:security.trustedCalloutTitle")} className="security-network-callout">
-                  <Trans i18nKey="security.trustedCalloutBody" ns="controlAdmin" components={{ cd: <code /> }} />
-                </MessageBox>
-
-                <div className="security-list-actions">
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      setTrustedError("");
-                      setTrustedOpen(true);
-                    }}
-                  >
-                    <Plus size={16} />
-                    {t("controlAdmin:security.addNetwork")}
-                  </Button>
-                </div>
-
-                {trustedError && !trustedOpen && (
+              {activeTab === "trusted" && (() => {
+                const back = <PageBack label={t("control:nav.tabs.securityTrusted")} onBack={() => go(null)} />;
+                const errorBox = trustedError && !trustedOpen && (
                   <MessageBox tone="error" title={t("controlAdmin:security.updateTrustedFailed")}>{trustedError}</MessageBox>
-                )}
-
-                {data.trustedNetworks.length === 0 ? (
-                  <div className="security-network-empty trusted">
-                    <div className="security-network-empty-visual" aria-hidden="true">
-                      <Sparkles className="security-empty-spark spark-a" size={18} />
-                      <ShieldCheck className="security-empty-main-icon" size={72} />
-                      <Globe className="security-empty-spark spark-b" size={18} />
+                );
+                // ── One network ─────────────────────────────────────────────────
+                if (show?.startsWith("network:")) {
+                  const network = data.trustedNetworks.find((candidate) => candidate.id === show.slice(8));
+                  if (!network) return <div className="grouped-page">{back}<p className="muted">{t("controlAdmin:security.networkGone")}</p></div>;
+                  return (
+                    <div className="grouped-page">
+                      {back}
+                      <PageTitle>{network.label || network.cidr}</PageTitle>
+                      {errorBox}
+                      <GroupedList>
+                        <InfoRow label={t("controlAdmin:security.thRange")} value={<code>{network.cidr}</code>} />
+                        <InfoRow label={t("controlAdmin:security.thLabel")} value={network.label || "—"} />
+                        <InfoRow
+                          label={t("controlAdmin:security.thInUse")}
+                          value={network.liveSessions > 0 ? t("controlAdmin:ui.sessions", { count: network.liveSessions }) : "—"}
+                        />
+                        <InfoRow label={t("controlAdmin:security.thAdded")} value={formatManagedDate(network.createdAt)} />
+                      </GroupedList>
+                      <GroupedList note={t("controlAdmin:security.removeTrustedNote")}>
+                        <ActionRow
+                          tone="danger"
+                          label={t("controlAdmin:security.removeTrustedTitle")}
+                          onClick={() => { void removeTrusted(network.id).then((ok) => { if (ok) go(null); }); }}
+                        />
+                      </GroupedList>
                     </div>
-                    <div className="security-network-empty-copy">
-                      <h3>{t("controlAdmin:security.trustedEmptyHeading")}</h3>
-                      <p>
-                        {t("controlAdmin:security.trustedEmptyBody")}
-                      </p>
-                      <div className="security-network-empty-note">
-                        <ShieldCheck size={18} aria-hidden="true" />
-                        <span>{t("controlAdmin:security.trustedEmptyNote")}</span>
-                      </div>
-                    </div>
+                  );
+                }
+                // ── The list ────────────────────────────────────────────────────
+                return (
+                  <div className="grouped-page">
+                    <MessageBox tone="warning" title={t("controlAdmin:security.trustedCalloutTitle")}>
+                      <Trans i18nKey="security.trustedCalloutBody" ns="controlAdmin" components={{ cd: <code /> }} />
+                    </MessageBox>
+                    {errorBox}
+                    <GroupedList
+                      title={t("controlAdmin:security.trustedHeading")}
+                      note={data.trustedNetworks.length === 0
+                        ? <>{t("controlAdmin:security.trustedEmptyBody")} {t("controlAdmin:security.trustedEmptyNote")}</>
+                        : t("controlAdmin:security.trustedDesc")}
+                    >
+                      {data.trustedNetworks.map((network) => (
+                        <NavRow
+                          key={network.id}
+                          icon={<ShieldCheck size={17} />}
+                          iconTone={network.liveSessions > 0 ? "ok" : undefined}
+                          label={network.label || network.cidr}
+                          sub={network.label ? network.cidr : undefined}
+                          value={network.liveSessions > 0 ? t("controlAdmin:ui.sessions", { count: network.liveSessions }) : undefined}
+                          onClick={() => go(`network:${network.id}`)}
+                        />
+                      ))}
+                      <AddRow
+                        icon={<Plus size={17} />}
+                        label={t("controlAdmin:security.addNetwork")}
+                        onClick={() => {
+                          setTrustedError("");
+                          setTrustedOpen(true);
+                        }}
+                      />
+                    </GroupedList>
+                    {/* Moved to its own tab in phase 5 (docs/photo-sync-plan.md); said here so
+                        whoever looks for it beside the trusted networks finds the way. */}
+                    <p className="grouped-list-note">
+                      <Trans
+                        i18nKey="phoneSyncPage.movedNote"
+                        ns="controlAdmin"
+                        components={{ link: <a href={controlHref("phoneSync")} onClick={(event) => followRoute(event, controlHref("phoneSync"))} /> }}
+                      />
+                    </p>
                   </div>
-                ) : (
-                  <div className="datagrid-wrap security-network-table">
-                    <table className="datagrid trusted-table">
-                      <thead>
-                        <tr>
-                          <th>{t("controlAdmin:security.thRange")}</th>
-                          <th>{t("controlAdmin:security.thLabel")}</th>
-                          <th className="col-num">{t("controlAdmin:security.thInUse")}</th>
-                          <th>{t("controlAdmin:security.thAdded")}</th>
-                          <th className="col-actions">{t("controlAdmin:security.thActions")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.trustedNetworks.map((network) => (
-                          <tr key={network.id}>
-                            <td>
-                              <code>{network.cidr}</code>
-                            </td>
-                            <td className="datagrid-muted">{network.label || "—"}</td>
-                            <td className={`col-num${network.liveSessions > 0 ? "" : " datagrid-muted"}`}>
-                              {network.liveSessions > 0
-                                ? t("controlAdmin:ui.sessions", { count: network.liveSessions })
-                                : "—"}
-                            </td>
-                            <td className="datagrid-muted">{formatManagedDate(network.createdAt)}</td>
-                            <td className="col-actions">
-                              <Button
-                                variant="icon"
-                                danger
-                                title={t("controlAdmin:security.removeTrustedTitle")}
-                                aria-label={t("controlAdmin:security.removeTrustedAria", { cidr: network.cidr })}
-                                onClick={() => removeTrusted(network.id)}
-                              >
-                                <Trash2 size={15} />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-
-              {/* Moved to its own tab in phase 5 (docs/photo-sync-plan.md); said here so
-                  whoever looks for it beside the trusted networks finds the way. */}
-              <p className="section-description">
-                <Trans
-                  i18nKey="phoneSyncPage.movedNote"
-                  ns="controlAdmin"
-                  components={{ link: <a href={controlHref("phoneSync")} onClick={(event) => followRoute(event, controlHref("phoneSync"))} /> }}
-                />
-              </p>
+                );
+              })()}
             </div>
 
             <div
@@ -953,270 +934,166 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               id="security-panel-blocked"
               hidden={activeTab !== "blocked"}
             >
-              <section className="security-block security-network-view compact-tables" aria-labelledby="blocked-heading">
-                <div className="security-network-head">
-                  <h2 id="blocked-heading">{t("controlAdmin:security.blockedHeading")}</h2>
-                  <p className="section-description">
-                    {t("controlAdmin:security.blockedDesc")}
-                  </p>
-                </div>
-
-                <div className="security-list-actions">
-                  {/* Counter and filter in one, like the device chips on Sign-ins:
-                      running blocks matter today, permanent ones were chosen,
-                      lapsed ones are history. */}
-                  <div className="device-type-chips" role="group" aria-label={t("controlAdmin:security.chipsAria")}>
-                    {([
-                      ["live", "chipRunning"],
-                      ["permanent", "chipPermanent"],
-                      ["lapsed", "chipLapsed"]
-                    ] as const).map(([kind, wordKey]) => (
-                      <Button
-                        variant="chip"
-                        key={kind}
-                        className={`device-type-chip${blockFilter === kind ? " is-active" : ""}`}
-                        aria-pressed={blockFilter === kind}
-                        onClick={() => {
-                          setBlockFilter(blockFilter === kind ? "all" : kind);
-                          setBlockPage(1);
-                        }}
-                      >
-                        <strong>{blockCounts[kind]}</strong> {t(`controlAdmin:security.${wordKey}`)}
-                      </Button>
-                    ))}
-                  </div>
-                  <span className="signins-scope-spacer" />
-                  {blockCounts.lapsed > 0 && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setBlockError("");
-                        setPendingClearLapsed(true);
-                      }}
-                    >
-                      <Trash2 size={15} aria-hidden="true" />
-                      {t("controlAdmin:security.clearLapsed", { count: blockCounts.lapsed })}
-                    </Button>
-                  )}
-                  <Button
-                    variant="danger"
-                    onClick={() => {
-                      setBlockError("");
-                      setBlockOpen(true);
-                    }}
-                  >
-                    <Ban size={16} />
-                    {t("controlAdmin:security.blockIp")}
-                  </Button>
-                </div>
-
-                {blockError && !blockOpen && (
+              {activeTab === "blocked" && (() => {
+                const back = <PageBack label={t("control:nav.tabs.securityBlocked")} onBack={() => go(null)} />;
+                const errorBox = blockError && !blockOpen && (
                   <MessageBox tone="error" title={t("controlAdmin:security.updateBlockedFailed")}>{blockError}</MessageBox>
-                )}
-
-                {data.blockedIps.length === 0 ? (
-                  <div className="security-network-empty blocked">
-                    <div className="security-network-empty-visual" aria-hidden="true">
-                      <Sparkles className="security-empty-spark spark-a" size={18} />
-                      <CircleOff className="security-empty-main-icon" size={72} />
-                      <ShieldCheck className="security-empty-spark spark-b" size={18} />
+                );
+                const kindTone = (entry: BlockedIp) => blockKind(entry) === "lapsed" ? "muted" as const : blockKind(entry) === "permanent" ? "danger" as const : "warn" as const;
+                // ── One address ─────────────────────────────────────────────────
+                if (show?.startsWith("ip:")) {
+                  const entry = data.blockedIps.find((candidate) => candidate.ip === show.slice(3));
+                  if (!entry) return <div className="grouped-page">{back}<p className="muted">{t("controlAdmin:security.blockGone")}</p></div>;
+                  const place = entry.reputation
+                    ? [countryName(entry.reputation.countryCode), entry.reputation.isp].filter(Boolean).join(" · ")
+                    : "";
+                  const checking = checkingIp === entry.ip;
+                  return (
+                    <div className="grouped-page">
+                      {back}
+                      <PageTitle>{entry.ip}</PageTitle>
+                      {errorBox}
+                      <GroupedList>
+                        <InfoRow icon={<Ban size={17} />} iconTone={kindTone(entry)} label={t("controlAdmin:security.dtKind")} value={entry.auto ? t("controlAdmin:security.kindAuto") : t("controlAdmin:security.kindManual")} />
+                        <InfoRow label={t("controlAdmin:security.dtBlocked")} value={formatManagedDate(entry.createdAt)} />
+                        <InfoRow
+                          label={entry.expired ? t("controlAdmin:security.dtExpired") : t("controlAdmin:security.dtExpires")}
+                          value={entry.expiresAt ? formatManagedDate(entry.expiresAt) : t("controlAdmin:security.neverStays")}
+                          valueTone={entry.expired ? "muted" : undefined}
+                        />
+                        <InfoRow label={t("controlAdmin:security.dtReason")} sub={entry.reason || "—"} />
+                      </GroupedList>
+                      <GroupedList
+                        title={t("controlAdmin:security.dtReputation")}
+                        note={!entry.reputation && !data.policy.hasAbuseIpdbKey ? t("controlAdmin:security.addKeyHint") : undefined}
+                      >
+                        {entry.reputation ? (
+                          <InfoRow
+                            icon={<ShieldQuestion size={17} />}
+                            iconTone={entry.reputation.score >= 50 ? "danger" : entry.reputation.score > 0 ? "warn" : "ok"}
+                            label={t("controlAdmin:security.repConfidence", { score: entry.reputation.score })}
+                            sub={[
+                              entry.reputation.totalReports ? t("controlAdmin:security.repReports", { count: entry.reputation.totalReports }) : null,
+                              place || null,
+                              entry.reputation.lastReportedAt ? t("controlAdmin:security.lastReported", { date: formatManagedDate(entry.reputation.lastReportedAt) }) : null,
+                              t("controlAdmin:security.checkedAt", { date: formatManagedDate(entry.reputation.checkedAt) })
+                            ].filter(Boolean).join(" · ")}
+                          />
+                        ) : (
+                          <InfoRow icon={<ShieldQuestion size={17} />} iconTone="muted" label={t("controlAdmin:security.notCheckedYet")} />
+                        )}
+                        {data.policy.hasAbuseIpdbKey && (
+                          <ActionRow
+                            label={checking ? t("controlAdmin:security.checking") : entry.reputation ? t("controlAdmin:security.checkAgain") : t("controlAdmin:security.checkWith")}
+                            disabled={checking}
+                            onClick={() => void checkReputation(entry.ip)}
+                          />
+                        )}
+                      </GroupedList>
+                      <GroupedList>
+                        <NavRow icon={<UserRound size={17} />} label={t("controlAdmin:security.signInsFromTitle")} href={signInsHref({ ip: entry.ip })} />
+                      </GroupedList>
+                      <GroupedList>
+                        {entry.expiresAt && (
+                          <ActionRow
+                            label={entry.expired ? t("controlAdmin:security.makePermanentRearm") : t("controlAdmin:security.makePermanent")}
+                            onClick={() => {
+                              setPermanentError("");
+                              setPermanentTarget(entry);
+                            }}
+                          />
+                        )}
+                        <ActionRow
+                          tone="danger"
+                          label={entry.expired ? t("controlAdmin:security.removeExpiredBlock") : t("controlAdmin:security.unblock")}
+                          onClick={() => { void unblock(entry.ip).then((ok) => { if (ok) go(null); }); }}
+                        />
+                      </GroupedList>
                     </div>
-                    <div className="security-network-empty-copy">
-                      <h3>{t("controlAdmin:security.blockedEmptyHeading")}</h3>
-                      <p>
-                        {t("controlAdmin:security.blockedEmptyBody")}
-                      </p>
-                      <div className="security-network-empty-note">
-                        <ShieldCheck size={18} aria-hidden="true" />
-                        <span>{t("controlAdmin:security.blockedEmptyNote")}</span>
-                      </div>
+                  );
+                }
+                // ── The list ────────────────────────────────────────────────────
+                return (
+                  <div className="grouped-page">
+                    {/* Counter and filter in one, like the device chips on Sign-ins:
+                        running blocks matter today, permanent ones were chosen,
+                        lapsed ones are history. */}
+                    <div className="device-type-chips" role="group" aria-label={t("controlAdmin:security.chipsAria")}>
+                      {([
+                        ["live", "chipRunning"],
+                        ["permanent", "chipPermanent"],
+                        ["lapsed", "chipLapsed"]
+                      ] as const).map(([kind, wordKey]) => (
+                        <Button
+                          variant="chip"
+                          key={kind}
+                          className={`device-type-chip${blockFilter === kind ? " is-active" : ""}`}
+                          aria-pressed={blockFilter === kind}
+                          onClick={() => {
+                            setBlockFilter(blockFilter === kind ? "all" : kind);
+                            setBlockPage(1);
+                          }}
+                        >
+                          <strong>{blockCounts[kind]}</strong> {t(`controlAdmin:security.${wordKey}`)}
+                        </Button>
+                      ))}
                     </div>
-                  </div>
-                ) : (
-                  <div className="datagrid-wrap security-network-table">
-                    <table className="datagrid blocked-table">
-                      <thead>
-                        <tr>
-                          <th className="col-expand" aria-label={t("controlAdmin:security.thDetails")} />
-                          <th>{t("controlAdmin:security.thAddress")}</th>
-                          <th>{t("controlAdmin:security.thReason")}</th>
-                          <th>{t("controlAdmin:security.thReputation")}</th>
-                          <th>{t("controlAdmin:security.thExpires")}</th>
-                          <th className="col-actions">{t("controlAdmin:security.thActions")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {blockedPage.map((entry) => {
-                          const open = expandedBlock === entry.ip;
-                          const place = entry.reputation
-                            ? [countryName(entry.reputation.countryCode), entry.reputation.isp].filter(Boolean).join(" · ")
-                            : "";
-                          return (
-                            <Fragment key={entry.ip}>
-                              <tr className={open ? "is-expanded" : undefined}>
-                                <td className="col-expand">
-                                  <Button
-                                    variant="icon"
-                                    aria-label={open ? t("controlAdmin:security.hideDetails") : t("controlAdmin:security.showDetails")}
-                                    aria-expanded={open}
-                                    onClick={() => setExpandedBlock(open ? null : entry.ip)}
-                                  >
-                                    {open ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
-                                  </Button>
-                                </td>
-                                <td>
-                                  <span className="datagrid-primary">
-                                    <strong><code>{entry.ip}</code></strong>
-                                    <small>{entry.auto ? t("controlAdmin:security.auto") : t("controlAdmin:security.manual")}</small>
-                                  </span>
-                                </td>
-                                <td className="datagrid-muted">{entry.reason || "—"}</td>
-                                <td className="datagrid-muted">
-                                  {entry.reputation ? (
-                                    <span
-                                      className={`reputation-score ${
-                                        entry.reputation.score >= 50 ? "bad" : entry.reputation.score > 0 ? "watch" : "clean"
-                                      }`}
-                                    >
-                                      {t("controlAdmin:security.abusePct", { score: entry.reputation.score })}
-                                    </span>
-                                  ) : (
-                                    "—"
-                                  )}
-                                </td>
-                                <td className="datagrid-muted">
-                                  {entry.expired ? (
-                                    <span className="status-badge expired">{t("controlAdmin:security.expired")}</span>
-                                  ) : entry.expiresAt ? (
-                                    formatManagedDate(entry.expiresAt)
-                                  ) : (
-                                    t("controlAdmin:ui.never")
-                                  )}
-                                </td>
-                                <td className="col-actions">
-                                  {entry.expiresAt && (
-                                    <Button
-                                      variant="icon"
-                                      title={entry.expired ? t("controlAdmin:security.makePermanentRearm") : t("controlAdmin:security.makePermanent")}
-                                      aria-label={t("controlAdmin:security.makePermanentAria", { ip: entry.ip })}
-                                      onClick={() => {
-                                        setPermanentError("");
-                                        setPermanentTarget(entry);
-                                      }}
-                                    >
-                                      <InfinityIcon size={15} />
-                                    </Button>
-                                  )}
-                                  <Button
-                                    variant="icon"
-                                    title={entry.expired ? t("controlAdmin:security.removeExpiredBlock") : t("controlAdmin:security.unblock")}
-                                    aria-label={entry.expired ? t("controlAdmin:security.removeExpiredAria", { ip: entry.ip }) : t("controlAdmin:security.unblockAria", { ip: entry.ip })}
-                                    onClick={() => unblock(entry.ip)}
-                                  >
-                                    <Trash2 size={15} />
-                                  </Button>
-                                  <Button
-                                    variant="icon"
-                                    title={t("controlAdmin:security.signInsFromTitle")}
-                                    aria-label={t("controlAdmin:security.signInsFromAria", { ip: entry.ip })}
-                                    onClick={() => navigate(signInsHref({ ip: entry.ip }))}
-                                  >
-                                    <ChevronRight size={16} aria-hidden="true" />
-                                  </Button>
-                                </td>
-                              </tr>
-                              {open && (
-                                <tr className="login-detail-row">
-                                  <td colSpan={6}>
-                                    {/* The whole record, in the grid the Logins and
-                                        Logs tables open their rows into. */}
-                                    <dl className="login-detail-grid">
-                                      <div>
-                                        <dt>{t("controlAdmin:security.dtAddress")}</dt>
-                                        <dd><code>{entry.ip}</code></dd>
-                                      </div>
-                                      <div>
-                                        <dt>{t("controlAdmin:security.dtKind")}</dt>
-                                        <dd>{entry.auto ? t("controlAdmin:security.kindAuto") : t("controlAdmin:security.kindManual")}</dd>
-                                      </div>
-                                      <div>
-                                        <dt>{t("controlAdmin:security.dtBlocked")}</dt>
-                                        <dd>{formatManagedDate(entry.createdAt)}</dd>
-                                      </div>
-                                      <div>
-                                        <dt>{entry.expired ? t("controlAdmin:security.dtExpired") : t("controlAdmin:security.dtExpires")}</dt>
-                                        <dd>{entry.expiresAt ? formatManagedDate(entry.expiresAt) : t("controlAdmin:security.neverStays")}</dd>
-                                      </div>
-                                      <div className="login-detail-wide">
-                                        <dt>{t("controlAdmin:security.dtReason")}</dt>
-                                        <dd>{entry.reason || "—"}</dd>
-                                      </div>
-                                      <div className="login-detail-wide">
-                                        <dt>{t("controlAdmin:security.dtReputation")}</dt>
-                                        <dd>
-                                          {entry.reputation ? (
-                                            <>
-                                              {[
-                                                t("controlAdmin:security.repConfidence", { score: entry.reputation.score }),
-                                                entry.reputation.totalReports ? t("controlAdmin:security.repReports", { count: entry.reputation.totalReports }) : null,
-                                                place || null,
-                                                entry.reputation.lastReportedAt ? t("controlAdmin:security.lastReported", { date: formatManagedDate(entry.reputation.lastReportedAt) }) : null,
-                                                t("controlAdmin:security.checkedAt", { date: formatManagedDate(entry.reputation.checkedAt) })
-                                              ]
-                                                .filter(Boolean)
-                                                .join(" · ")}{" "}
-                                              {data.policy.hasAbuseIpdbKey && (
-                                                <Button
-                                                  variant="text"
-                                                  compact
-                                                  disabled={checkingIp === entry.ip}
-                                                  onClick={() => checkReputation(entry.ip)}
-                                                >
-                                                  {checkingIp === entry.ip ? t("controlAdmin:security.checking") : t("controlAdmin:security.checkAgain")}
-                                                </Button>
-                                              )}
-                                            </>
-                                          ) : data.policy.hasAbuseIpdbKey ? (
-                                            <>
-                                              {t("controlAdmin:security.notCheckedYet")}{" "}
-                                              <Button
-                                                variant="text"
-                                                compact
-                                                disabled={checkingIp === entry.ip}
-                                                onClick={() => checkReputation(entry.ip)}
-                                              >
-                                                {checkingIp === entry.ip ? t("controlAdmin:security.checking") : t("controlAdmin:security.checkWith")}
-                                              </Button>
-                                            </>
-                                          ) : (
-                                            t("controlAdmin:security.addKeyHint")
-                                          )}
-                                        </dd>
-                                      </div>
-                                    </dl>
-                                  </td>
-                                </tr>
-                              )}
-                            </Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {blockedRows.length === 0 && (
-                      <p className="status-empty">
-                        {blockFilter === "live"
-                          ? t("controlAdmin:security.noBlocksLive")
-                          : blockFilter === "permanent"
-                            ? t("controlAdmin:security.noBlocksPermanent")
-                            : t("controlAdmin:security.noBlocksLapsed")}
-                      </p>
+                    {errorBox}
+                    <GroupedList
+                      title={t("controlAdmin:security.blockedHeading")}
+                      note={data.blockedIps.length === 0
+                        ? <>{t("controlAdmin:security.blockedEmptyBody")} {t("controlAdmin:security.blockedEmptyNote")}</>
+                        : blockedRows.length === 0
+                          ? (blockFilter === "live"
+                            ? t("controlAdmin:security.noBlocksLive")
+                            : blockFilter === "permanent"
+                              ? t("controlAdmin:security.noBlocksPermanent")
+                              : t("controlAdmin:security.noBlocksLapsed"))
+                          : t("controlAdmin:security.blockedDesc")}
+                    >
+                      {blockedPage.map((entry) => (
+                        <NavRow
+                          key={entry.ip}
+                          icon={<Ban size={17} />}
+                          iconTone={kindTone(entry)}
+                          label={entry.ip}
+                          sub={[entry.auto ? t("controlAdmin:security.auto") : t("controlAdmin:security.manual"), entry.reason].filter(Boolean).join(" · ")}
+                          value={entry.expired
+                            ? t("controlAdmin:security.expired")
+                            : entry.expiresAt
+                              ? formatManagedDate(entry.expiresAt)
+                              : t("controlAdmin:ui.never")}
+                          valueTone={entry.expired ? "muted" : undefined}
+                          onClick={() => go(`ip:${entry.ip}`)}
+                        />
+                      ))}
+                      <AddRow
+                        icon={<Ban size={17} />}
+                        label={t("controlAdmin:security.blockIp")}
+                        onClick={() => {
+                          setBlockError("");
+                          setBlockOpen(true);
+                        }}
+                      />
+                    </GroupedList>
+                    {data.blockedIps.length > 0 && blockTotalPages > 1 && (
+                      <Pager page={blockCurrent} totalPages={blockTotalPages} onChange={setBlockPage} label={t("controlAdmin:security.blockedPagerLabel")} />
+                    )}
+                    {blockCounts.lapsed > 0 && (
+                      <GroupedList>
+                        <ActionRow
+                          tone="danger"
+                          label={t("controlAdmin:security.clearLapsed", { count: blockCounts.lapsed })}
+                          onClick={() => {
+                            setBlockError("");
+                            setPendingClearLapsed(true);
+                          }}
+                        />
+                      </GroupedList>
                     )}
                   </div>
-                )}
-                {data.blockedIps.length > 0 && (
-                  <Pager page={blockCurrent} totalPages={blockTotalPages} onChange={setBlockPage} label={t("controlAdmin:security.blockedPagerLabel")} />
-                )}
-              </section>
+                );
+              })()}
             </div>
           </div>
 

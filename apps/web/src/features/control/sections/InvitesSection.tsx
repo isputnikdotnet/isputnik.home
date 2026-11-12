@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Search, Trash2, UserPlus } from "lucide-react";
+import { Copy, Link2, Trash2, UserPlus } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { ActionRow, AddRow, GroupedList, GroupedSearch, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { PageBack, PageTitle, useQueryPage } from "../../../shared/useQueryPage";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedInvite } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -28,6 +30,11 @@ function inviteStatusLabel(status: ManagedInvite["status"]): string {
   }
 }
 
+const statusTone = (status: ManagedInvite["status"]) => (status === "active" ? "ok" as const : "muted" as const);
+
+// Members › Invite links as rows (control panel v2): a search field over the
+// invites, each row saying who made it, what it joins and its state, and opening a
+// page of its own; "New invite" ends the list.
 export function InvitesSection() {
   const { t } = useTranslation(["common", "control"]);
   // Guests asked into one game match are invites too, of a narrower kind; their
@@ -54,6 +61,10 @@ export function InvitesSection() {
   useEffect(() => {
     loadInvites().catch((err) => setError(err instanceof Error ? err.message : t("control:invites.unableToLoad")));
   }, [loadInvites, t]);
+
+  // An invite opens a page of its own (?show=invite:<id>) with its details and Delete.
+  const [show, go] = useQueryPage();
+  const openInvite = show?.startsWith("invite:") ? invites.find((invite) => invite.id === show.slice(7)) ?? null : null;
 
   const visibleInvites = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -102,6 +113,7 @@ export function InvitesSection() {
     try {
       await api(`/api/invites/${pendingDelete.id}`, { method: "DELETE" });
       setPendingDelete(null);
+      go(null);
       await loadInvites();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : t("control:invites.unableToDelete"));
@@ -130,84 +142,69 @@ export function InvitesSection() {
               }
             }}
           />
-          <Button variant="primary" onClick={openCreate} title={t("control:invites.newInvite")}>
-            <UserPlus size={18} />
-            <span>{t("control:invites.newInvite")}</span>
-          </Button>
         </div>
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title={t("control:invites.errorTitle")}>{error}</MessageBox>}
-
-      <div className="admin-controls-bar">
-        <label className="search-field admin-search">
-          <Search size={17} aria-hidden="true" />
-          <span className="sr-only">{t("control:invites.searchAria")}</span>
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("control:invites.searchPlaceholder")}
-          />
-        </label>
-      </div>
-
-      {visibleInvites.length === 0 ? (
-        <p className="management-empty">
-          {invites.length === 0 ? t("control:invites.emptyNone") : t("control:invites.emptyFiltered")}
-        </p>
-      ) : (
-        <div className="datagrid-wrap admin-table-wrap">
-          <table className="datagrid admin-table invite-table">
-            <thead>
-              <tr>
-                <th>{t("control:invites.thInvite")}</th>
-                <th>{t("control:invites.thStatus")}</th>
-                <th>{t("control:invites.thExpires")}</th>
-                <th>{t("control:invites.thUsed")}</th>
-                <th className="col-actions">{t("control:invites.thActions")}</th>
-              </tr>
-            </thead>
-            <tbody>
+      <div className="grouped-page">
+        {error && <MessageBox tone="error" title={t("control:invites.errorTitle")}>{error}</MessageBox>}
+        {openInvite ? (
+          <>
+            <PageBack label={t("control:nav.tabs.invites")} onBack={() => go(null)} />
+            <PageTitle>{t("control:invites.inviteRow", { role: inviteRoleLabel(openInvite.role) })}</PageTitle>
+            <GroupedList>
+              <InfoRow label={t("control:invites.thStatus")} value={inviteStatusLabel(openInvite.status)} valueTone={statusTone(openInvite.status)} />
+              <InfoRow label={t("control:invites.thExpires")} value={formatManagedDate(openInvite.expiresAt)} />
+              <InfoRow
+                label={t("control:invites.thUsed")}
+                value={openInvite.usedAt
+                  ? (openInvite.usedByName
+                    ? t("control:invites.usedOnByName", { date: formatManagedDate(openInvite.usedAt), name: openInvite.usedByName })
+                    : formatManagedDate(openInvite.usedAt))
+                  : t("control:invites.notUsed")}
+              />
+              <InfoRow label={t("control:invites.createdBy", { name: openInvite.createdByName, date: formatManagedDate(openInvite.createdAt) })} />
+              {openInvite.groups.length > 0 && (
+                <InfoRow label={t("control:invites.joinsRow", { names: openInvite.groups.map((group) => group.name).join(", ") })} />
+              )}
+            </GroupedList>
+            <GroupedList note={t("control:invites.deleteBody2")}>
+              <ActionRow
+                tone="danger"
+                label={t("control:invites.deleteConfirmLabel")}
+                onClick={() => {
+                  setModalError("");
+                  setPendingDelete(openInvite);
+                }}
+              />
+            </GroupedList>
+          </>
+        ) : (
+          <>
+            <GroupedSearch value={searchQuery} onChange={setSearchQuery} label={t("control:invites.searchAria")} placeholder={t("control:invites.searchPlaceholder")} />
+            <GroupedList note={visibleInvites.length === 0 ? (invites.length === 0 ? t("control:invites.emptyNone") : t("control:invites.emptyFiltered")) : undefined}>
               {visibleInvites.map((invite) => (
-                <tr key={invite.id}>
-                  <td>
-                    <div className="datagrid-primary">
-                      <strong>{t("control:invites.inviteRow", { role: inviteRoleLabel(invite.role) })}</strong>
-                      <small>{t("control:invites.createdBy", { name: invite.createdByName, date: formatManagedDate(invite.createdAt) })}</small>
-                      {invite.groups.length > 0 && <small>{t("control:invites.joinsRow", { names: invite.groups.map((group) => group.name).join(", ") })}</small>}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${invite.status}`}>{inviteStatusLabel(invite.status)}</span>
-                  </td>
-                  <td className="datagrid-muted">{formatManagedDate(invite.expiresAt)}</td>
-                  <td className="datagrid-muted">
-                    {invite.usedAt
-                      ? (invite.usedByName
-                        ? t("control:invites.usedOnByName", { date: formatManagedDate(invite.usedAt), name: invite.usedByName })
-                        : formatManagedDate(invite.usedAt))
-                      : t("control:invites.notUsed")}
-                  </td>
-                  <td className="col-actions">
-                    <Button
-                      variant="icon"
-                      danger
-                      title={t("control:invites.deleteTitle")}
-                      aria-label={t("control:invites.deleteAria", { role: inviteRoleLabel(invite.role) })}
-                      onClick={() => {
-                        setModalError("");
-                        setPendingDelete(invite);
-                      }}
-                    >
-                      <Trash2 size={15} />
-                    </Button>
-                  </td>
-                </tr>
+                <NavRow
+                  key={invite.id}
+                  icon={<Link2 size={17} />}
+                  iconTone={invite.status === "active" ? "ok" : "muted"}
+                  label={t("control:invites.inviteRow", { role: inviteRoleLabel(invite.role) })}
+                  sub={[
+                    t("control:invites.createdBy", { name: invite.createdByName, date: formatManagedDate(invite.createdAt) }),
+                    invite.groups.length > 0 ? t("control:invites.joinsRow", { names: invite.groups.map((group) => group.name).join(", ") }) : null
+                  ].filter(Boolean).join(" · ")}
+                  value={inviteStatusLabel(invite.status)}
+                  valueTone={statusTone(invite.status)}
+                  onClick={() => go(`invite:${invite.id}`)}
+                />
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              {!searchQuery.trim() && (
+                <AddRow icon={<UserPlus size={17} />} label={t("control:invites.newInvite")} onClick={openCreate} />
+              )}
+            </GroupedList>
+            {gamesConfigured && <GuestLinks />}
+          </>
+        )}
+      </div>
 
       {createOpen && (
         <Modal
@@ -287,7 +284,6 @@ export function InvitesSection() {
         </ConfirmDialog>
       )}
 
-      {gamesConfigured && <GuestLinks />}
     </>
   );
 }

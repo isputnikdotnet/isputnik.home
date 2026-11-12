@@ -198,3 +198,58 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
   .grouped-row-input { flex-wrap: wrap; }
   .grouped-row-input.is-wide .grouped-row-entry { flex-basis: 100%; }
 }
+
+/* Round row icons: a person's or a group's initials. */
+.grouped-row-icon.is-round { border-radius: 50%; font-size: var(--text-sm); font-weight: 700; }
+
+/* CommandRow: a row that acts where it stands. */
+.grouped-row-command:disabled { opacity: 0.6; }
+
+/* PickerRow: the native select sits on the right, borderless like the value of a row. */
+.grouped-row-picker .grouped-row-entry select {
+  max-width: 100%;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  text-align: right;
+  text-align-last: right;
+  cursor: pointer;
+  appearance: none;
+}
+
+.grouped-row-picker .grouped-row-entry select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.grouped-row-picker .grouped-row-entry select option { color: var(--ink); background: var(--surface-raised); }
+.grouped-row-input input[type="time"] { flex: 0 0 auto; width: auto; }
+
+/* GroupedSearch: the rounded search field over a list. */
+.grouped-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  color: var(--muted);
+}
+
+.grouped-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.grouped-search input:focus { outline: none; }
+.grouped-search:focus-within { outline: 2px solid var(--accent); outline-offset: 0; }
+
+/* Small marks after a row's name (Current, Locked…). */
+.grouped-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.grouped-badges .status-badge { font-size: var(--text-xs); }
+.grouped-row-icon.is-muted { background: color-mix(in srgb, var(--muted) 14%, transparent); color: var(--muted); }
+.grouped-row-value.is-muted { color: var(--muted); opacity: 0.8; }
+.grouped-page > .control-page-back { justify-self: start; }

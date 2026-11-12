@@ -365,7 +365,16 @@
     "restoreRestartWarning": "You must restart the server to finish — changes made since this backup will be lost.",
     "uploadModalTitle": "Upload a backup file",
     "uploadModalBody": "Add a backup from your computer — a .zip (full or minimal) or a database-only .sqlite. It joins the list below, ready to restore.",
-    "uploadHint": "isputnik backup: .zip or .sqlite"
+    "uploadHint": "isputnik backup: .zip or .sqlite",
+    "unitBackups_one": "backup",
+    "unitBackups_other": "backups",
+    "noThumbnailStoreTitle": "No thumbnail store",
+    "keepKindNote": "When a new one of this kind is made, by hand or on schedule, older ones beyond this number are removed.",
+    "gone": "This backup is no longer there.",
+    "download": "Download",
+    "restoreRowNote": "Restoring stages the backup; it takes effect when the server restarts.",
+    "nowGroup": "Back up now",
+    "savedIn": "Saved in"
   },
   "containerBackup": {
     "title": "Containers",
@@ -543,7 +552,9 @@
     "deleteConfirmTitle": "Delete \"{{name}}\"?",
     "deleteConfirmLabel": "Delete group",
     "deleteBody1": "This will remove the group and its membership records.",
-    "deleteBody2": "User accounts, libraries, and files are not deleted."
+    "deleteBody2": "User accounts, libraries, and files are not deleted.",
+    "libraryCount_one": "{{count}} library",
+    "libraryCount_other": "{{count}} libraries"
   },
   "invites": {
     "roleAdmin": "Admin",
