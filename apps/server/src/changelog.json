@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.86.1",
+    "label": "Busy add-ons get a breather",
+    "changes": [
+      "**A busy or slow add-on no longer gets hammered.** When the video engine (or another add-on container) answered a request with *busy* or *took too long*, this server quietly asked again up to ten times, milliseconds apart, instead of passing the answer on — its *try again in 2 seconds* was read as 2 milliseconds. For video, one refused request during a quality switch became a burst that restarted the conversion about twenty times in under two seconds. The answer now goes straight to the player, which waits as asked. Thanks to Stefan Knol for tracing it (#103)."
+    ]
+  },
+  {
     "version": "4.86.0",
     "label": "Continue watching, tidied; Recently added, kept recent",
     "changes": [
