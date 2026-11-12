@@ -77,7 +77,8 @@
       "mapSetup": "Maps",
       "storySettings": "Story settings",
       "appsAccess": "App access",
-      "appsSetup": "Services",
+      "services": "Services",
+      "appsSetup": "Pairing",
       "videoSettings": "Video settings",
       "email": "Email",
       "notifications": "Notifications",
@@ -183,6 +184,38 @@
     "activityLink": "Activity",
     "tasksLink": "Tasks",
     "logsLink": "Logs"
+  },
+  "services": {
+    "description": "This server and each container beside it: whether it is up, how fast it answers and what uses it. Pairing — a container's address and secret — is behind its card.",
+    "loadFailed": "Unable to load the services",
+    "home": "iSputnik Home",
+    "status": "Status",
+    "version": "Version",
+    "upFor": "Up for",
+    "answersIn": "Answers in",
+    "usedByLabel": "Used by",
+    "usedBy": {
+      "home": "Everything",
+      "video": "Videos",
+      "faces": "Gallery · face recognition",
+      "games": "Games",
+      "other": "—"
+    },
+    "state": {
+      "running": "Running",
+      "down": "Not answering",
+      "secret": "Secret refused",
+      "unset": "Not paired"
+    },
+    "lastTest": "Last test",
+    "testOk": "Answered just now",
+    "testFailed": "No answer just now",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "pairing": "Pairing",
+    "pair": "Pair with this server",
+    "logs": "Logs",
+    "about": "About"
   },
   "search": {
     "title": "Search the control panel",

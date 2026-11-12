@@ -20,6 +20,14 @@ describe("control panel nav", () => {
     expect(placeOf("dashboard").group).toBeNull();
   });
 
+  // Infrastructure opens on a card per service; a container's Pairing is a page
+  // under it, so it keeps Services selected and opens with a link back.
+  it("puts Pairing under Services in Infrastructure", () => {
+    const infrastructure = CONTROL_GROUPS.find((group) => group.key === "infrastructure");
+    expect(infrastructure?.tabs[0]).toEqual({ section: "services", pages: ["appsSetup"] });
+    expect(parentTab("appsSetup")).toBe("services");
+  });
+
   it("has five groups", () => {
     expect(CONTROL_GROUPS.map((group) => group.key)).toEqual(["infrastructure", "libraries", "applications", "security", "settings"]);
   });

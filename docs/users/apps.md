@@ -62,7 +62,7 @@ iSputnik must be able to reach each app by address. Either:
 On Unraid, install **isputnik-games** from Community Applications (or add the
 template from the [isputnik.games repository](https://github.com/isputnikdotnet/isputnik.games)).
 Its **Gateway Secret** field is required, so make the secret first: open
-**Control panel → Infrastructure → Services → Games**, press **Generate secret** and
+**Control panel → Infrastructure → Services**, press **Pair with this server** on the Games card, then **Generate secret** and
 **Copy** (it is shown once), and paste it into the field. Keep **Config & Data**
 (`/config`) on your appdata share; it holds the matches, scores and the games'
 own log of events. Then come back to the same page for step 3: the address is
@@ -82,7 +82,7 @@ container:
 | `/media` | your video folder, **read-only** (for example `/mnt/user/data/video`) |
 | `/config` | an appdata folder: the catalog database and poster cache |
 | Network | the Unraid template publishes port 4300 on `bridge`, so the address is `http://<your Unraid IP>:4300`; a shared network or a fixed IP work too |
-| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Infrastructure → Services → Video → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
+| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Infrastructure → Services → Video card → Pair with this server → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
 | `/transcode` | optional: where ffmpeg writes each piece of a film being converted before the engine takes it into memory, and where pieces past a viewer's memory share stay ([Converting video](#converting-video)); left out, a folder inside the container |
 
 Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
@@ -100,7 +100,7 @@ backup. Give its container:
 |---|---|
 | Image | `ghcr.io/isputnikdotnet/isputnik.faces` (on Unraid, **isputnik-faces** from Community Applications, or the template `isputnik-faces.xml` in the [isputnik.faces repository](https://github.com/isputnikdotnet/isputnik.faces)) |
 | Network | the Unraid template publishes port 4400 on `bridge`, so the address is `http://<your Unraid IP>:4400`; a shared network or a fixed IP work too |
-| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Infrastructure → Services → Faces → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
+| `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Infrastructure → Services → Faces card → Pair with this server → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
 | CPU threads | optional: all cores but one by default, so the box stays responsive during a scan |
 
 Without a paired Faces container there is no face recognition (since 4.65.1
@@ -113,8 +113,8 @@ is scanned again.
 ## 3. Connect them on Infrastructure → Services
 
 Everything on iSputnik's side is done here: nothing to change on the iSputnik
-container, and no restart. Open **Control panel → Infrastructure → Services** and choose
-the app.
+container, and no restart. Open **Control panel → Infrastructure → Services** and press
+**Pair with this server** (or **Pairing**, once paired) on the app's card.
 
 1. Under **Where the container is**, type the app's **Address** and press **Save
    address**: `http://isputnik-games:4200`, `http://isputnik-video:4300` or

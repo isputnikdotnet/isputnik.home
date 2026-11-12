@@ -16,8 +16,9 @@ brings you back to. Under it are five groups:
 | **Security & Members** | Users, Groups, Invite links, Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs, App access |
 | **System Settings** | Appearance, Email, Notifications, Storage, Backup, Recycle Bin, Quotes, About |
 
-Every page has its own address, so any page here can be bookmarked, linked to, or
-opened in a new tab.
+The group you are in opens in the nav and lists its pages underneath; under
+**Applications** it lists the applications. Every page has its own address, so any
+page here can be bookmarked, linked to, or opened in a new tab.
 
 > **Rearranged.** The panel used to sort pages by kind, so Gallery's duplicate
 > cleanup was under Maintenance, its maps under Settings and its phone backup under
@@ -94,8 +95,11 @@ narrowed to itself.
 
 ### Services
 
-The containers beside this server — Games, Video, Faces: where each one is, its
-pairing secret, and **Test connection**. Setting them up has [its own guide](apps.md).
+A card for this server and one for each container beside it — Video, Faces, Games:
+whether it is up, its version, how fast it answers and what uses it, with **Test
+connection** and its **Logs**. **Pairing** on a card opens that container's own page:
+its address, its pairing secret, and **Forget**. Setting them up has
+[its own guide](apps.md).
 
 ### Video streaming
 

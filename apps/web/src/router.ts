@@ -5,8 +5,8 @@ import { useState, useEffect, startTransition } from "react";
 export type ControlSection =
   // The panel's landing page, opened from its title — not in a group
   | "dashboard"
-  // Infrastructure
-  | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "activity"
+  // Infrastructure. Services is the overview; appsSetup is a container's Pairing, a page under it
+  | "services" | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "activity"
   // Libraries & Scanning
   | "libraries" | "libraryStats"
   // Applications: the directory, then each application's workspace tabs and pages
@@ -32,8 +32,10 @@ export type ControlSection =
 export const CONTROL_PATHS: Record<ControlSection, string> = {
   dashboard: "/control",
 
-  // Infrastructure. Services is the containers' pairing page (Settings › Apps until v2).
-  appsSetup: "/control/infrastructure",
+  // Infrastructure. Services: a card per service; each container's Pairing (Settings ›
+  // Apps until v2) is a page under it, opened on one container with ?app=.
+  services: "/control/infrastructure",
+  appsSetup: "/control/infrastructure/services/pairing",
   videoStreaming: "/control/infrastructure/video-streaming",
   tasks: "/control/infrastructure/tasks",
   scheduledJobs: "/control/infrastructure/scheduled-jobs",
@@ -184,7 +186,7 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/apps/family-tree": "familyTreeSetup",
   "/control/apps/games": "gamesSetup",
   "/control/apps/shared/tags": "tags",
-  "/control/infrastructure/services": "appsSetup",
+  "/control/infrastructure/services": "services",
 
   "/control/status": "dashboard",
   "/control/database": "dashboard",

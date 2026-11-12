@@ -439,9 +439,13 @@ there — nothing else keeps a parallel list.
   Tasks, Logs and Activity; Security & Members owns permissions; System Settings owns
   storage. A workspace shows what it uses (`features/control/applications.ts`) and
   links to the owner, narrowed with `?application=<app>` where the owner filters.
-- **Every group and workspace is the same shape**: a link to its first tab over ONE
-  row of tabs. Never a row of applications over a row of their tabs, no fold-out
-  branches, no group of a single page, no second row of views inside a page.
+- **A group's pages live in the sidebar; a workspace has one short row.** The group
+  you are in opens in the sidebar and lists its pages (Applications lists the
+  applications); no tab row is drawn across the page for a group. An application's
+  workspace draws ONE row at the top (at most four tabs). Never a row of applications
+  over a row of their tabs, no group of a single page, no second row of views inside a
+  page. (v1 retired fold-out sidebar branches when its groups mixed unrelated pages;
+  v2's groups are coherent and the tab rows were what crowded, so the pages moved there.)
 - **Sub-pages come in two kinds, and neither is a second row** (4.73).
   - A tab's **pages**: list them in `pages` on the tab's `nav.ts` entry (Gallery ›
     Organize owns Duplicate cleanup and Missing photos). Each keeps its own

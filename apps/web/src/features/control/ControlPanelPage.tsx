@@ -38,6 +38,7 @@ const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) =
 const AppOrganizeSection = lazy(() => import("./sections/OrganizationSection").then((m) => ({ default: m.AppOrganizeSection })));
 const AppSetupSection = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.AppSetupSection })));
 const WorkspaceStatusLine = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.WorkspaceStatusLine })));
+const ServicesSection = lazy(() => import("./sections/ServicesSection").then((m) => ({ default: m.ServicesSection })));
 const ApplicationsSection = lazy(() => import("./sections/ApplicationsSection").then((m) => ({ default: m.ApplicationsSection })));
 const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
@@ -141,7 +142,10 @@ export function ControlPanelPage({
   // Where the page sits — a shared page (Tags, Book categories) by the ?from= it
   // was opened with — and so which row to draw: the workspace's, or the group's.
   const place = placeOf(section, currentFrom());
-  const tabs = tabRowFor(place);
+  // Only a workspace draws a row across the page (Setup · Device Sync · Organize ·
+  // Settings, never more than four); a group's pages are listed under it in the
+  // sidebar instead.
+  const tabs = place.app ? tabRowFor(place) : [];
   // On a phone the menu lists every page, and its button names the one you are on,
   // so the tab row would be a third copy squeezed into 375px.
   const isMobile = useIsMobile();
@@ -253,6 +257,7 @@ function ControlSectionBody({
     case "videoStreaming":  return <VideoStreamingSection />;
 
     case "appsAccess":      return <AppsAccessSection />;
+    case "services":        return <ServicesSection />;
     case "appsSetup":       return <AppsSetupSection />;
     case "videoSettings":   return <VideoSettingsSection />;
 
@@ -296,17 +301,46 @@ function ControlPanelNav({ place, section, onSearch }: { place: ControlPlace; se
           const active = group.key === place.group?.key;
           // Each group links to its first tab, which is its landing page.
           const href = controlHref(group.tabs[0].section);
+          // The group you are in opens here and lists its pages — the sidebar has the
+          // height a tab row across the page did not (Security & Members has ten).
+          // Applications lists the applications; a workspace keeps its own short row.
+          const pages = !active
+            ? []
+            : group.key === "applications"
+              ? APPLICATIONS.map((app) => ({ key: app.key, label: appLabel(app.key), section: app.tabs[0].section, current: place.app?.key === app.key }))
+              : group.tabs.map((tab) => ({ key: tab.section, label: tabLabel(tab.section), section: tab.section, current: tab.section === place.selected }));
           return (
-            <a
-              key={group.key}
-              className={`home-nav-link${active ? " is-active" : ""}`}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              onClick={(event) => followRoute(event, href)}
-            >
-              <Icon size={21} aria-hidden="true" />
-              <span>{groupLabel(group.key)}</span>
-            </a>
+            <div key={group.key} className="control-nav-group">
+              <a
+                className={`home-nav-link${active ? " is-active" : ""}`}
+                href={href}
+                aria-current={active && pages.length === 0 ? "page" : undefined}
+                aria-expanded={pages.length > 0 ? true : undefined}
+                onClick={(event) => followRoute(event, href)}
+              >
+                <Icon size={21} aria-hidden="true" />
+                <span>{groupLabel(group.key)}</span>
+              </a>
+              {pages.length > 0 && (
+                <ul className="control-subnav" aria-label={groupLabel(group.key)}>
+                  {pages.map((page) => {
+                    const pageHref = controlHref(page.section);
+                    return (
+                      <li key={page.key}>
+                        <a
+                          className={page.current ? "is-active" : undefined}
+                          href={pageHref}
+                          aria-current={page.current ? "page" : undefined}
+                          onClick={(event) => followRoute(event, pageHref)}
+                        >
+                          {page.label}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           );
         })}
       </div>

@@ -124,8 +124,10 @@
   border-bottom-color: var(--mint);
 }
 
+/* Control panel v2: the panel uses the screen — its tables, the Dashboard and the
+   Applications cards were squeezed into 1040px on a wide monitor. */
 .control-work {
-  width: min(100%, 1040px);
+  width: min(100%, 1500px);
 }
 
 .control-work > .message-box {

@@ -270,7 +270,7 @@ function Services({ status, overview, apps }: { status: SystemStatus; overview: 
       <div className="dash-section-head">
         <h2 id="dash-services">{t("controlDash:overview.servicesTitle")}</h2>
         <span className="muted">{t("controlDash:overview.servicesNote")}</span>
-        <a href={controlHref("appsSetup")}>{t("controlDash:overview.servicesLink")}</a>
+        <a href={controlHref("services")}>{t("controlDash:overview.servicesLink")}</a>
       </div>
       <div className="dash-diagram">
         <article className="dash-node dash-home">

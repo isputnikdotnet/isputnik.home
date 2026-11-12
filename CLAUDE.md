@@ -138,9 +138,11 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   media type or container adds an `APPLICATIONS` entry, never a group. Canonical URLs
   in `CONTROL_PATHS` (`router.ts`), linked via `controlHref()`. Every tab is a real
   route — no `useState` tab rows — and pages open with `ControlSectionHead`, which takes
-  eyebrow + title from `nav.ts`. **Every group and workspace is the same shape**: a link
-  to its first tab over ONE row of tabs — never a row of applications over a row of their
-  tabs, no fold-out branches, no group of one page, no second row of views inside a page.
+  eyebrow + title from `nav.ts`. **A group's pages are listed under it in the sidebar**
+  while you are in it; only an application's workspace draws a row across the page, ONE
+  short row — never a row of applications over a row of their tabs, no group of one page,
+  no second row of views inside a page. Infrastructure opens on Services (a card per
+  service); a container's Pairing (`appsSetup`, ?app=) is a page under it.
   Two kinds of sub-page are allowed: a tab's **pages** (`pages` on its `nav.ts` entry —
   Gallery › Organize's Duplicate cleanup and Missing photos) keep their own address and
   search entry, keep the tab selected, and open with a back link; a **page of one thing**

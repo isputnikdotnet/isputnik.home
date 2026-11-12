@@ -43,11 +43,13 @@ import i18n from "../../i18n";
 // duplicate cleanup was in Maintenance, its maps in Settings, its phone backup in
 // Library. To find everything about Gallery you had to know the taxonomy first.
 //
-// Every group is a link to its first tab over ONE row of its tabs. Applications is
-// the one group whose page is a directory: its workspaces each draw their own ONE
-// row (Setup · Device Sync · Organize · Settings — a shared vocabulary, not
-// mandatory tabs: an application gets only the tabs it needs, and one with a
-// single tab draws no row). Never a row of applications over a row of their tabs.
+// A group's pages are listed under it in the sidebar, opened while you are in it
+// (ControlPanelNav) — the sidebar has the height a row of ten tabs across the page
+// did not. Applications lists the applications there; its workspaces each draw
+// their own ONE short row at the top of the page (Setup · Device Sync · Organize ·
+// Settings — a shared vocabulary, not mandatory tabs: an application gets only the
+// tabs it needs, and one with a single tab draws no row). Never a row of
+// applications over a row of their tabs.
 //
 // A tab may own PAGES (4.73): destinations one step down that keep their own
 // address and search entry while the tab row stays on their tab, and that open
@@ -94,7 +96,7 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     // the containers' pairing; each application links to Activity, Tasks and Logs
     // with its filter already selected rather than keeping copies of them.
     tabs: [
-      { section: "appsSetup" },
+      { section: "services", pages: ["appsSetup"] },
       { section: "videoStreaming" },
       { section: "tasks" },
       { section: "scheduledJobs" },

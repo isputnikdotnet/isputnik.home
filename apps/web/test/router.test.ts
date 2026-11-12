@@ -148,6 +148,7 @@ describe("getRoute", () => {
     ["/control/maintenance/videos", "videoStreaming"],
     ["/control/settings/maps", "mapSetup"],
     ["/control/settings/apps", "appsSetup"],
+    ["/control/infrastructure/services", "services"],
     ["/control/settings/video", "videoSettings"],
     ["/control/apps/gallery", "gallerySetup"],
     ["/control/apps/family-tree", "familyTreeSetup"],

@@ -3175,7 +3175,7 @@ tr.control-anchor-flash > td {
 /* Control panel v2's group names ("Libraries & Scanning", "Security & Members")
    are longer than the sidebar's 238px allows on one line: let them wrap rather
    than cut off with an ellipsis, which hid half of what the group is. */
-.home-control-group > .home-nav-link span {
+.home-control-group .home-nav-link span {
   white-space: normal;
   line-height: 1.2;
 }
@@ -3484,6 +3484,7 @@ tr.control-anchor-flash > td {
    staying ONE row. */
 .control-work > .control-tabs {
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
 }
 
@@ -3492,3 +3493,61 @@ tr.control-anchor-flash > td {
   white-space: nowrap;
   padding-inline: 12px;
 }
+
+/* Control panel v2: the group you are in lists its pages under it in the sidebar
+   (ControlPanelNav) — the height a row of ten tabs across the page did not have. */
+.control-nav-group { display: grid; gap: 2px; }
+
+.control-subnav {
+  display: grid;
+  gap: 1px;
+  margin: 0 0 6px calc(var(--home-nav-inset) + 10px);
+  padding: 0 0 0 10px;
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+
+.control-subnav a {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--home-muted);
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.control-subnav a:hover,
+.control-subnav a:focus-visible { color: var(--home-ink); background: var(--surface-2); outline: 0; }
+
+.control-subnav a.is-active {
+  color: var(--home-ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 650;
+}
+
+/* Infrastructure › Services: a card per service. */
+.service-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.service-card-head h2 { margin: 0; font-size: var(--text-lg); }
+
+.service-facts { display: grid; gap: 6px; margin: 0; }
+
+.service-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+
+.service-facts dt { color: var(--muted); }
+.service-facts dd { margin: 0; text-align: right; }
