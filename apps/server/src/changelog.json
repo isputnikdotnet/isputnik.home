@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.85.0",
+    "label": "Link a TV in one step",
+    "changes": [
+      "**Link a TV from any phone in one step.** Scanning the TV's code with a phone that wasn't signed in used to open the sign-in page, then ask for your password a second time to approve the TV. Now the link page itself signs you in and links the TV: your email and password, and the two-factor code if your account uses one. The usual sign-in protections apply. A phone that is already signed in still confirms with its password.",
+      "**\"Everyone\" in Watching as.** On the video page, watching without a profile is now called **Everyone**, as it is on the TV. iSputnik TV 0.14.0 links one account per TV and lets the household's profiles (Kids and the rest) tell people apart, so a TV no longer adds more people, each signing in on a phone."
+    ]
+  },
+  {
     "version": "4.84.0",
     "label": "How fast is the TV's connection?",
     "changes": [

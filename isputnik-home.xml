@@ -25,8 +25,12 @@ Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobo
 Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>
 
-  <Date>1794398400</Date>
+  <Date>1794484800</Date>
   <Changes>
+### 2026.11.12 — 4.85.0 Link a TV in one step
+- **Link a TV from any phone in one step.** Scanning the TV's code with a phone that wasn't signed in used to open the sign-in page, then ask for your password a second time to approve the TV. Now the link page itself signs you in and links the TV: your email and password, and the two-factor code if your account uses one. The usual sign-in protections apply. A phone that is already signed in still confirms with its password.
+- **"Everyone" in Watching as.** On the video page, watching without a profile is now called **Everyone**, as it is on the TV. iSputnik TV 0.14.0 links one account per TV and lets the household's profiles (Kids and the rest) tell people apart, so a TV no longer adds more people, each signing in on a phone.
+
 ### 2026.11.11 — 4.84.0 How fast is the TV's connection?
 - **Test the connection speed from the TV app.** iSputnik TV 0.13.0 can measure how fast it downloads from your server and say what that is enough for, such as *42 Mbit/s: enough for 1080p*. The server sends it a few seconds of data to time. Only signed-in devices can ask, and only a few times a minute.
 
@@ -49,13 +53,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **A prepared copy is kept on the server**, so the next person who wants that film gets it at once. Control panel → Settings → Video → **Copies for download** sets how much room they may take together (20 GB to start with), shows what they take, and removes them all. Copies are made one at a time, on the GPU when the video container has one, and wait while anyone is watching.
 - A prepared copy is one ordinary MP4, so it plays on any iPhone or iPad; a converted download no longer needs iOS 17.1.
 - This needs the video container 0.33 or newer; update it with this release. With an older one, an optimized download is still converted while the app waits.
-
-### 2026.11.10 — 4.81.0 What you have watched
-- **Every video poster says where you are in it.** A bar along the foot of a film you left part-way, a check in the corner of one you finished, and "8 unwatched" on a show you have started; on a show's page each season says 6/10 watched. A title you never started says nothing. Before, a grid of posters could not tell you what was new, started or done.
-- **Mark it by hand.** A film seen at the cinema, four seasons watched somewhere else, a series to watch again: **Mark as watched** and **Mark as unwatched** are on a film's page, on a show's page for all of it, beside each season's count, and in the **⋮** menu of every episode and every poster. **Reset progress** forgets the place you stopped in a film. The menu offers only what applies. A whole show or season is asked about first.
-- **Play and Continue watching follow at once.** Mark seasons 1 to 3 watched and season 4's first episode is next; a new episode of a show you had finished brings its count back.
-- **Filter → Watched** narrows the video page to Unwatched, In progress or Watched, any of them together.
-- The marks are yours alone: each account, and each viewing profile, has its own. Bars, counts, the filter and marking a whole show or season need the video container 0.32 or newer; with an older one a single film, episode or part can still be marked on its page. The TV app does not show them yet.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

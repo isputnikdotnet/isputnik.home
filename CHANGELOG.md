@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.85.0 — Link a TV in one step
+
+- **Link a TV from any phone in one step.** Scanning the TV's code with a phone that wasn't signed in used to open the sign-in page, then ask for your password a second time to approve the TV. Now the link page itself signs you in and links the TV: your email and password, and the two-factor code if your account uses one. The usual sign-in protections apply. A phone that is already signed in still confirms with its password.
+- **"Everyone" in Watching as.** On the video page, watching without a profile is now called **Everyone**, as it is on the TV. iSputnik TV 0.14.0 links one account per TV and lets the household's profiles (Kids and the rest) tell people apart, so a TV no longer adds more people, each signing in on a phone.
+
 ## 4.84.0 — How fast is the TV's connection?
 
 - **Test the connection speed from the TV app.** iSputnik TV 0.13.0 can measure how fast it downloads from your server and say what that is enough for, such as *42 Mbit/s: enough for 1080p*. The server sends it a few seconds of data to time. Only signed-in devices can ask, and only a few times a minute.
