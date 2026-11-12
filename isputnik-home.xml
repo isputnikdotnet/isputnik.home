@@ -27,6 +27,10 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794484800</Date>
   <Changes>
+### 2026.11.12 — 4.86.2 Stop preview, stopped
+- **Stop preview ends the preview.** On a server reached over HTTPS, **Stop preview** reloaded the page but left you looking at the app as the member, and even signing out and back in dropped you straight into the same preview — only clearing the browser’s site data got you out. The browser was quietly refusing the request to forget the preview. It now forgets it on Stop, on signing out, and whenever anyone signs in, so a fresh sign-in always starts as yourself. Thanks to Stefan Knol for the report and the recording (#102).
+- The same slip left sign-in, two-step and passkey cookies behind after they had served their purpose on HTTPS servers. They were already useless by then; they are now removed properly too.
+
 ### 2026.11.12 — 4.86.1 Busy add-ons get a breather
 - **A busy or slow add-on no longer gets hammered.** When the video engine (or another add-on container) answered a request with *busy* or *took too long*, this server quietly asked again up to ten times, milliseconds apart, instead of passing the answer on — its *try again in 2 seconds* was read as 2 milliseconds. For video, one refused request during a quality switch became a burst that restarted the conversion about twenty times in under two seconds. The answer now goes straight to the player, which waits as asked. Thanks to Stefan Knol for tracing it (#103).
 
@@ -44,9 +48,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 ### 2026.11.11 — 4.85.0 Link a TV in one step
 - **Link a TV from any phone in one step.** Scanning the TV's code with a phone that wasn't signed in used to open the sign-in page, then ask for your password a second time to approve the TV. Now the link page itself signs you in and links the TV: your email and password, and the two-factor code if your account uses one. The usual sign-in protections apply. A phone that is already signed in still confirms with its password.
 - **"Everyone" in Watching as.** On the video page, watching without a profile is now called **Everyone**, as it is on the TV. iSputnik TV 0.14.0 links one account per TV and lets the household's profiles (Kids and the rest) tell people apart, so a TV no longer adds more people, each signing in on a phone.
-
-### 2026.11.11 — 4.84.0 How fast is the TV's connection?
-- **Test the connection speed from the TV app.** iSputnik TV 0.13.0 can measure how fast it downloads from your server and say what that is enough for, such as *42 Mbit/s: enough for 1080p*. The server sends it a few seconds of data to time. Only signed-in devices can ask, and only a few times a minute.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
