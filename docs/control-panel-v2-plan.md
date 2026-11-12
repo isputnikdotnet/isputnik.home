@@ -19,7 +19,7 @@ Left sidebar: five groups. The panel title opens the home dashboard.
 
 | Group | What belongs here |
 |---|---|
-| *(panel title)* → **Dashboard** | Health, failed tasks, storage, backup status — the starting point. Not a group. |
+| *(panel title)* → **Dashboard** | Where an admin lands: needs attention, services, storage, usage, current work (see "Dashboard"). Not a group. |
 | 1. **Infrastructure** | Running services and containers, connections, health, versions, technical setup |
 | 2. **Libraries & Scanning** | Library folders, content types, scanning rules, exclusions, schedules, device imports |
 | 3. **Applications** | Ebooks, Gallery, Audiobooks, Stories, Family Tree, Videos, Games, and future ones |
@@ -181,6 +181,78 @@ intended: they grow when they have something, they don't get padded.
   (ten tabs — consider folding Locations into Sign-ins)
 - **System Settings**: Appearance · Email · Notifications · Storage · Backups · Recycle bin · About
 
+## Dashboard
+
+An admin opening the control panel lands on the Dashboard (the panel title
+returns to it). It gives the overview and shortcuts; it configures nothing —
+System Settings › Storage stays the place for storage locations and policies.
+**Every summary leads somewhere useful:**
+
+| Dashboard item | Interaction |
+|---|---|
+| Service status | Open connection details, health information and troubleshooting |
+| Security alert | Open the relevant event with actions appropriate to it (e.g. Block address) |
+| Active members | See usage by member and application |
+| Running task | Open progress and logs; cancel when supported |
+| Usage chart | Select a period or application to narrow the results |
+| Storage | Select a drive or category to inspect what occupies it |
+
+Order:
+
+1. **Needs attention** — actionable alerts, most urgent first, each with its
+   action button (low space, failed tasks, security events, unavailable
+   locations, an application that needs setup).
+2. **Running services** — home and each container: status, version, response;
+   a tile opens Infrastructure › Services on that service.
+3. **Storage** — capacity bars and breakdown (below).
+4. **Usage** — interactive trend with period (7 days · 30 days · 12 months)
+   and application filters; the most active members, each opening
+   Infrastructure › Activity filtered.
+5. **Current work** — scans, syncs, imports, backups: progress, "Progress and
+   logs", and Cancel only where the task supports it.
+
+### Storage on the dashboard
+
+It answers: how much room is left, what is using it, and what can I do?
+
+- **One capacity bar per physical drive/filesystem** — used, free, total.
+  Folders sharing a drive never appear as separate capacities.
+- **A usage breakdown** where measurable: library media, app data, thumbnails
+  and cache, backups, recycle bin.
+- **"Other files"** — drive usage minus what we measured. A disk may hold
+  unrelated files; the dashboard never implies our categories explain
+  everything.
+- **Growth** over the selected period, once there are historical measurements.
+  Until then the panel says so; it never draws a made-up trend.
+- **Warnings** for low space, unavailable locations and read-only storage —
+  also raised in Needs attention.
+
+Clicking a drive opens its folders and libraries. "Backups" opens backup
+storage details; "Recycle bin" opens recoverable/deletable items; "Library
+media" opens Libraries. Cleanup actions show what will be affected before the
+confirmation (ConfirmDialog states the consequence and the space freed).
+
+### What exists and what is new
+
+- **Drives**: `modules/dashboard/overview.ts` already groups holdings by
+  filesystem (`statSync().dev`) and reports free/total per mount, with
+  `sharesWith` for mounts of the same filesystem. v2 changes the grouping key
+  to the filesystem so a shared drive is ONE bar listing all its mounts. Check
+  on Unraid: `/mnt/user` (FUSE over the array) vs `/mnt/cache` vs disk shares.
+- **Category sizes**: the database, thumbnails, backups, app files and trash
+  paths are known (`DiskHolding.kind`); App storage contents and System data
+  already measure some of them. Library media is the libraries' scanned sizes.
+  Measuring must stay off the request path
+  (`cachedFolderStats`, never a synchronous walk).
+- **Growth**: new — a daily measurement table (drive used/free + category
+  sizes), written by a scheduled job; a new table goes in `schema.sql`.
+- **Cancel**: `POST /api/jobs/:id/cancel` exists (and the duplicate-job one);
+  each task type says whether it can be cancelled.
+- **Read-only / unavailable**: new checks (a write probe and a timeout on
+  statfs) feeding Needs attention.
+- **Usage**: the existing activity data (Activity dashboard, chart.js) with
+  application and member facets.
+
 ## Phones
 
 Phones keep today's compact control-panel navigation: **Home · current
@@ -228,9 +300,13 @@ and bookmarks must not break.
 2. **Setup cards and directory status.** The summary endpoint, status cards,
    the "shows and links" panels (libraries, connection, access, storage use),
    the Sections switch moved into Setup.
-3. **Application facet** for Logs and Tasks on the server; "View Gallery logs"
-   links.
-4. **Docs and rules.** Rewrite the nav.ts header comment, CLAUDE.md's control
+3. **Application facet** for Logs, Tasks and Activity on the server; "View
+   Gallery logs" links.
+4. **Dashboard.** The five sections; drives grouped by filesystem with the
+   category breakdown and "Other files"; Needs attention fed by low-space,
+   unavailable/read-only, failed-task and security checks; Cancel where
+   supported. Then the daily storage measurement and the Growth view.
+5. **Docs and rules.** Rewrite the nav.ts header comment, CLAUDE.md's control
    panel paragraph, `docs/UI-CONVENTIONS.md`, the user guides in `docs/users/`
    (25 mention the panel) and their screenshots; update `control-nav.test.ts`
    and `router.test.ts`.
