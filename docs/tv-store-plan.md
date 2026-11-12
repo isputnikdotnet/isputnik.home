@@ -199,6 +199,12 @@ says; only store installs get the wide tile, from the listing's 1280×720 image.
 
 ### G1. The account, a decision before anything else
 
+**On hold (owner, 2026-11-12).** No business for an organization account, and no 12 testers
+for a personal one yet. Amazon covers Fire TV; Android TV / Google TV keep the GitHub APK.
+Revisit when the owner has 12 people to opt in for 14 days, or a registered business (then
+organization + D-U-N-S, no testers). Everything Google needs is ready in `isputnik.tv/store`
+(the AAB from each release run, images, texts). Don't raise it again unprompted.
+
 - Registration is a one-time fee with identity verification. Google shows the
   developer's name, email and country on every listing.
 - **Personal account**: must run a closed test with at least 12 testers opted in for 14
