@@ -492,6 +492,12 @@ const SHOTS = [
   { name: "72-profile-appearance", url: "profile/appearance" },
   // Devices is a card on Security now; the hash scrolls the page to it.
   { name: "73-profile-devices", url: "profile/security#linked-devices" },
+  // Help & feedback: the ? beside the person's name, opened (app/helpMenu.tsx).
+  {
+    name: "75-help-menu",
+    url: "",
+    setup: `document.querySelector(".orbit-help-button").click(); await sleep(500); "opened";`
+  },
   {
     // The two-factor card sits below the fold on Security. Scroll to it rather
     // than photographing the enrolment step — that screen shows a live TOTP

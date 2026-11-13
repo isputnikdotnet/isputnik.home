@@ -15,6 +15,8 @@ community**, **Report a bug** — the form already knows which version you run �
 the sidebar's **Help** item; in the installed app, it is the end of the
 **Profile** tab.
 
+![The help menu beside the name: help guides, the community, a bug report, a feature request and About](images/75-help-menu.png)
+
 ## Profile — your account settings
 
 **Profile** opens a page with five tabs: Account, Security, My library, Shared
