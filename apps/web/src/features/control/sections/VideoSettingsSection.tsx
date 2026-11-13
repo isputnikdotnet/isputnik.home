@@ -65,9 +65,11 @@ interface ConversionState {
   available: boolean;
   settings: ConversionSettings;
   usage: {
-    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; hdr?: boolean; rung?: number | null; converting: boolean; memoryBytes: number; diskBytes: number }[];
+    viewers: { user: string; title: string; mode: string; converter?: "gpu" | "cpu" | null; hdr?: boolean; rung?: number | null; converting: boolean; memoryBytes: number; diskBytes: number; shared?: boolean; kept?: boolean }[];
     memoryBytes: number;
     diskBytes: number;
+    /** Engine 0.35+: films kept whole once converted all through. */
+    kept?: { count: number; bytes: number };
   };
   hardware?: HardwareState | null;
   /** Engine 0.35+: whether the conversion folder is a disk mapped into the
@@ -90,6 +92,9 @@ interface CopiesState {
   copies: { itemId: string; quality: number; title: string; state: "queued" | "running" | "ready" | "failed"; sizeBytes: number }[];
   /** Engine 0.35+: the copies' folder is no disk of its own, so none are prepared. */
   insideContainer?: boolean;
+  /** Engine 0.35+: films kept whole once converted all through, under the same room. */
+  kept?: { variant: string; title: string; rung: number | null; sizeBytes: number; usedAt: string; inUse?: boolean }[];
+  keptBytes?: number;
 }
 
 /** GET/PUT {prefix}/api/admin/detection (engine 0.18+). */
@@ -447,13 +452,18 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
               viewer.converter ? (viewer.converter === "gpu" ? t("controlAdmin:apps.conversion.onGpu") : t("controlAdmin:apps.conversion.onCpu")) : null,
               viewer.hdr ? t("controlAdmin:apps.conversion.hdr") : null,
               viewer.rung ? t("controlAdmin:apps.conversion.rung", { height: viewer.rung }) : null,
-              viewer.converting ? null : t("controlAdmin:apps.conversion.paused")
+              viewer.kept ? t("controlAdmin:apps.conversion.keptFilm") : null,
+              viewer.shared ? t("controlAdmin:apps.conversion.shared") : null,
+              viewer.converting || viewer.kept ? null : t("controlAdmin:apps.conversion.paused")
             ].filter(Boolean).join(" · ")}
             value={formatBytes(viewer.memoryBytes + viewer.diskBytes)}
           />
         ))}
         <InfoRow label={t("controlAdmin:apps.conversion.inMemory")} value={formatBytes(usage.memoryBytes)} />
         <InfoRow label={t("controlAdmin:apps.conversion.onDisk")} value={formatBytes(usage.diskBytes)} />
+        {usage.kept && (
+          <InfoRow label={t("controlAdmin:apps.conversion.keptLabel")} value={t("controlAdmin:apps.conversion.keptValue", { count: usage.kept.count, size: formatBytes(usage.kept.bytes) })} />
+        )}
       </GroupedList>
 
       {state.settings.hardware && (
@@ -704,9 +714,26 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
             : undefined}
         />
       </GroupedList>
+      {state.kept && (
+        <GroupedList title={t("controlAdmin:apps.copies.keptTitle")} note={t("controlAdmin:apps.copies.keptNote")}>
+          <InfoRow
+            label={state.kept.length > 0
+              ? t("controlAdmin:apps.copies.keptCount", { count: state.kept.length, size: formatBytes(state.keptBytes ?? 0) })
+              : t("controlAdmin:apps.copies.keptNone")}
+          />
+          {state.kept.map((film) => (
+            <InfoRow
+              key={film.variant}
+              label={film.title}
+              sub={[film.rung ? t("controlAdmin:apps.conversion.rung", { height: film.rung }) : null, film.inUse ? t("controlAdmin:apps.copies.watchingNow") : null].filter(Boolean).join(" · ") || undefined}
+              value={formatBytes(film.sizeBytes)}
+            />
+          ))}
+        </GroupedList>
+      )}
       <GroupedList note={t("controlAdmin:apps.copies.folder", { folder: state.folder })}>
         <InputRow
-          label={t("controlAdmin:apps.copies.limitLabel")}
+          label={state.kept ? t("controlAdmin:apps.copies.limitLabelShared") : t("controlAdmin:apps.copies.limitLabel")}
           type="number"
           min={1}
           max={10000}
@@ -716,22 +743,22 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
           onCommit={commitLimit}
         />
       </GroupedList>
-      {state.copies.length > 0 && (
+      {(state.copies.length > 0 || (state.kept?.length ?? 0) > 0) && (
         <GroupedList>
-          <ActionRow tone="danger" label={t("controlAdmin:apps.copies.clear")} disabled={busy} onClick={() => setClearing(true)} />
+          <ActionRow tone="danger" label={state.kept ? t("controlAdmin:apps.copies.clearAll") : t("controlAdmin:apps.copies.clear")} disabled={busy} onClick={() => setClearing(true)} />
         </GroupedList>
       )}
       {clearing && (
         <ConfirmDialog
-          title={t("controlAdmin:apps.copies.clearTitle")}
-          confirmLabel={t("controlAdmin:apps.copies.clearConfirm")}
+          title={state.kept ? t("controlAdmin:apps.copies.clearAllTitle") : t("controlAdmin:apps.copies.clearTitle")}
+          confirmLabel={state.kept ? t("controlAdmin:apps.copies.clearAllConfirm") : t("controlAdmin:apps.copies.clearConfirm")}
           busyLabel={t("controlAdmin:apps.copies.clearing")}
           busy={busy}
           danger
           onConfirm={() => void run(() => api<CopiesState>(url, { method: "DELETE" }))}
           onCancel={() => setClearing(false)}
         >
-          {t("controlAdmin:apps.copies.clearBody")}
+          {state.kept ? t("controlAdmin:apps.copies.clearAllBody") : t("controlAdmin:apps.copies.clearBody")}
         </ConfirmDialog>
       )}
     </div>

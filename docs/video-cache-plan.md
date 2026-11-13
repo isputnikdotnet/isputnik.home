@@ -7,7 +7,11 @@ For the video engine (isputnik.video) and home's Videos workspace. Background:
 Status: proposed 2026-11-12. The owner took the seven decisions below. **C1 built
 2026-11-12, uncommitted** (engine: `mounts.ts`, `storage` + `memoryMb` replacing
 `memoryPerViewerMb` + `whenFull`, which are still read and answered for older homes;
-home: the storage group on Videos › Settings › Converting video). C2–C4 not started.
+home: the storage group on Videos › Settings › Converting video). **C2 built 2026-11-12**:
+entries as planned, but kept films are noted in an `entry.json` in their folder
+(`cache/<variant>-<random>/`) rather than a table, folders are never reused (Windows
+holds them), and the one limit is the copies' existing `limitGb` (Room for kept video,
+50 GB by default) — no new setting. C3–C4 not started.
 
 ## In one sentence
 

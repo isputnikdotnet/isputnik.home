@@ -132,3 +132,27 @@ describe("where converted video is kept (engine 0.35+)", () => {
     expect(screen.getByRole("option", { name: "In memory, then on the disk" })).toBeDisabled();
   });
 });
+
+describe("films kept after watching (engine 0.35+)", () => {
+  it("lists them beside the copies, under one room, and says who shares a version", async () => {
+    const copiesState = {
+      settings: { limitGb: 50 }, folder: "/transcode/copies", usedBytes: 0, copies: [], insideContainer: false,
+      kept: [{ variant: "abc", title: "Loud Film", rung: 480, sizeBytes: 300 * 1024 * 1024, usedAt: "2026-11-12T10:00:00Z", inUse: true }],
+      keptBytes: 300 * 1024 * 1024
+    };
+    mockApi.mockResolvedValue(copiesState as never);
+    render(<VideoSettings prefix="/video" page="copies" go={() => undefined} />);
+    expect(await screen.findByText("Kept after watching")).toBeInTheDocument();
+    expect(screen.getByText(/^1 film kept, 300(\.0)? MB\.$/)).toBeInTheDocument();
+    expect(screen.getByText("480p · watching now")).toBeInTheDocument();
+    expect(screen.getByLabelText("Room for kept video, GB")).toHaveValue(50);
+    expect(screen.getByRole("button", { name: "Remove copies and kept films" })).toBeInTheDocument();
+    cleanup();
+
+    const sharedUsage = { viewers: [{ ...usage.viewers[0], shared: true }, { ...usage.viewers[0], user: "Dad", shared: true }], memoryBytes: 0, diskBytes: 0, kept: { count: 2, bytes: 0 } };
+    mockApi.mockResolvedValue({ ...state(kabyLake), usage: sharedUsage } as never);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
+    expect(await screen.findAllByText(/watched together/)).toHaveLength(2);
+    expect(screen.getByText("Films kept whole")).toBeInTheDocument();
+  });
+});
