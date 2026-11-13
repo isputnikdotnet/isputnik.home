@@ -25,8 +25,20 @@ Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobo
 Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>
 
-  <Date>1794484800</Date>
+  <Date>1794571200</Date>
   <Changes>
+### 2026.11.13 — 4.87.0 The control panel, rearranged
+- **The control panel, rearranged.** Five groups instead of six — Infrastructure, Libraries &amp; Scanning, Applications, Security &amp; Members and System Settings — and the group you are in lists its pages down the side. Each application (Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games) now keeps everything about it in one place, with a short row of tabs from **Overview**, **Device Sync**, **Organize** and **Settings**. Before, the panel sorted pages by kind, so Gallery’s duplicate cleanup sat under Maintenance, its maps under Settings and its phone backup under Library. Old bookmarks still land on the right page.
+- **A Dashboard that says what needs you.** It opens on what needs attention, each item with the page that fixes it; then the services beside this server with their addresses, the room left on each disk and how it has grown, how the server is used, and what it is doing now.
+- **Settings that read like a phone’s.** Nearly every settings page is now one column of grouped rows: each row says how it stands, and a row that leads somewhere opens a page of its own with Back. Switches and choices save the moment they change and numbers when you leave the field, so the Save buttons are gone — except on Email, where half-typed mail settings would break sending in between. Networks, blocked addresses, members, groups, invite links, quote packs, backups and scheduled jobs are lists you can open one by one, instead of wide tables with a row of buttons each.
+- **Turn a scheduled job on or off from the list.** Each job on **Scheduled jobs** has its switch on its row; the rest of the row opens it, with its schedule, when it last ran and what it reported, when it runs next, and **Run now**.
+- **Video settings, untangled.** **Applications › Videos › Settings** was one long page of four unrelated cards. It is now a short overview — converting video, the quality away from home (chosen right there), posters and descriptions, finding intros and credits (switch on the row) and copies for download — each opening a page with its explanation and settings, and every change saved as you make it.
+- **App access, a person at a time.** **Add a person or group** opens a search; whoever you pick starts as a member, and their row changes their role or removes them. Each thing an app does keeps its own “allowed from” choice.
+- **Phone backup in one place.** **Gallery › Device Sync** holds the phones, the networks they may back up from, the address they use and members’ personal libraries, each opening its own page.
+- **Help is one click away.** A **?** beside your name opens **Help &amp; feedback**: the help guides and About iSputnik for everyone, and for administrators **Ask the community** (GitHub Discussions), **Report a bug** — the form already knows which version you run — and **Request a feature**. Before, help sat at the bottom of the menu under your name, where nobody looks for it. In the classic layout it is the sidebar’s **Help** item, and on a phone the end of the **Profile** tab.
+- **Orbit is the default theme.** Until an administrator picks a default, the sign-in screen and new accounts now start on Orbit, the iSputnik theme, instead of Minimalist. Accounts keep the theme they already have.
+- **The setup guide matches the control panel.** Its storage, Recycle Bin, backup, alert and email steps use the same rows as the pages they set.
+
 ### 2026.11.12 — 4.86.2 Stop preview, stopped
 - **Stop preview ends the preview.** On a server reached over HTTPS, **Stop preview** reloaded the page but left you looking at the app as the member, and even signing out and back in dropped you straight into the same preview — only clearing the browser’s site data got you out. The browser was quietly refusing the request to forget the preview. It now forgets it on Stop, on signing out, and whenever anyone signs in, so a fresh sign-in always starts as yourself. Thanks to Stefan Knol for the report and the recording (#102).
 - The same slip left sign-in, two-step and passkey cookies behind after they had served their purpose on HTTPS servers. They were already useless by then; they are now removed properly too.
@@ -44,10 +56,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 ### 2026.11.11 — 4.85.1 Back to the film, and why it won’t play
 - **The player’s back arrow opens the film.** The arrow beside a film’s or show’s title in the player used to step back to whatever page you were on before, which could be anywhere. It now always opens that title’s page, and its tooltip says so: *Back to* followed by the title. Your browser’s own Back button still returns to where you were before you started watching.
 - **Logs now say why a film can’t play in the browser.** When a browser can’t decode a film, the player showed *This can’t play here* and sent you to Logs, but nothing was written there: the server had sent the film without any error. The player now writes the browser’s own reason to Home’s log, once an hour per person and film. It also gives up after two retries instead of downloading the same part of the film over and over.
-
-### 2026.11.11 — 4.85.0 Link a TV in one step
-- **Link a TV from any phone in one step.** Scanning the TV's code with a phone that wasn't signed in used to open the sign-in page, then ask for your password a second time to approve the TV. Now the link page itself signs you in and links the TV: your email and password, and the two-factor code if your account uses one. The usual sign-in protections apply. A phone that is already signed in still confirms with its password.
-- **"Everyone" in Watching as.** On the video page, watching without a profile is now called **Everyone**, as it is on the TV. iSputnik TV 0.14.0 links one account per TV and lets the household's profiles (Kids and the rest) tell people apart, so a TV no longer adds more people, each signing in on a phone.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
