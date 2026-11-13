@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.88.0 — Video kept ready, downloads on your terms
+
+- **Converted video starts in memory.** Films a browser can't play as they are are converted in memory first, and on a disk only once the video container has one of its own. Settings › Video › Converting video shows the fast disk and its free space, or says there is none and how to map one, and offers memory only, memory then the disk, or the disk only, with one memory limit for everyone. Before, an empty Transcode folder on Unraid quietly wrote conversions and copies for download inside the container. Needs the video container 0.35.
+- **Watched together, converted once.** Two people watching the same film at the same quality share one conversion, and the second one doesn't take a place from the household's limit. Converting video marks who is watching together.
+- **Films kept after watching.** A film that had to be converted is kept once someone has watched it to the end, so it plays next time with nothing converted; one left mostly watched is finished off in the background. Kept films and copies for download share one room (Room for kept video, 50 GB to start with), listed on Settings › Copies for download.
+- **Keep ready.** An admin can keep a film, a show or one season ready from its More menu: converted ahead of time at 1080p, 720p or 480p and never removed to make room, with a show's new episodes following. Titles kept ready are listed beside the copies, with how far each has got.
+- **When downloads are prepared.** A new page under Settings › Video sets when the video app does its background work — right away, when the server is idle, or only at night — how many jobs at once, how many downloads one member may have waiting, and a download speed for copies going away from home. The queue is shown there, with Run now, Move to the top and Take off the queue. A download waiting to be prepared says whether it waits for the night or a quiet moment.
+- **Game guest links open again on a home network.** A guest link now uses the address the inviter reached this server by, instead of a developer address that opened nothing when the server's address was never set.
+
 ## 4.87.0 — The control panel, rearranged
 
 - **The control panel, rearranged.** Five groups instead of six — Infrastructure, Libraries & Scanning, Applications, Security & Members and System Settings — and the group you are in lists its pages down the side. Each application (Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games) now keeps everything about it in one place, with a short row of tabs from **Overview**, **Device Sync**, **Organize** and **Settings**. Before, the panel sorted pages by kind, so Gallery’s duplicate cleanup sat under Maintenance, its maps under Settings and its phone backup under Library. Old bookmarks still land on the right page.
