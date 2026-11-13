@@ -2395,5 +2395,47 @@
     "name": "Name",
     "removeNetworkNote": "Phones stop backing up from this range. Nothing they already sent is touched.",
     "addNote": "Your home network, and a VPN range if phones should back up away from home. Type the range with its size, like 192.168.2.0/24."
+  },
+  "diagnostics": {
+    "description": "A report to attach to a bug report: versions, the server, the containers and recent failures.",
+    "nothingSentTitle": "Nothing is sent anywhere",
+    "nothingSent": "This page only shows the report. You copy or download it and attach it to a bug report yourself, after reading it below.",
+    "privacyTitle": "Privacy",
+    "includePrivate": "Include names, folders and addresses",
+    "includePrivateSub": "Off: people's names and emails, library names, folders, file names, IP addresses and web addresses are replaced with <person>, <name>, <path>, <ip> and <host>.",
+    "privateWarningTitle": "Names and paths are in the report",
+    "privateWarning": "Bug reports on GitHub are public. With this on, anyone can read your family's names, your folders and how to reach your server. Read the report before you post it.",
+    "partsTitle": "What goes in",
+    "partsNote": "Leave out any part you'd rather not share. The preview below changes as you choose.",
+    "parts": {
+      "system": {
+        "label": "This server",
+        "sub": "iSputnik's version, Node.js, the operating system, CPU and memory, uptime, timezone, free space on the data disk, the database size, whether it is behind a proxy, and how many accounts and libraries there are."
+      },
+      "containers": {
+        "label": "Containers",
+        "sub": "Each add-on container (games, video, faces): whether it is set up, whether it answers and how fast, its version, whether it takes this server's secret, and its address. Never the secret itself."
+      },
+      "libraries": {
+        "label": "Libraries",
+        "sub": "Each library's type, name, folder, scan state and when it was last scanned."
+      },
+      "failures": {
+        "label": "Recent failures",
+        "sub": "Up to 40 failures from the activity log in the last 14 days: failed scans, refused requests, errors and timeouts, with their details."
+      },
+      "container": {
+        "label": "{{name}} container",
+        "sub": "What the {{name}} container reports about itself: its version and machine, ffmpeg and the GPU check (with recent GPU failures), conversion settings, its libraries' counts and states, and the warnings and errors in its log."
+      }
+    },
+    "previewTitle": "The report",
+    "copy": "Copy report",
+    "copied": "Copied",
+    "download": "Download .txt",
+    "openBugReport": "Open a bug report",
+    "making": "Making the report…",
+    "loadFailed": "Unable to make the report",
+    "copyFailed": "This browser wouldn't copy the report. Use Download instead, or select the text below."
   }
 }

@@ -127,7 +127,7 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
 - **Control panel** (v2, `docs/control-panel-v2-plan.md`): its whole shape is declared in
   `features/control/nav.ts` — the Dashboard (its own nav entry, in no group) and FIVE
   groups: Infrastructure (Services, Video streaming, Tasks, Scheduled jobs, Logs,
-  Activity) · Libraries & Scanning · Applications · Security & Members · System Settings.
+  Diagnostics, Activity) · Libraries & Scanning · Applications · Security & Members · System Settings.
   Five is the budget. Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
   Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, with Shared tools below the directory. Each workspace has
   only the tabs it needs from Overview · Device Sync · Organize · Settings, opening on Overview

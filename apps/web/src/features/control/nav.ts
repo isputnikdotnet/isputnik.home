@@ -101,6 +101,7 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "tasks" },
       { section: "scheduledJobs" },
       { section: "logs" },
+      { section: "diagnostics" },
       { section: "activity" }
     ]
   },

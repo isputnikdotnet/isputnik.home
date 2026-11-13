@@ -28,19 +28,24 @@ const grantSchema = z.object({
 });
 const rulesSchema = z.record(z.string().min(1).max(40), z.enum(NETWORK_RULES));
 
-export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions = {}) {
-  /** The address and secret in force: a test's stand-in, else the install's. */
-  const settingsFor = (id: AppId) => {
-    const override = opts.settings?.[id];
+/** The address and secret in force for each container: a test's stand-in, else
+ *  the install's. Shared with the diagnostics report (modules/diagnostics). */
+export function appSettingsResolver(overrides: AppsPluginOptions["settings"] = {}) {
+  return (id: AppId): { upstream: string; secret: string; source: SecretSource; urlSource: AddressSource } => {
+    const override = overrides?.[id];
     if (override) {
       return {
         ...override,
-        source: (override.secret ? "environment" : "none") as SecretSource,
-        urlSource: (override.upstream ? "environment" : "none") as AddressSource
+        source: override.secret ? "environment" : "none",
+        urlSource: override.upstream ? "environment" : "none"
       };
     }
     return resolveAppSecret(id);
   };
+}
+
+export async function appsPlugin(app: FastifyInstance, opts: AppsPluginOptions = {}) {
+  const settingsFor = appSettingsResolver(opts.settings);
 
   // Overview › Dashboard and Settings › Apps: every container this release
   // knows, set up or not. Its address and its secret are each the environment's,

@@ -10,7 +10,7 @@ brings you back to. Under it are five groups:
 
 | Group | What it holds |
 |---|---|
-| **Infrastructure** | Services (the containers beside this server), Video streaming, Tasks, Scheduled jobs, Logs, Activity |
+| **Infrastructure** | Services (the containers beside this server), Video streaming, Tasks, Scheduled jobs, Logs, Diagnostics, Activity |
 | **Libraries & Scanning** | Libraries — their folders, scanning rules and schedules — and Library statistics |
 | **Applications** | Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games and Shared tools, each with everything about it in one place |
 | **Security & Members** | Users, Groups, Invite links, Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs, App access |
@@ -243,6 +243,35 @@ none is.
 
 **Application**, in the filter, narrows the log to one application's events; an
 application's Overview opens it that way.
+
+### Diagnostics
+
+A report to attach to a bug report, so whoever reads it doesn't have to ask what
+you are running. It has five parts:
+
+- **This server:** iSputnik's version, Node.js, the operating system, CPU and
+  memory, uptime, timezone, free space on the data disk, the database size, whether
+  it sits behind a proxy, and how many accounts and libraries there are.
+- **Containers:** for each add-on container (games, video, faces), whether it is
+  set up, whether it answers and how fast, its version, and whether it takes this
+  server's secret. The secret itself is never included.
+- **Libraries:** each library's type, name, folder and scan state.
+- **Recent failures:** up to 40 failures from the activity log in the last 14 days.
+- **A part for each container that reports on itself.** The video engine reports
+  its machine, ffmpeg, what the GPU check found and the GPU's recent failures, its
+  conversion settings, its libraries, and the warnings and errors in its own log.
+
+**Nothing is sent anywhere.** The page only shows the report. You read it, then
+**Copy report** or **Download .txt**, and paste it into the issue yourself.
+**Open a bug report** opens GitHub's form with your version filled in.
+
+**Your family's details are hidden unless you ask.** People's names and emails,
+library names, folders and file names, IP addresses and web addresses are replaced
+with `<person>`, `<name>`, `<path>`, `<ip>` (or `<lan-ip>` for an address on
+your own network) and `<host>`. Turn on **Include names, folders and addresses**
+only when the names matter to the problem: bug reports on GitHub are public. Under
+**What goes in**, switch off any part you'd rather not share; the report below
+changes as you choose.
 
 ### Activity
 

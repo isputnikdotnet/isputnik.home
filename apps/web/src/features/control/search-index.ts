@@ -47,6 +47,9 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   logs: "activity audit trail events sign-in history retention prune clear source apps containers games video server log docker logs lines tail output refused gateway rejected errors " +
     "активность аудит журнал события история входов хранение очистка удалить",
 
+  diagnostics: "diagnostics report bug report issue github support troubleshoot copy download versions gpu ffmpeg containers failures privacy redact hide names paths " +
+    "диагностика отчёт сообщение об ошибке баг поддержка неполадки скопировать скачать версии видеокарта контейнеры сбои конфиденциальность скрыть имена пути",
+
   libraries: "add library scan sources folders paths extensions uploads access members wizard rescan manage status " +
     "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать управлять состояние",
   applications: "applications apps workspace gallery videos ebooks audiobooks stories games shared organization organize " +

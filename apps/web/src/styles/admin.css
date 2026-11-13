@@ -3612,3 +3612,25 @@ tr.control-anchor-flash > td {
 .device-sync-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 4px 0 6px; }
 .device-sync-title h1 { margin: 0; font-size: var(--text-2xl); }
 .device-sync > .control-page-back { justify-self: start; }
+
+/* Control panel › Infrastructure › Diagnostics: the report, as it will be pasted. */
+.diagnostics-section { display: grid; gap: 16px; min-width: 0; }
+.diagnostics-preview { display: grid; gap: 10px; min-width: 0; }
+.diagnostics-preview-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.diagnostics-preview-head h3 { margin: 0; }
+.diagnostics-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.diagnostics-text {
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--ink);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

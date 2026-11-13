@@ -42,6 +42,7 @@ const ServicesSection = lazy(() => import("./sections/ServicesSection").then((m)
 const ApplicationsSection = lazy(() => import("./sections/ApplicationsSection").then((m) => ({ default: m.ApplicationsSection })));
 const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
+const DiagnosticsSection = lazy(() => import("./sections/DiagnosticsSection").then((m) => ({ default: m.DiagnosticsSection })));
 const AboutSection = lazy(() => import("./sections/AboutSection").then((m) => ({ default: m.AboutSection })));
 const StorageSection = lazy(() => import("./sections/StorageSection").then((m) => ({ default: m.StorageSection })));
 const StorageContentsSection = lazy(() => import("./sections/StorageContentsSection").then((m) => ({ default: m.StorageContentsSection })));
@@ -216,6 +217,7 @@ function ControlSectionBody({
     case "activity":        return <ActivitySection />;
     case "libraryStats":    return <LibraryStatsSection />;
     case "logs":            return <LogsSection />;
+    case "diagnostics":     return <DiagnosticsSection />;
 
     case "libraries":       return <LibrariesSection libraryId={libraryId} />;
     case "applications":    return <ApplicationsSection />;

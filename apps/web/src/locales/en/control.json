@@ -53,6 +53,7 @@
       "activity": "Activity",
       "libraryStats": "Library statistics",
       "logs": "Logs",
+      "diagnostics": "Diagnostics",
       "libraries": "Libraries",
       "storage": "Storage",
       "storageContents": "App storage contents",

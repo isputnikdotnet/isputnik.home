@@ -107,11 +107,13 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Server logs
+      label: Diagnostics and logs
       description: >
-        From **Control panel → Overview → Logs**, or `docker logs` for the
-        container. Include the lines from around the time the problem happened.
-        This is rendered as a code block, so no backticks needed.
+        Paste the report from **Control panel → Infrastructure → Diagnostics**
+        (it hides names, folders and addresses unless you ask it not to). Add
+        lines from `docker logs` for the container from around the time the
+        problem happened if you have them. This is rendered as a code block, so
+        no backticks needed.
       render: text
 
   - type: textarea

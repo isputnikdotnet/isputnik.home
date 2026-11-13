@@ -6,7 +6,7 @@ export type ControlSection =
   // The panel's landing page, opened from its title — not in a group
   | "dashboard"
   // Infrastructure. Services is the overview; appsSetup is a container's Pairing, a page under it
-  | "services" | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "activity"
+  | "services" | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "diagnostics" | "activity"
   // Libraries & Scanning
   | "libraries" | "libraryStats"
   // Applications: the directory, then each application's workspace tabs and pages
@@ -40,6 +40,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   tasks: "/control/infrastructure/tasks",
   scheduledJobs: "/control/infrastructure/scheduled-jobs",
   logs: "/control/infrastructure/logs",
+  diagnostics: "/control/infrastructure/diagnostics",
   activity: "/control/infrastructure/activity",
 
   libraries: "/control/libraries",
