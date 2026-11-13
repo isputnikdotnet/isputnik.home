@@ -3634,3 +3634,14 @@ tr.control-anchor-flash > td {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Videos › Settings › Hardware test: the action row, the results, the verdicts. */
+.hw-test-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.hw-test-now { display: grid; gap: 2px; min-width: 0; }
+.hw-test-now small { color: var(--muted); overflow-wrap: anywhere; }
+.hw-test-table { min-width: 0; overflow-x: auto; }
+.hw-test-table .datagrid { width: 100%; }
+.hw-verdict { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hw-verdict.is-smooth { color: var(--success); }
+.hw-verdict.is-tight { color: var(--warning); }
+.hw-verdict.is-slow, .hw-verdict.is-failed { color: var(--danger); }

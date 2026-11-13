@@ -288,7 +288,8 @@
       "videoJobs": "When downloads are prepared",
       "videoMetadata": "Posters and descriptions (TMDB)",
       "videoDetection": "Intros, recaps and credits",
-      "sections": "Sections of the app"
+      "sections": "Sections of the app",
+      "videoHardwareTest": "Hardware test (conversion speed)"
     }
   },
   "about": {

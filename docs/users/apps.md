@@ -287,6 +287,50 @@ they can't decode are decoded on the CPU and still converted on the GPU.
 - Without the field, or without Intel graphics, everything is converted on the
   CPU as before, and the page says so.
 
+### How fast is it? The hardware test
+
+**Applications → Videos → Settings → Hardware test** (also linked from
+**Converting video**) answers what the GPU check above can't: whether this server
+converts fast enough to watch, and for how many people at once.
+
+**Run test** converts short clips of six kinds of film, exactly as a player would
+get them, on the GPU when there is one and on the CPU:
+
+- 4K HDR to 1080p
+- 4K to 1080p
+- 1080p HEVC
+- 1080p to 720p, for watching away from home
+- DivX
+- AV1
+
+Each gets a speed in **× real time**: 2× means a two-hour film converts in an hour.
+From **1.5×** it is *smooth*; from **1×** it is *tight* (it plays, but a second viewer
+or a busy disk can make it buffer); below 1× it is *too slow* and will buffer.
+
+It then runs 4K HDR and 1080p several at a time to find **how many at once** keep
+up, and suggests a viewer limit. **Use** sets it; nothing changes until you press it.
+
+A test takes 3 to 5 minutes, a few more the first time while the clips are made.
+It won't start while someone is watching converted video, and stops if someone
+starts. Downloads being prepared and the search for intros wait while it runs.
+
+The clips are generated, about as heavy as real films (4K at 30 Mbit/s). A 4K
+remux of 50–80 Mbit/s converts somewhat slower than the 4K row says.
+
+**Disks**, on the same page, checks each video library's storage: how long its
+disks take to answer, and how fast its largest film reads, against what its
+heaviest film needs. A first answer of several seconds means a disk was asleep;
+on an Unraid user share that is the wait before a film starts, or a page of
+posters appears. **Plenty** is at least twice what the heaviest film needs,
+**Enough** is at least that, and **Too slow** means that film will buffer when
+played as it is. The check only reads and takes a few seconds per library. A
+film played recently may read from the server's memory and look faster.
+
+**Earlier tests** keeps the last 20. **Hardware changes** notes when the video
+container starts with a different GPU, driver or ffmpeg; after one, the page
+suggests running the test again. The last test is also in the diagnostics
+report (**Infrastructure → Diagnostics**).
+
 ## Posters and descriptions
 
 Pictures saved beside the video files are always shown: `poster.jpg` and

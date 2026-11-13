@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Clapperboard, Clock, Cpu, Download, HardDrive, Image as ImageIcon, KeyRound, SkipForward } from "lucide-react";
+import { Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, KeyRound, SkipForward } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref } from "../../../router";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -13,6 +13,7 @@ import { formatBytes } from "../../../shared/utils";
 import { KEEP_READY_URL, type KeepReadyState } from "../../video/KeepReadyModal";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { isRunning, useAppsStatus } from "./AppsSection";
+import { HardwareTestPage, HardwareTestRow } from "./VideoHardwareTest";
 
 // Applications › Videos › Settings: the video engine's own settings, laid out like a
 // phone's Settings (control panel v2). The page is a short overview — each topic one
@@ -123,7 +124,7 @@ function useEngine<T>(url: string) {
   return { state, setState, missing, load };
 }
 
-type Page = "conversion" | "metadata" | "copies" | "detection" | "jobs";
+type Page = "conversion" | "metadata" | "copies" | "detection" | "jobs" | "hardware";
 
 /** GET/PUT {prefix}/api/admin/jobs (engine 0.35+): when the queue works, and what is on it. */
 interface JobsState {
@@ -138,14 +139,15 @@ export function VideoSettingsSection() {
   const video = apps?.find((app) => app.id === "video") ?? null;
   // One reading of ?show= for the head and the pages: two would drift apart.
   const [show, go] = useQueryPage();
-  const page = (["conversion", "metadata", "copies", "detection", "jobs"] as const).find((name) => name === show) ?? null;
+  const page = (["conversion", "metadata", "copies", "detection", "jobs", "hardware"] as const).find((name) => name === show) ?? null;
 
   const titles: Record<Page, string> = {
     conversion: t("controlAdmin:apps.conversion.title"),
     metadata: t("controlAdmin:apps.metadata.title"),
     copies: t("controlAdmin:apps.copies.title"),
     detection: t("controlAdmin:apps.detection.title"),
-    jobs: t("controlAdmin:apps.jobs.title")
+    jobs: t("controlAdmin:apps.jobs.title"),
+    hardware: t("controlAdmin:apps.hardwareTest.title")
   };
 
   return (
@@ -224,6 +226,20 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
       ? <ConversionPage url={conversionUrl} state={conversion.state} setState={conversion.setState} reload={conversion.load} saving={saving} errors={errors} onSave={saveConversion} />
       : <Waiting missing={conversion.missing} failed={t("controlAdmin:apps.conversion.loadFailed")} />;
   }
+  if (page === "hardware") {
+    return (
+      <>
+        {errors}
+        <HardwareTestPage
+          prefix={prefix}
+          capabilities={conversion.state?.hardware ? <GpuRow hardware={conversion.state.hardware} /> : null}
+          maxViewers={conversion.state?.settings.maxViewers ?? null}
+          saving={saving}
+          onUseLimit={(count) => saveConversion({ maxViewers: count })}
+        />
+      </>
+    );
+  }
   if (page === "metadata") {
     return metadata.state
       ? <MetadataPage url={`${prefix}/api/admin/metadata`} state={metadata.state} setState={metadata.setState} />
@@ -268,6 +284,7 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
           value={conv ? t("controlAdmin:apps.videoSettings.watching", { now: conv.usage.viewers.length }) : undefined}
           onClick={() => go("conversion")}
         />
+        {conv?.available && <HardwareTestRow prefix={prefix} onOpen={() => go("hardware")} />}
         {conv && quality !== undefined && (
           <PickerRow
             label={t("controlAdmin:apps.conversion.remoteQualityLabel")}
@@ -462,6 +479,7 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
             disabled={checking || state.hardware.checking}
             onClick={() => void check()}
           />
+          {state.available && <NavRow icon={<Gauge size={17} />} label={t("controlAdmin:apps.hardwareTest.linkFromConversion")} href={queryPageHref("hardware")} />}
         </GroupedList>
       )}
 
