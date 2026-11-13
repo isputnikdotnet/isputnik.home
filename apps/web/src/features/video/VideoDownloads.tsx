@@ -86,6 +86,8 @@ export function downloadStateText(record: StoredVideoDownload, t: TFunction): st
   if (record.state === "paused") return t("video.download.paused");
   if (record.state === "preparing") {
     const prepare = record.prepare;
+    if (prepare?.waitingFor === "night" && prepare.progress === 0) return t("video.download.preparingNight");
+    if (prepare?.waitingFor === "idle" && prepare.progress === 0) return t("video.download.preparingIdle");
     if (!prepare || (prepare.ahead > 0 && prepare.progress === 0)) return t("video.download.preparingQueued");
     if (prepare.paused) return t("video.download.preparingPaused");
     return t("video.download.preparing", { percent: Math.round(prepare.progress * 100) });

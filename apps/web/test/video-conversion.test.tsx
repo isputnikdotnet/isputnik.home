@@ -159,3 +159,35 @@ describe("films kept after watching (engine 0.35+)", () => {
     expect(screen.getByText("Films kept whole")).toBeInTheDocument();
   });
 });
+
+describe("when downloads are prepared (engine 0.35+)", () => {
+  const jobsState = {
+    gate: { open: false, reason: "night" },
+    settings: { when: "night", nightStart: "01:00", nightEnd: "07:00", atOnce: 1, perPerson: 10, remoteMbps: 0 },
+    jobs: [
+      { id: "keep:abc", kind: "keep", title: "Wide Film", quality: 720, state: "running", progress: 0.4, paused: false },
+      { id: "copy:m1:480:1", kind: "copy", title: "Loud Film", quality: 480, state: "queued", progress: 0, paused: false }
+    ]
+  };
+
+  it("shows the rule, what runs and waits, and runs a waiting one now", async () => {
+    const calls: { path: string; method: string; body?: string }[] = [];
+    mockApi.mockImplementation((async (path: string, options?: RequestInit) => {
+      calls.push({ path, method: options?.method ?? "GET", body: options?.body as string | undefined });
+      return jobsState;
+    }) as never);
+    render(<VideoSettings prefix="/video" page="jobs" go={() => undefined} />);
+    expect(await screen.findByLabelText("Prepare")).toHaveValue("night");
+    expect(screen.getByText("Waiting for the night: nothing new starts until then.")).toBeInTheDocument();
+    expect(screen.getByText("kept ready · 720p · making, 40%")).toBeInTheDocument();
+    expect(screen.getByText("copy for download · 480p · waiting")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Actions for Loud Film" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Run now" }));
+    await waitFor(() => expect(calls.find((call) => call.method === "POST")).toBeDefined());
+    expect(calls.find((call) => call.method === "POST")).toMatchObject({ path: "/video/api/admin/jobs/run", body: JSON.stringify({ id: "copy:m1:480:1" }) });
+
+    await userEvent.selectOptions(screen.getByLabelText("Prepare"), "idle");
+    await waitFor(() => expect(calls.find((call) => call.method === "PUT")).toBeDefined());
+    expect(JSON.parse(calls.find((call) => call.method === "PUT")!.body!)).toEqual({ when: "idle" });
+  });
+});

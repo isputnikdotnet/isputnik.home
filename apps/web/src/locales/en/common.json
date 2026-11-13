@@ -1433,6 +1433,8 @@
       "notify": "Email me when it is ready",
       "preparing": "Preparing on the server: {{percent}}%",
       "preparingQueued": "Waiting for the server to prepare it",
+      "preparingNight": "Waiting for the night to be prepared",
+      "preparingIdle": "Waiting for a quiet moment on the server",
       "preparingPaused": "Preparing paused while someone is watching",
       "preparingHint": "Nothing to wait for here: it downloads by itself once it is ready.",
       "episode": "Download episode",

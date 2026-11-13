@@ -499,6 +499,51 @@
       "loadFailed": "Unable to load this setting.",
       "saveFailed": "The setting could not be saved.",
       "save": "Save"
+    },
+    "jobs": {
+      "title": "When downloads are prepared",
+      "loadFailed": "Unable to read the queue",
+      "saveFailed": "The setting could not be saved.",
+      "intro": "Copies for download, titles kept ready and films finished off after watching are made one after another in the background. Someone watching always comes first.",
+      "whenLabel": "Prepare",
+      "whenOption": {
+        "now": "Right away",
+        "idle": "When the server is idle",
+        "night": "Only at night"
+      },
+      "when": {
+        "now": "Right away",
+        "idle": "When the server is idle",
+        "night": "Between {{start}} and {{end}}"
+      },
+      "gate": {
+        "night": "Waiting for the night: nothing new starts until then.",
+        "idle": "Waiting for a quiet moment: someone is watching, or the server is busy."
+      },
+      "nightStart": "From",
+      "nightEnd": "Until",
+      "limitsNote": "Two at once suits a server with a GPU; on the CPU, one. Members asking for more downloads than their number are told to wait for one to be ready; admins aren't held to it.",
+      "atOnce": "Jobs at once",
+      "perPerson": "Downloads waiting per member",
+      "perPersonNote": "Prepared copies one member may have waiting at a time.",
+      "remoteMbps": "Download speed away from home (Mbit/s)",
+      "remoteMbpsNote": "All copies going outside your network together, so streaming keeps its share of your upload. 0 for no limit.",
+      "queueTitle": "Queue",
+      "queueEmpty": "Nothing waiting.",
+      "queued_one": "{{count}} in the queue",
+      "queued_other": "{{count}} in the queue",
+      "kind": {
+        "copy": "copy for download",
+        "keep": "kept ready",
+        "finish": "finishing off"
+      },
+      "running": "making, {{percent}}%",
+      "paused": "paused while someone watches",
+      "waiting": "waiting",
+      "menu": "Actions for {{title}}",
+      "runNow": "Run now",
+      "toTop": "Move to the top",
+      "cancel": "Take off the queue"
     }
   },
   "games": {

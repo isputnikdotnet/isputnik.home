@@ -20,6 +20,8 @@ export type VideoDownloadProblem = "connection" | "space" | "gone" | "format" | 
 
 /** How the server's copy is coming along, as it last said. */
 export interface VideoPrepareStatus {
+  /** Engine 0.35+: kept waiting by the admin's rule — for the night, or a quiet moment. */
+  waitingFor?: "idle" | "night" | null;
   /** 0–1 of a copy being made. */
   progress: number;
   /** Copies the server makes before this one. */

@@ -16,7 +16,11 @@ cache and are concatenated into the MP4; the queue of copies survives a restart 
 catalog rows), half-filled versions too (`filling.json`); Keep ready and finish-off share
 the queue. Deviations: the Keep ready list sits on Settings › Copies for download (not an
 Organize page), and copies still keep their MP4 beside the kept version (no 24 h
-removal). C4 not started.
+removal). **C4 built 2026-11-12**: the gate (right away / idle / night window), jobs at
+once, downloads waiting per member, the speed of copies away from home, and the queue with
+Run now · Move to the top · Take off, on Settings › When downloads are prepared (not
+Infrastructure › Tasks). Email when a copy is ready stays as it was; no in-app notice yet.
+All four phases are in; nothing is released.
 
 ## In one sentence
 

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Clapperboard, Cpu, Download, HardDrive, Image as ImageIcon, KeyRound, SkipForward } from "lucide-react";
+import { Clapperboard, Clock, Cpu, Download, HardDrive, Image as ImageIcon, KeyRound, SkipForward } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref } from "../../../router";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { ActionRow, GroupedList, InfoRow, InputRow, NavRow, NavToggleRow, PickerRow, ToggleRow } from "../../../shared/GroupedList";
+import { ActionMenu } from "../../../shared/ActionMenu";
 import { MessageBox } from "../../../shared/MessageBox";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
@@ -122,7 +123,14 @@ function useEngine<T>(url: string) {
   return { state, setState, missing, load };
 }
 
-type Page = "conversion" | "metadata" | "copies" | "detection";
+type Page = "conversion" | "metadata" | "copies" | "detection" | "jobs";
+
+/** GET/PUT {prefix}/api/admin/jobs (engine 0.35+): when the queue works, and what is on it. */
+interface JobsState {
+  gate: { open: true } | { open: false; reason: "idle" | "night" };
+  settings: { when: "now" | "idle" | "night"; nightStart: string; nightEnd: string; atOnce: number; perPerson: number; remoteMbps: number };
+  jobs: { id: string; kind: "copy" | "keep" | "finish"; title: string; quality: number | null; state: "running" | "queued"; progress: number; paused: boolean }[];
+}
 
 export function VideoSettingsSection() {
   const { t } = useTranslation(["common", "controlAdmin", "control"]);
@@ -130,13 +138,14 @@ export function VideoSettingsSection() {
   const video = apps?.find((app) => app.id === "video") ?? null;
   // One reading of ?show= for the head and the pages: two would drift apart.
   const [show, go] = useQueryPage();
-  const page = (["conversion", "metadata", "copies", "detection"] as const).find((name) => name === show) ?? null;
+  const page = (["conversion", "metadata", "copies", "detection", "jobs"] as const).find((name) => name === show) ?? null;
 
   const titles: Record<Page, string> = {
     conversion: t("controlAdmin:apps.conversion.title"),
     metadata: t("controlAdmin:apps.metadata.title"),
     copies: t("controlAdmin:apps.copies.title"),
-    detection: t("controlAdmin:apps.detection.title")
+    detection: t("controlAdmin:apps.detection.title"),
+    jobs: t("controlAdmin:apps.jobs.title")
   };
 
   return (
@@ -171,6 +180,7 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   const metadata = useEngine<MetadataState>(`${prefix}/api/admin/metadata`);
   const copies = useEngine<CopiesState>(`${prefix}/api/admin/copies`);
   const detection = useEngine<DetectionState>(`${prefix}/api/admin/detection`);
+  const jobs = useEngine<JobsState>(`${prefix}/api/admin/jobs`);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -223,6 +233,11 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
     return copies.state
       ? <CopiesPage url={`${prefix}/api/admin/copies`} state={copies.state} setState={copies.setState} />
       : <Waiting missing={copies.missing} failed={t("controlAdmin:apps.copies.loadFailed")} />;
+  }
+  if (page === "jobs") {
+    return jobs.state && Array.isArray(jobs.state.jobs)
+      ? <JobsPage url={`${prefix}/api/admin/jobs`} state={jobs.state} setState={jobs.setState} reload={jobs.load} />
+      : <Waiting missing={jobs.missing} failed={t("controlAdmin:apps.jobs.loadFailed")} />;
   }
   if (page === "detection") {
     return detection.state
@@ -304,6 +319,15 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
             value={t("controlAdmin:apps.videoSettings.copiesValue", { used: formatBytes(cop.usedBytes), limit: `${cop.settings.limitGb} GB` })}
             onClick={() => go("copies")}
           />
+          {jobs.state && Array.isArray(jobs.state.jobs) && (
+            <NavRow
+              icon={<Clock size={17} />}
+              label={t("controlAdmin:apps.jobs.title")}
+              sub={t(`controlAdmin:apps.jobs.when.${jobs.state.settings.when}`, { start: jobs.state.settings.nightStart, end: jobs.state.settings.nightEnd })}
+              value={t("controlAdmin:apps.jobs.queued", { count: jobs.state.jobs.length })}
+              onClick={() => go("jobs")}
+            />
+          )}
         </GroupedList>
       )}
     </div>
@@ -585,6 +609,123 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
         </GroupedList>
         </>
       )}
+    </div>
+  );
+}
+
+// ── When downloads are prepared (C4) ─────────────────────────────────────────
+
+// The queue the video app makes copies for download, kept-ready titles and
+// finished-off films on: when it works (right away, when the server is quiet, or
+// at night), how many at once, how many copies a member may have waiting, and how
+// fast a copy goes to someone away from home. Below, what runs and waits, with
+// the admin's hand on each.
+function JobsPage({ url, state, setState, reload }: { url: string; state: JobsState; setState: (state: JobsState) => void; reload: () => Promise<JobsState> }) {
+  const { t } = useTranslation(["common", "controlAdmin"]);
+  const settings = state.settings;
+  const [start, setStart] = useState(settings.nightStart);
+  const [end, setEnd] = useState(settings.nightEnd);
+  const [atOnce, setAtOnce] = useState(String(settings.atOnce));
+  const [perPerson, setPerPerson] = useState(String(settings.perPerson));
+  const [speed, setSpeed] = useState(String(settings.remoteMbps));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    setStart(settings.nightStart);
+    setEnd(settings.nightEnd);
+    setAtOnce(String(settings.atOnce));
+    setPerPerson(String(settings.perPerson));
+    setSpeed(String(settings.remoteMbps));
+  }, [settings]);
+
+  // What runs moves along: the page keeps itself current while open.
+  useEffect(() => {
+    const timer = window.setInterval(() => { reload().catch(() => undefined); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
+
+  const run = async (work: () => Promise<JobsState>) => {
+    setBusy(true);
+    setError("");
+    try {
+      setState(await work());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:apps.jobs.saveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = (patch: Partial<JobsState["settings"]>) => void run(() => api<JobsState>(url, { method: "PUT", body: JSON.stringify(patch) }));
+  /** A number left blank or out of range goes back to what the engine has. */
+  const commitNumber = (raw: string, current: number, min: number, max: number, key: "atOnce" | "perPerson" | "remoteMbps", reset: (value: string) => void, whole = true) => {
+    const value = Number(raw);
+    if (raw.trim() === "" || !Number.isFinite(value) || (whole && !Number.isInteger(value)) || value < min || value > max) { reset(String(current)); return; }
+    if (value !== current) save({ [key]: value });
+  };
+  const commitTime = (raw: string, current: string, key: "nightStart" | "nightEnd", reset: (value: string) => void) => {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) { reset(current); return; }
+    if (raw !== current) save({ [key]: raw });
+  };
+  const act = (path: "top" | "run", id: string) => void run(() => api<JobsState>(`${url}/${path}`, { method: "POST", body: JSON.stringify({ id }) }));
+  const cancel = (id: string) => void run(() => api<JobsState>(`${url}?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
+
+  return (
+    <div className="grouped-page">
+      {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
+      <GroupedList id="video-jobs" note={t("controlAdmin:apps.jobs.intro")}>
+        <PickerRow
+          label={t("controlAdmin:apps.jobs.whenLabel")}
+          value={settings.when}
+          disabled={busy}
+          options={(["now", "idle", "night"] as const).map((value) => ({ value, label: t(`controlAdmin:apps.jobs.whenOption.${value}`) }))}
+          onChange={(value) => save({ when: value as JobsState["settings"]["when"] })}
+        />
+        {settings.when === "night" && (
+          <>
+            <InputRow label={t("controlAdmin:apps.jobs.nightStart")} type="time" value={start} disabled={busy} onChange={setStart} onCommit={() => commitTime(start, settings.nightStart, "nightStart", setStart)} />
+            <InputRow label={t("controlAdmin:apps.jobs.nightEnd")} type="time" value={end} disabled={busy} onChange={setEnd} onCommit={() => commitTime(end, settings.nightEnd, "nightEnd", setEnd)} />
+          </>
+        )}
+        {!state.gate.open && <InfoRow label={t(`controlAdmin:apps.jobs.gate.${state.gate.reason}`)} />}
+      </GroupedList>
+
+      <GroupedList title={t("controlAdmin:apps.videoSettings.groupLimits")} note={t("controlAdmin:apps.jobs.limitsNote")}>
+        <InputRow label={t("controlAdmin:apps.jobs.atOnce")} type="number" min={1} max={4} value={atOnce} disabled={busy} onChange={setAtOnce}
+          onCommit={() => commitNumber(atOnce, settings.atOnce, 1, 4, "atOnce", setAtOnce)} />
+        <InputRow label={t("controlAdmin:apps.jobs.perPerson")} sub={t("controlAdmin:apps.jobs.perPersonNote")} type="number" min={1} max={1000} value={perPerson} disabled={busy} onChange={setPerPerson}
+          onCommit={() => commitNumber(perPerson, settings.perPerson, 1, 1000, "perPerson", setPerPerson)} />
+        <InputRow label={t("controlAdmin:apps.jobs.remoteMbps")} sub={t("controlAdmin:apps.jobs.remoteMbpsNote")} type="number" min={0} max={10000} value={speed} disabled={busy} onChange={setSpeed}
+          onCommit={() => commitNumber(speed, settings.remoteMbps, 0, 10000, "remoteMbps", setSpeed, false)} />
+      </GroupedList>
+
+      <GroupedList title={t("controlAdmin:apps.jobs.queueTitle")}>
+        {state.jobs.length === 0 && <InfoRow label={t("controlAdmin:apps.jobs.queueEmpty")} />}
+        {state.jobs.map((job) => (
+          <div key={job.id} className="grouped-row video-job-row">
+            <span className="grouped-row-label">
+              <strong>{job.title}</strong>
+              <small>{[
+                t(`controlAdmin:apps.jobs.kind.${job.kind}`),
+                job.quality ? t("controlAdmin:apps.conversion.rung", { height: job.quality }) : null,
+                job.state === "running"
+                  ? (job.paused ? t("controlAdmin:apps.jobs.paused") : t("controlAdmin:apps.jobs.running", { percent: Math.round(job.progress * 100) }))
+                  : t("controlAdmin:apps.jobs.waiting")
+              ].filter(Boolean).join(" · ")}</small>
+            </span>
+            <ActionMenu
+              trigger="icon"
+              label={t("controlAdmin:apps.jobs.menu", { title: job.title })}
+              items={[
+                ...(job.state === "queued" ? [
+                  { key: "run", label: t("controlAdmin:apps.jobs.runNow"), onSelect: () => act("run", job.id) },
+                  { key: "top", label: t("controlAdmin:apps.jobs.toTop"), onSelect: () => act("top", job.id) }
+                ] : []),
+                { key: "cancel", label: t("controlAdmin:apps.jobs.cancel"), onSelect: () => cancel(job.id) }
+              ]}
+            />
+          </div>
+        ))}
+      </GroupedList>
     </div>
   );
 }

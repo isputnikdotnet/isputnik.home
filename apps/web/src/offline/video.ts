@@ -76,6 +76,8 @@ export interface VideoCopyAnswer {
   url?: string | null;
   /** Engine 0.35+: no copies are prepared (no disk for them); it is converted as it downloads. */
   unavailable?: "no-disk";
+  /** Engine 0.35+: queued, and kept waiting for the night or a quiet moment. */
+  waitingFor?: "idle" | "night" | null;
 }
 
 const copyUrl = (id: string) => `${VIDEO_API}/copies/${encodeURIComponent(id)}`;
@@ -93,7 +95,7 @@ export async function askVideoCopy(id: string, quality: 1080 | 720 | 480, audio:
 }
 
 const prepareOf = (answer: VideoCopyAnswer): VideoPrepareStatus =>
-  ({ progress: answer.progress ?? 0, ahead: answer.ahead ?? 0, paused: answer.paused ?? false, etaSeconds: answer.etaSeconds ?? null });
+  ({ progress: answer.progress ?? 0, ahead: answer.ahead ?? 0, paused: answer.paused ?? false, etaSeconds: answer.etaSeconds ?? null, waitingFor: answer.waitingFor ?? null });
 class Problem extends Error {
   constructor(readonly problem: VideoDownloadProblem) {
     super(problem);
