@@ -204,7 +204,8 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
   text-align: right;
 }
 
-.grouped-row-entry input[type="number"] { flex: 0 0 auto; width: 7ch; }
+/* Room for six digits beside the padding and the browser's spin buttons: 7ch cut 1024 to "102". */
+.grouped-row-entry input[type="number"] { flex: 0 0 auto; width: calc(6ch + 40px); }
 .grouped-row-entry input:hover:not(:disabled) { border-color: var(--line); }
 
 .grouped-row-entry input:focus-visible {

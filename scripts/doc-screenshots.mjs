@@ -718,6 +718,52 @@ const SHOTS = [
       tab.click(); await sleep(1200);
       "phone backups tab";`
   },
+
+  // The video cache (docs/users/apps.md, engine 0.35). The demo engine has its
+  // /transcode folder (site.mjs sets TRANSCODE_PATH), so the disk shows as mapped.
+  {
+    // Converting video, scrolled to Where converted video is kept.
+    name: "125-video-storage",
+    url: "control/apps/videos/settings?show=conversion",
+    setup: `
+      for (let i = 0; i < 40 && !document.getElementById("video-conversion-storage"); i++) await sleep(250);
+      const group = document.getElementById("video-conversion-storage");
+      if (!group) return "no storage group";
+      group.scrollIntoView({ block: "start" }); window.scrollBy(0, -120); await sleep(500);
+      "storage in view";`
+  },
+  {
+    // Copies for download: the copies, the films kept after watching, the titles kept ready, the room.
+    name: "126-video-kept",
+    url: "control/apps/videos/settings?show=copies",
+    setup: `
+      for (let i = 0; i < 40 && !/Kept after watching/i.test(document.body.textContent); i++) await sleep(250);
+      const head = [...document.querySelectorAll("h2, h3, .grouped-list-title, header")].find((h) => /Kept after watching/i.test(h.textContent));
+      if (!head) return "no Kept after watching";
+      head.scrollIntoView({ block: "start" }); window.scrollBy(0, -260); await sleep(500);
+      "kept in view";`
+  },
+  { name: "127-video-downloads-prepared", url: "control/apps/videos/settings?show=jobs", wait: 2500 },
+  {
+    // An admin's Keep ready dialog on a film's page (the first film in the library).
+    name: "128-video-keep-ready",
+    url: "movies",
+    setup: `
+      const films = await fetch("/video/api/movies?pageSize=1").then((r) => r.json());
+      const film = films.items?.[0];
+      if (!film) return "no film";
+      history.pushState({}, "", "/movies/" + film.id); dispatchEvent(new PopStateEvent("popstate"));
+      for (let i = 0; i < 40 && !document.querySelector(".video-title-more"); i++) await sleep(250);
+      const more = document.querySelector(".video-title-more button") ?? document.querySelector("button.video-title-more");
+      if (!more) return "no More menu";
+      more.click(); await sleep(500);
+      const keep = [...document.querySelectorAll('[role="menuitem"]')].find((b) => b.textContent.includes("Keep ready"));
+      if (!keep) return "no Keep ready item";
+      keep.click();
+      for (let i = 0; i < 40 && !(topModal() && /Qualities/.test(topModal().textContent)); i++) await sleep(250);
+      await sleep(400);
+      "keep ready open";`
+  },
   {
     // Set location over a selection: saved places as chips under the search box,
     // a recent one after them, and Save this place for a pin that is not saved

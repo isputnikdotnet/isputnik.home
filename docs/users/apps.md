@@ -248,6 +248,8 @@ Then:
   (a tenth of the server's memory, at most 1 GB, to start with). About 300 MB
   keeps a few minutes ready for one viewer.
 
+![Converting video: who is converting now, Where to convert, and Where converted video is kept with the fast disk, its free space, Keep converted video set to In memory, then on the disk, and the memory for conversion](images/125-video-storage.png)
+
 ### Watched together, and kept after watching
 
 - **Watched together.** Two people watching the same film at the same quality,
@@ -576,6 +578,8 @@ what the video app keeps on its disk and how much room it may take:
   watching. Your video files and what people have already downloaded are not
   affected.
 
+![Copies for download: the copies kept, Kept after watching, Kept ready and Room for kept video, GB](images/126-video-kept.png)
+
 A copy whose picture is re-encoded is made the same way as watching it, a stretch
 at a time, into the same kept film, then put together into one file in seconds.
 So a copy and the kept film come from one piece of work, and a copy stopped by a
@@ -602,6 +606,8 @@ season ready…** in the **⋮** of its season row. Then:
 - The dialog says how far it has got (*4 of 10 kept*, the one being made), and
   **Stop keeping ready** ends it. What was made stays until the room needs it.
 
+![The Keep ready dialog on a film's page: 1080p, 720p and 480p switches with 720p on, Cancel and Keep ready](images/128-video-keep-ready.png)
+
 The work is done in the background by the same queue as copies for download
 (see the next section). Titles kept ready are never removed to make room; a
 choice that wouldn't fit says so, with what it would take and what the room
@@ -626,6 +632,8 @@ films finished off after watching — and shows the queue.
   link. 0 for no limit. Watching is never slowed by it.
 - **Queue** — what runs and what waits. The **⋮** beside each has **Run now**
   (whatever the time or load), **Move to the top** and **Take off the queue**.
+
+![When downloads are prepared: Prepare set to Right away, the limits for jobs at once, downloads waiting per member and download speed away from home, and the queue](images/127-video-downloads-prepared.png)
 
 ## Subtitles
 
