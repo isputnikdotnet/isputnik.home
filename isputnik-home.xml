@@ -16,7 +16,7 @@
   <!-- Room for an orderly shutdown on update/stop (the server takes up to 10 s).
        The health check (GET /api/health) is built into the image. -->
   <ExtraParams>--stop-timeout=30</ExtraParams>
-  <Support>https://github.com/isputnikdotnet/isputnik.home/issues</Support>
+  <Support>https://github.com/isputnikdotnet/isputnik.home/discussions</Support>
   <Project>https://github.com/isputnikdotnet/isputnik.home</Project>
 
   <Overview>

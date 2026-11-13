@@ -266,6 +266,13 @@ The server side has matured alongside: a full control panel, scheduled jobs, a r
 * Deeper mobile versions of the library pages
 * Additional home server modules beyond the media library
 
+## Community
+
+Questions, ideas and show-and-tell go in
+[Discussions](https://github.com/isputnikdotnet/isputnik.home/discussions) — one
+place for isputnik.home and its add-ons (games, video, faces, the TV app), in
+English or Russian. Bugs go in [Issues](https://github.com/isputnikdotnet/isputnik.home/issues).
+
 ## Contributing
 
 Bug reports and documentation fixes are welcome; please open an issue before

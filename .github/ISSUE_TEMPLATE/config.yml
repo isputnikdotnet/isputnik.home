@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Ask a question or share an idea (Discussions)
+    url: https://github.com/isputnikdotnet/isputnik.home/discussions
+    about: Questions, ideas and help for isputnik.home and its add-ons — English or Russian.
   - name: Questions & how-to (documentation)
     url: https://github.com/isputnikdotnet/isputnik.home/tree/main/docs/users
     about: Setup and usage guides — start with "first run" before reporting a setup problem.
