@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.89.1 — A damaged ebook no longer stops the scan
+
+- **One damaged EPUB no longer stops the whole ebook library scan.** A book whose zip was broken ("Invalid CEN header") opened without complaint and failed only when the scanner read the first file inside it, where nothing caught the error: the scan stopped, every retry hit the same book, and the library ended on **scan error**. A book that can't be read is now added with its title taken from its file name and no cover, and any other error in a single book is logged and skipped, so one book can never stop the scan again. Thanks to Stefan Knol for tracking it down.
+
 ## 4.89.0 — Diagnostics for bug reports
 
 - **A diagnostics report to attach to a bug report.** Control panel › Infrastructure › Diagnostics puts together what a bug report needs, so nobody has to ask what you are running: this server's version and machine, the containers beside it and whether they answer, the libraries and their scan state, the failures in the activity log over the last two weeks, and what each container says about itself. The video container (0.38.0 or later) adds its ffmpeg, what its GPU check found and the GPU's recent failures, its conversion settings and the warnings and errors in its log. **Copy report** and **Download .txt** take it, and **Open a bug report** opens the form with your version filled in.
