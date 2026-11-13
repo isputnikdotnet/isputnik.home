@@ -4,9 +4,16 @@ Everything that belongs to you rather than to the server: your name and sign-in
 details, how the app looks, where your saved things live, and the address your
 e-reader receives books at.
 
-All of it hangs off the **menu with your name on it** (bottom-left on a computer,
+All of it hangs off the **menu with your name on it** (top-right on a computer,
 the **Profile** tab in the installed app). That menu has two halves: **Profile**,
 which is your account settings, and the list of things you've saved.
+
+Help is beside it: the **?** opens **Help guides** and **About iSputnik** (the
+version, and what changed in each release). Administrators also find **Ask the
+community**, **Report a bug** — the form already knows which version you run — and
+**Request a feature** there, all on GitHub. In the classic layout the same menu is
+the sidebar's **Help** item; in the installed app, it is the end of the
+**Profile** tab.
 
 ## Profile — your account settings
 

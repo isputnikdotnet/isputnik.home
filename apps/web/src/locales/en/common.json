@@ -151,7 +151,13 @@
       "primaryTabs": "Primary app tabs",
       "brandHome": "iSputnik home"
     },
-    "stories": "Stories"
+    "stories": "Stories",
+    "helpMenu": "Help & feedback",
+    "helpGuides": "Help guides",
+    "community": "Ask the community",
+    "reportBug": "Report a bug",
+    "requestFeature": "Request a feature",
+    "aboutApp": "About iSputnik"
   },
   "pager": {
     "label": "Pagination",

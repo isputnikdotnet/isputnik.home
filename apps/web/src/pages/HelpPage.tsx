@@ -2,7 +2,8 @@ import { ArrowRight, CircleHelp, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute } from "../router";
-import { REPO_ISSUES_URL } from "../shared/links";
+import { bugReportUrl } from "../shared/links";
+import { APP_VERSION } from "../shared/appVersion";
 import { useSession } from "../app/SessionContext";
 import { FEATURED_GUIDE, GUIDES, guideHref, guideVisible, helpShelves, type GuideEntry } from "../features/help/catalog";
 import { useDiagram } from "../features/help/diagrams";
@@ -76,7 +77,7 @@ export function HelpPage() {
             <strong>{t("help.stillNeedHelp")}</strong>
             <span>{t("help.stillNeedHelpBody")}</span>
           </span>
-          <a className="secondary-button help-contact-button" href={REPO_ISSUES_URL} target="_blank" rel="noreferrer">
+          <a className="secondary-button help-contact-button" href={bugReportUrl(APP_VERSION)} target="_blank" rel="noreferrer">
             {t("help.reportBug")}
             <ExternalLink size={16} aria-hidden="true" />
           </a>

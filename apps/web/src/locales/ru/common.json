@@ -157,7 +157,13 @@
       "primaryTabs": "Основные вкладки приложения",
       "brandHome": "Главная iSputnik"
     },
-    "stories": "Истории"
+    "stories": "Истории",
+    "helpMenu": "Помощь и отзывы",
+    "helpGuides": "Справка",
+    "community": "Спросить сообщество",
+    "reportBug": "Сообщить об ошибке",
+    "requestFeature": "Предложить функцию",
+    "aboutApp": "Об iSputnik"
   },
   "pager": {
     "label": "Страницы",

@@ -1154,3 +1154,24 @@
   stroke: none;
   filter: none;
 }
+
+/* Help & feedback: the ? beside the person's name (app/helpMenu.tsx). It opens
+   the same kind of menu as the name does, hung from its own button. */
+.orbit-help-button.orbit-help-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+}
+
+.orbit-help-button.orbit-help-button:hover,
+.orbit-help-button.orbit-help-button.is-active {
+  color: var(--ink);
+  background: var(--hover);
+}

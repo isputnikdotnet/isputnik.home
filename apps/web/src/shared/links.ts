@@ -14,3 +14,16 @@ export const DOCS_REF: string =
 export function repoFileUrl(path: string): string {
   return `${REPO_URL}/blob/${DOCS_REF}/${path}`;
 }
+
+/** GitHub Discussions: questions, help and ideas from the community. */
+export const REPO_DISCUSSIONS_URL = `${REPO_URL}/discussions`;
+
+/** The bug report form, with the version this app is running filled in — the one
+ *  field every report needs and nobody remembers. Nothing else about the server or
+ *  the person goes into the link. */
+export function bugReportUrl(version: string): string {
+  return `${REPO_URL}/issues/new?template=bug_report.yml&version=${encodeURIComponent(version)}`;
+}
+
+/** The feature request form. */
+export const FEATURE_REQUEST_URL = `${REPO_URL}/issues/new?template=feature_request.yml`;

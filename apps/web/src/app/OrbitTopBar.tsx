@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react";
+import { ChevronDown, HelpCircle, LogOut, Settings, UserRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { followRoute } from "../router";
 import { Button } from "../shared/Button";
+import { HelpMenuItems, type HelpMenuLink } from "./helpMenu";
 
 export interface OrbitNavItem {
   label: string;
@@ -20,7 +21,7 @@ export interface OrbitMenuLink {
 }
 
 // The top layout's bar (app/layoutChoice.ts): the brand, the sections, then the
-// control panel and the person. It stands in for the sidebar above the phone
+// control panel, help & feedback (the ?) and the person. It stands in for the sidebar above the phone
 // breakpoint; phones keep their four-tab bar.
 export function OrbitTopBar({
   items,
@@ -29,6 +30,8 @@ export function OrbitTopBar({
   displayName,
   unseen,
   menuLinks,
+  helpLinks,
+  active,
   onLogout
 }: {
   items: OrbitNavItem[];
@@ -38,11 +41,33 @@ export function OrbitTopBar({
   displayName: string;
   unseen: number;
   menuLinks: OrbitMenuLink[];
+  /** Help & feedback, beside the name (app/helpMenu.tsx). */
+  helpLinks: HelpMenuLink[];
+  /** The page shown, to mark Help guides or About as the one you are on. */
+  active?: string;
   onLogout: () => void;
 }) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!helpOpen) return;
+    const onMouseDown = (event: MouseEvent) => {
+      if (!helpRef.current?.contains(event.target as Node)) setHelpOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHelpOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [helpOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -101,11 +126,30 @@ export function OrbitTopBar({
           </a>
         )}
 
+        <div className="orbit-user orbit-help" ref={helpRef}>
+          <Button
+            variant="icon"
+            className={`orbit-help-button${helpOpen || active === "help" || active === "about" ? " is-active" : ""}`}
+            onClick={() => { setMenuOpen(false); setHelpOpen((open) => !open); }}
+            aria-haspopup="menu"
+            aria-expanded={helpOpen}
+            aria-label={t("nav.helpMenu")}
+            title={t("nav.helpMenu")}
+          >
+            <HelpCircle size={20} aria-hidden="true" />
+          </Button>
+          {helpOpen && (
+            <div className="orbit-user-menu" role="menu" aria-label={t("nav.helpMenu")}>
+              <HelpMenuItems links={helpLinks} active={active} onPick={() => setHelpOpen(false)} />
+            </div>
+          )}
+        </div>
+
         <div className="orbit-user" ref={menuRef}>
           <Button
             variant="bare"
             className="orbit-user-button"
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={() => { setHelpOpen(false); setMenuOpen((open) => !open); }}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >

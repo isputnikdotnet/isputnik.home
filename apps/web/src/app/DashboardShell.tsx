@@ -6,7 +6,6 @@ import {
   Bookmark,
   BookOpen,
   BookText,
-  Bug,
   ChevronDown,
   ChevronRight,
   Clapperboard,
@@ -17,7 +16,6 @@ import {
   HelpCircle,
   Home,
   Image,
-  Info,
   Library,
   ListMusic,
   LogOut,
@@ -38,7 +36,7 @@ import { useSections, type SectionKey, type Sections } from "./sections";
 import { isStandalone } from "../pwa/platform";
 import { useInboxSummary } from "../features/social/useInboxSummary";
 import { FOR_YOU_PATH, controlHref, followRoute } from "../router";
-import { REPO_ISSUES_URL } from "../shared/links";
+import { HelpMenuItems, helpMenuLinks } from "./helpMenu";
 import { Button } from "../shared/Button";
 import { PreviewBanner } from "./PreviewBanner";
 import { usesTopLayout } from "./layoutChoice";
@@ -50,24 +48,6 @@ import { OrbitTopBar, type OrbitMenuLink, type OrbitNavItem } from "./OrbitTopBa
 const CONTROL_HOME = controlHref("dashboard");
 
 export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "video" | "family" | "stories" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
-
-interface AboutMenuLink {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-  external?: boolean;
-  activeKey?: DashboardActive;
-}
-
-// Info / Help / Bugs — reached from the "About" item at the end of the primary
-// nav, rather than as their own icon row in the footer.
-function aboutMenuLinks(t: TFunction): AboutMenuLink[] {
-  return [
-    { href: "/about", icon: Info, label: t("nav.info"), activeKey: "about" },
-    { href: "/help", icon: HelpCircle, label: t("nav.help"), activeKey: "help" },
-    { href: REPO_ISSUES_URL, icon: Bug, label: t("nav.bugs"), external: true }
-  ];
-}
 
 interface MainNavItem {
   label: string;
@@ -166,8 +146,7 @@ function orbitCurrentLibrary(active: DashboardActive, t: TFunction) {
 function orbitMenuLinks(t: TFunction): OrbitMenuLink[] {
   return [
     { label: t("nav.profile"), href: "/profile", icon: UserRound },
-    ...userMenuLinks(t),
-    ...aboutMenuLinks(t).map(({ href, icon, label, external }) => ({ href, icon, label, external }))
+    ...userMenuLinks(t)
   ];
 }
 
@@ -333,18 +312,27 @@ function MobileNav({
               <span>{t("nav.logout")}</span>
             </Button>
           </div>
+          <p className="mobile-sheet-heading">{t("nav.helpMenu")}</p>
+          <div className="mobile-sheet-list">
+            {helpMenuLinks(t, isAdmin).map((item) => {
+              const Icon = item.icon;
+              return (
+                <a
+                  key={item.key}
+                  className="mobile-sheet-row"
+                  href={item.href}
+                  {...(item.external
+                    ? { target: "_blank", rel: "noreferrer", onClick: close }
+                    : { onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => { followRoute(event, item.href); close(); } })}
+                >
+                  <Icon size={19} aria-hidden="true" />
+                  <span>{item.label}</span>
+                  <ChevronRight size={16} className="mobile-sheet-chevron" aria-hidden="true" />
+                </a>
+              );
+            })}
+          </div>
           <div className="mobile-sheet-footer">
-            {aboutMenuLinks(t).map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                {...(item.external
-                  ? { target: "_blank", rel: "noreferrer", onClick: close }
-                  : { onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => { followRoute(event, item.href); close(); } })}
-              >
-                {item.label}
-              </a>
-            ))}
             <span className="mobile-sheet-version">{versionLabel(t)}</span>
           </div>
         </div>
@@ -529,6 +517,8 @@ export function DashboardShell({
           displayName={user.displayName}
           unseen={unseen}
           menuLinks={orbitMenuLinks(t)}
+          helpLinks={helpMenuLinks(t, isAdmin)}
+          active={active}
           onLogout={() => void logout()}
         />
       )}
@@ -563,8 +553,8 @@ export function DashboardShell({
               aria-haspopup="menu"
               aria-expanded={aboutMenuOpen}
             >
-              <Info size={21} aria-hidden="true" />
-              <span>{t("nav.about")}</span>
+              <HelpCircle size={21} aria-hidden="true" />
+              <span>{t("nav.help")}</span>
               <ChevronDown className="home-user-chevron" size={16} aria-hidden="true" />
             </Button>
           </nav>
@@ -575,41 +565,10 @@ export function DashboardShell({
             ref={aboutMenuRef}
             className="home-primary-menu"
             role="menu"
-            aria-label={t("nav.aria.aboutMenu")}
+            aria-label={t("nav.helpMenu")}
             style={{ position: "fixed", top: aboutMenuPos.top, left: aboutMenuPos.left, minWidth: aboutMenuPos.width }}
           >
-            {aboutMenuLinks(t).map((item) => {
-              const Icon = item.icon;
-              const isActiveLink = item.activeKey !== undefined && active === item.activeKey;
-              return item.external ? (
-                <a
-                  className="home-user-menu-link"
-                  href={item.href}
-                  key={item.label}
-                  role="menuitem"
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setAboutMenuOpen(false)}
-                >
-                  <Icon size={19} aria-hidden="true" />
-                  <span>{item.label}</span>
-                </a>
-              ) : (
-                <a
-                  className={`home-user-menu-link${isActiveLink ? " is-active" : ""}`}
-                  href={item.href}
-                  key={item.label}
-                  role="menuitem"
-                  onClick={(event) => {
-                    setAboutMenuOpen(false);
-                    followRoute(event, item.href);
-                  }}
-                >
-                  <Icon size={19} aria-hidden="true" />
-                  <span>{item.label}</span>
-                </a>
-              );
-            })}
+            <HelpMenuItems links={helpMenuLinks(t, isAdmin)} active={active} onPick={() => setAboutMenuOpen(false)} />
             <div className="home-primary-menu-meta">
               <strong>{versionLabel(t)}</strong>
               <span aria-hidden="true">&middot;</span>
