@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Clapperboard, Cpu, Download, Image as ImageIcon, KeyRound, SkipForward } from "lucide-react";
+import { Clapperboard, Cpu, Download, HardDrive, Image as ImageIcon, KeyRound, SkipForward } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref } from "../../../router";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -25,9 +25,14 @@ import { isRunning, useAppsStatus } from "./AppsSection";
 
 /** GET/PUT {prefix}/api/admin/conversion (isputnik.video hls.ts). */
 interface ConversionSettings {
+  /** Before engine 0.35 (0.35+ still answers them, worked out from the new two). */
   memoryPerViewerMb: number;
   maxViewers: number;
   whenFull: "disk" | "wait";
+  /** Engine 0.35+: memory only, memory then the disk, or the disk only. */
+  storage?: ConversionStorage;
+  /** Engine 0.35+: memory for everyone's conversion together. */
+  memoryMb?: number;
   /** Engine 0.20+: where a picture is re-encoded (hardware.ts). */
   hardware?: HardwareMode;
   /** Engine 0.31+: the most a viewer on the internet gets; null is the file as it is. */
@@ -35,6 +40,8 @@ interface ConversionSettings {
 }
 
 type HardwareMode = "auto" | "cpu" | "gpu";
+type ConversionStorage = "memory" | "memory-disk" | "disk";
+const STORAGES: ConversionStorage[] = ["memory", "memory-disk", "disk"];
 type RemoteQuality = "original" | "1080" | "720" | "480";
 const REMOTE_QUALITIES: RemoteQuality[] = ["original", "1080", "720", "480"];
 
@@ -63,6 +70,10 @@ interface ConversionState {
     diskBytes: number;
   };
   hardware?: HardwareState | null;
+  /** Engine 0.35+: whether the conversion folder is a disk mapped into the
+   *  container (memory only without one), and the storage in force. */
+  disk?: { mapped: boolean; folder: string; freeBytes: number | null; totalBytes: number | null } | null;
+  storage?: ConversionStorage | null;
 }
 
 /** GET/PUT {prefix}/api/admin/metadata: whether the engine has a TMDB key (never the key). */
@@ -77,6 +88,8 @@ interface CopiesState {
   folder: string;
   usedBytes: number;
   copies: { itemId: string; quality: number; title: string; state: "queued" | "running" | "ready" | "failed"; sizeBytes: number }[];
+  /** Engine 0.35+: the copies' folder is no disk of its own, so none are prepared. */
+  insideContainer?: boolean;
 }
 
 /** GET/PUT {prefix}/api/admin/detection (engine 0.18+). */
@@ -172,8 +185,12 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   const saveConversion = (patch: Partial<ConversionSettings>) => {
     const current = conversion.state?.settings;
     if (!current) return;
+    // An engine with `storage` answers the old words beside it, worked out from the
+    // new; sent back they would read as a change, so it gets the new words alone.
+    const { memoryPerViewerMb: _perViewer, whenFull: _whenFull, ...rest } = current;
+    const body = current.storage ? { ...rest, ...patch } : { ...current, ...patch };
     void write(
-      () => api<ConversionState>(conversionUrl, { method: "PUT", body: JSON.stringify({ ...current, ...patch }) }),
+      () => api<ConversionState>(conversionUrl, { method: "PUT", body: JSON.stringify(body) }),
       conversion.setState,
       t("controlAdmin:apps.conversion.saveFailed")
     );
@@ -358,8 +375,10 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
   const [checking, setChecking] = useState(false);
   const [viewers, setViewers] = useState(String(state.settings.maxViewers));
   const [memory, setMemory] = useState(String(state.settings.memoryPerViewerMb));
+  const [pool, setPool] = useState(String(state.settings.memoryMb ?? ""));
   useEffect(() => setViewers(String(state.settings.maxViewers)), [state.settings.maxViewers]);
   useEffect(() => setMemory(String(state.settings.memoryPerViewerMb)), [state.settings.memoryPerViewerMb]);
+  useEffect(() => setPool(String(state.settings.memoryMb ?? "")), [state.settings.memoryMb]);
 
   // Who is watching changes by the minute: the page keeps itself current while open.
   useEffect(() => {
@@ -380,7 +399,7 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
   };
 
   /** A number left blank or out of range goes back to what the engine has. */
-  const commit = (raw: string, current: number, min: number, max: number, key: "maxViewers" | "memoryPerViewerMb", reset: (value: string) => void) => {
+  const commit = (raw: string, current: number, min: number, max: number, key: "maxViewers" | "memoryPerViewerMb" | "memoryMb", reset: (value: string) => void) => {
     const value = Number(raw);
     if (raw.trim() === "" || !Number.isInteger(value) || value < min || value > max) { reset(String(current)); return; }
     if (value !== current) onSave({ [key]: value });
@@ -388,6 +407,15 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
 
   const usage = state.usage;
   const memoryMb = Number(memory) || 0;
+  // Engine 0.35+: one memory pool and a storage mode; older ones per viewer.
+  const storage = state.settings.storage;
+  const disk = state.disk;
+  const inForce = state.storage ?? storage;
+  const storageWord: Record<ConversionStorage, string> = {
+    memory: t("controlAdmin:apps.conversion.storageMemory"),
+    "memory-disk": t("controlAdmin:apps.conversion.storageMemoryDisk"),
+    disk: t("controlAdmin:apps.conversion.storageDisk")
+  };
 
   return (
     <div className="grouped-page">
@@ -397,7 +425,7 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
       )}
 
       {state.hardware && (
-        <GroupedList note={t("controlAdmin:apps.conversion.intro")}>
+        <GroupedList note={storage ? t("controlAdmin:apps.conversion.introStorage") : t("controlAdmin:apps.conversion.intro")}>
           <GpuRow hardware={state.hardware} />
           <ActionRow
             label={checking || state.hardware.checking ? t("controlAdmin:apps.conversion.checking") : t("controlAdmin:apps.conversion.checkAgain")}
@@ -444,48 +472,108 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
         </GroupedList>
       )}
 
-      <GroupedList
-        title={t("controlAdmin:apps.videoSettings.groupLimits")}
-        note={<>
-          {t("controlAdmin:apps.conversion.viewersHelp")}{" "}
-          {memoryMb === 0
-            ? t("controlAdmin:apps.conversion.totalDiskOnly")
-            : t("controlAdmin:apps.conversion.total", { memory: formatBytes(memoryMb * (Number(viewers) || 0) * 1024 * 1024) })}
-        </>}
-      >
-        <InputRow
-          label={t("controlAdmin:apps.conversion.viewersLabel")}
-          type="number"
-          min={1}
-          max={50}
-          value={viewers}
-          disabled={saving}
-          onChange={setViewers}
-          onCommit={() => commit(viewers, state.settings.maxViewers, 1, 50, "maxViewers", setViewers)}
-        />
-        <InputRow
-          label={t("controlAdmin:apps.conversion.memoryLabel")}
-          sub={t("controlAdmin:apps.conversion.memoryHelp")}
-          type="number"
-          min={0}
-          max={16384}
-          value={memory}
-          disabled={saving}
-          onChange={setMemory}
-          onCommit={() => commit(memory, state.settings.memoryPerViewerMb, 0, 16384, "memoryPerViewerMb", setMemory)}
-        />
-        <PickerRow
-          label={t("controlAdmin:apps.conversion.whenFullLabel")}
-          sub={t("controlAdmin:apps.conversion.whenFullHelp")}
-          value={state.settings.whenFull}
-          disabled={saving || state.settings.memoryPerViewerMb === 0}
-          options={[
-            { value: "disk", label: t("controlAdmin:apps.conversion.whenFullDisk") },
-            { value: "wait", label: t("controlAdmin:apps.conversion.whenFullWait") }
-          ]}
-          onChange={(value) => onSave({ whenFull: value as ConversionSettings["whenFull"] })}
-        />
-      </GroupedList>
+      {storage && disk && (
+        <GroupedList id="video-conversion-storage" title={t("controlAdmin:apps.conversion.storageTitle")} note={t("controlAdmin:apps.conversion.storageHelp")}>
+          {disk.mapped ? (
+            <InfoRow
+              icon={<HardDrive size={17} />}
+              iconTone="ok"
+              label={t("controlAdmin:apps.conversion.diskLabel")}
+              sub={<span className="storage-row-path">{disk.folder}</span>}
+              value={disk.freeBytes !== null
+                ? t("controlAdmin:apps.conversion.diskFree", { free: formatBytes(disk.freeBytes) })
+                : undefined}
+            />
+          ) : (
+            <InfoRow
+              icon={<HardDrive size={17} />}
+              iconTone="muted"
+              label={t("controlAdmin:apps.conversion.diskNoneTitle")}
+              sub={t("controlAdmin:apps.conversion.diskNoneBody")}
+            />
+          )}
+          <PickerRow
+            label={t("controlAdmin:apps.conversion.storageLabel")}
+            value={inForce ?? storage}
+            disabled={saving || !disk.mapped}
+            options={STORAGES.map((value) => ({ value, label: storageWord[value], disabled: !disk.mapped && value !== "memory" }))}
+            onChange={(value) => onSave({ storage: value as ConversionStorage })}
+          />
+          {inForce !== "disk" && (
+            <InputRow
+              label={t("controlAdmin:apps.conversion.memoryPoolLabel")}
+              sub={t("controlAdmin:apps.conversion.memoryPoolHelp")}
+              type="number"
+              min={64}
+              max={16384}
+              value={pool}
+              disabled={saving}
+              onChange={setPool}
+              onCommit={() => commit(pool, state.settings.memoryMb ?? 0, 64, 16384, "memoryMb", setPool)}
+            />
+          )}
+        </GroupedList>
+      )}
+
+      {storage ? (
+        <GroupedList title={t("controlAdmin:apps.videoSettings.groupLimits")} note={t("controlAdmin:apps.conversion.viewersHelp")}>
+          <InputRow
+            label={t("controlAdmin:apps.conversion.viewersLabel")}
+            type="number"
+            min={1}
+            max={50}
+            value={viewers}
+            disabled={saving}
+            onChange={setViewers}
+            onCommit={() => commit(viewers, state.settings.maxViewers, 1, 50, "maxViewers", setViewers)}
+          />
+        </GroupedList>
+      ) : (
+        <>
+        <GroupedList
+          title={t("controlAdmin:apps.videoSettings.groupLimits")}
+          note={<>
+            {t("controlAdmin:apps.conversion.viewersHelp")}{" "}
+            {memoryMb === 0
+              ? t("controlAdmin:apps.conversion.totalDiskOnly")
+              : t("controlAdmin:apps.conversion.total", { memory: formatBytes(memoryMb * (Number(viewers) || 0) * 1024 * 1024) })}
+          </>}
+        >
+          <InputRow
+            label={t("controlAdmin:apps.conversion.viewersLabel")}
+            type="number"
+            min={1}
+            max={50}
+            value={viewers}
+            disabled={saving}
+            onChange={setViewers}
+            onCommit={() => commit(viewers, state.settings.maxViewers, 1, 50, "maxViewers", setViewers)}
+          />
+          <InputRow
+            label={t("controlAdmin:apps.conversion.memoryLabel")}
+            sub={t("controlAdmin:apps.conversion.memoryHelp")}
+            type="number"
+            min={0}
+            max={16384}
+            value={memory}
+            disabled={saving}
+            onChange={setMemory}
+            onCommit={() => commit(memory, state.settings.memoryPerViewerMb, 0, 16384, "memoryPerViewerMb", setMemory)}
+          />
+          <PickerRow
+            label={t("controlAdmin:apps.conversion.whenFullLabel")}
+            sub={t("controlAdmin:apps.conversion.whenFullHelp")}
+            value={state.settings.whenFull}
+            disabled={saving || state.settings.memoryPerViewerMb === 0}
+            options={[
+              { value: "disk", label: t("controlAdmin:apps.conversion.whenFullDisk") },
+              { value: "wait", label: t("controlAdmin:apps.conversion.whenFullWait") }
+            ]}
+            onChange={(value) => onSave({ whenFull: value as ConversionSettings["whenFull"] })}
+          />
+        </GroupedList>
+        </>
+      )}
     </div>
   );
 }
@@ -602,6 +690,11 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
   return (
     <div className="grouped-page">
       {saveError && <MessageBox tone="error" title={t("errors.unableToSave")}>{saveError}</MessageBox>}
+      {state.insideContainer && (
+        <MessageBox tone="warning" title={t("controlAdmin:apps.copies.insideTitle")}>
+          {t("controlAdmin:apps.copies.insideBody", { used: formatBytes(state.usedBytes) })}
+        </MessageBox>
+      )}
       <GroupedList note={t("controlAdmin:apps.copies.intro")}>
         <InfoRow
           icon={<Download size={17} />}

@@ -333,6 +333,7 @@ export function DownloadVideoModal({ target, onClose }: { target: VideoDownloadT
     if (copy === null) return t("video.download.optimizedOpen");
     if (copy.state === "ready") return t("video.download.optimizedReady");
     if (copy.state === "unneeded") return t("video.download.optimizedUnneeded");
+    if (copy.unavailable === "no-disk") return t("video.download.optimizedNoDisk");
     if (copy.state === "queued" || copy.state === "running") return t("video.download.optimizedUnderWay");
     return copy.estimateSeconds ? t("video.download.optimizedPrepare", { time: aboutTime(copy.estimateSeconds, t) }) : t("video.download.optimizedPrepareUnknown");
   };

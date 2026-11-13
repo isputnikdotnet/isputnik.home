@@ -90,3 +90,45 @@ describe("converting on the GPU", () => {
     expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
   });
 });
+
+describe("where converted video is kept (engine 0.35+)", () => {
+  const newer = (mapped: boolean, settings: object = {}) => ({
+    ...state(kabyLake, { storage: "memory-disk", memoryMb: 1024, memoryPerViewerMb: 341, ...settings }),
+    disk: { mapped, folder: "/transcode", freeBytes: mapped ? 400 * 1024 ** 3 : null, totalBytes: mapped ? 500 * 1024 ** 3 : null },
+    storage: mapped ? "memory-disk" : "memory"
+  });
+
+  it("offers the disk once one is mapped, and saves in the new words alone", async () => {
+    const puts: string[] = [];
+    mockApi.mockImplementation((async (_path: string, options?: RequestInit) => {
+      if (options?.method === "PUT") puts.push(options.body as string);
+      return newer(true);
+    }) as never);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
+    expect(await screen.findByText("Fast disk")).toBeInTheDocument();
+    expect(screen.getByText("/transcode")).toBeInTheDocument();
+    const mode = screen.getByLabelText("Keep converted video");
+    expect(mode).toHaveValue("memory-disk");
+    expect(screen.getByRole("option", { name: "On the disk only" })).not.toBeDisabled();
+    // One pool, not memory per viewer.
+    expect(screen.getByLabelText("Memory for conversion (MB)")).toHaveValue(1024);
+    expect(screen.queryByLabelText("Memory per viewer (MB)")).toBeNull();
+
+    await userEvent.selectOptions(mode, "memory");
+    await waitFor(() => expect(puts).toHaveLength(1));
+    const body = JSON.parse(puts[0]!);
+    expect(body).toMatchObject({ storage: "memory", memoryMb: 1024 });
+    expect(body).not.toHaveProperty("memoryPerViewerMb");
+    expect(body).not.toHaveProperty("whenFull");
+  });
+
+  it("says there is no disk, and keeps to memory only", async () => {
+    mockApi.mockResolvedValue(newer(false) as never);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
+    expect(await screen.findByText("No disk for video")).toBeInTheDocument();
+    const mode = screen.getByLabelText("Keep converted video");
+    expect(mode).toHaveValue("memory");
+    expect(mode).toBeDisabled();
+    expect(screen.getByRole("option", { name: "In memory, then on the disk" })).toBeDisabled();
+  });
+});

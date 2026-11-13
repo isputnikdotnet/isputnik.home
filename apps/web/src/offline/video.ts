@@ -74,6 +74,8 @@ export interface VideoCopyAnswer {
   sizeBytes?: number | null;
   /** The finished copy, or for "unneeded" the film itself. */
   url?: string | null;
+  /** Engine 0.35+: no copies are prepared (no disk for them); it is converted as it downloads. */
+  unavailable?: "no-disk";
 }
 
 const copyUrl = (id: string) => `${VIDEO_API}/copies/${encodeURIComponent(id)}`;

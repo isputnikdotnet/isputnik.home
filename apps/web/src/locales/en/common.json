@@ -1414,6 +1414,7 @@
       "optimizedOpen": "A smaller picture that takes less room.",
       "optimizedReady": "A smaller picture. Ready now: it starts at once.",
       "optimizedUnneeded": "This one is already small enough: it comes as it is, at once.",
+      "optimizedNoDisk": "Converted as it downloads: the server has no disk for prepared copies.",
       "optimizedUnderWay": "A smaller picture. The server is already preparing it.",
       "optimizedPrepare": "A smaller picture. The server prepares it first: {{time}}.",
       "optimizedPrepareUnknown": "A smaller picture. The server prepares it first.",
