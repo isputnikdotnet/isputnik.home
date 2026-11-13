@@ -140,13 +140,16 @@ describe("films kept after watching (engine 0.35+)", () => {
       kept: [{ variant: "abc", title: "Loud Film", rung: 480, sizeBytes: 300 * 1024 * 1024, usedAt: "2026-11-12T10:00:00Z", inUse: true }],
       keptBytes: 300 * 1024 * 1024
     };
-    mockApi.mockResolvedValue(copiesState as never);
+    const keepReady = { available: true, titles: [{ id: "movie:m1", kind: "movie", targetId: "m1", season: null, rungs: [720], newEpisodes: true, title: "Quiet Film", total: 1, ready: 1, asIs: 0, waiting: 0, missing: 0, sizeBytes: 0, estimateBytes: 0, making: null }] };
+    mockApi.mockImplementation((async (path: string) => (path.includes("keep-ready") ? keepReady : copiesState)) as never);
     render(<VideoSettings prefix="/video" page="copies" go={() => undefined} />);
     expect(await screen.findByText("Kept after watching")).toBeInTheDocument();
     expect(screen.getByText(/^1 film kept, 300(\.0)? MB\.$/)).toBeInTheDocument();
     expect(screen.getByText("480p · watching now")).toBeInTheDocument();
     expect(screen.getByLabelText("Room for kept video, GB")).toHaveValue(50);
     expect(screen.getByRole("button", { name: "Remove copies and kept films" })).toBeInTheDocument();
+    // The titles kept ready, each a link to its page.
+    expect(await screen.findByRole("link", { name: /Quiet Film/ })).toHaveAttribute("href", "/movies/m1");
     cleanup();
 
     const sharedUsage = { viewers: [{ ...usage.viewers[0], shared: true }, { ...usage.viewers[0], user: "Dad", shared: true }], memoryBytes: 0, diskBytes: 0, kept: { count: 2, bytes: 0 } };

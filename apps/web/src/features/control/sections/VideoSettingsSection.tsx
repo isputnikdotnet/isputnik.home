@@ -673,7 +673,7 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
   const [keepReady, setKeepReady] = useState<KeepReadyState | null>(null);
   useEffect(() => {
     let live = true;
-    api<KeepReadyState>(KEEP_READY_URL).then((answer) => { if (live) setKeepReady(answer); }, () => undefined);
+    api<KeepReadyState>(KEEP_READY_URL).then((answer) => { if (live && Array.isArray(answer?.titles)) setKeepReady(answer); }, () => undefined);
     return () => { live = false; };
   }, []);
   const [limit, setLimit] = useState(String(state.settings.limitGb));
