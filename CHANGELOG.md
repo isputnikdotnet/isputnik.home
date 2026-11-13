@@ -3,6 +3,12 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.89.0 — Diagnostics for bug reports
+
+- **A diagnostics report to attach to a bug report.** Control panel › Infrastructure › Diagnostics puts together what a bug report needs, so nobody has to ask what you are running: this server's version and machine, the containers beside it and whether they answer, the libraries and their scan state, the failures in the activity log over the last two weeks, and what each container says about itself. The video container (0.38.0 or later) adds its ffmpeg, what its GPU check found and the GPU's recent failures, its conversion settings and the warnings and errors in its log. **Copy report** and **Download .txt** take it, and **Open a bug report** opens the form with your version filled in.
+- **It keeps your family's details out unless you ask.** People's names and emails, library names, folders, file names, IP addresses and web addresses are replaced with `<person>`, `<name>`, `<path>`, `<ip>` and `<host>` until you turn on **Include names, folders and addresses**, which warns that bug reports on GitHub are public. Every part can be left out, the whole report is shown before you copy it, and nothing is sent anywhere by the app. The bug report form now asks for it.
+- **The video cache in the guide.** The Video guide covers the cache settings from 4.88.0 (where conversions are made, Keep ready, when downloads are prepared), with screenshots, and the control panel search finds them.
+
 ## 4.88.0 — Video kept ready, downloads on your terms
 
 - **Converted video starts in memory.** Films a browser can't play as they are are converted in memory first, and on a disk only once the video container has one of its own. Settings › Video › Converting video shows the fast disk and its free space, or says there is none and how to map one, and offers memory only, memory then the disk, or the disk only, with one memory limit for everyone. Before, an empty Transcode folder on Unraid quietly wrote conversions and copies for download inside the container. Needs the video container 0.35.

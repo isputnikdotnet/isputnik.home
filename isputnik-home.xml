@@ -27,7 +27,12 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794571200</Date>
   <Changes>
-### 2026.11.13 — 4.88.0 Video kept ready, downloads on your terms
+### 2026.11.13 — 4.89.0 Diagnostics for bug reports
+- **A diagnostics report to attach to a bug report.** Control panel › Infrastructure › Diagnostics puts together what a bug report needs, so nobody has to ask what you are running: this server's version and machine, the containers beside it and whether they answer, the libraries and their scan state, the failures in the activity log over the last two weeks, and what each container says about itself. The video container (0.38.0 or later) adds its ffmpeg, what its GPU check found and the GPU's recent failures, its conversion settings and the warnings and errors in its log. **Copy report** and **Download .txt** take it, and **Open a bug report** opens the form with your version filled in.
+- **It keeps your family's details out unless you ask.** People's names and emails, library names, folders, file names, IP addresses and web addresses are replaced with `&lt;person&gt;`, `&lt;name&gt;`, `&lt;path&gt;`, `&lt;ip&gt;` and `&lt;host&gt;` until you turn on **Include names, folders and addresses**, which warns that bug reports on GitHub are public. Every part can be left out, the whole report is shown before you copy it, and nothing is sent anywhere by the app. The bug report form now asks for it.
+- **The video cache in the guide.** The Video guide covers the cache settings from 4.88.0 (where conversions are made, Keep ready, when downloads are prepared), with screenshots, and the control panel search finds them.
+
+### 2026.11.12 — 4.88.0 Video kept ready, downloads on your terms
 - **Converted video starts in memory.** Films a browser can't play as they are are converted in memory first, and on a disk only once the video container has one of its own. Settings › Video › Converting video shows the fast disk and its free space, or says there is none and how to map one, and offers memory only, memory then the disk, or the disk only, with one memory limit for everyone. Before, an empty Transcode folder on Unraid quietly wrote conversions and copies for download inside the container. Needs the video container 0.35.
 - **Watched together, converted once.** Two people watching the same film at the same quality share one conversion, and the second one doesn't take a place from the household's limit. Converting video marks who is watching together.
 - **Films kept after watching.** A film that had to be converted is kept once someone has watched it to the end, so it plays next time with nothing converted; one left mostly watched is finished off in the background. Kept films and copies for download share one room (Room for kept video, 50 GB to start with), listed on Settings › Copies for download.
@@ -53,13 +58,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
 ### 2026.11.12 — 4.86.1 Busy add-ons get a breather
 - **A busy or slow add-on no longer gets hammered.** When the video engine (or another add-on container) answered a request with *busy* or *took too long*, this server quietly asked again up to ten times, milliseconds apart, instead of passing the answer on — its *try again in 2 seconds* was read as 2 milliseconds. For video, one refused request during a quality switch became a burst that restarted the conversion about twenty times in under two seconds. The answer now goes straight to the player, which waits as asked. Thanks to Stefan Knol for tracing it (#103).
-
-### 2026.11.11 — 4.86.0 Continue watching, tidied; Recently added, kept recent
-- **Take something off Continue watching.** Each card in the row now has a ⋮ menu with Resume, Details and **Remove from Continue watching**. Removing an episode takes the whole show off; removing a film takes off every part of it. It’s only for you, your place in it is kept, and playing it again brings it back. Before, a film you gave up halfway or a show you never meant to go on with stayed there for good. Needs the video engine 0.34.
-- **Every card in Continue watching has its picture.** Only the first eight cards fetched one, so on a long row the last few showed the placeholder art. The same went for the In progress row on Home.
-- **Recently added means the last 30 days.** On Home and on the video page, Recently added now shows only what arrived in the last 30 days, and the row is left out when nothing that new has come. Before, it always showed the newest titles, however old, so a film added a year ago still read as new. **View all** still lists everything by the date it came, and the photos card keeps its own week.
-- **Books and video are in date order together.** Home’s Recently added row used to take a book, then a film, then a book, because the video app didn’t say when a title came. They are now sorted by date, newest first.
-- **A new season makes a show new again.** A show moves back to the top of Recently added when an episode it didn’t have arrives. Renaming or moving a file doesn’t count. With the video engine 0.34, counting from the episodes it finds after the update.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
