@@ -3,6 +3,15 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.86.2 — Stop preview, stopped
+
+- **Stop preview ends the preview.** On a server reached over HTTPS, **Stop preview** reloaded the page but left you looking at the app as the member, and even signing out and back in dropped you straight into the same preview — only clearing the browser’s site data got you out. The browser was quietly refusing the request to forget the preview. It now forgets it on Stop, on signing out, and whenever anyone signs in, so a fresh sign-in always starts as yourself. Thanks to Stefan Knol for the report and the recording (#102).
+- The same slip left sign-in, two-step and passkey cookies behind after they had served their purpose on HTTPS servers. They were already useless by then; they are now removed properly too.
+
+## 4.86.1 — Busy add-ons get a breather
+
+- **A busy or slow add-on no longer gets hammered.** When the video engine (or another add-on container) answered a request with *busy* or *took too long*, this server quietly asked again up to ten times, milliseconds apart, instead of passing the answer on — its *try again in 2 seconds* was read as 2 milliseconds. For video, one refused request during a quality switch became a burst that restarted the conversion about twenty times in under two seconds. The answer now goes straight to the player, which waits as asked. Thanks to Stefan Knol for tracing it (#103).
+
 ## 4.86.0 — Continue watching, tidied; Recently added, kept recent
 
 - **Take something off Continue watching.** Each card in the row now has a ⋮ menu with Resume, Details and **Remove from Continue watching**. Removing an episode takes the whole show off; removing a film takes off every part of it. It’s only for you, your place in it is kept, and playing it again brings it back. Before, a film you gave up halfway or a show you never meant to go on with stayed there for good. Needs the video engine 0.34.

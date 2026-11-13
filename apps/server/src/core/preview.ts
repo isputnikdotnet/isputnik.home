@@ -13,7 +13,7 @@
 // Platform infrastructure: it knows nothing about what is being previewed.
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { config } from "../config.js";
-import { hostCookieName } from "./cookies.js";
+import { clearAppCookie, hostCookieName } from "./cookies.js";
 
 export const PREVIEW_COOKIE = hostCookieName("isputnik_preview", config.cookieSecure);
 /** The address that starts and ends a preview (core/auth-routes.ts). */
@@ -34,7 +34,7 @@ export function setPreviewCookie(reply: FastifyReply, userId: string): void {
 }
 
 export function clearPreviewCookie(reply: FastifyReply): void {
-  reply.clearCookie(PREVIEW_COOKIE, { path: "/" });
+  clearAppCookie(reply, PREVIEW_COOKIE, config.cookieSecure);
 }
 
 /** Whether a request under preview may go ahead: reads (GET, or a POST its route
