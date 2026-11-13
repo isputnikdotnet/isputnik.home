@@ -27,6 +27,10 @@ export const GUEST_LINK_PATH = "/games/guest";
 /** How long a link lives; the games' own unanswered invitations expire in 14 days too. */
 export const GUEST_INVITE_DAYS = 14;
 
+/** The lifetimes an inviter may choose for a new link (the invite dialog's Expires in). */
+export const GUEST_INVITE_LIFETIMES = [1, 7, 14] as const;
+export type GuestInviteLifetime = (typeof GUEST_INVITE_LIFETIMES)[number];
+
 /** The games server tells a guest's id by this prefix (its identity.ts agrees). */
 export const GUEST_ID_PREFIX = "guest_";
 
@@ -113,9 +117,12 @@ const SELECT = `
   LEFT JOIN users ON users.id = games_guest_invites.created_by
 `;
 
-/** The link a guest opens. APP_URL is the operator's statement of how the app is reached. */
-export function guestLinkUrl(token: string): string {
-  return `${config.appUrl.replace(/\/+$/, "")}${GUEST_LINK_PATH}/${token}`;
+/** The link a guest opens, on the address the inviter reached this server by
+ *  (requestOrigin, as share links and member invites do). It used to be APP_URL,
+ *  which a LAN install leaves blank: the link came out as a bare path, or the
+ *  developer default http://127.0.0.1:5173, and opened nothing. */
+export function guestLinkUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/+$/, "")}${GUEST_LINK_PATH}/${token}`;
 }
 
 /** A well-formed guest id, as this server mints them. */
@@ -134,12 +141,12 @@ export function normalizeGuestName(name: string): string {
  * (bindGuestInvite) — or discards the row (discardGuestInvite) if that failed.
  * The raw token is returned once and never stored.
  */
-export function mintGuestInvite(input: { userId: string; guestName: string; game: string }): { id: string; guestId: string; token: string; expiresAt: string } {
+export function mintGuestInvite(input: { userId: string; guestName: string; game: string; days?: GuestInviteLifetime }): { id: string; guestId: string; token: string; expiresAt: string } {
   sweepGuestInvites();
   const id = nanoid(16);
   const guestId = `${GUEST_ID_PREFIX}${guestIdBody()}`;
   const token = tokenBody();
-  const expiresAt = daysFromNow(GUEST_INVITE_DAYS);
+  const expiresAt = daysFromNow(input.days ?? GUEST_INVITE_DAYS);
   db.prepare(`
     INSERT INTO games_guest_invites (id, token_hash, guest_id, guest_name, game, created_by, expires_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)

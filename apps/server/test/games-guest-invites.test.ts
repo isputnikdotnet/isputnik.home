@@ -66,6 +66,30 @@ const activity = (event: string) =>
 const abuseHits = () => (db.prepare("SELECT COUNT(*) AS n FROM login_attempts WHERE kind = 'token'").get() as { n: number }).n;
 
 describe("minting a guest link", () => {
+  it("points the link at the address the member is using, not APP_URL", async () => {
+    // A LAN install leaves APP_URL unset (its fallback is a developer address):
+    // the link must open from the server the inviter reached, as share links do.
+    const cookie = await booted.signIn("mum");
+    const res = await booted.app.inject({
+      method: "POST",
+      url: "/api/games/guest-invites",
+      headers: { cookie, origin: "http://192.168.1.20:4000" },
+      payload: { game: "dots", options: { size: 10, targetCaptures: null }, seat: 1, guestName: "Alex" }
+    });
+    expect(res.statusCode).toBe(201);
+    expect((res.json() as { url: string }).url).toMatch(/^http:\/\/192\.168\.1\.20:4000\/games\/guest\/[A-Za-z0-9]{32}$/);
+  });
+
+  it("lives as long as the inviter chose: 1, 7 or 14 days, and nothing else", async () => {
+    const cookie = await booted.signIn("mum");
+    const days = (iso: string) => Math.round((Date.parse(iso) - Date.now()) / 86_400_000);
+    const week = (await mint(cookie, { days: 7 })).json() as { invite: { expiresAt: string } };
+    expect(days(week.invite.expiresAt)).toBe(7);
+    const fallback = (await mint(cookie)).json() as { invite: { expiresAt: string } };
+    expect(days(fallback.invite.expiresAt)).toBe(14);
+    expect((await mint(cookie, { days: 30 })).statusCode).toBe(400);
+  });
+
   it("creates the match on the games server in the member's name and hands the link back once", async () => {
     const cookie = await booted.signIn("mum");
     const res = await mint(cookie);

@@ -9,7 +9,7 @@ import { db } from "../../db.js";
 import { hasSessionCookie } from "../../auth.js";
 import { getSections } from "../../core/sections.js";
 import { flagAbusiveRequest } from "../../core/security-alerts.js";
-import { parseBody } from "../../core/shared.js";
+import { parseBody, requestOrigin } from "../../core/shared.js";
 import { appRole } from "../apps/access.js";
 import { resolveAppSecret } from "../apps/pairing.js";
 import { appConfigured, appDefinition, type AppConfigured } from "../apps/registry.js";
@@ -45,7 +45,9 @@ const guestInviteSchema = z.object({
   game: z.string().trim().min(1).max(32),
   options: z.unknown(),
   seat: z.union([z.literal(0), z.literal(1)]).default(0),
-  guestName: z.string().transform(normalizeGuestName).pipe(z.string().min(1).max(60))
+  guestName: z.string().transform(normalizeGuestName).pipe(z.string().min(1).max(60)),
+  /** How long the link works; 14 days when not said. */
+  days: z.union([z.literal(1), z.literal(7), z.literal(14)]).default(14)
 });
 
 const guestListQuerySchema = z.object({
@@ -130,7 +132,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
     if ("error" in parsed) return reply.code(400).send(parsed.error);
     const input = parsed.data;
     const me = request.user!;
-    const minted = mintGuestInvite({ userId: me.id, guestName: input.guestName, game: input.game });
+    const minted = mintGuestInvite({ userId: me.id, guestName: input.guestName, game: input.game, days: input.days });
 
     let created: { status: number; body: Record<string, unknown> };
     try {
@@ -153,7 +155,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
     }
     bindGuestInvite(minted.id, created.body.id);
     logGuestInviteEvent("created", { id: minted.id, guestName: input.guestName, game: input.game }, me, request.ip);
-    return reply.code(201).send({ invite: getGuestInvite(minted.id), url: guestLinkUrl(minted.token), match: created.body });
+    return reply.code(201).send({ invite: getGuestInvite(minted.id), url: guestLinkUrl(requestOrigin(request), minted.token), match: created.body });
   });
 
   // The member's own links (an admin may ask for everyone's with ?all=1),
@@ -172,7 +174,7 @@ export async function gamesPlugin(app: FastifyInstance, opts: GamesPluginOptions
     const renewed = renewGuestInvite(invite.id);
     if (!renewed) return reply.code(409).send({ error: "This guest link cannot be renewed" });
     logGuestInviteEvent("renewed", invite, request.user!, request.ip);
-    return { invite: getGuestInvite(invite.id), url: guestLinkUrl(renewed.token) };
+    return { invite: getGuestInvite(invite.id), url: guestLinkUrl(requestOrigin(request), renewed.token) };
   });
 
   app.delete("/api/games/guest-invites/:id", { preHandler: app.authenticate }, async (request, reply) => {
