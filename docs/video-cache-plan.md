@@ -11,7 +11,12 @@ home: the storage group on Videos › Settings › Converting video). **C2 built
 entries as planned, but kept films are noted in an `entry.json` in their folder
 (`cache/<variant>-<random>/`) rather than a table, folders are never reused (Windows
 holds them), and the one limit is the copies' existing `limitGb` (Room for kept video,
-50 GB by default) — no new setting. C3–C4 not started.
+50 GB by default) — no new setting. **C3 built 2026-11-12**: copies that re-encode fill the
+cache and are concatenated into the MP4; the queue of copies survives a restart (the
+catalog rows), half-filled versions too (`filling.json`); Keep ready and finish-off share
+the queue. Deviations: the Keep ready list sits on Settings › Copies for download (not an
+Organize page), and copies still keep their MP4 beside the kept version (no 24 h
+removal). C4 not started.
 
 ## In one sentence
 

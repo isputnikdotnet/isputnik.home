@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowLeft, Check, CheckCheck, FolderPlus, HardDrive, Layers, Pencil, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, FolderPlus, HardDrive, Layers, Pencil, Pin, Play, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -15,6 +15,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatDate } from "../../shared/dates";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditTitleModal } from "./EditTitleModal";
+import { KeepReadyModal } from "./KeepReadyModal";
 import { VideoDownloadButton, movieDownloadTarget, useVideoDownloadControl, type VideoDownloadTarget } from "./VideoDownloads";
 import { MyListButton } from "./VideoMyList";
 import { CastRow, CrewLine } from "./VideoPeople";
@@ -35,6 +36,8 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
+  /** An admin's Keep ready dialog: the whole title, or one season of a show. */
+  const [keeping, setKeeping] = useState<{ season?: number; name: string } | null>(null);
   const [collecting, setCollecting] = useState(false);
   const [markError, setMarkError] = useState("");
   const { user } = useSession();
@@ -134,11 +137,21 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
                     markAll={markAll}
                     onCollect={() => setCollecting(true)}
                     onEdit={user.role === "admin" ? () => setEditing(true) : null}
+                    onKeepReady={user.role === "admin" ? () => setKeeping({ name: title.title }) : null}
                   />
                 </div>
               </div>
             </header>
             {editing && <EditTitleModal kind={kind} title={title} onClose={() => setEditing(false)} onSaved={setTitle} />}
+            {keeping && (
+              <KeepReadyModal
+                kind={show ? (keeping.season === undefined ? "show" : "season") : "movie"}
+                id={title.id}
+                season={keeping.season}
+                name={keeping.name}
+                onClose={() => setKeeping(null)}
+              />
+            )}
             {collecting && (
               <AddToCollectionModal entityType={collectAs} entityId={title.id} title={title.title} onClose={() => setCollecting(false)} />
             )}
@@ -149,7 +162,7 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
 
             {!show && (title as VideoMovie).set && <SetStrip movieId={title.id} set={(title as VideoMovie).set!} />}
 
-            {show && (show.seasons.length === 0 ? <p className="muted">{t("video.noEpisodes")}</p> : <Seasons show={show} mark={mark} markAll={markAll} />)}
+            {show && (show.seasons.length === 0 ? <p className="muted">{t("video.noEpisodes")}</p> : <Seasons show={show} mark={mark} markAll={markAll} onKeepReady={user.role === "admin" ? (season, name) => setKeeping({ season, name }) : null} />)}
           </>
         )}
       </section>
@@ -222,12 +235,14 @@ function useMarkAll(markAll: MarkAll): { ask: (name: string, watched: boolean, s
 /** Everything about a title that is not Play, My list or Download, under one
  *  More button, so the row of actions stays one row: marking it watched or not
  *  (a whole show is asked about first), Add to collection, and an admin's Edit. */
-function TitleMore({ title, mark, markAll, onCollect, onEdit }: {
+function TitleMore({ title, mark, markAll, onCollect, onEdit, onKeepReady }: {
   title: VideoShow | VideoMovie;
   mark: MarkWatched;
   markAll: MarkAll;
   onCollect: () => void;
   onEdit: (() => void) | null;
+  /** An admin's Keep ready (converted ahead of time and kept). */
+  onKeepReady: (() => void) | null;
 }) {
   const { t } = useTranslation();
   const confirm = useMarkAll(markAll);
@@ -258,6 +273,7 @@ function TitleMore({ title, mark, markAll, onCollect, onEdit }: {
     if (!watched && started) items.push({ key: "reset", label: t("video.mark.reset"), icon: <RotateCcw size={15} />, onSelect: () => run(false) });
   }
   items.push({ key: "collect", label: t("video.addToCollection"), icon: <FolderPlus size={15} />, onSelect: onCollect });
+  if (onKeepReady) items.push({ key: "keep", label: t("video.keepReady.open"), icon: <Pin size={15} />, onSelect: onKeepReady });
   if (onEdit) items.push({ key: "edit", label: t("video.edit.open"), icon: <Pencil size={15} />, onSelect: onEdit });
   return (
     <>
@@ -287,7 +303,7 @@ const seasonName = (number: number, t: (key: "video.specials" | "video.season", 
 /** One season at a time, opening on the one this person is up to, as on the TV.
  *  One row over its episodes: the seasons to pick from on the left; on the right
  *  how much of this one is seen, and a menu for the season as a whole. */
-function Seasons({ show, mark, markAll }: { show: VideoShow; mark: MarkWatched; markAll: MarkAll }) {
+function Seasons({ show, mark, markAll, onKeepReady }: { show: VideoShow; mark: MarkWatched; markAll: MarkAll; onKeepReady: ((season: number, name: string) => void) | null }) {
   const { t } = useTranslation();
   const confirm = useMarkAll(markAll);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -305,7 +321,8 @@ function Seasons({ show, mark, markAll }: { show: VideoShow; mark: MarkWatched; 
     ...(show.marksAll && startedIn(current.episodes)
       ? [{ key: "unwatched", label: t("video.mark.seasonUnwatched"), icon: <RotateCcw size={15} />, onSelect: () => confirm.ask(seasonTitle, false, current.number) }]
       : []),
-    ...(downloadItem ? [downloadItem] : [])
+    ...(downloadItem ? [downloadItem] : []),
+    ...(onKeepReady ? [{ key: "keep", label: t("video.keepReady.openSeason"), icon: <Pin size={15} />, onSelect: () => onKeepReady(current.number, seasonTitle) }] : [])
   ];
   return (
     <section className="video-season" aria-labelledby={`season-${current.number}`}>

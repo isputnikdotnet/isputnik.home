@@ -9,6 +9,7 @@ import { ActionRow, GroupedList, InfoRow, InputRow, NavRow, NavToggleRow, Picker
 import { MessageBox } from "../../../shared/MessageBox";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
+import { KEEP_READY_URL, type KeepReadyState } from "../../video/KeepReadyModal";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { isRunning, useAppsStatus } from "./AppsSection";
 
@@ -668,6 +669,13 @@ function MetadataPage({ url, state, setState }: { url: string; state: MetadataSt
 // take now, and Remove all.
 function CopiesPage({ url, state, setState }: { url: string; state: CopiesState; setState: (state: CopiesState) => void }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
+  // Engine 0.35+: the titles kept ready; an older engine answers 404 and the group stays away.
+  const [keepReady, setKeepReady] = useState<KeepReadyState | null>(null);
+  useEffect(() => {
+    let live = true;
+    api<KeepReadyState>(KEEP_READY_URL).then((answer) => { if (live) setKeepReady(answer); }, () => undefined);
+    return () => { live = false; };
+  }, []);
   const [limit, setLimit] = useState(String(state.settings.limitGb));
   const [busy, setBusy] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -727,6 +735,24 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
               label={film.title}
               sub={[film.rung ? t("controlAdmin:apps.conversion.rung", { height: film.rung }) : null, film.inUse ? t("controlAdmin:apps.copies.watchingNow") : null].filter(Boolean).join(" · ") || undefined}
               value={formatBytes(film.sizeBytes)}
+            />
+          ))}
+        </GroupedList>
+      )}
+      {keepReady && (
+        <GroupedList title={t("controlAdmin:apps.copies.keepReadyTitle")} note={keepReady.available ? t("controlAdmin:apps.copies.keepReadyNote") : t("controlAdmin:apps.copies.keepReadyUnavailable")}>
+          {keepReady.titles.length === 0 && <InfoRow label={t("controlAdmin:apps.copies.keepReadyNone")} />}
+          {keepReady.titles.map((title) => (
+            <NavRow
+              key={title.id}
+              label={title.title}
+              sub={[
+                title.rungs.map((rung) => t("controlAdmin:apps.conversion.rung", { height: rung })).join(", "),
+                t("controlAdmin:apps.copies.keepReadyProgress", { ready: title.ready, total: title.total - title.asIs - title.missing }),
+                title.making ? t("controlAdmin:apps.copies.keepReadyMaking", { percent: Math.round(title.making.progress * 100) }) : null
+              ].filter(Boolean).join(" · ")}
+              value={formatBytes(title.sizeBytes)}
+              href={title.kind === "movie" ? `/movies/${encodeURIComponent(title.targetId)}` : `/shows/${encodeURIComponent(title.targetId)}`}
             />
           ))}
         </GroupedList>

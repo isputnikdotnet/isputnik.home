@@ -1464,6 +1464,34 @@
     },
     "playEpisodeItem": "Play episode",
     "leftMinutes": "{{minutes}} min left",
-    "leftHours": "{{hours}} h {{minutes}} min left"
+    "leftHours": "{{hours}} h {{minutes}} min left",
+    "keepReady": {
+      "open": "Keep ready…",
+      "openSeason": "Keep this season ready…",
+      "title": "Keep \"{{name}}\" ready",
+      "intro": "Converted ahead of time and kept, so it plays with nothing converted and downloads at once. The video app makes it in the background, when the server allows.",
+      "loading": "Loading…",
+      "loadFailed": "Unable to read what is kept ready",
+      "saveFailed": "Unable to save",
+      "failedTitle": "Unable to keep it ready",
+      "unavailableTitle": "Nothing can be kept ready",
+      "unavailableBody": "The video container's Transcode folder isn't mapped to a disk, or converted video is set to stay in memory only (Settings › Converting video).",
+      "qualities": "Qualities",
+      "qualitiesNote": "720p suits phones and watching away from home. A quality the film already fits plays as it is and needs nothing kept.",
+      "rung": "{{height}}p",
+      "newEpisodes": "New episodes too",
+      "newEpisodesNote": "Episodes added later are kept ready as they arrive.",
+      "status": "{{ready}} of {{total}} kept",
+      "asIs_one": "{{count}} plays as it is",
+      "asIs_other": "{{count}} play as they are",
+      "waiting_one": "{{count}} waiting",
+      "waiting_other": "{{count}} waiting",
+      "making": "making {{title}}, {{percent}}%",
+      "noRoom": "Everything kept ready would take {{needed}}, more than the room for kept video allows ({{limit}}). Give it more room on Settings › Copies for download, or pick fewer qualities.",
+      "save": "Keep ready",
+      "saving": "Saving…",
+      "remove": "Stop keeping ready",
+      "removing": "Stopping…"
+    }
   }
 }
