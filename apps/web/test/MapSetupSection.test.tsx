@@ -180,7 +180,8 @@ describe("the Maps page", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(actions()).toEqual(["POST /api/dashboard/locations/database/url"]));
     expect(await screen.findByText("Now using owner-city.mmdb.")).toBeInTheDocument();
-  });
+  // Types a whole download link character by character: slow under a full, busy run.
+  }, 20_000);
 
   it("turns road routes on by asking for a key, which Test saves and checks in one go", async () => {
     const user = userEvent.setup();

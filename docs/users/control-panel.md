@@ -178,21 +178,21 @@ items** takes only what has outlived the window it was given when it was deleted
 emptying the bin outright stays a button on the Recycle Bin page, where you can see
 what you're about to lose.
 
-Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
-system chores — and each carries a matching tag, so the library scans sit together
-instead of being scattered through the list. Hover a job's **i** for the full
-description of what it does.
+Jobs are grouped by what they look after — the system chores, then the gallery,
+ebooks and audiobooks — one row each, saying how often and when it runs (*Weekly on
+Sunday, 03:30*) and flagging a last run that failed. The switch at the end of a row
+turns that job on or off right there.
 
-Each row carries how often it runs and at what time, when it last ran and when it
-runs next, an on/off switch, and **Run now**. There's no Save button: a change to
-the cadence, the day, the time or the switch is saved as you make it, and the "next
-run" beside it updates to match.
+The rest of the row opens the job: what it does, its switch, **Repeat**, **Day** and
+**Time**, when it last ran and what it reported, when it runs next, and **Run now**.
+There's no Save button: a change to the cadence, the day, the time or the switch is
+saved as you make it, and "next run" updates to match.
 
 **Run now** starts a job immediately, whatever its schedule says — and keeps
 reporting until the work is genuinely finished. That matters because most of these
 jobs don't do the work themselves; they queue it. A photo library scan hands off to
 the scanner and returns in milliseconds, while the scan itself may run for an hour.
-So the button stays spinning, and the message above the table says what was queued
+So the button says *Running…*, and the message at the top of the job's page says what was queued
 with a link straight to **Infrastructure → Tasks**, where you can watch the progress bars.
 When the last queued task finishes, the message says so. Jobs that do their work on
 the spot — purging expired recycle bin items, purging missing photos — simply report their
@@ -426,11 +426,12 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
 
 The maps across the app — the gallery map, a photo's location, a story's route,
 Security & Members → Sign-in locations — and what this server keeps for them. It is one page
-of four cards. Each says in a line what it does, where its data comes from, how that
-gets here and how much space it takes, with a switch to turn it on or off. Turning
-one on says what will be downloaded, how big it is and where it goes before it does
-anything; turning one off says what it frees. The ⓘ beside each name says more about
-the source, with a link to it. Maps work with every card off.
+of four features, each a group of rows: a switch with the feature's name, then where
+its data comes from, how that gets here and how much space it takes, and whatever
+else it needs; what it does is the line under the group. Turning one on says what
+will be downloaded, how big it is and where it goes before it does anything; turning
+one off says what it frees. The ⓘ beside each name says more about the source, with a
+link to it. Maps work with every feature off.
 
 ![The Maps page: offline maps, photo place names, sign-in locations and road routes](images/108-maps-setup.png)
 
@@ -446,13 +447,13 @@ the source, with a link to it. Maps work with every card off.
   Veneto, Italy" in the photo viewer, and a **Places** view and filter in the
   gallery. Turning it on downloads about 220 MB from [GeoNames](https://www.geonames.org)
   once and builds a 27 MB database in the background, which takes a few minutes;
-  the card, and **Infrastructure → Tasks**, show how far it has got. **Update** builds it
+  its rows, and **Infrastructure → Tasks**, show how far it has got. **Update** builds it
   again from GeoNames' latest, and the names already shown stay until the new one is
   ready. No photo's location is ever sent out. Turn it off and the names go with
   it — the photos' locations, and anything people typed as the place, stay.
 
-  The place list holds towns of 500 or more people. **Every village in…** on the
-  same card adds every village of the countries you choose (Belarus, Ukraine…),
+  The place list holds towns of 500 or more people. **Every village in…** in the
+  same group adds every village of the countries you choose (Belarus, Ukraine…),
   so a small village of the family's past can be found when typing a place in the
   family tree. Villages are only for that search: photos keep being named after
   towns. **Save and rebuild** builds the list again with them, downloading the
@@ -469,7 +470,7 @@ the source, with a link to it. Maps work with every card off.
     sign-in also gets its region, town and a dot on the map. The app cannot fetch
     this file for you, so removing it cannot be undone from here.
 
-  Turning the card off deletes both. None of these databases are in backups: the
+  Turning it off deletes both. None of these databases are in backups: the
   country one can be fetched again, a towns one has to come from your own copy.
 - **Road routes** — whether a route in a [story](stories.md) follows real roads.
   Turn it on and paste a free **OpenRouteService** key (the ⓘ links to the sign-up;
@@ -483,17 +484,21 @@ the source, with a link to it. Maps work with every card off.
   a shared link works for a guest, and the map still draws if the key later lapses.
   Under **Use your own routing server** you can point it at your own
   OpenRouteService container instead, if you would rather nothing left the house.
-  Turning the card off removes the key; routes already saved keep their roads.
+  Turning it off removes the key; routes already saved keep their roads.
 
-Everything the cards keep is in the **Map data** part of App storage
+Everything these keep is in the **Map data** part of App storage
 ([Storage](#storage)), named at the bottom of the page. Offline maps and place names
 wait while App storage is off: their switches are disabled, with a link to Storage.
 
 ### Videos
 
 **Organize** is **Video genres**: one list of your own that films and shows are filed
-under. **Settings** is how videos are converted, matched and played. [Apps](apps.md)
-covers both.
+under. **Settings** opens on a short overview, each row saying how it stands:
+**Converting video** (on the GPU or the CPU, and how many are watching), **Quality
+away from home**, chosen right there, **Posters and descriptions** (whether a TMDB key
+is set), **Intros, recaps and credits** with its switch on the row, and **Copies for
+download** with the room they take. Each opens a page of its own with its explanation
+and settings, and everything saves as it changes. [Apps](apps.md) covers both.
 
 ### Ebooks and Audiobooks
 
@@ -534,9 +539,11 @@ that bring new ones in.
 
 ![The Users tab, with the first administrator carrying its Protected badge](images/65-members.png)
 
-- **Users** — create accounts, set roles (**Member** or **Admin**), change
-  passwords, and reset someone's two-factor when they've lost both their phone and
-  their backup codes.
+- **Users** — one row per person, with a search above the list: their initials,
+  name, any marks (**Current**, **Protected**, **Locked**), address and role, and
+  **New user** at the end. A row opens the person's page, which is where you change
+  their role and password, and reset their two-factor when they've lost both their
+  phone and their backup codes.
 
   **"Delete user" doesn't delete anything but the sign-in.** It deactivates the
   account and signs that person out everywhere; their libraries, groups, activity
@@ -549,15 +556,18 @@ that bring new ones in.
 - **Groups** — named sets of people you give access to as a unit. Worth it the
   moment you're giving the same three libraries to the same four people, and the
   usual way to set up a relative: make a group ("Petrov family"), give it what it
-  should see, and add people to it. Click a group's name, or **Manage**, to open
-  its page and manage its members. What a group is given is set where the thing
+  should see, and add people to it. Each group is a row with how many people and
+  libraries it covers, and **New group** ends the list; a group opens its page, where
+  its members are managed and the group can be deleted. What a group is given is set where the thing
   lives — a library's **Members**, a person's **Share photos of**, a collection's
   **Access** — and each member's page says what they get from it under **Where
   their access comes from**.
-- **Invite links** — sign-up links, so you don't have to hand out passwords. Create
-  one, send it, retire it when it's been used or you've changed your mind. Tick
-  **Joins these groups** and the person arrives already in them, with everything
-  the groups are given.
+- **Invite links** — sign-up links, so you don't have to hand out passwords.
+  **New invite** at the end of the list makes one; tick **Joins these groups** and the
+  person arrives already in them, with everything the groups are given. Each link is
+  a row saying who made it and whether it is active, used or expired, and opens a
+  page of its own with **Delete link** for when it's been used or you've changed your
+  mind.
 
 ![The Groups tab, each group listing how many people and libraries it covers](images/66-groups.png)
 
@@ -569,7 +579,7 @@ lost, or when a sign-in alert names a device you don't recognise.
 
 #### Everything one person can reach
 
-Click a person's name — or ⋮ → **Edit user** — to open
+Tap a person in the Users list to open
 their page: who they are at the top, with **Preview as …**, a ⋮ menu of the
 occasional things (password, two-factor, passkeys, remote linking, lockout) and
 **Save changes**; then tabs, each with its own address:
@@ -771,23 +781,27 @@ internet](exposing-to-the-internet.md).
 - **Policies** — the settings themselves, in order of how much they matter:
   lockout and auto-block thresholds, two-factor outside the house, sign-in
   alerts, deletion protection, device linking, the password policy, and the
-  AbuseIPDB key. Each card saves on its own; changes apply immediately.
+  AbuseIPDB key. Every switch and choice is saved the moment it changes, and a
+  number when you leave its field; there is no Save button. A number left blank, or
+  out of range, goes back to what was saved.
 - **Trusted networks** — address ranges (your home LAN, typically) that are exempt
   from rate limits, lockout and the new-network alerts. Add your own network so
-  household devices don't trip the protection meant for strangers. The **In use**
-  column counts the live sessions inside each range — a range with none is
-  either a spare or a typo. The networks phones may back up from are a separate
+  household devices don't trip the protection meant for strangers. Each network's
+  row counts the live sessions inside its range — a range with none is either a spare
+  or a typo — and opens its page with the range, its name, when it was added and
+  **Remove trusted network**. **Add network** ends the list. The networks phones may back up from are a separate
   list, on **Applications › Gallery › Device Sync**.
-- **Blocked IPs** — what's been blocked, and where you unblock it, add a block by
-  hand, or make a temporary automatic block permanent (the ∞ button on rows that
-  would otherwise expire). The chips above the list count and filter running,
-  permanent and lapsed blocks; **Clear lapsed** removes the automatic blocks that
-  have already run out in one go. The arrow at the end of a row opens that
-  address's Sign-ins dive, where the attempts behind the block are. With an
-  AbuseIPDB key set under Policies, the row shows the address's public abuse
-  score, and the opened record carries the full picture — reports, country,
-  network operator, when it was checked — with the **Check with AbuseIPDB** button
-  there, as on the Sign-ins table.
+- **Blocked IPs** — what's been blocked, one row per address saying whether it was
+  blocked automatically or by hand, why, and when the block ends. **Block IP** at
+  the end of the list adds one by hand. The chips above the list count and filter
+  running, permanent and lapsed blocks; **Clear … lapsed** removes the automatic
+  blocks that have already run out in one go. An address opens its page: how and
+  when it was blocked and until when, the reason, its reputation (with an AbuseIPDB
+  key set under Policies: the public abuse score, reports, country, network
+  operator and when it was checked, with **Check with AbuseIPDB** or **Check
+  again**), **Sign-ins from this address** — the Sign-ins dive, where the attempts
+  behind the block are — **Make permanent** for a block that would otherwise
+  expire, and **Unblock**.
 - Under **Policies** you can also connect **AbuseIPDB** (free API key) so blocked
   addresses are checked against a community abuse database — and, if you keep the
   escalation switch on, known-abusive addresses stay blocked permanently instead
@@ -809,11 +823,14 @@ live and how much room they take, and backups and recovery.
 - **Email** — outgoing mail, needed for two-factor codes, security alerts and Send
   to e-reader. It has [its own guide](email.md).
 - **Notifications** — whether members are emailed when something is shared with
-  them or sent to them by a family member. Off until you turn them on, and they
-  need Email set up first.
-- **Quotes** — the house's quotes for the home page's Quote of the day: import a
-  pack, and take one back out. It has [its own guide](quotes.md).
-- **About** — version, credits, and what changed in each release.
+  them or sent to them by a family member: two switches, saved as they move. Off
+  until you turn them on, and they need Email set up first.
+- **Quotes** — the house's quotes for the home page's Quote of the day: each
+  imported pack is a row with how many of its quotes are left, opening a page with
+  **Delete these quotes**; **Import a pack** ends the list. It has
+  [its own guide](quotes.md).
+- **About** — **Run the setup guide**, then the version, credits, and what changed
+  in each release.
 
 **Reader access** — OPDS tokens that let a reading app (KOReader, Moon+ Reader,
 Thorium) browse your ebooks — is under **Profile → Security**. Each person
@@ -829,10 +846,11 @@ use, each with how many libraries use it and the free space on its disk. **Syste
 data** is the folder the app needs to run: thumbnails, backups and metadata, the
 first two of which can each have a folder of their own. **App storage** is one
 optional switch for the Photo Inbox, the App files library, renders and map data,
-kept together in one folder. Each block leads with its folder, its free space and
-**Change**; **What's inside** unfolds the details, and opens by itself when a move is
-running or something needs attention. Every change is confirmed with the exact folder
-before it happens. The **Recycle Bin location** is set on the Recycle Bin page;
+kept together in one folder. Each is a group of rows: its folder, with the free
+space on its disk — tap it to change it — then what lives in it, one row each, with a
+move in progress or a problem shown under the row it belongs to. A library location
+opens its own page, with **Remove** waiting until no library uses it. Every change is
+confirmed with the exact folder before it happens. The **Recycle Bin location** is set on the Recycle Bin page;
 changing it moves what is in the bin in the background.
 
 ### App storage contents

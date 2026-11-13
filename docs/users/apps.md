@@ -151,9 +151,11 @@ off for everyone until it is paired again.
 **Control panel → Security & Members → App access**, for the chosen app:
 
 - **Who may use it.** Everyone signed in is a member until you change something.
-  Grant people or groups **Member** (uses the app) or **Manager** (also looks
-  after it — its admin pages), or **Denied** to keep someone out; take
-  **Everyone** down to *No access* to allow only the people you list.
+  **Add a person or group** at the end of the list opens a search; whoever you
+  pick starts as **Member** (uses the app), and their row's role choice makes them
+  **Manager** (also looks after it — its admin pages) or **Denied** to keep them
+  out — its last option, **Remove**, takes them off the list. Take **Everyone**
+  down to *No access* to allow only the people you list.
   Administrators are always managers. Someone with no role doesn't see the app
   at all: no menu entry, and its address answers as if it weren't installed.
 - **From where.** Each thing the app does has its own rule — **Anywhere**,
@@ -208,7 +210,8 @@ player. **Applications → Videos → Settings → Converting video** sets how:
 - **When a viewer's memory is full** — *Carry on on the disk* keeps the usual
   few minutes ready, the rest in the `/transcode` folder; *Keep less ahead*
   stays in memory and converts a little at a time.
-- **Quality away from home** (*up to 720p* to start with). Someone watching from
+- **Quality away from home** (*up to 720p* to start with), chosen on the
+  **Settings** overview itself rather than this page. Someone watching from
   outside your network gets at most this picture, made smaller while they watch,
   and starts at it; **Quality** under the player's **Settings** lets them pick less. A film
   already under it is sent as it is. At home everyone gets the file as it is,
@@ -217,7 +220,7 @@ player. **Applications → Videos → Settings → Converting video** sets how:
   away. One viewer at 720p needs about 5 Mbit/s of your upload link; a
   Blu-ray rip sent as it is needs 30 or more, which is why the cap exists.
 
-The card shows who is watching what right now, and how much of it sits in
+The page shows who is watching what right now, and how much of it sits in
 memory and on the disk. Most films need well under the 300 MB; a Blu-ray rip
 whose sound is converted carries its picture unchanged, so it is the one that
 fills a share. Changes apply at once; anyone already watching carries on.
@@ -227,7 +230,7 @@ fills a share. Changes apply at once; anyone already watching carries on.
 An Intel CPU's graphics (Quick Sync) convert several films at once for little
 CPU. To use them, fill in the video container's optional **Intel GPU** field
 with `/dev/dri` on Unraid (or pass `/dev/dri` to the container elsewhere). The
-engine tries the GPU when it starts, and the **Converting video** card says what
+engine tries the GPU when it starts, and the **Converting video** page says what
 it found: the graphics and driver, and which kinds of video they decode. Videos
 they can't decode are decoded on the CPU and still converted on the GPU.
 
@@ -239,11 +242,11 @@ they can't decode are decoded on the CPU and still converted on the GPU.
 - **HDR films** (HDR10, HLG) are converted to normal colours, so they don't play
   grey and washed out on an ordinary screen: on the GPU where it can, else on
   the CPU. Picture subtitles (Blu-ray, DVD) are drawn on the GPU where it can,
-  too. The card says which.
+  too. The page says which.
 - The list of who is watching says **GPU** or **CPU** beside each conversion,
   and **HDR** for an HDR film.
 - Without the field, or without Intel graphics, everything is converted on the
-  CPU as before, and the card says so.
+  CPU as before, and the page says so.
 
 ## Posters and descriptions
 

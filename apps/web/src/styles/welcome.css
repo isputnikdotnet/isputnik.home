@@ -116,7 +116,7 @@
 }
 
 .welcome-body h2 { margin: 0; font-size: 1.25rem; }
-.welcome-body h3 { margin: 12px 0 0; font-size: 1rem; }
+.welcome-body h3:not(.grouped-list-title):not(.map-feature-name) { margin: 12px 0 0; font-size: 1rem; }
 .welcome-body p { margin: 0; line-height: 1.55; }
 
 /* A field with its own Save beside it: each answer here is written on its own, so

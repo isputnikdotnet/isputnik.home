@@ -60,9 +60,9 @@ photo or video for thumbnails (roughly 8 GB for 100,000), a few hundred MB per
 backup, and a few KB per book of metadata. When less than a tenth of the disk is
 free, the block warns you.
 
-Once it is set, the block leads with the folder, its free space and **Change**.
-**What's inside** unfolds what lives there (it opens by itself while a move runs or
-when something needs attention):
+Once it is set, the folder is the first row, with its free space — tap it to
+**Change** it. Under it is one row for each thing that lives there; tap Thumbnails or
+Backups to give them a folder of their own, and a move in progress shows under its row:
 
 | Row | Where it goes | Change |
 |---|---|---|
@@ -79,7 +79,7 @@ An environment variable still works for a folder: `THUMBNAIL_PATH`,
 `BACKUP_PATH` or `METADATA_PATH` are used when no folder was chosen on this
 page, and the row says so.
 
-**Change** on the block moves system data somewhere else. Thumbnails, backups and
+Tapping the folder's row (**Change**) moves system data somewhere else. Thumbnails, backups and
 metadata that live in it move along, each as a task; the ones with a folder of
 their own stay where they are. **Change** on the Thumbnails or Backups row gives
 that one a folder of its own, or sends it back to system data, and carries what
@@ -135,9 +135,9 @@ and they are not listed on the Libraries page or in the gallery's library filter
 Nothing in them shows up on the Timeline, Memories, the Home page, People, the map
 or the pickers on its own; a recording or a voice note is reached from the story or
 the photo it belongs to, and a photo a story, album or slideshow already holds keeps
-showing there. Who reviews the Inbox is set from **Reviewers** on its row: admins
+showing there. Who reviews the Inbox is set from **Reviewers**, a row under it: admins
 always do, and anyone you name can add details or keep and discard
-([Photo Inbox](photo-inbox.md)). **Scanning** on the same row holds what the
+([Photo Inbox](photo-inbox.md)). **Scanning**, the row after it, holds what the
 Libraries page would show on a gallery library's Scanning tab: what a scan reads,
 and the rule that pairs a print scanned on both sides with its back
 ([Gallery library](library-gallery.md)).
@@ -315,9 +315,9 @@ System data sits wherever you chose, often outside the location altogether:
 └── metadata\
 ```
 
-You can add several locations if your media lives on different drives. The
-**Libraries** column on this page shows how many libraries are using each one,
-and a location can't be removed while a library still depends on it.
+You can add several locations if your media lives on different drives. Each
+location opens a page saying how many libraries use it, and its **Remove** stays off
+while a library still depends on it.
 
 ## Your original files are never modified
 

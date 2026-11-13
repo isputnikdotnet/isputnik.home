@@ -48,10 +48,10 @@ eight steps, in the order they depend on each other:
    movies and kept maps. *In system data* is already chosen, so it is one confirmed
    click; a custom folder on your media disk is the better home for a lot of video.
    The step is the Storage page's own block.
-4. **Backups** — a nightly full backup of the catalogue, settings and covers, and how
-   many to keep. The Backup page in the control panel has the smaller kinds and the
+4. **Backups** — a switch for a nightly full backup of the catalogue, settings and
+   covers, then its time and how many to keep, each saved as you leave it. The Backup page in the control panel has the smaller kinds and the
    weekly and monthly cadences.
-5. **Maps** — the same four cards as [Control panel → Applications → Gallery → Settings](control-panel.md#maps),
+5. **Maps** — the same four features as [Control panel → Applications → Gallery → Settings](control-panel.md#maps),
    each with its switch: offline maps, the names of the places photos were taken
    in, where sign-ins came from, and roads for story routes. Maps work with all of
    them off.
@@ -60,12 +60,13 @@ eight steps, in the order they depend on each other:
    seen before. Locked until email is set up, because an alert nobody receives reads
    exactly like nothing having happened.
 8. **Appearance** — the theme the sign-in screen uses and new members start with.
+   It starts on **Orbit**, the iSputnik theme.
 
 ![The guide's Storage step: the containers and system data](images/103-welcome-storage.png)
 
 ![The guide's App storage step: one switch, with In system data chosen](images/104-welcome-gallery.png)
 
-![The guide's Maps step: the four map cards](images/113-welcome-maps.png)
+![The guide's Maps step: the four map features](images/113-welcome-maps.png)
 
 Every step saves through the same place its Control panel page does, so none of it is
 your only chance to answer. **Skip for now** is a real answer — it closes the guide for

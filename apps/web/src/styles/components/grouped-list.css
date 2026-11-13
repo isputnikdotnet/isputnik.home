@@ -121,7 +121,8 @@ button.grouped-row:focus-visible { outline: 2px solid var(--accent); outline-off
 }
 
 @media (max-width: 740px) {
-  .grouped-row-value { max-width: 42%; }
+  /* A long value (a date beside a long message) wraps rather than being cut off. */
+  .grouped-row-value { max-width: 42%; white-space: normal; overflow-wrap: anywhere; }
 }
 
 /* ToggleRow's switch and CheckRow's tick. */

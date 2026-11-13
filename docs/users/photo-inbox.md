@@ -26,7 +26,7 @@ The Photo Inbox is part of **App storage**: switching App storage on in
 the app keeps its name and it is not listed among your libraries.
 
 **Who reviews it.** Admins always do. Anyone else reviews because you named them:
-**Reviewers** on the Inbox's row of the Storage page lists people, groups or
+**Reviewers**, under the Inbox's row on the Storage page, lists people, groups or
 Everyone, each at one of two levels:
 
 - **Can add details**: dates, places, notes, people and voice notes on the photos
@@ -63,7 +63,7 @@ Inbox is emptied ([Sharing with family](family-sharing.md#for-you)).
 subfolder of the Inbox's folder — one per box, named for it — and re-scan the
 library. Files dropped straight into the root show up as *Loose files*. When
 the scanner saves the back of each print as a second file, turn on the pairing
-rule first, under **Scanning** on the Inbox's row of the Storage page, so a
+rule first, under **Scanning**, below the Inbox's row on the Storage page, so a
 batch lands as photos with their backs rather than twice as many photos
 ([Gallery library](library-gallery.md)).
 
@@ -198,7 +198,7 @@ the scanner. The Inbox has a second screen for exactly that person: **Review
 mode**, one photo at a time, four questions, and nothing else to learn.
 
 **Setting it up** is one grant. Give her an account as an ordinary member
-([Your account](your-account.md)), open **Reviewers** on the Inbox's row under
+([Your account](your-account.md)), open **Reviewers**, below the Inbox's row under
 **Control panel → System Settings → Storage**, and add her as **Can add details**. She can
 write on the photos but cannot Keep or Discard, so she can answer without being
 able to move anything, and she sees nothing outside the Inbox unless you have

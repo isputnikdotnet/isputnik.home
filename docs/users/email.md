@@ -44,18 +44,18 @@ through a provider rather than direct.
 |---|---|---|
 | **SMTP host** | `smtp.example.com` | Your provider's outgoing server, from their help pages |
 | **Port** | `587` or `465` | 587 is the common default |
-| **Use implicit TLS** | Off for port 587, on for port 465 | This one trips people up — see below |
+| **Implicit TLS** | Off for port 587, on for port 465 | This one trips people up — see below |
 | **Username** | Usually your full email address | Leave blank for a relay that doesn't ask for one |
 | **Password** | The app password | Stored on the server and never shown again |
 | **From address** | `library@example.com` | Who the mail appears to be from. Required |
 | **From name** | `iSputnik Library` | Optional; the friendly name beside the address |
 
-**The TLS checkbox is the usual sticking point.** There are two ways to encrypt
+**The TLS switch is the usual sticking point.** There are two ways to encrypt
 SMTP, and they aren't interchangeable:
 
-- **Port 587, checkbox off** — the connection starts plain and upgrades (STARTTLS).
+- **Port 587, switch off** — the connection starts plain and upgrades (STARTTLS).
   This is what most providers want.
-- **Port 465, checkbox on** — encrypted from the first byte (implicit TLS).
+- **Port 465, switch on** — encrypted from the first byte (implicit TLS).
 
 Mismatch them and the test hangs until it times out rather than saying anything
 useful. If a save-and-test times out, try the other combination before assuming the
@@ -99,7 +99,8 @@ to make optional.
 
 ## Save, then test
 
-Select **Save**, then **Send test email**. The test goes to *your own* account
+Select **Save**, then **Send test email** — it stays greyed out while there are
+unsaved changes, because the test uses what is saved. The test goes to *your own* account
 address, so check the inbox you sign in with.
 
 The password field is left blank on the way back in — it shows `•••••••• (unchanged)`
