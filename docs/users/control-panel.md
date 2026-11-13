@@ -496,8 +496,9 @@ wait while App storage is off: their switches are disabled, with a link to Stora
 under. **Settings** opens on a short overview, each row saying how it stands:
 **Converting video** (on the GPU or the CPU, and how many are watching), **Quality
 away from home**, chosen right there, **Posters and descriptions** (whether a TMDB key
-is set), **Intros, recaps and credits** with its switch on the row, and **Copies for
-download** with the room they take. Each opens a page of its own with its explanation
+is set), **Intros, recaps and credits** with its switch on the row, **Copies for
+download** with the room they and the films kept after watching take, and **When
+downloads are prepared** with its rule and how many are in the queue. Each opens a page of its own with its explanation
 and settings, and everything saves as it changes. [Apps](apps.md) covers both.
 
 ### Ebooks and Audiobooks

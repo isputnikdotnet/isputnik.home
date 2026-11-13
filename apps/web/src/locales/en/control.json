@@ -280,7 +280,11 @@
       "gamesLog": "Games server log",
       "gamesGuestLinks": "Guest links to the games",
       "videoConversion": "Converting video while watching",
+      "videoStorage": "Where converted video is kept",
       "videoCopies": "Copies for download",
+      "videoKeptFilms": "Films kept after watching",
+      "videoKeepReady": "Titles kept ready",
+      "videoJobs": "When downloads are prepared",
       "videoMetadata": "Posters and descriptions (TMDB)",
       "videoDetection": "Intros, recaps and credits",
       "sections": "Sections of the app"

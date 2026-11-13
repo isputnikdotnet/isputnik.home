@@ -83,7 +83,7 @@ container:
 | `/config` | an appdata folder: the catalog database and poster cache |
 | Network | the Unraid template publishes port 4300 on `bridge`, so the address is `http://<your Unraid IP>:4300`; a shared network or a fixed IP work too |
 | `GATEWAY_SECRET` | the Unraid template requires it, so make it first: **Control panel → Infrastructure → Services → Video card → Pair with this server → Generate secret**, then paste it here. Elsewhere it can wait for step 3; the container stops as soon as it starts until it has one |
-| `/transcode` | optional: where ffmpeg writes each piece of a film being converted before the engine takes it into memory, and where pieces past a viewer's memory share stay ([Converting video](#converting-video)); left out, a folder inside the container |
+| `/transcode` | optional but recommended: a fast disk (a cache pool or SSD folder) for converted video that doesn't fit in memory, films kept after watching, titles kept ready and copies for download ([Where converted video is kept](#where-converted-video-is-kept)). Left out, video is converted in memory only and nothing is kept |
 
 Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
 01/Show (Year) S01E01.mkv` for shows, `Movie (Year)/Movie (Year).mkv` for films.
@@ -199,17 +199,14 @@ picture) is converted while someone watches: the sound alone when the picture
 is fine, both when it isn't. The engine keeps a few minutes ready ahead of the
 player. **Applications → Videos → Settings → Converting video** sets how:
 
-- **People watching converted video at once** (3 to start with). Each one runs a
-  conversion of their own, and re-encoding a picture keeps a processor core
+- **People watching converted video at once** (3 to start with). Each film
+  being converted takes a place, and re-encoding a picture keeps a processor core
   busy. One more sees *Too many people are watching right now* with **Try
   again**, rather than everyone stuttering. Films that play as they are don't
-  count.
-- **Memory per viewer** (300 MB to start with). What is ready ahead is kept in
-  the engine's memory up to this much per viewer; nothing to set up in Docker.
-  0 keeps it all on the disk.
-- **When a viewer's memory is full** — *Carry on on the disk* keeps the usual
-  few minutes ready, the rest in the `/transcode` folder; *Keep less ahead*
-  stays in memory and converts a little at a time.
+  count, and neither does joining a film someone is already watching at the same
+  quality (see *Watched together* below).
+- **Where converted video is kept** and **Memory for conversion** — see the next
+  section.
 - **Quality away from home** (*up to 720p* to start with), chosen on the
   **Settings** overview itself rather than this page. Someone watching from
   outside your network gets at most this picture, made smaller while they watch,
@@ -221,9 +218,49 @@ player. **Applications → Videos → Settings → Converting video** sets how:
   Blu-ray rip sent as it is needs 30 or more, which is why the cap exists.
 
 The page shows who is watching what right now, and how much of it sits in
-memory and on the disk. Most films need well under the 300 MB; a Blu-ray rip
-whose sound is converted carries its picture unchanged, so it is the one that
-fills a share. Changes apply at once; anyone already watching carries on.
+memory and on the disk. A Blu-ray rip whose sound is converted carries its
+picture unchanged, so it is the one that fills memory fastest. Changes apply at
+once; anyone already watching carries on.
+
+### Where converted video is kept
+
+The few minutes kept ready ahead of each viewer go into memory first: it is the
+fastest place, and needs nothing set up. The **Where converted video is kept**
+group on the **Converting video** page says what the video container has:
+
+- **Fast disk** with its folder and free space, when the container's
+  `/transcode` folder is mapped to a disk of its own. Map it to a cache pool or
+  an SSD folder, not the array.
+- **No disk for video** when it isn't. On Unraid that is the template's
+  *Transcode* field left empty: `/transcode` would then be a folder inside the
+  container (in `docker.img`), so the engine keeps everything in memory instead
+  and prepares no copies for download there. Fill in the field, restart the
+  container, and the disk choices below appear.
+
+Then:
+
+- **Keep converted video** — *In memory, then on the disk* (the default with a
+  disk): memory first, and the disk once memory is full. *In memory only*: never
+  the disk; once memory is full each viewer is kept just a few pieces ahead.
+  *On the disk only*: for a server with little memory to spare. Without a disk,
+  only *In memory only* is offered.
+- **Memory for conversion (MB)** — shared by everyone watching converted video
+  (a tenth of the server's memory, at most 1 GB, to start with). About 300 MB
+  keeps a few minutes ready for one viewer.
+
+### Watched together, and kept after watching
+
+- **Watched together.** Two people watching the same film at the same quality,
+  sound track and subtitles share one conversion: what the first one has made,
+  the second gets at once. The list of who is watching says *watched together*.
+- **Kept after watching.** With a disk, a film whose picture had to be
+  re-encoded is kept once someone has watched it to the end. Next time it plays
+  with nothing converted (*kept, nothing converted* in the list), also after the
+  container restarts. A film left mostly watched (70% or more) is finished off in
+  the background so it is kept too. Films that only needed their sound or their
+  container changed are not kept: that is quick to do again.
+- Kept films share one room with the copies for download; see
+  [Copies for download](#copies-for-download).
 
 ### Converting on the GPU
 
@@ -492,6 +529,16 @@ Good to know:
 
 - **A copy prepared once is kept on the server**, so the next person who wants
   that film at that quality gets it at once. See *Copies for download* below.
+  A film an admin keeps ready, or one someone has watched to the end, is
+  usually ready at once too.
+- **It may wait for the night.** An admin can have downloads prepared only at
+  night, or only when the server is quiet; *Downloads* then says *Waiting for
+  the night to be prepared* or *Waiting for a quiet moment on the server*.
+- **There is a limit to how many you can have waiting** (10 to start with). Ask
+  for the next one when one is ready.
+- **No disk on the server:** when the video container has no disk for copies,
+  an optimized download is converted while it comes down instead, which needs
+  the app open from start to finish.
 - **The download itself needs the app open**, and carries on where it stopped if
   the screen locks or the connection drops. One film downloads at a time.
 - **Downloads wait while you watch** something from the server.
@@ -514,22 +561,71 @@ has its own.
 
 ### Copies for download
 
-**Applications → Videos → Settings → Copies for download** is where an admin sets how much room
-the prepared copies may take together (20 GB to start with) and sees what they
-take now. Past that size, the copies used longest ago are removed; a copy of a
-file that has since changed is made again. **Remove all copies** empties it;
-your video files and what people have already downloaded are not affected.
+**Applications → Videos → Settings → Copies for download** is where an admin sees
+what the video app keeps on its disk and how much room it may take:
 
-Copies are made one at a time, on the GPU when the video container has one
-(*Converting on the GPU* above), otherwise on the CPU at low priority and with
-half its cores. A copy being made stands still while anyone watches converted
-video, and carries on after. They are kept in the video container's `/transcode`
-folder when you have mapped one — put it on a fast disk with room for them —
-and beside its catalog otherwise.
+- **Copies** prepared for download, and **Kept after watching** — the films kept
+  once someone watched them to the end, with *watching now* beside one in use.
+- **Kept ready** — the titles an admin keeps ready (see below), how many of
+  their episodes are ready, and what they take. Each opens its page.
+- **Room for kept video, GB** — one room for copies and kept films together (50
+  GB on a new install; an existing one keeps the size it had). Past it, whatever
+  was used longest ago is removed first; never a film being watched, nor a title
+  kept ready. A copy of a file that has since changed is made again.
+- **Remove copies and kept films** empties it, but leaves films someone is
+  watching. Your video files and what people have already downloaded are not
+  affected.
 
-This needs video container 0.33 or newer. With an older one, an optimized
-download is converted while the app waits, which is slower and needs the app
-open from start to finish.
+A copy whose picture is re-encoded is made the same way as watching it, a stretch
+at a time, into the same kept film, then put together into one file in seconds.
+So a copy and the kept film come from one piece of work, and a copy stopped by a
+restart carries on where it was. Copies are made on the GPU when the video
+container has one (*Converting on the GPU* above), otherwise on the CPU at low
+priority and with half its cores; a job stands still while anyone watches
+converted video, and carries on after.
+
+This needs the video container's `/transcode` folder mapped to a disk (see
+*Where converted video is kept*), and video container 0.35 or newer.
+
+### Keep ready
+
+An admin can have a film or show converted ahead of time and kept, so it plays
+with nothing converted and downloads at once. On a film's or show's page open
+the **⋮** after Play and choose **Keep ready…**; for one season, choose **Keep this
+season ready…** in the **⋮** of its season row. Then:
+
+- **Qualities** — 1080p, 720p and 480p; 720p is ticked to start with, which suits
+  phones and watching away from home. A quality the film already fits plays as
+  it is, so nothing needs keeping for it.
+- **New episodes too** (shows and seasons) — episodes added later are kept
+  ready as they arrive.
+- The dialog says how far it has got (*4 of 10 kept*, the one being made), and
+  **Stop keeping ready** ends it. What was made stays until the room needs it.
+
+The work is done in the background by the same queue as copies for download
+(see the next section). Titles kept ready are never removed to make room; a
+choice that wouldn't fit says so, with what it would take and what the room
+allows. Only admins see **Keep ready**.
+
+### When downloads are prepared
+
+**Applications → Videos → Settings → When downloads are prepared** sets when the
+video app does its background work — copies for download, titles kept ready and
+films finished off after watching — and shows the queue.
+
+- **Prepare** — *Right away* (the default), *When the server is idle* (nobody
+  watching converted video and the server not busy for two minutes), or *Only
+  at night* between a **From** and **Until** time (which may pass midnight). Work
+  under way when the window closes or the server gets busy stops and carries on
+  later where it was.
+- **Jobs at once** — 1 to start with; 2 suits a server with a GPU.
+- **Downloads waiting per member** — how many prepared copies one member may
+  have waiting at a time (10 to start with). Admins aren't held to it.
+- **Download speed away from home (Mbit/s)** — a limit for all copies going
+  outside your network together, so streaming keeps its share of your upload
+  link. 0 for no limit. Watching is never slowed by it.
+- **Queue** — what runs and what waits. The **⋮** beside each has **Run now**
+  (whatever the time or load), **Move to the top** and **Take off the queue**.
 
 ## Subtitles
 
@@ -563,6 +659,7 @@ backup still finishes and its log line says which app was left out and why.
 | Dashboard: **Not answering** | iSputnik can't reach the address. Check the container is running, the address and port, and that both are on the same network (not Docker's default `bridge`). |
 | Dashboard: **Secret refused**, or members see "Not signed in" in the games | The two secrets differ. Generate a new one on Infrastructure → Services, paste it into the app's `GATEWAY_SECRET` and restart the app. |
 | Infrastructure → Services: **Set in this container's environment** | The address (`GAMES_URL` / `VIDEO_URL`) or the secret (`GAMES_GATEWAY_SECRET` / `VIDEO_GATEWAY_SECRET`) is set on iSputnik and wins. Keep it, or remove it and restart iSputnik to set it on Infrastructure → Services. |
+| Video settings: **No disk for video** | The video container's `/transcode` is not mapped to a disk, so video is converted in memory only and nothing is kept. Map it to a cache-pool or SSD folder and restart the container. |
 | A rule refuses everyone from outside | Behind a reverse proxy whose trust isn't set up, every visitor counts as outside. Set `TRUST_PROXY` — see [Exposing your library to the internet](exposing-to-the-internet.md). |
 
 ## Checklist
@@ -574,4 +671,5 @@ backup still finishes and its log line says which app was left out and why.
 [ ] Infrastructure → Services: Test connection says Paired
 [ ] Security & Members → App access: who may use it, and from where
 [ ] Video: media folder mounted read-only, libraries added on Libraries & Scanning → Libraries
+[ ] Video: /transcode mapped to a fast disk, and Converting video shows the Fast disk
 ```
