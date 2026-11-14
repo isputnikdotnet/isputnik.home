@@ -27,7 +27,10 @@ Beta means your data is looked after: the database migrates itself forward on ev
 
   <Date>1794571200</Date>
   <Changes>
-### 2026.11.13 — 4.89.0 Diagnostics for bug reports
+### 2026.11.13 — 4.89.1 A damaged ebook no longer stops the scan
+- **One damaged EPUB no longer stops the whole ebook library scan.** A book whose zip was broken ("Invalid CEN header") opened without complaint and failed only when the scanner read the first file inside it, where nothing caught the error: the scan stopped, every retry hit the same book, and the library ended on **scan error**. A book that can't be read is now added with its title taken from its file name and no cover, and any other error in a single book is logged and skipped, so one book can never stop the scan again. Thanks to Stefan Knol for tracking it down.
+
+### 2026.11.12 — 4.89.0 Diagnostics for bug reports
 - **A diagnostics report to attach to a bug report.** Control panel › Infrastructure › Diagnostics puts together what a bug report needs, so nobody has to ask what you are running: this server's version and machine, the containers beside it and whether they answer, the libraries and their scan state, the failures in the activity log over the last two weeks, and what each container says about itself. The video container (0.38.0 or later) adds its ffmpeg, what its GPU check found and the GPU's recent failures, its conversion settings and the warnings and errors in its log. **Copy report** and **Download .txt** take it, and **Open a bug report** opens the form with your version filled in.
 - **It keeps your family's details out unless you ask.** People's names and emails, library names, folders, file names, IP addresses and web addresses are replaced with `&lt;person&gt;`, `&lt;name&gt;`, `&lt;path&gt;`, `&lt;ip&gt;` and `&lt;host&gt;` until you turn on **Include names, folders and addresses**, which warns that bug reports on GitHub are public. Every part can be left out, the whole report is shown before you copy it, and nothing is sent anywhere by the app. The bug report form now asks for it.
 - **The video cache in the guide.** The Video guide covers the cache settings from 4.88.0 (where conversions are made, Keep ready, when downloads are prepared), with screenshots, and the control panel search finds them.
@@ -55,9 +58,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 ### 2026.11.12 — 4.86.2 Stop preview, stopped
 - **Stop preview ends the preview.** On a server reached over HTTPS, **Stop preview** reloaded the page but left you looking at the app as the member, and even signing out and back in dropped you straight into the same preview — only clearing the browser’s site data got you out. The browser was quietly refusing the request to forget the preview. It now forgets it on Stop, on signing out, and whenever anyone signs in, so a fresh sign-in always starts as yourself. Thanks to Stefan Knol for the report and the recording (#102).
 - The same slip left sign-in, two-step and passkey cookies behind after they had served their purpose on HTTPS servers. They were already useless by then; they are now removed properly too.
-
-### 2026.11.12 — 4.86.1 Busy add-ons get a breather
-- **A busy or slow add-on no longer gets hammered.** When the video engine (or another add-on container) answered a request with *busy* or *took too long*, this server quietly asked again up to ten times, milliseconds apart, instead of passing the answer on — its *try again in 2 seconds* was read as 2 milliseconds. For video, one refused request during a quality switch became a burst that restarted the conversion about twenty times in under two seconds. The answer now goes straight to the player, which waits as asked. Thanks to Stefan Knol for tracing it (#103).
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

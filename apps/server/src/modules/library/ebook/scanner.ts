@@ -4,6 +4,7 @@ import AdmZip from "adm-zip";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
+import { log } from "../../../core/logger.js";
 import { stmt } from "../../../db/statement-cache.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { renderInTurn, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
@@ -129,14 +130,18 @@ function allMatches(source: string, re: RegExp): string[] {
   return [...source.matchAll(re)].map((m) => decodeXml(m[1])).filter((v): v is string => Boolean(v));
 }
 
+// A book that can't be read gives null, and the caller titles it from its file
+// name. AdmZip reads a damaged archive's index lazily, on the first getEntry() /
+// getData(), so the whole read sits inside the try, not just the open (#105).
 export function extractEpubMetadata(filePath: string): EbookMetadata | null {
-  let zip: AdmZip;
   try {
-    zip = new AdmZip(filePath);
+    return readEpubMetadata(new AdmZip(filePath));
   } catch {
     return null;
   }
+}
 
+function readEpubMetadata(zip: AdmZip): EbookMetadata | null {
   const container = zip.getEntry("META-INF/container.xml")?.getData().toString("utf8");
   const opfPath = container?.match(/full-path=["']([^"']+)["']/i)?.[1];
   if (!opfPath) return null;
@@ -582,6 +587,17 @@ export function reconcileOwnedItems(libraryId: string, scanRuleId: string | null
   }
 }
 
+// One book's failure is that book's, not the scan's: it is logged and skipped, and
+// the rest of the library is still scanned (#105). A skipped book keeps its key in
+// the group maps, so reconcile does not mistake it for a deleted one.
+async function ingestOrSkip(groupFiles: EbookFileEntry[], ingest: () => Promise<unknown>): Promise<void> {
+  try {
+    await ingest();
+  } catch (err) {
+    log.warn(`ebook scan: skipped "${groupFiles[0].relativePath}" — ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 async function scanEbookLibrary(
   libraryId: string,
   options: EbookScanOptions = {},
@@ -639,7 +655,7 @@ async function scanEbookLibrary(
   let processedGroups = 0;
   for (const groupFiles of defaultGroups.values()) {
     onProgress?.(processedGroups, totalGroups);
-    await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: null });
+    await ingestOrSkip(groupFiles, () => ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: null }));
     processedGroups += 1;
   }
   for (const [ruleId, groups] of ruleGroups) {
@@ -650,7 +666,7 @@ async function scanEbookLibrary(
       const key = ebookGroupKey(groupFiles[0].relativePath);
       const owner = resolveOwnerIndexed(ownerIndex, key);
       const fields = matchLayouts(rule.layouts, owner ? keyRelativeToAnchor(key, owner.anchor) : key);
-      await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: ruleId, fields });
+      await ingestOrSkip(groupFiles, () => ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: ruleId, fields }));
       processedGroups += 1;
     }
   }

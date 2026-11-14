@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.89.1",
+    "label": "A damaged ebook no longer stops the scan",
+    "changes": [
+      "**One damaged EPUB no longer stops the whole ebook library scan.** A book whose zip was broken (\"Invalid CEN header\") opened without complaint and failed only when the scanner read the first file inside it, where nothing caught the error: the scan stopped, every retry hit the same book, and the library ended on **scan error**. A book that can't be read is now added with its title taken from its file name and no cover, and any other error in a single book is logged and skipped, so one book can never stop the scan again. Thanks to Stefan Knol for tracking it down."
+    ]
+  },
+  {
     "version": "4.89.0",
     "label": "Diagnostics for bug reports",
     "changes": [
