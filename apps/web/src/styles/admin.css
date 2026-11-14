@@ -3635,6 +3635,11 @@ tr.control-anchor-flash > td {
 .diagnostics-report .diagnostics-preview h3 { margin: 0; }
 .diagnostics-report .diagnostics-text { max-height: 62vh; min-height: 240px; }
 @media (max-width: 860px) { .diagnostics-report { grid-template-columns: minmax(0, 1fr); } }
+/* A part's own page: its checks, and a column of where to look next. */
+.diagnostics-part-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px; align-items: start; min-width: 0; }
+.diagnostics-part-main, .diagnostics-part-aside { display: grid; gap: 16px; min-width: 0; }
+.diagnostics-part-tests { display: grid; gap: 16px; min-width: 0; scroll-margin-top: 80px; }
+@media (max-width: 1000px) { .diagnostics-part-page { grid-template-columns: minmax(0, 1fr); } }
 .diagnostics-text {
   margin: 0;
   max-height: 60vh;

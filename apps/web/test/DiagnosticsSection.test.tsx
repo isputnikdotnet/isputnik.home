@@ -49,7 +49,7 @@ describe("Diagnostics", () => {
     expect(screen.getByText("Not set up")).toBeTruthy();
   });
 
-  it("opens the report with everything hidden, and hides less when asked", async () => {
+  it("opens the report with no private details in it, and adds one when ticked", async () => {
     const user = userEvent.setup();
     render(<DiagnosticsSection />);
     await user.click(await screen.findByRole("button", { name: /Download report/ }));
@@ -57,7 +57,7 @@ describe("Diagnostics", () => {
     expect(await within(dialog).findByText(/gallery: <name> at <path>/)).toBeTruthy();
     expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,paths,names,net");
 
-    await user.click(within(dialog).getByRole("switch", { name: /Folders and file paths/ }));
+    await user.click(within(dialog).getByRole("switch", { name: /Include folders and file paths/ }));
     expect(await within(dialog).findByText(/gallery: Kids at \/mnt\/kids/)).toBeTruthy();
     expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,names,net");
 

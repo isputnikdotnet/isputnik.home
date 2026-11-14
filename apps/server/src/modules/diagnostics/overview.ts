@@ -4,10 +4,12 @@
 // The folder checks are async and short: a sleeping disk makes its library "slow
 // to answer", it doesn't hold the page.
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { FastifyRequest } from "fastify";
 import { db } from "../../db.js";
 import { config } from "../../config.js";
+import { callsToday, type CallCount } from "../apps/calls.js";
 import { appStatus } from "../apps/status.js";
 import { APPS, type AppId } from "../apps/registry.js";
 import { backupRunState, isPreUpgradeCopy, listBackupFiles } from "../backups/run.js";
@@ -36,6 +38,25 @@ export interface PartOverview {
   libraries?: number;
   lastBackupAt?: string | null;
   uptimeSeconds?: number;
+  /** This server: each library and how its folder answered. */
+  libraryChecks?: LibraryCheck[];
+  /** This server: the newest backup, and the last run's error. */
+  lastBackup?: { at: string; kind: string; sizeBytes: number } | null;
+  backupError?: string | null;
+  /** This server: what it runs on. */
+  machine?: { node: string; os: string; cpus: number; memoryBytes: number; rssBytes: number };
+  /** A container: the gateway's requests to it today (calls.ts). */
+  calls?: CallCount;
+}
+
+export interface LibraryCheck {
+  id: string;
+  name: string;
+  type: string;
+  /** ok · missing · slow · scanFailed · container: a video library, its folder the container's. */
+  state: "ok" | "missing" | "slow" | "scanFailed" | "container";
+  /** How long the folder took to answer, in ms; null when not asked or it didn't answer. */
+  ms: number | null;
 }
 
 /** A folder that hasn't answered by then is reported slow, not missing. */
@@ -43,10 +64,14 @@ const FOLDER_TIMEOUT_MS = 3000;
 /** No backup for longer than this needs a look. */
 const BACKUP_DAYS = 7;
 
-async function folderState(folder: string): Promise<"ok" | "missing" | "slow"> {
+async function folderState(folder: string): Promise<{ state: "ok" | "missing" | "slow"; ms: number | null }> {
   let timer: NodeJS.Timeout | undefined;
-  const slow = new Promise<"slow">((resolve) => { timer = setTimeout(() => resolve("slow"), FOLDER_TIMEOUT_MS); });
-  const look = fs.promises.stat(folder).then((stat) => (stat.isDirectory() ? "ok" as const : "missing" as const), () => "missing" as const);
+  const started = performance.now();
+  const slow = new Promise<{ state: "slow"; ms: null }>((resolve) => { timer = setTimeout(() => resolve({ state: "slow", ms: null }), FOLDER_TIMEOUT_MS); });
+  const look = fs.promises.stat(folder).then(
+    (stat) => ({ state: stat.isDirectory() ? "ok" as const : "missing" as const, ms: Math.round(performance.now() - started) }),
+    () => ({ state: "missing" as const, ms: null })
+  );
   try {
     return await Promise.race([look, slow]);
   } finally {
@@ -60,12 +85,15 @@ export async function homeOverview(): Promise<PartOverview> {
   // A video library's folder is the video container's, relative to its media root:
   // this server can't see it, and the container checks its own disks.
   const ours = (row: (typeof rows)[number]) => row.type !== "video" && path.isAbsolute(row.source_path);
-  const folders = await Promise.all(rows.map((row) => (ours(row) ? folderState(row.source_path) : Promise.resolve("ok" as const))));
-  rows.forEach((row, at) => {
+  const folders = await Promise.all(rows.map((row) => (ours(row) ? folderState(row.source_path) : Promise.resolve(null))));
+  const libraryChecks: LibraryCheck[] = rows.map((row, at) => {
+    const folder = folders[at];
     const library = { library: row.name, libraryId: row.id };
-    if (folders[at] === "missing") problems.push({ kind: "folderMissing", ...library });
-    else if (folders[at] === "slow") problems.push({ kind: "folderSlow", ...library });
-    else if (row.scan_status === "error") problems.push({ kind: "scanFailed", ...library });
+    const base = { id: row.id, name: row.name, type: row.type, ms: folder?.ms ?? null };
+    if (folder?.state === "missing") { problems.push({ kind: "folderMissing", ...library }); return { ...base, state: "missing" }; }
+    if (folder?.state === "slow") { problems.push({ kind: "folderSlow", ...library }); return { ...base, state: "slow" }; }
+    if (row.scan_status === "error") { problems.push({ kind: "scanFailed", ...library }); return { ...base, state: "scanFailed" }; }
+    return { ...base, state: folder ? "ok" : "container" };
   });
 
   const backups = listBackupFiles().filter((file) => !isPreUpgradeCopy(file.name));
@@ -86,7 +114,11 @@ export async function homeOverview(): Promise<PartOverview> {
     problems,
     libraries: rows.length,
     lastBackupAt,
-    uptimeSeconds: Math.floor(process.uptime())
+    uptimeSeconds: Math.floor(process.uptime()),
+    libraryChecks,
+    lastBackup: backups[0] ? { at: backups[0].createdAt, kind: backups[0].kind, sizeBytes: backups[0].sizeBytes } : null,
+    backupError: lastError,
+    machine: { node: process.version, os: `${process.platform} ${os.release()} ${process.arch}`, cpus: os.cpus().length, memoryBytes: os.totalmem(), rssBytes: process.memoryUsage().rss }
   };
 }
 
@@ -94,7 +126,7 @@ export async function containerOverviews(request: FastifyRequest, settings: AppS
   return Promise.all(APPS.map(async (definition): Promise<PartOverview> => {
     const { upstream, secret, source, urlSource } = settings(definition.id);
     const status = await appStatus(definition, upstream, secret, request, source, urlSource);
-    const base = { id: definition.id, version: status.server?.version ?? null, roundTripMs: status.server?.roundTripMs ?? null };
+    const base = { id: definition.id, version: status.server?.version ?? null, roundTripMs: status.server?.roundTripMs ?? null, calls: callsToday(definition.id) };
     if (!status.configured) return { ...base, state: "off", problems: [] };
     if (!status.server?.ok) return { ...base, state: "down", problems: [{ kind: "notAnswering", error: status.server?.error ?? null }] };
     if (status.secretAccepted === false) return { ...base, state: "attention", problems: [{ kind: "secretRefused" }] };

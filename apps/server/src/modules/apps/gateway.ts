@@ -20,6 +20,7 @@ import httpProxy from "@fastify/http-proxy";
 import type { User } from "../../db.js";
 import { appRole, networkClass, ruleAllows, ruleFor, type AppRole, type NetworkClass } from "./access.js";
 import { capabilityFor, type AppDefinition, type NetworkRule } from "./registry.js";
+import { recordCall } from "./calls.js";
 
 export const GATEWAY_HEADER = "x-isputnik-gateway";
 const IDENTITY_PREFIX = "x-isputnik-";
@@ -168,12 +169,12 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
         return "";
       });
     }
-    if (hooks.onResponse) {
-      const onResponse = hooks.onResponse;
-      scope.addHook("onResponse", async (request, reply) => {
-        onResponse(request, reply.statusCode);
-      });
-    }
+    // Every container's requests are counted for Diagnostics (calls.ts).
+    const onResponse = hooks.onResponse;
+    scope.addHook("onResponse", async (request, reply) => {
+      recordCall(definition.id, reply.statusCode);
+      onResponse?.(request, reply.statusCode);
+    });
 
     const verdicts = new WeakMap<FastifyRequest, AccessVerdict>();
 

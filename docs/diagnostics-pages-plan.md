@@ -48,9 +48,10 @@ filtered to that part — `?application=`), and Recent runs.
 
 - **Which parts:** this server's sections (server and machine, containers, libraries,
   failures) and each container's. From a part's page only that part is ticked.
-- **Hide in the file**, each its own switch, all on: names of people (accounts, emails),
-  folders and file paths, names of libraries and collections, addresses (IPs, hosts).
-  Passwords, keys and tokens are never in a report to begin with.
+- **Private details**, each its own switch, ALL OFF to begin with (the owner: privacy
+  first; a bug report is public): include names of people (accounts, emails), folders
+  and file paths, names of libraries and collections, addresses (IPs, hosts). Off means
+  replaced with a placeholder. Passwords, keys and tokens are never in a report at all.
 - **How it will look:** the real report text, as it will be saved, updating with the switches.
 - **Copy** and **Download** (a .txt, as today); **Open a bug report** stays.
 - "How far back" and logs/events/tests as separate kinds wait for phase 3, when there are

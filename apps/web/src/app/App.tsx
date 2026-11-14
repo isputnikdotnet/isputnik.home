@@ -313,7 +313,7 @@ export function App() {
 
     // Not just "are they an admin" — a linked display is refused on every admin
     // route, so letting it open the control panel yields a page of 403s.
-    if (session.user && ["control", "controlCategoryEditor", "controlLibrary", "controlMember", "controlGroup"].includes(route.name) && !isAdminSession(session.user)) {
+    if (session.user && ["control", "controlCategoryEditor", "controlLibrary", "controlMember", "controlGroup", "controlDiagnosticsPart"].includes(route.name) && !isAdminSession(session.user)) {
       navigate("/");
       return;
     }
@@ -451,6 +451,12 @@ export function App() {
     if (route.name === "controlLibrary") {
       return isAdminSession(session.user)
         ? <ControlPanelPage section="libraries" libraryId={route.libraryId} />
+        : <HomePage />;
+    }
+
+    if (route.name === "controlDiagnosticsPart") {
+      return isAdminSession(session.user)
+        ? <ControlPanelPage section="diagnostics" diagnosticsPart={route.part} />
         : <HomePage />;
     }
 

@@ -9,8 +9,8 @@ import { Modal } from "../../../shared/Modal";
 import { APP_VERSION } from "../../../shared/appVersion";
 import { bugReportUrl } from "../../../shared/links";
 
-// The report dialog (docs/diagnostics-pages-plan.md): which parts go in, what is
-// hidden, and the report itself as it will be saved, changing as the admin
+// The report dialog (docs/diagnostics-pages-plan.md): which parts go in, which
+// private details go in too (none, unless ticked), and the report itself as it will be saved, changing as the admin
 // chooses. Opened from Diagnostics with every part ticked, and from a part's own
 // page with only that part. Nothing is sent anywhere: the admin copies or saves
 // the text and attaches it themselves.
@@ -57,14 +57,15 @@ export function ReportDialog({ parts, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useTranslation(["controlAdmin"]);
-  const [hide, setHide] = useState<Record<HideKind, boolean>>({ people: true, paths: true, names: true, net: true });
+  // Private details are left out unless the admin ticks them in: a bug report is public.
+  const [include, setInclude] = useState<Record<HideKind, boolean>>({ people: false, paths: false, names: false, net: false });
   const [report, setReport] = useState<DiagnosticsReport | null>(null);
   const [chosen, setChosen] = useState<Set<string> | null>(parts === "all" ? null : new Set(parts));
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const hideQuery = HIDE_KINDS.filter((kind) => hide[kind]).join(",");
+  const hideQuery = HIDE_KINDS.filter((kind) => !include[kind]).join(",");
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -87,7 +88,7 @@ export function ReportDialog({ parts, onClose }: {
   const text = useMemo(() => (report ? reportText(report, picked) : ""), [report, picked]);
   const containers = (report?.sections ?? []).filter((section) => section.key.startsWith("container:"));
   const nothingChosen = report !== null && !report.sections.some((section) => picked.has(section.key));
-  const nothingHidden = HIDE_KINDS.every((kind) => !hide[kind]);
+  const nothingHidden = HIDE_KINDS.every((kind) => include[kind]);
 
   const toggle = (key: string, on: boolean) => {
     const next = new Set(picked);
@@ -150,15 +151,15 @@ export function ReportDialog({ parts, onClose }: {
               })}
             </GroupedList>
           )}
-          <GroupedList title={t("controlAdmin:diagnostics.report.hideTitle")} note={t("controlAdmin:diagnostics.report.alwaysRemoved")}>
+          <GroupedList title={t("controlAdmin:diagnostics.report.includeTitle")} note={t("controlAdmin:diagnostics.report.alwaysRemoved")}>
             {HIDE_KINDS.map((kind) => (
               <ToggleRow
                 key={kind}
-                label={t(`controlAdmin:diagnostics.report.hide.${kind}.label`)}
-                sub={t(`controlAdmin:diagnostics.report.hide.${kind}.sub`)}
-                checked={hide[kind]}
+                label={t(`controlAdmin:diagnostics.report.include.${kind}.label`)}
+                sub={t(`controlAdmin:diagnostics.report.include.${kind}.sub`)}
+                checked={include[kind]}
                 disabled={loading}
-                onChange={(on) => setHide((current) => ({ ...current, [kind]: on }))}
+                onChange={(on) => setInclude((current) => ({ ...current, [kind]: on }))}
               />
             ))}
           </GroupedList>

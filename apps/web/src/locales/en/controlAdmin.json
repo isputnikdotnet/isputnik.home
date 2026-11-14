@@ -2579,32 +2579,113 @@
       "backups": "Backups",
       "logs": "Logs",
       "pairing": "Pairing",
-      "tests": "Tests"
+      "tests": "Tests",
+      "details": "Details"
     },
     "report": {
       "title": "Download a report",
       "homeTitle": "iSputnik (this server)",
       "containersTitle": "Containers",
-      "hideTitle": "Hide in the file",
-      "alwaysRemoved": "Secrets, passwords and keys are never in a report, whatever is chosen here.",
+      "alwaysRemoved": "All off to begin with: bug reports are public. Turn one on only if the problem needs it. Secrets, passwords and keys are never in a report.",
       "nothingChosen": "Choose at least one part to see the report.",
-      "hide": {
+      "includeTitle": "Private details",
+      "include": {
         "people": {
-          "label": "Names of people",
-          "sub": "Members' names and emails become <person> and <email>."
+          "label": "Include names of people",
+          "sub": "Off: members' names and emails become <person> and <email>."
         },
         "paths": {
-          "label": "Folders and file paths",
-          "sub": "Library folders, film and book files, and any other path become <path>."
+          "label": "Include folders and file paths",
+          "sub": "Off: library folders, film and book files and any other path become <path>."
         },
         "names": {
-          "label": "Names of libraries",
-          "sub": "Libraries' and containers' library names become <name>."
+          "label": "Include names of libraries",
+          "sub": "Off: libraries' names, the containers' too, become <name>."
         },
         "net": {
-          "label": "Addresses",
-          "sub": "IP addresses and web addresses' hosts become <ip>, <lan-ip> and <host>."
+          "label": "Include addresses",
+          "sub": "Off: IP addresses and web addresses' hosts become <ip>, <lan-ip> and <host>."
         }
+      }
+    },
+    "page": {
+      "back": "Diagnostics",
+      "asideLabel": "Where to look next",
+      "ms": "{{ms}} ms",
+      "banner": {
+        "ok": "{{name}} is healthy",
+        "attention": "{{name}} needs a look",
+        "down": "{{name}} isn't answering",
+        "off": "{{name}} isn't set up"
+      },
+      "bannerBody": {
+        "ok": "Nothing needs attention.",
+        "attention": "",
+        "down": "",
+        "off": "Pair it on Services to use it."
+      },
+      "libraries": {
+        "title": "Libraries",
+        "note": "How long each library's folder took to answer just now. A video library's folder is the video container's, so it is checked there.",
+        "none": "No libraries yet",
+        "state": {
+          "ok": "folder answers",
+          "missing": "folder isn't reachable",
+          "slow": "folder is slow to answer",
+          "scanFailed": "the last scan failed",
+          "container": "checked by the video container"
+        }
+      },
+      "backups": {
+        "title": "Backups",
+        "last": "Last backup",
+        "lastValue": "{{when}} · {{kind}} · {{size}}",
+        "none": "No backup yet",
+        "error": "The last run failed",
+        "open": "Backups"
+      },
+      "server": {
+        "title": "Server",
+        "version": "Version",
+        "uptime": "Up for",
+        "system": "System",
+        "memory": "Processors and memory",
+        "memoryValue": "{{cpus}} CPUs · {{total}} · this server uses {{used}}"
+      },
+      "others": {
+        "title": "Other containers",
+        "note": "How fast each one answers, and the requests this server passed to it today.",
+        "calls_one": "{{count}} request today, {{failed}} failed",
+        "calls_other": "{{count}} requests today, {{failed}} failed"
+      },
+      "connection": {
+        "title": "Connection",
+        "state": "Status",
+        "answers": "Answers in",
+        "calls": "Requests through this server",
+        "since": "Counted since {{when}}",
+        "lastFailed": "Last failed request",
+        "lastFailedValue": "{{when}} · HTTP {{status}}"
+      },
+      "video": {
+        "hardwareTitle": "Hardware acceleration",
+        "hardwareNote": "These are Videos › Settings' own settings: a change here is a change there.",
+        "atOnce": "Conversions at once",
+        "disk": "Conversion disk",
+        "diskFree": "{{free}} free",
+        "diskNone": "Memory only (no disk mapped)",
+        "allSettings": "All converting settings",
+        "unavailableTitle": "The video container isn't answering",
+        "unavailable": "Its hardware and tests show here once it answers again."
+      },
+      "logs": {
+        "title": "Logs and events",
+        "log": "Log",
+        "logSub": "What it wrote, warnings and errors first",
+        "activity": "Activity",
+        "activitySub": "Plays, scans, sign-ins, uploads",
+        "tasks": "Tasks",
+        "tasksSub": "What is running, waiting or failed"
       }
     }
   }

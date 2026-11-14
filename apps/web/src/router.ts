@@ -135,6 +135,14 @@ export function groupHref(groupId: string): string {
   return `${CONTROL_PATHS.groups}/${encodeURIComponent(groupId)}`;
 }
 
+// One part of iSputnik's page under Infrastructure › Diagnostics: this server
+// ("home") or a container — its checks and tests (docs/diagnostics-pages-plan.md).
+export type DiagnosticsPart = "home" | "video" | "games" | "faces";
+export const DIAGNOSTICS_PARTS: readonly DiagnosticsPart[] = ["home", "video", "games", "faces"];
+export function diagnosticsPartHref(part: DiagnosticsPart): string {
+  return `${CONTROL_PATHS.diagnostics}/${part}`;
+}
+
 // One library's Manage page under Library › Libraries (4.73): its settings, access,
 // scanning and the rest in one place, instead of an icon per dialog on its row.
 export function libraryManageHref(libraryId: string): string {
@@ -548,6 +556,8 @@ export type Route =
   | { name: "controlMember"; userId: string; tab: MemberPageTab }
   /** One group's page under Members › Groups (groupHref). */
   | { name: "controlGroup"; groupId: string }
+  /** One part's page under Infrastructure › Diagnostics (diagnosticsPartHref). */
+  | { name: "controlDiagnosticsPart"; part: DiagnosticsPart }
   | { name: "about" }
   | { name: "help" }
   | { name: "helpGuides" }
@@ -951,6 +961,11 @@ export function getRoute(): Route {
     const categoryEditMatch = path.match(/^\/control\/(?:apps\/ebooks\/organize\/|libraries\/(?:organization\/)?)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
+    }
+
+    const diagnosticsMatch = path.match(/^\/control\/infrastructure\/diagnostics\/(home|video|games|faces)$/);
+    if (diagnosticsMatch) {
+      return { name: "controlDiagnosticsPart", part: diagnosticsMatch[1] as DiagnosticsPart };
     }
 
     // A library's Manage page, after the table: /control/libraries/storage is a tab,

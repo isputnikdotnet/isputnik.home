@@ -165,6 +165,11 @@ describe("GET /api/admin/diagnostics", () => {
     expect(home.problems.map((problem) => problem.kind)).toContain("noBackup");
     expect(home.problems.some((problem) => problem.library === "Films")).toBe(false);
     expect(parts.find((part) => part.id === "video")).toMatchObject({ state: "ok", version: "0.37.1" });
+    // The page of one part has the detail: each library, and the gateway's count of requests.
+    const full = response.json().parts as Record<string, unknown>[];
+    expect(full[0].libraryChecks).toContainEqual(expect.objectContaining({ name: "Films", state: "container" }));
+    expect(full[0].libraryChecks).toContainEqual(expect.objectContaining({ name: "Galina photos", state: "missing" }));
+    expect(full.find((part) => part.id === "video")!.calls).toMatchObject({ failed: 0 });
     expect(parts.find((part) => part.id === "games")).toMatchObject({ state: "off" });
     const member = await booted!.app.inject({ method: "GET", url: "/api/admin/diagnostics/overview", headers: { cookie: await booted!.signIn("mum") } });
     expect(member.statusCode).toBe(403);

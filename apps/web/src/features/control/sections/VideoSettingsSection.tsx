@@ -27,7 +27,7 @@ import { HardwareTestPage, HardwareTestRow } from "./VideoHardwareTest";
 // ── What the engine answers ────────────────────────────────────────────────────
 
 /** GET/PUT {prefix}/api/admin/conversion (isputnik.video hls.ts). */
-interface ConversionSettings {
+export interface ConversionSettings {
   /** Before engine 0.35 (0.35+ still answers them, worked out from the new two). */
   memoryPerViewerMb: number;
   maxViewers: number;
@@ -42,14 +42,14 @@ interface ConversionSettings {
   remoteQuality?: 1080 | 720 | 480 | null;
 }
 
-type HardwareMode = "auto" | "cpu" | "gpu";
+export type HardwareMode = "auto" | "cpu" | "gpu";
 type ConversionStorage = "memory" | "memory-disk" | "disk";
 const STORAGES: ConversionStorage[] = ["memory", "memory-disk", "disk"];
 type RemoteQuality = "original" | "1080" | "720" | "480";
 const REMOTE_QUALITIES: RemoteQuality[] = ["original", "1080", "720", "480"];
 
 /** What the engine found the GPU does (engine 0.20+). */
-interface HardwareState {
+export interface HardwareState {
   mode: HardwareMode;
   device: string | null;
   driver: string | null;
@@ -64,7 +64,7 @@ interface HardwareState {
   setAside: boolean;
 }
 
-interface ConversionState {
+export interface ConversionState {
   available: boolean;
   settings: ConversionSettings;
   usage: {
@@ -114,9 +114,17 @@ const CODEC_NAMES: Record<string, string> = {
   h264: "H.264", hevc: "HEVC", hevc10: "HEVC 10-bit", vp9: "VP9", vp9_10: "VP9 10-bit", av1: "AV1", mpeg2video: "MPEG-2", vc1: "VC-1"
 };
 
+/** A change to the conversion settings, as the engine wants it sent. An engine with
+ *  `storage` answers the old words beside it, worked out from the new; sent back they
+ *  would read as a change, so it gets the new words alone. */
+export function conversionBody(current: ConversionSettings, patch: Partial<ConversionSettings>): Partial<ConversionSettings> {
+  const { memoryPerViewerMb: _perViewer, whenFull: _whenFull, ...rest } = current;
+  return current.storage ? { ...rest, ...patch } : { ...current, ...patch };
+}
+
 /** One engine endpoint: its answer, and null with no error while loading. An engine
  *  too old for it answers with an error, and the topic is then left out. */
-function useEngine<T>(url: string) {
+export function useEngine<T>(url: string) {
   const [state, setState] = useState<T | null>(null);
   const [missing, setMissing] = useState(false);
   const load = useCallback(() => api<T>(url).then((payload) => { setState(payload); setMissing(false); return payload; }), [url]);
@@ -203,10 +211,7 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   const saveConversion = (patch: Partial<ConversionSettings>) => {
     const current = conversion.state?.settings;
     if (!current) return;
-    // An engine with `storage` answers the old words beside it, worked out from the
-    // new; sent back they would read as a change, so it gets the new words alone.
-    const { memoryPerViewerMb: _perViewer, whenFull: _whenFull, ...rest } = current;
-    const body = current.storage ? { ...rest, ...patch } : { ...current, ...patch };
+    const body = conversionBody(current, patch);
     void write(
       () => api<ConversionState>(conversionUrl, { method: "PUT", body: JSON.stringify(body) }),
       conversion.setState,
@@ -376,7 +381,7 @@ function detectionWord(state: DetectionState, t: T): string {
 // ── Converting video ─────────────────────────────────────────────────────────
 
 /** What the GPU does here, as one row: found and used, set aside, or not there. */
-function GpuRow({ hardware }: { hardware: HardwareState }) {
+export function GpuRow({ hardware }: { hardware: HardwareState }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   if (hardware.mode === "cpu") {
     return <InfoRow icon={<Cpu size={17} />} iconTone="muted" label={t("controlAdmin:apps.conversion.gpuOffTitle")} sub={t("controlAdmin:apps.conversion.gpuOffBody")} />;

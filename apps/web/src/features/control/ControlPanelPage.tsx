@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, Gauge, Home, ListChecks, Menu, Search } from
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { CONTROL_ALIAS_QUERY, controlHref, followRoute, followReplace } from "../../router";
-import type { ControlSection, MemberPageTab } from "../../router";
+import type { ControlSection, DiagnosticsPart, MemberPageTab } from "../../router";
 import {
   APPLICATIONS,
   CONTROL_GROUPS,
@@ -57,6 +57,7 @@ const BackupSection = lazy(() => import("./sections/BackupSection").then((m) => 
 const CategoriesSection = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoriesSection })));
 const CategoryEditorPage = lazy(() => import("./sections/CategoriesSection").then((m) => ({ default: m.CategoryEditorPage })));
 const MemberPage = lazy(() => import("./members/MemberPage").then((m) => ({ default: m.MemberPage })));
+const DiagnosticsPartPage = lazy(() => import("./diagnostics/PartPage").then((m) => ({ default: m.DiagnosticsPartPage })));
 const GroupPage = lazy(() => import("./members/GroupPage").then((m) => ({ default: m.GroupPage })));
 const TagsSection = lazy(() => import("./sections/TagsSection").then((m) => ({ default: m.TagsSection })));
 const GroupsSection = lazy(() => import("./sections/GroupsSection").then((m) => ({ default: m.GroupsSection })));
@@ -94,7 +95,8 @@ export function ControlPanelPage({
   categoryId,
   libraryId,
   member,
-  group
+  group,
+  diagnosticsPart
 }: {
   section: ControlSection;
   categoryId?: string | null;
@@ -102,6 +104,8 @@ export function ControlPanelPage({
   libraryId?: string;
   member?: MemberPageTarget;
   group?: GroupPageTarget;
+  /** One part's page, a sub-page of Diagnostics. */
+  diagnosticsPart?: DiagnosticsPart;
 }) {
   const { user } = useSession();
   const { t } = useTranslation(["common", "control"]);
@@ -121,14 +125,14 @@ export function ControlPanelPage({
   const editingCategory = section === "categories" && categoryId !== undefined;
   // So is a member's page of Users: its tabs are its own, drawn by the page.
   // And a library's Manage page, of Libraries.
-  const subPage = editingCategory || libraryId !== undefined || member !== undefined || group !== undefined;
+  const subPage = editingCategory || libraryId !== undefined || member !== undefined || group !== undefined || diagnosticsPart !== undefined;
 
   // An old address — an alias, or the Dashboard with a retired ?view= — shows the
   // page it meant; the address bar is then tidied to that page's own. replaceState,
   // so Back never returns to the dead address, and the rest of the query and the
   // hash ride along, because a Sign-ins link carrying ?ip=… is a dive, not a page.
   useEffect(() => {
-    if (categoryId !== undefined || libraryId !== undefined || member !== undefined || group !== undefined) return;
+    if (categoryId !== undefined || libraryId !== undefined || member !== undefined || group !== undefined || diagnosticsPart !== undefined) return;
     const canonical = controlHref(section);
     const params = new URLSearchParams(window.location.search);
     if (window.location.pathname === canonical && !params.has("view")) return;
@@ -138,7 +142,7 @@ export function ControlPanelPage({
     }
     const query = params.toString();
     window.history.replaceState(window.history.state, "", `${canonical}${query ? `?${query}` : ""}${window.location.hash}`);
-  }, [section, categoryId, libraryId, member, group]);
+  }, [section, categoryId, libraryId, member, group, diagnosticsPart]);
 
   // Where the page sits — a shared page (Tags, Book categories) by the ?from= it
   // was opened with — and so which row to draw: the workspace's, or the group's.
@@ -185,7 +189,7 @@ export function ControlPanelPage({
               {!subPage && place.app && place.app.key !== "shared" && tabs.find((tab) => tab.section === place.selected)?.kind !== "setup" && (
                 <WorkspaceStatusLine app={place.app.key} />
               )}
-              <ControlSectionBody section={section} categoryId={categoryId} libraryId={libraryId} member={member} group={group} currentUser={user} />
+              <ControlSectionBody section={section} categoryId={categoryId} libraryId={libraryId} member={member} group={group} diagnosticsPart={diagnosticsPart} currentUser={user} />
             </Suspense>
           </LoadErrorBoundary>
         </section>
@@ -203,6 +207,7 @@ function ControlSectionBody({
   libraryId,
   member,
   group,
+  diagnosticsPart,
   currentUser
 }: {
   section: ControlSection;
@@ -210,6 +215,7 @@ function ControlSectionBody({
   libraryId?: string;
   member?: MemberPageTarget;
   group?: GroupPageTarget;
+  diagnosticsPart?: DiagnosticsPart;
   currentUser: PublicUser;
 }) {
   switch (section) {
@@ -217,7 +223,7 @@ function ControlSectionBody({
     case "activity":        return <ActivitySection />;
     case "libraryStats":    return <LibraryStatsSection />;
     case "logs":            return <LogsSection />;
-    case "diagnostics":     return <DiagnosticsSection />;
+    case "diagnostics":     return diagnosticsPart ? <DiagnosticsPartPage part={diagnosticsPart} /> : <DiagnosticsSection />;
 
     case "libraries":       return <LibrariesSection libraryId={libraryId} />;
     case "applications":    return <ApplicationsSection />;
