@@ -97,6 +97,30 @@ export async function extractFromZip(
   return written;
 }
 
+// Read every file in the archive through, handing each to `take` as a stream it
+// must consume. Every entry is decompressed, so a damaged one fails here rather
+// than on restore; yauzl checks each one's size against the directory.
+export async function readEveryEntry(
+  filePath: string,
+  take: (entryName: string, source: NodeJS.ReadableStream) => Promise<void>
+): Promise<void> {
+  const zipFile = await openZip(filePath);
+  try {
+    await walk(zipFile, async (entry) => {
+      const source = await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
+        zipFile.openReadStream(entry, (err, stream) => {
+          if (err || !stream) reject(err ?? new Error(`Could not read "${entry.fileName}" from the backup.`));
+          else resolve(stream);
+        });
+      });
+      await take(entry.fileName, source);
+      return true;
+    });
+  } finally {
+    zipFile.close();
+  }
+}
+
 // The database inside a backup, at the root or under a single wrapping folder.
 export function isBackupDatabaseEntry(entryName: string): boolean {
   return entryName === "database.sqlite" || entryName.endsWith("/database.sqlite");

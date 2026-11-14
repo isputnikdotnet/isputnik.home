@@ -28,10 +28,22 @@ const parts = [
   { id: "faces", state: "off", version: null, roundTripMs: null, problems: [], calls: calls(0, 0) }
 ];
 
+const testsState = {
+  running: null,
+  folders: { at: "2026-11-14T09:00:00.000Z", ms: 900, libraries: [
+    { libraryId: "lib-books", name: "Books", type: "ebook", firstMs: 7800, secondMs: 12, asleep: true, read: { bytes: 64e6, seconds: 0.8, mbitPerSecond: 610.2 }, verdict: "ok", error: null }
+  ] },
+  backup: { name: "isputnik-20261113-020000.zip", createdAt: "2026-11-13T02:00:00.000Z", sizeBytes: 2e9, ok: true, files: 4812, bytes: 2.1e9, manifest: { kind: "full", version: "4.90.0" }, database: { found: true, integrity: "ok", tables: 120 }, error: null, ms: 60000 },
+  speed: null,
+  runs: [{ kind: "backup", at: "2026-11-14T09:30:00.000Z", ok: true, facts: { createdAt: "2026-11-13T02:00:00.000Z", files: 4812 } }]
+};
+
 beforeEach(() => {
   mockApi.mockReset();
   mockApi.mockImplementation(async (url: string) => {
     if (url.endsWith("/overview")) return { parts };
+    if (url.endsWith("/diagnostics/tests/folders")) return { ...testsState, running: { kind: "folders", startedAt: "2026-11-14T10:00:00.000Z", step: "Kids" } };
+    if (url.endsWith("/diagnostics/tests")) return testsState;
     if (url.endsWith("/logging")) return { level: "normal", until: null, minutes: [15, 60, 240] };
     if (url.includes("/api/admin/apps")) return { apps: [] };
     return { report: { generatedAt: "2026-11-14T10:00:00.000Z", includesPrivate: false, hidden: ["people", "paths", "names", "net"], sections: [
@@ -64,6 +76,21 @@ describe("this server's page", () => {
       expect(within(dialog).getByRole("switch", { name }).getAttribute("aria-checked")).toBe("false");
     }
     expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,paths,names,net&since=day");
+  });
+});
+
+describe("this server's tests", () => {
+  it("shows what the last runs found, and starts a test when asked", async () => {
+    const user = userEvent.setup();
+    render(<DiagnosticsPartPage part="home" />);
+    expect(await screen.findByText(/first answer 7800 ms, then 12 ms \(a disk was asleep\) · reads 610 Mbit\/s/)).toBeTruthy();
+    expect(screen.getByText("The last backup is intact")).toBeTruthy();
+    expect(screen.getByText("Recent runs")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Check folders" }));
+    expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics/tests/folders", { method: "POST" });
+    expect(await screen.findAllByRole("button", { name: "Running…" })).toHaveLength(1);
+    // The other server test waits while this one runs.
+    expect(screen.getByRole("button", { name: "Waits for the other test" })).toBeTruthy();
   });
 });
 

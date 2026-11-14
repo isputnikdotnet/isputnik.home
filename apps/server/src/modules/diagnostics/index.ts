@@ -8,6 +8,7 @@ import { appSettingsResolver, type AppsPluginOptions } from "../apps/index.js";
 import { overview } from "./overview.js";
 import { HIDE_ALL, HIDE_KINDS, HIDE_NOTHING, type HideChoice } from "./redact.js";
 import { buildReport, REPORT_PARTS, type SectionKey } from "./report.js";
+import { recordSpeed, startTest, testsState } from "./tests.js";
 
 const list = z.string().max(500).optional();
 const querySchema = z.object({
@@ -19,6 +20,12 @@ const querySchema = z.object({
   parts: list,
   // How far back dated lines go: hour, day (today, the default) or week.
   since: z.enum(["hour", "day", "week"]).optional()
+});
+
+const speedSchema = z.object({
+  downloadMbps: z.number().min(0).max(100_000),
+  replyMs: z.number().min(0).max(60_000),
+  bytes: z.number().int().min(0).max(1024 * 1024 * 1024)
 });
 
 const csv = (value: string) => value.split(",").map((entry) => entry.trim()).filter(Boolean);
@@ -45,6 +52,25 @@ export async function diagnosticsPlugin(app: FastifyInstance, opts: AppsPluginOp
     reply.header("Cache-Control", "no-store");
     const span = parsed.success ? parsed.data.since ?? "day" : "day";
     return { report: await buildReport(request, settings, parsed.success ? hideChoiceOf(query) : HIDE_ALL, parts, span) };
+  });
+
+  // This server's tests (tests.ts): one at a time, only when asked; they change nothing.
+  app.get("/api/admin/diagnostics/tests", { preHandler: app.requireAdmin }, async (_request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    return testsState();
+  });
+
+  app.post("/api/admin/diagnostics/tests/:kind", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const kind = (request.params as { kind: string }).kind;
+    if (kind === "speed") {
+      const parsed = speedSchema.safeParse(request.body ?? {});
+      if (!parsed.success) return reply.code(400).send({ error: "Invalid speed result" });
+      recordSpeed(parsed.data);
+      return testsState();
+    }
+    if (kind !== "folders" && kind !== "backup") return reply.code(404).send({ error: "No such test" });
+    if (!startTest(kind)) return reply.code(409).send({ error: "Another test is running", ...testsState() });
+    return reply.code(202).send(testsState());
   });
 
   app.get("/api/admin/diagnostics/overview", { preHandler: app.requireAdmin }, async (request, reply) => {

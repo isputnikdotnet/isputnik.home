@@ -3644,6 +3644,10 @@ tr.control-anchor-flash > td {
 .diagnostics-logging-card { display: grid; gap: 10px; min-width: 0; }
 .diagnostics-logging-card h3 { margin: 0; }
 .diagnostics-logging-card p, .diagnostics-logging-help { margin: 0; font-size: 0.88rem; }
+.diagnostics-test { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 16px; min-width: 0; }
+.diagnostics-test-text { display: grid; gap: 3px; flex: 1 1 280px; min-width: 0; }
+.diagnostics-test-text .muted { font-size: 0.88rem; }
+.diagnostics-test-last { font-size: 0.85rem; color: var(--muted); }
 .diagnostics-part-tests { display: grid; gap: 16px; min-width: 0; scroll-margin-top: 80px; }
 @media (max-width: 1000px) { .diagnostics-part-page { grid-template-columns: minmax(0, 1fr); } }
 .diagnostics-text {

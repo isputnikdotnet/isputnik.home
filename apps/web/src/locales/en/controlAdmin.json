@@ -2738,6 +2738,62 @@
       "cancel": "Cancel",
       "saveFailed": "Unable to change logging",
       "help": "Normal records what happens and problems. Detailed adds why each decision was made, Everything each tool's full output. Either lasts 15 minutes, an hour or 4 hours, then goes back to Normal by itself."
+    },
+    "tests": {
+      "running": "Running…",
+      "waits": "Waits for the other test",
+      "failed": "Unable to run the test",
+      "checked": "Last run {{when}}",
+      "recentTitle": "Recent runs",
+      "folders": {
+        "title": "Check folders",
+        "about": "How long each library's folder takes to answer, twice (a sleeping disk wakes on the first), and how fast its largest file near the top reads. Only reads; a few seconds each. A file read recently may come from the server's memory and look faster than the disk is.",
+        "run": "Check folders",
+        "missing": "folder isn't reachable",
+        "asleep": "first answer {{first}} ms, then {{second}} ms (a disk was asleep)",
+        "answer": "answers in {{ms}} ms",
+        "reads": "reads {{mbps}} Mbit/s",
+        "nothingToRead": "no file big enough to time",
+        "mbps": "{{mbps}} Mbit/s"
+      },
+      "backup": {
+        "title": "Verify the last backup",
+        "about": "Opens the newest backup, reads every file in it through, and checks the database inside is intact. Restores nothing; a minute or two for a big one.",
+        "run": "Verify",
+        "reading": "Reading",
+        "ok": "The last backup is intact",
+        "okSub_one": "Backup of {{when}}: {{count}} file, {{size}}, database intact ({{tables}} tables)",
+        "okSub_other": "Backup of {{when}}: {{count}} files, {{size}}, database intact ({{tables}} tables)",
+        "bad": "The last backup has a problem",
+        "damaged": "The database inside isn't intact: {{problem}}",
+        "noDatabase": "There's no database inside it"
+      },
+      "speed": {
+        "groupTitle": "Speed to this device",
+        "note": "Run it from the phone, TV or computer that struggles: it measures the way between the server and this browser.",
+        "title": "Test speed",
+        "about": "Five quick replies, then 25 MB of data from the server, timed. About 10 seconds.",
+        "run": "Test speed",
+        "download": "Download",
+        "reply": "Reply time",
+        "enough": "Enough for",
+        "verdict": {
+          "original4k": "4K as it is",
+          "hd": "1080p",
+          "sd": "720p",
+          "slow": "Low quality only"
+        }
+      },
+      "run": {
+        "foldersOk_one": "Folders · {{count}} library, fine",
+        "foldersOk_other": "Folders · {{count}} libraries, all fine",
+        "foldersBad_one": "Folders · {{first}} needs a look",
+        "foldersBad_other": "Folders · {{count}} need a look, {{first}} first",
+        "backupOk": "Backup of {{when}} · intact",
+        "backupBad": "Backup of {{when}} · has a problem",
+        "backupNone": "Backup · there was none to verify",
+        "speed": "Speed · {{mbps}} Mbit/s, replies in {{ms}} ms"
+      }
     }
   }
 }

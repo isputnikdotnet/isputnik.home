@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Archive, Boxes, Cpu, FileDown, FolderOpen, HardDrive, ListChecks, ScrollText, Server, Stethoscope } from "lucide-react";
+import { Activity, Archive, Boxes, Cpu, FileDown, FolderOpen, Gauge, HardDrive, ListChecks, ScrollText, Server, Stethoscope } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, diagnosticsPartHref, libraryManageHref, type DiagnosticsPart } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -18,6 +18,7 @@ import { conversionBody, GpuRow, useEngine, type ConversionSettings, type Conver
 import { HOME_PARTS, ReportDialog } from "./ReportDialog";
 import { useDiagnosticsOverview, useProblemText, type LibraryCheck, type PartOverview } from "./overview";
 import { LoggingControl, loggingUrl } from "./Logging";
+import { speedVerdict, TestBar, useHomeTests, useRunWords, type FolderResult, type TestRun } from "./HomeTests";
 
 // One part of iSputnik's page under Infrastructure › Diagnostics
 // (docs/diagnostics-pages-plan.md): how it is, its checks with their tests beside
@@ -37,6 +38,7 @@ export function DiagnosticsPartPage({ part }: { part: DiagnosticsPart }) {
   const { parts, error, load } = useDiagnosticsOverview();
   const problemText = useProblemText();
   const [reporting, setReporting] = useState(false);
+  const tests = useHomeTests(part === "home");
   const overview = parts?.find((entry) => entry.id === part) ?? null;
   const versionLine = useVersionLine();
   const name = part === "home" ? t("controlAdmin:diagnostics.home") : appName(part);
@@ -72,11 +74,12 @@ export function DiagnosticsPartPage({ part }: { part: DiagnosticsPart }) {
       {overview && (
         <div className="diagnostics-part-page">
           <div className="diagnostics-part-main">
-            {part === "home" ? <HomeChecks overview={overview} /> : <Connection part={part} overview={overview} />}
+            {part === "home" ? <HomeChecks overview={overview} tests={tests} /> : <Connection part={part} overview={overview} />}
             {part === "video" && overview.state !== "off" && <VideoChecks />}
           </div>
           <aside className="diagnostics-part-aside" aria-label={t("controlAdmin:diagnostics.page.asideLabel")}>
             {overview.state !== "off" && <LoggingCard part={part} name={name} reachable={overview.state !== "down"} />}
+            {part === "home" && tests.state && tests.state.runs.length > 0 && <RecentRuns runs={tests.state.runs} />}
             {part === "home" && parts && <OtherContainers parts={parts} />}
             <LogsAndEvents part={part} />
           </aside>
@@ -98,28 +101,78 @@ function useVersionLine() {
 
 // ── This server ────────────────────────────────────────────────────────────────
 
-function HomeChecks({ overview }: { overview: PartOverview }) {
+function HomeChecks({ overview, tests }: { overview: PartOverview; tests: ReturnType<typeof useHomeTests> }) {
   const { t } = useTranslation(["controlAdmin"]);
   const checks = overview.libraryChecks ?? [];
   const machine = overview.machine;
+  const state = tests.state;
+  const running = state?.running?.kind ?? null;
+  const measured = new Map((state?.folders?.libraries ?? []).map((result) => [result.libraryId, result]));
+
+  /** What the folder check found, in a line; the quick look's when it hasn't run. */
+  const folderLine = (check: LibraryCheck): string => {
+    const found = measured.get(check.id);
+    const quick = t(`controlAdmin:diagnostics.page.libraries.state.${check.state}`);
+    if (!found) return `${check.type} · ${quick}`;
+    return `${check.type} · ${foundWords(found)}`;
+  };
+  const foundWords = (found: FolderResult): string => {
+    if (found.verdict === "missing") return t("controlAdmin:diagnostics.tests.folders.missing");
+    const answer = found.asleep
+      ? t("controlAdmin:diagnostics.tests.folders.asleep", { first: found.firstMs, second: found.secondMs })
+      : t("controlAdmin:diagnostics.tests.folders.answer", { ms: Math.min(found.firstMs ?? 0, found.secondMs ?? 0) });
+    const reads = found.read ? t("controlAdmin:diagnostics.tests.folders.reads", { mbps: Math.round(found.read.mbitPerSecond) }) : t("controlAdmin:diagnostics.tests.folders.nothingToRead");
+    return `${answer} · ${reads}`;
+  };
+
+  const backup = state?.backup;
+  // When it was verified, not when it was made: the newest backup run says.
+  const verifiedAt = state?.runs.find((run) => run.kind === "backup")?.at ?? null;
+  const speed = state?.speed;
   return (
     <>
+      {tests.error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.tests.failed")}>{tests.error}</MessageBox>}
+
       <GroupedList id="libraries" title={t("controlAdmin:diagnostics.page.libraries.title")} note={t("controlAdmin:diagnostics.page.libraries.note")}>
+        <TestBar
+          title={t("controlAdmin:diagnostics.tests.folders.title")}
+          about={t("controlAdmin:diagnostics.tests.folders.about")}
+          last={state?.folders ? t("controlAdmin:diagnostics.tests.checked", { when: relativeTime(state.folders.at) }) : null}
+          running={running === "folders"}
+          waits={running !== null && running !== "folders"}
+          label={t("controlAdmin:diagnostics.tests.folders.run")}
+          onRun={() => void tests.run("folders")}
+        />
         {checks.length === 0 && <InfoRow label={t("controlAdmin:diagnostics.page.libraries.none")} />}
-        {checks.map((check) => (
-          <NavRow
-            key={check.id}
-            icon={<FolderOpen size={17} />}
-            iconTone={LIBRARY_TONE[check.state]}
-            label={check.name}
-            sub={`${check.type} · ${t(`controlAdmin:diagnostics.page.libraries.state.${check.state}`)}`}
-            value={check.ms !== null ? t("controlAdmin:diagnostics.page.ms", { ms: check.ms }) : undefined}
-            href={libraryManageHref(check.id)}
-          />
-        ))}
+        {checks.map((check) => {
+          const found = measured.get(check.id);
+          const bad = found ? found.verdict !== "ok" : LIBRARY_TONE[check.state] === "warn";
+          return (
+            <NavRow
+              key={check.id}
+              icon={<FolderOpen size={17} />}
+              iconTone={check.state === "container" ? "muted" : bad ? "warn" : "ok"}
+              label={check.name}
+              sub={folderLine(check)}
+              value={found?.read ? t("controlAdmin:diagnostics.tests.folders.mbps", { mbps: Math.round(found.read.mbitPerSecond) }) : check.ms !== null ? t("controlAdmin:diagnostics.page.ms", { ms: check.ms }) : undefined}
+              href={libraryManageHref(check.id)}
+            />
+          );
+        })}
       </GroupedList>
 
       <GroupedList id="backups" title={t("controlAdmin:diagnostics.page.backups.title")}>
+        <TestBar
+          title={t("controlAdmin:diagnostics.tests.backup.title")}
+          about={t("controlAdmin:diagnostics.tests.backup.about")}
+          last={verifiedAt ? t("controlAdmin:diagnostics.tests.checked", { when: relativeTime(verifiedAt) }) : null}
+          running={running === "backup"}
+          waits={running !== null && running !== "backup"}
+          disabled={!overview.lastBackup}
+          label={t("controlAdmin:diagnostics.tests.backup.run")}
+          onRun={() => void tests.run("backup")}
+        />
+        {running === "backup" && state?.running?.step && <InfoRow label={t("controlAdmin:diagnostics.tests.backup.reading")} sub={state.running.step} />}
         <InfoRow
           icon={<Archive size={17} />}
           iconTone={overview.lastBackup ? "ok" : "warn"}
@@ -128,8 +181,37 @@ function HomeChecks({ overview }: { overview: PartOverview }) {
             ? t("controlAdmin:diagnostics.page.backups.lastValue", { when: relativeTime(overview.lastBackup.at), kind: overview.lastBackup.kind, size: formatBytes(overview.lastBackup.sizeBytes) })
             : t("controlAdmin:diagnostics.page.backups.none")}
         />
+        {backup && (
+          <InfoRow
+            icon={<Archive size={17} />}
+            iconTone={backup.ok ? "ok" : "warn"}
+            label={backup.ok ? t("controlAdmin:diagnostics.tests.backup.ok") : t("controlAdmin:diagnostics.tests.backup.bad")}
+            sub={backup.ok
+              ? t("controlAdmin:diagnostics.tests.backup.okSub", { when: relativeTime(backup.createdAt), count: backup.files, size: formatBytes(backup.bytes), tables: backup.database?.tables ?? 0 })
+              : backup.error ?? (backup.database?.found ? t("controlAdmin:diagnostics.tests.backup.damaged", { problem: backup.database.integrity ?? "?" }) : t("controlAdmin:diagnostics.tests.backup.noDatabase"))}
+          />
+        )}
         {overview.backupError && <InfoRow iconTone="warn" icon={<Archive size={17} />} label={t("controlAdmin:diagnostics.page.backups.error")} sub={overview.backupError} />}
         <NavRow label={t("controlAdmin:diagnostics.page.backups.open")} href={controlHref("backup")} />
+      </GroupedList>
+
+      <GroupedList id="speed" title={t("controlAdmin:diagnostics.tests.speed.groupTitle")} note={t("controlAdmin:diagnostics.tests.speed.note")}>
+        <TestBar
+          title={t("controlAdmin:diagnostics.tests.speed.title")}
+          about={t("controlAdmin:diagnostics.tests.speed.about")}
+          last={speed ? t("controlAdmin:diagnostics.tests.checked", { when: relativeTime(speed.at) }) : null}
+          running={tests.measuring}
+          waits={false}
+          label={t("controlAdmin:diagnostics.tests.speed.run")}
+          onRun={() => void tests.measureSpeed()}
+        />
+        {speed && (
+          <>
+            <InfoRow icon={<Gauge size={17} />} label={t("controlAdmin:diagnostics.tests.speed.download")} value={t("controlAdmin:diagnostics.tests.folders.mbps", { mbps: Math.round(speed.downloadMbps) })} />
+            <InfoRow label={t("controlAdmin:diagnostics.tests.speed.reply")} value={t("controlAdmin:diagnostics.page.ms", { ms: speed.replyMs })} />
+            <InfoRow label={t("controlAdmin:diagnostics.tests.speed.enough")} value={t(`controlAdmin:diagnostics.tests.speed.verdict.${speedVerdict(speed.downloadMbps)}`)} />
+          </>
+        )}
       </GroupedList>
 
       {machine && (
@@ -144,6 +226,18 @@ function HomeChecks({ overview }: { overview: PartOverview }) {
         </GroupedList>
       )}
     </>
+  );
+}
+
+function RecentRuns({ runs }: { runs: TestRun[] }) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const words = useRunWords();
+  return (
+    <GroupedList title={t("controlAdmin:diagnostics.tests.recentTitle")}>
+      {runs.slice(0, 5).map((run) => (
+        <InfoRow key={`${run.kind}-${run.at}`} iconTone={run.ok ? "ok" : "warn"} icon={<ListChecks size={17} />} label={relativeTime(run.at)} sub={words(run)} />
+      ))}
+    </GroupedList>
   );
 }
 
