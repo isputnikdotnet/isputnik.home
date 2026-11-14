@@ -1,165 +1,145 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Stethoscope } from "lucide-react";
+import { ArrowRight, FileDown, Stethoscope } from "lucide-react";
 import { api } from "../../../api";
+import { controlHref, followRoute, libraryManageHref } from "../../../router";
 import { Button } from "../../../shared/Button";
-import { GroupedList, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { APP_VERSION } from "../../../shared/appVersion";
-import { bugReportUrl } from "../../../shared/links";
+import { relativeTime } from "../../../shared/relativeTime";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { ReportDialog } from "../diagnostics/ReportDialog";
+import { appPageHref, logsHref } from "../links";
+import { useAppName } from "./AppsSection";
 
-// Control panel › Infrastructure › Diagnostics: a report to attach to a bug report
-// (server: modules/diagnostics). Every part is shown before it is copied, each
-// part can be left out, and the household's names, folders and addresses are
-// hidden unless the admin asks to include them. Nothing is sent anywhere: the
-// admin copies or downloads the text and pastes it into the issue themselves.
+// Control panel › Infrastructure › Diagnostics (docs/diagnostics-pages-plan.md):
+// one card per part of iSputnik — this server, then each container — saying how it
+// is and what needs a look, with links to where it is fixed and its tests; and one
+// Download report button, which opens the report dialog with every part ticked.
+// The server's side is modules/diagnostics (overview.ts for the cards).
 
-interface ReportSection {
-  key: string;
-  title: string;
-  lines: string[];
+type PartState = "ok" | "attention" | "down" | "off";
+
+type PartProblem =
+  | { kind: "folderMissing" | "folderSlow" | "scanFailed"; library: string; libraryId: string }
+  | { kind: "noBackup" }
+  | { kind: "backupOld"; days: number }
+  | { kind: "backupFailed"; error: string }
+  | { kind: "notAnswering"; error: string | null }
+  | { kind: "secretRefused" };
+
+interface PartOverview {
+  id: string;
+  state: PartState;
+  version: string | null;
+  roundTripMs: number | null;
+  problems: PartProblem[];
+  libraries?: number;
+  lastBackupAt?: string | null;
 }
 
-interface DiagnosticsReport {
-  generatedAt: string;
-  includesPrivate: boolean;
-  sections: ReportSection[];
-}
+const PILL: Record<PartState, string> = { ok: "is-ready", attention: "is-needsSetup", down: "is-needsSetup", off: "is-off" };
 
-/** Which explanation a part gets: a container's own part shares one. */
-type PartKind = "system" | "containers" | "libraries" | "failures" | "container";
-const kindOf = (key: string): PartKind => (key.startsWith("container:") ? "container" : (key as PartKind));
-
-export function reportText(report: DiagnosticsReport, left: ReadonlySet<string>): string {
-  const parts = report.sections.filter((section) => !left.has(section.key));
-  return [
-    `iSputnik diagnostics, ${report.generatedAt.slice(0, 19).replace("T", " ")} UTC`,
-    report.includesPrivate ? "Names, folders and addresses are included." : "Names, folders and addresses are hidden (<person>, <path>, <ip> …).",
-    "",
-    ...parts.flatMap((section) => [`## ${section.title}`, ...section.lines, ""])
-  ].join("\n").trimEnd() + "\n";
+function Link({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a className="secondary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
+      {children}
+      <ArrowRight size={15} aria-hidden="true" />
+    </a>
+  );
 }
 
 export function DiagnosticsSection() {
   const { t } = useTranslation(["controlAdmin"]);
-  const [includePrivate, setIncludePrivate] = useState(false);
-  const [report, setReport] = useState<DiagnosticsReport | null>(null);
-  const [left, setLeft] = useState<Set<string>>(new Set());
+  const appName = useAppName();
+  const [parts, setParts] = useState<PartOverview[] | null>(null);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
-  const load = useCallback(async (withPrivate: boolean) => {
-    setLoading(true);
+  const load = useCallback(async () => {
     setError("");
     try {
-      const body = await api<{ report: DiagnosticsReport }>(`/api/admin/diagnostics?private=${withPrivate}`);
-      setReport(body.report);
+      const body = await api<{ parts: PartOverview[] }>("/api/admin/diagnostics/overview");
+      setParts(body.parts);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("controlAdmin:diagnostics.loadFailed"));
-      throw err;
-    } finally {
-      setLoading(false);
+      setError(err instanceof Error ? err.message : t("controlAdmin:diagnostics.overviewFailed"));
     }
   }, [t]);
 
   useEffect(() => {
-    void load(includePrivate).catch(() => undefined);
-  }, [load, includePrivate]);
+    void load();
+  }, [load]);
 
-  const text = useMemo(() => (report ? reportText(report, left) : ""), [report, left]);
-
-  const toggle = (key: string, keep: boolean) => {
-    setLeft((current) => {
-      const next = new Set(current);
-      if (keep) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setError(t("controlAdmin:diagnostics.copyFailed"));
+  const problemText = (problem: PartProblem): string => {
+    switch (problem.kind) {
+      case "folderMissing":
+      case "folderSlow":
+      case "scanFailed":   return t(`controlAdmin:diagnostics.problem.${problem.kind}`, { library: problem.library });
+      case "backupOld":    return t("controlAdmin:diagnostics.problem.backupOld", { count: problem.days });
+      case "notAnswering": return problem.error ? t("controlAdmin:diagnostics.problem.notAnsweringWhy", { error: problem.error }) : t("controlAdmin:diagnostics.problem.notAnswering");
+      default:             return t(`controlAdmin:diagnostics.problem.${problem.kind}`);
     }
   };
 
-  const download = () => {
-    const stamp = (report?.generatedAt ?? new Date().toISOString()).slice(0, 16).replace(/[:T]/g, "-");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-    link.download = `isputnik-diagnostics-${stamp}.txt`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+  const lineOf = (part: PartOverview): string => {
+    if (part.problems.length > 0) return part.problems.map(problemText).join(" · ");
+    if (part.id === "home") {
+      const backup = part.lastBackupAt ? relativeTime(part.lastBackupAt) : "—";
+      return t("controlAdmin:diagnostics.line.home", { count: part.libraries ?? 0, backup });
+    }
+    if (part.state === "off") return t("controlAdmin:diagnostics.line.off");
+    return t("controlAdmin:diagnostics.line.answers", { ms: part.roundTripMs ?? "?" });
   };
 
-  const describe = (section: ReportSection) => {
-    const kind = kindOf(section.key);
-    const name = section.key.startsWith("container:") ? section.key.slice("container:".length) : "";
-    return {
-      label: kind === "container" ? t("controlAdmin:diagnostics.parts.container.label", { name }) : t(`controlAdmin:diagnostics.parts.${kind}.label`),
-      sub: kind === "container" ? t("controlAdmin:diagnostics.parts.container.sub", { name }) : t(`controlAdmin:diagnostics.parts.${kind}.sub`)
-    };
+  /** Where a part's trouble is put right, and its tests. */
+  const actionsOf = (part: PartOverview) => {
+    const links: { href: string; label: string }[] = [];
+    if (part.id === "home") {
+      const library = part.problems.find((problem) => "libraryId" in problem);
+      if (library && "libraryId" in library) links.push({ href: libraryManageHref(library.libraryId), label: t("controlAdmin:diagnostics.action.library", { library: library.library }) });
+      if (part.problems.some((problem) => problem.kind.startsWith("backup") || problem.kind === "noBackup")) links.push({ href: controlHref("backup"), label: t("controlAdmin:diagnostics.action.backups") });
+      links.push({ href: logsHref(), label: t("controlAdmin:diagnostics.action.logs") });
+      return links;
+    }
+    if (part.state === "off" || part.state === "down" || part.state === "attention") links.push({ href: appPageHref("appsSetup", part.id), label: t("controlAdmin:diagnostics.action.pairing") });
+    if (part.id === "video" && part.state === "ok") links.push({ href: `${controlHref("videoSettings")}?show=hardware`, label: t("controlAdmin:diagnostics.action.tests") });
+    if (part.state !== "off") links.push({ href: logsHref({ app: part.id }), label: t("controlAdmin:diagnostics.action.logs") });
+    return links;
   };
 
   return (
     <div className="diagnostics-section">
       <ControlSectionHead section="diagnostics" icon={<Stethoscope size={30} />} description={t("controlAdmin:diagnostics.description")}>
-        <RefreshButton onRefresh={() => load(includePrivate)} />
+        <RefreshButton onRefresh={load} />
+        <Button variant="primary" onClick={() => setReporting(true)}><FileDown size={16} aria-hidden="true" />{t("controlAdmin:diagnostics.downloadReport")}</Button>
       </ControlSectionHead>
 
-      <MessageBox tone="info" title={t("controlAdmin:diagnostics.nothingSentTitle")}>
-        {t("controlAdmin:diagnostics.nothingSent")}
-      </MessageBox>
+      {error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.overviewFailed")}>{error}</MessageBox>}
 
-      {error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.loadFailed")}>{error}</MessageBox>}
-
-      <GroupedList title={t("controlAdmin:diagnostics.privacyTitle")}>
-        <ToggleRow
-          label={t("controlAdmin:diagnostics.includePrivate")}
-          sub={t("controlAdmin:diagnostics.includePrivateSub")}
-          checked={includePrivate}
-          disabled={loading}
-          onChange={setIncludePrivate}
-        />
-      </GroupedList>
-
-      {includePrivate && (
-        <MessageBox tone="warning" title={t("controlAdmin:diagnostics.privateWarningTitle")}>
-          {t("controlAdmin:diagnostics.privateWarning")}
-        </MessageBox>
-      )}
-
-      {report && (
-        <GroupedList title={t("controlAdmin:diagnostics.partsTitle")} note={t("controlAdmin:diagnostics.partsNote")}>
-          {report.sections.map((section) => {
-            const { label, sub } = describe(section);
-            return <ToggleRow key={section.key} label={label} sub={sub} checked={!left.has(section.key)} onChange={(keep) => toggle(section.key, keep)} />;
-          })}
-        </GroupedList>
-      )}
-
-      {report && (
-        <section className="diagnostics-preview" aria-label={t("controlAdmin:diagnostics.previewTitle")}>
-          <div className="diagnostics-preview-head">
-            <h3>{t("controlAdmin:diagnostics.previewTitle")}</h3>
-            <div className="diagnostics-actions">
-              <Button variant="secondary" onClick={() => void copy()} disabled={loading}>
-                {copied ? t("controlAdmin:diagnostics.copied") : t("controlAdmin:diagnostics.copy")}
-              </Button>
-              <Button variant="secondary" onClick={download} disabled={loading}>{t("controlAdmin:diagnostics.download")}</Button>
-              <a className="primary-button" href={bugReportUrl(APP_VERSION)} target="_blank" rel="noreferrer">{t("controlAdmin:diagnostics.openBugReport")}</a>
+      <div className="diagnostics-parts">
+        {(parts ?? []).map((part) => (
+          <section key={part.id} className={`organization-card diagnostics-part is-${part.state}`} aria-labelledby={`diagnostics-${part.id}`}>
+            <div className="service-card-head">
+              <div className="diagnostics-part-name">
+                <h2 id={`diagnostics-${part.id}`}>{part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id)}</h2>
+                <span className="muted">
+                  {part.id === "home"
+                    ? t("controlAdmin:diagnostics.thisServer", { version: part.version ?? "?" })
+                    : part.version ? t("controlAdmin:diagnostics.container", { version: part.version }) : t("controlAdmin:diagnostics.containerNoVersion")}
+                </span>
+              </div>
+              <span className={`app-status-pill ${PILL[part.state]}`}>{t(`controlAdmin:diagnostics.state.${part.state}`)}</span>
             </div>
-          </div>
-          <pre className="diagnostics-text" tabIndex={0}>{loading ? t("controlAdmin:diagnostics.making") : text}</pre>
-        </section>
-      )}
+            <p className={part.problems.length ? "diagnostics-part-line is-warning" : "diagnostics-part-line"}>{lineOf(part)}</p>
+            <div className="organization-actions">
+              {actionsOf(part).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
+            </div>
+          </section>
+        ))}
+        {parts === null && !error && <p className="muted">{t("controlAdmin:diagnostics.looking")}</p>}
+      </div>
+
+      {reporting && <ReportDialog parts="all" onClose={() => setReporting(false)} />}
     </div>
   );
 }

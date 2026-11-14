@@ -57,7 +57,24 @@ function lanAddress(ip: string): boolean {
   return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a === 127;
 }
 
-export function makeRedactor(input: RedactionInput): Redactor {
+/** What a report hides, each kind its own choice (the report dialog's switches). */
+export interface HideChoice {
+  /** Accounts' names and emails. */
+  people: boolean;
+  /** Folders and files: known ones and anything that looks like a path. */
+  paths: boolean;
+  /** Libraries' and collections' names. */
+  names: boolean;
+  /** IP addresses and web addresses' hosts. */
+  net: boolean;
+}
+
+export const HIDE_KINDS = ["people", "paths", "names", "net"] as const satisfies readonly (keyof HideChoice)[];
+export const HIDE_ALL: HideChoice = { people: true, paths: true, names: true, net: true };
+export const HIDE_NOTHING: HideChoice = { people: false, paths: false, names: false, net: false };
+
+export function makeRedactor(input: RedactionInput, hide: HideChoice = HIDE_ALL): Redactor {
+  if (!hide.people && !hide.paths && !hide.names && !hide.net) return keepEverything;
   // Longest first, so "Mum's films" goes before "Mum". As written: a folder's
   // case is its own, and "Movies" the library is not "movies" the word.
   const known = (values: { value: string; placeholder: string }[]) => values
@@ -70,10 +87,14 @@ export function makeRedactor(input: RedactionInput): Redactor {
   // folder name ("Movies", relative to a media root) is only a name.
   const folders = input.paths.filter((value) => /[\\/]/.test(value));
   const bare = input.paths.filter((value) => !/[\\/]/.test(value));
-  const pathRules = known(folders.flatMap((value) => [value, value.replace(/\//g, "\\"), value.replace(/\\/g, "/")]).map((value) => ({ value, placeholder: "<path>" })));
+  const pathRules = hide.paths
+    ? known(folders.flatMap((value) => [value, value.replace(/\//g, "\\"), value.replace(/\\/g, "/")]).map((value) => ({ value, placeholder: "<path>" })))
+    : [];
+  // A bare folder is a folder: hidden with the paths, though it reads as a name.
   const nameRules = known([
-    ...input.people.map((value) => ({ value, placeholder: "<person>" })),
-    ...[...input.names, ...bare].map((value) => ({ value, placeholder: "<name>" }))
+    ...(hide.people ? input.people.map((value) => ({ value, placeholder: "<person>" })) : []),
+    ...(hide.names ? input.names.map((value) => ({ value, placeholder: "<name>" })) : []),
+    ...(hide.paths ? bare.map((value) => ({ value, placeholder: "<name>" })) : [])
   ]);
   return (text) => {
     // Known folders first, exactly as they are (spaces and all); then anything
@@ -81,18 +102,24 @@ export function makeRedactor(input: RedactionInput): Redactor {
     // then the names.
     let out = text;
     for (const rule of pathRules) out = out.replace(rule.pattern, rule.placeholder);
-    out = out.replace(PATH_START, (candidate) => `<path>${candidate.slice(pathEnd(candidate).length)}`);
+    if (hide.paths) out = out.replace(PATH_START, (candidate) => `<path>${candidate.slice(pathEnd(candidate).length)}`);
     for (const rule of nameRules) out = out.replace(rule.pattern, rule.placeholder);
-    return out
-      .replace(EMAIL, "<email>")
-      .replace(URL_HOST, "$1<host>")
-      // What goes on past a known folder is that folder's films and files: hidden too.
-      // (A bare folder name with a slash after it is a path too.)
-      .replace(/<(?:path|name)>([\\/][^\n"'<>|,;]*)/g, (_match, rest: string) => `<path>${rest.slice(pathEnd(rest).length)}`)
-      // A known folder inside another: one placeholder.
-      .replace(/<path>(?:[\\/]<path>)+/g, "<path>")
-      .replace(IPV4, (ip) => (ip === "0.0.0.0" ? ip : lanAddress(ip) ? "<lan-ip>" : "<ip>"))
-      .replace(IPV6, (ip) => (ip === "::1" ? ip : "<ip>"));
+    if (hide.people) out = out.replace(EMAIL, "<email>");
+    if (hide.net) out = out.replace(URL_HOST, "$1<host>");
+    if (hide.paths) {
+      out = out
+        // What goes on past a known folder is that folder's films and files: hidden too.
+        // (A bare folder name with a slash after it is a path too.)
+        .replace(/<(?:path|name)>([\\/][^\n"'<>|,;]*)/g, (_match, rest: string) => `<path>${rest.slice(pathEnd(rest).length)}`)
+        // A known folder inside another: one placeholder.
+        .replace(/<path>(?:[\\/]<path>)+/g, "<path>");
+    }
+    if (hide.net) {
+      out = out
+        .replace(IPV4, (ip) => (ip === "0.0.0.0" ? ip : lanAddress(ip) ? "<lan-ip>" : "<ip>"))
+        .replace(IPV6, (ip) => (ip === "::1" ? ip : "<ip>"));
+    }
+    return out;
   };
 }
 

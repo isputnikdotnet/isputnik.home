@@ -17,7 +17,7 @@ import { config } from "../../config.js";
 import { identityHeaders } from "../apps/gateway.js";
 import { appStatus, type AppStatus } from "../apps/status.js";
 import { APPS, appConfigured, type AppDefinition, type AppId } from "../apps/registry.js";
-import { keepEverything, makeRedactor, type Redactor } from "./redact.js";
+import { HIDE_KINDS, makeRedactor, type HideChoice } from "./redact.js";
 
 export type SectionKey = "system" | "containers" | "libraries" | "failures" | `container:${AppId}`;
 
@@ -30,8 +30,10 @@ export interface ReportSection {
 
 export interface DiagnosticsReport {
   generatedAt: string;
-  /** Names, paths and addresses included as they are. */
+  /** Nothing hidden: names, paths and addresses included as they are. */
   includesPrivate: boolean;
+  /** Which kinds were hidden (redact.ts HideChoice), in their usual order. */
+  hidden: (keyof HideChoice)[];
   sections: ReportSection[];
 }
 
@@ -219,33 +221,41 @@ function privateOf(facts: Record<string, unknown> | null): { names: string[]; pa
   return { names, paths };
 }
 
-export async function buildReport(request: FastifyRequest, settings: AppSettings, includePrivate: boolean): Promise<DiagnosticsReport> {
+/** Every part a report can have, in its order: this server's, then a container's each. */
+export const REPORT_PARTS: SectionKey[] = ["system", "containers", "libraries", "failures", ...APPS.map((app) => `container:${app.id}` as const)];
+
+/**
+ * parts: the sections to make (null: all of them); a container left out is not asked.
+ * hide: what the redactor hides, each kind on its own.
+ */
+export async function buildReport(request: FastifyRequest, settings: AppSettings, hide: HideChoice, parts: ReadonlySet<SectionKey> | null = null): Promise<DiagnosticsReport> {
+  const wanted = (key: SectionKey) => parts === null || parts.has(key);
+  const asked = APPS.filter((definition) => wanted(`container:${definition.id}`));
   const [statuses, containers] = await Promise.all([
     Promise.all(APPS.map((definition) => {
       const { upstream, secret, source, urlSource } = settings(definition.id);
       return appStatus(definition, upstream, secret, request, source, urlSource);
     })),
-    Promise.all(APPS.map((definition) => askContainer(definition, settings, request)))
+    Promise.all(asked.map((definition) => askContainer(definition, settings, request)))
   ]);
   const libraries = db.prepare("SELECT name, type, source_path, scan_status, last_scanned_at, role FROM libraries ORDER BY type, name").all() as LibraryRow[];
 
-  let redact: Redactor = keepEverything;
-  if (!includePrivate) {
-    const people = (db.prepare("SELECT email, display_name FROM users").all() as { email: string; display_name: string }[]).flatMap((user) => [user.email, user.display_name]);
-    const fromContainers = containers.map((entry) => privateOf(entry.facts));
-    const ownPaths = [config.dbPath, path.dirname(config.dbPath), config.backupPath, config.thumbnailPath, config.metadataPath, config.staticPath].filter(Boolean);
-    redact = makeRedactor({
-      people,
-      names: [...libraries.map((row) => row.name), ...fromContainers.flatMap((entry) => entry.names)],
-      paths: [...libraries.map((row) => row.source_path), ...ownPaths, ...fromContainers.flatMap((entry) => entry.paths)]
-    });
-  }
+  const hidden = HIDE_KINDS.filter((kind) => hide[kind]);
+  // Gathered whatever is hidden: a container's library names are names, its folders paths.
+  const people = (db.prepare("SELECT email, display_name FROM users").all() as { email: string; display_name: string }[]).flatMap((user) => [user.email, user.display_name]);
+  const fromContainers = containers.map((entry) => privateOf(entry.facts));
+  const ownPaths = [config.dbPath, path.dirname(config.dbPath), config.backupPath, config.thumbnailPath, config.metadataPath, config.staticPath].filter(Boolean);
+  const redact = makeRedactor({
+    people,
+    names: [...libraries.map((row) => row.name), ...fromContainers.flatMap((entry) => entry.names)],
+    paths: [...libraries.map((row) => row.source_path), ...ownPaths, ...fromContainers.flatMap((entry) => entry.paths)]
+  }, hide);
 
   const sections: ReportSection[] = [
-    systemSection(),
-    containersSection(statuses),
-    librariesSection(libraries),
-    failuresSection(),
+    ...(wanted("system") ? [systemSection()] : []),
+    ...(wanted("containers") ? [containersSection(statuses)] : []),
+    ...(wanted("libraries") ? [librariesSection(libraries)] : []),
+    ...(wanted("failures") ? [failuresSection()] : []),
     ...containers.filter((entry) => entry.note !== "not set up").map((entry): ReportSection => ({
       key: `container:${entry.app.id}`,
       title: `${entry.app.id} container`,
@@ -254,7 +264,8 @@ export async function buildReport(request: FastifyRequest, settings: AppSettings
   ];
   return {
     generatedAt: new Date().toISOString(),
-    includesPrivate: includePrivate,
+    includesPrivate: hidden.length === 0,
+    hidden,
     sections: sections.map((section) => ({ ...section, lines: section.lines.map(redact) }))
   };
 }

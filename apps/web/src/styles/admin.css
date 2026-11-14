@@ -3619,6 +3619,22 @@ tr.control-anchor-flash > td {
 .diagnostics-preview-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .diagnostics-preview-head h3 { margin: 0; }
 .diagnostics-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* The cards, one per part of iSputnik (docs/diagnostics-pages-plan.md). */
+.diagnostics-parts { display: grid; gap: 12px; min-width: 0; }
+.diagnostics-part { display: grid; gap: 10px; min-width: 0; }
+.diagnostics-part.is-attention, .diagnostics-part.is-down { border-color: color-mix(in srgb, var(--warning) 45%, var(--line)); }
+.diagnostics-part-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.diagnostics-part-name h2 { margin: 0; }
+.diagnostics-part-line { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.diagnostics-part-line.is-warning { color: var(--warning); }
+/* The report dialog: the choices beside the report as it will be saved. */
+.diagnostics-report-modal { width: min(1100px, calc(100vw - 32px)); }
+.diagnostics-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; min-width: 0; }
+.diagnostics-report-choices { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.diagnostics-report .diagnostics-preview { align-content: start; }
+.diagnostics-report .diagnostics-preview h3 { margin: 0; }
+.diagnostics-report .diagnostics-text { max-height: 62vh; min-height: 240px; }
+@media (max-width: 860px) { .diagnostics-report { grid-template-columns: minmax(0, 1fr); } }
 .diagnostics-text {
   margin: 0;
   max-height: 60vh;

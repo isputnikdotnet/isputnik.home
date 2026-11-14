@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { diagnosticsPlugin } from "../src/modules/diagnostics/index.js";
-import { makeRedactor } from "../src/modules/diagnostics/redact.js";
+import { HIDE_NOTHING, makeRedactor } from "../src/modules/diagnostics/redact.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
@@ -37,6 +37,19 @@ describe("what a report hides", () => {
     // A known folder with a space in its last part is hidden whole.
     const spaced = makeRedactor({ people: [], names: [], paths: ["D:/Media/App files"] });
     expect(spaced("gallery at D:/Media/App files; idle")).toBe("gallery at <path>; idle");
+  });
+});
+
+describe("hiding one kind at a time", () => {
+  const input = { people: ["Galina Petrova"], names: ["Kids films"], paths: ["/mnt/user/media/kids"] };
+  const line = "Galina Petrova opened Kids films at /mnt/user/media/kids/Frozen.mkv from 192.168.1.5";
+
+  it("hides only what is chosen", () => {
+    expect(makeRedactor(input, { ...HIDE_NOTHING, people: true })(line)).toBe("<person> opened Kids films at /mnt/user/media/kids/Frozen.mkv from 192.168.1.5");
+    expect(makeRedactor(input, { ...HIDE_NOTHING, paths: true })(line)).toBe("Galina Petrova opened Kids films at <path> from 192.168.1.5");
+    expect(makeRedactor(input, { ...HIDE_NOTHING, names: true })(line)).toBe("Galina Petrova opened <name> at /mnt/user/media/kids/Frozen.mkv from 192.168.1.5");
+    expect(makeRedactor(input, { ...HIDE_NOTHING, net: true })(line)).toBe("Galina Petrova opened Kids films at /mnt/user/media/kids/Frozen.mkv from <lan-ip>");
+    expect(makeRedactor(input, HIDE_NOTHING)(line)).toBe(line);
   });
 });
 
@@ -116,6 +129,45 @@ describe("GET /api/admin/diagnostics", () => {
     expect(text(shown)).toContain("/mnt/user/photos/galina");
     // The secret is never in it, either way.
     expect(text(shown)).not.toContain(SECRET);
+  });
+
+  it("hides each kind on its own when asked, and says which", async () => {
+    const report = (await ask("admin", "?hide=people,net")).json().report;
+    expect(report.hidden).toEqual(["people", "net"]);
+    expect(report.includesPrivate).toBe(false);
+    const body = text(report);
+    expect(body).not.toContain("Galina Petrova");
+    expect(body).toContain("/mnt/user/photos/galina");
+    expect(body).not.toContain(SECRET);
+    // An empty list hides nothing; no list hides everything.
+    expect((await ask("admin", "?hide=")).json().report.includesPrivate).toBe(true);
+    expect((await ask("admin")).json().report.hidden).toEqual(["people", "paths", "names", "net"]);
+  });
+
+  it("makes only the parts asked for, and asks no container left out", async () => {
+    const report = (await ask("admin", "?parts=system,libraries")).json().report;
+    expect(report.sections.map((section: { key: string }) => section.key)).toEqual(["system", "libraries"]);
+    const withVideo = (await ask("admin", "?parts=container:video,bogus")).json().report;
+    expect(withVideo.sections.map((section: { key: string }) => section.key)).toEqual(["container:video"]);
+  });
+
+  it("lists each part for the page: this server first, with what needs a look", async () => {
+    // A video library's folder is the container's own: not this server's to check.
+    makeLibrary("lib2", { createdBy: "admin", type: "video" });
+    db.prepare("UPDATE libraries SET name = 'Films', source_path = 'Movies' WHERE id = 'lib2'").run();
+    const response = await booted!.app.inject({ method: "GET", url: "/api/admin/diagnostics/overview", headers: { cookie: await booted!.signIn("admin") } });
+    expect(response.statusCode).toBe(200);
+    const parts = response.json().parts as { id: string; state: string; version: string | null; problems: { kind: string; library?: string }[] }[];
+    expect(parts.map((part) => part.id)).toEqual(["home", "games", "video", "faces"]);
+    const home = parts[0];
+    expect(home.state).toBe("attention");
+    expect(home.problems).toContainEqual(expect.objectContaining({ kind: "folderMissing", library: "Galina photos" }));
+    expect(home.problems.map((problem) => problem.kind)).toContain("noBackup");
+    expect(home.problems.some((problem) => problem.library === "Films")).toBe(false);
+    expect(parts.find((part) => part.id === "video")).toMatchObject({ state: "ok", version: "0.37.1" });
+    expect(parts.find((part) => part.id === "games")).toMatchObject({ state: "off" });
+    const member = await booted!.app.inject({ method: "GET", url: "/api/admin/diagnostics/overview", headers: { cookie: await booted!.signIn("mum") } });
+    expect(member.statusCode).toBe(403);
   });
 
   it("says so, instead of failing, when a container does not answer", async () => {

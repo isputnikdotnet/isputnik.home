@@ -2509,16 +2509,10 @@
     "addNote": "Your home network, and a VPN range if phones should back up away from home. Type the range with its size, like 192.168.2.0/24."
   },
   "diagnostics": {
-    "description": "A report to attach to a bug report: versions, the server, the containers and recent failures.",
-    "nothingSentTitle": "Nothing is sent anywhere",
-    "nothingSent": "This page only shows the report. You copy or download it and attach it to a bug report yourself, after reading it below.",
-    "privacyTitle": "Privacy",
-    "includePrivate": "Include names, folders and addresses",
-    "includePrivateSub": "Off: people's names and emails, library names, folders, file names, IP addresses and web addresses are replaced with <person>, <name>, <path>, <ip> and <host>.",
+    "description": "How each part of iSputnik is, what needs a look, and a report to attach to a bug report.",
+    "nothingSent": "One file to attach to a bug report. Nothing is sent anywhere: you copy or save it and attach it yourself, after reading it here.",
     "privateWarningTitle": "Names and paths are in the report",
     "privateWarning": "Bug reports on GitHub are public. With this on, anyone can read your family's names, your folders and how to reach your server. Read the report before you post it.",
-    "partsTitle": "What goes in",
-    "partsNote": "Leave out any part you'd rather not share. The preview below changes as you choose.",
     "parts": {
       "system": {
         "label": "This server",
@@ -2548,6 +2542,70 @@
     "openBugReport": "Open a bug report",
     "making": "Making the report…",
     "loadFailed": "Unable to make the report",
-    "copyFailed": "This browser wouldn't copy the report. Use Download instead, or select the text below."
+    "copyFailed": "This browser wouldn't copy the report. Use Download instead, or select the text below.",
+    "downloadReport": "Download report",
+    "overviewFailed": "Unable to check iSputnik",
+    "looking": "Checking each part…",
+    "home": "iSputnik",
+    "thisServer": "this server · {{version}}",
+    "container": "container · {{version}}",
+    "containerNoVersion": "container",
+    "state": {
+      "ok": "Healthy",
+      "attention": "Attention",
+      "down": "Not answering",
+      "off": "Not set up"
+    },
+    "line": {
+      "home_one": "{{count}} library, its folder reachable · last backup {{backup}}",
+      "home_other": "{{count}} libraries, all folders reachable · last backup {{backup}}",
+      "answers": "Answers in {{ms}} ms",
+      "off": "Not set up. Pair it on Services to use it."
+    },
+    "problem": {
+      "folderMissing": "{{library}}: folder isn't reachable",
+      "folderSlow": "{{library}}: folder is slow to answer (a sleeping disk?)",
+      "scanFailed": "{{library}}: the last scan failed",
+      "noBackup": "No backup yet",
+      "backupOld_one": "No backup in {{count}} day",
+      "backupOld_other": "No backup in {{count}} days",
+      "backupFailed": "The last backup failed",
+      "notAnswering": "Doesn't answer",
+      "notAnsweringWhy": "Doesn't answer ({{error}})",
+      "secretRefused": "Refuses this server's secret"
+    },
+    "action": {
+      "library": "{{library}}",
+      "backups": "Backups",
+      "logs": "Logs",
+      "pairing": "Pairing",
+      "tests": "Tests"
+    },
+    "report": {
+      "title": "Download a report",
+      "homeTitle": "iSputnik (this server)",
+      "containersTitle": "Containers",
+      "hideTitle": "Hide in the file",
+      "alwaysRemoved": "Secrets, passwords and keys are never in a report, whatever is chosen here.",
+      "nothingChosen": "Choose at least one part to see the report.",
+      "hide": {
+        "people": {
+          "label": "Names of people",
+          "sub": "Members' names and emails become <person> and <email>."
+        },
+        "paths": {
+          "label": "Folders and file paths",
+          "sub": "Library folders, film and book files, and any other path become <path>."
+        },
+        "names": {
+          "label": "Names of libraries",
+          "sub": "Libraries' and containers' library names become <name>."
+        },
+        "net": {
+          "label": "Addresses",
+          "sub": "IP addresses and web addresses' hosts become <ip>, <lan-ip> and <host>."
+        }
+      }
+    }
   }
 }
