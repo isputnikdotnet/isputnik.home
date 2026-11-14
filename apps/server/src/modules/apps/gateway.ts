@@ -173,6 +173,8 @@ export async function registerAppGateway(app: FastifyInstance, options: AppGatew
     const onResponse = hooks.onResponse;
     scope.addHook("onResponse", async (request, reply) => {
       recordCall(definition.id, reply.statusCode);
+      // Detailed logging (core/logging.ts): which container, what it answered, how long it took.
+      request.log.debug({ app: definition.id, status: reply.statusCode, ms: Math.round(reply.elapsedTime) }, "gateway call");
       onResponse?.(request, reply.statusCode);
     });
 

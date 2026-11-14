@@ -17,6 +17,7 @@ import { HardwareTestPage } from "../sections/VideoHardwareTest";
 import { conversionBody, GpuRow, useEngine, type ConversionSettings, type ConversionState, type HardwareMode } from "../sections/VideoSettingsSection";
 import { HOME_PARTS, ReportDialog } from "./ReportDialog";
 import { useDiagnosticsOverview, useProblemText, type LibraryCheck, type PartOverview } from "./overview";
+import { LoggingControl, loggingUrl } from "./Logging";
 
 // One part of iSputnik's page under Infrastructure › Diagnostics
 // (docs/diagnostics-pages-plan.md): how it is, its checks with their tests beside
@@ -75,6 +76,7 @@ export function DiagnosticsPartPage({ part }: { part: DiagnosticsPart }) {
             {part === "video" && overview.state !== "off" && <VideoChecks />}
           </div>
           <aside className="diagnostics-part-aside" aria-label={t("controlAdmin:diagnostics.page.asideLabel")}>
+            {overview.state !== "off" && <LoggingCard part={part} name={name} reachable={overview.state !== "down"} />}
             {part === "home" && parts && <OtherContainers parts={parts} />}
             <LogsAndEvents part={part} />
           </aside>
@@ -287,12 +289,26 @@ function VideoHardware({ prefix }: { prefix: string }) {
 
 // ── Where to look next ─────────────────────────────────────────────────────────
 
+function LoggingCard({ part, name, reachable }: { part: DiagnosticsPart; name: string; reachable: boolean }) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const { apps } = useAppsStatus();
+  const prefix = part === "home" ? null : apps?.find((app) => app.id === part)?.prefix;
+  const url = part === "home" ? loggingUrl(null) : prefix && reachable ? loggingUrl(prefix) : null;
+  return (
+    <section className="organization-card diagnostics-logging-card" aria-labelledby="diagnostics-logging-title">
+      <h3 id="diagnostics-logging-title">{t("controlAdmin:diagnostics.logging.label")}</h3>
+      {url ? <LoggingControl url={url} name={name} /> : <p className="muted">{t("controlAdmin:diagnostics.logging.cannot")}</p>}
+      <p className="muted">{t("controlAdmin:diagnostics.logging.help")}</p>
+    </section>
+  );
+}
+
 function LogsAndEvents({ part }: { part: DiagnosticsPart }) {
   const { t } = useTranslation(["controlAdmin"]);
   const application = APPLICATION[part];
   return (
     <GroupedList title={t("controlAdmin:diagnostics.page.logs.title")}>
-      <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:diagnostics.page.logs.log")} sub={t("controlAdmin:diagnostics.page.logs.logSub")} href={part === "home" ? logsHref({ log: "server" }) : logsHref({ app: part })} />
+      <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:diagnostics.page.logs.log")} sub={t("controlAdmin:diagnostics.page.logs.logSub")} href={part === "home" ? logsHref() : logsHref({ app: part })} />
       <NavRow icon={<Activity size={17} />} label={t("controlAdmin:diagnostics.page.logs.activity")} sub={t("controlAdmin:diagnostics.page.logs.activitySub")} href={activityHref(application ? { application } : {})} />
       <NavRow icon={<ListChecks size={17} />} label={t("controlAdmin:diagnostics.page.logs.tasks")} sub={t("controlAdmin:diagnostics.page.logs.tasksSub")} href={tasksHref(application ? { application } : {})} />
     </GroupedList>

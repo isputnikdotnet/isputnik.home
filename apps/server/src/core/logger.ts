@@ -16,7 +16,7 @@ export function setAppLogger(logger: FastifyBaseLogger): void {
   current = logger;
 }
 
-type Level = "info" | "warn" | "error";
+type Level = "trace" | "debug" | "info" | "warn" | "error";
 
 function emit(level: Level, first: object | string, message?: string): void {
   if (current) {
@@ -24,6 +24,8 @@ function emit(level: Level, first: object | string, message?: string): void {
     else current[level](first, message);
     return;
   }
+  // Below info only with the logger: a test or an import-time line has no level to pass.
+  if (level === "debug" || level === "trace") return;
   const out = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
   if (typeof first === "string") out(first);
   else out("%s", message ?? "", first);
@@ -31,6 +33,10 @@ function emit(level: Level, first: object | string, message?: string): void {
 
 /** `log.warn("text")`, or `log.error({ err }, "text")` to attach an error or fields. */
 export const log = {
+  /** Detailed: the steps behind a decision (core/logging.ts). */
+  debug: (first: object | string, message?: string) => emit("debug", first, message),
+  /** Everything: what a tool said in full. */
+  trace: (first: object | string, message?: string) => emit("trace", first, message),
   info: (first: object | string, message?: string) => emit("info", first, message),
   warn: (first: object | string, message?: string) => emit("warn", first, message),
   error: (first: object | string, message?: string) => emit("error", first, message)

@@ -18,8 +18,21 @@ import { identityHeaders } from "../apps/gateway.js";
 import { appStatus, type AppStatus } from "../apps/status.js";
 import { APPS, appConfigured, type AppDefinition, type AppId } from "../apps/registry.js";
 import { HIDE_KINDS, makeRedactor, type HideChoice } from "./redact.js";
+import { logLinesSince } from "../../core/log-buffer.js";
+import { detailedLogging } from "../../core/logging.js";
 
-export type SectionKey = "system" | "containers" | "libraries" | "failures" | `container:${AppId}`;
+export type SectionKey = "system" | "containers" | "libraries" | "failures" | "tasks" | "log" | `container:${AppId}`;
+
+/** How far back the report's dated lines go: failures, failed tasks, log lines. */
+export type ReportSpan = "hour" | "day" | "week";
+const SPAN_TITLE: Record<ReportSpan, string> = { hour: "last hour", day: "today", week: "last 7 days" };
+
+/** When a span begins: an hour ago, this server's midnight, or a week ago. */
+export function spanStart(span: ReportSpan, now = new Date()): number {
+  if (span === "hour") return now.getTime() - 60 * 60_000;
+  if (span === "week") return now.getTime() - 7 * 86400_000;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
 
 export interface ReportSection {
   key: SectionKey;
@@ -34,6 +47,8 @@ export interface DiagnosticsReport {
   includesPrivate: boolean;
   /** Which kinds were hidden (redact.ts HideChoice), in their usual order. */
   hidden: (keyof HideChoice)[];
+  /** How far back its dated lines go. */
+  span: ReportSpan;
   sections: ReportSection[];
 }
 
@@ -41,9 +56,10 @@ export type AppSettings = (id: AppId) => { upstream: string; secret: string; sou
 
 /** How long a container gets to answer; the page waits for the slowest. */
 const CONTAINER_TIMEOUT_MS = 5000;
-/** How far back, and how many, of the activity log's failures. */
-const FAILURE_DAYS = 14;
+/** How many of the activity log's failures, failed tasks and log lines at most. */
 const FAILURE_ROWS = 40;
+const TASK_ROWS = 10;
+const LOG_ROWS = 300;
 
 const mb = (bytes: number) => `${Math.round(bytes / 1024 / 1024)} MB`;
 const gb = (bytes: number) => `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
@@ -128,8 +144,8 @@ function librariesSection(rows: LibraryRow[]): ReportSection {
   };
 }
 
-function failuresSection(): ReportSection {
-  const since = new Date(Date.now() - FAILURE_DAYS * 86400_000).toISOString();
+function failuresSection(span: ReportSpan): ReportSection {
+  const since = new Date(spanStart(span)).toISOString();
   const rows = db.prepare(`
     SELECT event, detail, created_at FROM activity_logs
     WHERE created_at >= ? AND (event LIKE '%fail%' OR event LIKE '%error%' OR event LIKE '%refused%' OR event LIKE '%timeout%')
@@ -137,9 +153,63 @@ function failuresSection(): ReportSection {
   `).all(since, FAILURE_ROWS) as { event: string; detail: string; created_at: string }[];
   return {
     key: "failures",
-    title: `Failures in the activity log (last ${FAILURE_DAYS} days)`,
+    title: `Failures in the activity log (${SPAN_TITLE[span]})`,
     lines: rows.length === 0 ? ["none"] : rows.reverse().map((row) => `${row.created_at.slice(0, 19).replace("T", " ")} ${row.event}: ${row.detail}`)
   };
+}
+
+/** Background tasks that gave up: a scan's error is in the jobs table, never the activity log. */
+function tasksSection(span: ReportSpan): ReportSection {
+  const since = new Date(spanStart(span)).toISOString();
+  const rows = db.prepare(`
+    SELECT type, payload, attempts, error, failed_at FROM jobs
+    WHERE status = 'failed' AND failed_at >= ?
+    ORDER BY failed_at DESC LIMIT ?
+  `).all(since, TASK_ROWS) as { type: string; payload: string; attempts: number; error: string | null; failed_at: string }[];
+  const libraryName = db.prepare("SELECT name FROM libraries WHERE id = ?");
+  return {
+    key: "tasks",
+    title: `Failed tasks (${SPAN_TITLE[span]})`,
+    lines: rows.length === 0 ? ["none"] : rows.map((row) => {
+      let library = "";
+      try {
+        const id = (JSON.parse(row.payload) as { libraryId?: unknown }).libraryId;
+        const found = typeof id === "string" ? (libraryName.get(id) as { name: string } | undefined) : undefined;
+        if (found) library = ` "${found.name}"`;
+      } catch {
+        // A payload without a library.
+      }
+      return `${row.failed_at.slice(0, 19).replace("T", " ")} ${row.type}${library}, ${row.attempts} attempt${row.attempts === 1 ? "" : "s"}: ${row.error ?? "no message"}`;
+    })
+  };
+}
+
+/** This server's own log: its warnings and errors, or every line while Detailed is on (core/logging.ts). */
+function logSection(span: ReportSpan): ReportSection {
+  const every = detailedLogging();
+  const found = logLinesSince(spanStart(span), every ? 0 : 40);
+  const lines = found.slice(-LOG_ROWS).map((line) => logLine(line.text));
+  return {
+    key: "log",
+    title: `isputnik.home log, ${every ? "every line (detailed logging)" : "warnings and errors"} (${SPAN_TITLE[span]})`,
+    lines: lines.length === 0 ? ["none"] : found.length > LOG_ROWS ? [`(the last ${LOG_ROWS} of ${found.length})`, ...lines] : lines
+  };
+}
+
+/** A container's log lines from before the span left out: its `log` is pino's JSON, newest last. */
+function withinSpan(facts: Record<string, unknown>, span: ReportSpan): Record<string, unknown> {
+  if (!Array.isArray(facts.log)) return facts;
+  const since = spanStart(span);
+  const log = (facts.log as unknown[]).filter((entry) => {
+    if (typeof entry !== "string") return true;
+    try {
+      const time = (JSON.parse(entry) as { time?: unknown }).time;
+      return typeof time !== "number" || time >= since;
+    } catch {
+      return true;
+    }
+  });
+  return { ...facts, log };
 }
 
 /** A container's own facts, as nested key: value lines. */
@@ -222,13 +292,14 @@ function privateOf(facts: Record<string, unknown> | null): { names: string[]; pa
 }
 
 /** Every part a report can have, in its order: this server's, then a container's each. */
-export const REPORT_PARTS: SectionKey[] = ["system", "containers", "libraries", "failures", ...APPS.map((app) => `container:${app.id}` as const)];
+export const REPORT_PARTS: SectionKey[] = ["system", "containers", "libraries", "failures", "tasks", "log", ...APPS.map((app) => `container:${app.id}` as const)];
 
 /**
  * parts: the sections to make (null: all of them); a container left out is not asked.
  * hide: what the redactor hides, each kind on its own.
+ * span: how far back failures, failed tasks and log lines go.
  */
-export async function buildReport(request: FastifyRequest, settings: AppSettings, hide: HideChoice, parts: ReadonlySet<SectionKey> | null = null): Promise<DiagnosticsReport> {
+export async function buildReport(request: FastifyRequest, settings: AppSettings, hide: HideChoice, parts: ReadonlySet<SectionKey> | null = null, span: ReportSpan = "day"): Promise<DiagnosticsReport> {
   const wanted = (key: SectionKey) => parts === null || parts.has(key);
   const asked = APPS.filter((definition) => wanted(`container:${definition.id}`));
   const [statuses, containers] = await Promise.all([
@@ -255,17 +326,20 @@ export async function buildReport(request: FastifyRequest, settings: AppSettings
     ...(wanted("system") ? [systemSection()] : []),
     ...(wanted("containers") ? [containersSection(statuses)] : []),
     ...(wanted("libraries") ? [librariesSection(libraries)] : []),
-    ...(wanted("failures") ? [failuresSection()] : []),
+    ...(wanted("failures") ? [failuresSection(span)] : []),
+    ...(wanted("tasks") ? [tasksSection(span)] : []),
+    ...(wanted("log") ? [logSection(span)] : []),
     ...containers.filter((entry) => entry.note !== "not set up").map((entry): ReportSection => ({
       key: `container:${entry.app.id}`,
       title: `${entry.app.id} container`,
-      lines: entry.facts ? factLines(entry.facts) : [entry.note ?? "nothing to say"]
+      lines: entry.facts ? factLines(withinSpan(entry.facts, span)) : [entry.note ?? "nothing to say"]
     }))
   ];
   return {
     generatedAt: new Date().toISOString(),
     includesPrivate: hidden.length === 0,
     hidden,
+    span,
     sections: sections.map((section) => ({ ...section, lines: section.lines.map(redact) }))
   };
 }

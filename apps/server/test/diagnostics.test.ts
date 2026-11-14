@@ -5,6 +5,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { diagnosticsPlugin } from "../src/modules/diagnostics/index.js";
 import { HIDE_NOTHING, makeRedactor } from "../src/modules/diagnostics/redact.js";
+import { clearLogBuffer, pushLogLine } from "../src/core/log-buffer.js";
+import { resetLoggingForTests, setLogging } from "../src/core/logging.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeLibrary, makeUser, resetDb } from "./helpers/seed.js";
 
@@ -104,8 +106,9 @@ describe("GET /api/admin/diagnostics", () => {
   });
 
   it("has a section for this server, the containers, the libraries, the failures, and each container with its own", async () => {
-    const report = (await ask("admin")).json().report;
-    expect(report.sections.map((section: { key: string }) => section.key)).toEqual(["system", "containers", "libraries", "failures", "container:video"]);
+    // A week back: the stand-in engine's log line is from 13 November.
+    const report = (await ask("admin", "?since=week")).json().report;
+    expect(report.sections.map((section: { key: string }) => section.key)).toEqual(["system", "containers", "libraries", "failures", "tasks", "log", "container:video"]);
     const body = text(report);
     expect(body).toMatch(/version: \d+\.\d+\.\d+/);
     expect(body).toContain("video: answers, version 0.37.1");
@@ -173,6 +176,44 @@ describe("GET /api/admin/diagnostics", () => {
     expect(parts.find((part) => part.id === "games")).toMatchObject({ state: "off" });
     const member = await booted!.app.inject({ method: "GET", url: "/api/admin/diagnostics/overview", headers: { cookie: await booted!.signIn("mum") } });
     expect(member.statusCode).toBe(403);
+  });
+
+  it("carries failed tasks with their error, and this server's own warnings", async () => {
+    clearLogBuffer();
+    db.prepare("INSERT INTO jobs (id, type, payload, status, attempts, failed_at, error) VALUES ('j1', 'ebook.scan', '{\"libraryId\":\"lib1\"}', 'failed', 3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 'Invalid CEN header in /mnt/user/photos/galina/book.epub')").run();
+    pushLogLine(JSON.stringify({ level: 40, time: Date.now(), msg: "ebook scan: skipped a book" }));
+    pushLogLine(JSON.stringify({ level: 20, time: Date.now(), msg: "a detail nobody asked for" }));
+    const report = (await ask("admin", "?parts=tasks,log&hide=")).json().report;
+    const body = text(report);
+    expect(body).toMatch(/ebook\.scan "Galina photos", 3 attempts: Invalid CEN header/);
+    expect(body).toContain("WARN ebook scan: skipped a book");
+    // At Normal only the problems.
+    expect(body).not.toContain("a detail nobody asked for");
+    // And redacted like the rest.
+    expect(text((await ask("admin", "?parts=tasks")).json().report)).not.toContain("/mnt/user/photos/galina");
+  });
+
+  it("carries every line while detailed logging is on", async () => {
+    clearLogBuffer();
+    resetLoggingForTests();
+    pushLogLine(JSON.stringify({ level: 20, time: Date.now(), msg: "gateway call took 12 ms" }));
+    setLogging("detailed", 15, null);
+    try {
+      const report = (await ask("admin", "?parts=log")).json().report;
+      expect(report.sections[0].title).toContain("every line");
+      expect(text(report)).toContain("DEBUG gateway call took 12 ms");
+    } finally {
+      setLogging("normal", null, null);
+      resetLoggingForTests();
+    }
+  });
+
+  it("goes back as far as asked", async () => {
+    clearLogBuffer();
+    pushLogLine(JSON.stringify({ level: 50, time: Date.now() - 3 * 60 * 60_000, msg: "three hours ago" }));
+    expect(text((await ask("admin", "?parts=log&since=hour")).json().report)).not.toContain("three hours ago");
+    expect(text((await ask("admin", "?parts=log&since=week")).json().report)).toContain("three hours ago");
+    expect((await ask("admin", "?parts=log&since=week")).json().report.span).toBe("week");
   });
 
   it("says so, instead of failing, when a container does not answer", async () => {

@@ -32,6 +32,7 @@ beforeEach(() => {
   mockApi.mockReset();
   mockApi.mockImplementation(async (url: string) => {
     if (url.endsWith("/overview")) return { parts };
+    if (url.endsWith("/logging")) return { level: "normal", until: null, minutes: [15, 60, 240] };
     if (url.includes("/api/admin/apps")) return { apps: [] };
     return { report: { generatedAt: "2026-11-14T10:00:00.000Z", includesPrivate: false, hidden: ["people", "paths", "names", "net"], sections: [
       { key: "system", title: "isputnik.home", lines: ["version: 4.90.0"] },
@@ -62,7 +63,7 @@ describe("this server's page", () => {
     for (const name of [/Include names of people/, /Include folders and file paths/, /Include names of libraries/, /Include addresses/]) {
       expect(within(dialog).getByRole("switch", { name }).getAttribute("aria-checked")).toBe("false");
     }
-    expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,paths,names,net");
+    expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,paths,names,net&since=day");
   });
 });
 

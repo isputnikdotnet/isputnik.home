@@ -17,6 +17,8 @@ import { registerCsrf } from "./core/csrf.js";
 import { registerCompression } from "./core/compression.js";
 import { registerErrorHandler } from "./core/error-handler.js";
 import { setAppLogger } from "./core/logger.js";
+import { logStream } from "./core/log-buffer.js";
+import { startLogging } from "./core/logging.js";
 import { corePlugin } from "./core/index.js";
 import { dashboardPlugin } from "./modules/dashboard/index.js";
 import { usersPlugin } from "./modules/users/index.js";
@@ -56,6 +58,8 @@ const app = fastify({
     // "warn" drops the per-request lines, which on a busy install are most of the
     // log (every audio range request is one).
     level: process.env.LOG_LEVEL?.trim() || "info",
+    // To stdout as ever, and into the last lines the diagnostics report reads (core/log-buffer.ts).
+    stream: logStream,
     // The gateway's proxy writes its own line with the path it forwards
     // ("fetching from remote server", { source }); a path that carries a token
     // is masked there the same way as the request line.
@@ -104,6 +108,8 @@ const app = fastify({
 registerErrorHandler(app);
 // Workers and other request-less code log through this from here on (core/logger.ts).
 setAppLogger(app.log);
+// A detailed level an admin turned on, if it hasn't run out (core/logging.ts).
+startLogging(app.log);
 
 await app.register(cors, {
   origin: config.appUrl,

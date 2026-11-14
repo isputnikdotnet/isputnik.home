@@ -3638,6 +3638,12 @@ tr.control-anchor-flash > td {
 /* A part's own page: its checks, and a column of where to look next. */
 .diagnostics-part-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px; align-items: start; min-width: 0; }
 .diagnostics-part-main, .diagnostics-part-aside { display: grid; gap: 16px; min-width: 0; }
+.diagnostics-logging { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 8px 12px; border-radius: 10px; background: var(--field); min-width: 0; }
+.diagnostics-logging.is-raised { background: color-mix(in srgb, var(--warning) 12%, var(--field)); }
+.diagnostics-logging.is-raised strong { color: var(--warning); }
+.diagnostics-logging-card { display: grid; gap: 10px; min-width: 0; }
+.diagnostics-logging-card h3 { margin: 0; }
+.diagnostics-logging-card p, .diagnostics-logging-help { margin: 0; font-size: 0.88rem; }
 .diagnostics-part-tests { display: grid; gap: 16px; min-width: 0; scroll-margin-top: 80px; }
 @media (max-width: 1000px) { .diagnostics-part-page { grid-template-columns: minmax(0, 1fr); } }
 .diagnostics-text {

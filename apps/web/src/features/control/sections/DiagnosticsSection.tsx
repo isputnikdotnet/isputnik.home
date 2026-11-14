@@ -10,7 +10,8 @@ import { ControlSectionHead } from "../ControlSectionHead";
 import { ReportDialog } from "../diagnostics/ReportDialog";
 import { useDiagnosticsOverview, useProblemText, type PartOverview, type PartState } from "../diagnostics/overview";
 import { appPageHref, logsHref } from "../links";
-import { useAppName } from "./AppsSection";
+import { useAppName, useAppsStatus } from "./AppsSection";
+import { LoggingControl, loggingUrl } from "../diagnostics/Logging";
 
 // Control panel › Infrastructure › Diagnostics (docs/diagnostics-pages-plan.md):
 // one card per part of iSputnik — this server, then each container — saying how it
@@ -32,7 +33,14 @@ function Link({ href, children }: { href: string; children: React.ReactNode }) {
 export function DiagnosticsSection() {
   const { t } = useTranslation(["controlAdmin"]);
   const appName = useAppName();
+  const { apps } = useAppsStatus();
   const { parts, error, load } = useDiagnosticsOverview();
+  /** Where a part's logging is read: this server's own, or the container's through the gateway. */
+  const loggingOf = (part: PartOverview): string | null => {
+    if (part.id === "home") return loggingUrl(null);
+    const app = apps?.find((entry) => entry.id === part.id);
+    return app && part.state !== "off" && part.state !== "down" ? loggingUrl(app.prefix) : null;
+  };
   const problemText = useProblemText();
   const [reporting, setReporting] = useState(false);
 
@@ -86,6 +94,7 @@ export function DiagnosticsSection() {
               <span className={`app-status-pill ${PILL[part.state]}`}>{t(`controlAdmin:diagnostics.state.${part.state}`)}</span>
             </div>
             <p className={part.problems.length ? "diagnostics-part-line is-warning" : "diagnostics-part-line"}>{lineOf(part)}</p>
+            {loggingOf(part) && <LoggingControl url={loggingOf(part)} name={part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id)} />}
             <div className="organization-actions">
               {actionsOf(part).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
               {part.state !== "off" && <Link href={diagnosticsPartHref(part.id as DiagnosticsPart)}>{t("controlAdmin:diagnostics.action.details")}</Link>}
@@ -94,6 +103,8 @@ export function DiagnosticsSection() {
         ))}
         {parts === null && !error && <p className="muted">{t("controlAdmin:diagnostics.looking")}</p>}
       </div>
+
+      <p className="muted diagnostics-logging-help">{t("controlAdmin:diagnostics.logging.help")}</p>
 
       {reporting && <ReportDialog parts="all" onClose={() => setReporting(false)} />}
     </div>

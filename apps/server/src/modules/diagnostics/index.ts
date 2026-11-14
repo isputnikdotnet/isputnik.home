@@ -16,7 +16,9 @@ const querySchema = z.object({
   // Which kinds to hide, comma-separated; "" hides nothing. Absent: all of them.
   hide: list,
   // Which parts, comma-separated (REPORT_PARTS). Absent: all of them.
-  parts: list
+  parts: list,
+  // How far back dated lines go: hour, day (today, the default) or week.
+  since: z.enum(["hour", "day", "week"]).optional()
 });
 
 const csv = (value: string) => value.split(",").map((entry) => entry.trim()).filter(Boolean);
@@ -41,7 +43,8 @@ export async function diagnosticsPlugin(app: FastifyInstance, opts: AppsPluginOp
       ? null
       : new Set(csv(query.parts).filter((key): key is SectionKey => (REPORT_PARTS as string[]).includes(key)));
     reply.header("Cache-Control", "no-store");
-    return { report: await buildReport(request, settings, parsed.success ? hideChoiceOf(query) : HIDE_ALL, parts) };
+    const span = parsed.success ? parsed.data.since ?? "day" : "day";
+    return { report: await buildReport(request, settings, parsed.success ? hideChoiceOf(query) : HIDE_ALL, parts, span) };
   });
 
   app.get("/api/admin/diagnostics/overview", { preHandler: app.requireAdmin }, async (request, reply) => {

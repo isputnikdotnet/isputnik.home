@@ -2533,6 +2533,14 @@
       "container": {
         "label": "{{name}} container",
         "sub": "What the {{name}} container reports about itself: its version and machine, ffmpeg and the GPU check (with recent GPU failures), conversion settings, its libraries' counts and states, and the warnings and errors in its log."
+      },
+      "tasks": {
+        "label": "Failed tasks",
+        "sub": "Background tasks that gave up (a scan, faces, a render): what, which library, how many tries, and the error."
+      },
+      "log": {
+        "label": "This server's log",
+        "sub": "Its warnings and errors; every line while Detailed or Everything is on, and for an hour after. Up to 300 lines."
       }
     },
     "previewTitle": "The report",
@@ -2606,6 +2614,13 @@
           "label": "Include addresses",
           "sub": "Off: IP addresses and web addresses' hosts become <ip>, <lan-ip> and <host>."
         }
+      },
+      "spanLabel": "How far back",
+      "spanNote": "For failures, failed tasks and log lines.",
+      "span": {
+        "hour": "Last hour",
+        "day": "Today",
+        "week": "Last 7 days"
       }
     },
     "page": {
@@ -2687,6 +2702,42 @@
         "tasks": "Tasks",
         "tasksSub": "What is running, waiting or failed"
       }
+    },
+    "logging": {
+      "label": "Logging",
+      "reading": "…",
+      "cannot": "Normal (this version can't change it)",
+      "until": "{{level}} until {{time}}",
+      "change": "Change",
+      "title": "Logging for {{name}}",
+      "subtitle": "More detail for a while, to catch a problem as it happens. It goes back to Normal by itself.",
+      "levelLegend": "How much",
+      "lengthLegend": "For how long",
+      "level": {
+        "normal": {
+          "label": "Normal",
+          "sub": "What happens, and problems."
+        },
+        "detailed": {
+          "label": "Detailed",
+          "sub": "Also why each decision was made: which way a film plays, which GPU path, how long each step took."
+        },
+        "everything": {
+          "label": "Everything",
+          "sub": "Also each tool's full output, ffmpeg's included. Much more; for a problem Detailed doesn't explain."
+        }
+      },
+      "minutesLabel_one": "{{count}} minute",
+      "minutesLabel_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "note": "Reproduce the problem while it's on, then download the report: it carries every line for an hour after. The lines are hidden like the rest of the report.",
+      "turnOn": "Turn on",
+      "turningOn": "Turning on…",
+      "backToNormal": "Back to Normal now",
+      "cancel": "Cancel",
+      "saveFailed": "Unable to change logging",
+      "help": "Normal records what happens and problems. Detailed adds why each decision was made, Everything each tool's full output. Either lasts 15 minutes, an hour or 4 hours, then goes back to Normal by itself."
     }
   }
 }

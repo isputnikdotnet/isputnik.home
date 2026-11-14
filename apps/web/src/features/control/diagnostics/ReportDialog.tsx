@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FileDown } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
-import { GroupedList, ToggleRow } from "../../../shared/GroupedList";
+import { GroupedList, PickerRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { APP_VERSION } from "../../../shared/appVersion";
@@ -32,7 +32,10 @@ export const HIDE_KINDS = ["people", "paths", "names", "net"] as const;
 export type HideKind = (typeof HIDE_KINDS)[number];
 
 /** This server's own sections, in the report's order; a container's is `container:<id>`. */
-export const HOME_PARTS = ["system", "containers", "libraries", "failures"] as const;
+export const HOME_PARTS = ["system", "containers", "libraries", "failures", "tasks", "log"] as const;
+
+export const REPORT_SPANS = ["hour", "day", "week"] as const;
+export type ReportSpan = (typeof REPORT_SPANS)[number];
 type HomePart = (typeof HOME_PARTS)[number];
 
 const PLACEHOLDERS: Record<HideKind, string> = { people: "<person>, <email>", paths: "<path>", names: "<name>", net: "<ip>, <host>" };
@@ -64,20 +67,21 @@ export function ReportDialog({ parts, onClose }: {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [span, setSpan] = useState<ReportSpan>("day");
 
   const hideQuery = HIDE_KINDS.filter((kind) => !include[kind]).join(",");
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const body = await api<{ report: DiagnosticsReport }>(`/api/admin/diagnostics?hide=${hideQuery}`);
+      const body = await api<{ report: DiagnosticsReport }>(`/api/admin/diagnostics?hide=${hideQuery}&since=${span}`);
       setReport(body.report);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("controlAdmin:diagnostics.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [hideQuery, t]);
+  }, [hideQuery, span, t]);
 
   useEffect(() => {
     void load();
@@ -130,6 +134,15 @@ export function ReportDialog({ parts, onClose }: {
     >
       <div className="diagnostics-report">
         <div className="diagnostics-report-choices">
+          <GroupedList note={t("controlAdmin:diagnostics.report.spanNote")}>
+            <PickerRow
+              label={t("controlAdmin:diagnostics.report.spanLabel")}
+              value={span}
+              disabled={loading}
+              options={REPORT_SPANS.map((value) => ({ value, label: t(`controlAdmin:diagnostics.report.span.${value}`) }))}
+              onChange={(value) => setSpan(value as ReportSpan)}
+            />
+          </GroupedList>
           <GroupedList title={t("controlAdmin:diagnostics.report.homeTitle")}>
             {HOME_PARTS.map((key) => (
               <ToggleRow key={key} label={homeLabel(key)} sub={homeSub(key)} checked={picked.has(key)} disabled={!report} onChange={(on) => toggle(key, on)} />
