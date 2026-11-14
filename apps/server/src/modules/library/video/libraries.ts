@@ -148,6 +148,16 @@ export interface EngineLibrary {
   titles: number;
   episodes: number;
   sizeBytes: number;
+  /** Engine 0.40+: its metadata pass, while one waits or runs (posters, plots, cast). */
+  metadata?: EngineMetadataWork | null;
+}
+
+export interface EngineMetadataWork {
+  state: "queued" | "running";
+  done: number;
+  total: number;
+  startedAt: string | null;
+  tmdb: boolean;
 }
 
 /** The shape the Libraries page reads for every type (library-serializer.ts),
@@ -189,7 +199,7 @@ export function publicVideoLibrary(row: LibraryRow, user: { id: string; role: st
     totalSizeBytes: engine?.sizeBytes ?? null,
     engine: engine === undefined ? null : engine === null
       ? { online: false as const }
-      : { online: true as const, scanState: engine.scanState, scanError: engine.scanError, lastScanAt: engine.lastScanAt, titles: engine.titles, episodes: engine.episodes }
+      : { online: true as const, scanState: engine.scanState, scanError: engine.scanError, lastScanAt: engine.lastScanAt, titles: engine.titles, episodes: engine.episodes, metadata: engine.metadata ?? null }
   };
 }
 

@@ -731,7 +731,14 @@
       "failedNote": "Rescan it, or see Tasks",
       "upToDate": "Up to date",
       "notScanned": "Not scanned yet",
-      "checked": "Checked {{date}}"
+      "checked": "Checked {{date}}",
+      "details": "Getting details…",
+      "detailsQueued": "Waiting to get details",
+      "detailsQueuedNote": "After the pass before it",
+      "detailsProgress": {
+        "films": "{{done}} of {{total}} films",
+        "shows": "{{done}} of {{total}} shows"
+      }
     },
     "manage": {
       "eyebrow": "Library · {{type}}",
@@ -992,7 +999,8 @@
     "contentsFiles_other": "{{formatted}} files",
     "manageAction": "Manage",
     "manageAria": "Manage {{name}}",
-    "moreActions": "More for {{name}}"
+    "moreActions": "More for {{name}}",
+    "fieldDetails": "Details"
   },
   "libraryMembers": {
     "viewerTagline": "View only",

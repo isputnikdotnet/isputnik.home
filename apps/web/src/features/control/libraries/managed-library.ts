@@ -22,6 +22,8 @@ export interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCou
   /** A video library's folder on the video app, and the language its titles are looked up in. */
   folder?: string;
   defaultLanguage?: string;
+  /** A video library: what the video app says of it, and its metadata pass while one waits or runs. */
+  engine?: { online: boolean; metadata?: { state: "queued" | "running"; done: number; total: number; startedAt: string | null; tmdb: boolean } | null } | null;
   /** A member's personal library (docs/photo-sync-plan.md): only they can open it.
    *  Someone else's comes to an admin as whose it is and its size, nothing more. */
   personal?: { ownerId: string; ownerName: string; orphaned: boolean; orphanedAt: string | null; adoptedAt: string | null } | null;

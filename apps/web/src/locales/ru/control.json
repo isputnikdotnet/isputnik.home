@@ -761,7 +761,14 @@
       "failedNote": "Пересканируйте или посмотрите «Задачи»",
       "upToDate": "Актуальна",
       "notScanned": "Ещё не сканировалась",
-      "checked": "Проверена {{date}}"
+      "checked": "Проверена {{date}}",
+      "details": "Получаем сведения…",
+      "detailsQueued": "Ждёт получения сведений",
+      "detailsQueuedNote": "После предыдущего прохода",
+      "detailsProgress": {
+        "films": "{{done}} из {{total}} фильмов",
+        "shows": "{{done}} из {{total}} сериалов"
+      }
     },
     "manage": {
       "eyebrow": "Библиотека · {{type}}",
@@ -1029,7 +1036,8 @@
     "contentsFiles_other": "{{formatted}} файла",
     "manageAction": "Управлять",
     "manageAria": "Управлять «{{name}}»",
-    "moreActions": "Ещё для «{{name}}»"
+    "moreActions": "Ещё для «{{name}}»",
+    "fieldDetails": "Сведения"
   },
   "libraryMembers": {
     "viewerTagline": "Только просмотр",

@@ -2691,7 +2691,12 @@
         "diskNone": "Memory only (no disk mapped)",
         "allSettings": "All converting settings",
         "unavailableTitle": "The video container isn't answering",
-        "unavailable": "Its hardware and tests show here once it answers again."
+        "unavailable": "Its hardware and tests show here once it answers again.",
+        "catalogTitle": "Catalog work",
+        "catalogNote": "Scans and metadata passes (posters, plots, cast), one at a time; a pass waits for the one before it.",
+        "catalogIdle": "Nothing running",
+        "catalogSince": "started {{when}}",
+        "catalogNoKey": "no TMDB key: files and pictures only"
       },
       "logs": {
         "title": "Logs and events",

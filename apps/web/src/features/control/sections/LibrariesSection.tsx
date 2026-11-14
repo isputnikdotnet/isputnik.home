@@ -178,7 +178,8 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
   }, [loadLibraries, t]);
 
   useEffect(() => {
-    if (!libraries.some((library) => library.scanStatus === "scanning")) {
+    // A scan, or a video library's metadata pass: look again until it's done.
+    if (!libraries.some((library) => library.scanStatus === "scanning" || Boolean(library.engine?.metadata))) {
       return;
     }
 

@@ -303,6 +303,11 @@ function LibraryDetailsGrid({
           <LibraryInfoRow label={t("control:libraries.fieldStatus")}>
             <span className={`status-badge ${library.scanStatus}`}>{scanStatusLabel(library.scanStatus)}</span>
           </LibraryInfoRow>
+          {library.engine?.metadata && (
+            <LibraryInfoRow label={t("control:libraries.fieldDetails")}>
+              <LibraryStatus library={library} scanning={false} videoEngineDown={false} />
+            </LibraryInfoRow>
+          )}
           <LibraryInfoRow label={t("control:libraries.fieldLastScanned")}>
             {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : t("control:libraries.notYet")}
           </LibraryInfoRow>

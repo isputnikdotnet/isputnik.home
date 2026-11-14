@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Activity, Archive, Boxes, Cpu, FileDown, FolderOpen, Gauge, HardDrive, ListChecks, ScrollText, Server, Stethoscope } from "lucide-react";
 import { api } from "../../../api";
@@ -316,7 +316,59 @@ function VideoChecks() {
   if (!video || !isRunning(video)) {
     return <MessageBox tone="info" title={t("controlAdmin:diagnostics.page.video.unavailableTitle")}>{t("controlAdmin:diagnostics.page.video.unavailable")}</MessageBox>;
   }
-  return <VideoHardware prefix={video.prefix} />;
+  return (
+    <>
+      <CatalogWork prefix={video.prefix} />
+      <VideoHardware prefix={video.prefix} />
+    </>
+  );
+}
+
+interface EngineLibraryWork {
+  id: string;
+  name: string;
+  kind: "movies" | "shows";
+  scanState: string;
+  metadata?: { state: "queued" | "running"; done: number; total: number; startedAt: string | null; tmdb: boolean } | null;
+}
+
+/** What the video app is working through: each library's scan and metadata pass, looked at again while one runs. */
+function CatalogWork({ prefix }: { prefix: string }) {
+  const { t } = useTranslation(["controlAdmin", "control"]);
+  const [libraries, setLibraries] = useState<EngineLibraryWork[] | null>(null);
+  const load = useCallback(async () => {
+    try {
+      setLibraries((await api<{ libraries: EngineLibraryWork[] }>(`${prefix}/api/admin/libraries`)).libraries);
+    } catch {
+      setLibraries([]);
+    }
+  }, [prefix]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const busy = (libraries ?? []).filter((library) => library.metadata || library.scanState === "scanning" || library.scanState === "queued");
+  useEffect(() => {
+    if (busy.length === 0) return;
+    const timer = window.setTimeout(() => void load(), 3000);
+    return () => window.clearTimeout(timer);
+  }, [libraries, busy.length, load]);
+  if (!libraries) return null;
+  return (
+    <GroupedList id="catalog" title={t("controlAdmin:diagnostics.page.video.catalogTitle")} note={t("controlAdmin:diagnostics.page.video.catalogNote")}>
+      {busy.length === 0 && <InfoRow icon={<ListChecks size={17} />} iconTone="ok" label={t("controlAdmin:diagnostics.page.video.catalogIdle")} />}
+      {busy.map((library) => {
+        const work = library.metadata;
+        const unit = library.kind === "shows" ? "shows" : "films";
+        const label = library.scanState === "scanning" || library.scanState === "queued"
+          ? t("control:libraries.status.scanning")
+          : work?.state === "queued" ? t("control:libraries.status.detailsQueued") : t("control:libraries.status.details");
+        const sub = work?.state === "running" && work.total > 0
+          ? `${t(`control:libraries.status.detailsProgress.${unit}`, { done: work.done.toLocaleString(), total: work.total.toLocaleString() })}${work.startedAt ? ` · ${t("controlAdmin:diagnostics.page.video.catalogSince", { when: relativeTime(work.startedAt) })}` : ""}${work.tmdb ? "" : ` · ${t("controlAdmin:diagnostics.page.video.catalogNoKey")}`}`
+          : undefined;
+        return <NavRow key={library.id} icon={<ListChecks size={17} />} iconTone="muted" label={`${library.name} · ${label}`} sub={sub} href={libraryManageHref(library.id)} />;
+      })}
+    </GroupedList>
+  );
 }
 
 function VideoHardware({ prefix }: { prefix: string }) {

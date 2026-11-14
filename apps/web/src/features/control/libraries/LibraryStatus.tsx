@@ -37,6 +37,20 @@ export function LibraryStatus({
       />
     );
   }
+  // A video library's metadata pass: posters, plots and cast, after the scan.
+  const details = library.engine?.metadata;
+  if (details) {
+    const unit = library.kind === "shows" ? "shows" : "films";
+    return (
+      <Status
+        tone="busy"
+        label={details.state === "queued" ? t("control:libraries.status.detailsQueued") : t("control:libraries.status.details")}
+        note={details.state === "running" && details.total > 0
+          ? t(`control:libraries.status.detailsProgress.${unit}`, { done: details.done.toLocaleString(), total: details.total.toLocaleString() })
+          : details.state === "queued" ? t("control:libraries.status.detailsQueuedNote") : undefined}
+      />
+    );
+  }
   if (library.scanStatus === "error") {
     return <Status tone="error" label={t("control:libraries.status.failed")} note={t("control:libraries.status.failedNote")} />;
   }
