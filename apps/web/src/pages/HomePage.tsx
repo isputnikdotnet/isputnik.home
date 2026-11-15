@@ -706,6 +706,10 @@ export function HomePage() {
     return () => { alive = false; };
   }, [isMobile]);
 
+  // Above the phone breakpoint with the top layout, OrbitHome draws Home and asks
+  // for its own Continue row; the hero below is the other layouts'.
+  const orbit = usesTopLayout() && !isMobile;
+
   // The feed lives on the server. Skip it while offline (the offline home
   // renders downloaded books instead) and refetch when the connection returns.
   useEffect(() => {
@@ -726,17 +730,19 @@ export function HomePage() {
       });
 
     // The hero is the top of the Continue feed; the total feeds the "more in
-    // progress" link under it.
-    fetchFeed("continue", 1)
-      .then((payload) => {
-        if (!alive) return;
-        setHeroItem(payload.items[0] ?? null);
-        setInProgressTotal(payload.total);
-      })
-      .catch(() => undefined);
+    // progress" link under it. Orbit asks for the row itself, so not twice.
+    if (!orbit) {
+      fetchFeed("continue", 1)
+        .then((payload) => {
+          if (!alive) return;
+          setHeroItem(payload.items[0] ?? null);
+          setInProgressTotal(payload.total);
+        })
+        .catch(() => undefined);
+    }
 
     return () => { alive = false; };
-  }, [online, t]);
+  }, [online, orbit, t]);
 
   // Deciding a sticky card right on the front page: Like writes to Likes (the
   // same list as everywhere else), Not now sets it aside. Either way the card
@@ -840,7 +846,7 @@ export function HomePage() {
   return (
     <>
     <DashboardShell active="home">
-      {usesTopLayout() && !isMobile ? (
+      {orbit ? (
         <OrbitHome
           displayName={user.displayName}
           cards={cards}

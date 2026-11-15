@@ -7,6 +7,7 @@ import { useSections } from "../../app/sections";
 import { useVideoAvailable } from "../../app/useVideoAvailable";
 import { followRoute, galleryRecentHref, navigate } from "../../router";
 import { Button } from "../../shared/Button";
+import { MessageBox } from "../../shared/MessageBox";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { authorLine, feedHref, fetchFeed, type FeedItem } from "../library/feed";
 import {
@@ -255,13 +256,29 @@ export function OrbitHome({
   /** New films and shows, each with when it came, to sit among the books by date. */
   const [newVideo, setNewVideo] = useState<{ at: number; tile: Tile }[]>([]);
   const [opening, setOpening] = useState(false);
+  // Rows whose request failed: an empty row is hidden, so a failed one must say so
+  // (and "caught up" must not claim otherwise). Try again bumps `attempt`.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+  const [attempt, setAttempt] = useState(0);
+  const markFailed = (row: string, didFail: boolean) =>
+    setFailed((current) => {
+      if (current.has(row) === didFail) return current;
+      const next = new Set(current);
+      if (didFail) next.add(row);
+      else next.delete(row);
+      return next;
+    });
 
   useEffect(() => {
     let live = true;
-    fetchFeed("continue", 12).then((payload) => { if (live) setBooks(payload.items); }).catch(() => undefined);
-    fetchFeed("recent", 24, 0, RECENTLY_ADDED_DAYS).then((payload) => { if (live) setRecent(payload.items); }).catch(() => undefined);
+    fetchFeed("continue", 12)
+      .then((payload) => { if (live) { setBooks(payload.items); markFailed("continue", false); } })
+      .catch(() => { if (live) markFailed("continue", true); });
+    fetchFeed("recent", 24, 0, RECENTLY_ADDED_DAYS)
+      .then((payload) => { if (live) { setRecent(payload.items); markFailed("recent", false); } })
+      .catch(() => { if (live) markFailed("recent", true); });
     return () => { live = false; };
-  }, []);
+  }, [attempt]);
 
   useEffect(() => {
     if (!videoOn) return;
@@ -270,22 +287,29 @@ export function OrbitHome({
       .then(async ({ items }) => {
         if (!live) return;
         setWatching(items);
+        markFailed("watching", false);
         // The engine's continue list carries no pictures; ask each title for its own —
-        // every one, so the cards at the end of the row aren't left blank.
-        const pictures = await Promise.allSettled(items.map(async (item) => {
-          const path = item.show ? `shows/${item.show.id}` : `movies/${item.id}`;
+        // every one, so the cards at the end of the row aren't left blank — but each
+        // film or show once, however many of its episodes are in the row.
+        const pathOf = (item: VideoContinueItem) => (item.show ? `shows/${item.show.id}` : `movies/${item.id}`);
+        const paths = [...new Set(items.map(pathOf))];
+        const pictures = await Promise.allSettled(paths.map(async (path) => {
           const detail = await api<{ show?: { poster?: string | null }; movie?: { poster?: string | null }; poster?: string | null }>(`${VIDEO_API}/${path}`);
-          return [item.id, detail.show?.poster ?? detail.movie?.poster ?? detail.poster ?? null] as const;
+          return [path, detail.show?.poster ?? detail.movie?.poster ?? detail.poster ?? null] as const;
         }));
         if (!live) return;
-        setPosters(Object.fromEntries(pictures.flatMap((entry) => (entry.status === "fulfilled" ? [entry.value] : []))));
+        const byPath = new Map(pictures.flatMap((entry) => (entry.status === "fulfilled" ? [entry.value] : [])));
+        setPosters(Object.fromEntries(items.filter((item) => byPath.has(pathOf(item))).map((item) => [item.id, byPath.get(pathOf(item)) ?? null])));
       })
-      .catch(() => undefined);
+      .catch(() => { if (live) markFailed("watching", true); });
 
     const newest = <T,>(kind: "shows" | "movies") =>
-      api<VideoPage<T>>(`${VIDEO_API}/${kind}?sort=added&pageSize=12`).then((page) => page.items).catch(() => [] as T[]);
-    void Promise.all([newest<VideoMovieSummary>("movies"), newest<VideoShowSummary>("shows")]).then(([movies, shows]) => {
+      api<VideoPage<T>>(`${VIDEO_API}/${kind}?sort=added&pageSize=12`).then((page) => page.items).catch(() => null);
+    void Promise.all([newest<VideoMovieSummary>("movies"), newest<VideoShowSummary>("shows")]).then(([gotMovies, gotShows]) => {
       if (!live) return;
+      markFailed("newVideo", gotMovies === null || gotShows === null);
+      const movies = gotMovies ?? [];
+      const shows = gotShows ?? [];
       // Only what came inside the window: an old film is not new because nothing came after it.
       setNewVideo([
         ...movies.filter((movie) => addedRecently(movie)).map((movie) => ({
@@ -299,7 +323,7 @@ export function OrbitHome({
       ]);
     });
     return () => { live = false; };
-  }, [videoOn, t]);
+  }, [videoOn, t, attempt]);
 
   const resumeBook = (item: FeedItem) => {
     setOpening(true);
@@ -400,6 +424,12 @@ export function OrbitHome({
         </div>
       )}
 
+      {failed.size > 0 && (
+        <MessageBox tone="warning" title={t("orbit.rowsFailed")}>
+          <Button variant="text" onClick={() => setAttempt((n) => n + 1)}>{t("orbit.retryRows")}</Button>
+        </MessageBox>
+      )}
+
       <TileRow title={t("orbit.inProgress")} viewAll={books.length > 1 ? "/continue" : undefined} tiles={inProgress} />
       <TileRow title={t("orbit.recentlyAdded")} viewAll="/recent" tiles={recentlyAdded} />
 
@@ -410,7 +440,7 @@ export function OrbitHome({
         </section>
       )}
 
-      {cards !== null && (
+      {cards !== null && failed.size === 0 && (
         <div className="home-feed-end">
           <strong>{t("home.caughtUp")}</strong>
           <span>{t("home.tomorrow")}</span>

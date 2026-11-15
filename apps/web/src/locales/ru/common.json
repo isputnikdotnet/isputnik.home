@@ -319,6 +319,8 @@
     "photosCount_other": "{{count}} фото",
     "resume": "Продолжить",
     "inProgress": "Сейчас в процессе",
+    "rowsFailed": "Не удалось загрузить часть разделов",
+    "retryRows": "Повторить",
     "recentlyAdded": "Недавно добавлено",
     "feedTitle": "Что нового в семье",
     "memoriesSub": "в этот день в разные годы",

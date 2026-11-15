@@ -303,6 +303,8 @@
     "photosCount_other": "{{count}} photos",
     "resume": "Resume",
     "inProgress": "In progress",
+    "rowsFailed": "Some rows could not be loaded",
+    "retryRows": "Try again",
     "recentlyAdded": "Recently added",
     "feedTitle": "Around the family",
     "memoriesSub": "from this day over the years",
