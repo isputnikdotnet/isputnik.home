@@ -32,6 +32,15 @@ const RULES = [
     pattern: /tile\.openstreetmap\.org/,
     allow: (path) => path === "shared/mapTiles.ts",
     message: "Use OSM_TILE_URL/OSM_TILE_OPTIONS from shared/mapTiles, not a raw tile URL."
+  },
+  {
+    // The control panel's way back is ONE line, first on every page (above a
+    // workspace's tab row): ControlBackBar, which ControlSectionHead draws. A page's
+    // own back link lands wherever that page puts it — under the tab row, centred
+    // in a grid — which is what the standard replaced.
+    pattern: /\bPageBack\b|control-page-back/,
+    allow: (path) => !path.startsWith("features/control/"),
+    message: "A control page's way back is ControlBackBar (ControlSectionHead's `back`, or the bar itself), never PageBack or a control-page-back link."
   }
 ];
 

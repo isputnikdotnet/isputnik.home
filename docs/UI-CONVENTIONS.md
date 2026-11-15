@@ -457,11 +457,12 @@ there — nothing else keeps a parallel list.
   - A tab's **pages**: list them in `pages` on the tab's `nav.ts` entry (Gallery ›
     Organize owns Duplicate cleanup and Missing photos). Each keeps its own
     `CONTROL_PATHS` address and search entry; the tab row stays up with the parent
-    selected, and `ControlSectionHead` adds a link back to the tab and names it in the
-    eyebrow ("Applications · Gallery · Organize").
+    selected, and its back line names the tab ("← Back │ Applications › Gallery ›
+    Organize").
   - A **page of one thing** — a member, a group, a library's Manage page
     (`libraryManageHref()`) — has its own route matched after the table in
-    `getRoute()`, drops the tab row, and opens with its own back link.
+    `getRoute()`, drops the tab row, and opens with the same back line, its list last
+    ("← Back │ Libraries").
 - **A shared page has one address and several ways in.** Book categories (Ebooks and
   Audiobooks) and Tags (every application's Organize, and Shared organization) are one
   editor each. Opened from a workspace it carries `?from=<app>` (`controlHrefFrom`),
@@ -483,10 +484,20 @@ there — nothing else keeps a parallel list.
   two panels are one page's worth of reading, so they stay local state; a
   two-factor setup or a device address is somewhere you go back to, so it gets an
   address.
-- **Pages open with `ControlSectionHead`.** It reads the eyebrow (group, application,
-  parent tab) and `<h1>` (tab) from `nav.ts`, so a page can't disagree with the nav about
-  where it lives.
+- **Pages open with `ControlSectionHead`.** It reads the `<h1>` (tab) from `nav.ts`, so a
+  page can't disagree with the nav about where it lives, and every page wears an icon.
   Pass `description` for the one-line summary and `children` for header actions.
+- **One way back, first on every page** (`ControlBackBar`). Every page but the Dashboard
+  opens with one line: `← Back │ Group › Workspace › Tab`. Back steps back through
+  history (opened from a link, the nearest level up); each name opens that level's own
+  page — the group's first page, the workspace's Overview, the tab a page sits under,
+  or the list a detail page came from. `ControlSectionHead` draws it; a page without
+  that head (a Device Sync phone, a library's Manage page) draws `ControlBackBar`
+  itself. Wherever it is declared it is drawn in ControlPanelPage's slot: the first
+  thing in the work area, at the icon's left edge, ABOVE a workspace's tab row and
+  status line — never under them, never centred, never a second line of its own lower
+  down. No `PageBack` or `control-page-back` link in a control page; `check:ui` fails on
+  one.
 - **Back follows the visit.** Pages reached from several places, such as Backup,
   pass `back` to `ControlSectionHead`: the previous in-app page wins, with the
   supplied parent as a fallback for direct links. Use `title` for a detail's name

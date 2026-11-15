@@ -1,4 +1,6 @@
+import { createContext, useContext } from "react";
 import type React from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { controlHref, followBack, followRoute, type ControlSection } from "../../router";
@@ -14,6 +16,11 @@ import { appLabel, groupLabel, placeOf, rowLabel, tabLabel, tabRowFor } from "./
 // It takes the eyebrow's place, so going back costs no line of its own.
 
 interface Crumb { href: string; label: string }
+
+/** The top of the control panel's work area, above a workspace's tab row and status
+ *  line: where every page's back line is drawn, wherever the page declares it.
+ *  Null outside the panel (a section rendered on its own), which draws it in place. */
+export const BackBarSlot = createContext<HTMLElement | null>(null);
 
 const pathOf = (href: string) => new URL(href, window.location.origin).pathname.replace(/\/+$/, "");
 const sameAddress = (a: string, b: string) => {
@@ -56,6 +63,7 @@ export function ControlBackBar({ section, from = null, list, fallback, onBack }:
   onBack?: () => void;
 }) {
   const { t } = useTranslation(["control"]);
+  const slot = useContext(BackBarSlot);
   const crumbs = crumbsOf(section, from, Boolean(list));
   if (list) {
     if (crumbs.length > 0 && sameAddress(crumbs[crumbs.length - 1].href, list.href)) crumbs.pop();
@@ -71,7 +79,7 @@ export function ControlBackBar({ section, from = null, list, fallback, onBack }:
     onBack();
   };
 
-  return (
+  const bar = (
     <nav className="control-backbar" aria-label={t("control:ui.whereAria")}>
       <a className="control-backbar-back" href={backTo} onClick={back}>
         <ArrowLeft size={15} aria-hidden="true" />
@@ -89,4 +97,6 @@ export function ControlBackBar({ section, from = null, list, fallback, onBack }:
       )}
     </nav>
   );
+  // The same place on every page: the very top, above a workspace's tab row.
+  return slot ? createPortal(bar, slot) : bar;
 }

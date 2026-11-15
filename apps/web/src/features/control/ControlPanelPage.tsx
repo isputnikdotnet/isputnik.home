@@ -29,6 +29,7 @@ import { Button } from "../../shared/Button";
 import { Modal } from "../../shared/Modal";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { RouteTab } from "../../shared/RouteTab";
+import { BackBarSlot } from "./ControlBackBar";
 
 // Each section is its own chunk, loaded when its tab is first opened. Imported
 // statically they made this page one ~700 KB file — the dashboard's charts, the
@@ -115,6 +116,8 @@ export function ControlPanelPage({
   const openSearch = useCallback(() => setSearchOpen(true), []);
   // The phone's page menu: opened from the strip on top and from the bar below.
   const [menuOpen, setMenuOpen] = useState(false);
+  // Where every page's back line is drawn (ControlBackBar): the work area's top.
+  const [backBarSlot, setBackBarSlot] = useState<HTMLElement | null>(null);
   const openMenu = useCallback(() => setMenuOpen(true), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   // A page change — from the menu, search or a link on the page — closes the menu.
@@ -173,6 +176,10 @@ export function ControlPanelPage({
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
+          {/* The back line, first on every page — above a workspace's tab row and
+              status line, never under them (docs/UI-CONVENTIONS.md). */}
+          <div ref={setBackBarSlot} className="control-backbar-slot" />
+          <BackBarSlot.Provider value={backBarSlot}>
           {/* A group or workspace of one page draws no row. */}
           {!subPage && !isMobile && tabs.length > 1 && (
             <ControlTabs
@@ -194,6 +201,7 @@ export function ControlPanelPage({
               <ControlSectionBody section={section} categoryId={categoryId} libraryId={libraryId} member={member} group={group} diagnosticsPart={diagnosticsPart} currentUser={user} />
             </Suspense>
           </LoadErrorBoundary>
+          </BackBarSlot.Provider>
         </section>
       </div>
 

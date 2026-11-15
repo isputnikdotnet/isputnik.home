@@ -139,7 +139,10 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   media type or container adds an `APPLICATIONS` entry, never a group. Canonical URLs
   in `CONTROL_PATHS` (`router.ts`), linked via `controlHref()`. Every tab is a real
   route — no `useState` tab rows — and pages open with `ControlSectionHead`, which takes
-  eyebrow + title from `nav.ts`. **A group's pages are listed under it in the sidebar**
+  the title from `nav.ts`. **The way back is one line, first on every page** but the
+  Dashboard — `← Back │ Group › Workspace › Tab` (`ControlBackBar`), drawn at the very
+  top of the work area, above a workspace's tab row, from the icon's left edge; never a
+  page's own back link (`check:ui` fails on `PageBack` in a control page). **A group's pages are listed under it in the sidebar**
   while you are in it; only an application's workspace draws a row across the page, ONE
   short row — never a row of applications over a row of their tabs, no group of one page,
   no second row of views inside a page. Infrastructure opens on Services (a card per

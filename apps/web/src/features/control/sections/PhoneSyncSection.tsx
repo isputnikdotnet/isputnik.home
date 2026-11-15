@@ -214,7 +214,7 @@ export function PhoneSyncSection() {
   // ── A phone ────────────────────────────────────────────────────────────────
   if (show.page === "phone") {
     const phone = phones.find((candidate) => candidate.id === show.id);
-    if (!phone) return <>{head}{backToList}<p className="access-muted">{t("controlAdmin:deviceSync.gone")}</p></>;
+    if (!phone) return <>{backToList}<p className="access-muted">{t("controlAdmin:deviceSync.gone")}</p></>;
     const state = shortState(phone);
     return (
       <div className="device-sync">
@@ -295,7 +295,7 @@ export function PhoneSyncSection() {
   // ── A network ──────────────────────────────────────────────────────────────
   if (show.page === "network") {
     const network = networks.networks.find((candidate) => candidate.id === show.id);
-    if (!network) return <>{head}{backToList}<p className="access-muted">{t("controlAdmin:deviceSync.gone")}</p></>;
+    if (!network) return <>{backToList}<p className="access-muted">{t("controlAdmin:deviceSync.gone")}</p></>;
     return (
       <div className="device-sync">
         {backToList}

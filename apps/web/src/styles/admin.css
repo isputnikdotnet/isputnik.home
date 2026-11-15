@@ -2759,11 +2759,13 @@ tr.control-anchor-flash > td {
   font-size: 0.82rem;
   line-height: 1.4;
 }
-/* The bar and the page head, spaced as one block whatever page they open. */
+/* The work area's first line (ControlPanelPage's slot): the back line of every
+   page, 10px above whatever comes next — a workspace's tab row, its status line,
+   or the page head. Empty on the Dashboard, which has none. */
+.control-backbar-slot { display: grid; margin-bottom: 10px; }
+.control-backbar-slot:empty { display: none; }
 .control-page-top { display: grid; gap: 10px; min-width: 0; }
 .control-page-top > .section-head { margin-top: 0; }
-/* Pages that place the bar themselves keep the same 10px under it. */
-.library-manage-page > .control-backbar { margin-bottom: -6px; }
 .control-backbar a { text-decoration: none; }
 .control-backbar a:hover { text-decoration: underline; }
 .control-backbar-back {
