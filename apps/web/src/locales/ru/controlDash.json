@@ -1071,7 +1071,9 @@
     "linkGuestLinks": "Гостевые ссылки",
     "linkVideoSettings": "Настройки",
     "holdArtwork": "постеры",
-    "holdTranscode": "папка преобразования"
+    "holdTranscode": "папка преобразования",
+    "linkDiagnostics": "Диагностика",
+    "usedBy": "Используется"
   },
   "dashboard": {
     "attentionTitle": "Требует внимания",

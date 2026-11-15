@@ -97,7 +97,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     // with its filter already selected rather than keeping copies of them.
     tabs: [
       { section: "services", pages: ["appsSetup"] },
-      { section: "videoStreaming" },
       { section: "tasks" },
       { section: "scheduledJobs" },
       { section: "logs" },
@@ -169,7 +168,9 @@ export const APPLICATIONS: ApplicationDef[] = [
       // "Back up my phone photos" is a Gallery task; the libraries it feeds stay in
       // Libraries & Scanning.
       { section: "phoneSync", kind: "deviceSync" },
-      { section: "galleryOrganize", kind: "organize", pages: ["duplicateCleanup", "missingPhotos"] },
+      // Video streaming fixes Gallery's own videos (an index at the end of the file): a
+      // Gallery page, not Infrastructure's (4.90).
+      { section: "galleryOrganize", kind: "organize", pages: ["duplicateCleanup", "missingPhotos", "videoStreaming"] },
       { section: "mapSetup", kind: "settings" }
     ]
   },

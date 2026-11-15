@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Copy, ImageOff, Shapes, Tags } from "lucide-react";
+import { Copy, Film, ImageOff, Shapes, Tags } from "lucide-react";
 import { controlHref, controlHrefFrom, type ControlSection } from "../../../router";
 import { GroupedList, NavRow } from "../../../shared/GroupedList";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -25,6 +25,7 @@ export function AppOrganizeSection({ app }: { app: OrganizeApp }) {
       {app === "gallery" && <GroupedList>
         <NavRow icon={<Copy size={18} />} label={t("control:nav.tabs.duplicateCleanup")} sub={t("control:organization.duplicatesBody")} href={controlHref("duplicateCleanup")} />
         <NavRow icon={<ImageOff size={18} />} label={t("control:nav.tabs.missingPhotos")} sub={t("control:organization.missingBody")} href={controlHref("missingPhotos")} />
+        <NavRow icon={<Film size={18} />} label={t("control:nav.tabs.videoStreaming")} sub={t("control:organization.videoStreamingBody")} href={controlHref("videoStreaming")} />
       </GroupedList>}
     </div>
   </>;

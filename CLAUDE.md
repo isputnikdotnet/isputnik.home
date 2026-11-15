@@ -126,7 +126,7 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   choice on Profile (`app/layoutChoice.ts`).
 - **Control panel** (v2, `docs/control-panel-v2-plan.md`): its whole shape is declared in
   `features/control/nav.ts` — the Dashboard (its own nav entry, in no group) and FIVE
-  groups: Infrastructure (Services, Video streaming, Tasks, Scheduled jobs, Logs,
+  groups: Infrastructure (Services, Tasks, Scheduled jobs, Logs,
   Diagnostics, Activity) · Libraries & Scanning · Applications · Security & Members · System Settings.
   Five is the budget. Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
   Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, with Shared tools below the directory. Each workspace has
@@ -145,7 +145,7 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   no second row of views inside a page. Infrastructure opens on Services (a card per
   service); a container's Pairing (`appsSetup`, ?app=) is a page under it.
   Two kinds of sub-page are allowed: a tab's **pages** (`pages` on its `nav.ts` entry —
-  Gallery › Organize's Duplicate cleanup and Missing photos) keep their own address and
+  Gallery › Organize's Duplicate cleanup, Missing photos and Video streaming) keep their own address and
   search entry, keep the tab selected, and open with a back link; a **page of one thing**
   (a member, a group, a library's Manage page at `libraryManageHref()`) has its own route
   outside the table and drops the tab row. A **shared page** (Book categories, Tags) has

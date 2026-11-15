@@ -36,7 +36,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   // Apps until v2) is a page under it, opened on one container with ?app=.
   services: "/control/infrastructure",
   appsSetup: "/control/infrastructure/services/pairing",
-  videoStreaming: "/control/infrastructure/video-streaming",
+
   tasks: "/control/infrastructure/tasks",
   scheduledJobs: "/control/infrastructure/scheduled-jobs",
   logs: "/control/infrastructure/logs",
@@ -62,6 +62,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   galleryOrganize: "/control/apps/gallery/organize",
   duplicateCleanup: "/control/apps/gallery/organize/duplicate-cleanup",
   missingPhotos: "/control/apps/gallery/organize/missing-photos",
+  videoStreaming: "/control/apps/gallery/organize/video-streaming",
   mapSetup: "/control/apps/gallery/settings",
   genres: "/control/apps/videos/organize",
   videoSettings: "/control/apps/videos/settings",
@@ -182,6 +183,8 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maintenance/duplicate-cleanup": "duplicateCleanup",
   "/control/maintenance/missing-photos": "missingPhotos",
   "/control/maintenance/videos": "videoStreaming",
+  // Infrastructure's until 4.90, when it joined Gallery › Organize.
+  "/control/infrastructure/video-streaming": "videoStreaming",
   "/control/settings/maps": "mapSetup",
   "/control/settings/stories": "storySettings",
   "/control/settings/apps": "appsSetup",

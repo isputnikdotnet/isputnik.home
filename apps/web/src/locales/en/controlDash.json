@@ -934,7 +934,9 @@
     "linkGuestLinks": "Guest links",
     "linkVideoSettings": "Settings",
     "holdArtwork": "posters",
-    "holdTranscode": "conversion folder"
+    "holdTranscode": "conversion folder",
+    "linkDiagnostics": "Diagnostics",
+    "usedBy": "Used by"
   },
   "dashboard": {
     "attentionTitle": "Needs attention",

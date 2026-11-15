@@ -9,7 +9,7 @@ import {
   Tv,
   type LucideIcon
 } from "lucide-react";
-import { controlHref, followRoute } from "../../../../router";
+import { controlHref, diagnosticsPartHref, followRoute, type DiagnosticsPart } from "../../../../router";
 import { CurrentWorkPanel, DASH_ICONS, DashSectionHead, StoragePanel, UsagePanel } from "./DashboardPanels";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { formatBytes, formatManagedDate, formatUptime } from "../../../../shared/utils";
@@ -372,7 +372,7 @@ export function ServicesDiagram({ status, overview, apps, onServicesPage = false
         {!onServicesPage && <a href={controlHref("services")}>{t("controlDash:overview.servicesLink")}</a>}
       </div>
       <div className="dash-diagram">
-        <article className="dash-node dash-home">
+        <article className="dash-node dash-home" id={onServicesPage ? "service-home" : undefined}>
           <div className="dash-node-head">
             <span className="dash-node-icon" aria-hidden="true"><House size={24} /></span>
             <div className="dash-node-title">
@@ -394,6 +394,7 @@ export function ServicesDiagram({ status, overview, apps, onServicesPage = false
           <nav className="dash-links" aria-label={t("controlDash:overview.pagesOf", { name: t("controlDash:overview.homeName") })}>
             <a href={controlHref("logs")}>{t("controlDash:overview.linkLogs")}</a>
             <a href={controlHref("activity")}>{t("controlDash:overview.linkActivity")}</a>
+            <a href={diagnosticsPartHref("home")}>{t("controlDash:overview.linkDiagnostics")}</a>
             <a href={controlHref("about")}>{t("controlDash:overview.linkAbout")}</a>
           </nav>
         </article>
@@ -410,7 +411,7 @@ export function ServicesDiagram({ status, overview, apps, onServicesPage = false
             <span className="dash-trunk" aria-hidden="true" />
             <div className="dash-branches" style={{ ["--branches" as string]: apps.length }}>
               {apps.length > 1 && <span className="dash-bar" aria-hidden="true" />}
-              {apps.map((app) => <AppBranch key={app.id} app={app} />)}
+              {apps.map((app) => <AppBranch key={app.id} app={app} onServicesPage={onServicesPage} />)}
             </div>
             <div className="dash-legend">
               <span><i className="dash-wire-sample tone-success" aria-hidden="true" />{t("controlDash:overview.legendOk")}</span>
@@ -425,8 +426,8 @@ export function ServicesDiagram({ status, overview, apps, onServicesPage = false
   );
 }
 
-function AppBranch({ app }: { app: AppStatus }) {
-  const { t } = useTranslation(["common", "controlDash"]);
+function AppBranch({ app, onServicesPage = false }: { app: AppStatus; onServicesPage?: boolean }) {
+  const { t } = useTranslation(["common", "controlDash", "control"]);
   const appName = useAppName();
   const state = appState(app);
   const tone = STATE_TONE[state];
@@ -464,7 +465,7 @@ function AppBranch({ app }: { app: AppStatus }) {
         {app.prefix}{port ? ` → :${port}` : ""} · {trip}
       </span>
       <span className={`dash-wire tone-${tone}${state === "running" ? "" : " dashed"}`} aria-hidden="true" />
-      <article className={`dash-node tone-${tone}`}>
+      <article className={`dash-node tone-${tone}`} id={onServicesPage ? `service-${app.id}` : undefined}>
         <div className="dash-node-head">
           <span className="dash-node-icon" aria-hidden="true"><Icon size={22} /></span>
           <div className="dash-node-title">
@@ -489,6 +490,7 @@ function AppBranch({ app }: { app: AppStatus }) {
               title={app.secretAccepted === true && app.pairing ? t("controlDash:overview.secretPaired", { date: formatManagedDate(app.pairing.pairedAt) }) : undefined}
             />
             <Fact label={t("controlDash:overview.roundTrip")} value={trip} />
+            {onServicesPage && <Fact label={t("controlDash:overview.usedBy")} value={t(`control:services.usedBy.${app.id === "video" || app.id === "faces" || app.id === "games" ? app.id : "other"}`)} line />}
           </dl>
         )}
         {state === "down" && app.server?.error && <p className={`dash-node-note tone-${tone}`}>{app.server.error}</p>}
@@ -498,6 +500,7 @@ function AppBranch({ app }: { app: AppStatus }) {
           {app.id === "games" && app.configured && <a href={`${controlHref("invites")}#games-guest-links`}>{t("controlDash:overview.linkGuestLinks")}</a>}
           {app.id === "video" && state === "running" && <a href={controlHref("videoSettings")}>{t("controlDash:overview.linkVideoSettings")}</a>}
           <a href={appPageHref("appsAccess", app.id)}>{t("controlDash:overview.linkAccess")}</a>
+          {app.configured && <a href={diagnosticsPartHref(app.id as DiagnosticsPart)}>{t("controlDash:overview.linkDiagnostics")}</a>}
           <a href={appPageHref("appsSetup", app.id)}>{t("controlDash:overview.linkSetup")}</a>
           {!app.stateless && <a href={containerBackupHref(app.id)}>{t("controlDash:overview.linkBackups")}</a>}
         </nav>

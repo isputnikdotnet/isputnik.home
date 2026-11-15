@@ -233,7 +233,9 @@
     "pair": "Pair with this server",
     "logs": "Logs",
     "about": "About",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "testAll": "Test connections",
+    "testingAll": "Testing…"
   },
   "search": {
     "title": "Search the control panel",
@@ -1213,7 +1215,8 @@
     "duplicatesBody": "Find the same photo kept twice and choose which copy stays.",
     "openDuplicates": "Open duplicate cleanup",
     "missingBody": "Photos whose files are no longer on disk.",
-    "openMissing": "Open missing photos"
+    "openMissing": "Open missing photos",
+    "videoStreamingBody": "Videos that start slowly because their index is at the end of the file, and the fix."
   },
   "appStorage": {
     "title": "Disk usage",
