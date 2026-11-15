@@ -535,7 +535,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                     <h3>{t("controlAdmin:security.policiesHeading")}</h3>
                     <span>{t("controlAdmin:security.policiesSubtitle")}</span>
                   </div>
-                  <div className="datagrid-wrap">
+                  <div className="datagrid-wrap security-policies-wrap">
                     <table className="datagrid datagrid-phone-stack locations-table">
                       <tbody>
                         {(() => {
@@ -571,6 +571,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                                     <span className="datagrid-primary">
                                       <strong>{row.label}</strong>
                                       <small>{row.note}</small>
+                                      {/* Shown instead of the value column when the table is narrow. */}
+                                      <span className="system-pointer-value is-inline">{row.value}</span>
                                     </span>
                                   </span>
                                 </td>

@@ -827,6 +827,19 @@ tr.control-anchor-flash > td {
   white-space: nowrap;
 }
 
+/* Security › Overview's Policies: four columns need about 600px. Beside the
+   control panel's sidebar a wide window still leaves the table narrower, and the
+   value ("Direct connection") took the room until the name broke mid-word
+   ("Accoun / t lockout"). Below that width the value moves under the name, as a
+   third line, and its own column goes. */
+.security-policies-wrap { container: security-policies / inline-size; }
+.system-pointer-value.is-inline { display: none; }
+
+@container security-policies (max-width: 600px) {
+  .security-policies-wrap td.col-num { display: none; }
+  .security-policies-wrap .system-pointer-value.is-inline { display: block; font-size: 0.95rem; }
+}
+
 /* Dashboard › Activity: the two fourteen-day charts side by side where there is
    room — what was put in or taken out, and what was actually opened. */
 .activity-charts {
