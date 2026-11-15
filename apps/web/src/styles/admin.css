@@ -3133,7 +3133,8 @@ tr.control-anchor-flash > td {
    scrolls (choices, Private details), the actions stay at the bottom; on a wide
    screen the preview stays in view beside the choices as they scroll. */
 .metadata-modal.diagnostics-report-modal {
-  width: min(1100px, calc(100vw - 32px));
+  /* 100% of what the backdrop leaves inside its padding, not of the window. */
+  width: min(100%, 1100px);
   height: min(860px, calc(100vh - 48px));
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
