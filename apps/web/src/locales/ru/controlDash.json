@@ -1143,6 +1143,8 @@
     "detailLastDay": "За последние 24 часа",
     "actionRecycle": "Корзина",
     "actionBlocked": "Заблокированные IP",
-    "diagramTitle": "Как они связаны"
+    "diagramTitle": "Как они связаны",
+    "diagnosticsLink": "Что-то не так? Диагностика",
+    "watchingNow": "Сейчас смотрят"
   }
 }

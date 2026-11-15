@@ -163,7 +163,8 @@
     "community": "Спросить сообщество",
     "reportBug": "Сообщить об ошибке",
     "requestFeature": "Предложить функцию",
-    "aboutApp": "Об iSputnik"
+    "aboutApp": "Об iSputnik",
+    "diagnostics": "Диагностика"
   },
   "pager": {
     "label": "Страницы",

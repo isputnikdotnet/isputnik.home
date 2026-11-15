@@ -1,8 +1,8 @@
 import { Fragment, type MouseEvent as ReactMouseEvent } from "react";
 import type { TFunction } from "i18next";
-import { Bug, HelpCircle, Info, Lightbulb, MessagesSquare } from "lucide-react";
+import { Bug, HelpCircle, Info, Lightbulb, MessagesSquare, Stethoscope } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { followRoute } from "../router";
+import { controlHref, followRoute } from "../router";
 import { APP_VERSION } from "../shared/appVersion";
 import { bugReportUrl, FEATURE_REQUEST_URL, REPO_DISCUSSIONS_URL } from "../shared/links";
 
@@ -35,6 +35,8 @@ export function helpMenuLinks(t: TFunction, isAdmin: boolean): HelpMenuLink[] {
     ...(isAdmin
       ? [
           { key: "community", href: REPO_DISCUSSIONS_URL, icon: MessagesSquare, label: t("nav.community"), group: "help" as const, external: true },
+          // Before a bug report: the report to attach to it, and the tests that may answer it first.
+          { key: "diagnostics", href: controlHref("diagnostics"), icon: Stethoscope, label: t("nav.diagnostics"), group: "feedback" as const, activeKey: "diagnostics" },
           { key: "bug", href: bugReportUrl(APP_VERSION), icon: Bug, label: t("nav.reportBug"), group: "feedback" as const, external: true },
           { key: "feature", href: FEATURE_REQUEST_URL, icon: Lightbulb, label: t("nav.requestFeature"), group: "feedback" as const, external: true }
         ]

@@ -157,7 +157,8 @@
     "community": "Ask the community",
     "reportBug": "Report a bug",
     "requestFeature": "Request a feature",
-    "aboutApp": "About iSputnik"
+    "aboutApp": "About iSputnik",
+    "diagnostics": "Diagnostics"
   },
   "pager": {
     "label": "Pagination",

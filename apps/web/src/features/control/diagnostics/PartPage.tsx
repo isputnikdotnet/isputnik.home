@@ -18,6 +18,7 @@ import { conversionBody, GpuRow, useEngine, type ConversionSettings, type Conver
 import { HOME_PARTS, ReportDialog } from "./ReportDialog";
 import { useDiagnosticsOverview, useProblemText, type LibraryCheck, type PartOverview } from "./overview";
 import { LoggingControl, loggingUrl } from "./Logging";
+import { WatchingNow } from "./Watching";
 import { speedVerdict, TestBar, useHomeTests, useRunWords, type FolderResult, type TestRun } from "./HomeTests";
 
 // One part of iSputnik's page under Infrastructure › Diagnostics
@@ -318,6 +319,7 @@ function VideoChecks() {
   }
   return (
     <>
+      <WatchingNow prefix={video.prefix} />
       <CatalogWork prefix={video.prefix} />
       <VideoHardware prefix={video.prefix} />
     </>

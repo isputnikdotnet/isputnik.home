@@ -1,5 +1,5 @@
 import { ALL_TABS, sectionEyebrow, sectionHref, tabLabel } from "./nav";
-import { profileAnchorHref, type ControlSection } from "../../router";
+import { diagnosticsPartHref, profileAnchorHref, type ControlSection, type DiagnosticsPart } from "../../router";
 // Plain module-level data, not a component — see nav.ts's note on the same pattern.
 import i18n from "../../i18n";
 
@@ -48,7 +48,9 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "активность аудит журнал события история входов хранение очистка удалить",
 
   diagnostics: "diagnostics report bug report issue github support troubleshoot copy download versions gpu ffmpeg containers failures privacy redact hide names paths " +
-    "диагностика отчёт сообщение об ошибке баг поддержка неполадки скопировать скачать версии видеокарта контейнеры сбои конфиденциальность скрыть имена пути",
+    "health check status problem broken not working wrong slow help logging log level debug verbose detailed trace " +
+    "диагностика отчёт сообщение об ошибке баг поддержка неполадки скопировать скачать версии видеокарта контейнеры сбои конфиденциальность скрыть имена пути " +
+    "состояние проверка проблема сломалось не работает медленно помощь журнал уровень журнала отладка подробно",
 
   libraries: "add library scan sources folders paths extensions uploads access members wizard rescan manage status " +
     "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать управлять состояние",
@@ -152,13 +154,20 @@ type SettingKey =
   | "deletionProtection" | "addTrustedNetwork" | "phoneSyncNetworks" | "scheduledBackups" | "containerBackups" | "defaultTheme"
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
-  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoStorage" | "videoCopies" | "videoKeptFilms" | "videoKeepReady" | "videoJobs" | "videoMetadata" | "videoDetection" | "videoHardwareTest" | "sections";
+  | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoStorage" | "videoCopies" | "videoKeptFilms" | "videoKeepReady" | "videoJobs" | "videoMetadata" | "videoDetection" | "videoHardwareTest" | "sections"
+  | "loggingLevel" | "checkFolders" | "verifyBackup" | "speedToDevice" | "videoHardwareAcceleration";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab. `anchor` is the id of the card the setting sits in, where the
 // page has more than one, so the hit scrolls to it (useAnchorScroll) rather than
 // leaving you at the top of a long page to find it again.
-const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords: string; anchor?: string }[] = [
+// `page`: the setting is on one part's Diagnostics page (diagnosticsPartHref), not the section's own.
+const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords: string; anchor?: string; page?: DiagnosticsPart }[] = [
+  { titleKey: "loggingLevel", section: "diagnostics", keywords: "logging log level debug verbose detailed everything trace more logs for a while back to normal журнал уровень отладка подробный всё больше записей на время вернуть обычный" },
+  { titleKey: "checkFolders", section: "diagnostics", page: "home", anchor: "libraries", keywords: "check folders library folder reachable sleeping disk wake slow read speed nas share mount проверить папки папка библиотеки доступна спящий диск медленно скорость чтения" },
+  { titleKey: "verifyBackup", section: "diagnostics", page: "home", anchor: "backups", keywords: "verify backup check backup intact damaged corrupt restore test zip database integrity проверить резервную копию цела повреждена восстановление целостность базы" },
+  { titleKey: "speedToDevice", section: "diagnostics", page: "home", anchor: "speed", keywords: "speed test connection network bandwidth download mbps slow phone tv away from home wifi скорость тест соединение сеть пропускная способность загрузка медленно телефон телевизор" },
+  { titleKey: "videoHardwareAcceleration", section: "diagnostics", page: "video", anchor: "hardware", keywords: "hardware acceleration gpu quick sync vaapi nvidia amd intel decode encode tone map hdr transcoding аппаратное ускорение видеокарта декодирование кодирование hdr перекодирование" },
   { titleKey: "logRetention", section: "logs", keywords: "keep days delete old activity prune хранение дней удалить старые записи журнала" },
   { titleKey: "systemData", section: "storage", anchor: "system-data", keywords: "system data required folder config database metadata disk space free move системные данные обязательная папка база данных метаданные место на диске перенос" },
   { titleKey: "appStorage", section: "storage", anchor: "app-storage", keywords: "app storage switch on off enable one folder system data custom folder photo inbox app files made in the app renders music map data move in disk space хранилище приложения включить выключить одна папка системные данные своя папка входящие файлы приложения рендеры музыка данные карт перенести место на диске" },
@@ -301,7 +310,7 @@ export function getControlSearchEntries(): ControlSearchEntry[] {
       id: `setting:${index}`,
       title: i18n.t(`control:search.settings.${entry.titleKey}`),
       breadcrumb: breadcrumbFor(entry.section),
-      href: entry.anchor ? `${sectionHref(entry.section)}#${entry.anchor}` : sectionHref(entry.section),
+      href: `${entry.page ? diagnosticsPartHref(entry.page) : sectionHref(entry.section)}${entry.anchor ? `#${entry.anchor}` : ""}`,
       keywords: entry.keywords
     })),
     // Reader tokens left the control panel for Profile (they are each person's

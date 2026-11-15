@@ -12,6 +12,7 @@ import { useDiagnosticsOverview, useProblemText, type PartOverview, type PartSta
 import { appPageHref, logsHref } from "../links";
 import { useAppName, useAppsStatus } from "./AppsSection";
 import { LoggingControl, loggingUrl } from "../diagnostics/Logging";
+import { useWatchingCount } from "../diagnostics/Watching";
 
 // Control panel › Infrastructure › Diagnostics (docs/diagnostics-pages-plan.md):
 // one card per part of iSputnik — this server, then each container — saying how it
@@ -28,6 +29,13 @@ function Link({ href, children }: { href: string; children: React.ReactNode }) {
       <ArrowRight size={15} aria-hidden="true" />
     </a>
   );
+}
+
+/** " · 2 watching" after Video's line, once the engine says. */
+function WatchingSuffix({ prefix }: { prefix: string | null }) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const count = useWatchingCount(prefix);
+  return count === null ? null : <>{` · ${t("controlAdmin:diagnostics.watching.count", { count })}`}</>;
 }
 
 export function DiagnosticsSection() {
@@ -93,7 +101,10 @@ export function DiagnosticsSection() {
               </div>
               <span className={`app-status-pill ${PILL[part.state]}`}>{t(`controlAdmin:diagnostics.state.${part.state}`)}</span>
             </div>
-            <p className={part.problems.length ? "diagnostics-part-line is-warning" : "diagnostics-part-line"}>{lineOf(part)}</p>
+            <p className={part.problems.length ? "diagnostics-part-line is-warning" : "diagnostics-part-line"}>
+              {lineOf(part)}
+              {part.id === "video" && part.state === "ok" && <WatchingSuffix prefix={apps?.find((app) => app.id === "video")?.prefix ?? null} />}
+            </p>
             {loggingOf(part) && <LoggingControl url={loggingOf(part)} name={part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id)} />}
             <div className="organization-actions">
               {actionsOf(part).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}

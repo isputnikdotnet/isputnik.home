@@ -232,7 +232,8 @@
     "pairing": "Pairing",
     "pair": "Pair with this server",
     "logs": "Logs",
-    "about": "About"
+    "about": "About",
+    "diagnostics": "Diagnostics"
   },
   "search": {
     "title": "Search the control panel",
@@ -289,7 +290,12 @@
       "videoMetadata": "Posters and descriptions (TMDB)",
       "videoDetection": "Intros, recaps and credits",
       "sections": "Sections of the app",
-      "videoHardwareTest": "Hardware test (conversion speed)"
+      "videoHardwareTest": "Hardware test (conversion speed)",
+      "loggingLevel": "Logging level (Detailed, Everything)",
+      "checkFolders": "Check library folders",
+      "verifyBackup": "Verify the last backup",
+      "speedToDevice": "Speed to this device",
+      "videoHardwareAcceleration": "Video hardware acceleration"
     }
   },
   "about": {

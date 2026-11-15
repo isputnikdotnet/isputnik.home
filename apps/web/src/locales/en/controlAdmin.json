@@ -2799,6 +2799,34 @@
         "backupNone": "Backup · there was none to verify",
         "speed": "Speed · {{mbps}} Mbit/s, replies in {{ms}} ms"
       }
+    },
+    "watching": {
+      "title_one": "Watching now ({{count}})",
+      "title_other": "Watching now ({{count}})",
+      "note": "Every film and episode being played or downloaded right now: who, what, how it reaches them and from where. Looked at again every few seconds.",
+      "nobody": "Nobody is watching",
+      "count_one": "{{count}} watching",
+      "count_other": "{{count}} watching",
+      "how": {
+        "direct": "Played as it is",
+        "remux": "Repackaged, picture as it is",
+        "gpu": "Converted on the GPU",
+        "cpu": "Converted on the CPU",
+        "kept": "From a kept conversion",
+        "download": "Downloading for offline"
+      },
+      "quality": "up to {{height}}p",
+      "hdr": "HDR tone-mapped",
+      "shared": "shared with another viewer",
+      "device": {
+        "TV": "TV",
+        "Phone": "phone",
+        "Tablet": "tablet",
+        "Browser": "browser"
+      },
+      "home": "at home",
+      "away": "away from home",
+      "since": "since {{when}}"
     }
   }
 }

@@ -15,6 +15,7 @@ import { MessageBox } from "../../../../shared/MessageBox";
 import { formatBytes, formatManagedDate, formatUptime } from "../../../../shared/utils";
 import { relativeTime } from "../../../../shared/relativeTime";
 import { formatNumber } from "../../../../shared/dates";
+import { useWatchingCount } from "../../diagnostics/Watching";
 import { appPageHref, backupHref, logsHref, storageHref, tasksHref } from "../../links";
 import { signInsHref } from "./SignInsView";
 import type { AppStatus } from "../AppsSection";
@@ -198,6 +199,7 @@ export function Overview({
       <section className="dash-section" aria-labelledby="dash-attention">
         <div className="dash-section-head">
           <h2 id="dash-attention">{t("controlDash:dashboard.attentionTitle")}{issues.length > 0 && <span className="dash-count">{issues.length}</span>}</h2>
+          <a href={controlHref("diagnostics")} onClick={(event) => followRoute(event, controlHref("diagnostics"))}>{t("controlDash:dashboard.diagnosticsLink")}</a>
         </div>
         {issues.length > 0 ? (
           <ul className="dash-attention">
@@ -273,6 +275,13 @@ export function Overview({
 /** The Dashboard's Running services: a tile per service — its state, version, where
  *  it is (addresses with their ports) and how fast it answers. A tile opens that
  *  service's card on Infrastructure › Services. */
+/** The Video tile's "Watching now", from the engine (Diagnostics › Video has who and what). */
+function WatchingFact({ prefix }: { prefix: string }) {
+  const { t } = useTranslation(["controlDash"]);
+  const count = useWatchingCount(prefix);
+  return count === null ? null : <Fact label={t("controlDash:dashboard.watchingNow")} value={formatNumber(count)} />;
+}
+
 function ServiceTiles({ status, overview, apps }: { status: SystemStatus; overview: DashboardOverview | null; apps: AppStatus[] | null }) {
   const { t } = useTranslation(["common", "controlDash"]);
   const appName = useAppName();
@@ -335,6 +344,7 @@ function ServiceTiles({ status, overview, apps }: { status: SystemStatus; overvi
                     value={app.server?.roundTripMs != null ? `${app.server.roundTripMs} ms` : t("controlDash:overview.branchNoReply")}
                     tone={app.server?.ok ? undefined : "warning"}
                   />
+                  {app.id === "video" && state === "running" && <WatchingFact prefix={app.prefix} />}
                 </dl>
               )}
             </a>

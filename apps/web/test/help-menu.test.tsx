@@ -28,12 +28,12 @@ function bar(isAdmin: boolean) {
 }
 
 describe("help & feedback", () => {
-  it("gives an administrator the guides, the community, a bug report with the version filled in, a feature request and About", async () => {
+  it("gives an administrator the guides, the community, Diagnostics, a bug report with the version filled in, a feature request and About", async () => {
     bar(true);
     await userEvent.click(screen.getByRole("button", { name: "Help & feedback" }));
     const menu = screen.getByRole("menu", { name: "Help & feedback" });
     const names = within(menu).getAllByRole("menuitem").map((item) => item.textContent);
-    expect(names).toEqual(["Help guides", "Ask the community", "Report a bug", "Request a feature", "About iSputnik"]);
+    expect(names).toEqual(["Help guides", "Ask the community", "Diagnostics", "Report a bug", "Request a feature", "About iSputnik"]);
 
     const bug = within(menu).getByRole("menuitem", { name: "Report a bug" });
     expect(bug).toHaveAttribute("href", expect.stringContaining("template=bug_report.yml"));

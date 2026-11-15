@@ -1004,6 +1004,8 @@
     "detailLastDay": "In the last 24 hours",
     "actionRecycle": "Recycle bin",
     "actionBlocked": "Blocked IPs",
-    "diagramTitle": "How they connect"
+    "diagramTitle": "How they connect",
+    "diagnosticsLink": "Something not right? Diagnostics",
+    "watchingNow": "Watching now"
   }
 }

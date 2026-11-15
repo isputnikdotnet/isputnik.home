@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Server } from "lucide-react";
-import { controlHref, followRoute } from "../../../router";
+import { controlHref, diagnosticsPartHref, followRoute, type DiagnosticsPart } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatUptime } from "../../../shared/utils";
@@ -104,6 +104,7 @@ export function ServicesSection() {
           />
           <div className="organization-actions">
             <Link href={controlHref("logs")}>{t("control:services.logs")}</Link>
+            <Link href={diagnosticsPartHref("home")}>{t("control:services.diagnostics")}</Link>
             <Link href={controlHref("about")}>{t("control:services.about")}</Link>
           </div>
         </section>
@@ -142,6 +143,7 @@ export function ServicesSection() {
                 )}
                 <Link href={pairingHref}>{state === "unset" ? t("control:services.pair") : t("control:services.pairing")}</Link>
                 {app.configured && <Link href={logsHref({ app: app.id })}>{t("control:services.logs")}</Link>}
+                {app.configured && <Link href={diagnosticsPartHref(app.id as DiagnosticsPart)}>{t("control:services.diagnostics")}</Link>}
               </div>
             </section>
           );
