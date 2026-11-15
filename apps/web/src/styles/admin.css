@@ -2428,10 +2428,12 @@ tr.control-anchor-flash > td {
 /* ── Overview › Dashboard (sections/dashboard/Overview.tsx) ──────────────────
    Home over its gateway with a branch per container; the colour and dash of a
    branch say whether Home reaches it. Tones come from the theme tokens. */
+/* The Dashboard: every section is the same head over one panel (or, for Running
+   services, a row of equal tiles), with the same space between sections. */
 .dash {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 28px;
 }
 
 .dash .tone-success { --tone: var(--success); }
@@ -2451,17 +2453,41 @@ tr.control-anchor-flash > td {
 .dash-section-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 12px;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 28px;
 }
 
 .dash-section-head h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
+  font-weight: 650;
 }
-.dash-section-head > a { margin-left: auto; font-size: 0.875rem; }
+.dash-section-head h2 > svg { color: var(--muted); }
+.dash-section-head > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.dash-section-head > a:hover { text-decoration: underline; }
 
-.dash-section { display: flex; flex-direction: column; gap: 12px; }
+.dash-section { display: flex; flex-direction: column; gap: 10px; }
+
+/* A section's one surface. Inside it, parts are divided by lines, not boxed again. */
+.dash-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
 
 /* The diagram */
 .dash-diagram {
@@ -2660,10 +2686,9 @@ tr.control-anchor-flash > td {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-raised);
+  margin: 0 -6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .dash-backup-row {
@@ -2797,18 +2822,16 @@ tr.control-anchor-flash > td {
   font-weight: 700;
 }
 
-.dash-attention { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.dash-panel.dash-attention { gap: 0; padding-block: 4px; list-style: none; }
 
 .dash-attention li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-raised);
+  padding: 10px 0;
 }
+.dash-attention li + li { border-top: 1px solid var(--line); }
 
 .dash-attention .dash-issue-text { flex: 1 1 260px; min-width: 0; }
 .dash-attention a { display: inline-flex; align-items: center; gap: 4px; }
@@ -2816,21 +2839,23 @@ tr.control-anchor-flash > td {
 .dash-drives { display: grid; gap: 14px; }
 .dash-drive-list { display: grid; gap: 8px; }
 
+.dash-drive-list { margin: -6px -8px 0; }
+
 .dash-drive {
   display: grid;
   gap: 8px;
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
+  padding: 10px 8px;
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface-raised);
+  background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.dash-drive:hover,
-.dash-drive.is-selected { border-color: var(--accent); }
+.dash-drive:hover { background: var(--hover); }
+.dash-drive.is-selected { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--active); }
 
 .dash-drive-head {
   display: flex;
@@ -2862,9 +2887,8 @@ tr.control-anchor-flash > td {
 .dash-drive-detail {
   display: grid;
   gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
 
 .dash-drive-detail h3,
@@ -2874,18 +2898,23 @@ tr.control-anchor-flash > td {
 .dash-categories {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  align-items: stretch;
   gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Every tile the same height, its size on one line. */
+.dash-categories li { display: grid; }
 .dash-categories a,
 .dash-category-static {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
+  min-height: 56px;
+  box-sizing: border-box;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2895,8 +2924,11 @@ tr.control-anchor-flash > td {
 
 .dash-categories a:hover { border-color: var(--accent); }
 .dash-categories i { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 3px; }
-.dash-categories span { display: grid; flex: 1 1 auto; min-width: 0; }
+/* The name and hint inside a tile; not the static tile itself, which is a span too. */
+.dash-categories a > span,
+.dash-category-static > span { display: grid; flex: 1 1 auto; min-width: 0; }
 .dash-categories small { color: var(--muted); font-size: var(--text-xs); }
+.dash-categories b { flex: none; white-space: nowrap; }
 
 .dash-drive-columns {
   display: grid;
@@ -2924,9 +2956,11 @@ tr.control-anchor-flash > td {
   align-items: center;
   gap: 4px;
   margin-left: auto;
-  font-size: var(--text-sm);
+  font-size: 0.85rem;
   font-weight: 600;
+  text-decoration: none;
 }
+.dash-usage-link:hover { text-decoration: underline; }
 
 .dash-members {
   display: grid;
@@ -2952,17 +2986,11 @@ tr.control-anchor-flash > td {
 .dash-members .muted { margin-left: auto; font-size: var(--text-sm); }
 
 .dash-work { display: grid; gap: 10px; }
-.dash-work > .dash-usage-link { margin-left: 0; }
+.dash-work > .muted { margin: 0; }
 .dash-work-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 
-.dash-work-list li {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-raised);
-}
+.dash-work-list li { display: grid; gap: 8px; padding: 4px 0; }
+.dash-work-list li + li { padding-top: 12px; border-top: 1px solid var(--line); }
 
 .dash-work-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
 .dash-work-state { margin-left: auto; color: var(--muted); font-size: var(--text-sm); }
@@ -3078,7 +3106,8 @@ tr.control-anchor-flash > td {
 /* Running services: a tile per service, its addresses and ports on it. */
 .dash-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  align-items: stretch;
   gap: 12px;
 }
 
@@ -3087,7 +3116,7 @@ tr.control-anchor-flash > td {
   align-content: start;
   gap: 10px;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-raised);
@@ -3098,14 +3127,14 @@ tr.control-anchor-flash > td {
 .dash-tile:hover,
 .dash-tile:focus-visible { border-color: var(--accent); outline: 0; }
 
-.dash-tile-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.dash-tile-head strong { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A narrow tile puts its state under the name rather than cutting the name short. */
+.dash-tile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.dash-tile-head strong { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .dash-tile-head > svg { flex: 0 0 auto; color: var(--muted); }
 .dash-tile-facts { gap: 8px 18px; }
 .dash-tile { grid-template-columns: minmax(0, 1fr); }
 /* Addresses are why the tile is there: shown whole, wrapping, never cut. */
 .dash-tile .dash-fact-line dd { white-space: normal; overflow-wrap: anywhere; }
-.dash-tiles { align-items: start; }
 
 /* Applications › Gallery › Device Sync (control panel v2): one column of grouped
    rows, like a phone's Settings app (shared/GroupedList). */

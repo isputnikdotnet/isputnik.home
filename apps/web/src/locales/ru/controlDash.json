@@ -1096,7 +1096,7 @@
     "shrank": "Уменьшилось на {{amount}} с {{since}}",
     "usedGb": "Занято (ГБ)",
     "servicesTitle": "Работающие службы",
-    "servicesDetail": "Инфраструктура › Службы",
+    "servicesDetail": "Все службы",
     "version": "Версия",
     "membersReach": "Участники открывают по адресу",
     "answersIn": "Отвечает за",

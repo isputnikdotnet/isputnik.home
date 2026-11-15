@@ -197,12 +197,15 @@ export function Overview({
   return (
     <div className="dash">
       <section className="dash-section" aria-labelledby="dash-attention">
-        <div className="dash-section-head">
-          <h2 id="dash-attention">{t("controlDash:dashboard.attentionTitle")}{issues.length > 0 && <span className="dash-count">{issues.length}</span>}</h2>
-          <a href={controlHref("diagnostics")} onClick={(event) => followRoute(event, controlHref("diagnostics"))}>{t("controlDash:dashboard.diagnosticsLink")}</a>
-        </div>
+        <DashSectionHead
+          id="dash-attention"
+          icon={DASH_ICONS.attention}
+          title={t("controlDash:dashboard.attentionTitle")}
+          count={issues.length}
+          link={{ href: controlHref("diagnostics"), label: t("controlDash:dashboard.diagnosticsLink") }}
+        />
         {issues.length > 0 ? (
-          <ul className="dash-attention">
+          <ul className="dash-panel dash-attention">
             {issues.map((issue) => (
               <li key={issue.text}>
                 <span className={`dash-severity tone-${issue.tone}`}>
@@ -237,6 +240,7 @@ export function Overview({
 
       <section className="dash-section" aria-labelledby="dash-storage">
         <DashSectionHead id="dash-storage" icon={DASH_ICONS.storage} title={t("controlDash:overview.storageTitle")} link={{ href: storageHref(), label: t("controlDash:dashboard.storageSettingsLink") }} />
+        <div className="dash-panel dash-storage-panel">
         {overview === null
           ? <p className="muted">{t("controlDash:overview.disksUnknown")}</p>
           : <StoragePanel drives={disks} status={status} describe={holdingsOf} folderLabel={folderOwner} />}
@@ -255,16 +259,17 @@ export function Overview({
             <AppBackupRow key={app.id} app={app} />
           ))}
         </div>
+        </div>
       </section>
 
       <section className="dash-section" aria-labelledby="dash-usage">
         <DashSectionHead id="dash-usage" icon={DASH_ICONS.usage} title={t("controlDash:dashboard.usageTitle")} />
-        <UsagePanel />
+        <div className="dash-panel"><UsagePanel /></div>
       </section>
 
       <section className="dash-section" aria-labelledby="dash-work">
-        <DashSectionHead id="dash-work" icon={DASH_ICONS.work} title={t("controlDash:dashboard.workTitle")} />
-        <CurrentWorkPanel />
+        <DashSectionHead id="dash-work" icon={DASH_ICONS.work} title={t("controlDash:dashboard.workTitle")} link={{ href: tasksHref(), label: t("controlDash:dashboard.allTasks") }} />
+        <div className="dash-panel"><CurrentWorkPanel /></div>
       </section>
     </div>
   );
@@ -292,10 +297,7 @@ function ServiceTiles({ status, overview, apps }: { status: SystemStatus; overvi
   const homeHref = `${servicesHref}#service-home`;
   return (
     <section className="dash-section" aria-labelledby="dash-services">
-      <div className="dash-section-head">
-        <h2 id="dash-services">{t("controlDash:dashboard.servicesTitle")}</h2>
-        <a href={servicesHref} onClick={(event) => followRoute(event, servicesHref)}>{t("controlDash:dashboard.servicesDetail")}</a>
-      </div>
+      <DashSectionHead id="dash-services" icon={DASH_ICONS.services} title={t("controlDash:dashboard.servicesTitle")} link={{ href: servicesHref, label: t("controlDash:dashboard.servicesDetail") }} />
       <div className="dash-tiles">
         <a className="dash-tile" href={homeHref} onClick={(event) => followRoute(event, homeHref)}>
           <span className="dash-tile-head">

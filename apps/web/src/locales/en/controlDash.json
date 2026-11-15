@@ -962,7 +962,7 @@
     "shrank": "Shrank by {{amount}} since {{since}}",
     "usedGb": "Used (GB)",
     "servicesTitle": "Running services",
-    "servicesDetail": "Infrastructure › Services",
+    "servicesDetail": "All services",
     "version": "Version",
     "membersReach": "Members reach it at",
     "answersIn": "Answers in",

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, ArrowRight, HardDrive, ListChecks } from "lucide-react";
+import { Activity, ArrowRight, BellRing, ChevronRight, HardDrive, ListChecks, Server } from "lucide-react";
 import { api } from "../../../../api";
 import { controlHref, followRoute } from "../../../../router";
 import { Button } from "../../../../shared/Button";
@@ -365,7 +365,6 @@ export function CurrentWorkPanel() {
     }
   };
 
-  const allHref = tasksHref();
   if (jobs === null) return error ? <p className="status-empty">{error}</p> : null;
 
   return (
@@ -404,22 +403,34 @@ export function CurrentWorkPanel() {
           })}
         </ul>
       )}
-      <a className="dash-usage-link" href={allHref} onClick={go(allHref)}>
-        {t("controlDash:dashboard.allTasks")}
-        <ArrowRight size={14} aria-hidden="true" />
-      </a>
     </div>
   );
 }
 
-/** A dashboard section's heading row: an icon, the title, and a link onward. */
-export function DashSectionHead({ id, icon: Icon, title, link }: { id: string; icon: typeof HardDrive; title: string; link?: { href: string; label: string } }) {
+/** A dashboard section's heading row — the same on every section: an icon, the
+ *  title (with a count when there is one), and a link onward on the right. */
+export function DashSectionHead({ id, icon: Icon, title, count, link }: {
+  id: string;
+  icon: typeof HardDrive;
+  title: string;
+  count?: number;
+  link?: { href: string; label: string };
+}) {
   return (
     <div className="dash-section-head">
-      <h2 id={id}><Icon size={18} aria-hidden="true" />{title}</h2>
-      {link && <a href={link.href} onClick={go(link.href)}>{link.label}</a>}
+      <h2 id={id}>
+        <Icon size={18} aria-hidden="true" />
+        {title}
+        {count !== undefined && count > 0 && <span className="dash-count">{count}</span>}
+      </h2>
+      {link && (
+        <a href={link.href} onClick={go(link.href)}>
+          {link.label}
+          <ChevronRight size={15} aria-hidden="true" />
+        </a>
+      )}
     </div>
   );
 }
 
-export const DASH_ICONS = { storage: HardDrive, usage: Activity, work: ListChecks };
+export const DASH_ICONS = { attention: BellRing, services: Server, storage: HardDrive, usage: Activity, work: ListChecks };
