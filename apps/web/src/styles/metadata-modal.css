@@ -17,7 +17,7 @@
 }
 
 .book-metadata-modal {
-  width: min(calc(100vw - 32px), 880px);
+  width: min(100%, 880px);
   height: min(calc(100vh - 32px), 660px);
   max-height: calc(100vh - 32px);
   border-radius: 10px;
@@ -674,7 +674,7 @@
 
 @media (max-width: 620px) {
   .book-metadata-modal {
-    width: calc(100vw - 20px);
+    width: 100%;
     height: calc(100vh - 20px);
     max-height: calc(100vh - 20px);
   }

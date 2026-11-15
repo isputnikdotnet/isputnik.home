@@ -7,7 +7,7 @@
   --cleanup-accent: #6336f5;
   --cleanup-accent-soft: color-mix(in srgb, var(--cleanup-accent) 12%, transparent);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: min(1000px, calc(100vw - 48px));
+  width: min(100%, 1000px);
   height: min(735px, calc(100vh - 44px));
   min-height: min(600px, calc(100vh - 44px));
   border-radius: 12px;
@@ -525,7 +525,7 @@
 
 @media (max-width: 860px) {
   .metadata-modal.cleanup-wizard-modal {
-    width: calc(100vw - 24px);
+    width: 100%;
     height: calc(100vh - 24px);
     min-height: 0;
   }

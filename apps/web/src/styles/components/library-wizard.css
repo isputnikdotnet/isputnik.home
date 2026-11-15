@@ -797,7 +797,7 @@
    Fixed height so the modal stays one size across tabs; the tab body scrolls when a
    tab's content is taller. Scoped with .metadata-modal to outrank the surface defaults. */
 .metadata-modal.edit-library-panel {
-  width: min(calc(100vw - 32px), 720px);
+  width: min(100%, 720px);
   height: min(780px, calc(100vh - 40px));
   min-height: 0;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
