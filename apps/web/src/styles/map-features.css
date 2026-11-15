@@ -41,17 +41,6 @@
   gap: 12px;
 }
 
-.map-feature-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  color: var(--muted);
-  background: var(--surface-raised);
-}
-
 .map-feature-title {
   flex: 1;
   min-width: 0;
@@ -71,31 +60,6 @@
   margin: 2px 0 0;
   color: var(--muted);
   font-size: 0.88rem;
-}
-
-.map-feature-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 8px;
-  margin: 14px 0 0;
-}
-
-.map-feature-facts > div {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--surface-raised);
-  min-width: 0;
-}
-
-.map-feature-facts dt {
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-
-.map-feature-facts dd {
-  margin: 1px 0 0;
-  font-size: 0.88rem;
-  overflow-wrap: anywhere;
 }
 
 /* A row of controls under the facts: a limit, a build's state and Update. */
@@ -175,14 +139,6 @@
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--line);
-}
-
-.map-feature-part-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  color: var(--muted);
 }
 
 .map-feature-part-text {

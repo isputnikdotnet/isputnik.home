@@ -34,20 +34,15 @@
 /* One line, cut with an ellipsis. */
 .passkey-meta strong,
 .trash-tile-line > span:first-child,
-.blocked-table td,
-.trusted-table td,
 .book-file-row strong,
 .book-file-row small,
 .category-name-cell strong,
 .category-name-cell span,
 .category-tag-copy strong,
 .category-tag-status,
-.user-name-line > strong,
 .dup-copy-where > span,
 .dup-compare-head-name strong,
 .dup-compare-facts strong,
-.ft-tree-row-cards .ft-relation-card-copy strong,
-.ft-tree-row-cards .ft-relation-card-copy small,
 .slideshow-music-button span,
 .gallery-health-pair-info > span,
 .gallery-keep-folder-path,
@@ -121,7 +116,6 @@
 .gallery-bulk-edit-shift,
 .gallery-place-search,
 .gallery-movie-filename,
-.review-row,
 .review-chips,
 .layout-filters {
   display: flex;

@@ -116,7 +116,6 @@
   font-size: 0.85rem;
 }
 
-
 .video-card-cover > img {
   position: absolute;
   inset: 0;
@@ -1603,7 +1602,7 @@
   width: fit-content;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--chip-bg, rgba(127, 127, 127, 0.18));
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
   font-size: 0.78rem;
 }
 
@@ -2338,10 +2337,6 @@
   white-space: nowrap;
 }
 
-.video-card-badge.has-bar {
-  bottom: 12px;
-}
-
 /* The card's menu: in the picture's other corner, there when the card is pointed
    at or holds the focus — and always where there is nothing to point with. */
 .video-card-menu {
@@ -2402,8 +2397,7 @@
    show's page: seasons, count, bar and the season's menu share one row, and an
    episode's menu sits beside its name. These follow the rules above them. */
 
-.video-card-badge,
-.video-card-badge.has-bar {
+.video-card-badge {
   top: 8px;
   right: 8px;
   bottom: auto;

@@ -296,14 +296,6 @@
 
 /* AbuseIPDB reputation in a log table. Only a score that means something is
    coloured. */
-.reputation-score.bad {
-  color: var(--rose);
-}
-
-.reputation-score.watch {
-  color: var(--amber);
-}
-
 
 .datagrid th.col-num,
 .datagrid td.col-num {

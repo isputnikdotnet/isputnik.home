@@ -614,7 +614,6 @@
   white-space: pre-line;
 }
 
-
 /* The "Titles" card under the Overview/Books/Audiobooks tabs. One bordered
    panel holds the whole list; the entries inside carry no box of their own —
    a big cover, the title, and its credits, separated only by a hairline. */
@@ -782,11 +781,6 @@
   display: grid;
   gap: 8px;
   align-content: start;
-}
-
-.bulk-edit-modal .bulk-tags-note {
-  margin: 0;
-  font-size: 0.85rem;
 }
 
 /* Two-column field layout for the bulk book-edit dialog's Details tab. */

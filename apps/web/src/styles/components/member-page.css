@@ -141,16 +141,11 @@
   color: var(--muted);
   font-size: 0.82rem;
 }
-.member-card-tab .access-rows { min-width: 0; }
 /* The profile form's Save, under its fields, across both columns. */
 .member-profile-actions {
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
-}
-.member-card-live-note {
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
 }
 
 /* Account status: read-only, but lined up with the fields beside it. */

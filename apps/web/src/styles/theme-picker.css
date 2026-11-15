@@ -114,11 +114,6 @@
 }
 
 /* SMTP settings form (Email block under Config). */
-.mail-form {
-  display: grid;
-  gap: 14px;
-  max-width: 520px;
-}
 
 /* Settings → Appearance → Sections: one switch per section of the menu. The
    card follows the theme picker, which has no bottom margin of its own. */
@@ -126,43 +121,7 @@
   margin-top: 28px;
 }
 
-.sections-switches {
-  display: grid;
-  gap: 12px;
-  margin: 6px 0 14px;
-}
-
 /* Apps → Installed: a container's facts, one row each. */
-.games-status {
-  display: grid;
-  gap: 10px;
-  max-width: 560px;
-  margin: 6px 0 16px;
-}
-
-.games-status > div {
-  display: grid;
-  grid-template-columns: 170px minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-}
-
-.games-status dt {
-  font-weight: 650;
-}
-
-.games-status dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 560px) {
-  .games-status > div {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-}
 
 /* Apps → Setup: the address field with its Save button beside it. */
 .app-setup-address {
@@ -272,67 +231,16 @@
   white-space: pre;
 }
 
-.mail-check {
-  display: flex;
-  /* flex-start, not center: these labels wrap to two or three lines and the box
-     belongs beside the first one. */
-  align-items: flex-start;
-  gap: 9px;
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-  cursor: pointer;
-}
-
-.mail-check input {
-  flex: 0 0 auto;
-  margin-top: 3px;
-}
-
 /* Groups a policy toggle away from the SMTP fields above it. */
-.mail-subhead {
-  margin: 8px 0 -4px;
-  font-size: 0.95rem;
-}
 
 /* A group of notification switches. The <fieldset> earns its keep here: it can be
    disabled as a unit, which is how the whole tab goes read-only when there is no
    mail server to send through. Stripped of the browser's border and padding — the
    grouping is the legend's job, not a box's. */
-.notify-fieldset {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.notify-fieldset > .mail-subhead {
-  padding: 0;
-  margin: 0;
-}
-
-.notify-fieldset:disabled {
-  opacity: 0.55;
-}
 
 /* The label is the whole target, so it has to stop looking clickable too. */
-.notify-fieldset:disabled .mail-check {
-  cursor: default;
-}
-
-.mail-actions {
-  display: flex;
-  gap: 10px;
-}
 
 /* Apps → Access: a capability's name over what it covers. */
-.app-rule-means {
-  display: block;
-  margin-top: 2px;
-  white-space: normal;
-}
-.app-rules-table td { vertical-align: middle; }
 
 /* Apps → Setup: a new secret, shown once. */
 .app-secret-once {

@@ -121,20 +121,6 @@
 
 /* A field with its own Save beside it: each answer here is written on its own, so
    there is never a half-saved page to reason about. */
-.welcome-field-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.welcome-field-row .field { flex: 1 1 220px; min-width: 0; }
-
-.welcome-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
 
 /* Prose, not a table cell — .datagrid-muted sets white-space: nowrap, which pushed
    the card past its column the first time this page was built. */
@@ -146,31 +132,6 @@
 }
 
 /* The status chip sizes to its text rather than the card. */
-
-.welcome-toggle { display: flex; }
-
-.welcome-actions-inline { display: flex; gap: 10px; flex-wrap: wrap; }
-
-.welcome-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.welcome-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
-
-.welcome-list span { color: var(--muted); overflow-wrap: anywhere; }
 
 .welcome-actions {
   display: flex;

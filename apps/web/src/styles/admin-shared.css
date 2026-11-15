@@ -14,25 +14,6 @@
   color: var(--mint);
 }
 
-.setting-status {
-  max-width: 220px;
-  padding: 5px 8px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: 750;
-  text-align: right;
-}
-
-.setting-status.ready {
-  color: var(--mint);
-  background: var(--active);
-}
-
-.setting-status.needs-attention {
-  color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 14%, transparent);
-}
-
 /* shared/TabStrip: peer panels sharing one card. These sit where the panel's
    <h3> would, and are sized like it — the active one reads as the heading it
    replaces, its siblings as the same heading greyed. Not pills: the control

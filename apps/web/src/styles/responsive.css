@@ -7,29 +7,12 @@
    Created first — the least load-bearing — then Sessions. No width overrides
    go with them: the base rules leave User on `auto`, so it simply absorbs
    whatever a hidden column gives back, at every tier including the phone. */
-@media (max-width: 1240px) {
-  .user-table th:nth-child(4),
-  .user-table td:nth-child(4) {
-    display: none;
-  }
-}
 
 @media (min-width: 741px) and (max-width: 1040px) {
-  .user-table th:nth-child(3),
-  .user-table td:nth-child(3) {
-    display: none;
-  }
 
   /* Once User is down to its last hundred-odd pixels the 36px avatar is costing
      a third of the name. It's a generic glyph, identical on every row — the
      first thing that should go. */
-  .user-account-cell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .user-avatar-icon {
-    display: none;
-  }
 }
 
 @media (max-width: 740px) {
@@ -336,22 +319,6 @@
     width: 100%;
   }
 
-  .user-controls-bar {
-    display: grid;
-  }
-
-  .user-search {
-    width: 100%;
-  }
-
-  .admin-controls-bar {
-    display: grid;
-  }
-
-  .admin-search {
-    width: 100%;
-  }
-
   .group-table th:nth-child(3),
   .group-table td:nth-child(3),
   .invite-table th:nth-child(4),
@@ -382,11 +349,6 @@
 
   .library-info-grid {
     grid-template-columns: 1fr;
-  }
-
-  .setting-status {
-    max-width: none;
-    text-align: left;
   }
 
   .datagrid th.col-scan,
@@ -459,19 +421,6 @@
 @media (max-width: 430px) {
   .auth-panel {
     padding: 18px 16px;
-  }
-
-  .user-table th:nth-child(3),
-  .user-table td:nth-child(3) {
-    display: none;
-  }
-
-  .user-account-cell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .user-avatar-icon {
-    display: none;
   }
 
   .group-table th:nth-child(2),

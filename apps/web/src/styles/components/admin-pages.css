@@ -206,36 +206,10 @@
   min-width: 0;
 }
 
-.user-controls-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-
-.user-search {
-  width: min(100%, 340px);
-}
-
 .user-form-modal {
   display: grid;
   gap: 14px;
   width: min(100%, 520px);
-}
-
-.user-table {
-  /* The floor below which the columns stop shrinking and the wrapper scrolls
-     instead: 314px of fixed columns in the narrowest tier (Role + Actions) plus
-     enough for a name to still be a name. Reached only on a phone, or a desktop
-     window narrow enough to be a phone with a sidebar. */
-  min-width: 440px;
-  table-layout: fixed;
-}
-
-.user-table th,
-.user-table td {
-  overflow: hidden;
-  padding: 8px 10px;
-  text-overflow: ellipsis;
 }
 
 /* The table is table-layout:fixed, so a column is exactly as wide as it is told —
@@ -249,65 +223,12 @@
    changes, not when an action is added.
    User is `auto` and absorbs the rest; responsive.css drops Created, then
    Sessions, as the region narrows, rather than crushing User to nothing. */
-.user-table th:nth-child(1) { width: auto; }
-.user-table th:nth-child(2) { width: 100px; }
-.user-table th:nth-child(3) { width: 108px; }
-.user-table th:nth-child(4) { width: 164px; }
-.user-table th:nth-child(5) { width: 56px; }
-
-.user-table .row-actions {
-  gap: 4px;
-}
-
-.user-table .col-actions {
-  overflow: visible;
-}
-
-.user-table .icon-button {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 7px;
-}
-
-.user-account-cell {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-
-.user-avatar-icon {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 14%, transparent);
-}
-
-.user-avatar-icon svg {
-  width: 16px;
-  height: 16px;
-}
 
 /* One line, always. This used to wrap, and with badges in a column barely wider
    than a name that meant three stacked lines per user — name, badge, email — for a
    table whose whole job is to be scanned. The name gives way instead: it is the
    part you can still recognise from its first characters, and it is repeated in
    full in every dialog the row opens. */
-.user-name-line {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.user-name-line > .status-badge {
-  flex: none;
-}
 
 /* ── Unified admin management pages ─────────────────────────────── */
 
@@ -400,52 +321,6 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-}
-
-.admin-controls-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-
-.admin-search {
-  width: min(100%, 340px);
-}
-
-.admin-table-wrap {
-  overflow-x: hidden;
-}
-
-.admin-table {
-  min-width: 0;
-  table-layout: fixed;
-}
-
-.admin-table th,
-.admin-table td {
-  overflow: hidden;
-  padding: 8px 10px;
-  text-overflow: ellipsis;
-}
-
-.admin-table .row-actions {
-  gap: 6px;
-}
-
-.admin-table .col-actions {
-  overflow: visible;
-}
-
-.admin-table .icon-button {
-  min-width: 34px;
-  min-height: 34px;
-  padding: 8px;
-}
-
-.admin-table .secondary-button.compact-button {
-  min-height: 34px;
-  padding: 0 10px;
-  white-space: nowrap;
 }
 
 .admin-name-line {

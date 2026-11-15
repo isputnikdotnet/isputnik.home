@@ -5,56 +5,11 @@
    admin.css, which the setup guide does not load. The row classes it shares with
    App storage (.app-storage-path and friends) are restated here under the panel. */
 
-.system-data-panel {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-  margin-bottom: 18px;
-  padding: 15px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.system-data-panel h2,
-.system-data-panel p { margin: 0; }
-.system-data-panel p { color: var(--muted); font-size: 0.9rem; }
-.system-data-panel .library-settings-actions { display: flex; justify-content: flex-end; }
-
-.system-data-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.system-data-title .info-hint-panel { display: grid; gap: 6px; }
-
 .system-data-choose { display: grid; gap: 10px; }
 .system-data-choose .datagrid-muted { white-space: normal; font-size: 0.84rem; margin: 0; }
 
 /* A folder field with Browse beside it, on the input's line, not the label's. */
 .system-data-folder { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
-
-.system-data-summary {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--field);
-}
-.system-data-summary strong { display: block; overflow-wrap: anywhere; font-weight: 650; }
-
-.system-data-rows td { white-space: normal; vertical-align: top; }
-.system-data-rows td:first-child { width: 36%; }
-.system-data-rows .datagrid-muted { white-space: normal; }
-.system-data-panel .app-storage-hint { font-size: 0.8rem; max-width: 34ch; }
-.system-data-panel .app-storage-path { display: block; font-size: 0.82rem; overflow-wrap: anywhere; }
-.system-data-panel .app-storage-from { font-size: 0.8rem; }
-.system-data-panel .app-storage-move {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 0.82rem;
-}
-.system-data-panel .app-storage-move.needs-attention { color: var(--warning, #b88746); }
 .system-data-note { margin-top: 4px; font-size: 0.8rem; color: var(--warning, #b88746); }
 
 /* The Change dialog: two choices, then a folder. */
@@ -89,27 +44,6 @@
 
 /* App storage — the same block shape, with its one switch in the head, the
    where-choice while off, and the four parts as rows (AppStoragePanel.tsx). */
-.app-storage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.app-storage-question { font-size: 0.86rem; color: var(--muted); }
-.app-storage-where .app-storage-option {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  cursor: pointer;
-}
-.app-storage-where .app-storage-option input { margin-top: 3px; }
-.app-storage-where .app-storage-option span { display: grid; gap: 2px; min-width: 0; }
-.app-storage-where .app-storage-option small { font-size: 0.8rem; overflow-wrap: anywhere; }
-.app-storage-part-name { display: inline-flex; align-items: center; gap: 4px; }
-.app-storage-part-name .info-hint-panel { display: grid; gap: 6px; }
-.app-storage-using { display: grid; gap: 6px; font-size: 0.84rem; }
-.app-storage-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.app-storage-block tr.is-off strong,
-.app-storage-block tr.is-off .app-storage-path { color: var(--muted); }
 
 /* The Photo Inbox reviewers dialog (InboxReviewersModal.tsx): the shared access box,
    sized like the shelf access dialog so the grant row fits. */
@@ -124,30 +58,7 @@
 .inbox-scanning-intro { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
 /* A Storage block leads with its folder, free space and one Change (4.73)… */
-.system-data-summary.has-action {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-.system-data-summary.has-action > :not(.system-data-change) { grid-column: 1; }
-.system-data-summary.has-action > .system-data-change { grid-column: 2; grid-row: 1 / span 3; }
 
 /* …and folds its rows under one line (StorageFold). */
-.storage-fold { margin-top: 4px; }
-.storage-fold > summary {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  padding: 4px 0;
-  color: var(--muted);
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
-}
-.storage-fold > summary::-webkit-details-marker { display: none; }
-.storage-fold-chevron { transition: transform 0.15s ease; }
-.storage-fold[open] .storage-fold-chevron { transform: rotate(90deg); }
-.storage-fold > .datagrid-wrap { margin-top: 8px; }
 
 /* Library locations: a long folder wraps rather than running off a phone. */
-.storage-locations-table code { overflow-wrap: anywhere; white-space: normal; }
