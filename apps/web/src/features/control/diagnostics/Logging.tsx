@@ -5,7 +5,7 @@ import { Button } from "../../../shared/Button";
 import { ChoiceGroup } from "../../../shared/ChoiceGroup";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
-import { SelectMenu } from "../../../shared/SelectMenu";
+import { SelectField } from "../../../shared/SelectField";
 
 // How much one part of iSputnik logs (docs/diagnostic-logging-plan.md): Normal, or
 // Detailed / Everything for 15 minutes, an hour or 4 hours, then back to Normal by
@@ -95,10 +95,13 @@ export function LoggingSelect({ url, name }: { url: string; name: string }) {
     <span className={raised ? "diagnostics-logging-inline is-raised" : "diagnostics-logging-inline"} aria-busy={busy || undefined}>
       <span className="muted">{label}</span>
       {state ? (
-        <SelectMenu
+        <SelectField
+          compact
+          hideLabel
           className="diagnostics-logging-select"
           label={t("controlAdmin:diagnostics.logging.title", { name })}
           value={state.level}
+          disabled={busy}
           options={LEVELS.map((level) => ({ value: level, label: t(`controlAdmin:diagnostics.logging.level.${level}.label`) }))}
           onChange={(level) => void choose(level)}
         />
