@@ -52,7 +52,10 @@ export default tseslint.config(
       // Hand-written browser prototypes (the Library mockup), not the app: no tsconfig,
       // no globals set up, and nothing ships from here. 4.74.0 failed CI lint on them.
       "docs/**",
-      "coverage/**"
+      "coverage/**",
+      // Nested checkouts (agent worktrees): each has its own tsconfigs, so the parser
+      // finds several roots and every file fails to parse.
+      ".claude/**"
     ]
   },
   js.configs.recommended,

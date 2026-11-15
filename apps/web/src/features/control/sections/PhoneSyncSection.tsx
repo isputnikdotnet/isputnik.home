@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen, Layers, Link2, Plus, ScrollText, Smartphone, Wifi } from "lucide-react";
+import { BookOpen, Layers, Link2, Plus, ScrollText, Smartphone, Wifi } from "lucide-react";
 import { api } from "../../../api";
 import { libraryManageHref, memberHref } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -11,6 +11,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
+import { PageBack, queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { logsHref } from "../links";
 import { PersonalLibrariesPanel } from "./storage/PersonalLibrariesPanel";
@@ -71,8 +72,7 @@ type Show =
   | { page: "address" }
   | { page: "personal" };
 
-function readShow(): Show {
-  const value = new URLSearchParams(window.location.search).get("show") ?? "";
+function parseShow(value: string): Show {
   if (value.startsWith("phone:")) return { page: "phone", id: value.slice(6) };
   if (value.startsWith("network:")) return { page: "network", id: value.slice(8) };
   if (value === "add-network") return { page: "addNetwork" };
@@ -92,23 +92,12 @@ function showParam(show: Show): string | null {
   }
 }
 
-/** A step into a page is a history entry, so the browser's Back returns to the list. */
+/** Which page is open lives in ?show= (shared/useQueryPage): a step in is a history
+ *  entry, and returning to the list steps back rather than adding the list again. */
 function useShow(): [Show, (next: Show) => void] {
-  const [show, setShow] = useState<Show>(readShow);
-  useEffect(() => {
-    const onPop = () => setShow(readShow());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-  const go = useCallback((next: Show) => {
-    const query = new URLSearchParams(window.location.search);
-    const param = showParam(next);
-    if (param) query.set("show", param);
-    else query.delete("show");
-    window.history.pushState(window.history.state, "", `${window.location.pathname}${query.size ? `?${query}` : ""}`);
-    setShow(next);
-    window.scrollTo({ top: 0 });
-  }, []);
+  const [value, setValue] = useQueryPage("show");
+  const show = useMemo(() => parseShow(value ?? ""), [value]);
+  const go = useCallback((next: Show) => setValue(showParam(next)), [setValue]);
   return [show, go];
 }
 
@@ -205,14 +194,7 @@ export function PhoneSyncSection() {
   );
 
   const backToList = (
-    <a
-      className="text-button control-page-back"
-      href={window.location.pathname}
-      onClick={(event) => { event.preventDefault(); go({ page: "list" }); }}
-    >
-      <ArrowLeft size={15} aria-hidden="true" />
-      {t("control:nav.tabs.phoneSync")}
-    </a>
+    <PageBack label={t("control:nav.tabs.phoneSync")} href={queryPageHref(null)} onBack={() => go({ page: "list" })} />
   );
 
   const errors = error && <MessageBox tone="error" title={t("controlAdmin:phoneSync.updateFailed")}>{error}</MessageBox>;
@@ -427,7 +409,7 @@ export function PhoneSyncSection() {
           })}
         </GroupedList>
 
-        <GroupedList title={t("controlAdmin:deviceSync.networksTitle")} note={t("controlAdmin:deviceSync.networksNote")}>
+        <GroupedList id="phone-sync-networks" title={t("controlAdmin:deviceSync.networksTitle")} note={t("controlAdmin:deviceSync.networksNote")}>
           {networks.networks.map((network) => (
             <NavRow
               key={network.id}

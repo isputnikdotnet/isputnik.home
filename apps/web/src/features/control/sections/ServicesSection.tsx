@@ -19,7 +19,8 @@ import type { DashboardOverview } from "./dashboard/useDashboardOverview";
 
 export function ServicesSection() {
   const { t } = useTranslation(["common", "control"]);
-  const { status } = useSystemStatus();
+  // The diagram needs /api/status; when it fails, say so instead of drawing nothing.
+  const { status, error: statusError, refresh: refreshStatus } = useSystemStatus();
   const { apps, error, load } = useAppsStatus();
   const [testing, setTesting] = useState(false);
   // Home's own addresses and port, for the diagram (the Dashboard reads the same).
@@ -47,6 +48,12 @@ export function ServicesSection() {
         </Button>
       </ControlSectionHead>
       {error && <MessageBox tone="error" title={t("control:services.loadFailed")}>{error}</MessageBox>}
+      {statusError && (
+        <MessageBox tone="warning" title={t("control:services.homeStatusFailed")}>
+          {statusError}{" "}
+          <Button variant="text" onClick={() => void refreshStatus().catch(() => undefined)}>{t("control:services.retryStatus")}</Button>
+        </MessageBox>
+      )}
       {status && <ServicesDiagram status={status} overview={overview} apps={apps} onServicesPage />}
     </>
   );

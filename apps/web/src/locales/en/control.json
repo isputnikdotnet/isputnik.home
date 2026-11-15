@@ -225,6 +225,8 @@
       "secret": "Secret refused",
       "unset": "Not paired"
     },
+    "homeStatusFailed": "Unable to check Home's status",
+    "retryStatus": "Try again",
     "lastTest": "Last test",
     "testOk": "Answered just now",
     "testFailed": "No answer just now",
