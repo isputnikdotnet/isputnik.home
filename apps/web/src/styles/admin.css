@@ -3126,8 +3126,8 @@ tr.control-anchor-flash > td {
    while raised), small Tests / Details on the right. */
 .diagnostics-parts { display: grid; gap: 14px; min-width: 0; }
 .diagnostics-part {
+  /* No overflow: hidden — the logging menu opens below the footer, out of the card. */
   min-width: 0;
-  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface-raised);
@@ -3149,6 +3149,7 @@ tr.control-anchor-flash > td {
   min-width: 0;
   padding: 10px 18px;
   border-top: 1px solid var(--line);
+  border-radius: 0 0 13px 13px;
   background: color-mix(in srgb, var(--ink) 3%, transparent);
 }
 .diagnostics-part:has(.diagnostics-logging-inline.is-raised) .diagnostics-part-foot { background: color-mix(in srgb, var(--warning) 9%, transparent); }
