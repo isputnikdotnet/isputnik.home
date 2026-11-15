@@ -2477,6 +2477,17 @@ tr.control-anchor-flash > td {
 
 .dash-section { display: flex; flex-direction: column; gap: 10px; }
 
+/* Charts redraw to the width they are given; a grid column sized to its content
+   would hand them the width they were first drawn at, and a narrower window then
+   pushed them out of the panel. Every Dashboard column may shrink. */
+.dash-panel,
+.dash-drives,
+.dash-drive-detail,
+.dash-usage,
+.dash-work,
+.dash-growth { grid-template-columns: minmax(0, 1fr); }
+.dash-drive-columns > * { min-width: 0; }
+
 /* A section's one surface. Inside it, parts are divided by lines, not boxed again. */
 .dash-panel {
   display: grid;

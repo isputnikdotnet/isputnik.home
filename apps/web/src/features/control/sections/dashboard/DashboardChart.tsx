@@ -122,7 +122,7 @@ export function DashboardChart({
   }, [type, stacked, JSON.stringify(labels), JSON.stringify(series)]);
 
   return (
-    <div style={{ position: "relative", width: "100%", height }}>
+    <div style={{ position: "relative", width: "100%", minWidth: 0, height }}>
       <canvas
         ref={canvasRef}
         role="img"
