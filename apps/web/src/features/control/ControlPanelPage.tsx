@@ -28,6 +28,7 @@ import "../../styles/admin.css";
 import { Button } from "../../shared/Button";
 import { Modal } from "../../shared/Modal";
 import { useIsMobile } from "../../shared/useIsMobile";
+import { RouteTab } from "../../shared/RouteTab";
 
 // Each section is its own chunk, loaded when its tab is first opened. Imported
 // statically they made this page one ~700 KB file — the dashboard's charts, the
@@ -551,16 +552,15 @@ function ControlTabs({
         const href = controlHref(tab.section);
         const active = tab.section === selected;
         return (
-          <a
+          <RouteTab
             key={tab.section}
-            role="tab"
-            aria-selected={active}
+            selected={active}
             className={active ? "active" : undefined}
             href={href}
-            onClick={(event) => (replaceVisit ? followReplace : followRoute)(event, href)}
+            onClick={replaceVisit ? followReplace : followRoute}
           >
             {rowLabel(tab)}
-          </a>
+          </RouteTab>
         );
       })}
     </div>

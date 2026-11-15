@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { formatNumber } from "./dates";
+import { moveAlongTablist } from "./tablist";
 
 // Two or three panels sharing one card, switched in place — for when the panels
 // are peers a reader compares rather than pages they navigate between, and
@@ -42,6 +43,7 @@ export function TabStrip<K extends string>({
             aria-selected={selected}
             className={selected ? "is-active" : undefined}
             onClick={() => onChange(item.key)}
+            onKeyDown={moveAlongTablist}
           >
             {Icon && <Icon size={15} aria-hidden="true" />}
             {item.label}

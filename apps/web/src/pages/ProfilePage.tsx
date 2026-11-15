@@ -24,6 +24,7 @@ import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
 import { ReaderAccessSection } from "../features/profile/ReaderAccessSection";
 import { MyLibrarySection } from "../features/profile/MyLibrarySection";
 import { useSession } from "../app/SessionContext";
+import { RouteTab } from "../shared/RouteTab";
 // The install card's stylesheet (Profile is the only page that shows it): loads with this page, not on every route (docs/css-map.md).
 import "../styles/install.css";
 
@@ -180,19 +181,18 @@ export function ProfilePage({
             const Icon = tab.icon;
             const href = profileHref(tab.key);
             return (
-              <a
+              <RouteTab
                 key={tab.key}
                 className={`profile-tab${selected ? " active" : ""}`}
-                role="tab"
-                aria-selected={selected}
+                selected={selected}
                 aria-controls={`profile-panel-${tab.key}`}
                 id={`profile-tab-${tab.key}`}
                 href={href}
-                onClick={(event) => followRoute(event, href)}
+                onClick={followRoute}
               >
                 <Icon className="profile-tab-icon" size={18} aria-hidden="true" />
                 <span>{t(`profile.tabs.${tab.key}`)}</span>
-              </a>
+              </RouteTab>
             );
           })}
         </div>

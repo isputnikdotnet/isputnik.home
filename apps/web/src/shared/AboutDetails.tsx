@@ -6,6 +6,7 @@ import { Button } from "./Button";
 import { MessageBox } from "./MessageBox";
 import { AboutCredits } from "./AboutCredits";
 import { versionLabel } from "./appVersion";
+import { moveAlongTablist } from "./tablist";
 
 // The AGPL asks that everyone using the app over a network be told where to get
 // its source, so this sits on the shared About panel — reachable from /about by
@@ -116,6 +117,7 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
               aria-controls={`about-panel-${key}`}
               id={`about-tab-${key}`}
               onClick={() => setTab(key)}
+              onKeyDown={moveAlongTablist}
             >
               <Icon className="config-tab-icon" size={18} aria-hidden="true" />
               <span>{t(`misc:about.${labelKey}`)}</span>

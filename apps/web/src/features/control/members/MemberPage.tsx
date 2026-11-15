@@ -20,6 +20,7 @@ import { MemberPhotosTab } from "./MemberPhotosTab";
 import { MemberFamilyTab } from "./MemberFamilyTab";
 import { MemberSharedTab } from "./MemberSharedTab";
 import { MemberPhonesCard } from "./MemberPhonesCard";
+import { RouteTab } from "../../../shared/RouteTab";
 
 // One member, one page: Members › Users › <name>. The header carries who they
 // are and the things done to the account (Preview as, the ⋮ menu); the
@@ -186,9 +187,9 @@ export function MemberPage({ userId, tab, currentUser }: { userId: string; tab: 
           const href = memberHref(userId, id);
           const active = id === tab;
           return (
-            <a key={id} role="tab" aria-selected={active} className={active ? "active" : undefined} href={href} onClick={(event) => followRoute(event, href)}>
+            <RouteTab key={id} selected={active} className={active ? "active" : undefined} href={href} onClick={followRoute}>
               {tabLabel(id)}
-            </a>
+            </RouteTab>
           );
         })}
       </div>
