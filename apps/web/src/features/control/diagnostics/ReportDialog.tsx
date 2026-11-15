@@ -132,7 +132,9 @@ export function ReportDialog({ parts, onClose }: {
       onClose={onClose}
       className="diagnostics-report-modal"
     >
-      <div className="diagnostics-report">
+      {/* The panel's body: it scrolls between the header and the action row, so
+          Private details and the buttons are always within reach. */}
+      <div className="modal-tab-content diagnostics-report">
         <div className="diagnostics-report-choices">
           <GroupedList note={t("controlAdmin:diagnostics.report.spanNote")}>
             <PickerRow

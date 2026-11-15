@@ -3129,13 +3129,28 @@ tr.control-anchor-flash > td {
 .diagnostics-part-line { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
 .diagnostics-part-line.is-warning { color: var(--warning); }
 /* The report dialog: the choices beside the report as it will be saved. */
-.diagnostics-report-modal { width: min(1100px, calc(100vw - 32px)); }
-.diagnostics-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; min-width: 0; }
+/* Diagnostics › Download a report: a panel of header · body · actions. The body
+   scrolls (choices, Private details), the actions stay at the bottom; on a wide
+   screen the preview stays in view beside the choices as they scroll. */
+.metadata-modal.diagnostics-report-modal {
+  width: min(1100px, calc(100vw - 32px));
+  height: min(860px, calc(100vh - 48px));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.diagnostics-report-modal .modal-actions {
+  margin-top: 0;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--line);
+}
+.diagnostics-report { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; min-width: 0; padding: 16px 20px 20px; }
 .diagnostics-report-choices { display: grid; gap: 14px; align-content: start; min-width: 0; }
-.diagnostics-report .diagnostics-preview { align-content: start; }
+.diagnostics-report .diagnostics-preview { position: sticky; top: 0; align-content: start; align-self: start; }
 .diagnostics-report .diagnostics-preview h3 { margin: 0; }
-.diagnostics-report .diagnostics-text { max-height: 62vh; min-height: 240px; }
-@media (max-width: 860px) { .diagnostics-report { grid-template-columns: minmax(0, 1fr); } }
+.diagnostics-report .diagnostics-text { max-height: min(62vh, 640px); min-height: 240px; margin: 0; }
+@media (max-width: 860px) {
+  .diagnostics-report { grid-template-columns: minmax(0, 1fr); }
+  .diagnostics-report .diagnostics-preview { position: static; }
+}
 /* A part's own page: its checks, and a column of where to look next. */
 .diagnostics-part-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px; align-items: start; min-width: 0; }
 .diagnostics-part-main, .diagnostics-part-aside { display: grid; gap: 16px; min-width: 0; }
