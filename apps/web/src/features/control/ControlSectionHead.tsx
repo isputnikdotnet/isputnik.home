@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { controlHref, type ControlSection } from "../../router";
-import { currentFrom, placeOf, sectionEyebrow, sectionTitle } from "./nav";
-import { PageBack } from "../../shared/useQueryPage";
+import { type ControlSection } from "../../router";
+import { ControlBackBar } from "./ControlBackBar";
+import { currentFrom, sectionEyebrow, sectionTitle } from "./nav";
 
 // The header every control-panel page opens with. The eyebrow is the nav group
 // and the title is the tab, both read straight from nav.ts — so a page can
@@ -33,8 +33,9 @@ export function ControlSectionHead({
   description?: ReactNode;
   /** Detail pages keep the section's identity with their own title. */
   title?: ReactNode;
-  /** History-aware Back, with a natural parent for direct links. */
-  back?: { href: string; label: ReactNode };
+  /** A detail page's list (its label names it: "Diagnostics"), or, labelled just
+   *  "Back", where Back goes without history. */
+  back?: { href: string; label: string };
   /** Extra classes on the head row, for page-specific layout. */
   className?: string;
   children?: ReactNode;
@@ -42,11 +43,20 @@ export function ControlSectionHead({
   // A shared page (Book categories, Tags) follows the workspace it was opened from.
   const from = currentFrom();
   const { t } = useTranslation(["control"]);
-  const place = placeOf(section, from);
-  const parent = place.parent ?? (place.app ? "applications" : place.group?.tabs[0].section);
+  // Where Back goes and what the last level is. A page of the same address (a
+  // job opened from Scheduled jobs, ?show=…) is one level under that section's
+  // own page; a named list is that list; a bare "Back" only says where to go.
+  const list = (() => {
+    if (!back) return undefined;
+    const target = new URL(back.href, window.location.origin);
+    if (target.pathname === window.location.pathname) return { href: back.href, label: sectionTitle(section) };
+    return back.label === t("control:ui.back") ? undefined : { href: back.href, label: back.label };
+  })();
   const copy = (
     <div className={icon ? "admin-heading-copy" : undefined}>
-      <p className="eyebrow">{sectionEyebrow(section, from)}</p>
+      {section === "dashboard"
+        ? <p className="eyebrow">{sectionEyebrow(section, from)}</p>
+        : <ControlBackBar section={section} from={from} list={list} fallback={back?.href} />}
       <h1>{title ?? sectionTitle(section)}</h1>
       {description && <p className="section-description">{description}</p>}
     </div>
@@ -68,13 +78,5 @@ export function ControlSectionHead({
     </div>
   );
 
-  if (back) return <><PageBack {...back} />{head}</>;
-  if (section === "dashboard") return head;
-  const parentHref = controlHref(parent && parent !== section ? parent : "dashboard");
-  return (
-    <>
-      <PageBack href={parentHref} label={t("control:ui.back")} />
-      {head}
-    </>
-  );
+  return head;
 }

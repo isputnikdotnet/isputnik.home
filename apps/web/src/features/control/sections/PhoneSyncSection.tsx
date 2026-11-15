@@ -11,7 +11,8 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
-import { PageBack, queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
+import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
+import { ControlBackBar } from "../ControlBackBar";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { logsHref } from "../links";
 import { PersonalLibrariesPanel } from "./storage/PersonalLibrariesPanel";
@@ -194,7 +195,7 @@ export function PhoneSyncSection() {
   );
 
   const backToList = (
-    <PageBack label={t("control:nav.tabs.phoneSync")} href={queryPageHref(null)} onBack={() => go({ page: "list" })} />
+    <ControlBackBar section="phoneSync" list={{ href: queryPageHref(null), label: t("control:nav.tabs.phoneSync") }} onBack={() => go({ page: "list" })} />
   );
 
   const errors = error && <MessageBox tone="error" title={t("controlAdmin:phoneSync.updateFailed")}>{error}</MessageBox>;

@@ -11,6 +11,7 @@
     "never": "Never",
     "loading": "Loading…",
     "back": "Back",
+    "whereAria": "Where you are",
     "retry": "Retry"
   },
   "nav": {
@@ -696,7 +697,6 @@
       }
     },
     "manage": {
-      "eyebrow": "Library · {{type}}",
       "rescan": "Rescan",
       "edit": "Edit",
       "settingsTitle": "Settings",

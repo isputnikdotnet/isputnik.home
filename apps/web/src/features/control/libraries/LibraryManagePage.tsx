@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ArrowRight, Pencil, RefreshCw, Trash2 } from "lucide-react";
-import { controlHref, followRoute, followBack, type ControlSection } from "../../../router";
+import { ArrowRight, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { controlHref, followRoute, type ControlSection } from "../../../router";
+import { ControlBackBar } from "../ControlBackBar";
 import { initialParam, librariesHref } from "../links";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -142,24 +143,20 @@ export function LibraryManagePage({
     : gallery ? t("control:libraries.manage.organizingGallery") : t("control:libraries.manage.organizingVideo");
 
   const facts = [
+    rowTypeLabel(library),
     library.fileCount != null ? t("control:libraries.contentsFiles", { count: library.fileCount, formatted: formatCount(library.fileCount) }) : null,
     library.totalSizeBytes != null ? formatLibrarySize(library.totalSizeBytes) : null
   ].filter(Boolean).join(" · ");
 
   return (
     <div className="library-manage-page">
-      <a className="text-button control-page-back" href={listHref} onClick={(event) => followBack(event, listHref)}>
-        <ArrowLeft size={15} aria-hidden="true" />
-        {tabLabel("libraries")}
-      </a>
-
       <div className="section-head admin-section-head library-section-head">
         <div className="admin-title-wrap">
           <span className="admin-page-icon" aria-hidden="true">
             <TypeIcon size={30} />
           </span>
           <div className="admin-heading-copy">
-            <p className="eyebrow">{t("control:libraries.manage.eyebrow", { type: rowTypeLabel(library) })}</p>
+            <ControlBackBar section="libraries" list={{ href: listHref, label: tabLabel("libraries") }} />
             <h1>{library.name}</h1>
             <p className="section-description library-manage-facts">
               {facts && <span>{facts}</span>}
