@@ -936,7 +936,8 @@
     "holdArtwork": "posters",
     "holdTranscode": "conversion folder",
     "linkDiagnostics": "Diagnostics",
-    "usedBy": "Used by"
+    "usedBy": "Used by",
+    "linkNowPlaying": "Now playing"
   },
   "dashboard": {
     "attentionTitle": "Needs attention",

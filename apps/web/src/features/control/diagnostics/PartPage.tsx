@@ -18,7 +18,8 @@ import { conversionBody, GpuRow, useEngine, type ConversionSettings, type Conver
 import { HOME_PARTS, ReportDialog } from "./ReportDialog";
 import { useDiagnosticsOverview, useProblemText, type LibraryCheck, type PartOverview } from "./overview";
 import { LoggingControl, loggingUrl } from "./Logging";
-import { WatchingNow } from "./Watching";
+import { useWatchingCount } from "./Watching";
+import { NowPlayingLink } from "../sections/NowPlayingSection";
 import { speedVerdict, TestBar, useHomeTests, useRunWords, type FolderResult, type TestRun } from "./HomeTests";
 
 // One part of iSputnik's page under Infrastructure › Diagnostics
@@ -319,11 +320,17 @@ function VideoChecks() {
   }
   return (
     <>
-      <WatchingNow prefix={video.prefix} />
+      <WatchingLink prefix={video.prefix} />
       <CatalogWork prefix={video.prefix} />
       <VideoHardware prefix={video.prefix} />
     </>
   );
+}
+
+/** "Now playing · 2 watching": its own page (Infrastructure › Now playing). */
+function WatchingLink({ prefix }: { prefix: string }) {
+  const count = useWatchingCount(prefix);
+  return <NowPlayingLink count={count} />;
 }
 
 interface EngineLibraryWork {

@@ -3676,3 +3676,39 @@ tr.control-anchor-flash > td {
 .hw-verdict.is-smooth { color: var(--success); }
 .hw-verdict.is-tight { color: var(--warning); }
 .hw-verdict.is-slow, .hw-verdict.is-failed { color: var(--danger); }
+
+/* Infrastructure › Now playing: a card a stream, the way Plex's dashboard shows them. */
+.now-playing { display: grid; gap: 16px; min-width: 0; }
+.now-playing-summary { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; color: var(--muted); }
+.now-playing-summary strong { color: var(--ink); }
+.now-playing-empty { display: grid; justify-items: center; gap: 8px; padding: 48px 16px; color: var(--muted); }
+.now-playing-empty p { margin: 0; }
+.now-playing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 16px; }
+.now-playing-card { position: relative; display: grid; gap: 12px; overflow: hidden; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-raised, var(--surface)); min-width: 0; isolation: isolate; }
+.now-playing-backdrop { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; opacity: 0.16; filter: blur(2px); }
+.now-playing-body { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; min-width: 0; }
+.now-playing-poster { width: 84px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: var(--field); color: var(--muted); box-shadow: 0 6px 16px color-mix(in srgb, var(--shadow, #000) 40%, transparent); }
+.now-playing-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.now-playing-text { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.now-playing-title { font-size: var(--text-lg, 1.1rem); line-height: 1.2; overflow-wrap: anywhere; }
+.now-playing-sub { color: var(--muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+.now-playing-badge { justify-self: start; margin-top: 4px; padding: 3px 9px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.now-playing-badge.is-busy { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.now-playing-badge.is-warn { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+.now-playing-badge.is-muted { background: var(--field); color: var(--muted); }
+.now-playing-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 0; font-size: 0.85rem; }
+.now-playing-facts div { display: flex; gap: 5px; }
+.now-playing-facts dt { color: var(--muted); }
+.now-playing-facts dd { margin: 0; }
+.now-playing-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.now-playing-bar { height: 5px; border-radius: 3px; background: var(--video-progress-track, var(--field)); overflow: hidden; }
+.now-playing-bar span { display: block; height: 100%; background: var(--video-progress-fill, var(--accent)); }
+.now-playing-time { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.now-playing-who { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.85rem; }
+.now-playing-who span { display: inline-flex; align-items: center; gap: 5px; }
+.now-playing-user { font-weight: 600; }
+.now-playing-who .is-away { color: var(--warning); }
+.now-playing-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); text-decoration: none; }
+.now-playing-link:hover { background: var(--hover); }
+.now-playing-link span { display: grid; gap: 2px; }
+.now-playing-link small { color: var(--muted); }

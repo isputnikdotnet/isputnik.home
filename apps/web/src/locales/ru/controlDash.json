@@ -1073,7 +1073,8 @@
     "holdArtwork": "постеры",
     "holdTranscode": "папка преобразования",
     "linkDiagnostics": "Диагностика",
-    "usedBy": "Используется"
+    "usedBy": "Используется",
+    "linkNowPlaying": "Сейчас смотрят"
   },
   "dashboard": {
     "attentionTitle": "Требует внимания",

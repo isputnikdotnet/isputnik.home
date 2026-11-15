@@ -47,6 +47,9 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   logs: "activity audit trail events sign-in history retention prune clear source apps containers games video server log docker logs lines tail output refused gateway rejected errors " +
     "активность аудит журнал события история входов хранение очистка удалить",
 
+  nowPlaying: "now playing watching streaming who is watching streams sessions activity live plex dashboard transcode direct play bandwidth viewers tv phone " +
+    "сейчас смотрят просмотр трансляция кто смотрит сеансы прямо сейчас перекодирование зрители телевизор телефон",
+
   diagnostics: "diagnostics report bug report issue github support troubleshoot copy download versions gpu ffmpeg containers failures privacy redact hide names paths " +
     "health check status problem broken not working wrong slow help logging log level debug verbose detailed trace " +
     "диагностика отчёт сообщение об ошибке баг поддержка неполадки скопировать скачать версии видеокарта контейнеры сбои конфиденциальность скрыть имена пути " +

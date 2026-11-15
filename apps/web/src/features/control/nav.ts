@@ -97,6 +97,8 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     // with its filter already selected rather than keeping copies of them.
     tabs: [
       { section: "services", pages: ["appsSetup"] },
+      // What is being watched right now, a card a stream (Plex's dashboard).
+      { section: "nowPlaying" },
       { section: "tasks" },
       { section: "scheduledJobs" },
       { section: "logs" },

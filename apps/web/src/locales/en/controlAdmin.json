@@ -2828,5 +2828,42 @@
       "away": "away from home",
       "since": "since {{when}}"
     }
+  },
+  "nowPlaying": {
+    "description": "Every film and episode being watched or downloaded right now: how far through, who and on what, played as it is or converted, the quality and the bandwidth.",
+    "noVideoTitle": "The video container isn't answering",
+    "noVideo": "Once it is set up and answering, what's being watched shows here.",
+    "oldEngineTitle": "This video container can't say",
+    "oldEngine": "Its version doesn't report what's being played. Update it to see it here.",
+    "streams_one": "{{count}} stream",
+    "streams_other": "{{count}} streams",
+    "converting_one": "{{count}} being converted",
+    "converting_other": "{{count}} being converted",
+    "bandwidth": "{{mbps}} Mbit/s in all",
+    "nobody": "Nobody is watching right now.",
+    "stream": {
+      "direct": "Direct Play",
+      "remux": "Direct Stream",
+      "gpu": "Transcode · GPU",
+      "cpu": "Transcode · CPU",
+      "kept": "From a kept conversion",
+      "download": "Downloading for offline"
+    },
+    "quality": "Up to {{height}}p",
+    "original": "Original",
+    "hdr": "HDR",
+    "mbps": "{{mbps}} Mbit/s",
+    "fact": {
+      "quality": "Quality",
+      "bandwidth": "Bandwidth",
+      "shared": "Shared"
+    },
+    "sharedValue": "With another viewer",
+    "unknownDevice": "Unknown device",
+    "home": "At home",
+    "away": "Away from home",
+    "since": "Started {{when}}",
+    "linkTitle": "Now playing",
+    "linkSub": "What's being watched right now"
   }
 }
