@@ -328,6 +328,27 @@ describe("one page for films and shows", () => {
     expect(mockApi).toHaveBeenCalledWith("/video/api/titles?pageSize=200&sort=title");
   });
 
+  it("brings the rest of a long grid 200 at a time, as the book catalog does", async () => {
+    at("/videos?kind=movies&view=grid");
+    const film = (n: number) => ({ ...movie, id: `m${n}`, title: `Film ${String(n).padStart(4, "0")}`, seasons: undefined, kind: "movies" });
+    answer();
+    const fallback = mockApi.getMockImplementation()!;
+    mockApi.mockImplementation((async (path: string) => {
+      if (!path.startsWith("/video/api/titles?pageSize=200&sort=title&kind=movies")) return fallback(path);
+      const page = Number(new URLSearchParams(path.split("?")[1]).get("page") ?? "1");
+      const start = (page - 1) * 200;
+      return { items: Array.from({ length: Math.max(0, Math.min(200, 250 - start)) }, (_, at) => film(start + at + 1)), total: 250, page, pageSize: 200 };
+    }) as never);
+    renderSignedIn(<VideoHomePage />);
+    expect(await screen.findByRole("link", { name: /Film 0200/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Film 0201/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(await screen.findByRole("link", { name: /Film 0250/ })).toBeInTheDocument();
+    expect(mockApi).toHaveBeenCalledWith("/video/api/titles?pageSize=200&sort=title&kind=movies&page=2");
+    // All in: nothing more to load.
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
   it("opens on the kind and genres in the address, and asks the engine for just those", async () => {
     at("/videos?kind=shows&genres=Comedy,%D0%94%D1%80%D0%B0%D0%BC%D0%B0");
     answer();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Clapperboard, LayoutGrid, LayoutList, Layers, Plus } from "lucide-react";
 import { api } from "../../api";
@@ -10,6 +10,7 @@ import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { SortMenu } from "../../shared/SortMenu";
+import { CatalogTail } from "../audiobooks/catalog/CatalogTail";
 import { VideoBanner } from "./VideoBanner";
 import { PosterGrid } from "./VideoPoster";
 import { PeopleResults } from "./VideoPeople";
@@ -87,6 +88,12 @@ export function VideoHomePage() {
   const [titles, setTitles] = useState<VideoTitleSummary[] | null>(null);
   const [sets, setSets] = useState<VideoSetSummary[] | null>(null);
   const [total, setTotal] = useState(0);
+  // The grid comes 200 at a time, the next as the bottom nears (as the book
+  // catalog does): "2000 titles" used to show the first 200 and nothing more.
+  // `more` is the current list's address and how many pages are in.
+  const more = useRef<{ url: string; pages: number; id: number } | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState("");
 
   const filtering = Boolean(query) || countActiveFilters(filters) > 0;
@@ -170,7 +177,10 @@ export function VideoHomePage() {
     if (shown === "sets") {
       // Sets narrow by one library at most; two or more ask for them all.
       if (librariesKey && !librariesKey.includes(",")) params.set("library", librariesKey);
-      api<VideoPage<VideoSetSummary>>(`${VIDEO_API}/sets?${params}`)
+      const url = `${VIDEO_API}/sets?${params}`;
+      const id = (more.current?.id ?? 0) + 1;
+      more.current = { url, pages: 1, id };
+      api<VideoPage<VideoSetSummary>>(url)
         .then((payload) => {
           if (!live) return;
           setSets(payload.items);
@@ -184,7 +194,10 @@ export function VideoHomePage() {
       if (librariesKey) params.set("libraries", librariesKey);
       if (genresKey) params.set("genres", genresKey);
       if (watchKey) params.set("watch", watchKey);
-      api<VideoPage<VideoTitleSummary>>(`${VIDEO_API}/titles?${params}`)
+      const url = `${VIDEO_API}/titles?${params}`;
+      const id = (more.current?.id ?? 0) + 1;
+      more.current = { url, pages: 1, id };
+      api<VideoPage<VideoTitleSummary>>(url)
         .then((payload) => {
           if (!live) return;
           setTitles(payload.items);
@@ -195,6 +208,39 @@ export function VideoHomePage() {
     }
     return () => { live = false; };
   }, [shown, kind, sort, query, librariesKey, genresKey, watchKey, marked, t]);
+
+  const shownCount = shown === "sets" ? sets?.length ?? 0 : titles?.length ?? 0;
+  const hasMore = shown !== "rows" && shownCount > 0 && shownCount < total;
+  const loadMore = useCallback(() => {
+    const current = more.current;
+    if (!current || loadingMore || !hasMore) return;
+    const { id } = current;
+    const page = current.pages + 1;
+    setLoadingMore(true);
+    const asSets = shown === "sets";
+    api<VideoPage<VideoTitleSummary | VideoSetSummary>>(`${current.url}&page=${page}`)
+      .then((payload) => {
+        // A newer list (another filter, sort or search) since: this page isn't its.
+        if (more.current?.id !== id) return;
+        more.current = { ...current, pages: page };
+        if (asSets) setSets((prev) => [...(prev ?? []), ...(payload.items as VideoSetSummary[])]);
+        else setTitles((prev) => [...(prev ?? []), ...(payload.items as VideoTitleSummary[])]);
+        setTotal(payload.total);
+      })
+      .catch(() => undefined)
+      .finally(() => setLoadingMore(false));
+  }, [loadingMore, hasMore, shown]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    // Without one (an old browser, the tests' jsdom) the Load more button is the way.
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) loadMore();
+    }, { rootMargin: "600px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore]);
 
   // People whose name has the words, shown above the titles a search finds.
   useEffect(() => {
@@ -425,7 +471,10 @@ export function VideoHomePage() {
             {!filtering && <p className="muted">{t("video.emptyBody")}</p>}
           </div>
         ) : (
-          <PosterGrid items={(titles ?? []).map((item) => cards.poster(item, meta(item)))} />
+          <>
+            <PosterGrid items={(titles ?? []).map((item) => cards.poster(item, meta(item)))} />
+            <CatalogTail hasMore={hasMore} loadingMore={loadingMore} loadMore={loadMore} sentinelRef={sentinelRef} />
+          </>
         ))}
 
         {shown === "sets" && (sets && sets.length === 0 && !error ? (
@@ -435,7 +484,10 @@ export function VideoHomePage() {
             {!filtering && <p className="muted">{t("video.setsEmptyBody")}</p>}
           </div>
         ) : (
-          <PosterGrid items={(sets ?? []).map(setItem)} />
+          <>
+            <PosterGrid items={(sets ?? []).map(setItem)} />
+            <CatalogTail hasMore={hasMore} loadingMore={loadingMore} loadMore={loadMore} sentinelRef={sentinelRef} />
+          </>
         ))}
       </section>
       {customizing && layout && (

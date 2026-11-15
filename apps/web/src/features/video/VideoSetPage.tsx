@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followBack, followRoute } from "../../router";
+import { followRoute } from "../../router";
+import { VideoBackBar } from "./VideoBackBar";
 import { MessageBox } from "../../shared/MessageBox";
 import { PosterGrid } from "./VideoPoster";
 import { VideoSectionNav } from "./VideoSectionNav";
@@ -57,12 +58,7 @@ export function VideoSetPage({ id }: { id: string }) {
             <img src={set.backdrop} alt="" />
           </div>
         )}
-        <div className="book-detail-topbar">
-          <a className="audiobook-back-button" href={SETS_HREF} onClick={(event) => followBack(event, SETS_HREF)}>
-            <ArrowLeft size={18} aria-hidden="true" />
-            <span>{t("video.set.back")}</span>
-          </a>
-        </div>
+        <VideoBackBar list={SETS_HREF} listLabel={t("video.set.back")} />
 
         {error && <MessageBox tone="warning" title={t("video.unavailableTitle")}>{error}</MessageBox>}
         {missing && <MessageBox tone="info" title={t("video.loadFailed")}>{t("video.notFound")}</MessageBox>}

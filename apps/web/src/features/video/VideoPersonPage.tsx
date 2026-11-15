@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followBack } from "../../router";
+import { VideoBackBar } from "./VideoBackBar";
 import { MessageBox } from "../../shared/MessageBox";
 import { PosterGrid } from "./VideoPoster";
 import { VideoSectionNav } from "./VideoSectionNav";
@@ -50,12 +50,7 @@ export function VideoPersonPage({ id }: { id: string }) {
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav />}>
       <section className="audiobook-main-page video-page video-person-page">
-        <div className="book-detail-topbar">
-          <a className="audiobook-back-button" href={BACK} onClick={(event) => followBack(event, BACK)}>
-            <ArrowLeft size={18} aria-hidden="true" />
-            <span>{t("nav.video")}</span>
-          </a>
-        </div>
+        <VideoBackBar list={BACK} listLabel={t("nav.video")} />
 
         {error && <MessageBox tone="warning" title={t("video.unavailableTitle")}>{error}</MessageBox>}
         {missing && <MessageBox tone="info" title={t("video.loadFailed")}>{t("video.people.notFound")}</MessageBox>}

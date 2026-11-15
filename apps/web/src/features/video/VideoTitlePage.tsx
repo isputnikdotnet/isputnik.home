@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ArrowLeft, Check, CheckCheck, FolderPlus, HardDrive, Layers, Pencil, Pin, Play, RotateCcw } from "lucide-react";
+import { Check, CheckCheck, FolderPlus, HardDrive, Layers, Pencil, Pin, Play, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { VideoBackBar } from "./VideoBackBar";
 import { useSession } from "../../app/SessionContext";
-import { followBack, followRoute, navigate } from "../../router";
+import { followRoute, navigate } from "../../router";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -104,12 +105,7 @@ export function VideoTitlePage({ kind, id }: { kind: VideoKind; id: string }) {
             <img src={title.backdrop} alt="" />
           </div>
         )}
-        <div className="book-detail-topbar">
-          <a className="audiobook-back-button" href={back} onClick={(event) => followBack(event, back)}>
-            <ArrowLeft size={18} aria-hidden="true" />
-            <span>{kind === "shows" ? t("video.shows") : t("video.movies")}</span>
-          </a>
-        </div>
+        <VideoBackBar list={back} listLabel={kind === "shows" ? t("video.shows") : t("video.movies")} />
 
         {error && <MessageBox tone="warning" title={t("video.unavailableTitle")}>{error}</MessageBox>}
         {missing && <MessageBox tone="info" title={t("video.loadFailed")}>{t("video.notFound")}</MessageBox>}
