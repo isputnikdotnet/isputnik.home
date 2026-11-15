@@ -500,7 +500,6 @@ tr.control-anchor-flash > td {
   color: var(--rose);
 }
 
-
 /* The Locations map (features/control/sections/dashboard/LocationsMap.tsx).
    A Leaflet map over OSM tiles, like the gallery's — pan, zoom and real
    geography instead of the flat SVG choropleth this replaced. Connections are
@@ -848,7 +847,6 @@ tr.control-anchor-flash > td {
   color: var(--ink);
 }
 
-
 /* Dashboard › System: the "where things stand" rows are doors to other pages,
    so the whole row is the target and the number reads as a headline. */
 .system-pointer-row {
@@ -1177,21 +1175,6 @@ tr.control-anchor-flash > td {
 .backup-control-work .grouped-row-value { white-space: normal; overflow-wrap: anywhere; }
 .backup-control-work .grouped-row-label small { overflow-wrap: anywhere; }
 
-.backup-page {
-  display: grid;
-  /* May shrink — see .status-stack. */
-  grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
-}
-
-.backup-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 28px;
-  margin-top: 18px;
-}
-
 .backup-hero-copy {
   display: grid;
   gap: 12px;
@@ -1452,8 +1435,6 @@ tr.control-anchor-flash > td {
 .container-backups { display: flex; flex-direction: column; gap: 16px; }
 .container-backups-head h2 { margin: 8px 0 4px; font-size: 1.05rem; }
 .container-backups-head p { margin: 0; }
-.container-backup-card { display: flex; flex-direction: column; gap: 12px; }
-.container-backup-card .backup-list-head { margin-bottom: 0; }
 .container-backup-settings {
   display: flex;
   flex-wrap: wrap;
@@ -2324,11 +2305,6 @@ tr.control-anchor-flash > td {
    have to come after the rules they narrow. */
 
 @media (max-width: 740px) {
-  .backup-hero {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-top: 4px;
-  }
 
   .backup-path-pill {
     width: 100%;
@@ -2732,36 +2708,20 @@ tr.control-anchor-flash > td {
 .dash-issue:hover { background: var(--hover); }
 .dash-issue-text { flex: 1; min-width: 0; }
 
-.dash-section-head,
-.dash-card-head {
+.dash-section-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 8px 12px;
 }
 
-.dash-section-head h2,
-.dash-card-head h2 {
+.dash-section-head h2 {
   margin: 0;
   font-size: 1.05rem;
 }
-
-.dash-card-head { align-items: center; }
-.dash-section-head > a,
-.dash-card-head > a,
-.dash-card-head > .muted { margin-left: auto; font-size: 0.875rem; }
+.dash-section-head > a { margin-left: auto; font-size: 0.875rem; }
 
 .dash-section { display: flex; flex-direction: column; gap: 12px; }
-
-.dash-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px 20px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-}
 
 /* The diagram */
 .dash-diagram {
@@ -3092,11 +3052,6 @@ tr.control-anchor-flash > td {
 }
 
 /* Library › Organization: one card per labelling system (OrganizationSection). */
-.organization-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
-}
 
 .organization-card {
   display: flex;
@@ -3108,72 +3063,12 @@ tr.control-anchor-flash > td {
   background: var(--surface);
 }
 
-.organization-card-top {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.organization-card-top h2 {
-  margin: 0 0 2px;
-  font-size: var(--text-lg);
-}
-
-.organization-card-top p {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.organization-card-icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.organization-applies {
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--surface-2);
-  font-size: var(--text-sm);
-}
-
-.organization-applies small {
-  display: block;
-  color: var(--muted);
-  font-size: var(--text-2xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.organization-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.organization-stats .is-warning {
-  color: var(--warning);
-}
-
 .organization-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   margin-top: auto;
-}
-
-.organization-footnote {
-  margin-top: 14px;
-  font-size: var(--text-sm);
 }
 
 /* Control panel v2's group names ("Libraries & Scanning", "Security & Members")
@@ -3231,36 +3126,6 @@ tr.control-anchor-flash > td {
   font-weight: 600;
 }
 
-.app-setup-card > h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-}
-
-.app-setup-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.app-setup-list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 8px;
-  min-width: 0;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.app-setup-list li > a { font-weight: 600; }
-
-.app-setup-list li > small {
-  flex: 1 0 100%;
-  color: var(--muted);
-}
-
 .app-setup-tag {
   padding: 0 8px;
   border-radius: 999px;
@@ -3268,10 +3133,6 @@ tr.control-anchor-flash > td {
   color: var(--muted);
   font-size: var(--text-2xs);
 }
-
-.app-setup-ok { color: var(--success); font-weight: 600; }
-.app-setup-warn { color: var(--warning); font-weight: 600; }
-.app-setup-list li > small.app-setup-warn { color: var(--warning); }
 
 .app-setup-figure {
   margin: 0;

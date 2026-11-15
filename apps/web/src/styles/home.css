@@ -1346,29 +1346,6 @@
     font-weight: 650;
   }
 
-  .home-feed-row-dl {
-    display: grid;
-    flex: 0 0 auto;
-    place-items: center;
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: var(--home-ink);
-    color: var(--home-canvas);
-    cursor: pointer;
-  }
-
-  .home-feed-row-dl.is-saved {
-    background: color-mix(in srgb, var(--home-accent) 22%, transparent);
-    color: var(--home-accent);
-  }
-
-  .home-feed-row-dl:disabled {
-    cursor: default;
-  }
-
   .home-feed-row-bar {
     display: block;
     width: 96px;
@@ -1384,15 +1361,6 @@
     height: 100%;
     border-radius: 999px;
     background: var(--home-accent);
-  }
-
-  .home-feed-row-meta {
-    overflow: hidden;
-    min-width: 0;
-    color: var(--home-muted);
-    font-size: 0.72rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .home-feed-row-action {

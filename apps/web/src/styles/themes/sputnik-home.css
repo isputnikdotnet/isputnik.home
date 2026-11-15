@@ -370,10 +370,7 @@
   box-shadow: 0 0 14px rgba(209, 75, 45, 0.42);
 }
 
-:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-action,
-:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-dl,
-:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row-action,
-:root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row-dl {
+:root:is([data-theme="dark"], [data-theme="light"]) .home-resume-action, :root:is([data-theme="dark"], [data-theme="light"]) .home-resume-dl, :root:is([data-theme="dark"], [data-theme="light"]) .home-feed-row-action {
   border: 1px solid rgba(242, 217, 173, 0.34);
   background: radial-gradient(circle at 34% 26%, #f2d9ad, #b9854d 58%, #4a2f20 100%);
   color: #061316;
@@ -642,8 +639,7 @@
 
 :root[data-theme="light"] .home-resume-action,
 :root[data-theme="light"] .home-resume-dl,
-:root[data-theme="light"] .home-feed-row-action,
-:root[data-theme="light"] .home-feed-row-dl {
+:root[data-theme="light"] .home-feed-row-action {
   border-color: rgba(105, 84, 52, 0.34);
   background: radial-gradient(circle at 34% 26%, #fffdf7, #d9c08f 58%, #8c673b 100%);
   color: #17292b;
