@@ -206,10 +206,6 @@
   "locationPicker": {
     "aria": "Pick a location on the map"
   },
-  "map": {
-    "osmAttribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>",
-    "osmAttributionContributors": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
-  },
   "miniMap": {
     "aria": "Map showing where {{title}} was taken"
   },
