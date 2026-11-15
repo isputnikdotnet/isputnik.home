@@ -2685,11 +2685,11 @@
     "action": {
       "library": "{{library}}",
       "backups": "Резервные копии",
-      "logs": "Журнал",
       "pairing": "Подключение",
       "tests": "Тесты",
       "details": "Подробнее"
     },
+    "noTests": "Проверок нет",
     "report": {
       "title": "Скачать отчёт",
       "homeTitle": "iSputnik (этот сервер)",
@@ -2813,7 +2813,8 @@
     "logging": {
       "label": "Журнал",
       "reading": "…",
-      "cannot": "Обычный (эта версия не позволяет изменить)",
+      "cannot": "Обычный (обновите контейнер, чтобы изменить)",
+      "untilShort": "до {{time}}",
       "until": "{{level}} до {{time}}",
       "change": "Изменить",
       "title": "Журнал: {{name}}",

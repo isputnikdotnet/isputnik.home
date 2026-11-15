@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, FileDown, Stethoscope } from "lucide-react";
+import { ChevronRight, FileDown, Stethoscope } from "lucide-react";
 import { controlHref, diagnosticsPartHref, followRoute, libraryManageHref, type DiagnosticsPart } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
-import { RefreshButton } from "../../../shared/RefreshButton";
 import { relativeTime } from "../../../shared/relativeTime";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { ReportDialog } from "../diagnostics/ReportDialog";
 import { useDiagnosticsOverview, useProblemText, type PartOverview, type PartState } from "../diagnostics/overview";
-import { appPageHref, logsHref } from "../links";
+import { appPageHref } from "../links";
 import { useAppName, useAppsStatus } from "./AppsSection";
-import { LoggingControl, loggingUrl } from "../diagnostics/Logging";
+import { LoggingSelect, loggingUrl } from "../diagnostics/Logging";
 import { useWatchingCount } from "../diagnostics/Watching";
 
 // Control panel › Infrastructure › Diagnostics (docs/diagnostics-pages-plan.md):
@@ -22,13 +21,22 @@ import { useWatchingCount } from "../diagnostics/Watching";
 
 const PILL: Record<PartState, string> = { ok: "is-ready", attention: "is-needsSetup", down: "is-needsSetup", off: "is-off" };
 
-function Link({ href, children }: { href: string; children: React.ReactNode }) {
+/** A card's small footer button: a real link, so it opens in a new tab on Ctrl/Cmd-click. */
+function Link({ href, children, chevron = false }: { href: string; children: React.ReactNode; chevron?: boolean }) {
   return (
-    <a className="secondary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
+    <a className="secondary-button diagnostics-part-button" href={href} onClick={(event) => followRoute(event, href)}>
       {children}
-      <ArrowRight size={15} aria-hidden="true" />
+      {chevron && <ChevronRight size={14} aria-hidden="true" />}
     </a>
   );
+}
+
+/** Where a part's tests are, on its own page; null when it has none. */
+function testsHref(part: PartOverview): string | null {
+  if (part.state === "off" || part.state === "down") return null;
+  if (part.id === "home") return `${diagnosticsPartHref("home")}#libraries`;
+  if (part.id === "video") return `${diagnosticsPartHref("video")}#tests`;
+  return null;
 }
 
 /** " · 2 watching" after Video's line, once the engine says. */
@@ -42,7 +50,7 @@ export function DiagnosticsSection() {
   const { t } = useTranslation(["controlAdmin"]);
   const appName = useAppName();
   const { apps } = useAppsStatus();
-  const { parts, error, load } = useDiagnosticsOverview();
+  const { parts, error } = useDiagnosticsOverview();
   /** Where a part's logging is read: this server's own, or the container's through the gateway. */
   const loggingOf = (part: PartOverview): string | null => {
     if (part.id === "home") return loggingUrl(null);
@@ -62,35 +70,37 @@ export function DiagnosticsSection() {
     return t("controlAdmin:diagnostics.line.answers", { ms: part.roundTripMs ?? "?" });
   };
 
-  /** Where a part's trouble is put right, and its tests. */
-  const actionsOf = (part: PartOverview) => {
+  /** Where a part's trouble is put right — only while there is some. Its log is a
+   *  step further, on its Details page. */
+  const fixesOf = (part: PartOverview) => {
     const links: { href: string; label: string }[] = [];
     if (part.id === "home") {
       const library = part.problems.find((problem) => "libraryId" in problem);
       if (library && "libraryId" in library) links.push({ href: libraryManageHref(library.libraryId), label: t("controlAdmin:diagnostics.action.library", { library: library.library }) });
       if (part.problems.some((problem) => problem.kind.startsWith("backup") || problem.kind === "noBackup")) links.push({ href: controlHref("backup"), label: t("controlAdmin:diagnostics.action.backups") });
-      links.push({ href: logsHref(), label: t("controlAdmin:diagnostics.action.logs") });
       return links;
     }
     if (part.state === "off" || part.state === "down" || part.state === "attention") links.push({ href: appPageHref("appsSetup", part.id), label: t("controlAdmin:diagnostics.action.pairing") });
-    if (part.id === "video" && part.state === "ok") links.push({ href: `${diagnosticsPartHref("video")}#tests`, label: t("controlAdmin:diagnostics.action.tests") });
-    if (part.state !== "off") links.push({ href: logsHref({ app: part.id }), label: t("controlAdmin:diagnostics.action.logs") });
     return links;
   };
 
   return (
     <div className="diagnostics-section">
       <ControlSectionHead section="diagnostics" icon={<Stethoscope size={30} />} description={t("controlAdmin:diagnostics.description")}>
-        <RefreshButton onRefresh={load} />
         <Button variant="primary" onClick={() => setReporting(true)}><FileDown size={16} aria-hidden="true" />{t("controlAdmin:diagnostics.downloadReport")}</Button>
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.overviewFailed")}>{error}</MessageBox>}
 
       <div className="diagnostics-parts">
-        {(parts ?? []).map((part) => (
-          <section key={part.id} className={`organization-card diagnostics-part is-${part.state}`} aria-labelledby={`diagnostics-${part.id}`}>
-            <div className="service-card-head">
+        {(parts ?? []).map((part) => {
+          const name = part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id);
+          const logging = loggingOf(part);
+          const tests = testsHref(part);
+          return (
+          <section key={part.id} className={`diagnostics-part is-${part.state}`} aria-labelledby={`diagnostics-${part.id}`}>
+            <div className="diagnostics-part-body">
+            <div className="diagnostics-part-head">
               <div className="diagnostics-part-name">
                 <h2 id={`diagnostics-${part.id}`}>{part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id)}</h2>
                 <span className="muted">
@@ -105,13 +115,20 @@ export function DiagnosticsSection() {
               {lineOf(part)}
               {part.id === "video" && part.state === "ok" && <WatchingSuffix prefix={apps?.find((app) => app.id === "video")?.prefix ?? null} />}
             </p>
-            {loggingOf(part) && <LoggingControl url={loggingOf(part)} name={part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id)} />}
-            <div className="organization-actions">
-              {actionsOf(part).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
-              {part.state !== "off" && <Link href={diagnosticsPartHref(part.id as DiagnosticsPart)}>{t("controlAdmin:diagnostics.action.details")}</Link>}
+            </div>
+            <div className="diagnostics-part-foot">
+              {logging ? <LoggingSelect url={logging} name={name} /> : <span />}
+              <div className="diagnostics-part-actions">
+                {fixesOf(part).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
+                {part.state !== "off" && (tests
+                  ? <Link href={tests}>{t("controlAdmin:diagnostics.action.tests")}</Link>
+                  : <span className="muted diagnostics-part-notests">{t("controlAdmin:diagnostics.noTests")}</span>)}
+                {part.state !== "off" && <Link href={diagnosticsPartHref(part.id as DiagnosticsPart)} chevron>{t("controlAdmin:diagnostics.action.details")}</Link>}
+              </div>
             </div>
           </section>
-        ))}
+          );
+        })}
         {parts === null && !error && <p className="muted">{t("controlAdmin:diagnostics.looking")}</p>}
       </div>
 

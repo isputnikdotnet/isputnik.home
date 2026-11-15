@@ -5,6 +5,7 @@ import { Button } from "../../../shared/Button";
 import { ChoiceGroup } from "../../../shared/ChoiceGroup";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
+import { SelectMenu } from "../../../shared/SelectMenu";
 
 // How much one part of iSputnik logs (docs/diagnostic-logging-plan.md): Normal, or
 // Detailed / Everything for 15 minutes, an hour or 4 hours, then back to Normal by
@@ -63,6 +64,51 @@ export function useLoggingWords() {
     const level = t(`controlAdmin:diagnostics.logging.level.${state.level}.label`);
     return state.until ? t("controlAdmin:diagnostics.logging.until", { level, time: clock(state.until) }) : level;
   };
+}
+
+/** A part's logging on the Diagnostics overview: "Logging [Normal ▾]" and, while
+ *  raised, "until 15:40". Detailed or Everything is set for an hour (the part's own
+ *  page offers 15 minutes and 4 hours); Normal ends it now. A container too old to
+ *  change it says so instead. */
+export function LoggingSelect({ url, name }: { url: string; name: string }) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const { state, setState, missing } = useLogging(url);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const label = t("controlAdmin:diagnostics.logging.label");
+  if (missing) return <span className="diagnostics-logging-inline muted">{label}: {t("controlAdmin:diagnostics.logging.cannot")}</span>;
+  const choose = async (level: LoggingLevel) => {
+    if (!state || level === state.level) return;
+    setBusy(true);
+    setError("");
+    try {
+      const minutes = state.minutes.includes(60) ? 60 : state.minutes[0] ?? 60;
+      setState(await api<LoggingState>(url, { method: "PUT", body: JSON.stringify({ level, minutes }) }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:diagnostics.logging.saveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const raised = state !== null && state.level !== "normal";
+  return (
+    <span className={raised ? "diagnostics-logging-inline is-raised" : "diagnostics-logging-inline"} aria-busy={busy || undefined}>
+      <span className="muted">{label}</span>
+      {state ? (
+        <SelectMenu
+          className="diagnostics-logging-select"
+          label={t("controlAdmin:diagnostics.logging.title", { name })}
+          value={state.level}
+          options={LEVELS.map((level) => ({ value: level, label: t(`controlAdmin:diagnostics.logging.level.${level}.label`) }))}
+          onChange={(level) => void choose(level)}
+        />
+      ) : (
+        <span className="muted">{t("controlAdmin:diagnostics.logging.reading")}</span>
+      )}
+      {raised && state?.until && <span className="diagnostics-logging-until">{t("controlAdmin:diagnostics.logging.untilShort", { time: clock(state.until) })}</span>}
+      {error && <span className="diagnostics-logging-error" role="alert">{error}</span>}
+    </span>
+  );
 }
 
 /** A part's logging, as a line and a button that opens the choice. */

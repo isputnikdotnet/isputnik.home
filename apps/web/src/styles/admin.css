@@ -3121,13 +3121,53 @@ tr.control-anchor-flash > td {
 .diagnostics-preview-head h3 { margin: 0; }
 .diagnostics-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The cards, one per part of iSputnik (docs/diagnostics-pages-plan.md). */
-.diagnostics-parts { display: grid; gap: 12px; min-width: 0; }
-.diagnostics-part { display: grid; gap: 10px; min-width: 0; }
+/* Diagnostics overview: a card per part — name, kind · version and its state on
+   top, one line of how it is, then a footer row: its logging on the left (tinted
+   while raised), small Tests / Details on the right. */
+.diagnostics-parts { display: grid; gap: 14px; min-width: 0; }
+.diagnostics-part {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
 .diagnostics-part.is-attention, .diagnostics-part.is-down { border-color: color-mix(in srgb, var(--warning) 45%, var(--line)); }
-.diagnostics-part-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
-.diagnostics-part-name h2 { margin: 0; }
-.diagnostics-part-line { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.diagnostics-part-body { display: grid; gap: 6px; min-width: 0; padding: 16px 18px 14px; }
+.diagnostics-part-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.diagnostics-part-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.diagnostics-part-name h2 { margin: 0; font-size: 1.1rem; }
+.diagnostics-part-name .muted { font-size: 0.85rem; }
+.diagnostics-part-line { margin: 0; color: var(--muted); font-size: 0.92rem; overflow-wrap: anywhere; }
 .diagnostics-part-line.is-warning { color: var(--warning); }
+.diagnostics-part-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-width: 0;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.diagnostics-part:has(.diagnostics-logging-inline.is-raised) .diagnostics-part-foot { background: color-mix(in srgb, var(--warning) 9%, transparent); }
+.diagnostics-part-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.secondary-button.diagnostics-part-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 30px;
+  padding: 3px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.diagnostics-part-notests { font-size: 0.85rem; }
+.diagnostics-logging-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; font-size: 0.9rem; }
+.diagnostics-logging-select .select-menu-trigger.secondary-button { min-height: 30px; min-width: 7.5rem; padding: 0 10px; border-radius: 8px; font-size: 0.88rem; }
+.diagnostics-logging-inline.is-raised .select-menu-trigger { color: var(--warning); font-weight: 600; }
+.diagnostics-logging-until { color: var(--warning); font-size: 0.85rem; }
+.diagnostics-logging-error { color: var(--danger, var(--warning)); font-size: 0.82rem; }
 /* The report dialog: the choices beside the report as it will be saved. */
 /* Diagnostics › Download a report: a panel of header · body · actions. The body
    scrolls (choices, Private details), the actions stay at the bottom; on a wide

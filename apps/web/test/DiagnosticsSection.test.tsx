@@ -69,18 +69,17 @@ describe("Diagnostics", () => {
 });
 
 describe("logging", () => {
-  it("turns on Detailed for the time chosen, from the card", async () => {
+  it("turns on Detailed for an hour from the card's menu, and says until when", async () => {
     const user = userEvent.setup();
     render(<DiagnosticsSection />);
     const home = (await screen.findByRole("heading", { name: "iSputnik" })).closest("section") as HTMLElement;
-    expect(await within(home).findByText("Normal")).toBeTruthy();
+    const menu = await within(home).findByRole("button", { name: /Logging for iSputnik: Normal/ });
     mockApi.mockImplementationOnce(async () => ({ level: "detailed", until: "2026-11-14T15:40:00.000Z", minutes: [15, 60, 240] }));
-    await user.click(within(home).getByRole("button", { name: "Change" }));
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByLabelText(/15 minutes/));
-    await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
-    expect(mockApi).toHaveBeenCalledWith("/api/admin/logging", { method: "PUT", body: JSON.stringify({ level: "detailed", minutes: 15 }) });
-    expect(await within(home).findByText(/Detailed until/)).toBeTruthy();
+    await user.click(menu);
+    await user.click(within(home).getByRole("option", { name: "Detailed" }));
+    expect(mockApi).toHaveBeenCalledWith("/api/admin/logging", { method: "PUT", body: JSON.stringify({ level: "detailed", minutes: 60 }) });
+    expect(await within(home).findByRole("button", { name: /Logging for iSputnik: Detailed/ })).toBeTruthy();
+    expect(within(home).getByText(/^until /)).toBeTruthy();
   });
 });
 

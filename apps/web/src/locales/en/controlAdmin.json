@@ -2465,11 +2465,11 @@
     "action": {
       "library": "{{library}}",
       "backups": "Backups",
-      "logs": "Logs",
       "pairing": "Pairing",
       "tests": "Tests",
       "details": "Details"
     },
+    "noTests": "No tests",
     "report": {
       "title": "Download a report",
       "homeTitle": "iSputnik (this server)",
@@ -2591,7 +2591,8 @@
     "logging": {
       "label": "Logging",
       "reading": "…",
-      "cannot": "Normal (this version can't change it)",
+      "cannot": "Normal (update the container to change it)",
+      "untilShort": "until {{time}}",
       "until": "{{level}} until {{time}}",
       "change": "Change",
       "title": "Logging for {{name}}",
