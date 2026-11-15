@@ -43,6 +43,7 @@ import {
 } from "./cleanup-types";
 // Duplicate cleanup's stylesheet: it loads with this section, not on every route (docs/css-map.md).
 import "../../../../styles/duplicates.css";
+import { ControlBackBar } from "../../ControlBackBar";
 
 export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUser }) {
   const { t } = useTranslation(["common", "controlDash"]);
@@ -280,6 +281,8 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
 
   return (
     <>
+      {/* Its own hero instead of ControlSectionHead, so it draws the back line itself. */}
+      <ControlBackBar section="duplicateCleanup" />
       <div className="dup-cleanup-top">
         <CleanupHero />
 

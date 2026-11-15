@@ -41,7 +41,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   scheduledJobs: "/control/infrastructure/scheduled-jobs",
   logs: "/control/infrastructure/logs",
   diagnostics: "/control/infrastructure/diagnostics",
-  nowPlaying: "/control/infrastructure/now-playing",
+  nowPlaying: "/control/apps/videos/now-playing",
   activity: "/control/infrastructure/activity",
 
   libraries: "/control/libraries",
@@ -186,6 +186,7 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maintenance/videos": "videoStreaming",
   // Infrastructure's until 4.90, when it joined Gallery › Organize.
   "/control/infrastructure/video-streaming": "videoStreaming",
+  "/control/infrastructure/now-playing": "nowPlaying",
   "/control/settings/maps": "mapSetup",
   "/control/settings/stories": "storySettings",
   "/control/settings/apps": "appsSetup",

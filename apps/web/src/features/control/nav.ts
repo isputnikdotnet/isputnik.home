@@ -97,8 +97,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     // with its filter already selected rather than keeping copies of them.
     tabs: [
       { section: "services", pages: ["appsSetup"] },
-      // What is being watched right now, a card a stream (Plex's dashboard).
-      { section: "nowPlaying" },
       { section: "tasks" },
       { section: "scheduledJobs" },
       { section: "logs" },
@@ -180,7 +178,10 @@ export const APPLICATIONS: ApplicationDef[] = [
     key: "videos",
     icon: Clapperboard,
     tabs: [
-      { section: "videosSetup", kind: "setup" },
+      // Now playing: what is being watched right now, a card a stream (Plex's
+      // dashboard). Video's own, so a page of its Overview, not Infrastructure's;
+      // reached from Diagnostics › Video and, for admins, the Video page.
+      { section: "videosSetup", kind: "setup", pages: ["nowPlaying"] },
       { section: "genres", kind: "organize" },
       { section: "videoSettings", kind: "settings" }
     ]

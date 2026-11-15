@@ -1494,6 +1494,7 @@
       "saving": "Saving…",
       "remove": "Stop keeping ready",
       "removing": "Stopping…"
-    }
+    },
+    "nowPlaying": "Now playing"
   }
 }

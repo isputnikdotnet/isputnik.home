@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Clapperboard, LayoutGrid, LayoutList, Layers, Plus } from "lucide-react";
+import { ChevronRight, Clapperboard, LayoutGrid, LayoutList, Layers, MonitorPlay, Plus } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, queryParam, replaceNavigate, replaceQuery } from "../../router";
+import { controlHref, followRoute, navigate, queryParam, replaceNavigate, replaceQuery } from "../../router";
+import { useSession } from "../../app/SessionContext";
 import { Button } from "../../shared/Button";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
@@ -355,6 +356,7 @@ export function VideoHomePage() {
   /** Anyone may make the rows their own; the page waits until it knows them. A page
    *  wearing a profile is the household's: only an admin (not locked in it) changes it. */
   const editable = layout !== null && catalogTotal !== 0 && (!layout.profileId || (profiles?.editable ?? false));
+  const isAdmin = useSession().user?.role === "admin";
 
   return (
     <DashboardShell active="video" sideNav={<VideoSectionNav />}>
@@ -430,6 +432,13 @@ export function VideoHomePage() {
                 <Button variant="toolbar" onClick={() => setCustomizing(true)}>
                   <LayoutList size={18} aria-hidden="true" />
                   <span>{t("video.rows.customize")}</span>
+                </Button>
+              )}
+              {/* Who is watching what right now: the control panel's page, admins only. */}
+              {isAdmin && (
+                <Button variant="toolbar" onClick={() => navigate(controlHref("nowPlaying"))}>
+                  <MonitorPlay size={18} aria-hidden="true" />
+                  <span>{t("video.nowPlaying")}</span>
                 </Button>
               )}
             </>

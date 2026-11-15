@@ -43,9 +43,10 @@ function crumbsOf(section: ControlSection, from: string | null, includeSelf: boo
   for (const level of levels) {
     if (!includeSelf && level.section === section) continue;
     const href = controlHref(level.section);
-    // Two levels opening the same page (a group whose first page is the workspace
-    // directory) show once, under the nearer name.
-    if (crumbs.length > 0 && sameAddress(crumbs[crumbs.length - 1].href, href)) crumbs.pop();
+    // Two levels may open the same page (Videos and its Overview, Infrastructure and
+    // Services): both names stay, so the line reads the whole way down. Only the
+    // same name twice is said once.
+    if (crumbs.length > 0 && crumbs[crumbs.length - 1].label === level.label) continue;
     crumbs.push({ href, label: level.label });
   }
   return crumbs;
