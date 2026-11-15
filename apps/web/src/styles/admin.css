@@ -2744,9 +2744,9 @@ tr.control-anchor-flash > td {
   text-decoration: none;
 }
 
-/* The line above a page title (ControlBackBar): Back, then where the page sits,
-   each level a link to its own page. It sits where the eyebrow did, so it costs
-   no line of its own, and starts at the left on every page. */
+/* The line above a page's head (ControlBackBar): Back, then where the page sits,
+   each level a link to its own page. One short line from the left edge, where the
+   icon starts, drawn a little into the page's top padding. */
 .control-backbar {
   display: flex;
   flex-wrap: wrap;
@@ -2755,10 +2755,15 @@ tr.control-anchor-flash > td {
   gap: 2px 10px;
   min-width: 0;
   max-width: 100%;
-  margin: 0 0 4px;
+  margin: -12px 0 0;
   font-size: 0.82rem;
   line-height: 1.4;
 }
+/* The bar and the page head, spaced as one block whatever page they open. */
+.control-page-top { display: grid; gap: 10px; min-width: 0; }
+.control-page-top > .section-head { margin-top: 0; }
+/* Pages that place the bar themselves keep the same 10px under it. */
+.library-manage-page > .control-backbar { margin-bottom: -6px; }
 .control-backbar a { text-decoration: none; }
 .control-backbar a:hover { text-decoration: underline; }
 .control-backbar-back {

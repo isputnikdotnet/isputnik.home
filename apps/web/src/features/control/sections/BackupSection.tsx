@@ -477,7 +477,7 @@ export function BackupSection() {
 
   return (
     <>
-      {!appId && <ControlSectionHead section="backup" title={title}
+      {!appId && <ControlSectionHead section="backup" icon={<DatabaseBackup size={30} />} title={title}
         back={{ href: show ? queryPageHref(null) : controlHref("appearance"), label: t("control:backup.back") }} />}
       {appId ? body : <div className="grouped-page">{body}</div>}
 

@@ -54,9 +54,7 @@ export function ControlSectionHead({
   })();
   const copy = (
     <div className={icon ? "admin-heading-copy" : undefined}>
-      {section === "dashboard"
-        ? <p className="eyebrow">{sectionEyebrow(section, from)}</p>
-        : <ControlBackBar section={section} from={from} list={list} fallback={back?.href} />}
+      {section === "dashboard" && <p className="eyebrow">{sectionEyebrow(section, from)}</p>}
       <h1>{title ?? sectionTitle(section)}</h1>
       {description && <p className="section-description">{description}</p>}
     </div>
@@ -78,5 +76,14 @@ export function ControlSectionHead({
     </div>
   );
 
-  return head;
+  if (section === "dashboard") return head;
+  // Above the whole head, starting where the icon does: the way back first.
+  // One block, so a page that spaces its children (a grid with a gap) spaces the
+  // bar and its head as one: the bar is the same distance above the title everywhere.
+  return (
+    <div className="control-page-top">
+      <ControlBackBar section={section} from={from} list={list} fallback={back?.href} />
+      {head}
+    </div>
+  );
 }

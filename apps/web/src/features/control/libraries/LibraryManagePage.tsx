@@ -150,13 +150,13 @@ export function LibraryManagePage({
 
   return (
     <div className="library-manage-page">
+      <ControlBackBar section="libraries" list={{ href: listHref, label: tabLabel("libraries") }} />
       <div className="section-head admin-section-head library-section-head">
         <div className="admin-title-wrap">
           <span className="admin-page-icon" aria-hidden="true">
             <TypeIcon size={30} />
           </span>
           <div className="admin-heading-copy">
-            <ControlBackBar section="libraries" list={{ href: listHref, label: tabLabel("libraries") }} />
             <h1>{library.name}</h1>
             <p className="section-description library-manage-facts">
               {facts && <span>{facts}</span>}

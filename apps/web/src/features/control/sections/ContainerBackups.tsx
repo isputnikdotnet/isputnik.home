@@ -62,7 +62,7 @@ export function ContainerBackups({ appId, onOpen }: { appId?: string; onOpen: (i
 
   return (
     <>
-      {appId && <ControlSectionHead section="backup" title={appName(appId)} back={{ href: controlHref("backup"), label: t("control:backup.back") }} />}
+      {appId && <ControlSectionHead section="backup" icon={<DatabaseBackup size={30} />} title={appName(appId)} back={{ href: controlHref("backup"), label: t("control:backup.back") }} />}
       {loadError ? <MessageBox tone="error" title={t("control:containerBackup.loadFailed")}>{loadError}</MessageBox>
         : appId ? <p className="muted">{apps ? t("control:backup.gone") : t("control:ui.loading")}</p>
           : <GroupedList id="container-backups" title={t("control:backup.applicationsTitle")}>
@@ -191,7 +191,7 @@ function ContainerDetail({ app, reload }: { app: AppBackupView; reload: () => Pr
 
   return (
     <>
-      <ControlSectionHead section="backup" title={selectedFile ? `${name} · ${formatManagedDate(selectedFile.createdAt)}` : name}
+      <ControlSectionHead section="backup" icon={<DatabaseBackup size={30} />} title={selectedFile ? `${name} · ${formatManagedDate(selectedFile.createdAt)}` : name}
         back={{ href: fileKey ? queryPageHref(null, "file") : controlHref("backup"), label: t("control:backup.back") }} />
       <div className="grouped-page">
 
