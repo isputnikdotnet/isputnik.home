@@ -2725,6 +2725,9 @@ tr.control-anchor-flash > td {
 
 /* The diagram */
 .dash-diagram {
+  /* The branches stack by the diagram's own width, not the window's: beside the
+     control panel's sidebar a wide window still leaves it narrow. */
+  container: dash-diagram / inline-size;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2749,7 +2752,9 @@ tr.control-anchor-flash > td {
 .dash-node.tone-success { border-color: var(--line); }
 .dash-home { max-width: 580px; border-color: color-mix(in srgb, var(--blue) 55%, transparent); }
 
-.dash-node-head { display: flex; align-items: center; gap: 12px; }
+/* When the box is narrow the state pill drops under the name rather than
+   squeezing the name to nothing beside the icon. */
+.dash-node-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 
 .dash-node-icon {
   display: grid;
@@ -2762,7 +2767,7 @@ tr.control-anchor-flash > td {
   background: color-mix(in srgb, var(--blue) 16%, transparent);
 }
 
-.dash-node-title { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.dash-node-title { display: flex; flex: 1 1 7rem; min-width: 0; flex-direction: column; }
 .dash-node-title .muted { font-size: 0.85rem; }
 
 .dash-node-title h3 {
@@ -3030,6 +3035,12 @@ tr.control-anchor-flash > td {
 .dash-backup-label { display: flex; align-items: center; gap: 6px; padding: 0 6px; color: var(--muted); font-size: 0.8rem; }
 .dash-backup-head strong { font-size: 1rem; }
 .dash-backup .muted { font-size: 0.82rem; }
+
+/* Three boxes need about 600px between them to keep a name and its state readable. */
+@container dash-diagram (max-width: 600px) {
+  .dash-branches { grid-template-columns: minmax(0, 1fr); }
+  .dash-bar { display: none; }
+}
 
 @media (max-width: 720px) {
   .dash-branches { grid-template-columns: minmax(0, 1fr); }
