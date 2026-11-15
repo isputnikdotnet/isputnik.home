@@ -121,8 +121,11 @@ button.grouped-row:focus-visible { outline: 2px solid var(--accent); outline-off
 }
 
 @media (max-width: 740px) {
-  /* A long value (a date beside a long message) wraps rather than being cut off. */
-  .grouped-row-value { max-width: 42%; white-space: normal; overflow-wrap: anywhere; }
+  /* A long value (a date beside a long message) wraps rather than being cut off.
+     It keeps its own width up to 42% of the row instead of being squeezed below
+     it, and breaks inside a word only when one word is longer than that (a path):
+     "Create" read "Cre / ate" when it could shrink to a letter. */
+  .grouped-row-value { flex: 0 0 auto; max-width: 42%; white-space: normal; overflow-wrap: break-word; }
 }
 
 /* ToggleRow's switch and CheckRow's tick. */

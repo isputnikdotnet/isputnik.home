@@ -1146,7 +1146,7 @@ tr.control-anchor-flash > td {
 }
 
 /* Dates, file names and server paths remain readable on narrow screens. */
-.backup-control-work .grouped-row-value { white-space: normal; overflow-wrap: anywhere; }
+.backup-control-work .grouped-row-value { white-space: normal; overflow-wrap: break-word; }
 .backup-control-work .grouped-row-label small { overflow-wrap: anywhere; }
 
 .backup-hero-copy {
