@@ -3152,6 +3152,9 @@ tr.control-anchor-flash > td {
 /* Applications › Gallery › Device Sync (control panel v2): one column of grouped
    rows, like a phone's Settings app (shared/GroupedList). */
 .device-sync { display: grid; gap: 10px; max-width: 760px; }
+/* The list: a banner over cards two to a row, the width of the page. */
+.device-sync-overview { gap: 18px; max-width: none; }
+.device-sync-overview > .app-overview-status { margin: 0; }
 .device-sync-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 4px 0 6px; }
 .device-sync-title h1 { margin: 0; font-size: var(--text-2xl); }
 .device-sync > .control-page-back { justify-self: start; }

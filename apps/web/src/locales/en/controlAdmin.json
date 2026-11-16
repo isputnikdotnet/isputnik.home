@@ -2452,7 +2452,13 @@
     "range": "Range",
     "name": "Name",
     "removeNetworkNote": "Phones stop backing up from this range. Nothing they already sent is touched.",
-    "addNote": "Your home network, and a VPN range if phones should back up away from home. Type the range with its size, like 192.168.2.0/24."
+    "addNote": "Your home network, and a VPN range if phones should back up away from home. Type the range with its size, like 192.168.2.0/24.",
+    "cardPhonesBody": "The phones that back up here, and how each is doing.",
+    "cardNetworks": "Allowed networks",
+    "cardAddress": "Server address",
+    "cardPersonalBody": "Private photo libraries that only their owner can open.",
+    "needAttention_one": "{{count}} needs attention",
+    "needAttention_other": "{{count}} need attention"
   },
   "diagnostics": {
     "description": "How each part of iSputnik is, what needs a look, and a report to attach to a bug report.",

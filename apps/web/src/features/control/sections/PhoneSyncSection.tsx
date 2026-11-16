@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Layers, Link2, Plus, ScrollText, Smartphone, Wifi } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle2, Layers, Link2, Plus, ScrollText, Smartphone, Wifi } from "lucide-react";
 import { api } from "../../../api";
 import { libraryManageHref, memberHref } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -9,6 +9,7 @@ import { Field } from "../../../shared/Field";
 import { ActionRow, AddRow, FieldRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { SettingsCard } from "../../../shared/SettingsCard";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
@@ -348,25 +349,35 @@ export function PhoneSyncSection() {
   }
 
   // ── The list ───────────────────────────────────────────────────────────────
+  // A banner saying whether phone backup is on (or the three steps that turn it on),
+  // then cards two to a row: Phones and Allowed networks, Personal libraries and
+  // Server address — the Overview's and Settings tabs' look.
   const lastBackup = phones.map((phone) => phone.lastSeen).filter((value): value is string => Boolean(value)).sort().pop() ?? null;
+  const warnCount = phones.filter((phone) => shortState(phone).warn).length;
+  const anyWarn = warnCount > 0;
   return (
     <>
       {head}
-      <div className="device-sync">
+      <div className="device-sync device-sync-overview">
         {errors}
         {on ? (
-          <GroupedList>
-            <InfoRow
-              icon={<Smartphone size={17} />}
-              iconTone="ok"
-              label={t("controlAdmin:deviceSync.statusOn")}
-              sub={lastBackup
-                ? t("controlAdmin:deviceSync.statusOnSub", { count: phones.length, when: relativeTime(lastBackup) })
-                : t("controlAdmin:deviceSync.statusOnNoBackup", { count: phones.length })}
-            />
-          </GroupedList>
+          <div className={`app-overview-status is-${anyWarn ? "warn" : "ok"}`}>
+            <div className="app-overview-status-main">
+              <span className="app-overview-status-icon" aria-hidden="true">
+                {anyWarn ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
+              </span>
+              <div>
+                <strong>{t("controlAdmin:deviceSync.statusOn")}</strong>
+                <span>{lastBackup
+                  ? t("controlAdmin:deviceSync.statusOnSub", { count: phones.length, when: relativeTime(lastBackup) })
+                  : t("controlAdmin:deviceSync.statusOnNoBackup", { count: phones.length })}
+                  {anyWarn && <> · {t("controlAdmin:deviceSync.needAttention", { count: warnCount })}</>}</span>
+              </div>
+            </div>
+          </div>
         ) : (
-          <GroupedList title={t("controlAdmin:deviceSync.setupTitle")} note={t("controlAdmin:deviceSync.setupNote")}>
+          <SettingsCard icon={<Smartphone size={20} />} title={t("controlAdmin:deviceSync.setupTitle")} note={t("controlAdmin:deviceSync.setupNote")}>
+          <GroupedList>
             <NavRow
               icon={<Wifi size={17} />}
               iconTone={networks.networks.length ? "ok" : "warn"}
@@ -389,9 +400,13 @@ export function PhoneSyncSection() {
               href="/help/phone-sync-setup"
             />
           </GroupedList>
+          </SettingsCard>
         )}
 
-        <GroupedList title={t("controlAdmin:phoneSyncPage.phonesHeading")} note={phones.length === 0 ? t("controlAdmin:phoneSyncPage.noPhones") : undefined}>
+        <div className="settings-card-grid">
+        <SettingsCard icon={<Smartphone size={20} />} title={t("controlAdmin:phoneSyncPage.phonesHeading")} description={t("controlAdmin:deviceSync.cardPhonesBody")}
+          note={phones.length === 0 ? t("controlAdmin:phoneSyncPage.noPhones") : undefined}>
+        <GroupedList>
           {phones.length === 0 && <InfoRow icon={<Smartphone size={17} />} label={t("controlAdmin:deviceSync.noPhonesRow")} />}
           {phones.map((phone) => {
             const state = shortState(phone);
@@ -408,9 +423,13 @@ export function PhoneSyncSection() {
               />
             );
           })}
+          <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:phoneSyncPage.allInLogs")} value={t("controlAdmin:deviceSync.logs")} href={logsHref({ event: "photo_sync" })} />
         </GroupedList>
+        </SettingsCard>
 
-        <GroupedList id="phone-sync-networks" title={t("controlAdmin:deviceSync.networksTitle")} note={t("controlAdmin:deviceSync.networksNote")}>
+        <SettingsCard id="phone-sync-networks" icon={<Wifi size={20} />} title={t("controlAdmin:deviceSync.cardNetworks")} description={t("controlAdmin:deviceSync.networksTitle")}
+          note={t("controlAdmin:deviceSync.networksNote")}>
+        <GroupedList>
           {networks.networks.map((network) => (
             <NavRow
               key={network.id}
@@ -422,8 +441,11 @@ export function PhoneSyncSection() {
           ))}
           <AddRow icon={<Plus size={17} />} label={t("controlAdmin:phoneSync.add")} onClick={() => go({ page: "addNetwork" })} />
         </GroupedList>
+        </SettingsCard>
 
-        <GroupedList title={t("controlAdmin:phoneSync.addressHeading")} note={t("controlAdmin:deviceSync.addressNote")}>
+        <SettingsCard icon={<Link2 size={20} />} title={t("controlAdmin:deviceSync.cardAddress")} description={t("controlAdmin:phoneSync.addressHeading")}
+          note={t("controlAdmin:deviceSync.addressNote")}>
+        <GroupedList>
           <NavRow
             icon={<Link2 size={17} />}
             iconTone={networks.address && networks.addressOutsideNetworks ? "warn" : undefined}
@@ -432,8 +454,10 @@ export function PhoneSyncSection() {
             onClick={() => go({ page: "address" })}
           />
         </GroupedList>
+        </SettingsCard>
 
-        <GroupedList title={t("controlAdmin:deviceSync.personalTitle")}>
+        <SettingsCard icon={<Layers size={20} />} title={t("controlAdmin:deviceSync.personalTitle")} description={t("controlAdmin:deviceSync.cardPersonalBody")}>
+        <GroupedList>
           <NavRow
             icon={<Layers size={17} />}
             label={t("controlAdmin:deviceSync.personalRow")}
@@ -452,10 +476,8 @@ export function PhoneSyncSection() {
             />
           ))}
         </GroupedList>
-
-        <GroupedList>
-          <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:phoneSyncPage.allInLogs")} value={t("controlAdmin:deviceSync.logs")} href={logsHref({ event: "photo_sync" })} />
-        </GroupedList>
+        </SettingsCard>
+        </div>
       </div>
     </>
   );
