@@ -1,25 +1,25 @@
 import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Folder, HardDrive, Plus } from "lucide-react";
+import { HardDrive, Plus } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, navigate } from "../../../router";
+import { controlHref, libraryManageHref, navigate } from "../../../router";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { ActionRow, GroupedList, InfoRow } from "../../../shared/GroupedList";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
 import type { StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { withQuery } from "../links";
+import { storageHref, withQuery } from "../links";
 import { appLabel } from "../nav";
 import { isRunning, useAppsStatus } from "./AppsSection";
 import { SystemDataPanel, type SystemDataView } from "./storage/SystemDataPanel";
 import { AppStoragePanel } from "./storage/AppStoragePanel";
 import { StoragePathRow } from "./storage/StoragePathRow";
-import { isLowSpace, useDiskSpace } from "./storage/SpaceMeter";
+import { isLowSpace, SpaceMeter, useDiskSpace } from "./storage/SpaceMeter";
+import { typeLabel, type ManagedLibrary } from "../libraries/managed-library";
 
 // The Storage page — docs/system-data-plan.md. Just the folders, in three numbered
 // sections (Pairing's shape), every row a name, its folder and one button:
@@ -363,35 +363,83 @@ function LocationRow({ root, onOpen }: { root: StorageRoot; onOpen: () => void }
   );
 }
 
-/** One library location's page. Removing one leaves its files alone, so it is
+/** A path's spelling for comparing: forward slashes, no trailing one, one case. */
+const pathKey = (value: string) => value.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+
+/** One library location's page, in the Storage page's shape: its folder and free
+ *  space; the libraries that live in it (found by folder, as the server counts them),
+ *  each with Manage; and Remove. Removing a location leaves its files alone, so it is
  *  Remove, not Delete — and it waits until no library uses it. */
 function LocationPage({ root, removing, onRemove }: { root: StorageRoot; removing: boolean; onRemove: () => void }) {
   const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const space = useDiskSpace(root.path);
+  const [libraries, setLibraries] = useState<ManagedLibrary[] | null>(null);
+
+  useEffect(() => {
+    const kinds = ["audiobook", "ebook", "gallery", "video"];
+    void Promise.allSettled(kinds.map((kind) => api<{ libraries: ManagedLibrary[] }>(`/api/library/${kind}-libraries?manage=1`))).then((answers) => {
+      const base = pathKey(root.path);
+      const all = answers.flatMap((answer) => answer.status === "fulfilled" ? answer.value.libraries : []);
+      setLibraries(all
+        .filter((library) => library.sourcePath && (pathKey(library.sourcePath) === base || pathKey(library.sourcePath).startsWith(`${base}/`)))
+        .sort((a, b) => a.name.localeCompare(b.name)));
+    });
+  }, [root.path]);
+
+  const inUse = root.libraryCount > 0;
   return (
-    <div className="grouped-page">
-      <GroupedList>
-        <InfoRow icon={<Folder size={17} />} label={t("controlAdmin:storage.containerPath")} value={<code>{root.path}</code>} />
-        <InfoRow label={t("controlAdmin:storage.thLibraries")} value={root.libraryCount > 0 ? String(root.libraryCount) : "—"} />
-        <InfoRow
-          label={t("controlAdmin:storage.thFreeSpace")}
-          value={space && space.total > 0
-            ? t("controlAdmin:systemData.spaceFree", { free: formatBytes(space.free), total: formatBytes(space.total) })
-            : "—"}
-          valueTone={isLowSpace(space) ? "warn" : undefined}
+    <div className="storage-steps">
+      <section className="storage-step" aria-labelledby="location-folder">
+        <header className="storage-step-head"><h2 id="location-folder">{t("controlAdmin:storage.locationTitle")}</h2></header>
+        <StoragePathRow
+          label={t("controlAdmin:storage.locationFolder")}
+          path={<code>{root.path}</code>}
+          detail={<SpaceMeter space={space} />}
+          warn={isLowSpace(space) ? t("controlAdmin:systemData.lowTitle") : undefined}
         />
-      </GroupedList>
-      {isLowSpace(space) && (
-        <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
-      )}
-      <GroupedList note={root.libraryCount > 0 ? t("controlAdmin:storage.deleteBlockedTitle") : t("controlAdmin:storage.removeLocationNote")}>
-        <ActionRow
-          tone="danger"
-          label={removing ? t("controlAdmin:storage.removing") : t("controlAdmin:storage.remove")}
-          disabled={root.libraryCount > 0 || removing}
-          onClick={onRemove}
+      </section>
+
+      <section className="storage-step" aria-labelledby="location-libraries">
+        <header className="storage-step-head">
+          <h2 id="location-libraries">{t("controlAdmin:storage.locationLibraries")}</h2>
+          <small>{t("control:appSetup.summaryLibraries", { count: root.libraryCount })}</small>
+        </header>
+        {libraries === null && <p className="storage-step-empty">{t("controlAdmin:ui.loading")}</p>}
+        {libraries?.length === 0 && <p className="storage-step-empty">{t("controlAdmin:storage.locationNone")}</p>}
+        {libraries?.map((library) => (
+          <StoragePathRow
+            key={library.id}
+            label={library.name}
+            sub={library.role ? t("controlAdmin:appStorage.title") : library.personal ? t("controlAdmin:storage.personalOf", { name: library.personal.ownerName }) : typeLabel(library.type)}
+            path={<code>{library.sourcePath}</code>}
+            // App storage's own libraries (the Photo Inbox, App files) are managed with it.
+            action={<Button variant="secondary" compact onClick={() => navigate(library.role ? storageHref("app-storage") : libraryManageHref(library.id))}>{t("controlAdmin:storage.manage")}</Button>}
+          />
+        ))}
+        {/* Someone else's personal library reaches an admin without its folder
+            (docs/photo-sync-plan.md, decision 3), so it cannot be placed here: the
+            count the server gives the location says how many, and nothing more. */}
+        {libraries && root.libraryCount > libraries.length && (
+          <StoragePathRow
+            label={t("controlAdmin:storage.othersPersonal")}
+            path={t("controlAdmin:storage.othersPersonalPrivate")}
+            detail={t("control:appSetup.summaryLibraries", { count: root.libraryCount - libraries.length })}
+            action={<Button variant="secondary" compact onClick={() => navigate(withQuery(controlHref("phoneSync"), { show: "personal" }))}>{t("controlAdmin:storage.manage")}</Button>}
+          />
+        )}
+      </section>
+
+      <section className="storage-step is-plain" aria-label={t("controlAdmin:storage.locationRemoveTitle")}>
+        <StoragePathRow
+          label={t("controlAdmin:storage.locationRemoveTitle")}
+          path={inUse ? t("controlAdmin:storage.deleteBlockedTitle") : t("controlAdmin:storage.removeLocationNote")}
+          action={
+            <Button variant="danger" compact disabled={inUse || removing} onClick={onRemove}>
+              {removing ? t("controlAdmin:storage.removing") : t("controlAdmin:storage.remove")}
+            </Button>
+          }
         />
-      </GroupedList>
+      </section>
     </div>
   );
 }

@@ -343,6 +343,8 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
    folder and one compact button (storage/StoragePathRow). */
 .storage-steps { display: grid; gap: 16px; max-width: 980px; }
 .storage-step { padding: 14px 18px 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-raised); min-width: 0; }
+.storage-step.is-plain { padding-top: 4px; padding-bottom: 4px; }
+.storage-step.is-plain > .storage-path-row:first-child { border-top: 0; }
 .storage-step.is-locked { padding-bottom: 14px; opacity: 0.6; }
 .storage-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 6px; }
 .storage-step-head h2 { flex: 1; margin: 0; font-size: 1.1rem; }

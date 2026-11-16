@@ -1930,7 +1930,15 @@
     "needsAppStorage": "Needs App storage",
     "systemManageTitle": "System folders",
     "systemManageDescription": "Where the database, thumbnails, backups, metadata and App storage are kept.",
-    "openSettings": "Settings"
+    "openSettings": "Settings",
+    "locationFolder": "Folder",
+    "locationLibraries": "Libraries here",
+    "locationNone": "No library uses this location yet.",
+    "locationRemoveTitle": "Remove location",
+    "personalOf": "Personal · {{name}}",
+    "locationTitle": "Location",
+    "othersPersonal": "Other members' personal libraries",
+    "othersPersonalPrivate": "Private: their folders aren't shown to anyone else"
   },
   "tags": {
     "headDescription": "Free-form labels scanned from your files, across every library.",

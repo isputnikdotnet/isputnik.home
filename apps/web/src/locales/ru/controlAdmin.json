@@ -2073,7 +2073,15 @@
     "needsAppStorage": "Нужно хранилище приложения",
     "systemManageTitle": "Системные папки",
     "systemManageDescription": "Где хранятся база данных, миниатюры, резервные копии, метаданные и хранилище приложения.",
-    "openSettings": "Настройки"
+    "openSettings": "Настройки",
+    "locationFolder": "Папка",
+    "locationLibraries": "Библиотеки здесь",
+    "locationNone": "Это место пока не использует ни одна библиотека.",
+    "locationRemoveTitle": "Убрать место",
+    "personalOf": "Личная · {{name}}",
+    "locationTitle": "Место",
+    "othersPersonal": "Личные библиотеки других участников",
+    "othersPersonalPrivate": "Личные: их папки не видны другим"
   },
   "tags": {
     "headDescription": "Произвольные метки, найденные при сканировании файлов, во всех библиотеках.",
