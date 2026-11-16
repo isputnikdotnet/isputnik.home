@@ -159,16 +159,21 @@ describe("where personal libraries are made", () => {
     expect(within(dialog).getByText("Ann")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /^Role for Ann/ })).not.toBeInTheDocument();
 
-    // Add tab: search, tick, add.
+    // Add tab: search narrows the list.
     await user.click(within(dialog).getByRole("tab", { name: "Add" }));
-    await user.type(within(dialog).getByRole("searchbox", { name: "Search people or groups" }), "ki");
+    const search = within(dialog).getByRole("searchbox", { name: "Search people or groups" });
+    await user.type(search, "ki");
     expect(within(dialog).queryByText("Bo")).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("checkbox"));
-    await user.click(within(dialog).getByRole("button", { name: "Add 1" }));
-    await waitFor(() => expect(puts.at(-1)).toEqual(expect.objectContaining({ subjects: [{ type: "user", id: "u1" }, { type: "group", id: "g1" }] })));
+    await user.clear(search);
+
+    // Several ticked are all added — in one save, not each overwriting the last.
+    for (const box of within(dialog).getAllByRole("checkbox")) await user.click(box);
+    await user.click(within(dialog).getByRole("button", { name: "Add 2" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual(expect.objectContaining({ subjects: [{ type: "user", id: "u1" }, { type: "group", id: "g1" }, { type: "user", id: "u2" }] }));
 
     // Back on Access: × removes.
     await user.click(await within(dialog).findByRole("button", { name: "Remove Ann" }));
-    await waitFor(() => expect(puts.at(-1)).toEqual(expect.objectContaining({ subjects: [{ type: "group", id: "g1" }] })));
+    await waitFor(() => expect(puts.at(-1)).toEqual(expect.objectContaining({ subjects: [{ type: "group", id: "g1" }, { type: "user", id: "u2" }] })));
   });
 });

@@ -84,7 +84,7 @@ export function InboxReviewersModal({ onClose, onChanged }: { onClose: () => voi
             }}
             busy={busy}
             emptyHint={t("controlAdmin:appStorage.reviewers.nobody")}
-            onGrant={(subjectType, subjectId, granted) => void run(() =>
+            onGrant={(subjectType, subjectId, granted) => run(() =>
               api<ReviewersPayload>(REVIEWERS_URL, { method: "POST", body: JSON.stringify({ subjectType, subjectId, level: granted }) }))}
             onRevoke={(subjectType, subjectId) => void run(() =>
               api<ReviewersPayload>(`${REVIEWERS_URL}/${subjectType}/${encodeURIComponent(subjectId)}`, { method: "DELETE" }))}

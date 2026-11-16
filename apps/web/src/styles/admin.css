@@ -3598,6 +3598,10 @@ tr.control-anchor-flash > td {
 .stats-bar.is-warn > i { background: var(--warning); }
 /* A page's one action under its form (Make a library personal). */
 .device-sync-actions { display: flex; justify-content: flex-end; }
+/* Add network's second way in: every trusted network at once, quieter than Add. */
+.device-sync-copy { justify-self: start; }
+/* A popup's destructive extra (Clear address) sits apart, at the start of the row. */
+.modal-actions > .modal-actions-start { margin-right: auto; }
 /* The pager under a card's table; empty (and so gone) while it all fits on one page. */
 .stats-card-foot:empty { display: none; }
 .stats-card-foot { padding: 10px 18px 12px; border-top: 1px solid var(--line); }

@@ -154,7 +154,7 @@ export function FamilyTagAccessPanel() {
             }}
             busy={saving}
             emptyHint={t("family:tagAccess.noEditorsYet")}
-            onGrant={(subjectType, subjectId, role) => void grant(subjectType, subjectId, role as EditorRole)}
+            onGrant={(subjectType, subjectId, role) => grant(subjectType, subjectId, role as EditorRole)}
             onRevoke={(subjectType, subjectId) => void revoke(subjectType, subjectId)}
           />
         </>

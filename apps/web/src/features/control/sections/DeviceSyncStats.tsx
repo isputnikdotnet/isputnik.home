@@ -49,9 +49,9 @@ type Tone = "blue" | "gold" | "rose" | "mint" | "ok" | "warn";
 
 /** One card of the page: a coloured icon, a title, one line of what it adds up to,
  *  and its table edge to edge. */
-function Section({ title, summary, icon, tone, children }: { title: string; summary?: ReactNode; icon: ReactNode; tone: Tone; children: ReactNode }) {
+function Section({ id, title, summary, icon, tone, children }: { id?: string; title: string; summary?: ReactNode; icon: ReactNode; tone: Tone; children: ReactNode }) {
   return (
-    <section className="stats-card" aria-label={title}>
+    <section className="stats-card" id={id} aria-label={title}>
       <header className="stats-card-head">
         <span className={`stat-tile-icon is-${tone}`} aria-hidden="true">{icon}</span>
         <div>
@@ -79,8 +79,14 @@ function When({ text, quiet, none }: { text: string; quiet: boolean; none?: bool
   return <span className={`stats-when${none ? " is-none" : quiet ? " is-warn" : " is-ok"}`}><i aria-hidden="true" />{text}</span>;
 }
 
-export function DeviceSyncStats<P extends StatsPhone>({ phones, phoneName, onOpenPhone }: {
+export function DeviceSyncStats<P extends StatsPhone>({ phones, phoneName, phoneState, onOpenPhone, focusDevices = false, onFocused }: {
   phones: P[];
+  /** A phone in a word, and whether it wants a look — Device Sync's own wording
+   *  ("Not seen for 10 days", "Refused", "Library full"), so "need attention" says why. */
+  phoneState?: (phone: P) => { text: string; warn: boolean };
+  /** Open scrolled to Devices — where "need attention" is explained. */
+  focusDevices?: boolean;
+  onFocused?: () => void;
   phoneName: (phone: P) => string;
   onOpenPhone: (id: string) => void;
 }) {
@@ -91,6 +97,12 @@ export function DeviceSyncStats<P extends StatsPhone>({ phones, phoneName, onOpe
   const [error, setError] = useState("");
   // The clock read once, when the page opens: what counts as quiet holds still while it is open.
   const [now] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!focusDevices) return;
+    document.getElementById("stats-devices")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    onFocused?.();
+  }, [focusDevices, onFocused]);
 
   useEffect(() => {
     const since = new Date(Date.now() - 30 * DAY).toISOString();
@@ -187,6 +199,7 @@ export function DeviceSyncStats<P extends StatsPhone>({ phones, phoneName, onOpe
       </Section>
 
       <Section
+        id="stats-devices"
         icon={<Smartphone size={18} />}
         tone="blue"
         title={t("controlAdmin:deviceSync.statsDevices")}
@@ -213,7 +226,13 @@ export function DeviceSyncStats<P extends StatsPhone>({ phones, phoneName, onOpe
                 </td>
                 <td><Person name={phone.member.name} /></td>
                 <td>{phone.network ? <span className="stats-chip"><Wifi size={13} aria-hidden="true" /> {phone.network}</span> : <span className="datagrid-muted">—</span>}</td>
-                <td><When text={when(phone.lastSeen)} quiet={phone.stale || Boolean(phone.problem?.current)} none={!phone.lastSeen} /></td>
+                <td>{(() => {
+                  const state = phoneState?.(phone);
+                  // Wanting a look: the reason. Otherwise: when it last backed up.
+                  return state?.warn
+                    ? <When text={state.text} quiet none={false} />
+                    : <When text={when(phone.lastSeen)} quiet={phone.stale || Boolean(phone.problem?.current)} none={!phone.lastSeen} />;
+                })()}</td>
               </tr>
             ))}
           </tbody>

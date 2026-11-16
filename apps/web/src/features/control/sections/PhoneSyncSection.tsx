@@ -6,8 +6,9 @@ import { libraryManageHref, memberHref } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
-import { ActionRow, AddRow, CommandRow, FieldRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { ActionRow, AddRow, CommandRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
+import { Modal } from "../../../shared/Modal";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SettingsCard } from "../../../shared/SettingsCard";
 import { StatTiles } from "../../../shared/StatTiles";
@@ -120,6 +121,8 @@ export function PhoneSyncSection() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<OverviewPhone | null>(null);
+  // Set by the "need attention" link: Statistics opens scrolled to its devices.
+  const [focusDevices, setFocusDevices] = useState(false);
 
   const load = useCallback(async () => {
     const [phoneView, networkView, personalView] = await Promise.all([
@@ -320,24 +323,6 @@ export function PhoneSyncSection() {
     );
   }
 
-  // ── Add a network ──────────────────────────────────────────────────────────
-  if (show.page === "addNetwork") {
-    return <AddNetworkPage back={backToList} errors={errors} busy={busy} onAdd={(cidr, label) => act(() => api("/api/photo-sync/networks", { method: "POST", body: JSON.stringify({ cidr, label: label || undefined }) }), { page: "list" })} onCopy={() => act(() => api("/api/photo-sync/networks/copy-trusted", { method: "POST" }), { page: "list" })} />;
-  }
-
-  // ── The address phones use ─────────────────────────────────────────────────
-  if (show.page === "address") {
-    return (
-      <AddressPage
-        back={backToList}
-        errors={errors}
-        busy={busy}
-        view={networks}
-        onSave={(address) => act(() => api("/api/photo-sync/address", { method: "PUT", body: JSON.stringify({ address }) }), { page: "list" })}
-      />
-    );
-  }
-
   // ── Statistics ─────────────────────────────────────────────────────────────
   // A page of the tab (owner, 2026-11-16): who backs up, from what, into how much —
   // not a second log; every event stays in Logs, linked at its foot. Under the
@@ -349,7 +334,7 @@ export function PhoneSyncSection() {
         {backToList}
         <div className="device-sync-title"><h1>{t("controlAdmin:deviceSync.statsPage")}</h1></div>
         {errors}
-        <DeviceSyncStats phones={phones} phoneName={phoneName} onOpenPhone={(id) => go({ page: "phone", id })} />
+        <DeviceSyncStats phones={phones} phoneName={phoneName} phoneState={shortState} focusDevices={focusDevices} onFocused={() => setFocusDevices(false)} onOpenPhone={(id) => go({ page: "phone", id })} />
       </div>
     );
   }
@@ -420,7 +405,9 @@ export function PhoneSyncSection() {
               label: t("controlAdmin:phoneSyncPage.phonesHeading"),
               value: phones.length,
               sub: warnCount > 0 ? t("controlAdmin:deviceSync.needAttention", { count: warnCount }) : undefined,
-              tone: warnCount > 0 ? "warn" : undefined
+              tone: warnCount > 0 ? "warn" : undefined,
+              // Which phones, and why (not seen for a week, refused, full): Statistics' Devices.
+              onSubClick: warnCount > 0 ? () => { setFocusDevices(true); go({ page: "stats" }); } : undefined
             },
             {
               label: t("controlAdmin:personalLibraries.title"),
@@ -495,18 +482,42 @@ export function PhoneSyncSection() {
           </aside>
         </div>
       </div>
+
+      {/* ?show=address: the address phones use, a popup over the page. */}
+      {show.page === "address" && (
+        <AddressDialog
+          errors={errors}
+          busy={busy}
+          view={networks}
+          onClose={() => go({ page: "list" })}
+          onSave={(address) => act(() => api("/api/photo-sync/address", { method: "PUT", body: JSON.stringify({ address }) }), { page: "list" })}
+        />
+      )}
+
+      {/* ?show=add-network: the popup over the page (old links land here too). */}
+      {show.page === "addNetwork" && (
+        <AddNetworkDialog
+          errors={errors}
+          busy={busy}
+          onClose={() => go({ page: "list" })}
+          onAdd={(cidr, label) => act(() => api("/api/photo-sync/networks", { method: "POST", body: JSON.stringify({ cidr, label: label || undefined }) }), { page: "list" })}
+          onCopy={() => act(() => api("/api/photo-sync/networks/copy-trusted", { method: "POST" }), { page: "list" })}
+        />
+      )}
     </>
   );
 }
 
-function AddNetworkPage({ back, errors, busy, onAdd, onCopy }: {
-  back: React.ReactNode;
+/** Add a phone-backup network: a popup over Device Sync (owner, 2026-11-16) — the
+ *  range and an optional name, or every trusted sign-in network at once. */
+function AddNetworkDialog({ errors, busy, onAdd, onCopy, onClose }: {
   errors: React.ReactNode;
   busy: boolean;
   onAdd: (cidr: string, label: string) => Promise<unknown>;
   onCopy: () => Promise<unknown>;
+  onClose: () => void;
 }) {
-  const { t } = useTranslation(["controlAdmin", "control"]);
+  const { t } = useTranslation(["controlAdmin", "control", "common"]);
   const [cidr, setCidr] = useState("");
   const [label, setLabel] = useState("");
   const submit = (event: FormEvent) => {
@@ -514,52 +525,61 @@ function AddNetworkPage({ back, errors, busy, onAdd, onCopy }: {
     if (cidr.trim()) void onAdd(cidr.trim(), label.trim());
   };
   return (
-    <form className="device-sync" onSubmit={submit}>
-      {back}
-      <div className="device-sync-title"><h1>{t("controlAdmin:phoneSync.add")}</h1></div>
+    <Modal title={t("controlAdmin:phoneSync.add")} busy={busy} onClose={onClose} onSubmit={submit}>
+      <p className="muted">{t("controlAdmin:deviceSync.addNote")}</p>
       {errors}
-      <GroupedList note={t("controlAdmin:deviceSync.addNote")}>
-        <FieldRow><Field label={t("controlAdmin:security.cidrLabel")} value={cidr} onChange={setCidr} placeholder="192.168.2.0/24" /></FieldRow>
-        <FieldRow><Field label={t("controlAdmin:security.labelOptional")} value={label} onChange={setLabel} placeholder={t("controlAdmin:phoneSync.labelPlaceholder")} required={false} /></FieldRow>
-      </GroupedList>
-      <GroupedList>
-        <Button variant="bare" type="submit" className="grouped-row grouped-row-action is-accent" disabled={busy || !cidr.trim()}>
+      <Field label={t("controlAdmin:security.cidrLabel")} value={cidr} onChange={setCidr} placeholder="192.168.2.0/24" />
+      <Field label={t("controlAdmin:security.labelOptional")} value={label} onChange={setLabel} placeholder={t("controlAdmin:phoneSync.labelPlaceholder")} required={false} />
+      <Button variant="text" compact className="device-sync-copy" disabled={busy} onClick={() => void onCopy()}>
+        {busy ? t("controlAdmin:phoneSync.copying") : t("controlAdmin:phoneSync.copyTrusted")}
+      </Button>
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
+        <Button variant="primary" type="submit" disabled={busy || !cidr.trim()}>
           {busy ? t("controlAdmin:security.adding") : t("controlAdmin:phoneSync.add")}
         </Button>
-        <ActionRow label={busy ? t("controlAdmin:phoneSync.copying") : t("controlAdmin:phoneSync.copyTrusted")} disabled={busy} onClick={() => void onCopy()} />
-      </GroupedList>
-    </form>
+      </div>
+    </Modal>
   );
 }
 
-function AddressPage({ back, errors, busy, view, onSave }: {
-  back: React.ReactNode;
+/** The address phones use: a popup over Device Sync (owner, 2026-11-16) — the URL,
+ *  a warning while it is outside the allowed networks, Save, and Clear. */
+function AddressDialog({ errors, busy, view, onSave, onClose }: {
   errors: React.ReactNode;
   busy: boolean;
   view: NetworksView;
   onSave: (address: string | null) => Promise<unknown>;
+  onClose: () => void;
 }) {
-  const { t } = useTranslation(["controlAdmin", "control"]);
+  const { t } = useTranslation(["controlAdmin", "control", "common"]);
   const [address, setAddress] = useState(view.address ?? "");
   // The server validates it properly; this only keeps Save off for an obvious non-URL.
   const valid = /^https?:\/\//i.test(address.trim());
   return (
-    <form className="device-sync" onSubmit={(event) => { event.preventDefault(); if (valid) void onSave(address.trim()); }}>
-      {back}
-      <div className="device-sync-title"><h1>{t("controlAdmin:phoneSync.addressHeading")}</h1></div>
+    <Modal
+      title={t("controlAdmin:phoneSync.addressHeading")}
+      busy={busy}
+      onClose={onClose}
+      onSubmit={(event) => { event.preventDefault(); if (valid) void onSave(address.trim()); }}
+    >
+      <p className="muted">{t("controlAdmin:phoneSync.addressDesc")}</p>
       {errors}
       {view.address && view.addressOutsideNetworks && (
         <MessageBox tone="warning" title={t("controlAdmin:phoneSync.outsideTitle")}>{t("controlAdmin:phoneSync.outsideBody")}</MessageBox>
       )}
-      <GroupedList note={t("controlAdmin:phoneSync.addressDesc")}>
-        <FieldRow><Field label={t("controlAdmin:phoneSync.addressLabel")} value={address} onChange={setAddress} placeholder="http://192.168.2.10:4000" required={false} /></FieldRow>
-      </GroupedList>
-      <GroupedList>
-        <Button variant="bare" type="submit" className="grouped-row grouped-row-action is-accent" disabled={busy || !valid}>
+      <Field label={t("controlAdmin:phoneSync.addressLabel")} value={address} onChange={setAddress} placeholder="http://192.168.2.10:4000" required={false} />
+      <div className="modal-actions">
+        {view.address && (
+          <Button variant="secondary" danger className="modal-actions-start" disabled={busy} onClick={() => void onSave(null)}>
+            {t("controlAdmin:phoneSync.clearAddress")}
+          </Button>
+        )}
+        <Button variant="secondary" onClick={onClose} disabled={busy}>{t("common:common.cancel")}</Button>
+        <Button variant="primary" type="submit" disabled={busy || !valid}>
           {busy ? t("controlAdmin:phoneSync.saving") : t("controlAdmin:phoneSync.saveAddress")}
         </Button>
-        {view.address && <ActionRow tone="danger" label={t("controlAdmin:phoneSync.clearAddress")} disabled={busy} onClick={() => void onSave(null)} />}
-      </GroupedList>
-    </form>
+      </div>
+    </Modal>
   );
 }

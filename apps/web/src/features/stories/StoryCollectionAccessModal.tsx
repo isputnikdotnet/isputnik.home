@@ -85,7 +85,7 @@ export function StoryCollectionAccessModal({
               }))
             }}
             busy={busy}
-            onGrant={(subjectType, subjectId, granted) => void run(() =>
+            onGrant={(subjectType, subjectId, granted) => run(() =>
               api(`/api/stories/collections/${collectionId}/access`, {
                 method: "POST",
                 body: JSON.stringify({ subjectType, subjectId, role: granted })

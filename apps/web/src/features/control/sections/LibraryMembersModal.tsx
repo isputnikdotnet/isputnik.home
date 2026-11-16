@@ -166,7 +166,7 @@ export function LibraryMembersModal({
           }}
           busy={saving}
           emptyHint={t("control:libraryMembers.noMembersYet")}
-          onGrant={(subjectType, subjectId, role) => void addGrant(subjectType, subjectId, role as LibraryRole)}
+          onGrant={(subjectType, subjectId, role) => addGrant(subjectType, subjectId, role as LibraryRole)}
           onRevoke={(subjectType, subjectId) => void revoke(subjectType, subjectId)}
         />
       )}

@@ -125,6 +125,7 @@ export function AccessControl({
   busy = false,
   defaultRole,
   onGrant,
+  onGrantMany,
   onRevoke,
   showLegend = true,
   emptyHint
@@ -141,7 +142,11 @@ export function AccessControl({
   busy?: boolean;
   /** Which role Add starts on. Defaults to the first listed. */
   defaultRole?: string;
-  onGrant: (subjectType: "user" | "group", subjectId: string, role: string) => void;
+  /** One grant. Return its promise: Add with several ticked waits for each in turn. */
+  onGrant: (subjectType: "user" | "group", subjectId: string, role: string) => void | Promise<unknown>;
+  /** Several at once, in one save — for a place that saves its whole list (personal
+   *  libraries), where one grant at a time would each overwrite the last. */
+  onGrantMany?: (subjects: { subjectType: "user" | "group"; subjectId: string }[], role: string) => void | Promise<unknown>;
   onRevoke: (subjectType: "user" | "group", subjectId: string) => void;
   /** Offer "Roles" — what each role may do. */
   showLegend?: boolean;
@@ -177,11 +182,15 @@ export function AccessControl({
     return next;
   });
 
-  const add = () => {
-    for (const key of picked) {
+  // Everyone ticked, not just the first: in one save where the place takes a list,
+  // else one grant at a time, each waiting for the last so none overwrites another.
+  const add = async () => {
+    const subjects = [...picked].flatMap((key) => {
       const [subjectType, subjectId] = key.split(":");
-      if ((subjectType === "user" || subjectType === "group") && subjectId) onGrant(subjectType, subjectId, newRole);
-    }
+      return (subjectType === "user" || subjectType === "group") && subjectId ? [{ subjectType, subjectId } as const] : [];
+    });
+    if (onGrantMany) await onGrantMany(subjects, newRole);
+    else for (const subject of subjects) await onGrant(subject.subjectType, subject.subjectId, newRole);
     setPicked(new Set());
     setQuery("");
     setTab("access");
@@ -313,7 +322,7 @@ export function AccessControl({
             {!toggle
               ? <RoleSelect value={newRole} options={roles} label={t("common:access.roleToGrant")} disabled={busy} onChange={setNewRole} />
               : <span />}
-            <Button variant="primary" compact onClick={add} disabled={busy || picked.size === 0}>
+            <Button variant="primary" compact onClick={() => void add()} disabled={busy || picked.size === 0}>
               {picked.size ? t("common:access.addCount", { count: picked.size }) : t("common:access.add")}
             </Button>
           </>
