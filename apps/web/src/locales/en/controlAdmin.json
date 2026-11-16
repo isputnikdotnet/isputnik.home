@@ -633,8 +633,6 @@
       "step2Body": "Its address on the shared Docker network, and whether it answers there.",
       "step3Body": "Made here; it proves to the container that a request came from this server.",
       "step4Body": "Set this variable on the container, then apply the change.",
-      "stepsText": "Pairing {{app}} with iSputnik\n1. On iSputnik's Pairing page, save the address: {{url}}\n2. Generate the shared secret there and copy it (it is shown once).\n3. On the {{app}} container, set {{variable}} to that secret, then apply the template.\n4. Back on the Pairing page, press Test connection.",
-      "copySteps": "Copy setup steps",
       "viewHelp": "View help",
       "secretIsSet": "Secret is set",
       "secretHidden": "Secret, hidden",

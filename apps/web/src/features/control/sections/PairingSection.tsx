@@ -61,7 +61,7 @@ export function PairingSection() {
   const [error, setError] = useState("");
   const [tested, setTested] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [copied, setCopied] = useState<"secret" | "steps" | null>(null);
+  const [copied, setCopied] = useState(false);
   const [address, setAddress] = useState("");
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState("");
@@ -133,11 +133,11 @@ export function PairingSection() {
     }
   };
 
-  const copy = async (text: string, what: "secret" | "steps") => {
+  const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(what);
-      window.setTimeout(() => setCopied(null), 1600);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
     } catch {
       /* no clipboard (an insecure LAN origin): the text can still be selected */
     }
@@ -260,11 +260,6 @@ export function PairingSection() {
 
   // ── Setup: four steps, then test them ─────────────────────────────────────
   if (setup) {
-    const steps = t("controlAdmin:apps.pairing.stepsText", {
-      app: name,
-      url: current.url ?? current.exampleUrl,
-      variable: current.variables.container
-    });
     return (
       <>
         {head()}
@@ -311,9 +306,9 @@ export function PairingSection() {
                 <MessageBox tone="warning" title={t("controlAdmin:apps.setup.shownOnce")}>{null}</MessageBox>
                 <div className="pairing-secret-row">
                   <code className="pairing-secret-value">{shown}</code>
-                  <Button variant="secondary" onClick={() => void copy(shown, "secret")}>
-                    {copied === "secret" ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
-                    {copied === "secret" ? t("controlAdmin:games.copied") : t("controlAdmin:games.copy")}
+                  <Button variant="secondary" onClick={() => void copy(shown)}>
+                    {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+                    {copied ? t("controlAdmin:games.copied") : t("controlAdmin:games.copy")}
                   </Button>
                 </div>
               </div>
@@ -350,10 +345,6 @@ export function PairingSection() {
           <Button variant="primary" disabled={testing} onClick={() => void runTest()}>
             <RefreshCw size={16} aria-hidden="true" />
             {testing ? t("controlAdmin:apps.setup.testing") : t("controlAdmin:apps.setup.test")}
-          </Button>
-          <Button variant="secondary" onClick={() => void copy(steps, "steps")}>
-            {copied === "steps" ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
-            {copied === "steps" ? t("controlAdmin:games.copied") : t("controlAdmin:apps.pairing.copySteps")}
           </Button>
           <a className="pairing-help" href={helpHref} onClick={(event) => followRoute(event, helpHref)}>
             <CircleHelp size={17} aria-hidden="true" />
