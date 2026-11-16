@@ -1,24 +1,28 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, KeyRound, SkipForward } from "lucide-react";
+import { BarChart3, Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, Info, KeyRound, ListChecks, Monitor, Play, PlayCircle, ScrollText, SkipForward, Tag, Wrench } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref } from "../../../router";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { ActionRow, GroupedList, InfoRow, InputRow, NavRow, NavToggleRow, PickerRow, ToggleRow } from "../../../shared/GroupedList";
 import { ActionMenu } from "../../../shared/ActionMenu";
+import { Button } from "../../../shared/Button";
+import { SettingsCard } from "../../../shared/SettingsCard";
 import { MessageBox } from "../../../shared/MessageBox";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
 import { KEEP_READY_URL, type KeepReadyState } from "../../video/KeepReadyModal";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { activityHref, logsHref, tasksHref } from "../links";
 import { isRunning, useAppsStatus } from "./AppsSection";
 import { HardwareTestPage, HardwareTestRow } from "./VideoHardwareTest";
 
 // Applications › Videos › Settings: the video engine's own settings, laid out like a
-// phone's Settings (control panel v2). The page is a short overview — each topic one
-// row saying how it stands, the two most-used settings (quality away from home, and
-// finding intros) right on it — and each topic opens a page of its own
+// phone's Settings (control panel v2). The page is a short overview — four cards in a
+// grid (Playback & quality, Metadata & catalogue, Downloads & offline, Activity &
+// diagnostics), each topic one row saying how it stands, the two most-used settings
+// (quality away from home, and finding intros) right on it — and each topic opens a page of its own
 // (?show=conversion|metadata|copies|detection) with its explanation and controls.
 // Everything saves as it changes. All of it lives in the engine and is read and
 // saved through the gateway, so the page needs the engine answering, and a setting
@@ -274,13 +278,16 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   const meta = metadata.state;
 
   return (
-    <div className="grouped-page">
+    <>
       {errors}
       {conv && !conv.available && (
         <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
       )}
 
-      <GroupedList id="video-conversion" title={t("controlAdmin:apps.videoSettings.groupPlayback")} note={quality !== undefined ? t("controlAdmin:apps.videoSettings.remoteQualityNote") : undefined}>
+      <div className="settings-card-grid">
+      <SettingsCard id="video-conversion" icon={<PlayCircle size={20} />} title={t("controlAdmin:apps.videoSettings.cardPlayback")} description={t("controlAdmin:apps.videoSettings.cardPlaybackBody")}
+        note={quality !== undefined ? t("controlAdmin:apps.videoSettings.remoteQualityNote") : undefined}>
+      <GroupedList>
         <NavRow
           icon={<Cpu size={17} />}
           iconTone={!conv ? "muted" : conv.available ? "ok" : "warn"}
@@ -292,7 +299,9 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
         {conv?.available && <HardwareTestRow prefix={prefix} onOpen={() => go("hardware")} />}
         {conv && quality !== undefined && (
           <PickerRow
+            icon={<Monitor size={17} />}
             label={t("controlAdmin:apps.conversion.remoteQualityLabel")}
+            sub={t("controlAdmin:apps.videoSettings.remoteQualitySub")}
             value={quality === null ? "original" : String(quality)}
             options={REMOTE_QUALITIES.map((value) => ({
               value,
@@ -303,9 +312,11 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
           />
         )}
       </GroupedList>
+      </SettingsCard>
 
       {(meta || det) && (
-        <GroupedList id="video-metadata" title={t("controlAdmin:apps.videoSettings.groupLibrary")}>
+        <SettingsCard id="video-metadata" icon={<Tag size={20} />} title={t("controlAdmin:apps.videoSettings.cardCatalogue")} description={t("controlAdmin:apps.videoSettings.cardCatalogueBody")}>
+        <GroupedList>
           {meta && (
             <NavRow
               icon={<ImageIcon size={17} />}
@@ -330,10 +341,12 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
             />
           )}
         </GroupedList>
+        </SettingsCard>
       )}
 
       {cop && (
-        <GroupedList id="video-copies" title={t("controlAdmin:apps.videoSettings.groupDownloads")}>
+        <SettingsCard id="video-copies" icon={<Download size={20} />} title={t("controlAdmin:apps.videoSettings.cardDownloads")} description={t("controlAdmin:apps.videoSettings.cardDownloadsBody")}>
+        <GroupedList>
           <NavRow
             icon={<Download size={17} />}
             label={t("controlAdmin:apps.copies.title")}
@@ -351,8 +364,33 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
             />
           )}
         </GroupedList>
+        </SettingsCard>
       )}
-    </div>
+
+      {/* What the engine is doing: Infrastructure's pages, narrowed to Videos, and
+          the hardware test, which is the engine's own check. */}
+      <SettingsCard id="video-activity" icon={<Wrench size={20} />} title={t("controlAdmin:apps.videoSettings.cardActivity")} description={t("controlAdmin:apps.videoSettings.cardActivityBody")}>
+        <GroupedList>
+          <NavRow icon={<BarChart3 size={17} />} label={t("controlAdmin:apps.videoSettings.activityRow")} sub={t("controlAdmin:apps.videoSettings.activitySub")} href={activityHref({ application: "videos" })} />
+          <NavRow icon={<ListChecks size={17} />} label={t("controlAdmin:apps.videoSettings.tasksRow")} sub={t("controlAdmin:apps.videoSettings.tasksSub")} href={tasksHref({ application: "videos" })} />
+          <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:apps.videoSettings.logsRow")} sub={t("controlAdmin:apps.videoSettings.logsSub")} href={logsHref({ application: "videos" })} />
+        </GroupedList>
+        {conv?.available && (
+          <div className="settings-card-actions">
+            <Button variant="secondary" compact onClick={() => go("hardware")}>
+              <Play size={14} aria-hidden="true" />
+              {t("controlAdmin:apps.videoSettings.runTests")}
+            </Button>
+          </div>
+        )}
+      </SettingsCard>
+      </div>
+
+      <p className="settings-page-note">
+        <Info size={17} aria-hidden="true" />
+        <span>{t("controlAdmin:apps.videoSettings.pageNote")}</span>
+      </p>
+    </>
   );
 }
 

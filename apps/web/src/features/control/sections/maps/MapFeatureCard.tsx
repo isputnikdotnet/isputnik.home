@@ -1,11 +1,11 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { InfoHint } from "../../../../shared/InfoHint";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
 
-// One feature on the Maps page, as a group of rows like a phone's Settings (control
-// panel v2): the switch row, then the same three facts every feature gives — where
-// the data comes from, how it gets here, and what it costs — then anything else the
-// feature needs as rows of its own; what it does is the line under the group.
+// One feature on the Maps page, as a settings card (shared/SettingsCard's look): its
+// icon, name and what it does, with the switch beside them; then the same three facts
+// every feature gives — where the data comes from, how it gets here, and what it
+// costs — then anything else the feature needs as rows of its own.
 export function MapFeatureCard({
   id,
   icon,
@@ -33,20 +33,23 @@ export function MapFeatureCard({
   facts: { label: string; value: ReactNode }[];
   children?: ReactNode;
 }) {
+  const headingId = useId();
   return (
-    <section id={id} className="map-feature grouped-list" aria-label={title}>
-      <div className="grouped-list-rows">
-        <div className="grouped-row map-feature-head">
-          <span className="grouped-row-icon" aria-hidden="true">{icon}</span>
-          <span className="grouped-row-label map-feature-title">
-            {/* A heading, so the page reads as its features (and search and tests find them). */}
-            <h3 className="map-feature-name">
-              {title}
-              <InfoHint label={infoLabel}>{info}</InfoHint>
-            </h3>
-          </span>
-          <ToggleSwitch checked={checked} disabled={disabled} onChange={onToggle} ariaLabel={title} />
+    <section id={id} className="settings-card map-feature-card" aria-labelledby={headingId}>
+      <header className="settings-card-head">
+        <span className="settings-card-icon" aria-hidden="true">{icon}</span>
+        <div className="map-feature-title">
+          {/* A heading, so the page reads as its features (and search and tests find them). */}
+          <h3 id={headingId} className="map-feature-name">
+            {title}
+            <InfoHint label={infoLabel}>{info}</InfoHint>
+          </h3>
+          <p>{description}</p>
         </div>
+        <ToggleSwitch checked={checked} disabled={disabled} onChange={onToggle} ariaLabel={title} />
+      </header>
+      <div className="map-feature grouped-list">
+      <div className="grouped-list-rows">
         {facts.map((fact) => (
           <div key={fact.label} className="grouped-row map-feature-fact">
             <span className="grouped-row-label"><strong>{fact.label}</strong></span>
@@ -55,7 +58,7 @@ export function MapFeatureCard({
         ))}
         {children}
       </div>
-      <p className="grouped-list-note">{description}</p>
+      </div>
     </section>
   );
 }

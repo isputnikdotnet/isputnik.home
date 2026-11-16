@@ -216,8 +216,7 @@ export function HardwareTestRow({ prefix, onOpen }: { prefix: string; onOpen: ()
       icon={<Gauge size={17} />}
       iconTone={last?.phase === "done" ? "ok" : "muted"}
       label={t("controlAdmin:apps.hardwareTest.title")}
-      sub={t("controlAdmin:apps.hardwareTest.overviewSub")}
-      value={value}
+      sub={value ?? t("controlAdmin:apps.hardwareTest.overviewSub")}
       onClick={onOpen}
     />
   );

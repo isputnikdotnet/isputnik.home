@@ -219,7 +219,9 @@
     "recordingsGroup": "Narration",
     "recipesGroup": "Recipes",
     "recordingsRow": "Recordings go to",
-    "notSet": "Not set — recording is off"
+    "notSet": "Not set — recording is off",
+    "recordingsCardBody": "Where voice recordings of stories are kept.",
+    "recipesCardBody": "Recipes brought in from other sites."
   },
   "apps": {
     "loadFailed": "Unable to read the apps",
@@ -428,7 +430,24 @@
       "copiesValue": "{{used}} of {{limit}}",
       "detectionOff": "Off",
       "detectionWorking": "Looking at {{title}}",
-      "detectionIdle": "On · nothing waiting"
+      "detectionIdle": "On · nothing waiting",
+      "cardPlayback": "Playback & quality",
+      "cardPlaybackBody": "Video conversion, performance and streaming quality.",
+      "cardCatalogue": "Metadata & catalogue",
+      "cardCatalogueBody": "Posters, descriptions and video segments.",
+      "cardDownloads": "Downloads & offline",
+      "cardDownloadsBody": "Copies for offline use, and when they are prepared.",
+      "cardActivity": "Activity & diagnostics",
+      "cardActivityBody": "Activity, background tasks and troubleshooting tools.",
+      "remoteQualitySub": "Limit streaming quality when watching remotely.",
+      "activityRow": "Activity",
+      "activitySub": "Views, streams and recent usage.",
+      "tasksRow": "Tasks",
+      "tasksSub": "Background jobs such as conversions and metadata updates.",
+      "logsRow": "Logs",
+      "logsSub": "Detailed system and video engine logs.",
+      "runTests": "Run tests",
+      "pageNote": "These settings affect how Videos prepares media for playback and downloads."
     },
     "copies": {
       "title": "Copies for download",

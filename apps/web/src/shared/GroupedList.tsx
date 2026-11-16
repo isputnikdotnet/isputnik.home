@@ -281,6 +281,7 @@ export function InputRow({
  *  choice on the right. A native select underneath, so a phone opens its own wheel.
  *  Saves on change. */
 export function PickerRow({
+  icon,
   label,
   sub,
   value,
@@ -289,6 +290,7 @@ export function PickerRow({
   disabled = false,
   ariaLabel
 }: {
+  icon?: ReactNode;
   label: ReactNode;
   sub?: ReactNode;
   value: string;
@@ -302,6 +304,7 @@ export function PickerRow({
   const labelId = useId();
   return (
     <label className={`grouped-row grouped-row-input grouped-row-picker${disabled ? " is-disabled" : ""}`}>
+      {icon && <span className="grouped-row-icon" aria-hidden="true">{icon}</span>}
       <span className="grouped-row-label">
         <strong id={labelId}>{label}</strong>
         {sub && <small>{sub}</small>}

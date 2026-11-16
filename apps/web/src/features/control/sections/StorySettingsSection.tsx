@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderOpen, Mic } from "lucide-react";
+import { ChefHat, FolderOpen, Mic } from "lucide-react";
 import { api } from "../../../api";
 import { GroupedList, NavRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
+import { SettingsCard } from "../../../shared/SettingsCard";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { storageHref } from "../links";
 
@@ -85,11 +86,14 @@ export function StorySettingsSection() {
         {loading ? (
           <p className="muted">{t("controlAdmin:ui.loading")}</p>
         ) : (
-          <>
-            <GroupedList
+          <div className="settings-card-grid">
+            <SettingsCard
+              icon={<Mic size={20} />}
               title={t("controlAdmin:storySettings.recordingsGroup")}
+              description={t("controlAdmin:storySettings.recordingsCardBody")}
               note={<>{t("controlAdmin:storySettings.intro")}{pendingNote && <><br /><br />{pendingNote}</>}</>}
             >
+            <GroupedList>
               {/* Chosen on System Settings › Storage's App storage card. */}
               <NavRow
                 icon={<FolderOpen size={17} />}
@@ -100,8 +104,11 @@ export function StorySettingsSection() {
                 href={storageHref("app-storage")}
               />
             </GroupedList>
+            </SettingsCard>
 
-            <GroupedList title={t("controlAdmin:storySettings.recipesGroup")} note={t("controlAdmin:storySettings.recipeImportNote")}>
+            <SettingsCard icon={<ChefHat size={20} />} title={t("controlAdmin:storySettings.recipesGroup")} description={t("controlAdmin:storySettings.recipesCardBody")}
+              note={t("controlAdmin:storySettings.recipeImportNote")}>
+            <GroupedList>
               <ToggleRow
                 label={t("controlAdmin:storySettings.recipeImportLabel")}
                 checked={recipeImport}
@@ -109,7 +116,8 @@ export function StorySettingsSection() {
                 onChange={(next) => void changeRecipeImport(next)}
               />
             </GroupedList>
-          </>
+            </SettingsCard>
+          </div>
         )}
       </div>
     </>

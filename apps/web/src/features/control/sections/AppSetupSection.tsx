@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, AlertTriangle, ArrowRight, BookOpen, CheckCircle2, Eye, Film, FolderOpen, GitFork, Library, Link2, ListChecks, Plug, Power, ScrollText, Settings2, ShieldCheck, Smartphone, Users, Archive } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, BookOpen, Database, Layers, CheckCircle2, Eye, Film, FolderOpen, GitFork, Library, Link2, ListChecks, Plug, Power, ScrollText, Settings2, ShieldCheck, Smartphone, Users, Archive } from "lucide-react";
 import { controlHref, followRoute, followReplace, type ControlSection } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { GroupedList, NavRow, ToggleRow } from "../../../shared/GroupedList";
@@ -56,44 +56,65 @@ export function ApplicationStatusPill({ status, gap, container }: {
   return <span className={`app-status-pill is-${status}`}>{label}</span>;
 }
 
-/** The one-line summary: "3 libraries · 412 GB · connected". */
-export function useSummary() {
+/** The summary's parts — libraries, size, connection — each with what it is. */
+type SummaryPart = { kind: "libraries" | "size" | "connection"; text: string; tone?: "warn" };
+function useSummaryParts() {
   const { t } = useTranslation(["control"]);
-  return (key: AppKey, state: ApplicationState): string => {
-    const parts: string[] = [];
-    if (state.libraries) parts.push(t("control:appSetup.summaryLibraries", { count: state.libraries.length }));
-    if (state.sizeBytes !== null && state.sizeComplete) parts.push(formatBytes(state.sizeBytes));
+  return (key: AppKey, state: ApplicationState): SummaryPart[] => {
+    const parts: SummaryPart[] = [];
+    if (state.libraries) parts.push({ kind: "libraries", text: t("control:appSetup.summaryLibraries", { count: state.libraries.length }) });
+    if (state.sizeBytes !== null && state.sizeComplete) parts.push({ kind: "size", text: formatBytes(state.sizeBytes) });
     // Only a container it cannot work without: Gallery's face engine is optional.
     if (state.status !== "unavailable" && APP_PARTS[key].container && !APP_PARTS[key].containerOptional) {
-      parts.push(containerRunning(state.container) ? t("control:appSetup.summaryConnected") : t("control:appSetup.summaryNotConnected"));
+      const running = containerRunning(state.container);
+      parts.push({ kind: "connection", text: running ? t("control:appSetup.summaryConnected") : t("control:appSetup.summaryNotConnected"), tone: running ? undefined : "warn" });
     }
-    return parts.join(" · ");
+    return parts;
   };
 }
 
-/** Above a workspace's other tabs: whether the application is ready, in a line,
- *  with the way back to Setup — Setup shrinks to this once it is done. */
+/** The one-line summary: "3 libraries · 412 GB · connected". */
+export function useSummary() {
+  const parts = useSummaryParts();
+  return (key: AppKey, state: ApplicationState): string => parts(key, state).map((part) => part.text).join(" · ");
+}
+
+const SUMMARY_ICONS: Record<SummaryPart["kind"], typeof Layers> = { libraries: Layers, size: Database, connection: Link2 };
+
+/** Above a workspace's other tabs: whether the application is ready and what it
+ *  holds — a segment each, with its icon — then its activity and the way back to
+ *  the Overview. The Overview shrinks to this once it is done. */
 export function WorkspaceStatusLine({ app }: { app: Exclude<AppKey, "shared"> }) {
   const { t } = useTranslation(["control"]);
   const { data } = useApplicationsData();
-  const summary = useSummary();
+  const parts = useSummaryParts();
   if (!data) return null;
   const state = applicationState(app, data);
   const href = controlHref(SETUP_SECTION[app]);
   return (
     <div className={`workspace-status-line is-${state.status ?? "ready"}`}>
-      <ApplicationStatusPill status={state.status} gap={state.gap} container={state.container} />
-      <span>{summary(app, state)}</span>
-      {APP_LOG_PREFIXES[app] && (
-        <a href={activityHref({ application: app })} onClick={(event) => followRoute(event, activityHref({ application: app }))}>
-          {t("control:appSetup.viewActivity", { app: appLabel(app) })}
-          <ArrowRight size={14} aria-hidden="true" />
+      <span className="workspace-status-state">
+        <ApplicationStatusPill status={state.status} gap={state.gap} container={state.container} />
+      </span>
+      <ul className="workspace-status-parts">
+        {parts(app, state).map((part) => {
+          const Icon = SUMMARY_ICONS[part.kind];
+          return <li key={part.kind} className={part.tone ? `is-${part.tone}` : undefined}><Icon size={16} aria-hidden="true" />{part.text}</li>;
+        })}
+      </ul>
+      <span className="workspace-status-links">
+        {APP_LOG_PREFIXES[app] && (
+          <a href={activityHref({ application: app })} onClick={(event) => followRoute(event, activityHref({ application: app }))}>
+            <BarChart3 size={15} aria-hidden="true" />
+            {t("control:appSetup.viewActivity", { app: appLabel(app) })}
+            <ArrowRight size={14} aria-hidden="true" />
+          </a>
+        )}
+        <a href={href} onClick={(event) => followReplace(event, href)}>
+          <ArrowLeft size={15} aria-hidden="true" />
+          {state.status === "ready" ? t("control:appSetup.reviewSetup") : t("control:appSetup.openSetup")}
         </a>
-      )}
-      <a href={href} onClick={(event) => followReplace(event, href)}>
-        {state.status === "ready" ? t("control:appSetup.reviewSetup") : t("control:appSetup.openSetup")}
-        <ArrowRight size={14} aria-hidden="true" />
-      </a>
+      </span>
     </div>
   );
 }

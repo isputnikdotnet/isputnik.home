@@ -2784,33 +2784,41 @@ tr.control-anchor-flash > td {
 .app-status-pill.is-needsSetup { color: var(--warning); }
 .app-status-pill.is-off, .app-status-pill.is-unavailable { color: var(--muted); }
 
+/* One strip of segments split by hairlines: the state (a dot and its word), what the
+   application holds (an icon each), then its activity and the way back. */
 .workspace-status-line {
+  --tone: var(--success);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 14px;
+  gap: 8px 0;
   margin: 0 0 18px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--success) 7%, transparent);
+  border-radius: 12px;
+  background: var(--surface);
   font-size: var(--text-sm);
 }
+.workspace-status-line.is-needsSetup { --tone: var(--warning); }
+.workspace-status-line.is-off, .workspace-status-line.is-unavailable { --tone: var(--muted); }
 
-.workspace-status-line.is-needsSetup { background: color-mix(in srgb, var(--warning) 9%, transparent); }
-.workspace-status-line.is-off, .workspace-status-line.is-unavailable { background: var(--surface-2); }
+.workspace-status-state { display: inline-flex; align-items: center; gap: 8px; padding-right: 16px; }
+/* The pill reads as the state's word here, coloured, without its capsule. */
+.workspace-status-state .app-status-pill { gap: 8px; padding: 0; border: 0; background: none; color: var(--tone); font-size: var(--text-sm); font-weight: 650; }
+.workspace-status-state .app-status-pill::before { width: 9px; height: 9px; flex-basis: 9px; }
 
-.workspace-status-line > span:not(.app-status-pill) {
-  flex: 1 1 200px;
-  min-width: 0;
-  color: var(--muted);
-}
+.workspace-status-parts { display: flex; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; list-style: none; color: var(--muted); }
+.workspace-status-parts > li { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-left: 1px solid var(--line); }
+.workspace-status-parts > li.is-warn { color: var(--warning); }
 
-.workspace-status-line > a {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 600;
+.workspace-status-links { display: inline-flex; flex-wrap: wrap; align-items: center; margin-left: auto; }
+.workspace-status-links > a { display: inline-flex; align-items: center; gap: 6px; padding: 0 0 0 16px; font-weight: 600; }
+.workspace-status-links > a + a { margin-left: 16px; border-left: 1px solid var(--line); }
+
+@media (max-width: 740px) {
+  .workspace-status-parts > li { padding: 0 10px; }
+  .workspace-status-links { width: 100%; margin-left: 0; }
+  .workspace-status-links > a:first-child { padding-left: 0; }
 }
 
 /* ── Control panel v2 Dashboard (phase 4) ───────────────────────────────────

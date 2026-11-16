@@ -365,6 +365,33 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
   background: var(--active);
 }
 .settings-card > .grouped-list { margin: 0; }
+/* A Settings tab: its cards two to a row, each row as tall as its taller card. */
+.settings-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+@media (max-width: 1100px) { .settings-card-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* A button under a card's rows ("Run tests"). */
+.settings-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* One line under a page of cards, saying what the page as a whole affects. */
+.settings-page-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.settings-page-note > svg { flex: none; color: var(--accent); }
+
 /* A card is half the page wide: a value keeps its own width and wraps, rather than
    being cut to "Not mea…" beside a row with a long sub line. */
 .settings-card .grouped-row:not(.grouped-row-summary) .grouped-row-value { flex: 0 0 auto; max-width: 45%; white-space: normal; overflow-wrap: break-word; }
