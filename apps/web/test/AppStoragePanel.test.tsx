@@ -223,19 +223,21 @@ describe("while on", () => {
 });
 
 describe("the Storage page", () => {
-  it("shows Your media and App storage, then System data, with a line for the Recycle Bin", async () => {
+  it("lists the system folder and what goes in it, the libraries, and waits on step 3", async () => {
+    const user = userEvent.setup();
     mount(off, StorageSection);
-    await screen.findByRole("switch", { name: "App storage" });
-    await screen.findByText("System data");
-    const headings = Array.from(document.querySelectorAll("h2")).map((h) => h.textContent ?? "");
-    const at = (text: string) => headings.findIndex((heading) => heading.startsWith(text));
-    expect(at("Your media")).toBeGreaterThanOrEqual(0);
-    expect(at("Your media")).toBeLessThan(at("App storage"));
-    expect(at("App storage")).toBeLessThan(at("System data"));
-    // Personal libraries are shown with the media, and open on Device Sync.
-    expect(await screen.findByRole("link", { name: /Personal libraries/ })).toHaveAttribute("href", "/control/apps/gallery/device-sync?show=personal");
-    // No video container: no companion card.
-    expect(screen.queryByText("Companion containers")).toBeNull();
-    expect(screen.getByRole("link", { name: "Open the Recycle Bin" })).toBeInTheDocument();
+    const headings = await screen.findAllByRole("heading", { level: 2 });
+    expect(headings.map((h) => h.textContent)).toEqual(expect.arrayContaining(["System", "Libraries", "Containers and applications"]));
+    // 1. The folder, then each thing in it: in the system folder unless it has its own.
+    expect(await screen.findByText("D:\\iSputnikData")).toBeInTheDocument();
+    expect(await screen.findByText("What goes here")).toBeInTheDocument();
+    expect(screen.getAllByText("In the system folder").length).toBeGreaterThanOrEqual(3);
+    // 3. No library location yet: Containers and applications waits.
+    expect(screen.getByText("After steps 1 and 2")).toBeInTheDocument();
+    // Personal libraries are off on a new install: Set up.
+    expect(screen.getByRole("button", { name: "Set up" })).toBeInTheDocument();
+    // Manage opens the full System data and App storage panels.
+    await user.click(screen.getByRole("button", { name: "Manage" }));
+    expect(await screen.findByRole("switch", { name: "App storage" })).toBeInTheDocument();
   });
 });

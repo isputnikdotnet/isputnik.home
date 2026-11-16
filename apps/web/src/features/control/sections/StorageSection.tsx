@@ -1,46 +1,59 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Archive, Clapperboard, Database, Folder, HardDrive, Images, Plus, Smartphone, Sparkles, Trash2 } from "lucide-react";
+import { Database, Folder, HardDrive, Plus, Sparkles } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref } from "../../../router";
+import { controlHref, navigate } from "../../../router";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { SettingsCard } from "../../../shared/SettingsCard";
-import { ActionRow, AddRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { ActionRow, GroupedList, InfoRow } from "../../../shared/GroupedList";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
 import type { StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { backupHref, withQuery } from "../links";
+import { withQuery } from "../links";
+import { appLabel } from "../nav";
 import { isRunning, useAppsStatus } from "./AppsSection";
-import { SystemDataPanel } from "./storage/SystemDataPanel";
+import { SystemDataPanel, type SystemDataView } from "./storage/SystemDataPanel";
 import { AppStoragePanel } from "./storage/AppStoragePanel";
+import { StoragePathRow } from "./storage/StoragePathRow";
 import { isLowSpace, useDiskSpace } from "./storage/SpaceMeter";
 
-// The Storage page — docs/system-data-plan.md.
-//
-// Every place the server keeps files, in four cards by what they are to the family,
-// each saying whether Home's backups hold it: Your media (library locations, and
-// personal libraries — set on Device Sync, shown and linked here), System data (what
-// the app needs to run), App storage (what the family makes in the app), and the
-// companion containers (the video cache and catalog, on the container's own disk —
-// shown, changed on their own pages). The Recycle Bin's folder is a line at the foot.
-//
-// Library locations are grouped rows (control panel v2), each opening a page of its
-// own; System data and App storage keep their panels for now. Three blocks: the library locations libraries may live in ("Digital Library
-// containers" until 4.73 — "container" also meant the apps beside this server);
-// System data, the folder the app needs to run (thumbnails, backups, metadata); and
-// App storage, one switch for the Photo Inbox, App files, Renders and Map data. The
-// two storage blocks are their own components because the setup guide shows them
-// too. The Recycle Bin's location lives on the Recycle Bin page, and who may have a
-// personal library — and how big — on Device Sync, with phone backup.
+// The Storage page — docs/system-data-plan.md. Just the folders, in three numbered
+// sections (Pairing's shape), every row a name, its folder and one button:
+//   1. System: the system folder (Change), then what goes in it — each "In the system
+//      folder" or, given a folder of its own, that folder — with Manage, which opens
+//      the full System data and App storage panels on a page of their own (?show=system).
+//   2. Libraries: the library locations libraries may use (Manage opens one), and
+//      where personal libraries are made (set on Device Sync, shown here).
+//   3. Containers and applications: the applications whose storage the app manages —
+//      Gallery's Inbox and kept maps, Stories' recordings, Videos' download cache —
+//      each with Manage to its own settings. Waits for steps 1 and 2.
+// The two storage panels are their own components because the setup guide shows them too.
+
+interface AppStorageSummary {
+  enabled: boolean;
+  where: "system" | "custom";
+  folder: string | null;
+  parts: { part: "inbox" | "house" | "renders" | "maps"; folder: string | null }[];
+}
+
+interface PersonalSummary { settings: { enabled: boolean }; parentFolder: string | null; libraries: { sizeBytes: number }[] }
+
+interface CopiesSummary { settings: { limitGb: number }; folder: string; usedBytes: number; insideContainer?: boolean }
+
+const manageButton = (label: string, href: string) => (
+  <Button variant="secondary" compact onClick={() => navigate(href)}>
+    {label}
+  </Button>
+);
 
 export function StorageSection() {
   const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
+  const [rootsLoaded, setRootsLoaded] = useState(false);
   const [rootNameInput, setRootNameInput] = useState("");
   const [rootPathInput, setRootPathInput] = useState("");
   const [createStorageRootOpen, setCreateStorageRootOpen] = useState(false);
@@ -52,6 +65,7 @@ export function StorageSection() {
   const loadRoots = async () => {
     const payload = await api<{ roots: StorageRoot[] }>("/api/storage/roots");
     setStorageRoots(payload.roots);
+    setRootsLoaded(true);
   };
 
   useEffect(() => {
@@ -93,19 +107,21 @@ export function StorageSection() {
     }
   };
 
-  // A library location opens a page of its own (?show=location:<id>).
+  // A library location opens a page of its own (?show=location:<id>); Manage on what
+  // goes in the system folder opens the full panels (?show=system).
   const [show, go] = useQueryPage();
   const openRoot = show?.startsWith("location:") ? storageRoots.find((root) => root.id === show.slice(9)) ?? null : null;
+  const systemPage = show === "system";
 
   return (
     <>
       <ControlSectionHead
-        title={openRoot?.name}
-        back={openRoot ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
+        title={openRoot?.name ?? (systemPage ? t("controlAdmin:storage.systemManageTitle") : undefined)}
+        back={openRoot || systemPage ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
         section="storage"
         icon={<HardDrive size={30} />}
         iconClassName="storage"
-        description={t("controlAdmin:storage.headDescription")}
+        description={systemPage ? t("controlAdmin:storage.systemManageDescription") : t("controlAdmin:storage.headDescription")}
       >
         <RefreshButton
           onRefresh={async () => {
@@ -129,52 +145,30 @@ export function StorageSection() {
           removing={deletingRootId === openRoot.id}
           onRemove={() => { void deleteStorageRoot(openRoot).then((ok) => { if (ok) go(null); }); }}
         />
-      ) : (
-        <>
-          <div className="app-overview storage-overview">
-          <div className="app-overview-col">
-          <SettingsCard id="storage-containers" className="storage-card" icon={<Images size={20} />} title={t("controlAdmin:storage.mediaTitle")} description={t("controlAdmin:storage.mediaBody")}>
-            <GroupedList
-              title={t("controlAdmin:storage.containersTitle")}
-              note={storageRoots.length === 0 ? t("controlAdmin:storage.noContainers") : t("controlAdmin:storage.containersDesc")}
-            >
-              {storageRoots.map((root) => (
-                <LocationRow key={root.id} root={root} onOpen={() => go(`location:${root.id}`)} />
-              ))}
-              <AddRow
-                icon={<Plus size={17} />}
-                label={t("controlAdmin:storage.addContainer")}
-                onClick={() => {
-                  setError("");
-                  setRootNameInput("");
-                  setRootPathInput("");
-                  setCreateStorageRootOpen(true);
-                }}
-              />
-            </GroupedList>
-            {/* Personal libraries' policy lives on Device Sync with phone backup (4.73):
-                one editable copy, there; this row shows where they go and leads to it. */}
-            <PersonalLibrariesRow refreshKey={refreshKey} />
-          </SettingsCard>
-
-          <AppStoragePanel refreshKey={refreshKey} card={{ icon: <Sparkles size={20} />, description: t("controlAdmin:storage.appBody") }} />
-          </div>
-
-          <div className="app-overview-col">
+      ) : systemPage ? (
+        <div className="settings-card-stack">
           <SystemDataPanel
             refreshKey={refreshKey}
             card={{ icon: <Database size={20} />, description: t("controlAdmin:storage.systemBody") }}
             onChanged={() => setRefreshKey((key) => key + 1)}
           />
-          <CompanionCard refreshKey={refreshKey} />
-          </div>
-          </div>
-
-          <p className="settings-page-note">
-            <Trash2 size={17} aria-hidden="true" />
-            <span>{t("controlAdmin:storage.recycleNote")}{" "}<a href={controlHref("recycleBin")}>{t("controlAdmin:storage.recycleLink")}</a></span>
-          </p>
-        </>
+          <AppStoragePanel refreshKey={refreshKey} card={{ icon: <Sparkles size={20} />, description: t("controlAdmin:storage.appBody") }} />
+        </div>
+      ) : (
+        <StorageSteps
+          refreshKey={refreshKey}
+          roots={storageRoots}
+          rootsLoaded={rootsLoaded}
+          onChanged={() => setRefreshKey((key) => key + 1)}
+          onOpenRoot={(root) => go(`location:${root.id}`)}
+          onOpenSystem={() => go("system")}
+          onAddRoot={() => {
+            setError("");
+            setRootNameInput("");
+            setRootPathInput("");
+            setCreateStorageRootOpen(true);
+          }}
+        />
       )}
 
       {createStorageRootOpen && (
@@ -203,92 +197,172 @@ export function StorageSection() {
   );
 }
 
-/** Personal libraries: whether members may have one, where new ones are made, and how
- *  many there are — set on Device Sync, so the row opens it there. */
-function PersonalLibrariesRow({ refreshKey }: { refreshKey: number }) {
-  const { t } = useTranslation(["controlAdmin", "control"]);
-  const [view, setView] = useState<{ settings: { enabled: boolean }; parentFolder: string | null; libraries: { sizeBytes: number }[] } | null>(null);
-  useEffect(() => {
-    api<NonNullable<typeof view>>("/api/storage/personal-libraries").then(setView, () => setView(null));
-  }, [refreshKey]);
-  const bytes = view?.libraries.reduce((sum, library) => sum + library.sizeBytes, 0) ?? 0;
+/** A numbered section of the page, like Pairing's steps. */
+function Step({ n, title, id, locked, lockedNote, action, children }: {
+  n: number; title: string; id?: string; locked?: boolean; lockedNote?: string; action?: ReactNode; children?: ReactNode;
+}) {
   return (
-    <GroupedList id="personal-libraries" title={t("controlAdmin:storage.personalTitle")}>
-      <NavRow
-        icon={<Smartphone size={17} />}
-        label={t("controlAdmin:storage.personalRow")}
-        sub={!view ? undefined : view.settings.enabled && view.parentFolder
-          ? t("controlAdmin:storage.personalIn", { path: view.parentFolder })
-          : t("controlAdmin:storage.personalOff")}
-        value={view && view.libraries.length > 0
-          ? `${t("control:appSetup.summaryLibraries", { count: view.libraries.length })} · ${formatBytes(bytes)}`
-          : undefined}
-        href={withQuery(controlHref("phoneSync"), { show: "personal" })}
-      />
-    </GroupedList>
+    <section className={`storage-step${locked ? " is-locked" : ""}`} id={id} aria-labelledby={`storage-step-${n}`}>
+      <header className="storage-step-head">
+        <span className="storage-step-n" aria-hidden="true">{n}</span>
+        <h2 id={`storage-step-${n}`}>{title}</h2>
+        {locked ? <small>{lockedNote}</small> : action}
+      </header>
+      {!locked && children}
+    </section>
   );
 }
 
-/** The companion containers' own files: the video engine's cache and catalog, on the
- *  container's disk, set by Docker — shown here, changed on their own pages. Only
- *  when a video container is set up. */
-function CompanionCard({ refreshKey }: { refreshKey: number }) {
+function StorageSteps({ refreshKey, roots, rootsLoaded, onChanged, onOpenRoot, onOpenSystem, onAddRoot }: {
+  refreshKey: number;
+  roots: StorageRoot[];
+  rootsLoaded: boolean;
+  onChanged: () => void;
+  onOpenRoot: (root: StorageRoot) => void;
+  onOpenSystem: () => void;
+  onAddRoot: () => void;
+}) {
+  const { t } = useTranslation(["common", "controlAdmin", "control"]);
+  const [system, setSystem] = useState<SystemDataView | null>(null);
+  const [app, setApp] = useState<AppStorageSummary | null>(null);
+  const [personal, setPersonal] = useState<PersonalSummary | null>(null);
+
+  useEffect(() => {
+    api<SystemDataView>("/api/storage/system-data").then(setSystem, () => setSystem(null));
+    api<AppStorageSummary>("/api/storage/app-storage").then(setApp, () => setApp(null));
+    api<PersonalSummary>("/api/storage/personal-libraries").then(setPersonal, () => setPersonal(null));
+  }, [refreshKey]);
+
+  const inSystem = t("controlAdmin:storage.inSystemFolder");
+  // Where an item is: "In the system folder", or the folder it was given of its own.
+  const where = (path: string | null | undefined, own: boolean) => own && path ? <code>{path}</code> : inSystem;
+  const inside = (path: string | null | undefined) => Boolean(system?.path && path && path.toLowerCase().startsWith(system.path.toLowerCase()));
+  const setUp = Boolean(system?.path) && roots.length > 0;
+  const appFolder = (part: AppStorageSummary["parts"][number]["part"]) => app?.parts.find((entry) => entry.part === part)?.folder ?? null;
+  const personalHref = withQuery(controlHref("phoneSync"), { show: "personal" });
+  const bytes = personal?.libraries.reduce((sum, library) => sum + library.sizeBytes, 0) ?? 0;
+
+  return (
+    <div className="storage-steps">
+      <Step n={1} id="system-data" title={t("controlAdmin:storage.sectionSystem")}>
+        <SystemDataPanel folderRow refreshKey={refreshKey} onChanged={onChanged} />
+        {system?.path && (
+          <div className="storage-inside">
+            <div className="storage-inside-head">
+              <div>
+                <strong>{t("controlAdmin:storage.whatGoesHere")}</strong>
+                <small>{t("controlAdmin:storage.whatGoesHereBody")}</small>
+              </div>
+              <Button variant="secondary" compact onClick={onOpenSystem}>{t("controlAdmin:storage.manage")}</Button>
+            </div>
+            <dl className="storage-inside-list">
+              <dt>{t("controlAdmin:systemData.database")}</dt>
+              <dd>{where(system.database, !inside(system.database))}</dd>
+              <dt>{t("controlAdmin:systemData.thumbnails")}</dt>
+              <dd>{where(system.thumbnails.path, system.thumbnails.source !== "system")}</dd>
+              <dt>{t("controlAdmin:systemData.backups")}</dt>
+              <dd>
+                {where(system.backups.path, system.backups.source !== "system")}
+                {system.backups.sameDiskAsDatabase && <small className="is-warn">{t("controlAdmin:storage.sameDiskShort")}</small>}
+              </dd>
+              <dt>{t("controlAdmin:systemData.metadata")}</dt>
+              <dd>{where(system.metadata.path, system.metadata.source !== "system")}</dd>
+              <dt id="app-storage">{t("controlAdmin:appStorage.title")}</dt>
+              <dd>{!app ? "…" : !app.enabled ? t("controlAdmin:storage.appStorageOff") : where(app.folder, app.where !== "system")}</dd>
+            </dl>
+          </div>
+        )}
+      </Step>
+
+      <Step
+        n={2}
+        id="storage-containers"
+        title={t("controlAdmin:storage.sectionLibraries")}
+        action={<Button variant="secondary" compact onClick={onAddRoot}><Plus size={14} aria-hidden="true" /> {t("controlAdmin:storage.addContainer")}</Button>}
+      >
+        {rootsLoaded && roots.length === 0 && <p className="storage-step-empty">{t("controlAdmin:storage.noContainers")}</p>}
+        {roots.map((root) => <LocationRow key={root.id} root={root} onOpen={() => onOpenRoot(root)} />)}
+        <StoragePathRow
+          id="personal-libraries"
+          label={t("controlAdmin:storage.personalRow")}
+          sub={personal?.settings.enabled ? t("controlAdmin:storage.personalMadeHere") : undefined}
+          path={personal?.settings.enabled && personal.parentFolder ? <code>{personal.parentFolder}</code> : t("controlAdmin:storage.personalOffValue")}
+          detail={personal && personal.libraries.length > 0
+            ? `${t("control:appSetup.summaryLibraries", { count: personal.libraries.length })} · ${formatBytes(bytes)}`
+            : undefined}
+          action={manageButton(personal?.settings.enabled ? t("controlAdmin:systemData.change") : t("controlAdmin:storage.setUp"), personalHref)}
+        />
+      </Step>
+
+      <Step
+        n={3}
+        id="storage-applications"
+        title={t("controlAdmin:storage.sectionApps")}
+        locked={!setUp}
+        lockedNote={t("controlAdmin:storage.afterSetup")}
+      >
+        <StoragePathRow
+          label={appLabel("gallery")}
+          sub={t("controlAdmin:storage.galleryUses")}
+          path={app?.enabled
+            ? <><code>{appFolder("inbox")}</code><code>{appFolder("maps")}</code></>
+            : t("controlAdmin:storage.needsAppStorage")}
+          action={manageButton(t("controlAdmin:storage.manage"), controlHref("mapSetup"))}
+        />
+        <StoragePathRow
+          label={appLabel("stories")}
+          sub={t("controlAdmin:storage.storiesUses")}
+          path={app?.enabled ? <code>{appFolder("house")}</code> : t("controlAdmin:storage.needsAppStorage")}
+          action={manageButton(t("controlAdmin:storage.manage"), controlHref("storySettings"))}
+        />
+        <VideoCacheRow refreshKey={refreshKey} />
+      </Step>
+    </div>
+  );
+}
+
+/** Videos' download cache: a folder inside the video container (its Docker mapping),
+ *  whose room is set on Videos › Settings. Only while a video container is set up. */
+function VideoCacheRow({ refreshKey }: { refreshKey: number }) {
   const { t } = useTranslation(["controlAdmin"]);
   const { apps } = useAppsStatus();
-  const video = apps?.find((app) => app.id === "video") ?? null;
-  const running = Boolean(video && isRunning(video));
-  const prefix = video && running ? video.prefix : null;
-  const [copies, setCopies] = useState<{ settings: { limitGb: number }; folder: string; usedBytes: number; insideContainer?: boolean } | null>(null);
+  const video = apps?.find((entry) => entry.id === "video") ?? null;
+  const prefix = video && isRunning(video) ? video.prefix : null;
+  const [copies, setCopies] = useState<CopiesSummary | null>(null);
   useEffect(() => {
     if (!prefix) return;
-    api<NonNullable<typeof copies>>(`${prefix}/api/admin/copies`).then(setCopies, () => setCopies(null));
+    api<CopiesSummary>(`${prefix}/api/admin/copies`).then(setCopies, () => setCopies(null));
   }, [prefix, refreshKey]);
   if (!video?.configured) return null;
   return (
-    <SettingsCard className="storage-card" icon={<Clapperboard size={20} />} title={t("controlAdmin:storage.companionTitle")} description={t("controlAdmin:storage.companionBody")}>
-      <GroupedList>
-        <NavRow
-          icon={<HardDrive size={17} />}
-          iconTone={copies?.insideContainer ? "warn" : undefined}
-          label={t("controlAdmin:storage.videoCache")}
-          sub={!running ? t("controlAdmin:storage.videoNotAnswering")
-            : copies ? t("controlAdmin:storage.videoCacheSub", { folder: copies.folder }) : undefined}
-          value={copies
-            ? copies.insideContainer
-              ? t("controlAdmin:storage.videoCacheNotMapped")
-              : t("controlAdmin:apps.videoSettings.copiesValue", { used: formatBytes(copies.usedBytes), limit: `${copies.settings.limitGb} GB` })
-            : undefined}
-          valueTone={copies?.insideContainer ? "warn" : undefined}
-          href={withQuery(controlHref("videoSettings"), { show: "copies" })}
-        />
-        <NavRow
-          icon={<Archive size={17} />}
-          label={t("controlAdmin:storage.videoCatalog")}
-          sub={t("controlAdmin:storage.videoCatalogSub")}
-          href={backupHref("video")}
-        />
-      </GroupedList>
-    </SettingsCard>
+    <StoragePathRow
+      label={appLabel("videos")}
+      sub={t("controlAdmin:storage.videosUses")}
+      path={!prefix ? t("controlAdmin:storage.videoNotAnswering") : copies ? <code>{copies.folder}</code> : "…"}
+      detail={copies && !copies.insideContainer
+        ? t("controlAdmin:apps.videoSettings.copiesValue", { used: formatBytes(copies.usedBytes), limit: `${copies.settings.limitGb} GB` })
+        : undefined}
+      warn={copies?.insideContainer ? t("controlAdmin:storage.videoCacheNotMapped") : undefined}
+      action={manageButton(t("controlAdmin:storage.manage"), withQuery(controlHref("videoSettings"), { show: "copies" }))}
+    />
   );
 }
 
-/** One library location as a row: its name and folder, how many libraries use it,
- *  and the free space on its disk (warned when low). */
+/** One library location: its name and folder, and the free space on its disk (warned
+ *  when low); Manage opens its page. */
 function LocationRow({ root, onOpen }: { root: StorageRoot; onOpen: () => void }) {
   const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const space = useDiskSpace(root.path);
   const low = isLowSpace(space);
+  const free = space && space.total > 0 ? t("controlAdmin:systemData.spaceFree", { free: formatBytes(space.free), total: formatBytes(space.total) }) : undefined;
   return (
-    <NavRow
-      icon={<HardDrive size={17} />}
-      iconTone={low ? "warn" : undefined}
+    <StoragePathRow
       label={root.name}
-      sub={root.path}
-      value={space && space.total > 0
-        ? t("controlAdmin:systemData.spaceFree", { free: formatBytes(space.free), total: formatBytes(space.total) })
-        : t("control:appSetup.summaryLibraries", { count: root.libraryCount })}
-      valueTone={low ? "warn" : undefined}
-      onClick={onOpen}
+      sub={t("control:appSetup.summaryLibraries", { count: root.libraryCount })}
+      path={<code>{root.path}</code>}
+      detail={low ? undefined : free}
+      warn={low ? free : undefined}
+      action={<Button variant="secondary" compact onClick={onOpen}>{t("controlAdmin:storage.manage")}</Button>}
     />
   );
 }

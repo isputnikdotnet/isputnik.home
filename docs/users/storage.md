@@ -1,19 +1,18 @@
 # Storage
 
 Before you can add a library, the server needs to know where things live. It all
-sits in **Control panel → System Settings → Storage**, in cards grouped by what the
-files are to you — and each card says whether Home's backups hold them:
+sits in **Control panel → System Settings → Storage**, a page of folders in three
+numbered sections. Every row is a name, its folder and one button on the right:
 
-| Card | What it is | In Home's backups? |
+| Section | What it lists | The button |
 |---|---|---|
-| **Your media** | Your library locations, and where personal libraries are made | No — your own files; keep a copy of these disks |
-| **System data** | What the app needs to run: the database, thumbnails, backups, metadata | The database, and the covers a rescan can't make again |
-| **App storage** | What the family makes in the app: the Photo Inbox, App files, renders, map data | No — recordings and uploads exist only there |
-| **Companion containers** | The video container's cache and catalog, on its own disk | Shown only; the catalog is backed up from the Backup page |
+| **1. System** | The system folder, then **What goes here**: the database, thumbnails, backups, metadata and App storage — each *In the system folder*, or its own folder if it was given one | **Change** moves the system folder; **Manage** opens a page with each of the rest |
+| **2. Libraries** | Your library locations, and where personal libraries are made (or *Off*) | **Manage** opens a location; **Add location**; personal libraries open on Device Sync |
+| **3. Containers and applications** | The applications whose files the app keeps: Gallery's Photo Inbox and kept maps, Stories' recordings, Videos' download cache | **Manage** opens that application's own settings |
 
-Some of these are set on other pages, and their rows lead there: personal libraries on
-**Device Sync**, the video cache's room on **Videos › Settings**, and which maps are
-kept on **Gallery › Settings**. Three of them are set here:
+Section 3 waits until a system folder is chosen and a library location exists. A
+problem — backups on the same disk as the database, a disk nearly full — is a line
+under the folder it concerns. The parts below describe what **Manage** opens:
 
 | | What it is | Why it's needed |
 |---|---|---|
@@ -25,7 +24,7 @@ Until system data is chosen and at least one library location exists, **Add libr
 stays disabled and the Libraries page tells you so, with a button straight back
 here.
 
-The Recycle Bin's location is not on this page (a line at its foot leads there): it is on the **Recycle Bin**
+The Recycle Bin's location is not on this page: it is on the **Recycle Bin**
 page, in its settings, where you are when you think about deleted files.
 
 ## Library locations

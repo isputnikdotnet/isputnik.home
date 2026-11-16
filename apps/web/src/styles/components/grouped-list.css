@@ -339,7 +339,41 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
 .grouped-row-switch:disabled { opacity: 0.6; cursor: default; }
 /* "Change" on a folder row stays whole; the folder's name wraps instead. */
 .storage-rows .grouped-row-value { flex-shrink: 0; max-width: none; }
-/* The Storage page draws the same blocks as cards (shared/SettingsCard). */
+/* The Storage page: three numbered sections (Pairing's steps), every row a name, its
+   folder and one compact button (storage/StoragePathRow). */
+.storage-steps { display: grid; gap: 16px; max-width: 980px; }
+.storage-step { padding: 14px 18px 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-raised); min-width: 0; }
+.storage-step.is-locked { padding-bottom: 14px; opacity: 0.6; }
+.storage-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 6px; }
+.storage-step-head h2 { flex: 1; margin: 0; font-size: 1.1rem; }
+.storage-step-head small { color: var(--muted); }
+.storage-step-n { display: grid; flex: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--active); color: var(--accent); font-weight: 650; }
+.storage-step-empty { margin: 4px 0 10px; color: var(--muted); }
+.storage-path-row { display: grid; grid-template-columns: minmax(120px, 190px) minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 11px 0; border-top: 1px solid var(--line); }
+.storage-path-label strong { display: block; font-weight: 600; }
+.storage-path-label small, .storage-path small { display: block; color: var(--muted); font-size: var(--text-sm); }
+.storage-path { min-width: 0; color: var(--muted); }
+.storage-path code { display: block; overflow-wrap: anywhere; color: var(--ink); font-size: var(--text-sm); }
+.storage-path small.is-warn, .storage-inside-list .is-warn { display: flex; align-items: center; gap: 4px; color: var(--warning); }
+.storage-path .space-meter { margin-top: 4px; }
+.storage-folder-row > .storage-path-row:first-child { border-top: 0; }
+.storage-inside { padding: 11px 0 8px; border-top: 1px solid var(--line); }
+.storage-inside-head { display: flex; align-items: flex-start; gap: 12px; }
+.storage-inside-head > div { flex: 1; min-width: 0; }
+.storage-inside-head small { display: block; color: var(--muted); font-size: var(--text-sm); }
+.storage-inside-list { display: grid; grid-template-columns: minmax(120px, 174px) minmax(0, 1fr); gap: 6px 14px; margin: 10px 0 0; padding-left: 16px; }
+.storage-inside-list dt { font-weight: 500; }
+.storage-inside-list dd { margin: 0; min-width: 0; color: var(--muted); font-size: var(--text-sm); }
+.storage-inside-list code { overflow-wrap: anywhere; color: var(--ink); }
+@media (max-width: 740px) {
+  .storage-path-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .storage-path-label { grid-column: 1; grid-row: 1; }
+  .storage-path-action { grid-column: 2; grid-row: 1; }
+  .storage-path { grid-column: 1 / -1; }
+  .storage-inside-list { grid-template-columns: minmax(0, 1fr); padding-left: 0; }
+  .storage-inside-list dd { margin-bottom: 6px; }
+}
+/* The Storage page's Manage page draws the same blocks as cards (shared/SettingsCard). */
 .storage-card .settings-card-head h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .storage-card .settings-card-head h2 .count-badge { text-transform: none; letter-spacing: 0; font-size: var(--text-xs); }
 .storage-card .space-meter { margin-top: 4px; }

@@ -20,6 +20,7 @@ import { Modal } from "../../../../shared/Modal";
 import { SettingsCard } from "../../../../shared/SettingsCard";
 import { formatBytes } from "../../../../shared/utils";
 import { ServerFolderPicker } from "./ServerFolderPicker";
+import { StoragePathRow } from "./StoragePathRow";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 // The panel's stylesheet: it arrives with the panel, on the Storage page and in the setup guide (docs/css-map.md).
 import "../../../../styles/system-data.css";
@@ -66,11 +67,14 @@ interface Pending {
   path: string | null;
 }
 
-export function SystemDataPanel({ refreshKey = 0, card, onChanged }: {
+export function SystemDataPanel({ refreshKey = 0, card, folderRow = false, onChanged }: {
   /** Bumped by the page's Refresh button. */
   refreshKey?: number;
   /** Drawn as a card (the Storage page), with this icon and line under its title. */
   card?: { icon: ReactNode; description: ReactNode };
+  /** Only the folder itself, as one Storage page row with Change (or, while none is
+   *  chosen, the field to choose one) — what lives in it is listed by the page. */
+  folderRow?: boolean;
   /** Told after a change, so the page can re-read what depends on it. */
   onChanged?: (view: SystemDataView) => void;
 }) {
@@ -281,6 +285,19 @@ export function SystemDataPanel({ refreshKey = 0, card, onChanged }: {
       ) : (
         <>
           {/* The folder itself: tapping it is Change. */}
+          {folderRow ? (
+            <StoragePathRow
+              id="system-folder"
+              label={t("controlAdmin:storage.systemFolder")}
+              path={<code>{view.path}</code>}
+              detail={<SpaceMeter space={view.space} />}
+              action={
+                <Button variant="secondary" compact disabled={view.moving} onClick={() => openEditor("system")}>
+                  {t("controlAdmin:systemData.change")}
+                </Button>
+              }
+            />
+          ) : (
           <div className="grouped-list-rows">
             <NavRow
               icon={<HardDrive size={17} />}
@@ -292,12 +309,15 @@ export function SystemDataPanel({ refreshKey = 0, card, onChanged }: {
               onClick={() => openEditor("system")}
             />
           </div>
-          <p className="grouped-list-note">{view.moving ? t("controlAdmin:systemData.movingTitle") : t("controlAdmin:systemData.desc")}</p>
+          )}
+          {!folderRow && <p className="grouped-list-note">{view.moving ? t("controlAdmin:systemData.movingTitle") : t("controlAdmin:systemData.desc")}</p>}
+          {folderRow && view.moving && <p className="grouped-list-note">{t("controlAdmin:systemData.movingTitle")}</p>}
           {view.problem && <MessageBox tone="error" title={t("controlAdmin:systemData.problemTitle")}>{view.problem}</MessageBox>}
           {isLowSpace(view.space) && (
             <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>
           )}
 
+          {!folderRow && (<>
           {/* What lives in it: the database (fixed), thumbnails and backups (each can
               have a folder of its own — tap to change), and metadata. */}
           <div className="grouped-list-rows">
@@ -347,6 +367,7 @@ export function SystemDataPanel({ refreshKey = 0, card, onChanged }: {
             />
             {moveRow(view.metadata.move, "metadata")}
           </div>
+          </>)}
         </>
       )}
 
@@ -428,6 +449,7 @@ export function SystemDataPanel({ refreshKey = 0, card, onChanged }: {
   );
   // On the Storage page a card of its own (shared/SettingsCard); in the setup guide,
   // rows under a heading.
+  if (folderRow) return <div className="storage-folder-row">{body}</div>;
   return card
     ? <SettingsCard id="system-data" className="storage-card" icon={card.icon} title={heading} description={card.description}>{body}</SettingsCard>
     : (

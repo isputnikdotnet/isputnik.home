@@ -68,7 +68,9 @@ export function librariesHref(type?: LibraryType | "all" | null): string {
 
 /** System Settings › Storage, scrolled to one of its cards. */
 export function storageHref(card?: "storage-containers" | "system-data" | "app-storage"): string {
-  return card ? `${controlHref("storage")}#${card}` : controlHref("storage");
+  if (!card) return controlHref("storage");
+  // System data and App storage are managed on a page of their own (?show=system).
+  return card === "storage-containers" ? `${controlHref("storage")}#${card}` : `${withQuery(controlHref("storage"), { show: "system" })}#${card}`;
 }
 
 /** One person's page under Members › Users, on a tab. "groups" and "account"

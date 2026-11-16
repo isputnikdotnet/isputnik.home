@@ -18,7 +18,7 @@ describe("control page links", () => {
     [logsHref({ ip: "203.0.113.9" }), "/control/infrastructure/logs?ip=203.0.113.9", "logs"],
     [logsHref({ user: "acct_123" }), "/control/infrastructure/logs?user=acct_123", "logs"],
     [blockIpHref("203.0.113.9"), "/control/security/blocked-ips?block=203.0.113.9", "securityBlocked"],
-    [storageHref("app-storage"), "/control/settings/storage#app-storage", "storage"],
+    [storageHref("app-storage"), "/control/settings/storage?show=system#app-storage", "storage"],
     // Control panel v2: an application opens Infrastructure's pages narrowed to it.
     [activityHref({ application: "gallery" }), "/control/infrastructure/activity?application=gallery", "activity"],
     [logsHref({ application: "videos" }), "/control/infrastructure/logs?application=videos", "logs"],
