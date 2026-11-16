@@ -210,7 +210,7 @@ export function AppSetupSection({ app }: { app: Exclude<AppKey, "shared"> }) {
       <div className="app-overview">
         <div className="app-overview-col">
           {contentRows.length > 0 && (
-            <SettingsCard icon={<FolderOpen size={20} />} title={t("control:appSetup.cards.contentTitle")} description={t("control:appSetup.cards.contentBody", { app: name })}>
+            <SettingsCard icon={<FolderOpen size={20} />} title={t(parts.libraryType ? "control:appSetup.cards.contentTitle" : "control:appSetup.cards.contentTitleNoLibraries")} description={t("control:appSetup.cards.contentBody", { app: name })}>
               <GroupedList>{contentRows}</GroupedList>
             </SettingsCard>
           )}

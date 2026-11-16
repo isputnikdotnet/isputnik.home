@@ -365,6 +365,9 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
   background: var(--active);
 }
 .settings-card > .grouped-list { margin: 0; }
+/* A card is half the page wide: a value keeps its own width and wraps, rather than
+   being cut to "Not mea…" beside a row with a long sub line. */
+.settings-card .grouped-row:not(.grouped-row-summary) .grouped-row-value { flex: 0 0 auto; max-width: 45%; white-space: normal; overflow-wrap: break-word; }
 .settings-card-note {
   margin: 0;
   padding: 10px 12px;
