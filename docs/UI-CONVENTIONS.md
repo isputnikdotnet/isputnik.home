@@ -64,6 +64,9 @@ Every control-panel page follows the same rules (the sizes are scoped to
   test inside a card (Run test). A table cell is content, so its buttons are
   compact without being told. Pages never size a button themselves — no
   `min-height` on a button class in a page's stylesheet.
+- **A form's own button matches its field.** A button beside a field, or the one
+  that submits a form (Pairing's Save address, Generate secret), is regular: a 32px
+  button beside a 40px field reads as broken.
 - **One primary per place.** At most one filled `primary` in a page head, a card
   or a row group: the thing you came to do. Everything else is `secondary`
   (outlined); destructive is `secondary` + `danger` in content, `danger` only

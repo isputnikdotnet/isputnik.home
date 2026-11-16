@@ -74,7 +74,7 @@ const MailSection = lazy(() => import("./sections/MailSection").then((m) => ({ d
 const NotificationsSection = lazy(() => import("./sections/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
 const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection").then((m) => ({ default: m.StorySettingsSection })));
 const AppsAccessSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsAccessSection })));
-const AppsSetupSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsSetupSection })));
+const PairingSection = lazy(() => import("./sections/PairingSection").then((m) => ({ default: m.PairingSection })));
 const VideoSettingsSection = lazy(() => import("./sections/VideoSettingsSection").then((m) => ({ default: m.VideoSettingsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
@@ -278,7 +278,7 @@ function ControlSectionBody({
 
     case "appsAccess":      return <AppsAccessSection />;
     case "services":        return <ServicesSection />;
-    case "appsSetup":       return <AppsSetupSection />;
+    case "appsSetup":       return <PairingSection />;
     case "videoSettings":   return <VideoSettingsSection />;
 
     case "appearance":      return <AppearanceSection />;

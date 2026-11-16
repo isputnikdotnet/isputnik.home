@@ -626,6 +626,55 @@
         "stoppedTitle": "The disk check stopped",
         "noLibraries": "No video libraries to check."
       }
+    },
+    "pairing": {
+      "step1Title": "Choose app",
+      "step1Body": "The app to pair with this server.",
+      "step2Body": "Its address on the shared Docker network, and whether it answers there.",
+      "step3Body": "Made here; it proves to the container that a request came from this server.",
+      "step4Body": "Set this variable on the container, then apply the change.",
+      "stepsText": "Pairing {{app}} with iSputnik\n1. On iSputnik's Pairing page, save the address: {{url}}\n2. Generate the shared secret there and copy it (it is shown once).\n3. On the {{app}} container, set {{variable}} to that secret, then apply the template.\n4. Back on the Pairing page, press Test connection.",
+      "copySteps": "Copy setup steps",
+      "viewHelp": "View help",
+      "secretIsSet": "Secret is set",
+      "secretHidden": "Secret, hidden",
+      "sealed": "This server keeps it sealed: it is not shown again.",
+      "changeSecret": "Change secret",
+      "changeAddress": "Change address",
+      "changeAddressTitle": "Change {{app}}'s address",
+      "moreAria": "More pairing actions",
+      "state": {
+        "paired": "Paired",
+        "down": "Not answering",
+        "refused": "Secret refused",
+        "unchecked": "Not checked"
+      },
+      "okTitle": "This app is paired and working",
+      "okBody": "iSputnik reaches {{app}}'s container, and it accepts this server's secret.",
+      "downTitle": "The container isn't answering",
+      "uncheckedTitle": "Paired, not checked yet",
+      "uncheckedBody": "Press Test connection to see that the container answers and accepts the secret.",
+      "factApp": "App",
+      "factConnection": "Connection",
+      "version": "version {{version}}",
+      "fromVariable": "Set by {{variable}} in this container's environment",
+      "connectionOk": "OK ({{ms}} ms)",
+      "connectionDown": "Not answering",
+      "connectionUnknown": "Not checked",
+      "secretCardBody": "The secret that proves requests come from this server.",
+      "containerCardTitle": "On the container",
+      "containerCardBody": "The value the container uses to check requests.",
+      "container": {
+        "matches": "Matches",
+        "refused": "Refused",
+        "unchecked": "Not checked",
+        "matchesBody": "The container is using the same secret.",
+        "refusedBody": "The container refused this server's secret: set {{variable}} on it to the secret made here.",
+        "uncheckedBody": "Not checked yet: Test connection asks the container."
+      },
+      "aboutTitle": "About pairing",
+      "aboutBody": "Pairing lets an app (like Games) trust requests from iSputnik: they share a secret, and iSputnik reaches the container at its address on the Docker network.",
+      "learnMore": "Learn more about pairing"
     }
   },
   "games": {

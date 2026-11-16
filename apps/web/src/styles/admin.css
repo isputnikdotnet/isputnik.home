@@ -3295,3 +3295,187 @@ tr.control-anchor-flash > td {
 .now-playing-link:hover { background: var(--hover); }
 .now-playing-link span { display: grid; gap: 2px; }
 .now-playing-link small { color: var(--muted); }
+
+/* ── Infrastructure › Services › Pairing (PairingSection) ─────────────────
+   Setup: numbered step cards — what the step is on the left, its controls on the
+   right — and a footer to test them. Summary: a status banner, the facts in a
+   row, the secret and the container side by side, and a note about pairing. */
+.pairing-steps { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.pairing-step {
+  display: grid;
+  grid-template-columns: minmax(200px, 300px) minmax(0, 1fr);
+  gap: 18px 28px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.pairing-step-about { display: flex; gap: 14px; padding-right: 24px; border-right: 1px solid var(--line); }
+.pairing-step-about h2 { margin: 0 0 4px; font-size: 1.15rem; }
+.pairing-step-about p { margin: 0; font-size: 0.9rem; }
+.pairing-step-n {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--active);
+  font-weight: 700;
+}
+.pairing-step-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-top: 14px;
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--active);
+}
+.pairing-step-body { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pairing-address { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.pairing-address .field input { min-height: 40px; }
+.pairing-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.pairing-status-row > svg { color: var(--muted); }
+.pairing-hint { margin: 0; font-size: 0.88rem; line-height: 1.5; }
+.pairing-pill {
+  --tone: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pairing-pill.is-ok { --tone: var(--success); }
+.pairing-pill.is-warn { --tone: var(--warning); }
+.pairing-pill.is-danger { --tone: var(--danger); }
+.pairing-set { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--success); font-weight: 600; }
+.pairing-secret-once { display: grid; gap: 10px; }
+.pairing-secret-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pairing-secret-value {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  overflow-wrap: anywhere;
+}
+.pairing-variable {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 11px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.pairing-variable code { font-weight: 700; }
+.pairing-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.pairing-help { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-weight: 600; text-decoration: none; }
+.pairing-help:hover { text-decoration: underline; }
+
+.pairing-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pairing-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 16px 0;
+  padding: 4px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.pairing-facts > div { display: grid; gap: 4px; min-width: 0; padding: 8px 18px; border-left: 1px solid var(--line); }
+.pairing-facts > div:first-child { border-left: 0; padding-left: 4px; }
+.pairing-facts dt { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.85rem; }
+.pairing-facts dt .is-ok { color: var(--success); }
+.pairing-facts dt .is-warn { color: var(--warning); }
+.pairing-facts dd { display: grid; gap: 2px; margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+.pairing-facts dd small { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+.pairing-facts dd .select-field { max-width: 220px; }
+.pairing-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pairing-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.pairing-card header { display: flex; gap: 14px; }
+.pairing-card h2 { margin: 0 0 2px; font-size: 1.1rem; }
+.pairing-card header p { margin: 0; font-size: 0.9rem; }
+.pairing-card-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--active);
+}
+.pairing-masked {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  letter-spacing: 0.18em;
+  user-select: none;
+}
+.pairing-about {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 16px;
+  margin-top: 16px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.pairing-about > svg { flex: none; color: var(--accent); }
+.pairing-about > div { flex: 1 1 320px; min-width: 0; }
+.pairing-about h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.pairing-about p { margin: 0; font-size: 0.9rem; }
+.pairing-about > a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+
+/* The step's text over its controls once there is no room for both side by side. */
+@media (max-width: 900px) {
+  .pairing-step { grid-template-columns: minmax(0, 1fr); }
+  .pairing-step-about { padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .pairing-step-icon { display: none; }
+  .pairing-facts > div { border-left: 0; padding-left: 4px; }
+}
+@media (max-width: 600px) {
+  /* The field takes the row; Save address goes under it. */
+  .pairing-address { grid-template-columns: minmax(0, 1fr); }
+  .pairing-address > button { justify-self: start; }
+}

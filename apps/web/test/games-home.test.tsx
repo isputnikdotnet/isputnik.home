@@ -18,7 +18,8 @@ vi.mock("../src/app/useGamesAvailable", () => ({ useGamesAvailable: () => gamesA
 const { api } = await import("../src/api");
 const { InvitationRow, YourMoveRow } = await import("../src/features/games/GameRows");
 const { useGamesSummary, gamesWaiting } = await import("../src/features/games/useGamesSummary");
-const { AppsAccessSection, AppsSetupSection } = await import("../src/features/control/sections/AppsSection");
+const { AppsAccessSection } = await import("../src/features/control/sections/AppsSection");
+const { PairingSection } = await import("../src/features/control/sections/PairingSection");
 const { LogsSection } = await import("../src/features/control/sections/LogsSection");
 const mockApi = vi.mocked(api);
 
@@ -202,10 +203,13 @@ describe("Security → App access", () => {
 describe("Settings → Apps", () => {
   it("keeps pairing and the address off while the environment sets them", async () => {
     mockApi.mockImplementation((() => appsAnswer(gamesOn)) as never);
-    render(<AppsSetupSection />);
-    expect(await screen.findAllByText("Set in this container's environment")).toHaveLength(2);
+    render(<PairingSection />);
+    // The summary: both say where they come from, and neither can be changed here.
+    expect(await screen.findAllByText(/in this container's environment$/)).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Generate secret" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save address" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change secret" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More pairing actions" })).not.toBeInTheDocument();
   });
 
   it("saves the address typed in, and offers the usual one", async () => {
@@ -215,7 +219,7 @@ describe("Settings → Apps", () => {
       if (path === "/api/apps/admin/status") return appsAnswer(noAddress);
       return Promise.reject(new Error(`unexpected ${path}`));
     }) as never);
-    render(<AppsSetupSection />);
+    render(<PairingSection />);
     const field = await screen.findByLabelText("Address");
     expect(field).toHaveAttribute("placeholder", "http://isputnik-games:4200");
     const save = screen.getByRole("button", { name: "Save address" });
@@ -235,7 +239,7 @@ describe("Settings → Apps", () => {
       if (path === "/api/apps/admin/status") return appsAnswer(unpaired);
       return Promise.reject(new Error(`unexpected ${path}`));
     }) as never);
-    render(<AppsSetupSection />);
+    render(<PairingSection />);
     await userEvent.click(await screen.findByRole("button", { name: "Generate secret" }));
     expect(await screen.findByText("ab".repeat(32))).toBeInTheDocument();
     expect(screen.getByText("Copy it now — it is not shown again.")).toBeInTheDocument();
@@ -245,8 +249,8 @@ describe("Settings → Apps", () => {
   it("asks before replacing a paired secret", async () => {
     const paired = { ...gamesOn, secretSource: "paired", pairing: { pairedAt: "2026-10-12T10:00:00.000Z", pairedBy: "Demo Admin" } };
     mockApi.mockImplementation((() => appsAnswer(paired)) as never);
-    render(<AppsSetupSection />);
-    await userEvent.click(await screen.findByRole("button", { name: "Replace secret" }));
+    render(<PairingSection />);
+    await userEvent.click(await screen.findByRole("button", { name: "Change secret" }));
     expect(screen.getByText("Replace the secret for Games?")).toBeInTheDocument();
     expect(mockApi).not.toHaveBeenCalledWith("/api/apps/admin/pairing/games", expect.anything());
   });
