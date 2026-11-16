@@ -95,7 +95,7 @@ export function VideoStreamingSection() {
       >
         <div className="row-actions control-head-actions">
           {ready > 0 && (
-            <Button variant="primary" compact disabled={queueing} onClick={() => { setActionError(""); setOptimiseAllOpen(true); }}>
+            <Button variant="primary" disabled={queueing} onClick={() => { setActionError(""); setOptimiseAllOpen(true); }}>
               <Zap size={16} />
               <span>{t("controlAdmin:videoStreaming.optimiseAll", { count: ready })}</span>
             </Button>

@@ -4,6 +4,7 @@ import { Activity, ArrowRight, BellRing, ChevronRight, HardDrive, ListChecks, Se
 import { api } from "../../../../api";
 import { controlHref, followRoute } from "../../../../router";
 import { Button } from "../../../../shared/Button";
+import { SegmentedControl } from "../../../../shared/SegmentedControl";
 import { SelectMenu } from "../../../../shared/SelectMenu";
 import { formatBytes } from "../../../../shared/utils";
 import { formatDate, formatNumber, formatTime } from "../../../../shared/dates";
@@ -203,13 +204,12 @@ function GrowthPanel({ mounts }: { mounts: string[] }) {
     <div className="dash-growth">
       <div className="dash-growth-head">
         <h4>{t("controlDash:dashboard.growthTitle")}</h4>
-        <div className="dash-chips" role="group" aria-label={t("controlDash:dashboard.period")}>
-          {(Object.keys(GROWTH_DAYS) as GrowthPeriod[]).map((value) => (
-            <Button key={value} variant="chip" selected={period === value} aria-pressed={period === value} onClick={() => setPeriod(value)}>
-              {t(`controlDash:dashboard.periods.${value}`)}
-            </Button>
-          ))}
-        </div>
+        <SegmentedControl
+          label={t("controlDash:dashboard.period")}
+          value={period}
+          onChange={setPeriod}
+          options={(Object.keys(GROWTH_DAYS) as GrowthPeriod[]).map((value) => ({ value, label: t(`controlDash:dashboard.periods.${value}`) }))}
+        />
       </div>
       {samples === null ? null : days.length < 2 ? (
         <p className="muted">{t("controlDash:dashboard.growthPending")}</p>
@@ -273,13 +273,12 @@ export function UsagePanel() {
   return (
     <div className="dash-usage">
       <div className="dash-usage-controls">
-        <div className="dash-chips" role="group" aria-label={t("controlDash:dashboard.period")}>
-          {(Object.keys(PERIOD_DAYS) as Period[]).map((value) => (
-            <Button key={value} variant="chip" selected={period === value} aria-pressed={period === value} onClick={() => setPeriod(value)}>
-              {t(`controlDash:dashboard.periods.${value}`)}
-            </Button>
-          ))}
-        </div>
+        <SegmentedControl
+          label={t("controlDash:dashboard.period")}
+          value={period}
+          onChange={setPeriod}
+          options={(Object.keys(PERIOD_DAYS) as Period[]).map((value) => ({ value, label: t(`controlDash:dashboard.periods.${value}`) }))}
+        />
         <SelectMenu
           value={application}
           options={[

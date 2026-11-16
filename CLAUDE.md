@@ -88,7 +88,13 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   `tab` (tab rows — `selected` sets role/aria-selected; put `role="tablist"` on the row),
   `tile`, `chip` and `bare` (custom chrome; your `className` carries the look). A raw
   `<button>` outside `shared/` fails `check:ui` (baseline in
-  `scripts/raw-buttons-baseline.json`, now empty — keep it that way). Verbs: **Add** = attach existing,
+  `scripts/raw-buttons-baseline.json`, now empty — keep it that way). In the control
+  panel buttons come in **two sizes**: regular 40px for a page's own actions (its head,
+  a toolbar), `compact` 32px for actions inside content (card footers, rows, a test in a
+  card; a table cell's buttons are compact by themselves) — never a page's own size; one
+  `primary` per place, the rest `secondary`; a `CommandRow`'s verb is a compact button on
+  the right; a choice of a few options inline is `shared/SegmentedControl`
+  (docs/UI-CONVENTIONS.md › Buttons in the control panel). Verbs: **Add** = attach existing,
   **Create** = make new, **Remove** = detach (no data loss), **Delete** = destroy
   (always confirmed).
 - **Messages**: inline errors/notices use `shared/MessageBox` with a tone

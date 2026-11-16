@@ -105,10 +105,15 @@ button.grouped-row:focus-visible { outline: 2px solid var(--accent); outline-off
 
 .grouped-row-chevron { flex: 0 0 auto; color: var(--muted); }
 
-.grouped-row-action { justify-content: center; font-weight: 650; }
-.grouped-row-action.is-accent { color: var(--accent); }
-.grouped-row-action.is-danger { color: var(--danger); }
-.grouped-row-action:disabled { opacity: 0.55; cursor: default; }
+/* ActionRow: the list's own action, a compact button in a row of its own. */
+.grouped-row-action { justify-content: flex-start; padding-block: 10px; cursor: default; }
+.grouped-row-action:hover { background: transparent; }
+
+/* CommandRow's verb, drawn as a compact button on the right of a row that is itself
+   the button: it takes the row's hover, and the click is the row's. */
+.grouped-row-value-button { flex: none; pointer-events: none; }
+.grouped-row-command:hover .grouped-row-value-button,
+.grouped-row-command:focus-visible .grouped-row-value-button { background: var(--hover); }
 .grouped-row-add .grouped-row-label strong { color: var(--accent); }
 
 .grouped-row-field { display: block; padding: 12px 16px; }

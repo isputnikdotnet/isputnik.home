@@ -184,7 +184,7 @@ export function DiskCheckSection({ prefix, testRunning }: { prefix: string; test
           ) : (
             <>
               <span className="hw-test-now"><small>{state.last ? t("controlAdmin:apps.hardwareTest.disks.lastChecked", { date: formatManagedDate(state.last.startedAt) }) : t("controlAdmin:apps.hardwareTest.disks.notRun")}</small></span>
-              <Button variant="secondary" onClick={() => void start()} disabled={testRunning}>
+              <Button variant="secondary" compact onClick={() => void start()} disabled={testRunning}>
                 <HardDrive size={15} aria-hidden="true" /> {t("controlAdmin:apps.hardwareTest.disks.run")}
               </Button>
             </>
@@ -355,7 +355,7 @@ export function HardwareTestPage({ prefix, capabilities, maxViewers, saving, onU
               </Button>
             </>
           ) : (
-            <Button variant="primary" onClick={() => void start()} disabled={!state.available}>
+            <Button variant="primary" compact onClick={() => void start()} disabled={!state.available}>
               <Play size={15} aria-hidden="true" /> {t("controlAdmin:apps.hardwareTest.run")}
             </Button>
           )}

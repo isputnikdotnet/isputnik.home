@@ -93,7 +93,7 @@ export function DateRangePicker({
 
   return (
     <>
-      <div className="range-picker" role="group" aria-label={label ?? t("dateRange.label")}>
+      <div className="segmented" role="group" aria-label={label ?? t("dateRange.label")}>
         {allowAll && (
           <button
             type="button"

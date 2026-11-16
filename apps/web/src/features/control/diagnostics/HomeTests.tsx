@@ -152,7 +152,7 @@ export function TestBar({ title, about, last, running, disabled, waits, onRun, l
         <span className="muted">{about}</span>
         {last && <span className="diagnostics-test-last">{last}</span>}
       </div>
-      <Button variant="secondary" disabled={running || waits || disabled} onClick={onRun}>
+      <Button variant="secondary" compact disabled={running || waits || disabled} onClick={onRun}>
         {running ? t("controlAdmin:diagnostics.tests.running") : waits ? t("controlAdmin:diagnostics.tests.waits") : label}
       </Button>
     </div>

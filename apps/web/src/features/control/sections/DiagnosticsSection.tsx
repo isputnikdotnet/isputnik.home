@@ -24,7 +24,7 @@ const PILL: Record<PartState, string> = { ok: "is-ready", attention: "is-needsSe
 /** A card's small footer button: a real link, so it opens in a new tab on Ctrl/Cmd-click. */
 function Link({ href, children, chevron = false }: { href: string; children: React.ReactNode; chevron?: boolean }) {
   return (
-    <a className="secondary-button diagnostics-part-button" href={href} onClick={(event) => followRoute(event, href)}>
+    <a className="secondary-button compact-button diagnostics-part-button" href={href} onClick={(event) => followRoute(event, href)}>
       {children}
       {chevron && <ChevronRight size={14} aria-hidden="true" />}
     </a>

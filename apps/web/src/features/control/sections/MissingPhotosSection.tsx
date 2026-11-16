@@ -131,7 +131,7 @@ export function MissingPhotosSection() {
         {/* Refresh last, at the right edge — same position as on Scheduled jobs. */}
         <div className="row-actions control-head-actions">
           {eligibleCount > 0 && (
-            <Button variant="danger" compact disabled={busy} onClick={() => { setActionError(""); setPurgeAllOpen(true); }}>
+            <Button variant="danger" disabled={busy} onClick={() => { setActionError(""); setPurgeAllOpen(true); }}>
               <Trash2 size={16} />
               <span>{t("controlAdmin:missingPhotos.purgeEligible", { count: eligibleCount })}</span>
             </Button>

@@ -59,17 +59,7 @@
   overflow: visible;
 }
 
-.library-table .icon-button {
-  min-width: 34px;
-  min-height: 34px;
-  padding: 8px;
-}
-
-.library-table .secondary-button.compact-button {
-  min-height: 34px;
-  padding: 0 10px;
-  white-space: nowrap;
-}
+.library-table .secondary-button.compact-button { white-space: nowrap; }
 
 .library-table .library-contents-cell span,
 .library-table .library-contents-cell small {
@@ -250,17 +240,6 @@
 .admin-section-head.control-head-compact .admin-title-wrap {
   flex: 1 1 320px;
   min-width: 0;
-}
-
-/* Smaller than a page's primary action: these are upkeep controls sitting beside
-   a title, not the thing you came to the page to press. */
-.control-head-actions .primary-button,
-.control-head-actions .secondary-button,
-.control-head-actions .danger-button {
-  min-height: 34px;
-  padding: 0 12px;
-  gap: 6px;
-  font-size: 0.82rem;
 }
 
 .control-head-actions .refresh-button {

@@ -99,6 +99,28 @@
   }
 }
 
+/* ── Buttons in the control panel (docs/UI-CONVENTIONS.md) ─────────────────
+   Two sizes, nothing in between. REGULAR (40px): a page's own actions — its head,
+   a toolbar. COMPACT (32px, Button `compact`): actions inside content — a card's
+   footer, a list or table row, a Needs-attention row. Icon-only buttons take their
+   neighbours' height; a table cell is content, so its buttons are compact without
+   being told. Pages don't size buttons themselves. Scoped to the control panel:
+   the rest of the app keeps shared/Button's own sizes. */
+.control-panel :is(.primary-button, .secondary-button, .danger-button) {
+  min-height: 40px;
+  padding: 0 14px;
+}
+.control-panel .icon-button { min-width: 40px; min-height: 40px; padding: 8px; }
+.control-panel :is(.primary-button, .secondary-button, .danger-button):is(.compact-button, td *),
+.control-panel td :is(.primary-button, .secondary-button, .danger-button) {
+  min-height: 32px;
+  padding: 0 12px;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.control-panel .icon-button.compact-button,
+.control-panel td .icon-button { min-width: 32px; min-height: 32px; padding: 6px; }
+
 /* shared/RefreshButton cycles Refresh → Refreshing… → Updated in place. The label
    is what tells you the click landed, so the button holds a width that fits the
    longest of the three: without it the header's controls shuffle sideways twice
@@ -151,10 +173,6 @@
   flex: 0 1 320px;
   width: auto;
   min-width: 0;
-  min-height: 40px;
-}
-
-.log-toolbar-controls .refresh-button {
   min-height: 40px;
 }
 
@@ -975,53 +993,6 @@ tr.control-anchor-flash > td {
 /* Time-window control (shared/DateRangePicker) above a range-scoped view: one
    segmented strip of relative presets ending in Custom, so the presets read as
    one control rather than five loose buttons. */
-.range-picker {
-  display: inline-flex;
-  align-items: stretch;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.range-picker button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 15px;
-  border: 0;
-  border-left: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.range-picker button:first-child {
-  border-left: 0;
-}
-
-.range-picker button:hover:not(:disabled) {
-  color: var(--ink);
-}
-
-.range-picker button:focus-visible {
-  outline: 2px solid var(--mint);
-  outline-offset: -2px;
-}
-
-.range-picker button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.range-picker button.active {
-  color: var(--mint);
-  background: var(--active);
-}
-
 .status-range-row {
   display: flex;
   flex-wrap: wrap;
@@ -1562,10 +1533,6 @@ tr.control-anchor-flash > td {
   min-height: 40px;
   font-size: 0.84rem;
   white-space: nowrap;
-}
-
-.trash-toolbar-controls .refresh-button {
-  min-height: 40px;
 }
 
 /* Name on the left, control on the right — a settings list rather than a form, since
@@ -2323,19 +2290,6 @@ tr.control-anchor-flash > td {
     gap: 2px 12px;
   }
 
-  /* The range picker fills the row and shares it out, so "Custom" is not cut off. */
-  .range-picker {
-    display: flex;
-    max-width: 100%;
-  }
-
-  .range-picker button {
-    flex: 1 1 auto;
-    justify-content: center;
-    min-width: 0;
-    padding: 9px 8px;
-  }
-
   /* Libraries: each library is a small card — name and access on one line, its
      actions on the next. As table columns the row had room for two of its five
      buttons; Edit, Rescan and Delete were clipped off the edge, out of reach. */
@@ -3006,7 +2960,6 @@ tr.control-anchor-flash > td {
   gap: 8px 12px;
 }
 
-.dash-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .dash-usage-link {
   display: inline-flex;
@@ -3240,15 +3193,7 @@ tr.control-anchor-flash > td {
 }
 .diagnostics-part:has(.diagnostics-logging-inline.is-raised) .diagnostics-part-foot { background: color-mix(in srgb, var(--warning) 9%, transparent); }
 .diagnostics-part-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
-.secondary-button.diagnostics-part-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 30px;
-  padding: 3px 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
+.secondary-button.diagnostics-part-button { gap: 2px; }
 .diagnostics-part-notests { font-size: 0.85rem; }
 .diagnostics-logging-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; font-size: 0.9rem; }
 /* The standard compact SelectField; raised, its text takes the warning colour. */

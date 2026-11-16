@@ -37,7 +37,7 @@ interface RowText {
   valueTone?: Tone;
 }
 
-function RowBody({ icon, iconTone, iconShape, label, sub, value, valueTone, chevron }: RowText & { chevron: boolean }) {
+function RowBody({ icon, iconTone, iconShape, label, sub, value, valueTone, chevron, valueAsButton = false }: RowText & { chevron: boolean; valueAsButton?: boolean }) {
   return (
     <>
       {icon && <span className={`grouped-row-icon${iconTone ? ` is-${iconTone}` : ""}${iconShape === "round" ? " is-round" : ""}`} aria-hidden="true">{icon}</span>}
@@ -45,8 +45,10 @@ function RowBody({ icon, iconTone, iconShape, label, sub, value, valueTone, chev
         <strong>{label}</strong>
         {sub && <small>{sub}</small>}
       </span>
-      {value !== undefined && value !== null && value !== "" && (
-        <span className={`grouped-row-value${valueTone ? ` is-${valueTone}` : ""}`}>{value}</span>
+      {value !== undefined && value !== null && value !== "" && (valueAsButton
+        // The row is the button; its verb is drawn as one on the right ("Create").
+        ? <span className="grouped-row-value-button secondary-button compact-button">{value}</span>
+        : <span className={`grouped-row-value${valueTone ? ` is-${valueTone}` : ""}`}>{value}</span>
       )}
       {chevron && <ChevronRight className="grouped-row-chevron" size={17} aria-hidden="true" />}
     </>
@@ -112,11 +114,12 @@ export function NavToggleRow({
 }
 
 /** A row that does something where it stands (start a backup) — an icon, what it
- *  does, and its state on the right, but no chevron, since it opens nothing. */
+ *  does, and its verb (`value`: "Create") as a compact button on the right; no
+ *  chevron, since it opens nothing. The whole row answers the click. */
 export function CommandRow({ onClick, disabled = false, ...text }: RowText & { onClick: () => void; disabled?: boolean }) {
   return (
     <Button variant="bare" className="grouped-row grouped-row-command" onClick={onClick} disabled={disabled}>
-      <RowBody {...text} chevron={false} />
+      <RowBody {...text} chevron={false} valueAsButton />
     </Button>
   );
 }
@@ -130,20 +133,16 @@ export function InfoRow(text: RowText) {
   );
 }
 
-/** A centred action: `accent` for the thing to do, `danger` for removing. */
+/** An action of the list (Upload backup, Restore, Delete): a row holding one compact
+ *  button — outlined for the thing to do, red outlined (`danger`) for removing. */
 export function ActionRow({ label, onClick, tone = "accent", disabled = false, href, download }: { label: ReactNode; onClick?: () => void; tone?: "accent" | "danger"; disabled?: boolean; href?: string; download?: boolean }) {
-  // A file to save (a backup) is a plain link the browser downloads, not a route.
-  if (href) {
-    return (
-      <a className={`grouped-row grouped-row-action is-${tone}`} href={href} download={download || undefined}>
-        {label}
-      </a>
-    );
-  }
   return (
-    <Button variant="bare" className={`grouped-row grouped-row-action is-${tone}`} onClick={onClick} disabled={disabled}>
-      {label}
-    </Button>
+    <div className="grouped-row grouped-row-action">
+      {href
+        // A file to save (a backup) is a plain link the browser downloads, not a route.
+        ? <a className={`secondary-button compact-button${tone === "danger" ? " danger" : ""}`} href={href} download={download || undefined}>{label}</a>
+        : <Button variant="secondary" compact danger={tone === "danger"} onClick={onClick} disabled={disabled}>{label}</Button>}
+    </div>
   );
 }
 

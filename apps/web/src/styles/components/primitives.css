@@ -312,6 +312,10 @@ a.icon-button {
   text-decoration: none;
 }
 
+/* …and a secondary one reads as a button, not a link: the text colour, never the
+   browser's link blue (a Download that saves a file, a footer's Details). */
+a.secondary-button:not(.danger) { color: var(--ink); }
+
 a.primary-button svg,
 a.secondary-button svg,
 a.danger-button svg,
@@ -432,6 +436,50 @@ a.icon-button svg {
 
 .compact-button {
   min-height: 42px;
+}
+
+/* ── Segmented control (shared/SegmentedControl, DateRangePicker) ──
+   One of a few options chosen inline: a joined row, the chosen one filled. 32px,
+   a control inside content. */
+.segmented {
+  display: inline-flex;
+  align-items: stretch;
+  box-sizing: border-box;
+  min-height: 32px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.segmented > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.segmented > button:first-child { border-left: 0; }
+.segmented > button:hover:not(:disabled) { color: var(--ink); }
+.segmented > button:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; }
+.segmented > button:disabled { cursor: not-allowed; opacity: 0.6; }
+.segmented > button.active { color: var(--mint); background: var(--active); }
+
+/* On a phone it fills the row and shares it out, so the last segment isn't cut off. */
+@media (max-width: 740px) {
+  .segmented { display: flex; }
+  .segmented > button { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
 }
 
 /* ── Toggle switch ──────────────────────────────────────────────── */

@@ -17,7 +17,7 @@ const DONE_MS = 1600;
 export function RefreshButton({
   onRefresh,
   label,
-  compact = true,
+  compact = false,
   className,
   title
 }: {

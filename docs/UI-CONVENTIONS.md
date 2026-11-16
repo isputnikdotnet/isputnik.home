@@ -48,9 +48,39 @@ these keep them exactly as they were:
 
 Modifiers: `danger` (rose tint for destructive icon/text/secondary/toolbar
 buttons; on the class-less variants it adds the plain `danger` class their rows
-style), `compact` (42px height for toolbars/rows). Never hand-apply a variant's
+style), `compact` (the small size — see below). Never hand-apply a variant's
 class (`className="icon-button"`, `"compact-button"`) — use the prop; `check:ui`
 fails on it.
+
+#### Buttons in the control panel — two sizes, one primary
+
+Every control-panel page follows the same rules (the sizes are scoped to
+`.control-panel` in `admin.css`; the rest of the app keeps `Button`'s own):
+
+- **Two sizes, nothing in between.** **Regular, 40px**: a page's own actions —
+  its head (Download report, Add library, Refresh), a toolbar. **Compact, 32px**
+  (`compact`): actions inside content — a card's footer (Diagnostics' Tests,
+  Details), a list or table row (Libraries' Manage), a Needs-attention row, a
+  test inside a card (Run test). A table cell is content, so its buttons are
+  compact without being told. Pages never size a button themselves — no
+  `min-height` on a button class in a page's stylesheet.
+- **One primary per place.** At most one filled `primary` in a page head, a card
+  or a row group: the thing you came to do. Everything else is `secondary`
+  (outlined); destructive is `secondary` + `danger` in content, `danger` only
+  as a confirm.
+- **Icon-only buttons take their neighbours' height** — 40 in a head or toolbar,
+  32 in a row (`compact`, or automatic in a table cell).
+- **Refresh** is `shared/RefreshButton`: a secondary button with its icon and
+  label, regular size in a page head.
+- **A row that does something, not a page it opens** (`CommandRow`: Backup's
+  "Create"), shows its verb as a compact button on the right; the whole row is
+  the click. **The list's own action** (`ActionRow`: Upload backup, Restore,
+  Delete) is a compact button in a row of its own — red outlined when it removes.
+- **A link that looks like a button** (Details ›, Download) uses the same classes
+  and sizes; it is never link-blue.
+- **One of a few options, inline** (a time range, a period, an exposure) is
+  `shared/SegmentedControl` — a joined row, the chosen one filled, 32px — not
+  chips and not a tab row. `DateRangePicker` wears the same `segmented` look.
 
 A tab row is a real tablist: `role="tablist"` on the row, the `tab` variant on
 each button. Marking the open tab only by its underline leaves a screen reader
