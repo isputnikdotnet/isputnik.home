@@ -1647,12 +1647,6 @@ tr.control-anchor-flash > td {
   border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
 
-.trash-tile-actions .icon-button {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 6px;
-}
-
 @media (max-width: 740px) {
   .trash-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }

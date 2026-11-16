@@ -858,6 +858,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                   <div className="trash-tile-actions">
                     <Button
                       variant="icon"
+                      compact
                       disabled={busyItem}
                       onClick={() => restore(item)}
                       aria-label={t("controlAdmin:recycleBin.restoreAria", { title: item.title })}
@@ -869,6 +870,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                     </Button>
                     <Button
                       variant="icon"
+                      compact
                       danger
                       disabled={busyItem}
                       onClick={() => { setActionError(""); setPurgeTarget(item); }}

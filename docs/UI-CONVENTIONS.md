@@ -81,6 +81,8 @@ Every control-panel page follows the same rules (the sizes are scoped to
 - **One of a few options, inline** (a time range, a period, an exposure) is
   `shared/SegmentedControl` — a joined row, the chosen one filled, 32px — not
   chips and not a tab row. `DateRangePicker` wears the same `segmented` look.
+- **Enforced:** `check:ui` fails on a control-panel stylesheet rule that gives a
+  button class its own height.
 
 A tab row is a real tablist: `role="tablist"` on the row, the `tab` variant on
 each button. Marking the open tab only by its underline leaves a screen reader
@@ -602,7 +604,15 @@ order and the full token tables are in [`css-map.md`](css-map.md).
 - a Leaflet map is built on a hand-written `tile.openstreetmap.org` URL instead of
   `shared/mapTiles`;
 - a `<Button>` hand-applies a variant's class (`className="icon-button"`,
-  `"compact-button"`…) instead of `variant` / `compact`.
+  `"compact-button"`…) instead of `variant` / `compact`;
+- a control page links back with `PageBack` or a `control-page-back` link instead of
+  `ControlBackBar`;
+- a rule in the control panel's own stylesheets (`admin.css`, `admin-pages.css`,
+  `admin-shared.css`, the member/access, system-data and duplicates sheets) sets a
+  height on a button class — `.primary-button`, `.secondary-button`, `.danger-button`,
+  `.icon-button`, `.compact-button`, `.refresh-button` — outside the standard's own
+  `.control-panel` block. Width, spacing and colour stay the page's; a small button
+  is `compact` (see Buttons in the control panel).
 
 **The raw-button baseline is a ratchet.** It lists, per file under `apps/web/src`
 outside `shared/`, how many raw `<button>` elements may remain — today none; the

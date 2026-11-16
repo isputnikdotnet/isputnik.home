@@ -301,6 +301,57 @@ if (existsSync(LOCALES_DIR)) {
   }
 }
 
+// ── Control-panel button sizes ──
+// Buttons in the control panel come in two sizes, set ONCE in admin.css's
+// "Buttons in the control panel" block (rules that start `.control-panel`):
+// regular 40px, compact 32px. A page that sizes a button itself is how there came
+// to be 30, 34 and 42px ones beside them. So a rule in the control panel's own
+// stylesheets that targets a button class and sets a height fails; width,
+// spacing and colour are the page's to set. (A page wanting a small button passes
+// `compact`; a table cell's are compact already.)
+{
+  const CONTROL_STYLES = [
+    "styles/admin.css",
+    "styles/admin-shared.css",
+    "styles/system-data.css",
+    "styles/components/admin-pages.css",
+    "styles/components/member-page.css",
+    "styles/components/member-access.css",
+    "styles/components/access-dialog.css",
+    "styles/duplicates/cleanup-panel.css",
+    "styles/duplicates/wizard.css"
+  ];
+  const BUTTON_CLASS = /\.(primary-button|secondary-button|danger-button|icon-button|compact-button|refresh-button)(?![\w-])/;
+  const HEIGHT = /(?:^|;|\{)\s*(min-height|height|max-height)\s*:/;
+  for (const rel of CONTROL_STYLES) {
+    const file = join(ROOT, rel);
+    if (!existsSync(file)) continue;
+    // Comments blanked, newlines kept, so a rule's line number holds.
+    const text = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "));
+    // Innermost blocks: a rule, wherever it sits (inside @media too).
+    for (const match of text.matchAll(/([^{};]+)\{([^{}]*)\}/g)) {
+      const selector = match[1].trim();
+      if (selector.startsWith("@")) continue;
+      // Split at the list's own commas, not those inside :is(…)/:not(…).
+      const parts = [];
+      let depth = 0;
+      let start = 0;
+      for (let i = 0; i < selector.length; i++) {
+        if (selector[i] === "(") depth++;
+        else if (selector[i] === ")") depth--;
+        else if (selector[i] === "," && depth === 0) { parts.push(selector.slice(start, i)); start = i + 1; }
+      }
+      parts.push(selector.slice(start));
+      const targets = parts.map((part) => part.trim()).filter((part) => BUTTON_CLASS.test(part) && !part.startsWith(".control-panel"));
+      if (targets.length === 0 || !HEIGHT.test(`;${match[2]}`)) continue;
+      const line = text.slice(0, match.index + match[0].indexOf(match[1].trimStart())).split("\n").length;
+      console.error(`apps/web/src/${rel}:${line}  A control-panel button's height is the standard's (regular 40px, \`compact\` 32px), not a page's: drop the height, or pass \`compact\`.`);
+      console.error(`    ${targets.join(", ").slice(0, 140)}`);
+      failures++;
+    }
+  }
+}
+
 if (failures > 0) {
   console.error(`\ncheck:ui failed — ${failures} violation${failures === 1 ? "" : "s"}. See docs/UI-CONVENTIONS.md.`);
   process.exit(1);
