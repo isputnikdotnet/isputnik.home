@@ -8,11 +8,11 @@
 // first, and a Storage page and the setup guide show this same block. Drawn as
 // grouped rows (control panel v2): the switch and the folder, then the four parts,
 // each a row with its own actions as rows under it.
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Clapperboard, FolderHeart, HardDrive, Inbox, Map as MapIcon } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref } from "../../../../router";
+import { controlHref, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Field } from "../../../../shared/Field";
@@ -20,7 +20,8 @@ import { ActionRow, CheckRow, FieldRow, InputRow, NavRow, ToggleRow } from "../.
 import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
-import { SettingsCard } from "../../../../shared/SettingsCard";
+import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
+import { StoragePathRow } from "./StoragePathRow";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
 // The panel shares system data's stylesheet: the same block shape (docs/css-map.md).
 import "../../../../styles/system-data.css";
@@ -68,11 +69,12 @@ type Pending =
 
 const PARTS: Part[] = ["inbox", "house", "renders", "maps"];
 
-export function AppStoragePanel({ refreshKey = 0, card, onChanged }: {
+export function AppStoragePanel({ refreshKey = 0, layout, onChanged }: {
   /** Bumped by the page's Refresh button. */
   refreshKey?: number;
-  /** Drawn as a card (the Storage page), with this icon and line under its title. */
-  card?: { icon: ReactNode; description: ReactNode };
+  /** "paths": the Storage page's System folders page — the switch in the head, then
+   *  the folder and its four parts as folder rows (storage/StoragePathRow). */
+  layout?: "paths";
   /** Told after a change, so a page can re-read what depends on it. */
   onChanged?: (view: AppStorageView) => void;
 }) {
@@ -245,9 +247,132 @@ export function AppStoragePanel({ refreshKey = 0, card, onChanged }: {
         </InfoHint>
     </>
   );
+  // The System folders page: App storage's folder (Change), or — while it is off —
+  // where it will live; then its four parts as rows, each with the one thing to do
+  // about it: Move in or Make it, Rename folder, or Settings where it is set up.
+  const partAction = (entry: PartView) => {
+    const outside = view.enabled && !entry.inside;
+    const canMove = entry.library || entry.part === "renders" || entry.part === "maps";
+    if (outside && !entry.move.running) {
+      return (
+        <Button variant="secondary" compact disabled={view.moving} onClick={() => { setSaveError(""); setPending({ kind: "moveIn", part: entry }); }}>
+          {canMove ? t("controlAdmin:appStorage.moveIn") : t("controlAdmin:appStorage.make")}
+        </Button>
+      );
+    }
+    if (view.enabled && entry.renameTo && !entry.move.running) {
+      return <Button variant="secondary" compact onClick={() => { setSaveError(""); setPending({ kind: "rename", part: entry }); }}>{t("controlAdmin:storage.renameFolder")}</Button>;
+    }
+    if (view.enabled && entry.part === "inbox" && entry.library) {
+      return <Button variant="secondary" compact onClick={() => navigate(`${controlHref("mapSetup")}#photo-inbox`)}>{t("controlAdmin:storage.openSettings")}</Button>;
+    }
+    if (view.enabled && entry.part === "maps") {
+      return <Button variant="secondary" compact onClick={() => navigate(controlHref("mapSetup"))}>{t("controlAdmin:storage.openSettings")}</Button>;
+    }
+    return undefined;
+  };
+  const pathsRows = (
+    <>
+      {view.enabled ? (
+        <StoragePathRow
+          label={t("controlAdmin:appStorage.folderLabel")}
+          sub={view.moving ? t("controlAdmin:appStorage.movingTitle") : undefined}
+          path={<code>{view.folder}</code>}
+          detail={<SpaceMeter space={view.space} />}
+          action={
+            <Button variant="secondary" compact disabled={view.moving} onClick={() => { setSaveError(""); setChanging({ where: view.where, path: view.customPath ?? "" }); }}>
+              {t("controlAdmin:appStorage.change")}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grouped-list-rows storage-where">
+          <CheckRow
+            label={t("controlAdmin:appStorage.whereSystem")}
+            sub={view.systemFolder ? t("controlAdmin:appStorage.whereSystemHint", { path: view.systemFolder }) : t("controlAdmin:appStorage.needsSystemData")}
+            checked={where === "system"}
+            disabled={!view.systemDataSet}
+            onSelect={() => setWhere("system")}
+          />
+          <CheckRow
+            label={t("controlAdmin:appStorage.whereCustom")}
+            sub={t("controlAdmin:appStorage.whereCustomHint")}
+            checked={where === "custom"}
+            onSelect={() => setWhere("custom")}
+          />
+          {where === "custom" && <InputRow label={t("controlAdmin:appStorage.folderLabel")} value={customPath} onChange={setCustomPath} wide />}
+          {typedSpace && <FieldRow><SpaceMeter space={typedSpace} /></FieldRow>}
+        </div>
+      )}
+      <p className="storage-step-note">{view.enabled && view.where === "system" ? t("controlAdmin:appStorage.sharesDisk") : t("controlAdmin:appStorage.desc")}</p>
+      {error && <MessageBox tone="error" title={t("controlAdmin:appStorage.saveFailed")}>{error}</MessageBox>}
+      {!view.systemDataSet && !view.enabled && (
+        <MessageBox tone="info" title={t("controlAdmin:appStorage.needsSystemDataTitle")}>{t("controlAdmin:appStorage.needsSystemData")}</MessageBox>
+      )}
+      {isLowSpace(view.enabled ? view.space : typedSpace) && (
+        <MessageBox tone="warning" title={t("controlAdmin:appStorage.lowTitle")}>
+          {view.enabled ? t("controlAdmin:appStorage.lowBodyOn") : t("controlAdmin:appStorage.lowBody")}
+        </MessageBox>
+      )}
+      <h3 className="storage-step-sub">{view.enabled ? t("controlAdmin:appStorage.insideSummary") : t("controlAdmin:appStorage.insideSummaryOff")}</h3>
+      <div className={view.enabled ? undefined : "storage-parts-off"}>
+        {PARTS.map((name) => view.parts.find((entry) => entry.part === name)).filter((entry): entry is PartView => Boolean(entry)).map((entry) => {
+          const outside = view.enabled && !entry.inside;
+          const canMove = entry.library || entry.part === "renders" || entry.part === "maps";
+          const unowned = entry.part === "house" && (entry.counts.unowned ?? 0) > 0 ? t("controlAdmin:appStorage.unowned", { count: entry.counts.unowned ?? 0 }) : "";
+          return (
+            <Fragment key={entry.part}>
+              <StoragePathRow
+                label={
+                  <span className="storage-part-name">
+                    {partName[entry.part]}
+                    <InfoHint label={t("controlAdmin:appStorage.aboutPart", { name: partName[entry.part] })}>
+                      <strong>{partName[entry.part]}</strong>
+                      <span>{t(`controlAdmin:appStorage.about.${entry.part}`)}</span>
+                      <span><strong>{t("controlAdmin:appStorage.spaceLabel")}</strong> {t(`controlAdmin:appStorage.space.${entry.part}`)}</span>
+                      <span><strong>{t("controlAdmin:appStorage.offLabel")}</strong> {t(`controlAdmin:appStorage.off.${entry.part}`)}</span>
+                    </InfoHint>
+                  </span>
+                }
+                sub={t(`controlAdmin:appStorage.hint.${entry.part}`)}
+                path={entry.folder ? <code>{entry.folder}</code> : t("controlAdmin:appStorage.insideWhenOn")}
+                detail={[usingText(entry), unowned].filter(Boolean).join(" · ") || undefined}
+                warn={outside ? (canMove ? t("controlAdmin:appStorage.outside") : t("controlAdmin:appStorage.missing")) : undefined}
+                action={partAction(entry)}
+              />
+              {(entry.move.running || entry.move.failed.length > 0) && (
+                <div className="storage-path-extra">
+                  {entry.move.running ? (
+                    <div className="app-storage-move">
+                      <span>{t("controlAdmin:appStorage.moving", { moved: entry.move.done, total: entry.move.done + entry.move.pending })}</span>
+                      <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("DELETE", entry.part)}>{t("controlAdmin:storage.moveCancel")}</Button>
+                    </div>
+                  ) : (
+                    <div className="app-storage-move needs-attention">
+                      <span title={entry.move.failed.map((item) => `${item.title ?? item.name}: ${item.error}`).join("\n")}>
+                        {t("controlAdmin:appStorage.moveFailed", { count: entry.move.failed.length })}
+                      </span>
+                      <Button variant="text" compact disabled={moveBusy} onClick={() => void moveAction("POST", entry.part)}>{t("controlAdmin:storage.moveRetry")}</Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
+      </div>
+      {view.enabled && (
+        <div className="storage-step-foot">
+          <Button variant="secondary" compact onClick={() => navigate(controlHref("storageContents"))}>{t("controlAdmin:appStorage.viewContents")}</Button>
+        </div>
+      )}
+    </>
+  );
+
   const body = (
     <>
 
+      {layout === "paths" ? pathsRows : (<>
       <div className="grouped-list-rows">
         <ToggleRow
           label={t("controlAdmin:appStorage.switchAria")}
@@ -401,6 +526,8 @@ export function AppStoragePanel({ refreshKey = 0, card, onChanged }: {
         </div>
       )}
 
+      </>)}
+
       {changing && (
         <Modal
           title={t("controlAdmin:appStorage.changeTitle")}
@@ -468,11 +595,24 @@ export function AppStoragePanel({ refreshKey = 0, card, onChanged }: {
       )}
     </>
   );
-  // On the Storage page a card of its own (shared/SettingsCard); in the setup guide,
-  // rows under a heading.
-  return card
-    ? <SettingsCard id="app-storage" className="storage-card" icon={card.icon} title={heading} description={card.description}>{body}</SettingsCard>
-    : (
+  if (layout === "paths") {
+    return (
+      <section id="app-storage" className="storage-step storage-panel" aria-label={t("controlAdmin:appStorage.title")}>
+        <header className="storage-step-head">
+          <h2 className="storage-step-heading">{heading}</h2>
+          <ToggleSwitch
+            checked={view.enabled}
+            disabled={saving || view.moving || (!view.enabled && !view.systemDataSet)}
+            onChange={toggle}
+            ariaLabel={t("controlAdmin:appStorage.switchAria")}
+          />
+        </header>
+        {body}
+      </section>
+    );
+  }
+  // In the setup guide: rows under a heading.
+  return (
       <section id="app-storage" className="storage-rows">
         <h3 className="grouped-list-title storage-rows-title">{heading}</h3>
         {body}

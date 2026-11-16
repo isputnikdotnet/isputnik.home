@@ -373,12 +373,17 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
   .storage-inside-list { grid-template-columns: minmax(0, 1fr); padding-left: 0; }
   .storage-inside-list dd { margin-bottom: 6px; }
 }
-/* The Storage page's Manage page draws the same blocks as cards (shared/SettingsCard). */
-.storage-card .settings-card-head h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.storage-card .settings-card-head h2 .count-badge { text-transform: none; letter-spacing: 0; font-size: var(--text-xs); }
-.storage-card .space-meter { margin-top: 4px; }
-.storage-card > .grouped-list-title { margin: 4px 0 -6px; }
-.storage-card > .grouped-list-note { margin: -6px 0 0; }
+/* The System folders page: System data and App storage as sections of the same rows. */
+.storage-step-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.storage-step-heading .count-badge { text-transform: none; letter-spacing: 0; font-size: var(--text-xs); }
+.storage-panel > .message-box { margin: 6px 0; }
+.storage-step-note { margin: 0; padding: 8px 0 10px; color: var(--muted); font-size: var(--text-sm); }
+.storage-step-sub { margin: 4px 0 0; padding: 10px 0 4px; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-xs); font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; }
+.storage-step-sub + div > .storage-path-row:first-child { border-top: 0; }
+.storage-path-extra { padding: 0 0 10px; }
+.storage-step-foot { padding: 10px 0; border-top: 1px solid var(--line); }
+.storage-where { margin: 6px 0 0; }
+.storage-parts-off .storage-path-row { opacity: 0.7; }
 
 /* shared/SettingsCard: a titled card of grouped rows (an Overview page's parts). */
 .settings-card {

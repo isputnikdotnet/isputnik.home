@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Database, Folder, HardDrive, Plus, Sparkles } from "lucide-react";
+import { Folder, HardDrive, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, navigate } from "../../../router";
 import { Field } from "../../../shared/Field";
@@ -146,13 +146,9 @@ export function StorageSection() {
           onRemove={() => { void deleteStorageRoot(openRoot).then((ok) => { if (ok) go(null); }); }}
         />
       ) : systemPage ? (
-        <div className="settings-card-stack">
-          <SystemDataPanel
-            refreshKey={refreshKey}
-            card={{ icon: <Database size={20} />, description: t("controlAdmin:storage.systemBody") }}
-            onChanged={() => setRefreshKey((key) => key + 1)}
-          />
-          <AppStoragePanel refreshKey={refreshKey} card={{ icon: <Sparkles size={20} />, description: t("controlAdmin:storage.appBody") }} />
+        <div className="storage-steps">
+          <SystemDataPanel layout="paths" refreshKey={refreshKey} onChanged={() => setRefreshKey((key) => key + 1)} />
+          <AppStoragePanel layout="paths" refreshKey={refreshKey} />
         </div>
       ) : (
         <StorageSteps

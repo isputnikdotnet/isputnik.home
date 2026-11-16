@@ -6,7 +6,7 @@
 // and metadata. Every change goes chooser → confirmation naming the folder → save;
 // whatever has to move follows as a task. Drawn as grouped rows (control panel v2):
 // the folder (tap to change), then what lives in it, one row each.
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Archive, Database, FileText, HardDrive, Images } from "lucide-react";
 import { api } from "../../../../api";
@@ -17,7 +17,6 @@ import { ActionRow, FieldRow, InfoRow, NavRow } from "../../../../shared/Grouped
 import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
-import { SettingsCard } from "../../../../shared/SettingsCard";
 import { formatBytes } from "../../../../shared/utils";
 import { ServerFolderPicker } from "./ServerFolderPicker";
 import { StoragePathRow } from "./StoragePathRow";
@@ -67,11 +66,12 @@ interface Pending {
   path: string | null;
 }
 
-export function SystemDataPanel({ refreshKey = 0, card, folderRow = false, onChanged }: {
+export function SystemDataPanel({ refreshKey = 0, layout, folderRow = false, onChanged }: {
   /** Bumped by the page's Refresh button. */
   refreshKey?: number;
-  /** Drawn as a card (the Storage page), with this icon and line under its title. */
-  card?: { icon: ReactNode; description: ReactNode };
+  /** "paths": the Storage page's System folders page — a section of folder rows, each
+   *  with its one button (storage/StoragePathRow). */
+  layout?: "paths";
   /** Only the folder itself, as one Storage page row with Change (or, while none is
    *  chosen, the field to choose one) — what lives in it is listed by the page. */
   folderRow?: boolean;
@@ -256,11 +256,66 @@ export function SystemDataPanel({ refreshKey = 0, card, folderRow = false, onCha
         </InfoHint>
     </>
   );
+  // The System folders page: the folder itself, then each thing that lives in it as
+  // a row — its folder (or where it falls back to), what is worth knowing, and Change
+  // where it can have a folder of its own. A move in progress is a line under its row.
+  const moveExtra = (move: StorageMove, room: MoveRoom) => (move.running || move.failed.length > 0) && (
+    <div className="storage-path-extra">{moveLine(move, room)}</div>
+  );
+  const changeButton = (target: Target, disabled: boolean) => (
+    <Button variant="secondary" compact disabled={disabled} onClick={() => openEditor(target)}>{t("controlAdmin:systemData.change")}</Button>
+  );
+  const pathsRows = view.path && (
+    <>
+      {view.problem && <MessageBox tone="error" title={t("controlAdmin:systemData.problemTitle")}>{view.problem}</MessageBox>}
+      {isLowSpace(view.space) && <MessageBox tone="warning" title={t("controlAdmin:systemData.lowTitle")}>{t("controlAdmin:systemData.lowBody")}</MessageBox>}
+      <StoragePathRow
+        label={t("controlAdmin:storage.systemFolder")}
+        sub={view.moving ? t("controlAdmin:systemData.movingTitle") : undefined}
+        path={<code>{view.path}</code>}
+        detail={<SpaceMeter space={view.space} />}
+        action={changeButton("system", view.moving)}
+      />
+      <StoragePathRow
+        label={t("controlAdmin:systemData.database")}
+        sub={t("controlAdmin:systemData.databaseHint")}
+        path={<code>{view.database}</code>}
+        detail={t("controlAdmin:systemData.databaseFixed")}
+      />
+      <StoragePathRow
+        label={t("controlAdmin:systemData.thumbnails")}
+        sub={t("controlAdmin:systemData.thumbnailsHint")}
+        path={view.thumbnails.path ? <code>{view.thumbnails.path}</code> : t("controlAdmin:systemData.thumbnailsNowhere")}
+        detail={[view.thumbnails.source ? thumbnailSource[view.thumbnails.source] : "", thumbnailCount].filter(Boolean).join(" · ") || undefined}
+        warn={view.thumbnails.problem || undefined}
+        action={changeButton("thumbnails", view.thumbnails.move.running)}
+      />
+      {moveExtra(view.thumbnails.move, "thumbnails")}
+      <StoragePathRow
+        label={t("controlAdmin:systemData.backups")}
+        sub={t("controlAdmin:systemData.backupsHint")}
+        path={<code>{view.backups.path}</code>}
+        detail={[backupSource[view.backups.source], backupCount].join(" · ")}
+        warn={view.backups.sameDiskAsDatabase ? t("controlAdmin:systemData.sameDisk") : undefined}
+        action={changeButton("backups", view.backups.move.running)}
+      />
+      {moveExtra(view.backups.move, "backups")}
+      <StoragePathRow
+        label={t("controlAdmin:systemData.metadata")}
+        sub={t("controlAdmin:systemData.metadataHint")}
+        path={view.metadata.path ? <code>{view.metadata.path}</code> : t("controlAdmin:systemData.metadataNowhere")}
+        detail={view.metadata.source ? (view.metadata.source === "env" ? t("controlAdmin:systemData.sourceEnvMetadata") : t("controlAdmin:systemData.sourceSystem")) : undefined}
+      />
+      {moveExtra(view.metadata.move, "metadata")}
+    </>
+  );
+
   const body = (
     <>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:systemData.loadFailed")}>{error}</MessageBox>}
 
+      {layout === "paths" && view.path ? pathsRows : (<>
       {!view.path ? (
         <>
           <div className="grouped-list-rows">
@@ -371,6 +426,8 @@ export function SystemDataPanel({ refreshKey = 0, card, folderRow = false, onCha
         </>
       )}
 
+      </>)}
+
       {editor && (
         <Modal
           title={t(editor.target === "system"
@@ -447,12 +504,17 @@ export function SystemDataPanel({ refreshKey = 0, card, folderRow = false, onCha
       )}
     </>
   );
-  // On the Storage page a card of its own (shared/SettingsCard); in the setup guide,
-  // rows under a heading.
   if (folderRow) return <div className="storage-folder-row">{body}</div>;
-  return card
-    ? <SettingsCard id="system-data" className="storage-card" icon={card.icon} title={heading} description={card.description}>{body}</SettingsCard>
-    : (
+  if (layout === "paths") {
+    return (
+      <section id="system-data" className="storage-step storage-panel" aria-label={t("controlAdmin:systemData.title")}>
+        <header className="storage-step-head"><h2 className="storage-step-heading">{heading}</h2></header>
+        {body}
+      </section>
+    );
+  }
+  // In the setup guide: rows under a heading.
+  return (
       <section id="system-data" className="storage-rows">
         <h3 className="grouped-list-title storage-rows-title">{heading}</h3>
         {body}
