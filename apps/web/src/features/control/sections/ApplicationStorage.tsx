@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { HardDrive } from "lucide-react";
+import { Database, HardDrive } from "lucide-react";
 import { api } from "../../../api";
 import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { SettingsCard } from "../../../shared/SettingsCard";
 import { formatBytes } from "../../../shared/utils";
 import { applicationDiskUsage, usesAppFiles, type UsageKind } from "../applicationStorage";
 import type { ApplicationState } from "../applications";
 import { storageHref } from "../links";
-import type { AppKey } from "../nav";
+import { appLabel, type AppKey } from "../nav";
 import type { Contents } from "./StorageContentsSection";
 
 export function ApplicationStorage({ app, state }: { app: Exclude<AppKey, "shared">; state: ApplicationState }) {
@@ -34,7 +35,8 @@ export function ApplicationStorage({ app, state }: { app: Exclude<AppKey, "share
   };
   const amount = (bytes: number | null, complete: boolean) => bytes === null ? t("control:appStorage.unknown")
     : complete ? formatBytes(bytes) : t("control:appStorage.atLeast", { size: formatBytes(bytes) });
-  return <GroupedList title={t("control:appStorage.title")} note={t("control:appStorage.note")}>
+  return <SettingsCard icon={<Database size={20} />} title={t("control:appSetup.cards.storageTitle")} description={t("control:appSetup.cards.storageBody", { app: appLabel(app) })} note={t("control:appStorage.note")}>
+  <GroupedList>
     <InfoRow icon={<HardDrive size={18} />} label={t("control:appStorage.measured")}
       value={loading ? t("control:ui.loading") : amount(usage.bytes, usage.complete)}
       sub={app === "games" ? t("control:appStorage.containerUnknown") : !loading && !usage.complete ? t("control:appStorage.partial") : undefined} />
@@ -44,5 +46,6 @@ export function ApplicationStorage({ app, state }: { app: Exclude<AppKey, "share
       : null)}
     {current?.failed && <NavRow label={t("control:appStorage.retry")} onClick={() => setAttempt((value) => value + 1)} />}
     <NavRow label={t("control:appSetup.storageLink")} href={storageHref()} />
-  </GroupedList>;
+  </GroupedList>
+  </SettingsCard>;
 }

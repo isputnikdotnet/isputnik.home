@@ -189,7 +189,21 @@
     "optionalService": "Face recognition · optional",
     "manageTitle": "Manage",
     "backupContainer": "Back up this application's data.",
-    "backupHome": "Settings and metadata are included in Home backups; original media files are not."
+    "backupHome": "Settings and metadata are included in Home backups; original media files are not.",
+    "cards": {
+      "contentTitle": "Libraries & content",
+      "contentBody": "What {{app}} shows, and where it comes from.",
+      "storageTitle": "Storage",
+      "storageBody": "How much space {{app}} takes.",
+      "accessTitle": "Visibility & access",
+      "accessBody": "Where {{app}} appears, and who can use it.",
+      "backupTitle": "Backup & protection",
+      "backupBody": "Keeping {{app}}'s settings and data safe.",
+      "activityBody": "What {{app}} is doing: its activity, tasks and logs.",
+      "menuSwitchSub": "Show or hide {{app}} in the main menu for everyone.",
+      "deviceSyncSub": "Photos and videos sent from phones and other devices.",
+      "streamingSub": "Home videos that start slowly, and the fix."
+    }
   },
   "services": {
     "description": "This server and each container beside it: whether it is up, how fast it answers and what uses it. Pairing — a container's address and secret — is behind its card.",

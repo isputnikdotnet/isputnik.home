@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, AlertTriangle, ArrowRight, BookOpen, CheckCircle2, GitFork, Library, Link2, ListChecks, Plug, Power, ScrollText, Settings2, Users, Archive } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, BookOpen, CheckCircle2, Eye, Film, FolderOpen, GitFork, Library, Link2, ListChecks, Plug, Power, ScrollText, Settings2, ShieldCheck, Smartphone, Users, Archive } from "lucide-react";
 import { controlHref, followRoute, followReplace, type ControlSection } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
-import { GroupedList, InfoRow, NavRow, ToggleRow } from "../../../shared/GroupedList";
+import { GroupedList, NavRow, ToggleRow } from "../../../shared/GroupedList";
 import { Button } from "../../../shared/Button";
+import { SettingsCard } from "../../../shared/SettingsCard";
 import { formatBytes } from "../../../shared/utils";
 import { SECTION_KEYS } from "../../../app/sections";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -22,8 +23,10 @@ import {
   type ApplicationStatus
 } from "../applications";
 
-// An application's Setup tab (control panel v2, phase 2), as grouped rows like a
-// phone's Settings: is it on, does it work, and what it is made of. It SHOWS its libraries, connection, access and storage
+// An application's Overview tab (control panel v2, phase 2): a banner saying whether
+// it works (and the container it uses), then two columns of cards of grouped rows —
+// Libraries & content and Storage; Visibility & access, Backup & protection,
+// Activity & troubleshooting. Is it on, does it work, and what it is made of. It SHOWS its libraries, connection, access and storage
 // and LINKS to their owners — Libraries & Scanning, Infrastructure, Security &
 // Members, System Settings — rather than editing them here. The one switch it does
 // own is whether the application is in the menu, which was Appearance's Sections
@@ -149,85 +152,110 @@ export function AppSetupSection({ app }: { app: Exclude<AppKey, "shared"> }) {
           : { tone: "ok", title: t("control:appSetup.readyTitle", { app: name }), body: summary(app, state) || t("control:appSetup.readyBody") };
 
   const connected = containerRunning(state.container);
+  const containerValue = data.containers === null
+    ? t("control:appSetup.status.unavailable")
+    : connected
+      ? t("control:appSetup.connectionOkNoVersion")
+      : t(state.container?.configured ? "control:appSetup.connectionDown" : "control:appSetup.connectionUnset");
+  const containerLabel = t(parts.containerOptional ? "control:appSetup.optionalService" : "control:appSetup.connectionTitle");
+  const containerTone = connected ? "ok" : data.containers === null || parts.containerOptional ? "muted" : "warn";
+
+  // What the application shows and where it comes from: its libraries, the container
+  // it uses, and its own pages elsewhere.
+  const contentRows = [
+    parts.libraryType && <NavRow key="libraries" icon={<Library size={17} />} label={t("control:appSetup.librariesTitle")}
+      sub={t("control:appSetup.librarySummary")}
+      value={state.libraries ? t("control:appSetup.summaryLibraries", { count: state.libraries.length }) : t("control:appSetup.status.unavailable")}
+      href={librariesHref(parts.libraryType)} />,
+    app === "gallery" && <NavRow key="sync" icon={<Smartphone size={17} />} label={t("control:nav.tabs.phoneSync")}
+      sub={t("control:appSetup.cards.deviceSyncSub")} href={controlHref("phoneSync")} />,
+    app === "gallery" && <NavRow key="streaming" icon={<Film size={17} />} label={t("control:nav.tabs.videoStreaming")}
+      sub={t("control:appSetup.cards.streamingSub")} href={controlHref("videoStreaming")} />,
+    parts.container && <NavRow key="container" summary icon={<Plug size={17} />} iconTone={containerTone}
+      label={containerLabel} sub={t(`control:appSetup.connectionHint.${parts.container}`)}
+      value={containerValue} href={appPageHref("appsSetup", parts.container)} />,
+    app === "familyTree" && <NavRow key="family" icon={<GitFork size={17} />} label={t("control:appSetup.familyOpen")} sub={t("control:appSetup.familyBody")} href="/family" />,
+    app === "stories" && <NavRow key="stories" icon={<BookOpen size={17} />} label={t("control:appSetup.storiesLink")} sub={t("control:appSetup.storiesBody")} href={controlHref("storySettings")} />,
+    app === "games" && <NavRow key="guests" icon={<Link2 size={17} />} label={t("control:appSetup.guestTitle")} sub={t("control:appSetup.guestBody")} href={`${controlHref("invites")}#games-guest-links`} />
+  ].filter(Boolean);
 
   return (
     <>
       {head}
-      <div className="grouped-page">
-        <GroupedList>
-          <InfoRow
-            icon={status.tone === "ok" ? <CheckCircle2 size={17} /> : status.tone === "warn" ? <AlertTriangle size={17} /> : <Power size={17} />}
-            iconTone={status.tone}
-            label={status.title}
-            sub={status.body}
-          />
-        </GroupedList>
+      {/* Does it work: what is missing, or that all is well — and, beside it, the
+          container it uses, optional or not. */}
+      <div className={`app-overview-status is-${status.tone}`}>
+        <div className="app-overview-status-main">
+          <span className="app-overview-status-icon" aria-hidden="true">
+            {status.tone === "ok" ? <CheckCircle2 size={22} /> : status.tone === "warn" ? <AlertTriangle size={22} /> : <Power size={22} />}
+          </span>
+          <div>
+            <strong>{status.title}</strong>
+            <span>{status.body}</span>
+          </div>
+        </div>
+        {parts.container && (
+          <div className="app-overview-status-side">
+            <Plug size={18} aria-hidden="true" />
+            <div>
+              <strong>{containerLabel}</strong>
+              <span className={`app-overview-tag is-${containerTone}`}>{containerValue}</span>
+            </div>
+          </div>
+        )}
+      </div>
+      {saveError && <MessageBox tone="error" title={t("control:appearance.errorTitle")}>{saveError}</MessageBox>}
+      {((parts.libraryType && state.libraries === null) || (parts.container && data.containers === null)) && retry}
 
-        {sectionKey && (
-          <GroupedList
-            title={t("control:appSetup.menuTitle")}
-            note={<>{t("control:appSetup.menuHint")}{app === "games" && <> {t("control:appearance.sectionsGamesHint")}</>}</>}
-          >
-            <ToggleRow
-              label={t("control:appSetup.menuSwitch", { app: name })}
-              checked={on}
-              // One application always stays on: the menu is never empty.
-              disabled={saving || loading || (on && onCount === 1)}
-              onChange={(next) => void toggle(next)}
-            />
-          </GroupedList>
-        )}
-        {saveError && <MessageBox tone="error" title={t("control:appearance.errorTitle")}>{saveError}</MessageBox>}
+      <div className="app-overview">
+        <div className="app-overview-col">
+          {contentRows.length > 0 && (
+            <SettingsCard icon={<FolderOpen size={20} />} title={t("control:appSetup.cards.contentTitle")} description={t("control:appSetup.cards.contentBody", { app: name })}>
+              <GroupedList>{contentRows}</GroupedList>
+            </SettingsCard>
+          )}
+          <ApplicationStorage app={app} state={state} />
+        </div>
 
-        {((parts.libraryType && state.libraries === null) || (parts.container && data.containers === null)) && retry}
-        {(parts.libraryType || parts.container) && (
-          <GroupedList title={t("control:appSetup.setupTitle")}>
-            {parts.libraryType && <NavRow icon={<Library size={17} />} label={t("control:appSetup.librariesTitle")}
-              sub={t("control:appSetup.librarySummary")}
-              value={state.libraries ? t("control:appSetup.summaryLibraries", { count: state.libraries.length }) : t("control:appSetup.status.unavailable")}
-              href={librariesHref(parts.libraryType)} />}
-            {parts.container && <NavRow summary icon={<Plug size={17} />}
-              iconTone={connected ? "ok" : data.containers === null || parts.containerOptional ? "muted" : "warn"}
-              label={t(parts.containerOptional ? "control:appSetup.optionalService" : "control:appSetup.connectionTitle")}
-              sub={t(`control:appSetup.connectionHint.${parts.container}`)}
-              value={data.containers === null ? t("control:appSetup.status.unavailable") : connected ? t("control:appSetup.connectionOkNoVersion") : t(state.container?.configured ? "control:appSetup.connectionDown" : "control:appSetup.connectionUnset")}
-              href={appPageHref("appsSetup", parts.container)} />}
-          </GroupedList>
-        )}
-        <GroupedList title={t("control:appSetup.manageTitle")}>
-          <AccessRow app={app} />
-          <NavRow icon={<Archive size={17} />} label={t("control:nav.tabs.backup")}
-            sub={t(app === "videos" || app === "games" ? "control:appSetup.backupContainer" : "control:appSetup.backupHome")}
-            href={backupHref(app === "videos" ? "video" : app === "games" ? "games" : undefined)} />
-        </GroupedList>
+        <div className="app-overview-col">
+          <SettingsCard icon={<Eye size={20} />} title={t("control:appSetup.cards.accessTitle")} description={t("control:appSetup.cards.accessBody", { app: name })}
+            note={sectionKey ? <>{t("control:appSetup.menuHint")}{app === "games" && <> {t("control:appearance.sectionsGamesHint")}</>}</> : undefined}>
+            <GroupedList>
+              {sectionKey && (
+                <ToggleRow
+                  label={t("control:appSetup.menuSwitch", { app: name })}
+                  sub={t("control:appSetup.cards.menuSwitchSub", { app: name })}
+                  checked={on}
+                  // One application always stays on: the menu is never empty.
+                  disabled={saving || loading || (on && onCount === 1)}
+                  onChange={(next) => void toggle(next)}
+                />
+              )}
+              <AccessRow app={app} />
+            </GroupedList>
+          </SettingsCard>
 
-        <ApplicationStorage app={app} state={state} />
+          <SettingsCard icon={<ShieldCheck size={20} />} title={t("control:appSetup.cards.backupTitle")} description={t("control:appSetup.cards.backupBody", { app: name })}>
+            <GroupedList>
+              <NavRow icon={<Archive size={17} />} label={t("control:nav.tabs.backup")}
+                sub={t(app === "videos" || app === "games" ? "control:appSetup.backupContainer" : "control:appSetup.backupHome")}
+                href={backupHref(app === "videos" ? "video" : app === "games" ? "games" : undefined)} />
+            </GroupedList>
+          </SettingsCard>
 
-        {/* Activity, tasks and logs are one page each in Infrastructure; these
-            open them already narrowed to this application (phase 3). */}
-        {APP_LOG_PREFIXES[app] && (
-          <GroupedList title={t("control:appSetup.activityTitle")} note={t("control:appSetup.activityBody", { app: name })}>
-            <NavRow icon={<Activity size={17} />} label={t("control:appSetup.activityLink")} href={activityHref({ application: app })} />
-            {APP_TASK_SCOPE[app] && <NavRow icon={<ListChecks size={17} />} label={t("control:appSetup.tasksLink")} href={tasksHref({ application: app })} />}
-            <NavRow icon={<ScrollText size={17} />} label={t("control:appSetup.logsLink")} href={logsHref({ application: app })} />
-          </GroupedList>
-        )}
-
-        {app === "familyTree" && (
-          <GroupedList title={t("control:appSetup.familyTitle")} note={t("control:appSetup.familyBody")}>
-            <NavRow icon={<GitFork size={17} />} label={t("control:appSetup.familyOpen")} href="/family" />
-          </GroupedList>
-        )}
-        {app === "stories" && (
-          <GroupedList title={t("control:appSetup.storiesTitle")} note={t("control:appSetup.storiesBody")}>
-            <NavRow icon={<BookOpen size={17} />} label={t("control:appSetup.storiesLink")} href={controlHref("storySettings")} />
-          </GroupedList>
-        )}
-        {app === "games" && (
-          <GroupedList title={t("control:appSetup.guestTitle")} note={t("control:appSetup.guestBody")}>
-            <NavRow icon={<Link2 size={17} />} label={t("control:appSetup.guestLink")} href={`${controlHref("invites")}#games-guest-links`} />
-          </GroupedList>
-        )}
+          {/* Activity, tasks and logs are one page each in Infrastructure; these
+              open them already narrowed to this application (phase 3). */}
+          {APP_LOG_PREFIXES[app] && (
+            <SettingsCard icon={<Activity size={20} />} title={t("control:appSetup.activityTitle")} description={t("control:appSetup.cards.activityBody", { app: name })}
+              note={t("control:appSetup.activityBody", { app: name })}>
+              <GroupedList>
+                <NavRow icon={<Activity size={17} />} label={t("control:appSetup.activityLink")} href={activityHref({ application: app })} />
+                {APP_TASK_SCOPE[app] && <NavRow icon={<ListChecks size={17} />} label={t("control:appSetup.tasksLink")} href={tasksHref({ application: app })} />}
+                <NavRow icon={<ScrollText size={17} />} label={t("control:appSetup.logsLink")} href={logsHref({ application: app })} />
+              </GroupedList>
+            </SettingsCard>
+          )}
+        </div>
       </div>
     </>
   );

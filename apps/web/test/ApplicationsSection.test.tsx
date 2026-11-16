@@ -88,7 +88,7 @@ describe("Application Overview and return navigation", () => {
       return original(path, options);
     });
     render(<AppSetupSection app="gallery" />);
-    const storage = await screen.findByRole("region", { name: "Disk usage" });
+    const storage = await screen.findByRole("region", { name: "Storage" });
     expect(within(storage).getByRole("link", { name: /^Library media/ })).toHaveTextContent("2.00 KB");
     expect(await within(storage).findByText("At least 2.00 KB")).toBeInTheDocument();
     // Shared App files isn't a second Gallery library or part of its media total.

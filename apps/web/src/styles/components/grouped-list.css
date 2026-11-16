@@ -339,3 +339,38 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
 .grouped-row-switch:disabled { opacity: 0.6; cursor: default; }
 /* "Change" on a folder row stays whole; the folder's name wraps instead. */
 .storage-rows .grouped-row-value { flex-shrink: 0; max-width: none; }
+
+/* shared/SettingsCard: a titled card of grouped rows (an Overview page's parts). */
+.settings-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+.settings-card-head { display: flex; gap: 14px; align-items: flex-start; }
+.settings-card-head h2 { margin: 0 0 2px; font-size: 1.15rem; }
+.settings-card-head p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.settings-card-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--active);
+}
+.settings-card > .grouped-list { margin: 0; }
+.settings-card-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}

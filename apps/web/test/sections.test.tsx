@@ -79,7 +79,7 @@ describe("an application's Setup › In the menu", () => {
   it("holds the last application that is on, so the menu never empties", async () => {
     serve(ONLY_AUDIOBOOKS, (body) => ({ config: body }));
     render(<AppSetupSection app="audiobooks" />);
-    const audiobooks = await screen.findByRole("switch", { name: "Show Audiobooks in the menu" });
+    const audiobooks = await screen.findByRole("switch", { name: /^Show Audiobooks in the menu/  });
     expect(audiobooks).toHaveAttribute("aria-checked", "true");
     expect(audiobooks).toBeDisabled();
   });
@@ -87,11 +87,11 @@ describe("an application's Setup › In the menu", () => {
   it("saves the switch and tells the menu at once", async () => {
     serve(ONLY_AUDIOBOOKS, (body) => ({ config: { defaultTheme: "minimalist", sections: body.sections } }));
     render(<><AppSetupSection app="gallery" /><Menu /></>);
-    const gallery = await screen.findByRole("switch", { name: "Show Gallery in the menu" });
+    const gallery = await screen.findByRole("switch", { name: /^Show Gallery in the menu/  });
     expect(gallery).toHaveAttribute("aria-checked", "false");
 
     await userEvent.click(gallery);
-    await waitFor(() => expect(screen.getByRole("switch", { name: "Show Gallery in the menu" })).toHaveAttribute("aria-checked", "true"));
+    await waitFor(() => expect(screen.getByRole("switch", { name: /^Show Gallery in the menu/  })).toHaveAttribute("aria-checked", "true"));
     expect(mockApi).toHaveBeenLastCalledWith("/api/config", expect.objectContaining({ method: "PATCH" }));
     const sent = JSON.parse(String(vi.mocked(api).mock.calls.at(-1)?.[1]?.body)) as { sections: Record<string, boolean> };
     expect(sent.sections).toEqual({ ...ONLY_AUDIOBOOKS, gallery: true });
@@ -102,10 +102,10 @@ describe("an application's Setup › In the menu", () => {
   it("puts a switch back when the save fails", async () => {
     serve(ALL_SECTIONS_ON, () => { throw new Error("Unable to save configuration"); });
     render(<AppSetupSection app="stories" />);
-    const stories = await screen.findByRole("switch", { name: "Show Stories in the menu" });
+    const stories = await screen.findByRole("switch", { name: /^Show Stories in the menu/  });
     await userEvent.click(stories);
     await waitFor(() => expect(screen.getByText("Unable to save configuration")).toBeInTheDocument());
-    expect(screen.getByRole("switch", { name: "Show Stories in the menu" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("switch", { name: /^Show Stories in the menu/  })).toHaveAttribute("aria-checked", "true");
     expect(currentSections().stories).toBe(true);
   });
 });
