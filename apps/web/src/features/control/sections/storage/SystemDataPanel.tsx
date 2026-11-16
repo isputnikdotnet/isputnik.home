@@ -6,7 +6,7 @@
 // and metadata. Every change goes chooser → confirmation naming the folder → save;
 // whatever has to move follows as a task. Drawn as grouped rows (control panel v2):
 // the folder (tap to change), then what lives in it, one row each.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Archive, Database, FileText, HardDrive, Images } from "lucide-react";
 import { api } from "../../../../api";
@@ -17,6 +17,7 @@ import { ActionRow, FieldRow, InfoRow, NavRow } from "../../../../shared/Grouped
 import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
+import { SettingsCard } from "../../../../shared/SettingsCard";
 import { formatBytes } from "../../../../shared/utils";
 import { ServerFolderPicker } from "./ServerFolderPicker";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
@@ -65,9 +66,11 @@ interface Pending {
   path: string | null;
 }
 
-export function SystemDataPanel({ refreshKey = 0, onChanged }: {
+export function SystemDataPanel({ refreshKey = 0, card, onChanged }: {
   /** Bumped by the page's Refresh button. */
   refreshKey?: number;
+  /** Drawn as a card (the Storage page), with this icon and line under its title. */
+  card?: { icon: ReactNode; description: ReactNode };
   /** Told after a change, so the page can re-read what depends on it. */
   onChanged?: (view: SystemDataView) => void;
 }) {
@@ -237,9 +240,8 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
     </>
   );
 
-  return (
-    <section id="system-data" className="storage-rows">
-      <h3 className="grouped-list-title storage-rows-title">
+  const heading = (
+    <>
         <span>{t("controlAdmin:systemData.title")}</span>
         <span className="count-badge">{t("controlAdmin:systemData.required")}</span>
         <InfoHint label={t("controlAdmin:systemData.spaceInfoTitle")}>
@@ -248,7 +250,10 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
           <span>{t("controlAdmin:systemData.spaceInfoBackups")}</span>
           <span>{t("controlAdmin:systemData.spaceInfoMetadata")}</span>
         </InfoHint>
-      </h3>
+    </>
+  );
+  const body = (
+    <>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:systemData.loadFailed")}>{error}</MessageBox>}
 
@@ -419,6 +424,16 @@ export function SystemDataPanel({ refreshKey = 0, onChanged }: {
           {pendingCopy.body}
         </ConfirmDialog>
       )}
-    </section>
+    </>
   );
+  // On the Storage page a card of its own (shared/SettingsCard); in the setup guide,
+  // rows under a heading.
+  return card
+    ? <SettingsCard id="system-data" className="storage-card" icon={card.icon} title={heading} description={card.description}>{body}</SettingsCard>
+    : (
+      <section id="system-data" className="storage-rows">
+        <h3 className="grouped-list-title storage-rows-title">{heading}</h3>
+        {body}
+      </section>
+    );
 }

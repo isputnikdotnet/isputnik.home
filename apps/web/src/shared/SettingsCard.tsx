@@ -10,7 +10,8 @@ export function SettingsCard({ id: anchor, icon, title, description, actions, no
   /** The card's anchor, for the control panel's search to scroll to. */
   id?: string;
   icon: ReactNode;
-  title: string;
+  /** Usually words; may carry a badge or an ⓘ after them (Storage's System data). */
+  title: ReactNode;
   description?: ReactNode;
   /** The card's own action, at the right of its head ("Create genre"). */
   actions?: ReactNode;

@@ -1,7 +1,19 @@
 # Storage
 
 Before you can add a library, the server needs to know where things live. It all
-sits in **Control panel → System Settings → Storage**, in three parts:
+sits in **Control panel → System Settings → Storage**, in cards grouped by what the
+files are to you — and each card says whether Home's backups hold them:
+
+| Card | What it is | In Home's backups? |
+|---|---|---|
+| **Your media** | Your library locations, and where personal libraries are made | No — your own files; keep a copy of these disks |
+| **System data** | What the app needs to run: the database, thumbnails, backups, metadata | The database, and the covers a rescan can't make again |
+| **App storage** | What the family makes in the app: the Photo Inbox, App files, renders, map data | No — recordings and uploads exist only there |
+| **Companion containers** | The video container's cache and catalog, on its own disk | Shown only; the catalog is backed up from the Backup page |
+
+Some of these are set on other pages, and their rows lead there: personal libraries on
+**Device Sync**, the video cache's room on **Videos › Settings**, and which maps are
+kept on **Gallery › Settings**. Three of them are set here:
 
 | | What it is | Why it's needed |
 |---|---|---|
@@ -13,7 +25,7 @@ Until system data is chosen and at least one library location exists, **Add libr
 stays disabled and the Libraries page tells you so, with a button straight back
 here.
 
-The Recycle Bin's location is not on this page: it is on the **Recycle Bin**
+The Recycle Bin's location is not on this page (a line at its foot leads there): it is on the **Recycle Bin**
 page, in its settings, where you are when you think about deleted files.
 
 ## Library locations
@@ -135,9 +147,10 @@ and they are not listed on the Libraries page or in the gallery's library filter
 Nothing in them shows up on the Timeline, Memories, the Home page, People, the map
 or the pickers on its own; a recording or a voice note is reached from the story or
 the photo it belongs to, and a photo a story, album or slideshow already holds keeps
-showing there. Who reviews the Inbox is set from **Reviewers**, a row under it: admins
+showing there. Who reviews the Inbox is set on **Gallery › Settings**, in its Photo Inbox
+card (the Inbox's row here leads there), under **Reviewers**: admins
 always do, and anyone you name can add details or keep and discard
-([Photo Inbox](photo-inbox.md)). **Scanning**, the row after it, holds what the
+([Photo Inbox](photo-inbox.md)). **Scanning**, beside it, holds what the
 Libraries page would show on a gallery library's Scanning tab: what a scan reads,
 and the rule that pairs a print scanned on both sides with its back
 ([Gallery library](library-gallery.md)).

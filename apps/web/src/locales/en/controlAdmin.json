@@ -1614,7 +1614,7 @@
     "databaseHint": "Every setting and the catalogue.",
     "databaseFixed": "Set when the app was installed",
     "thumbnails": "Thumbnails",
-    "thumbnailsHint": "Rebuilt by a scan if they are lost.",
+    "thumbnailsHint": "Previews a scan makes again, and covers it can't.",
     "thumbnailsNowhere": "Nowhere yet",
     "backups": "Backups",
     "backupsHint": "Copies of the catalogue and settings.",
@@ -1774,7 +1774,10 @@
       "saveFailed": "Unable to save scanning settings"
     },
     "unowned_one": "{{count}} file here belongs to nothing the app made, so only admins see it. Move its folder to another library from Contents.",
-    "unowned_other": "{{count}} files here belong to nothing the app made, so only admins see them. Move their folders to another library from Contents."
+    "unowned_other": "{{count}} files here belong to nothing the app made, so only admins see them. Move their folders to another library from Contents.",
+    "inboxSettings": "Reviewers and scanning",
+    "mapsSettings": "Which maps are kept",
+    "inGallerySettings": "On Gallery › Settings"
   },
   "personalLibraries": {
     "title": "Personal libraries",
@@ -1903,7 +1906,24 @@
     "confirmRenameTitle": "Rename the folder to {{name}}?",
     "confirmRenameBody": "{{from}} becomes {{to}}. The library \"{{library}}\" follows its folder in the same step, so nothing is rescanned and every story, photo, recording and track in it keeps working. On the same disk this is one rename; across disks every file is copied and checked first, and the library stays where it is until the last one is across. It runs as a task you can watch here and on the Tasks page.",
     "confirmRenameLabel": "Rename folder",
-    "removeLocationNote": "Its folder and the files in it stay where they are; only the location is forgotten."
+    "removeLocationNote": "Its folder and the files in it stay where they are; only the location is forgotten.",
+    "mediaTitle": "Your media",
+    "mediaBody": "The family's own photos, books and films. Home's backups don't include them: keep a copy of these disks.",
+    "systemBody": "What the app needs to run. Home's backups hold the database, and the covers a rescan can't make again.",
+    "appBody": "What the family makes in the app. Home's backups don't include it: recordings and uploads exist only here.",
+    "companionTitle": "Companion containers",
+    "companionBody": "Their own files, on their own disks, set by Docker. Shown here; changed on their own pages.",
+    "personalRow": "Personal libraries",
+    "personalIn": "New ones are made in {{path}}",
+    "personalOff": "Not switched on",
+    "videoCache": "Video cache",
+    "videoCacheSub": "Inside the video container: {{folder}}",
+    "videoCacheNotMapped": "Not on a disk of its own",
+    "videoNotAnswering": "The video container isn't answering",
+    "videoCatalog": "Video catalog",
+    "videoCatalogSub": "Kept by the video container; backed up from the Backup page.",
+    "recycleNote": "Deleted files wait in the Recycle Bin, whose folder is set on its own page.",
+    "recycleLink": "Open the Recycle Bin"
   },
   "tags": {
     "headDescription": "Free-form labels scanned from your files, across every library.",
@@ -2815,5 +2835,15 @@
     "since": "Started {{when}}",
     "linkTitle": "Now playing",
     "linkSub": "What's being watched right now"
+  },
+  "photoInboxCard": {
+    "pageTitle": "Gallery settings",
+    "pageDescription": "Who reviews the Photo Inbox, and what this server keeps for maps.",
+    "title": "Photo Inbox",
+    "body": "Scans and uploads wait here until someone reviews them.",
+    "reviewersSub": "Who may add details, and keep or discard.",
+    "scanningSub": "What a scan reads, and how a print's back is paired.",
+    "off": "The Photo Inbox comes with App storage, which is off.",
+    "openStorage": "Open Storage"
   }
 }

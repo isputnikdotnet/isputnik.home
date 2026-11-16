@@ -277,8 +277,8 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   {
     titleKey: "inboxScanning",
-    section: "storage",
-    anchor: "app-storage",
+    section: "mapSetup",
+    anchor: "photo-inbox",
     keywords: "photo inbox scanning scan sources back sides two-sided prints scanned both sides flip epson fastfoto _b _back pattern pairing rule входящие фото сканирование источники обороты обратная сторона двусторонние отпечатки эпсон правило"
   },
   {

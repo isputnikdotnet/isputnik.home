@@ -7,6 +7,7 @@ vi.mock("../src/api", () => ({ api: vi.fn() }));
 const { api } = await import("../src/api");
 const { AppStoragePanel } = await import("../src/features/control/sections/storage/AppStoragePanel");
 const { StorageSection } = await import("../src/features/control/sections/StorageSection");
+const { PhotoInboxCard } = await import("../src/features/control/sections/storage/PhotoInboxCard");
 const mockApi = vi.mocked(api);
 
 // App storage (docs/system-data-plan.md, phase 3): one switch, where it lives, and
@@ -71,7 +72,7 @@ const librarySettings = {
   typeDefaults: { gallery: { extensions: [".jpg"], companions: [], sources: scanSources } }
 };
 
-function mount(view: object, Component: typeof AppStoragePanel | typeof StorageSection = AppStoragePanel) {
+function mount(view: object, Component: typeof AppStoragePanel | typeof StorageSection | typeof PhotoInboxCard = AppStoragePanel) {
   posts = [];
   let current = view;
   mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
@@ -89,6 +90,8 @@ function mount(view: object, Component: typeof AppStoragePanel | typeof StorageS
     if (path === "/api/library/gallery-libraries?manage=1") return { libraries: [inboxLibrary] };
     if (path.startsWith("/api/storage/disk-space")) return { space: { free: 3000, total: 4000 } };
     if (path === "/api/storage/roots") return { roots: [] };
+    if (path === "/api/storage/personal-libraries") return { settings: { enabled: false }, parentFolder: null, libraries: [] };
+    if (path === "/api/apps/admin/status") return { apps: [] };
     if (path === "/api/storage/system-data") {
       return {
         path: "D:\\iSputnikData", suggested: "C:\\data", problem: "", database: "C:\\data\\db\\isputnik.sqlite", space: null,
@@ -156,12 +159,19 @@ describe("while on", () => {
     await waitFor(() => expect(posts).toEqual([{ path: "/api/storage/app-storage/parts/house/move-in", body: {} }]));
   });
 
-  it("names the Inbox reviewers instead of opening library access", async () => {
-    const user = userEvent.setup();
+  it("names the Inbox reviewers, and leads to its settings on Gallery › Settings", async () => {
     mount({ ...on, parts: on.parts.map((p) => p.part === "inbox" ? { ...p, counts: { waiting: 7, reviewers: 1 } } : p) });
     const inbox = (await screen.findByText("7 photos waiting · 1 reviewer")).closest(".storage-part") as HTMLElement;
     expect(within(inbox).queryByRole("link", { name: "Access" })).toBeNull();
-    await user.click(within(inbox).getByRole("button", { name: "Reviewers" }));
+    // Reviewers and Scanning are the Inbox's settings, not storage: a link, not dialogs.
+    expect(within(inbox).getByRole("link", { name: /Reviewers and scanning/ })).toHaveAttribute("href", "/control/apps/gallery/settings#photo-inbox");
+    expect(within(inbox).queryByRole("button", { name: "Scanning" })).toBeNull();
+  });
+
+  it("sets the Inbox reviewers from Gallery › Settings", async () => {
+    const user = userEvent.setup();
+    mount(on, PhotoInboxCard);
+    await user.click(await screen.findByRole("button", { name: /^Reviewers/ }));
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("Mia")).toBeInTheDocument();
     expect(within(dialog).getByRole("combobox", { name: "Role for Mia" })).toHaveValue("details");
@@ -171,9 +181,8 @@ describe("while on", () => {
 
   it("opens the Inbox's Scanning settings and saves them with its other settings untouched", async () => {
     const user = userEvent.setup();
-    mount(on);
-    const inbox = (await screen.findByText("7 photos waiting · admins review")).closest(".storage-part") as HTMLElement;
-    await user.click(within(inbox).getByRole("button", { name: "Scanning" }));
+    mount(on, PhotoInboxCard);
+    await user.click(await screen.findByRole("button", { name: /^Scanning/ }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Photo Inbox scanning")).toBeInTheDocument();
     // The Scanning tab's two editors: gallery scan sources only, and the back-sides rule
@@ -214,13 +223,19 @@ describe("while on", () => {
 });
 
 describe("the Storage page", () => {
-  it("shows containers, then System data, then App storage", async () => {
+  it("shows Your media and App storage, then System data, with a line for the Recycle Bin", async () => {
     mount(off, StorageSection);
     await screen.findByRole("switch", { name: "App storage" });
-    const headings = Array.from(document.querySelectorAll("h2, h3")).map((h) => h.textContent ?? "");
+    await screen.findByText("System data");
+    const headings = Array.from(document.querySelectorAll("h2")).map((h) => h.textContent ?? "");
     const at = (text: string) => headings.findIndex((heading) => heading.startsWith(text));
-    expect(at("Digital Library containers")).toBeLessThan(at("System data"));
-    expect(at("System data")).toBeLessThan(at("App storage"));
-    expect(screen.queryByText("Recycle Bin")).toBeNull();
+    expect(at("Your media")).toBeGreaterThanOrEqual(0);
+    expect(at("Your media")).toBeLessThan(at("App storage"));
+    expect(at("App storage")).toBeLessThan(at("System data"));
+    // Personal libraries are shown with the media, and open on Device Sync.
+    expect(await screen.findByRole("link", { name: /Personal libraries/ })).toHaveAttribute("href", "/control/apps/gallery/device-sync?show=personal");
+    // No video container: no companion card.
+    expect(screen.queryByText("Companion containers")).toBeNull();
+    expect(screen.getByRole("link", { name: "Open the Recycle Bin" })).toBeInTheDocument();
   });
 });

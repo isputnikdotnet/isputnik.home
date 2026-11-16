@@ -26,7 +26,7 @@ The Photo Inbox is part of **App storage**: switching App storage on in
 the app keeps its name and it is not listed among your libraries.
 
 **Who reviews it.** Admins always do. Anyone else reviews because you named them:
-**Reviewers**, under the Inbox's row on the Storage page, lists people, groups or
+**Reviewers**, in the Photo Inbox card on **Gallery › Settings**, lists people, groups or
 Everyone, each at one of two levels:
 
 - **Can add details**: dates, places, notes, people and voice notes on the photos
@@ -63,7 +63,7 @@ Inbox is emptied ([Sharing with family](family-sharing.md#for-you)).
 subfolder of the Inbox's folder — one per box, named for it — and re-scan the
 library. Files dropped straight into the root show up as *Loose files*. When
 the scanner saves the back of each print as a second file, turn on the pairing
-rule first, under **Scanning**, below the Inbox's row on the Storage page, so a
+rule first, under **Scanning**, in the Photo Inbox card on **Gallery › Settings**, so a
 batch lands as photos with their backs rather than twice as many photos
 ([Gallery library](library-gallery.md)).
 

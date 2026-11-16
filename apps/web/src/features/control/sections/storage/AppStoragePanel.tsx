@@ -8,7 +8,7 @@
 // first, and a Storage page and the setup guide show this same block. Drawn as
 // grouped rows (control panel v2): the switch and the folder, then the four parts,
 // each a row with its own actions as rows under it.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Clapperboard, FolderHeart, HardDrive, Inbox, Map as MapIcon } from "lucide-react";
 import { api } from "../../../../api";
@@ -20,9 +20,8 @@ import { ActionRow, CheckRow, FieldRow, InputRow, NavRow, ToggleRow } from "../.
 import { InfoHint } from "../../../../shared/InfoHint";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
+import { SettingsCard } from "../../../../shared/SettingsCard";
 import { isLowSpace, SpaceMeter, useDiskSpace, type DiskSpace } from "./SpaceMeter";
-import { InboxReviewersModal } from "./InboxReviewersModal";
-import { InboxScanningModal } from "./InboxScanningModal";
 // The panel shares system data's stylesheet: the same block shape (docs/css-map.md).
 import "../../../../styles/system-data.css";
 
@@ -69,9 +68,11 @@ type Pending =
 
 const PARTS: Part[] = ["inbox", "house", "renders", "maps"];
 
-export function AppStoragePanel({ refreshKey = 0, onChanged }: {
+export function AppStoragePanel({ refreshKey = 0, card, onChanged }: {
   /** Bumped by the page's Refresh button. */
   refreshKey?: number;
+  /** Drawn as a card (the Storage page), with this icon and line under its title. */
+  card?: { icon: ReactNode; description: ReactNode };
   /** Told after a change, so a page can re-read what depends on it. */
   onChanged?: (view: AppStorageView) => void;
 }) {
@@ -85,8 +86,6 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
-  const [reviewersOpen, setReviewersOpen] = useState(false);
-  const [scanningFor, setScanningFor] = useState<string | null>(null);
 
   const typedFolder = view && !view.enabled ? (where === "system" ? view.systemFolder ?? "" : customPath) : "";
   const typedSpace = useDiskSpace(typedFolder);
@@ -234,9 +233,8 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
     else setPending({ kind: "off" });
   };
 
-  return (
-    <section id="app-storage" className="storage-rows">
-      <h3 className="grouped-list-title storage-rows-title">
+  const heading = (
+    <>
         <span>{t("controlAdmin:appStorage.title")}</span>
         <span className="count-badge">{view.enabled ? t("controlAdmin:appStorage.on") : t("controlAdmin:appStorage.optional")}</span>
         <InfoHint label={t("controlAdmin:appStorage.infoLabel")}>
@@ -245,7 +243,10 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
           <strong>{t("controlAdmin:appStorage.infoGrowthTitle")}</strong>
           <span>{t("controlAdmin:appStorage.infoGrowth")}</span>
         </InfoHint>
-      </h3>
+    </>
+  );
+  const body = (
+    <>
 
       <div className="grouped-list-rows">
         <ToggleRow
@@ -382,12 +383,13 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
                     <ActionRow label={t("controlAdmin:storage.renameFolder")} onClick={() => { setSaveError(""); setPending({ kind: "rename", part: entry }); }} />
                   )}
                   {entry.part === "inbox" && entry.library && (
-                    <>
-                      <NavRow label={t("controlAdmin:appStorage.reviewers.button")} onClick={() => setReviewersOpen(true)} />
-                      <NavRow label={t("controlAdmin:appStorage.scanning.button")} onClick={() => setScanningFor(entry.library?.id ?? null)} />
-                    </>
+                    <NavRow label={t("controlAdmin:appStorage.inboxSettings")} sub={t("controlAdmin:appStorage.inGallerySettings")} href={`${controlHref("mapSetup")}#photo-inbox`} />
                   )}
                 </>
+              )}
+              {/* What is kept is chosen with the maps themselves. */}
+              {entry.part === "maps" && view.enabled && (
+                <NavRow label={t("controlAdmin:appStorage.mapsSettings")} sub={t("controlAdmin:appStorage.inGallerySettings")} href={controlHref("mapSetup")} />
               )}
             </div>
           );
@@ -446,14 +448,6 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
         </Modal>
       )}
 
-      {reviewersOpen && (
-        <InboxReviewersModal onClose={() => setReviewersOpen(false)} onChanged={() => void load().catch(() => undefined)} />
-      )}
-
-      {scanningFor && (
-        <InboxScanningModal libraryId={scanningFor} onClose={() => setScanningFor(null)} />
-      )}
-
       {pending && copy && (
         <ConfirmDialog
           title={copy.title}
@@ -472,6 +466,16 @@ export function AppStoragePanel({ refreshKey = 0, onChanged }: {
           ) : copy.body}
         </ConfirmDialog>
       )}
-    </section>
+    </>
   );
+  // On the Storage page a card of its own (shared/SettingsCard); in the setup guide,
+  // rows under a heading.
+  return card
+    ? <SettingsCard id="app-storage" className="storage-card" icon={card.icon} title={heading} description={card.description}>{body}</SettingsCard>
+    : (
+      <section id="app-storage" className="storage-rows">
+        <h3 className="grouped-list-title storage-rows-title">{heading}</h3>
+        {body}
+      </section>
+    );
 }

@@ -9,7 +9,7 @@ import { controlHref, groupHref, libraryManageHref, memberHref, type MemberPageT
 // a new tab and a pasted address all work. Sign-ins has its own, signInsHref, next
 // to the page that owns the dive.
 
-function withQuery(path: string, params: Record<string, string | undefined>): string {
+export function withQuery(path: string, params: Record<string, string | undefined>): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value) query.set(key, value);

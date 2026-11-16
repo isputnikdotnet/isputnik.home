@@ -339,6 +339,12 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
 .grouped-row-switch:disabled { opacity: 0.6; cursor: default; }
 /* "Change" on a folder row stays whole; the folder's name wraps instead. */
 .storage-rows .grouped-row-value { flex-shrink: 0; max-width: none; }
+/* The Storage page draws the same blocks as cards (shared/SettingsCard). */
+.storage-card .settings-card-head h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.storage-card .settings-card-head h2 .count-badge { text-transform: none; letter-spacing: 0; font-size: var(--text-xs); }
+.storage-card .space-meter { margin-top: 4px; }
+.storage-card > .grouped-list-title { margin: 4px 0 -6px; }
+.storage-card > .grouped-list-note { margin: -6px 0 0; }
 
 /* shared/SettingsCard: a titled card of grouped rows (an Overview page's parts). */
 .settings-card {
