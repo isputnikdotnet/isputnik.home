@@ -364,7 +364,19 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
   color: var(--accent);
   background: var(--active);
 }
+.settings-card-head > div:not(.settings-card-head-actions) { flex: 1 1 0; min-width: 0; }
+.settings-card-head-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; margin-left: auto; }
+/* On a phone the action goes under the title, in line with it, so the line under the
+   title keeps the width of the card. */
+@media (max-width: 740px) {
+  .settings-card-head { flex-wrap: wrap; }
+  .settings-card-head-actions { flex-basis: calc(100% - 54px); margin-left: 54px; }
+}
 .settings-card > .grouped-list { margin: 0; }
+/* Cards down a page: one full width, then a grid of smaller ones. */
+.settings-card-stack { display: grid; gap: 18px; }
+/* A lone card in a grid takes the whole row rather than leaving half of it empty. */
+.settings-card-grid > .settings-card:only-child { grid-column: 1 / -1; }
 /* A Settings tab: its cards two to a row, each row as tall as its taller card. */
 .settings-card-grid {
   display: grid;

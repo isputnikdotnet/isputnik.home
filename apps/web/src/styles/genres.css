@@ -1,10 +1,9 @@
 /* Library › Video genres (features/control/sections/GenresSection.tsx). */
 
-.genres-head-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin: -4px 0 12px;
-}
+/* The empty list's seed offer, inside the Genres card. */
+.genres-seed h2 { margin: 12px 0 4px; font-size: 1.05rem; }
+.genres-seed > p { margin: 0 0 12px; }
+.settings-card .genres-words, .settings-card .genres-chips { margin: 0; }
 
 .genres-card {
   margin-top: 16px;
@@ -39,6 +38,8 @@
 
 .genres-keyword-cell {
   max-width: 420px;
+  /* The table's cells don't wrap; a long list of names would run under Edit. */
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 

@@ -9,6 +9,7 @@ import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { SelectField } from "../../../shared/SelectField";
+import { SettingsCard } from "../../../shared/SettingsCard";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { isRunning, useAppsStatus } from "./AppsSection";
 import "../../../styles/genres.css";
@@ -106,20 +107,23 @@ function GenresBody({ prefix }: { prefix: string }) {
   const editingGenre = data.genres.find((genre) => genre.id === editing) ?? null;
   const genreOptions = data.genres.map((genre) => ({ value: genre.id, label: genre.name }));
 
+  // Cards: the genres (with Create genre), then the words still to sort and the
+  // hidden ones side by side.
   return (
     <>
-      <div className="genres-head-actions">
-        <Button variant="primary" onClick={() => setCreating("")}>
-          <Plus size={16} aria-hidden="true" /> {t("control:genres.createGenre")}
-        </Button>
-      </div>
-
       <GenresHelp open={data.genres.length === 0} />
 
       {error && !creating && !editing && <MessageBox tone="error" title={t("control:genres.errorTitle")}>{error}</MessageBox>}
 
+      <div className="settings-card-stack">
+      <SettingsCard icon={<Drama size={20} />} title={t("control:genres.cardTitle")} description={t("control:genres.cardBody")}
+        actions={
+          <Button variant="primary" compact onClick={() => setCreating("")}>
+            <Plus size={14} aria-hidden="true" /> {t("control:genres.createGenre")}
+          </Button>
+        }>
       {data.genres.length === 0 ? (
-        <section className="genres-card">
+        <div className="genres-seed">
           <p className="muted">{t("control:genres.empty")}</p>
           <h2>{t("control:genres.seedTitle")}</h2>
           <p>{t("control:genres.seedBody")}</p>
@@ -134,7 +138,7 @@ function GenresBody({ prefix }: { prefix: string }) {
               {busy === "seed" ? t("control:genres.seeding") : t("control:genres.seed")}
             </Button>
           </div>
-        </section>
+        </div>
       ) : (
         <div className="datagrid-wrap">
           <table className="datagrid datagrid-phone-stack stack-actions-below">
@@ -165,10 +169,10 @@ function GenresBody({ prefix }: { prefix: string }) {
           </table>
         </div>
       )}
+      </SettingsCard>
 
-      <section className="genres-card">
-        <h2>{t("control:genres.unsortedTitle")}</h2>
-        <p className="muted">{t("control:genres.unsortedBody")}</p>
+      <div className="settings-card-grid">
+      <SettingsCard icon={<List size={20} />} title={t("control:genres.unsortedTitle")} description={t("control:genres.unsortedBody")}>
         {unsorted.length === 0 ? (
           <p className="management-empty">{t("control:genres.unsortedNone")}</p>
         ) : (
@@ -202,12 +206,10 @@ function GenresBody({ prefix }: { prefix: string }) {
             ))}
           </ul>
         )}
-      </section>
+      </SettingsCard>
 
       {hidden.length > 0 && (
-        <section className="genres-card">
-          <h2>{t("control:genres.hiddenTitle")}</h2>
-          <p className="muted">{t("control:genres.hiddenBody")}</p>
+        <SettingsCard icon={<EyeOff size={20} />} title={t("control:genres.hiddenTitle")} description={t("control:genres.hiddenBody")}>
           <ul className="genres-chips">
             {hidden.map((word) => (
               <li key={word.value} className="genres-chip">
@@ -225,8 +227,10 @@ function GenresBody({ prefix }: { prefix: string }) {
               </li>
             ))}
           </ul>
-        </section>
+        </SettingsCard>
       )}
+      </div>
+      </div>
 
       {creating !== null && (
         <CreateGenreDialog

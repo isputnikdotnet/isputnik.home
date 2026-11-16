@@ -1131,7 +1131,9 @@
     "helpFoundBody": "\"Biography\" leads nowhere yet, so films show Biography as it came. It waits under Found genres not in your list until you decide.",
     "helpHiddenTitle": "Hidden",
     "helpHiddenBody": "\"TV Movie\" is hidden, so films don't show it, in the filters or on the TV either.",
-    "helpNote": "Nothing here changes your files: the genres they carry are only read. Changes show at once everywhere, with no rescan."
+    "helpNote": "Nothing here changes your files: the genres they carry are only read. Changes show at once everywhere, with no rescan.",
+    "cardTitle": "Genres",
+    "cardBody": "The genres people browse by, and the other names that lead to each."
   },
   "organization": {
     "sharedNote": "Tags and book categories are shared: a change applies everywhere they are used, whichever application you opened them from.",
@@ -1141,7 +1143,12 @@
     "appDescription": "Organization and cleanup tools for {{app}}. Shared ones open the one editor every application uses.",
     "duplicatesBody": "Find the same photo kept twice and choose which copy stays.",
     "missingBody": "Photos whose files are no longer on disk.",
-    "videoStreamingBody": "Videos that start slowly because their index is at the end of the file, and the fix."
+    "videoStreamingBody": "Videos that start slowly because their index is at the end of the file, and the fix.",
+    "sharedCardTitle": "Categories & tags",
+    "sharedListsTitle": "Shared lists",
+    "sharedCardBody": "The lists {{app}} is sorted and found by.",
+    "cleanupTitle": "Clean-up & repair",
+    "cleanupBody": "Duplicates, missing files, and videos that start slowly."
   },
   "appStorage": {
     "title": "Disk usage",

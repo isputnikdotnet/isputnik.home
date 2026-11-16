@@ -6,12 +6,14 @@ import { useId, type ReactNode } from "react";
 // content, Storage, Visibility & access… — two columns of these on a wide screen —
 // and a Settings tab, in a `settings-card-grid`.
 
-export function SettingsCard({ id: anchor, icon, title, description, note, children, className }: {
+export function SettingsCard({ id: anchor, icon, title, description, actions, note, children, className }: {
   /** The card's anchor, for the control panel's search to scroll to. */
   id?: string;
   icon: ReactNode;
   title: string;
   description?: ReactNode;
+  /** The card's own action, at the right of its head ("Create genre"). */
+  actions?: ReactNode;
   /** A line under the rows, for what they all share ("These open … for Gallery only"). */
   note?: ReactNode;
   children: ReactNode;
@@ -26,6 +28,7 @@ export function SettingsCard({ id: anchor, icon, title, description, note, child
           <h2 id={id}>{title}</h2>
           {description && <p>{description}</p>}
         </div>
+        {actions && <div className="settings-card-head-actions">{actions}</div>}
       </header>
       {children}
       {note && <p className="settings-card-note">{note}</p>}

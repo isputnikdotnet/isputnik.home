@@ -2817,6 +2817,7 @@ tr.control-anchor-flash > td {
 
 @media (max-width: 740px) {
   .workspace-status-parts > li { padding: 0 10px; }
+  .workspace-status-parts > li:first-child { padding-left: 0; border-left: 0; }
   .workspace-status-links { width: 100%; margin-left: 0; }
   .workspace-status-links > a:first-child { padding-left: 0; }
 }
