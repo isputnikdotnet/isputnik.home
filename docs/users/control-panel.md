@@ -355,7 +355,7 @@ Every application opens on Overview:
   see everything; the filter survives refresh and returning from a library’s Manage page.
 - **Connection** — for Videos, Games and Gallery's face recognition: whether its
   container answers, leading to [Services](#services).
-- **Who can use it** — leading to where that is decided: each library's own page, App
+- **Access** — leading to where that is decided: each library's own page, App
   access, or each member's page.
 - **Disk usage** — measured library media and app files, with links to their details.
   Story recordings and family-tree files are attributed separately from Gallery.
@@ -651,7 +651,7 @@ if you tick **Show where photos were taken**.
 Faces the gallery matched on its own don't count until someone confirms them:
 **Review N** shows those photos with every one ticked — untick the ones that aren't
 that person, and **Confirm**. From the other side, a person's page in the Gallery has
-**Who can see photos of …**, and the photo viewer's ⋯ menu has **Don't share this
+**Access to photos of …**, and the photo viewer's ⋯ menu has **Don't share this
 photo** for a picture that should never go out this way.
 
 **Photos of themselves.** On **Account**, under **Who they are**, choose who the
@@ -659,14 +659,14 @@ person *is* in the Gallery — their own face in People (picking their family-tr
 person fills it in when that person has a face). That link on its own shows them
 nothing; on **Photos of people**, tick **Show them photos of themselves** and every confirmed photo of them appears in
 their Gallery, the same way as a person shared with them (and new ones reach their
-**For you**). **Who can see photos of …** on their Gallery page says whose account
+**For you**). **Access to photos of …** on their Gallery page says whose account
 it is. Each face in People can belong to one account.
 
 **Whole branches.** If you tag people in the family tree by branch (a *Posse*
 branch, say), **Share photos of a branch** on the same tab shares everyone in that
 branch who is linked to a face in People, and relatives added to the branch later,
 in one step, for a person or a group. A person blocked for someone stays blocked,
-and **Who can see photos of …** lists who gets that person through a branch.
+and **Access to photos of …** lists who gets that person through a branch.
 
 **What they can do with them.** A relative can put the photos shared with them in
 their own albums and slideshows, and send them to other members with **Send to** —

@@ -695,7 +695,7 @@ const SHOTS = [
   },
   {
     name: "123-personal-libraries",
-    url: "control/settings/storage",
+    url: "control/apps/gallery/device-sync",
     state: "personal libraries and phone sync set up",
     setup: `
       const card = document.getElementById("personal-libraries")

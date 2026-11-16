@@ -519,7 +519,7 @@
     "movedNotice_one": "{{count}} photo moved.",
     "movedNotice_other": "{{count}} photos moved.",
     "sharing": {
-      "title": "Who can see photos of {{name}}",
+      "title": "Access to photos of {{name}}",
       "hint": "Everyone here sees each photo where {{name}} is confirmed, in their Gallery — without folder names or other people's names.",
       "nobody": "Nobody yet.",
       "group": "{{name}} (group)",

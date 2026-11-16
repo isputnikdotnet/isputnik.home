@@ -869,7 +869,21 @@
     "noAccess": "Нет доступа",
     "nobodyYet": "Пока никого не добавили — действует только базовое правило выше.",
     "legendTitle": "Что означают роли",
-    "title": "Доступ"
+    "title": "Доступ",
+    "tabAccess": "Доступ",
+    "tabAdd": "Добавить",
+    "search": "Найти людей или группы",
+    "noMatch": "Никого с таким именем.",
+    "everyoneAdded": "В списке уже все.",
+    "addCount_one": "Добавить {{count}}",
+    "addCount_few": "Добавить {{count}}",
+    "addCount_many": "Добавить {{count}}",
+    "addCount_other": "Добавить {{count}}",
+    "roles": "Роли",
+    "savedAsYouGo": "Сохраняется сразу",
+    "hasAccess": "Есть доступ",
+    "via": "через {{group}}",
+    "saveFailed": "Не удалось сохранить доступ"
   },
   "app": {
     "loading": "Загрузка isputnik.home..."

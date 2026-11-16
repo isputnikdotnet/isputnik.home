@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ShieldCheck } from "lucide-react";
 import { api } from "../../../../api";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessRole } from "../../../../shared/AccessControl";
-import { Button } from "../../../../shared/Button";
-import { MessageBox } from "../../../../shared/MessageBox";
-import { Modal } from "../../../../shared/Modal";
+import { AccessDialog } from "../../../../shared/AccessDialog";
 import "../../../../styles/system-data.css";
 
 type Level = "details" | "keep";
@@ -57,17 +54,14 @@ export function InboxReviewersModal({ onClose, onChanged }: { onClose: () => voi
   const none: AccessRole = { value: ACCESS_NONE, label: t("common:access.noAccess"), tagline: "", dot: ACCESS_ROLE_DOT.none };
 
   return (
-    <Modal
-      variant="panel"
+    <AccessDialog
       title={t("controlAdmin:appStorage.reviewers.title")}
-      icon={<ShieldCheck size={24} />}
-      className="inbox-reviewers-modal"
+      intro={t("controlAdmin:appStorage.reviewers.intro")}
+      error={error}
+      errorTitle={t("controlAdmin:appStorage.reviewers.saveErrorTitle")}
       busy={busy}
       onClose={onClose}
     >
-      <div className="modal-tab-content inbox-reviewers">
-        <p className="inbox-reviewers-intro">{t("controlAdmin:appStorage.reviewers.intro")}</p>
-        {error && <MessageBox tone="error" title={t("controlAdmin:appStorage.reviewers.saveErrorTitle")}>{error}</MessageBox>}
         {!data && !error && <p className="management-empty">{t("controlAdmin:ui.loading")}</p>}
         {data && (
           <AccessControl
@@ -96,10 +90,6 @@ export function InboxReviewersModal({ onClose, onChanged }: { onClose: () => voi
               api<ReviewersPayload>(`${REVIEWERS_URL}/${subjectType}/${encodeURIComponent(subjectId)}`, { method: "DELETE" }))}
           />
         )}
-        <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose}>{t("common:common.close")}</Button>
-        </div>
-      </div>
-    </Modal>
+    </AccessDialog>
   );
 }

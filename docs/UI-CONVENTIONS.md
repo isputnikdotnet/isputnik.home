@@ -122,6 +122,24 @@ The iPhone-Settings-style lists: a `GroupedList` (title, note) of rows — `NavR
 - Never draw a row's verb by hand as text that looks like a button: `CommandRow`
   (does something here) and `NavRow` (goes somewhere, chevron) are the two shapes.
 
+### Access — `shared/AccessDialog` + `shared/AccessControl`
+
+ONE window for "who may open, see or change this", everywhere (2026-11-16): a compact
+popup titled **Access to …** with two tabs. **Access** lists who has it — Everyone, then
+groups, then people, one line each with a role menu (coloured dot) and × — and people
+who have it only through a group, read-only ("via …"). **Add** is a search with
+tick boxes and one role for all ticked. Changes save as they are made; **Roles** at the
+foot explains the vocabulary.
+
+- Open it from a page as ONE row ("Access · The household (Member)") with **Change**.
+- Each place passes only its roles (`roles`), its baseline (`everyone`), its people
+  (`members`, `candidates`) and its requests (`onGrant` / `onRevoke`); the component
+  never calls the server.
+- No roles (`roles={[]}`) is the on/off form: a row means "has access", × removes it.
+- Never build another access list: library members, story collections, family
+  branches, Inbox reviewers and personal libraries all use this one. (Still to move:
+  application access, Gallery's "Access to photos of …".)
+
 ### PhotoPicker — `features/gallery/PhotoPicker.tsx`
 
 Choosing gallery photos or videos from anywhere in the app goes through

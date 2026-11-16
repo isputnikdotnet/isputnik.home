@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ShieldCheck } from "lucide-react";
 import { api } from "../../api";
-import { MessageBox } from "../../shared/MessageBox";
-import { Modal } from "../../shared/Modal";
-import { Button } from "../../shared/Button";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessRole } from "../../shared/AccessControl";
+import { AccessDialog } from "../../shared/AccessDialog";
 
 interface AccessPayload {
   members: { subjectType: "user" | "group"; subjectId: string; role: string; name: string | null; email: string | null }[];
@@ -60,20 +57,10 @@ export function StoryCollectionAccessModal({
     dot: ACCESS_ROLE_DOT[value]
   });
 
-  // One generic word for the title, no object name and no explaining line under
-  // it: the page behind already says which collection this is.
+  // The standard access window (shared/AccessDialog). One generic word for the
+  // title: the page behind already says which collection this is.
   return (
-    <Modal
-      variant="panel"
-      title={t("common:access.title")}
-      icon={<ShieldCheck size={24} />}
-      className="story-access-modal"
-      busy={busy}
-      onClose={onClose}
-    >
-      <div className="modal-tab-content story-access">
-        {error && <MessageBox tone="error" title={t("stories:errors.saveTitle")}>{error}</MessageBox>}
-
+    <AccessDialog title={t("common:access.title")} error={error} errorTitle={t("stories:errors.saveTitle")} busy={busy} onClose={onClose}>
         {!access && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
 
         {access && (
@@ -108,10 +95,6 @@ export function StoryCollectionAccessModal({
           />
         )}
 
-        <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose}>{t("common:common.close")}</Button>
-        </div>
-      </div>
-    </Modal>
+    </AccessDialog>
   );
 }

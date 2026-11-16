@@ -101,7 +101,7 @@ describe("Application Overview and return navigation", () => {
   it.each([["gallery", "gallery"], ["videos", "video"], ["ebooks", "ebook"], ["audiobooks", "audiobook"]] as const)("opens only %s libraries", async (app, type) => {
     render(<AppSetupSection app={app} />);
     expect(await screen.findByRole("link", { name: /^LibrariesFolders/ })).toHaveAttribute("href", controlHref("libraries") + "?type=" + type);
-    if (app !== "videos") expect(screen.getByRole("link", { name: /^Who can use it/ })).toHaveAttribute("href", controlHref("libraries") + "?type=" + type);
+    if (app !== "videos") expect(screen.getByRole("link", { name: /^Access/ })).toHaveAttribute("href", controlHref("libraries") + "?type=" + type);
   });
   it.each([["videos", "video"], ["games", "games"]] as const)("links %s to its own backup details", async (app, container) => {
     render(<AppSetupSection app={app} />);

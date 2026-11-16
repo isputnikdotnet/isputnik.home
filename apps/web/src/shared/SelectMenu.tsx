@@ -20,7 +20,8 @@ export function SelectMenu<T extends string>({
   label,
   onChange,
   className,
-  triggerIcon
+  triggerIcon,
+  disabled = false
 }: {
   value: T;
   options: SelectMenuOption<T>[];
@@ -32,6 +33,8 @@ export function SelectMenu<T extends string>({
    *  the selection and never appears in the list, so a menu can be named without
    *  repeating one glyph down every row of its popover. */
   triggerIcon?: React.ReactNode;
+  /** Shown, not changeable (a row fixed elsewhere, or a save in progress). */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Which edge of the trigger the popover hangs from. Left by default; flipped
@@ -94,6 +97,7 @@ export function SelectMenu<T extends string>({
         className="select-menu-trigger"
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         aria-controls={open ? menuId : undefined}
         // The visible text is the chosen VALUE, which on its own doesn't say what it
         // is a value of — "Recently deleted" could be anything. Naming the trigger

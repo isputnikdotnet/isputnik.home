@@ -150,7 +150,7 @@ off for everyone until it is paired again.
 
 **Control panel → Security & Members → App access**, for the chosen app:
 
-- **Who may use it.** Everyone signed in is a member until you change something.
+- **Access.** Everyone signed in is a member until you change something.
   **Add a person or group** at the end of the list opens a search; whoever you
   pick starts as **Member** (uses the app), and their row's role choice makes them
   **Manager** (also looks after it — its admin pages) or **Denied** to keep them

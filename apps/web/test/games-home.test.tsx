@@ -148,7 +148,7 @@ describe("Security → App access", () => {
   it("shows who may use the games and from where", async () => {
     mockApi.mockImplementation(answer as never);
     render(<AppsAccessSection />);
-    expect(await screen.findByText("Who may use Games")).toBeInTheDocument();
+    expect(await screen.findByText("Access to Games")).toBeInTheDocument();
     expect(screen.getByText("Kids")).toBeInTheDocument();
     expect(screen.getByText("The lobby, the games and matches, and guests' play")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/access/games");

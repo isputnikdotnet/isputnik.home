@@ -3555,3 +3555,49 @@ tr.control-anchor-flash > td {
   .app-overview { grid-template-columns: minmax(0, 1fr); }
   .app-overview-status-side { padding-left: 0; border-left: 0; }
 }
+
+/* Device Sync (owner, 2026-11-16): stats across the top, then the diagnostics detail
+   page's two columns — settings in the main one, phones, personal libraries and logs
+   in the right one, which drops under the main one on narrow screens. */
+.device-sync-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px; align-items: start; min-width: 0; }
+.device-sync-main, .device-sync-aside { display: grid; gap: 16px; min-width: 0; align-content: start; }
+.device-sync-main > .device-sync { display: contents; }
+.device-sync-aside > .device-sync { display: contents; }
+@media (max-width: 1000px) { .device-sync-page { grid-template-columns: minmax(0, 1fr); } }
+/* Device Sync › Statistics: tiles, then cards — each a coloured icon, a title, one
+   line of what it adds up to, and its table edge to edge. Colours are theme tokens. */
+.device-sync-stats { display: grid; gap: 18px; min-width: 0; }
+.stats-card { display: grid; align-content: start; min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-raised); overflow: hidden; }
+.stats-card-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px 12px; }
+.stats-card-head h3 { margin: 0; font-size: 1rem; }
+.stats-card-head small { display: block; color: var(--muted); font-size: var(--text-sm); }
+.stats-table > thead > tr > th { text-transform: none; letter-spacing: 0; font-size: var(--text-sm); font-weight: 600; color: var(--muted); background: color-mix(in srgb, var(--line) 35%, transparent); }
+.stats-table > tbody > tr > td { vertical-align: middle; }
+.stats-table > :is(thead, tbody) > tr > :first-child { padding-left: 18px; }
+.stats-table > :is(thead, tbody) > tr > :last-child { padding-right: 18px; }
+.stats-person { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.stats-person small { display: block; color: var(--muted); font-size: var(--text-sm); }
+.stats-avatar { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue); font-size: 0.72rem; font-weight: 700; }
+.stats-device { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; text-decoration: none; }
+.stats-device:hover, .stats-device:focus-visible { color: var(--blue); text-decoration: underline; }
+.stats-device-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--blue) 15%, transparent); color: var(--blue); }
+.stats-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--line) 55%, transparent); font-size: var(--text-sm); white-space: nowrap; }
+.stats-chip.is-ok { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); font-weight: 600; }
+.stats-when { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.stats-when > i { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.stats-when.is-warn { color: var(--warning); }
+.stats-when.is-warn > i { background: var(--warning); }
+.stats-when.is-none { color: var(--muted); }
+.stats-when.is-none > i { background: var(--line); }
+.stats-usage { min-width: 180px; }
+.stats-usage-text { display: flex; align-items: baseline; gap: 8px; }
+.stats-usage-text small { color: var(--muted); }
+/* A share as a bar: of the size limit, or of the phones. */
+.stats-bar { display: block; height: 8px; margin-top: 6px; max-width: 240px; border-radius: 999px; background: color-mix(in srgb, var(--line) 70%, transparent); overflow: hidden; }
+.stats-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+.stats-bar.is-warn > i { background: var(--warning); }
+/* A page's one action under its form (Make a library personal). */
+.device-sync-actions { display: flex; justify-content: flex-end; }
+/* The pager under a card's table; empty (and so gone) while it all fits on one page. */
+.stats-card-foot:empty { display: none; }
+.stats-card-foot { padding: 10px 18px 12px; border-top: 1px solid var(--line); }

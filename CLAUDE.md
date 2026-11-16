@@ -101,6 +101,10 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   FIRST row of its list, never the last (`check:ui` fails otherwise). A setting with
   several choices is ONE `CommandRow` saying its value, with **Change** opening a
   `Modal` of the choices — not the choices spread over the page.
+- **Access** ("who may open/see/change this") is ONE window everywhere:
+  `shared/AccessDialog` around `shared/AccessControl` — a compact popup with Access and
+  Add tabs; each place passes only its roles (none = on/off), people and requests.
+  Never build another access list.
 - **Messages**: inline errors/notices use `shared/MessageBox` with a tone
   (`info|warning|error|success`); no custom error divs. Error titles say what
   failed ("Unable to save").

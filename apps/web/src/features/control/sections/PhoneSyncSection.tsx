@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, BookOpen, CheckCircle2, Layers, Link2, Plus, ScrollText, Smartphone, Wifi } from "lucide-react";
+import { BarChart3, BookOpen, Link2, Plus, ScrollText, Smartphone, UserRoundCheck, Wifi } from "lucide-react";
 import { api } from "../../../api";
 import { libraryManageHref, memberHref } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
-import { ActionRow, AddRow, FieldRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { ActionRow, AddRow, CommandRow, FieldRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SettingsCard } from "../../../shared/SettingsCard";
+import { StatTiles } from "../../../shared/StatTiles";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { ControlBackBar } from "../ControlBackBar";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { logsHref } from "../links";
+import { DeviceSyncStats } from "./DeviceSyncStats";
 import { PersonalLibrariesPanel } from "./storage/PersonalLibrariesPanel";
 import type { StorageRoot } from "../types";
 
@@ -72,14 +74,16 @@ type Show =
   | { page: "network"; id: string }
   | { page: "addNetwork" }
   | { page: "address" }
-  | { page: "personal" };
+  | { page: "stats" }
+  | { page: "adopt" };
 
 function parseShow(value: string): Show {
   if (value.startsWith("phone:")) return { page: "phone", id: value.slice(6) };
   if (value.startsWith("network:")) return { page: "network", id: value.slice(8) };
   if (value === "add-network") return { page: "addNetwork" };
   if (value === "address") return { page: "address" };
-  if (value === "personal") return { page: "personal" };
+  if (value === "stats" || value === "activity") return { page: "stats" };
+  if (value === "personal-library") return { page: "adopt" };
   return { page: "list" };
 }
 
@@ -89,7 +93,8 @@ function showParam(show: Show): string | null {
     case "network": return `network:${show.id}`;
     case "addNetwork": return "add-network";
     case "address": return "address";
-    case "personal": return "personal";
+    case "stats": return "stats";
+    case "adopt": return "personal-library";
     default: return null;
   }
 }
@@ -137,13 +142,13 @@ export function PhoneSyncSection() {
   }, [load, t]);
   useEffect(() => { void loadQuietly(); }, [loadQuietly]);
 
-  // The personal-library editor picks its folder from the library locations.
+  // The personal-library settings pick their folder from the library locations.
   useEffect(() => {
-    if (show.page !== "personal" || storageRoots) return;
+    if (storageRoots) return;
     api<{ roots: StorageRoot[] }>("/api/storage/roots")
       .then((payload) => setStorageRoots(payload.roots))
       .catch((err) => setError(err instanceof Error ? err.message : t("controlAdmin:phoneSyncPage.loadFailed")));
-  }, [show.page, storageRoots, t]);
+  }, [storageRoots, t]);
 
   /** A change: made, the page read again, and back where it was asked for. */
   const act = async (work: () => Promise<unknown>, after?: Show) => {
@@ -254,15 +259,11 @@ export function PhoneSyncSection() {
         </GroupedList>
         <GroupedList title={t("controlAdmin:deviceSync.backsUpInto")} note={t("controlAdmin:deviceSync.linksNote")}>
           {phone.links.length === 0 && <InfoRow icon={<BookOpen size={17} />} label={t("controlAdmin:deviceSync.ownLibrary")} />}
-          {phone.links.map((link) => (
-            <NavRow
-              key={link.libraryId}
-              icon={<BookOpen size={17} />}
-              label={link.name}
-              sub={link.counts ? undefined : t("controlAdmin:deviceSync.linkNoAccess")}
-              href={libraryManageHref(link.libraryId)}
-            />
-          ))}
+          {/* A library you cannot open (someone's personal one: no counts) is said, not
+              linked — its Manage page would only say "Library not found". */}
+          {phone.links.map((link) => link.counts
+            ? <NavRow key={link.libraryId} icon={<BookOpen size={17} />} label={link.name} href={libraryManageHref(link.libraryId)} />
+            : <InfoRow key={link.libraryId} icon={<BookOpen size={17} />} label={link.name} sub={t("controlAdmin:deviceSync.linkNoAccess")} />)}
         </GroupedList>
         <GroupedList>
           <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:deviceSync.phoneHistory")} value={t("controlAdmin:deviceSync.logs")} href={logsHref({ event: "photo_sync", q: phoneName(phone) })} />
@@ -337,45 +338,54 @@ export function PhoneSyncSection() {
     );
   }
 
-  // ── Personal libraries ─────────────────────────────────────────────────────
-  if (show.page === "personal") {
+  // ── Statistics ─────────────────────────────────────────────────────────────
+  // A page of the tab (owner, 2026-11-16): who backs up, from what, into how much —
+  // not a second log; every event stays in Logs, linked at its foot. Under the
+  // tables nothing to do: making a library personal has a page of its own.
+  if (show.page === "stats") {
     return (
-      <div className="device-sync">
+      // Tables want the overview's full width, not a settings page's 760px.
+      <div className="device-sync device-sync-overview">
         {backToList}
+        <div className="device-sync-title"><h1>{t("controlAdmin:deviceSync.statsPage")}</h1></div>
         {errors}
-        {storageRoots ? <PersonalLibrariesPanel storageRoots={storageRoots} /> : <p className="access-muted">{t("controlAdmin:access.loading")}</p>}
+        <DeviceSyncStats phones={phones} phoneName={phoneName} onOpenPhone={(id) => go({ page: "phone", id })} />
       </div>
     );
   }
 
-  // ── The list ───────────────────────────────────────────────────────────────
-  // A banner saying whether phone backup is on (or the three steps that turn it on),
-  // then cards two to a row: Phones and Allowed networks, Personal libraries and
-  // Server address — the Overview's and Settings tabs' look.
+  // ── Make a library personal ────────────────────────────────────────────────
+  // A page of the tab (owner, 2026-11-16): which gallery library, whose — chosen in
+  // the page, then confirmed — and, while there are any, the libraries of removed
+  // members, to hand over or delete.
+  if (show.page === "adopt") {
+    return (
+      <div className="device-sync">
+        {backToList}
+        <div className="device-sync-title"><h1>{t("controlAdmin:personalLibraries.adopt")}</h1></div>
+        {errors}
+        {storageRoots
+          ? <PersonalLibrariesPanel part="actions" storageRoots={storageRoots} onChanged={() => void loadQuietly()} />
+          : <p className="access-muted">{t("controlAdmin:access.loading")}</p>}
+      </div>
+    );
+  }
+
+  // ── The page ───────────────────────────────────────────────────────────────
+  // Stats across the top, then two columns, the diagnostics detail page's shape
+  // (owner, 2026-11-16): the settings in the main one — personal libraries, allowed
+  // networks, the server address — and on the right what there is (the phones, the
+  // personal libraries) and where to read more (Log, Activity, the guide). While
+  // phone backup is not set up, the three steps that set it up come first.
   const lastBackup = phones.map((phone) => phone.lastSeen).filter((value): value is string => Boolean(value)).sort().pop() ?? null;
   const warnCount = phones.filter((phone) => shortState(phone).warn).length;
-  const anyWarn = warnCount > 0;
+  const personalBytes = (personal?.libraries ?? []).reduce((sum, library) => sum + library.sizeBytes, 0);
   return (
     <>
       {head}
       <div className="device-sync device-sync-overview">
         {errors}
-        {on ? (
-          <div className={`app-overview-status is-${anyWarn ? "warn" : "ok"}`}>
-            <div className="app-overview-status-main">
-              <span className="app-overview-status-icon" aria-hidden="true">
-                {anyWarn ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
-              </span>
-              <div>
-                <strong>{t("controlAdmin:deviceSync.statusOn")}</strong>
-                <span>{lastBackup
-                  ? t("controlAdmin:deviceSync.statusOnSub", { count: phones.length, when: relativeTime(lastBackup) })
-                  : t("controlAdmin:deviceSync.statusOnNoBackup", { count: phones.length })}
-                  {anyWarn && <> · {t("controlAdmin:deviceSync.needAttention", { count: warnCount })}</>}</span>
-              </div>
-            </div>
-          </div>
-        ) : (
+        {!on && (
           <SettingsCard icon={<Smartphone size={20} />} title={t("controlAdmin:deviceSync.setupTitle")} note={t("controlAdmin:deviceSync.setupNote")}>
           <GroupedList>
             <NavRow
@@ -403,80 +413,86 @@ export function PhoneSyncSection() {
           </SettingsCard>
         )}
 
-        <div className="settings-card-grid">
-        <SettingsCard icon={<Smartphone size={20} />} title={t("controlAdmin:phoneSyncPage.phonesHeading")} description={t("controlAdmin:deviceSync.cardPhonesBody")}
-          note={phones.length === 0 ? t("controlAdmin:phoneSyncPage.noPhones") : undefined}>
-        <GroupedList>
-          {phones.length === 0 && <InfoRow icon={<Smartphone size={17} />} label={t("controlAdmin:deviceSync.noPhonesRow")} />}
-          {phones.map((phone) => {
-            const state = shortState(phone);
-            return (
-              <NavRow
-                key={phone.id}
-                icon={<Smartphone size={17} />}
-                iconTone={state.warn ? "warn" : undefined}
-                label={phoneName(phone)}
-                sub={phone.member.name}
-                value={state.text}
-                valueTone={state.warn ? "warn" : undefined}
-                onClick={() => go({ page: "phone", id: phone.id })}
+        <StatTiles
+          label={t("controlAdmin:deviceSync.statsLabel")}
+          tiles={[
+            {
+              label: t("controlAdmin:phoneSyncPage.phonesHeading"),
+              value: phones.length,
+              sub: warnCount > 0 ? t("controlAdmin:deviceSync.needAttention", { count: warnCount }) : undefined,
+              tone: warnCount > 0 ? "warn" : undefined
+            },
+            {
+              label: t("controlAdmin:personalLibraries.title"),
+              value: personal ? (personal.settings.enabled || personal.libraries.length > 0 ? personal.libraries.length : t("controlAdmin:deviceSync.off")) : "…",
+              sub: personal && personal.libraries.length > 0 ? formatBytes(personalBytes) : undefined
+            },
+            {
+              label: t("controlAdmin:deviceSync.lastBackup"),
+              value: lastBackup ? relativeTime(lastBackup) : t("controlAdmin:phoneSyncPage.never")
+            },
+            {
+              label: t("controlAdmin:deviceSync.cardNetworks"),
+              value: networks.networks.length,
+              sub: networks.networks.length === 0 ? t("controlAdmin:deviceSync.noneYet") : undefined,
+              tone: networks.networks.length === 0 ? "warn" : undefined
+            }
+          ]}
+        />
+
+        <div className="device-sync-page">
+          <div className="device-sync-main">
+            {storageRoots
+              ? <PersonalLibrariesPanel part="settings" storageRoots={storageRoots} onChanged={() => void loadQuietly()} />
+              : <p className="access-muted">{t("controlAdmin:access.loading")}</p>}
+
+            <GroupedList id="phone-sync-networks" title={t("controlAdmin:deviceSync.cardNetworks")} note={t("controlAdmin:deviceSync.networksNote")}>
+              <AddRow icon={<Plus size={17} />} label={t("controlAdmin:phoneSync.add")} onClick={() => go({ page: "addNetwork" })} />
+              {networks.networks.map((network) => (
+                <NavRow
+                  key={network.id}
+                  icon={<Wifi size={17} />}
+                  label={network.label || network.cidr}
+                  sub={network.label ? network.cidr : undefined}
+                  onClick={() => go({ page: "network", id: network.id })}
+                />
+              ))}
+            </GroupedList>
+
+            <GroupedList title={t("controlAdmin:deviceSync.cardAddress")} note={t("controlAdmin:deviceSync.addressNote")}>
+              <CommandRow
+                icon={<Link2 size={17} />}
+                iconTone={networks.address && networks.addressOutsideNetworks ? "warn" : undefined}
+                label={networks.address ?? t("controlAdmin:deviceSync.notSet")}
+                sub={networks.address && networks.addressOutsideNetworks ? t("controlAdmin:phoneSync.outsideTitle") : t("controlAdmin:phoneSync.addressHeading")}
+                value={networks.address ? t("controlAdmin:personalLibraries.change") : t("controlAdmin:deviceSync.setAddress")}
+                onClick={() => go({ page: "address" })}
               />
-            );
-          })}
-          <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:phoneSyncPage.allInLogs")} value={t("controlAdmin:deviceSync.logs")} href={logsHref({ event: "photo_sync" })} />
-        </GroupedList>
-        </SettingsCard>
+            </GroupedList>
+          </div>
 
-        <SettingsCard id="phone-sync-networks" icon={<Wifi size={20} />} title={t("controlAdmin:deviceSync.cardNetworks")} description={t("controlAdmin:deviceSync.networksTitle")}
-          note={t("controlAdmin:deviceSync.networksNote")}>
-        <GroupedList>
-          <AddRow icon={<Plus size={17} />} label={t("controlAdmin:phoneSync.add")} onClick={() => go({ page: "addNetwork" })} />
-          {networks.networks.map((network) => (
-            <NavRow
-              key={network.id}
-              icon={<Wifi size={17} />}
-              label={network.label || network.cidr}
-              value={network.label ? network.cidr : undefined}
-              onClick={() => go({ page: "network", id: network.id })}
-            />
-          ))}
-        </GroupedList>
-        </SettingsCard>
-
-        <SettingsCard icon={<Link2 size={20} />} title={t("controlAdmin:deviceSync.cardAddress")} description={t("controlAdmin:phoneSync.addressHeading")}
-          note={t("controlAdmin:deviceSync.addressNote")}>
-        <GroupedList>
-          <NavRow
-            icon={<Link2 size={17} />}
-            iconTone={networks.address && networks.addressOutsideNetworks ? "warn" : undefined}
-            label={networks.address ?? t("controlAdmin:deviceSync.notSet")}
-            sub={networks.address && networks.addressOutsideNetworks ? t("controlAdmin:phoneSync.outsideTitle") : undefined}
-            onClick={() => go({ page: "address" })}
-          />
-        </GroupedList>
-        </SettingsCard>
-
-        <SettingsCard icon={<Layers size={20} />} title={t("controlAdmin:deviceSync.personalTitle")} description={t("controlAdmin:deviceSync.cardPersonalBody")}>
-        <GroupedList>
-          <NavRow
-            icon={<Layers size={17} />}
-            label={t("controlAdmin:deviceSync.personalRow")}
-            value={personal ? (personal.settings.enabled ? t("controlAdmin:deviceSync.on") : t("controlAdmin:deviceSync.off")) : "…"}
-            valueTone={personal?.settings.enabled ? "ok" : undefined}
-            onClick={() => go({ page: "personal" })}
-          />
-          {(personal?.libraries ?? []).map((library) => (
-            <NavRow
-              key={library.id}
-              icon={<BookOpen size={17} />}
-              label={library.name}
-              sub={library.ownerName}
-              value={formatBytes(library.sizeBytes)}
-              href={libraryManageHref(library.id)}
-            />
-          ))}
-        </GroupedList>
-        </SettingsCard>
+          <aside className="device-sync-aside" aria-label={t("controlAdmin:deviceSync.moreTitle")}>
+            <GroupedList title={t("controlAdmin:deviceSync.moreTitle")}>
+              {/* One way to the events: the Logs page, filtered to phone backup. */}
+              <NavRow
+                icon={<BarChart3 size={17} />}
+                label={t("controlAdmin:deviceSync.statsPage")}
+                sub={t("controlAdmin:deviceSync.statsPageSub", {
+                  phones: t("controlAdmin:personalLibraries.phonesCount", { count: phones.length }),
+                  libraries: t("controlAdmin:personalLibraries.librariesCount", { count: personal?.libraries.length ?? 0 })
+                })}
+                onClick={() => go({ page: "stats" })}
+              />
+              <NavRow
+                icon={<UserRoundCheck size={17} />}
+                label={t("controlAdmin:personalLibraries.adopt")}
+                sub={t("controlAdmin:deviceSync.adoptSub")}
+                onClick={() => go({ page: "adopt" })}
+              />
+              <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:diagnostics.page.logs.log")} sub={t("controlAdmin:deviceSync.logSub")} href={logsHref({ event: "photo_sync" })} />
+              <NavRow icon={<BookOpen size={17} />} label={t("controlAdmin:deviceSync.guide")} sub={t("controlAdmin:deviceSync.guideSub")} href="/help/phone-sync-setup" />
+            </GroupedList>
+          </aside>
         </div>
       </div>
     </>

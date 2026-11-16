@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe2, Lock } from "lucide-react";
 import { api } from "../../../api";
-import { MessageBox } from "../../../shared/MessageBox";
-import { Modal } from "../../../shared/Modal";
-import { Button } from "../../../shared/Button";
 import { AccessControl } from "../../../shared/AccessControl";
+import { AccessDialog } from "../../../shared/AccessDialog";
 import { LIBRARY_ROLE_OPTIONS, type LibraryMember, type LibraryRole, type PublicRole } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup } from "../types";
 // Plain lookup functions rather than module-level consts, so a language switch
@@ -129,30 +126,19 @@ export function LibraryMembersModal({
     return count != null ? t("control:libraryMembers.groupMemberCount", { count }) : t("control:libraryMembers.group");
   };
 
+  // The standard access window (shared/AccessDialog): whether the library is public
+  // is its one line, not a banner; the list and Add are the shared AccessControl.
   return (
-    <Modal
+    <AccessDialog
       title={t("control:libraryMembers.title", { name: library.name })}
-      className="library-members-modal"
+      intro={isPublic
+        ? publicDescription(library.publicRole) ?? t("control:libraryMembers.publicFallback")
+        : t("control:libraryMembers.privateBody")}
+      error={error}
+      errorTitle={t("control:libraryMembers.errorTitle")}
       busy={saving}
       onClose={onClose}
     >
-      <div className={`member-banner ${isPublic ? "is-public" : "is-private"}`}>
-        <span className="member-banner-icon" aria-hidden="true">
-          {isPublic ? <Globe2 size={22} /> : <Lock size={20} />}
-        </span>
-        <div className="member-banner-copy">
-          <strong>{isPublic ? t("control:libraryMembers.publicTrue") : t("control:libraryMembers.publicFalse")}</strong>
-          <span>
-            {isPublic
-              ? publicDescription(library.publicRole) ?? t("control:libraryMembers.publicFallback")
-              : t("control:libraryMembers.privateBody")}
-          </span>
-        </div>
-        <span className="member-banner-pill">{isPublic ? t("control:libraryMembers.publicAccess") : t("control:libraryMembers.private")}</span>
-      </div>
-
-      {error && <MessageBox tone="error" title={t("control:libraryMembers.errorTitle")}>{error}</MessageBox>}
-
       {loading ? (
         <p className="management-empty">{t("control:libraryMembers.loadingMembers")}</p>
       ) : (
@@ -168,8 +154,8 @@ export function LibraryMembersModal({
             missing: Boolean(member.missing)
           }))}
           candidates={{
-            users: users.map((user) => ({ id: user.id, name: user.displayName + " (" + user.email + ")" })),
-            groups: groups.map((group) => ({ id: group.id, name: group.name }))
+            users: users.map((user) => ({ id: user.id, name: user.displayName, sub: user.email })),
+            groups: groups.map((group) => ({ id: group.id, name: group.name, sub: t("control:libraryMembers.groupMemberCount", { count: group.memberCount ?? 0 }) }))
           }}
           everyone={{
             // A library's baseline is set on the library itself, so it is
@@ -185,9 +171,6 @@ export function LibraryMembersModal({
         />
       )}
 
-      <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>{t("control:ui.close")}</Button>
-      </div>
-    </Modal>
+    </AccessDialog>
   );
 }

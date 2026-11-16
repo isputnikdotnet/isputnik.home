@@ -4,6 +4,8 @@ import { BookOpen, FolderOpen, Gauge, UserRoundCheck, Users } from "lucide-react
 import { api } from "../../../../api";
 import { libraryManageHref } from "../../../../router";
 import { Button } from "../../../../shared/Button";
+import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl } from "../../../../shared/AccessControl";
+import { AccessDialog } from "../../../../shared/AccessDialog";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { formatDate } from "../../../../shared/dates";
 import { ActionRow, AddRow, CheckRow, CommandRow, FieldRow, GroupedList, InfoRow, NavRow, ToggleRow } from "../../../../shared/GroupedList";
@@ -46,7 +48,7 @@ interface AdminView {
 
 interface Member { id: string; displayName: string; isActive?: boolean }
 interface Group { id: string; name: string }
-interface GalleryLibraryOption { id: string; name: string; role: string | null; personal: unknown }
+interface GalleryLibraryOption { id: string; name: string; role: string | null; personal: unknown; canManageLibrary?: boolean }
 
 type Pending =
   | { kind: "adopt"; libraryId: string; userId: string }
@@ -68,7 +70,22 @@ const LIMIT_CHOICES = [25, 50, 100, 250];
 // ticked choices, and each change saved the moment it is made — no Save button. The
 // two typed values (the folder, a size limit not on the list) save when you leave the
 // field or press Enter. Choosing a member to hand a library to stays a dialog.
-export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: StorageRoot[] }) {
+//
+// Device Sync shows it in two places (owner, 2026-11-16): the settings in its main
+// column (`part="settings"`) and the libraries in its right column
+// (`part="libraries"`); `part="all"` is the whole panel on a page of its own.
+// `part="actions"` is Device Sync's "Make a library personal" page: the choice of
+// library and member in the page, and the ownerless libraries to hand over or delete.
+export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }: {
+  storageRoots: StorageRoot[];
+  part?: "all" | "settings" | "libraries" | "actions";
+  /** After a change is saved — so a page's counts can be read again. */
+  onChanged?: () => void;
+}) {
+  const showSettings = part === "all" || part === "settings";
+  const showList = part !== "settings";
+  const listRows = part !== "actions";
+  const standalone = part === "all";
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [view, setView] = useState<AdminView | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -143,6 +160,7 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
       setSaved(true);
       window.clearTimeout(savedTimer.current);
       savedTimer.current = window.setTimeout(() => setSaved(false), 1800);
+      onChanged?.();
       return true;
     } catch (err) {
       apply(before);
@@ -153,7 +171,6 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
     }
   };
 
-  const hasSubject = (subject: Subject) => settings.subjects.some((s) => s.type === subject.type && s.id === subject.id);
   const toggleSubject = (subject: Subject, on: boolean) => void save({
     subjects: on ? [...settings.subjects, subject] : settings.subjects.filter((s) => !(s.type === subject.type && s.id === subject.id))
   });
@@ -208,6 +225,9 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
         apply(await api<AdminView>("/api/storage/personal-libraries"));
       }
       setPending(null);
+      setAdoptLibrary("");
+      setAdoptMember("");
+      onChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t("controlAdmin:personalLibraries.actionFailed"));
     } finally {
@@ -227,19 +247,27 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
     : undefined;
 
   return (
-    <div id="personal-libraries" className="device-sync">
-      <div className="device-sync-title">
-        <h1>{t("controlAdmin:personalLibraries.title")}</h1>
-        {saved && <span className="app-status-pill is-ready">{t("controlAdmin:personalLibraries.saved")}</span>}
-      </div>
-      <p className="muted">{t("controlAdmin:personalLibraries.description")}</p>
+    <div id={showSettings ? "personal-libraries" : undefined} className="device-sync">
+      {standalone && (
+        <>
+          <div className="device-sync-title">
+            <h1>{t("controlAdmin:personalLibraries.title")}</h1>
+            {saved && <span className="app-status-pill is-ready">{t("controlAdmin:personalLibraries.saved")}</span>}
+          </div>
+          <p className="muted">{t("controlAdmin:personalLibraries.description")}</p>
+        </>
+      )}
       {error && <MessageBox tone="error" title={t("controlAdmin:personalLibraries.saveFailed")}>{error}</MessageBox>}
 
       {/* The switch, then — while it is on — the two things it needs, each ONE row
           saying what it is set to, with Change (a standard compact button) opening a
           dialog: where they are made (a location and a folder name, the path shown
           before saving) and who may have one. */}
-      <GroupedList note={settings.enabled ? t("controlAdmin:personalLibraries.whereNote") : undefined}>
+      {showSettings && (
+      <GroupedList
+        title={standalone ? undefined : t("controlAdmin:personalLibraries.title")}
+        note={settings.enabled ? t("controlAdmin:personalLibraries.whereNote") : t("controlAdmin:personalLibraries.offNote")}
+      >
         <ToggleRow label={t("controlAdmin:personalLibraries.enabled")} checked={settings.enabled} disabled={saving} onChange={(enabled) => void save({ enabled })} />
         {settings.enabled && (
           <>
@@ -274,26 +302,74 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
           </>
         )}
       </GroupedList>
+      )}
 
-      <GroupedList title={t("controlAdmin:personalLibraries.listTitle")} note={[totals, t("controlAdmin:personalLibraries.listNote")].filter(Boolean).join(" · ")}>
+      {showList && (
+      <>
+      {/* A page of its own (Device Sync › Make a library personal): the choice in the
+          page, not in a dialog — which gallery library, whose — then the confirmation
+          that says what changes. */}
+      {!listRows ? (
+        <>
+          <GroupedList title={t("controlAdmin:personalLibraries.adoptTitle")} note={t("controlAdmin:personalLibraries.adoptIntro")}>
+            <FieldRow>
+              <SelectField
+                label={t("controlAdmin:personalLibraries.adoptLibrary")}
+                value={adoptLibrary}
+                options={[{ value: "", label: adoptable.length ? t("controlAdmin:personalLibraries.choose") : t("controlAdmin:personalLibraries.noAdoptable") }, ...adoptable.map((l) => ({ value: l.id, label: l.name }))]}
+                onChange={setAdoptLibrary}
+              />
+            </FieldRow>
+            <FieldRow>
+              <SelectField
+                label={t("controlAdmin:personalLibraries.adoptMember")}
+                value={adoptMember}
+                options={[{ value: "", label: membersWithout.length ? t("controlAdmin:personalLibraries.choose") : t("controlAdmin:personalLibraries.noMemberWithout") }, ...membersWithout.map((m) => ({ value: m.id, label: m.displayName }))]}
+                onChange={setAdoptMember}
+              />
+            </FieldRow>
+          </GroupedList>
+          <div className="device-sync-actions">
+            <Button
+              variant="primary"
+              disabled={!adoptLibrary || !adoptMember}
+              onClick={() => { setActionError(""); setPending({ kind: "adopt", libraryId: adoptLibrary, userId: adoptMember }); }}
+            >
+              {t("controlAdmin:personalLibraries.confirmAdopt")}
+            </Button>
+          </div>
+        </>
+      ) : (
+      <GroupedList
+        title={standalone ? t("controlAdmin:personalLibraries.listTitle") : t("controlAdmin:personalLibraries.title")}
+        note={standalone ? [totals, t("controlAdmin:personalLibraries.listNote")].filter(Boolean).join(" · ") : t("controlAdmin:personalLibraries.listNoteShort")}
+      >
         {/* The list's own action leads it (UI-CONVENTIONS: add-style rows go first). */}
         <AddRow
           icon={<UserRoundCheck size={17} />}
           label={t("controlAdmin:personalLibraries.adopt")}
           onClick={() => { setAdoptLibrary(""); setAdoptMember(""); setActionError(""); setAdoptOpen(true); }}
         />
-        {view.libraries.length === 0 && <InfoRow icon={<BookOpen size={17} />} label={t("controlAdmin:personalLibraries.none")} />}
-        {inUse.map((library) => (
-          <NavRow
-            key={library.id}
-            icon={<BookOpen size={17} />}
-            label={t("controlAdmin:personalLibraries.whose", { name: library.ownerName })}
-            sub={library.adoptedAt ? t("controlAdmin:personalLibraries.adoptedOn", { date: formatDate(library.adoptedAt) }) : t("controlAdmin:personalLibraries.phonesCount", { count: library.phones })}
-            value={formatBytes(library.sizeBytes)}
-            href={libraryManageHref(library.id)}
-          />
-        ))}
+        {listRows && view.libraries.length === 0 && <InfoRow icon={<BookOpen size={17} />} label={t("controlAdmin:personalLibraries.none")} />}
+        {listRows && inUse.map((library) => {
+          const row = {
+            icon: <BookOpen size={17} />,
+            label: standalone ? t("controlAdmin:personalLibraries.whose", { name: library.ownerName }) : library.ownerName,
+            sub: standalone
+              ? (library.adoptedAt ? t("controlAdmin:personalLibraries.adoptedOn", { date: formatDate(library.adoptedAt) }) : t("controlAdmin:personalLibraries.phonesCount", { count: library.phones }))
+              : `${formatBytes(library.sizeBytes)} · ${t("controlAdmin:personalLibraries.phonesCount", { count: library.phones })}`,
+            value: standalone ? formatBytes(library.sizeBytes) : undefined
+          };
+          // Only a library the server says you may manage — your own — opens its
+          // Manage page; someone else's is private even to an admin, so its row says
+          // whose it is and how big, and leads nowhere ("Library not found" otherwise).
+          const canOpen = galleries.find((gallery) => gallery.id === library.id)?.canManageLibrary === true;
+          return canOpen
+            ? <NavRow key={library.id} {...row} href={libraryManageHref(library.id)} />
+            : <InfoRow key={library.id} {...row} />;
+        })}
       </GroupedList>
+      )}
 
       {ownerless.map((library) => (
         <GroupedList key={library.id} title={t("controlAdmin:personalLibraries.ownerlessTitle")}>
@@ -308,6 +384,8 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
           <ActionRow tone="danger" label={t("controlAdmin:personalLibraries.deleteRow")} onClick={() => { setActionError(""); setPending({ kind: "delete", library }); }} />
         </GroupedList>
       ))}
+      </>
+      )}
 
       {limitOpen && (
         <Modal title={t("controlAdmin:personalLibraries.limitDialogTitle")} onClose={() => { saveCustomLimit(); setLimitOpen(false); }}>
@@ -345,39 +423,44 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
       )}
 
       {whoOpen && (
-        <Modal title={t("controlAdmin:personalLibraries.whoDialogTitle")} onClose={() => setWhoOpen(false)}>
-          {/* Each choice saves the moment it is made, as everywhere on this page. */}
-          <GroupedList>
-            <CheckRow label={t("controlAdmin:personalLibraries.whoEveryone")} checked={settings.who === "everyone"} disabled={saving} onSelect={() => void save({ who: "everyone" })} />
-            <CheckRow label={t("controlAdmin:personalLibraries.whoChosen")} checked={settings.who === "chosen"} disabled={saving} onSelect={() => void save({ who: "chosen" })} />
-          </GroupedList>
-          {settings.who === "chosen" && (
-            <GroupedList title={t("controlAdmin:personalLibraries.chosenTitle")}>
-              {groups.map((group) => (
-                <ToggleRow
-                  key={`g-${group.id}`}
-                  label={t("controlAdmin:personalLibraries.groupLabel", { name: group.name })}
-                  checked={hasSubject({ type: "group", id: group.id })}
-                  disabled={saving}
-                  onChange={(on) => toggleSubject({ type: "group", id: group.id }, on)}
-                />
-              ))}
-              {members.map((member) => (
-                <ToggleRow
-                  key={`u-${member.id}`}
-                  label={member.displayName}
-                  checked={hasSubject({ type: "user", id: member.id })}
-                  disabled={saving}
-                  onChange={(on) => toggleSubject({ type: "user", id: member.id }, on)}
-                />
-              ))}
-            </GroupedList>
-          )}
-          {error && <MessageBox tone="error" title={t("controlAdmin:personalLibraries.saveFailed")}>{error}</MessageBox>}
-          <div className="modal-actions">
-            <Button variant="primary" onClick={() => setWhoOpen(false)} autoFocus>{t("controlAdmin:personalLibraries.done")}</Button>
-          </div>
-        </Modal>
+        // The standard access window, on/off (no roles): Everyone has access or not;
+        // otherwise the members and groups listed do. Each change saves at once.
+        <AccessDialog
+          title={t("controlAdmin:personalLibraries.whoDialogTitle")}
+          error={error}
+          errorTitle={t("controlAdmin:personalLibraries.saveFailed")}
+          busy={saving}
+          onClose={() => setWhoOpen(false)}
+        >
+          <AccessControl
+            roles={[]}
+            members={settings.subjects.map((subject) => ({
+              subjectType: subject.type,
+              subjectId: subject.id,
+              name: subject.type === "group" ? groups.find((g) => g.id === subject.id)?.name ?? subject.id : memberName(subject.id) || subject.id,
+              role: "",
+              missing: subject.type === "group" ? !groups.some((g) => g.id === subject.id) : !members.some((m) => m.id === subject.id)
+            }))}
+            candidates={{
+              users: members.map((member) => ({ id: member.id, name: member.displayName })),
+              groups: groups.map((group) => ({ id: group.id, name: group.name }))
+            }}
+            everyone={{
+              role: settings.who === "everyone" ? "yes" : null,
+              hint: t("controlAdmin:personalLibraries.whoEveryone"),
+              publicTag: false,
+              options: [
+                { value: ACCESS_NONE, label: t("common:access.noAccess"), tagline: "", dot: ACCESS_ROLE_DOT.none },
+                { value: "yes", label: t("common:access.hasAccess"), tagline: "", dot: ACCESS_ROLE_DOT.contributor }
+              ],
+              onChange: (role) => void save({ who: role ? "everyone" : "chosen" })
+            }}
+            busy={saving}
+            emptyHint={settings.who === "everyone" ? "" : t("controlAdmin:personalLibraries.nobodyChosen")}
+            onGrant={(type, id) => toggleSubject({ type, id }, true)}
+            onRevoke={(type, id) => toggleSubject({ type, id }, false)}
+          />
+        </AccessDialog>
       )}
 
       {whereOpen && (

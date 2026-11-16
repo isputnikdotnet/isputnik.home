@@ -68,18 +68,107 @@ describe("where personal libraries are made", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("says who may have one in a row, and changes it in a dialog", async () => {
+  it("links only a personal library the admin may manage; someone else's leads nowhere", async () => {
+    mockApi.mockImplementation(async (path: string) => {
+      if (path === "/api/storage/personal-libraries") {
+        return {
+          ...view({ storageRootId: "media" }),
+          libraries: [
+            { id: "mine", name: "Mine", ownerId: "me", ownerName: "Demo Admin", orphanedAt: null, adoptedAt: null, createdAt: "", sizeBytes: 10, phones: 2 },
+            { id: "theirs", name: "Theirs", ownerId: "u2", ownerName: "TV Tester", orphanedAt: null, adoptedAt: null, createdAt: "", sizeBytes: 5, phones: 0 }
+          ]
+        };
+      }
+      if (path === "/api/users") return { users: [] };
+      if (path === "/api/groups") return { groups: [] };
+      if (path.startsWith("/api/library/gallery-libraries")) {
+        return { libraries: [
+          { id: "mine", name: "Mine", role: null, personal: {}, canManageLibrary: true },
+          { id: "theirs", name: "Theirs", role: null, personal: {}, canManageLibrary: false }
+        ] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<PersonalLibrariesPanel storageRoots={roots} />);
+    expect(await screen.findByRole("link", { name: /Personal — Demo Admin/ })).toHaveAttribute("href", "/control/libraries/mine");
+    expect(await screen.findByText("Personal — TV Tester")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Personal — TV Tester/ })).not.toBeInTheDocument();
+  });
+
+  it("makes a library personal on a page of its own: chosen in the page, then confirmed", async () => {
+    const user = userEvent.setup();
+    const posts: unknown[] = [];
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "POST") { posts.push({ path, body: JSON.parse(String(init.body)) }); return view({ storageRootId: "media" }); }
+      if (path === "/api/storage/personal-libraries") return view({ storageRootId: "media" });
+      if (path === "/api/users") return { users: [{ id: "u1", displayName: "Ann" }, { id: "u9", displayName: "Zoe" }] };
+      if (path === "/api/groups") return { groups: [] };
+      if (path.startsWith("/api/library/gallery-libraries")) return { libraries: [{ id: "g1", name: "Zoe's phone photos", role: null, personal: null }] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<PersonalLibrariesPanel storageRoots={roots} part="actions" />);
+    // No list of libraries and no settings here — only the choice.
+    const make = await screen.findByRole("button", { name: "Make it personal" });
+    expect(make).toBeDisabled();
+    expect(screen.queryByText("Members may have a personal library")).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Library"), "g1");
+    await user.selectOptions(screen.getByLabelText("Member"), "u9");
+    await user.click(make);
+    const confirm = await screen.findByRole("alertdialog", { name: `Make "Zoe's phone photos" Zoe's personal library?` });
+    await user.click(within(confirm).getByRole("button", { name: "Make it personal" }));
+    await waitFor(() => expect(posts).toEqual([{ path: "/api/storage/personal-libraries/adopt", body: { libraryId: "g1", userId: "u9" } }]));
+  });
+
+  it("says who has access in a row, and changes it in a dialog", async () => {
     const user = userEvent.setup();
     render(<PersonalLibrariesPanel storageRoots={roots} />);
-    const row = await screen.findByRole("button", { name: /^Who may have one/ });
+    const row = await screen.findByRole("button", { name: /^Access/ });
     expect(row).toHaveTextContent("Every member");
     // The choices are no longer on the page itself.
     expect(screen.queryByText("Only the members and groups chosen")).not.toBeInTheDocument();
     await user.click(row);
-    const dialog = await screen.findByRole("dialog", { name: "Who may have a personal library" });
-    await user.click(within(dialog).getByText("Only the members and groups chosen"));
+    // The standard access window, on/off: Everyone has access, or only those listed.
+    const dialog = await screen.findByRole("dialog", { name: "Access to personal libraries" });
+    await user.click(within(dialog).getByRole("button", { name: /^Everyone: Has access/ }));
+    await user.click(within(dialog).getByRole("option", { name: /No access/ }));
     await waitFor(() => expect(puts).toEqual([expect.objectContaining({ who: "chosen" })]));
-    await user.click(within(dialog).getByRole("button", { name: "Done" }));
-    expect(await screen.findByRole("button", { name: /^Who may have one/ })).toHaveTextContent("No one chosen yet");
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(await screen.findByRole("button", { name: /^Access/ })).toHaveTextContent("No one chosen yet");
+  });
+
+  it("adds members and groups from the window's Add tab, and removes them with ×", async () => {
+    const user = userEvent.setup();
+    let current = view({ storageRootId: "media", who: "chosen", subjects: [{ type: "user", id: "u1" }] });
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body));
+        puts.push(body);
+        current = view(body);
+        return current;
+      }
+      if (path === "/api/storage/personal-libraries") return current;
+      if (path === "/api/users") return { users: [{ id: "u1", displayName: "Ann" }, { id: "u2", displayName: "Bo" }] };
+      if (path === "/api/groups") return { groups: [{ id: "g1", name: "Kids" }] };
+      if (path.startsWith("/api/library/gallery-libraries")) return { libraries: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<PersonalLibrariesPanel storageRoots={roots} />);
+    await user.click(await screen.findByRole("button", { name: /^Access/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Access to personal libraries" });
+    // Access tab: Ann has access; no role menus in an on/off list.
+    expect(within(dialog).getByText("Ann")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /^Role for Ann/ })).not.toBeInTheDocument();
+
+    // Add tab: search, tick, add.
+    await user.click(within(dialog).getByRole("tab", { name: "Add" }));
+    await user.type(within(dialog).getByRole("searchbox", { name: "Search people or groups" }), "ki");
+    expect(within(dialog).queryByText("Bo")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("checkbox"));
+    await user.click(within(dialog).getByRole("button", { name: "Add 1" }));
+    await waitFor(() => expect(puts.at(-1)).toEqual(expect.objectContaining({ subjects: [{ type: "user", id: "u1" }, { type: "group", id: "g1" }] })));
+
+    // Back on Access: × removes.
+    await user.click(await within(dialog).findByRole("button", { name: "Remove Ann" }));
+    await waitFor(() => expect(puts.at(-1)).toEqual(expect.objectContaining({ subjects: [{ type: "group", id: "g1" }] })));
   });
 });

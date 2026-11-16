@@ -177,8 +177,9 @@ describe("while on", () => {
     await user.click(await screen.findByRole("button", { name: /^Reviewers/ }));
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("Mia")).toBeInTheDocument();
-    expect(within(dialog).getByRole("combobox", { name: "Role for Mia" })).toHaveValue("details");
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Role for Mia" }), "keep");
+    // The role menu is the shared SelectMenu: its trigger says the role, its options choose.
+    await user.click(within(dialog).getByRole("button", { name: /^Role for Mia: Can add details/ }));
+    await user.click(within(dialog).getByRole("option", { name: /Can keep or discard/ }));
     await waitFor(() => expect(posts).toEqual([{ path: "/api/storage/app-storage/parts/inbox/reviewers", body: { subjectType: "user", subjectId: "mia", level: "keep" } }]));
   });
 

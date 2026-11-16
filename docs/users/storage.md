@@ -270,15 +270,16 @@ them has it off.
 ## Personal libraries
 
 A **personal library** is a private photo library that belongs to one member. Only that member
-can open it — administrators included. **Applications › Gallery › Device Sync** decides, in its **Personal
-libraries** card (it was at the bottom of Storage until 4.73, and Storage still says where
-they are kept):
+can open it — administrators included. **Applications › Gallery › Device Sync** decides, in the
+**Personal libraries** section at the top of its main column (it was at the bottom of Storage until
+4.73, and Storage still says where they are kept); the libraries themselves are listed on Device
+Sync's **Statistics** page:
 
 | Setting | What it does |
 |---|---|
 | **Members may have a personal library** | Off by default. While off, nobody can turn one on |
 | **Personal libraries location** | Right under the switch: the one folder new personal libraries are made in, shown as its path: one folder per member inside it, named after them. **Change** opens a dialog to pick a library location and a folder name, and shows the path it makes before you save. The folder may not sit inside another library, and changing it moves no library already made |
-| **Who may have one** | Under the location: every member, or only the members and groups you tick — shown in a line; **Change** opens the choices |
+| **Access** | Under the location: every member, or only the members and groups you tick — shown in a line; **Change** opens the choices |
 | **Size limit per member (GB)** | Optional. Uploads that would pass it are refused |
 
 Members turn their own library on from **Profile › My library**.

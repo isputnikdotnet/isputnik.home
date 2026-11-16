@@ -34,16 +34,29 @@ own phones, and you see how each phone is doing, never what it sent.
 
 ## Allowing personal libraries
 
-1. Open **Applications › Gallery › Device Sync** in the control panel and, under **Personal libraries**,
-   open **Members may have one**.
-2. Turn them on, choose the folder they are made in, and who may have one.
-3. Set a **size limit** if you want one. Members see how full they are; phones are refused once
-   a library is full.
+Device Sync is one page: a row of numbers on top (phones, personal libraries, last backup,
+allowed networks), the settings in the main column, and on the right links to **Statistics**,
+**Make a library personal**, the **Log** (Logs filtered to phone backup) and this guide.
+**Statistics** is a page of its own: phones and members backing up, refusals in the last 30 days,
+each personal library against the size limit, and each device with its member, network and last
+contact — ten to a page. It never shows what a phone sent.
 
-![Applications › Gallery › Device Sync › Personal libraries: on, the folder, who may have one, a size limit, and the totals](images/123-personal-libraries.png)
+**Make a library personal** is a page of its own, also in the right column: choose a gallery
+library and the member it should belong to, then confirm. Below it, while there are any, are the
+libraries of removed members, each with **Hand over** and **Delete**.
 
-The card also totals them: how many there are, how much they hold, and how many phones back up
-into each. More in [Storage](storage.md#personal-libraries).
+1. Open **Applications › Gallery › Device Sync** in the control panel. The first section,
+   **Personal libraries**, starts with the switch **Members may have a personal library**.
+2. Turn it on. Three rows appear, each saying what it is set to, with **Change**:
+   **Personal libraries location** (a library location and a folder name — the dialog shows the
+   path before you save), **Access** (who may have one), and **Size limit for each**. Members see how
+   full theirs is; phones are refused once a library is full.
+
+![Applications › Gallery › Device Sync › Personal libraries: on, the folder, who may have one, a size limit](images/123-personal-libraries.png)
+
+**Statistics** lists the libraries: whose each is, its size against the limit, how many phones
+back up into it, and when it last got a backup. Yours opens its Manage page; someone else's is private, even to you. More in
+[Storage](storage.md#personal-libraries).
 
 ## Listing the networks
 

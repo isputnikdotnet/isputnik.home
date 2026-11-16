@@ -303,3 +303,43 @@
 @media (max-width: 600px) {
   .member-role-legend > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+/* ── The access window (shared/AccessControl + AccessDialog, owner 2026-11-16) ──
+   One compact popup everywhere: Access and Add tabs, one-line rows, a role menu
+   with its dot, ×; Add is a search with ticks and one role. */
+.ax-modal { width: min(100%, 440px); }
+.ax-intro { margin: -4px 0 10px; color: var(--muted); font-size: var(--text-sm); }
+.access-control { display: grid; gap: 8px; min-width: 0; }
+.ax-tabs { display: flex; gap: 4px; padding: 0; border-bottom: 1px solid var(--line); }
+.ax-tabs > .modal-tab { padding: 6px 10px; }
+.ax-list { display: grid; min-width: 0; }
+/* Only the Add list scrolls: the Access list holds role menus, whose popovers a
+   scrolling box would clip. */
+.ax-add .ax-list { max-height: min(46vh, 360px); overflow-y: auto; }
+.ax-row { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 2px; border-top: 1px solid var(--line); min-width: 0; }
+.ax-list > .ax-row:first-child { border-top: 0; }
+.ax-row.is-pick { cursor: pointer; }
+.ax-row.is-pick > input { flex: none; width: 16px; height: 16px; margin: 0; }
+.ax-row.is-inherited .ax-name { color: var(--muted); }
+.ax-avatar { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 0.68rem; font-weight: 700; }
+.ax-avatar.is-neutral { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--muted); }
+.ax-avatar.is-square { border-radius: 7px; }
+.ax-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ax-name > small { margin-left: 6px; color: var(--muted); font-size: var(--text-xs, 0.75rem); }
+.ax-name > small.ax-tag { padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); font-weight: 600; }
+.ax-has { flex: none; color: var(--muted); font-size: var(--text-sm); white-space: nowrap; }
+/* The role menu: the shared SelectMenu, compact, its dot as the option icon. */
+.ax-role { flex: none; }
+.ax-role > .select-menu-trigger { min-height: 30px; padding: 0 10px; gap: 6px; font-size: var(--text-sm); font-weight: 500; }
+.ax-role .select-menu-popover { right: 0; left: auto; min-width: 170px; }
+.ax-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.ax-x, .ax-x-spacer { flex: none; width: 28px; }
+.ax-x { height: 28px; }
+.ax-empty { margin: 8px 2px; color: var(--muted); font-size: var(--text-sm); }
+.ax-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 34px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); }
+.ax-search > input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; }
+.ax-add { display: grid; gap: 6px; min-width: 0; }
+.ax-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); }
+.ax-legend { display: grid; gap: 6px; margin: 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--line) 35%, transparent); font-size: var(--text-sm); }
+.ax-legend dt { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.ax-legend dd { margin: 0 0 0 14px; color: var(--muted); }
