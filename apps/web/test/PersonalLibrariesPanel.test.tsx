@@ -129,14 +129,14 @@ describe("where personal libraries are made", () => {
     await user.click(row);
     // The standard access window, on/off: Everyone has access, or only those listed.
     const dialog = await screen.findByRole("dialog", { name: "Access to personal libraries" });
-    await user.click(within(dialog).getByRole("button", { name: /^Everyone: Has access/ }));
-    await user.click(within(dialog).getByRole("option", { name: /No access/ }));
+    // On/off: the tick box is the access. Unticking Everyone means only those listed.
+    await user.click(within(dialog).getByRole("switch", { name: "Access for Everyone" }));
     await waitFor(() => expect(puts).toEqual([expect.objectContaining({ who: "chosen" })]));
     await user.click(within(dialog).getByRole("button", { name: "Close" }));
     expect(await screen.findByRole("button", { name: /^Access/ })).toHaveTextContent("No one chosen yet");
   });
 
-  it("adds members and groups from the window's Add tab, and removes them with ×", async () => {
+  it("lists everyone, filters, and gives or takes access with the tick boxes", async () => {
     const user = userEvent.setup();
     let current = view({ storageRootId: "media", who: "chosen", subjects: [{ type: "user", id: "u1" }] });
     mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
@@ -155,25 +155,26 @@ describe("where personal libraries are made", () => {
     render(<PersonalLibrariesPanel storageRoots={roots} />);
     await user.click(await screen.findByRole("button", { name: /^Access/ }));
     const dialog = await screen.findByRole("dialog", { name: "Access to personal libraries" });
-    // Access tab: Ann has access; no role menus in an on/off list.
-    expect(within(dialog).getByText("Ann")).toBeInTheDocument();
-    expect(within(dialog).queryByRole("button", { name: /^Role for Ann/ })).not.toBeInTheDocument();
 
-    // Add tab: search narrows the list.
-    await user.click(within(dialog).getByRole("tab", { name: "Add" }));
-    const search = within(dialog).getByRole("searchbox", { name: "Search people or groups" });
-    await user.type(search, "ki");
+    // Everyone is listed, ticked when they have access: Ann has it, Kids and Bo don't.
+    expect(within(dialog).getByRole("switch", { name: "Access for Ann" })).toBeChecked();
+    expect(within(dialog).getByRole("switch", { name: "Access for Bo" })).not.toBeChecked();
+
+    // The filter narrows to those with access.
+    await user.click(within(dialog).getByRole("button", { name: /^Show: All/ }));
+    await user.click(within(dialog).getByRole("option", { name: "Has access (1)" }));
     expect(within(dialog).queryByText("Bo")).not.toBeInTheDocument();
-    await user.clear(search);
+    await user.click(within(dialog).getByRole("button", { name: /^Show: Has access/ }));
+    await user.click(within(dialog).getByRole("option", { name: "All (4)" }));
 
-    // Several ticked are all added — in one save, not each overwriting the last.
-    for (const box of within(dialog).getAllByRole("checkbox")) await user.click(box);
-    await user.click(within(dialog).getByRole("button", { name: "Add 2" }));
+    // The header's box: everyone shown without access gets it — in ONE save.
+    await user.click(within(dialog).getByRole("switch", { name: "Give access to everyone shown" }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0]).toEqual(expect.objectContaining({ subjects: [{ type: "user", id: "u1" }, { type: "group", id: "g1" }, { type: "user", id: "u2" }] }));
 
-    // Back on Access: × removes.
-    await user.click(await within(dialog).findByRole("button", { name: "Remove Ann" }));
-    await waitFor(() => expect(puts.at(-1)).toEqual(expect.objectContaining({ subjects: [{ type: "group", id: "g1" }, { type: "user", id: "u2" }] })));
+    // Unticking one takes it away.
+    await user.click(await within(dialog).findByRole("switch", { name: "Access for Ann" }));
+    await waitFor(() => expect(puts).toHaveLength(2));
+    expect(puts[1]).toEqual(expect.objectContaining({ subjects: [{ type: "group", id: "g1" }, { type: "user", id: "u2" }] }));
   });
 });

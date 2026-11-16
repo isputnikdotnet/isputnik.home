@@ -1,45 +1,13 @@
-/* ── Access dialog ─────────────────────────────────────────────────────── */
-
-/* Everything one person or group can reach (features/control/access): a panel
-   modal with a tab row, each tab a list of rows — what is given directly (a
-   select), and what they get from elsewhere (muted text naming the source). */
-
-.access-rows { display: grid; }
-
-.access-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 200px minmax(0, 230px);
-  gap: 12px;
-  align-items: center;
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
-}
-.access-row-two { grid-template-columns: minmax(0, 1fr) auto; }
-
-.access-row-name {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.access-row-name small {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
+/* ── Access pages (features/control/access) ───────────────────────────────
+   What one person or group can reach, on their member or group page, and the
+   review of their photos. Who may open ONE thing is the shared access window
+   (styles/components/member-access.css). */
 
 .access-muted {
   color: var(--muted);
   font-size: 0.85rem;
 }
 .access-muted { margin: 0; }
-
-.access-add {
-  max-width: 340px;
-  margin-top: 12px;
-}
 
 /* Account: sections under a heading each (profile, who they are, groups),
    fields in two columns as the book and person editors have them. */
@@ -72,13 +40,6 @@
 
 /* Footer: how things save, then the buttons. */
 
-/* The Users table's name opens the dialog; it keeps the look of a name. */
-.user-name-link {
-  padding: 0;
-  color: inherit;
-  text-align: left;
-}
-
 /* Review: a grid of the person's automatic matches; unticked ones fade. */
 .metadata-modal.access-review-modal {
   width: min(100%, 980px);
@@ -109,7 +70,6 @@
 .invite-group-option { display: flex; gap: 8px; align-items: center; cursor: pointer; }
 
 @media (max-width: 740px) {
-  .access-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .access-profile-grid { grid-template-columns: minmax(0, 1fr); }
   /* On a phone: the dialog takes the screen's width and no more, the tab row
      scrolls sideways instead of wrapping each label word by word, and Preview

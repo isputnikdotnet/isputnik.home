@@ -45,11 +45,6 @@
 /* App storage — the same block shape, with its one switch in the head, the
    where-choice while off, and the four parts as rows (AppStoragePanel.tsx). */
 
-/* The Photo Inbox reviewers dialog (InboxReviewersModal.tsx): the shared access box,
-   sized like the shelf access dialog so the grant row fits. */
-.metadata-modal.inbox-reviewers-modal { width: min(100%, 860px); }
-.inbox-reviewers { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.inbox-reviewers-intro { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
 /* The Inbox's Scanning dialog: the Libraries page's Scanning tab, opened from the
    Storage page (InboxScanningModal.tsx). Same width as the edit-library panel. */

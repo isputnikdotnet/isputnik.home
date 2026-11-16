@@ -150,12 +150,12 @@ off for everyone until it is paired again.
 
 **Control panel → Security & Members → App access**, for the chosen app:
 
-- **Access.** Everyone signed in is a member until you change something.
-  **Add a person or group** at the end of the list opens a search; whoever you
-  pick starts as **Member** (uses the app), and their row's role choice makes them
-  **Manager** (also looks after it — its admin pages) or **Denied** to keep them
-  out — its last option, **Remove**, takes them off the list. Take **Everyone**
-  down to *No access* to allow only the people you list.
+- **Access.** Everyone signed in is a member until you change something. The
+  **Access** row says who has it; **Change** opens the access window: everyone in
+  the household, each with a role — **Member** (uses the app), **Manager** (also
+  looks after it — its admin pages), **Denied** to keep them out, or *No access*.
+  Tick several to set them at once (**Apply to selected**). Take **Everyone** down
+  to *No access* to allow only the people you give a role.
   Administrators are always managers. Someone with no role doesn't see the app
   at all: no menu entry, and its address answers as if it weren't installed.
 - **From where.** Each thing the app does has its own rule — **Anywhere**,

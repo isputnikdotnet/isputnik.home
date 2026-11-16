@@ -124,21 +124,31 @@ The iPhone-Settings-style lists: a `GroupedList` (title, note) of rows — `NavR
 
 ### Access — `shared/AccessDialog` + `shared/AccessControl`
 
-ONE window for "who may open, see or change this", everywhere (2026-11-16): a compact
-popup titled **Access to …** with two tabs. **Access** lists who has it — Everyone, then
-groups, then people, one line each with a role menu (coloured dot) and × — and people
-who have it only through a group, read-only ("via …"). **Add** is a search with
-tick boxes and one role for all ticked. Changes save as they are made; **Roles** at the
-foot explains the vocabulary.
+ONE window for "who may open, see or change this", everywhere (2026-11-16): a popup
+titled **Access to …** with an icon and one line saying what it is about. It lists
+everyone who could have it — Everyone, then groups, then people — in a table that
+scrolls on its own, under a search and a filter (All / Has access / No access, with
+counts). No tabs, nothing to add separately: everyone is already in the list.
+
+- **With roles** (libraries, collections, branches, the Inbox): each row has a role menu
+  that includes **No access**, and a tick box; tick several and **Apply to selected** sets
+  them all at once. **Roles** at the foot explains the vocabulary.
+- **On/off** (`roles={[]}`: personal libraries, photos of a person): the tick box IS the
+  access — ticked has it — and the header's box gives it to, or takes it from, everyone
+  shown.
+- Changes save as they are made ("Changes are saved automatically").
 
 - Open it from a page as ONE row ("Access · The household (Member)") with **Change**.
 - Each place passes only its roles (`roles`), its baseline (`everyone`), its people
   (`members`, `candidates`) and its requests (`onGrant` / `onRevoke`); the component
   never calls the server.
-- No roles (`roles={[]}`) is the on/off form: a row means "has access", × removes it.
-- Never build another access list: library members, story collections, family
-  branches, Inbox reviewers and personal libraries all use this one. (Still to move:
-  application access, Gallery's "Access to photos of …".)
+- A place that saves its whole list at once passes `onGrantMany` / `onRevokeMany`, so
+  setting several in one go is one save, not several that overwrite each other.
+- Never build another access list. Every "who may" uses this one, always as a popup:
+  library members, story collections, family-tree branches, Photo Inbox reviewers,
+  personal libraries, application access, and Gallery's "Access to photos of …".
+  (A member's or group's own page — everything ONE person can reach — and shares
+  from person to person are different views, not this window.)
 
 ### PhotoPicker — `features/gallery/PhotoPicker.tsx`
 

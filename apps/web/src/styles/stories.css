@@ -3815,10 +3815,6 @@
   .story-home-card-blank { width: 72px; height: 54px; }
 }
 
-/* The collection's access dialog — the shared access box in a panel modal. */
-.story-access { display: flex; flex-direction: column; gap: 18px; }
-
-.metadata-modal.story-access-modal { width: min(100%, 860px); }
 
 /* ── Phones: the stories index ───────────────────────────────────────────────
    Search, New collection and New story each had a row of their own, which put

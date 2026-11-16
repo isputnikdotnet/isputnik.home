@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe2, Search, Users, X } from "lucide-react";
+import { Check, Filter, Globe2, Info, Search, Users } from "lucide-react";
 import { Button } from "./Button";
 import { SelectMenu } from "./SelectMenu";
 import { avatarHue, avatarInitials } from "./utils";
@@ -31,9 +31,13 @@ export interface AccessGrant {
 /** Somebody who has access only through a group: shown, not changed, here. */
 export interface AccessInherited {
   subjectId: string;
+  /** A person by default; a group can have it another way too (a family branch). */
+  subjectType?: "user" | "group";
   name: string;
-  /** The group it comes through. */
-  via: string;
+  /** The group it comes through ("via Kids"). */
+  via?: string;
+  /** Said instead, when it is not a group ("Through the Posse branch", "Their own account"). */
+  note?: string;
 }
 
 export interface AccessCandidate {
@@ -100,18 +104,48 @@ function RoleSelect({ value, options, label, disabled, onChange }: {
   );
 }
 
+/** On/off access: the app's switch (the one settings rows wear), saved when moved. */
+function AccessSwitch({ on, label, disabled, onChange }: { on: boolean; label: string; disabled?: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <Button variant="bare" className="ax-switch" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)}>
+      <span className={`grouped-switch${on ? " is-on" : ""}`} aria-hidden="true"><i /></span>
+    </Button>
+  );
+}
+
 function Avatar({ kind, name }: { kind: "user" | "group" | "everyone"; name: string }) {
   if (kind === "everyone") return <span className="ax-avatar is-neutral" aria-hidden="true"><Globe2 size={13} /></span>;
   if (kind === "group") return <span className="ax-avatar is-neutral is-square" aria-hidden="true"><Users size={13} /></span>;
   return <span className="ax-avatar" style={{ background: `hsl(${avatarHue(name)}, 58%, 52%)` }} aria-hidden="true">{avatarInitials(name)}</span>;
 }
 
+/** One row of the Access list: a person or group, and what they have (null = no access). */
+interface Row {
+  key: string;
+  kind: "user" | "group";
+  id: string;
+  name: string;
+  sub?: string;
+  role: string | null;
+  missing: boolean;
+  /** The group a person has access through, when not directly. */
+  via?: string;
+}
+
+/** The tick-box key for the Everyone row. */
+const EVERYONE = "everyone";
+/** An on/off list's one level, as a menu value. */
+const HAS = "__has";
+
 // Who can see a thing, and what they may do with it — the one access window the
-// whole app shares (owner, 2026-11-16): a compact popup with two tabs. Access
-// lists who has it — Everyone, then groups, then people, each a one-line row with
-// a role menu and × — and Add finds people or groups by search, ticks several, and
-// gives them one role. Libraries, story collections, family branches, the Inbox
-// and personal libraries all use it; only the ROLE VOCABULARY (none at all for an
+// whole app shares (owner, 2026-11-16). One list of EVERYONE who could have it —
+// Everyone, then groups, then people — under a search and a filter (All / Has
+// access / No access), scrolling on its own. Where there are roles, each row has a
+// role menu (with "No access") and a tick box: tick several and "Apply to selected"
+// sets them all at once. Where there are none (on/off), each row has a switch — the
+// app's own, as in every settings list — and the header's switch gives or takes it
+// for everyone shown. Libraries, story collections, family branches, the Inbox and
+// personal libraries all use it; only the ROLE VOCABULARY (none at all for an
 // on/off list) and the data change, and both arrive as props.
 //
 // The caller owns the requests: this renders what it is given and calls back. It
@@ -127,220 +161,260 @@ export function AccessControl({
   onGrant,
   onGrantMany,
   onRevoke,
+  onRevokeMany,
   showLegend = true,
   emptyHint
 }: {
   /** The vocabulary for grants, in the order it escalates. Empty = on/off: a row
-   *  means "has access", and grants carry the first role the caller gives back. */
+   *  either has access or not. */
   roles: AccessRole[];
   members: AccessGrant[];
-  /** Omit to hide the Add tab (a read-only view of who has access). */
+  /** Everyone who could be given access. Omit for a read-only list of who has it. */
   candidates?: { users: AccessCandidate[]; groups: AccessCandidate[] };
   everyone?: AccessEveryone;
-  /** People with access only through a group — shown read-only, "via …". */
+  /** People with access only through a group — said beside their row ("via …"). */
   inherited?: AccessInherited[];
   busy?: boolean;
-  /** Which role Add starts on. Defaults to the first listed. */
+  /** Which role Add and "Apply to selected" start on. Defaults to the first listed. */
   defaultRole?: string;
-  /** One grant. Return its promise: Add with several ticked waits for each in turn. */
+  /** One grant. Return its promise: several at once wait for each in turn. */
   onGrant: (subjectType: "user" | "group", subjectId: string, role: string) => void | Promise<unknown>;
-  /** Several at once, in one save — for a place that saves its whole list (personal
-   *  libraries), where one grant at a time would each overwrite the last. */
+  /** Several grants in one save — for a place that saves its whole list (personal
+   *  libraries), where one at a time would each overwrite the last. */
   onGrantMany?: (subjects: { subjectType: "user" | "group"; subjectId: string }[], role: string) => void | Promise<unknown>;
-  onRevoke: (subjectType: "user" | "group", subjectId: string) => void;
+  onRevoke: (subjectType: "user" | "group", subjectId: string) => void | Promise<unknown>;
+  /** Several removals in one save (see onGrantMany). */
+  onRevokeMany?: (subjects: { subjectType: "user" | "group"; subjectId: string }[]) => void | Promise<unknown>;
   /** Offer "Roles" — what each role may do. */
   showLegend?: boolean;
-  /** Shown when nobody has been granted anything. */
+  /** Shown when nobody is on the list at all. */
   emptyHint?: string;
 }) {
   const { t } = useTranslation(["common"]);
-  const [tab, setTab] = useState<"access" | "add">("access");
-  const [query, setQuery] = useState("");
-  const [picked, setPicked] = useState<Set<string>>(() => new Set());
-  const [newRole, setNewRole] = useState(defaultRole ?? roles[0]?.value ?? "");
   const [legendOpen, setLegendOpen] = useState(false);
   const toggle = roles.length === 0;
+  const startRole = defaultRole ?? roles[0]?.value ?? HAS;
 
-  const granted = useMemo(() => new Set(members.map((member) => `${member.subjectType}:${member.subjectId}`)), [members]);
-  // Ordered by reach: the baseline, then groups, then individuals — the widest
-  // grant is read before the narrow ones it sits under.
+  // ── The vocabulary every menu here offers: No access, then the roles (or "Has
+  // access" in an on/off list).
+  const noAccess: AccessRole = { value: ACCESS_NONE, label: t("common:access.noAccess"), tagline: "", dot: ACCESS_ROLE_DOT.none };
+  const hasAccess: AccessRole = { value: HAS, label: t("common:access.hasAccess"), tagline: "", dot: ACCESS_ROLE_DOT.contributor };
+  const rowOptions = [noAccess, ...(toggle ? [hasAccess] : roles)];
+
+  // ── Everybody, with what they have: candidates first, grants laid over them.
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
-  const listed = [
-    ...members.filter((member) => member.subjectType === "group").sort(byName),
-    ...members.filter((member) => member.subjectType === "user").sort(byName)
-  ];
-  const viaRows = inherited.filter((entry) => !granted.has(`user:${entry.subjectId}`)).sort(byName);
+  const rows = useMemo(() => {
+    const map = new Map<string, Row>();
+    // How someone has it another way: "via a group", or the caller's own words.
+    const via = new Map(inherited.map((entry) => [`${entry.subjectType ?? "user"}:${entry.subjectId}`, entry.note ?? t("common:access.via", { group: entry.via ?? "" })]));
+    for (const kind of ["group", "user"] as const) {
+      for (const c of (kind === "group" ? candidates?.groups : candidates?.users) ?? []) {
+        map.set(`${kind}:${c.id}`, { key: `${kind}:${c.id}`, kind, id: c.id, name: c.name, sub: c.sub, role: null, missing: false, via: via.get(`${kind}:${c.id}`) });
+      }
+    }
+    for (const member of members) {
+      const key = `${member.subjectType}:${member.subjectId}`;
+      const before = map.get(key);
+      map.set(key, {
+        key, kind: member.subjectType, id: member.subjectId, name: member.name,
+        sub: member.sub ?? before?.sub, role: toggle ? HAS : member.role, missing: Boolean(member.missing), via: undefined
+      });
+    }
+    const all = [...map.values()];
+    return [...all.filter((row) => row.kind === "group").sort(byName), ...all.filter((row) => row.kind === "user").sort(byName)];
+  }, [candidates, members, inherited, toggle, t]);
 
+  const everyoneEditable = Boolean(everyone?.onChange && everyone.options);
+  const everyoneValue = everyone?.role ? (toggle ? HAS : everyone.role) : ACCESS_NONE;
+
+  // ── Search and filter.
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "with" | "without">("all");
   const needle = query.trim().toLowerCase();
-  const matches = (candidate: AccessCandidate) => !needle || candidate.name.toLowerCase().includes(needle);
-  const freeGroups = (candidates?.groups ?? []).filter((c) => !granted.has(`group:${c.id}`) && matches(c)).sort(byName);
-  const freeUsers = (candidates?.users ?? []).filter((c) => !granted.has(`user:${c.id}`) && matches(c)).sort(byName);
+  const has = (row: Row) => row.role !== null;
+  const everyoneShown = Boolean(everyone) && (!needle || t("common:access.everyone").toLowerCase().includes(needle))
+    && (filter === "all" || (filter === "with") === Boolean(everyone?.role));
+  const shown = rows.filter((row) => (!needle || row.name.toLowerCase().includes(needle))
+    && (filter === "all" || (filter === "with") === has(row)));
+  const total = rows.length + (everyone ? 1 : 0);
+  const withCount = rows.filter(has).length + (everyone?.role ? 1 : 0);
 
-  const pick = (key: string) => setPicked((before) => {
+  // ── Ticks, and setting the ticked all at once.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkRole, setBulkRole] = useState(startRole);
+  const selectable = [...(everyoneShown && everyoneEditable ? [EVERYONE] : []), ...shown.filter((row) => !row.missing).map((row) => row.key)];
+  const allTicked = selectable.length > 0 && selectable.every((key) => selected.has(key));
+  const tick = (key: string) => setSelected((before) => {
     const next = new Set(before);
     if (next.has(key)) next.delete(key); else next.add(key);
     return next;
   });
+  const tickAll = () => setSelected(allTicked ? new Set() : new Set(selectable));
 
-  // Everyone ticked, not just the first: in one save where the place takes a list,
-  // else one grant at a time, each waiting for the last so none overwrites another.
-  const add = async () => {
-    const subjects = [...picked].flatMap((key) => {
-      const [subjectType, subjectId] = key.split(":");
-      return (subjectType === "user" || subjectType === "group") && subjectId ? [{ subjectType, subjectId } as const] : [];
-    });
-    if (onGrantMany) await onGrantMany(subjects, newRole);
-    else for (const subject of subjects) await onGrant(subject.subjectType, subject.subjectId, newRole);
-    setPicked(new Set());
-    setQuery("");
-    setTab("access");
+  // On/off: the tick box is the access. The header's box is ticked when everyone
+  // shown has it, and gives it to (or takes it from) all of them.
+  const shownRows = shown.filter((row) => !row.missing);
+  const allHave = shownRows.length > 0 && shownRows.every(has) && (!everyoneShown || !everyoneEditable || Boolean(everyone?.role));
+  const toggleAll = async () => {
+    const subjects = (list: Row[]) => list.map((row) => ({ subjectType: row.kind, subjectId: row.id }));
+    if (allHave) {
+      const holding = shownRows.filter(has);
+      if (onRevokeMany && holding.length) await onRevokeMany(subjects(holding));
+      else for (const row of holding) await onRevoke(row.kind, row.id);
+    } else {
+      const missing = shownRows.filter((row) => !has(row));
+      if (onGrantMany && missing.length) await onGrantMany(subjects(missing), "");
+      else for (const row of missing) await onGrant(row.kind, row.id, "");
+    }
   };
 
+  /** One subject to a value from the menu: No access removes, anything else grants. */
+  const setOne = (row: Row, value: string) => {
+    if (value === (row.role ?? ACCESS_NONE)) return;
+    if (value === ACCESS_NONE) return onRevoke(row.kind, row.id);
+    return onGrant(row.kind, row.id, value === HAS ? "" : value);
+  };
+  const setEveryone = (value: string) => {
+    if (!everyone?.onChange) return;
+    if (value === ACCESS_NONE) return everyone.onChange(null);
+    // An on/off list's "Has access" is whatever the caller calls having it.
+    const own = toggle ? everyone.options?.find((option) => option.value !== ACCESS_NONE)?.value : value;
+    if (own && everyone.options?.some((option) => option.value === own)) everyone.onChange(own);
+  };
+
+  // Everyone ticked gets the chosen value — in one save where the place takes a
+  // list, else one at a time, each waiting for the last so none is lost.
+  const applySelected = async () => {
+    const chosen = rows.filter((row) => selected.has(row.key) && !row.missing);
+    if (selected.has(EVERYONE)) await setEveryone(bulkRole);
+    const subjects = (list: Row[]) => list.map((row) => ({ subjectType: row.kind, subjectId: row.id }));
+    if (bulkRole === ACCESS_NONE) {
+      const holding = chosen.filter(has);
+      if (onRevokeMany && holding.length) await onRevokeMany(subjects(holding));
+      else for (const row of holding) await onRevoke(row.kind, row.id);
+    } else {
+      const changing = chosen.filter((row) => row.role !== bulkRole);
+      const role = bulkRole === HAS ? "" : bulkRole;
+      if (onGrantMany && changing.length) await onGrantMany(subjects(changing), role);
+      else for (const row of changing) await onGrant(row.kind, row.id, role);
+    }
+    setSelected(new Set());
+  };
+
+  const filterOptions = [
+    { value: "all" as const, label: t("common:access.filterAll", { count: total }) },
+    { value: "with" as const, label: t("common:access.filterWith", { count: withCount }) },
+    { value: "without" as const, label: t("common:access.filterWithout", { count: total - withCount }) }
+  ];
+
   const accessTab = (
-    <div className="ax-list" role="tabpanel" aria-label={t("common:access.tabAccess")}>
-      {/* Everyone is a row like any other, without ×: it always exists. */}
-      {everyone && (
-        <div className="ax-row" title={everyone.lockedHint ?? everyone.hint}>
-          <Avatar kind="everyone" name="" />
-          <span className="ax-name">
-            {t("common:access.everyone")}
-            {everyone.role && everyone.publicTag !== false && <small className="ax-tag">{t("common:access.public")}</small>}
-          </span>
-          {toggle && !everyone.options ? (
-            <span className="ax-has">{everyone.role ? t("common:access.hasAccess") : t("common:access.noAccess")}</span>
-          ) : everyone.options ? (
-            <RoleSelect
-              value={everyone.role ?? ACCESS_NONE}
-              options={everyone.options}
-              label={t("common:access.everyone")}
-              disabled={busy}
-              onChange={(role) => everyone.onChange?.(role === ACCESS_NONE ? null : role)}
-            />
-          ) : everyone.role ? (
-            <RoleSelect value={everyone.role} options={roles} label={t("common:access.everyone")} disabled />
-          ) : (
-            <span className="ax-has">{t("common:access.noAccess")}</span>
-          )}
-          <span className="ax-x-spacer" aria-hidden="true" />
+    <div className="ax-pane">
+      <div className="ax-toolbar">
+        <label className="ax-search">
+          <Search size={14} aria-hidden="true" />
+          <input type="search" value={query} placeholder={t("common:access.search")} aria-label={t("common:access.search")} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <SelectMenu className="ax-filter" value={filter} label={t("common:access.filterLabel")} triggerIcon={<Filter size={14} />} options={filterOptions} onChange={setFilter} />
+      </div>
+
+      <div className="ax-table">
+        <div className={`ax-head${toggle ? " is-toggle" : ""}`}>
+          {!toggle && <input type="checkbox" checked={allTicked} onChange={tickAll} disabled={busy || selectable.length === 0} aria-label={t("common:access.selectAll")} />}
+          <span>{t("common:access.peopleAndGroups")}</span>
+          {toggle
+            ? <AccessSwitch on={allHave} label={t("common:access.giveAllShown")} disabled={busy || shownRows.length === 0} onChange={() => void toggleAll()} />
+            : <span>{t("common:access.columnAccess")}</span>}
         </div>
-      )}
-
-      {listed.map((member) => (
-        <div className="ax-row" key={`${member.subjectType}:${member.subjectId}`}>
-          <Avatar kind={member.subjectType} name={member.name} />
-          <span className="ax-name" title={member.sub}>
-            {member.name}
-            {member.missing ? <small>{t("common:access.deleted")}</small> : member.sub && <small>{member.sub}</small>}
-          </span>
-          {toggle ? (
-            <span className="ax-has">{t("common:access.hasAccess")}</span>
-          ) : (
-            <RoleSelect
-              value={member.role}
-              options={roles}
-              label={t("common:access.roleFor", { name: member.name })}
-              disabled={busy || member.missing}
-              onChange={(next) => { if (next !== member.role) onGrant(member.subjectType, member.subjectId, next); }}
-            />
-          )}
-          <Button
-            variant="icon"
-            className="ax-x"
-            onClick={() => onRevoke(member.subjectType, member.subjectId)}
-            disabled={busy}
-            title={t("common:access.remove", { name: member.name })}
-            aria-label={t("common:access.remove", { name: member.name })}
-          >
-            <X size={14} />
-          </Button>
-        </div>
-      ))}
-
-      {viaRows.map((entry) => (
-        <div className="ax-row is-inherited" key={`via:${entry.subjectId}`}>
-          <Avatar kind="user" name={entry.name} />
-          <span className="ax-name">{entry.name}</span>
-          <span className="ax-has">{t("common:access.via", { group: entry.via })}</span>
-          <span className="ax-x-spacer" aria-hidden="true" />
-        </div>
-      ))}
-
-      {/* An empty hint of "" says nothing at all (the baseline already says it). */}
-      {members.length === 0 && emptyHint !== "" && <p className="ax-empty">{emptyHint ?? t("common:access.nobodyYet")}</p>}
-    </div>
-  );
-
-  const addTab = (
-    <div className="ax-add" role="tabpanel" aria-label={t("common:access.tabAdd")}>
-      <label className="ax-search">
-        <Search size={14} aria-hidden="true" />
-        <input
-          type="search"
-          value={query}
-          placeholder={t("common:access.search")}
-          aria-label={t("common:access.search")}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
-      <div className="ax-list">
-        {[...freeGroups.map((c) => ({ kind: "group" as const, c })), ...freeUsers.map((c) => ({ kind: "user" as const, c }))].map(({ kind, c }) => {
-          const key = `${kind}:${c.id}`;
-          return (
-            <label className="ax-row is-pick" key={key}>
-              <input type="checkbox" checked={picked.has(key)} onChange={() => pick(key)} disabled={busy} />
-              <Avatar kind={kind} name={c.name} />
+        <div className="ax-list">
+          {everyone && everyoneShown && (
+            <div className={`ax-row${selected.has(EVERYONE) ? " is-selected" : ""}`} title={everyone.lockedHint ?? everyone.hint}>
+              {!toggle && (everyoneEditable
+                ? <input type="checkbox" checked={selected.has(EVERYONE)} onChange={() => tick(EVERYONE)} disabled={busy} aria-label={t("common:access.selectOne", { name: t("common:access.everyone") })} />
+                : <span className="ax-check-spacer" aria-hidden="true" />)}
+              <Avatar kind="everyone" name="" />
               <span className="ax-name">
-                {c.name}
-                {(c.sub || kind === "group") && <small>{c.sub ?? t("common:access.groupLabel")}</small>}
+                {t("common:access.everyone")}
+                {everyone.role && everyone.publicTag !== false && <small className="ax-tag">{t("common:access.public")}</small>}
               </span>
-            </label>
-          );
-        })}
-        {freeGroups.length === 0 && freeUsers.length === 0 && (
-          <p className="ax-empty">{needle ? t("common:access.noMatch") : t("common:access.everyoneAdded")}</p>
-        )}
-      </div>
-    </div>
-  );
+              {toggle && (
+                <AccessSwitch
+                  on={Boolean(everyone.role)}
+                  label={t("common:access.accessFor", { name: t("common:access.everyone") })}
+                  disabled={busy || !everyoneEditable}
+                  onChange={(on) => void setEveryone(on ? HAS : ACCESS_NONE)}
+                />
+              )}
+              {!toggle && (
+                <RoleSelect
+                  value={everyoneValue}
+                  options={everyone.options ?? rowOptions}
+                  label={t("common:access.everyone")}
+                  disabled={busy || !everyoneEditable}
+                  onChange={everyoneEditable ? (value) => void setEveryone(value) : undefined}
+                />
+              )}
+            </div>
+          )}
 
-  return (
-    <div className="access-control">
-      {candidates && (
-        <div className="ax-tabs modal-tabs" role="tablist">
-          <Button variant="tab" className="modal-tab" selected={tab === "access"} onClick={() => setTab("access")}>
-            {t("common:access.tabAccess")}
+          {shown.map((row) => (
+            <div className={`ax-row${!toggle && selected.has(row.key) ? " is-selected" : ""}`} key={row.key}>
+              {!toggle && <input type="checkbox" checked={selected.has(row.key)} onChange={() => tick(row.key)} disabled={busy || row.missing} aria-label={t("common:access.selectOne", { name: row.name })} />}
+              <Avatar kind={row.kind} name={row.name} />
+              <span className="ax-name" title={row.sub}>
+                {row.name}
+                {row.kind === "group" && <small className="ax-kind">{t("common:access.groupLabel")}</small>}
+                {row.missing ? <small>{t("common:access.deleted")}</small> : row.via && !has(row) ? <small>{row.via}</small> : null}
+              </span>
+              {toggle && (
+                <AccessSwitch
+                  on={has(row)}
+                  label={t("common:access.accessFor", { name: row.name })}
+                  disabled={busy || row.missing}
+                  onChange={(on) => void setOne(row, on ? HAS : ACCESS_NONE)}
+                />
+              )}
+              {!toggle && (
+                <RoleSelect
+                  value={row.role ?? ACCESS_NONE}
+                  options={rowOptions}
+                  label={t("common:access.roleFor", { name: row.name })}
+                  disabled={busy || row.missing}
+                  onChange={(value) => void setOne(row, value)}
+                />
+              )}
+            </div>
+          ))}
+
+          {!everyoneShown && shown.length === 0 && (
+            <p className="ax-empty">
+              {needle || filter !== "all" ? t("common:access.noMatch") : emptyHint !== "" ? emptyHint ?? t("common:access.nobodyYet") : null}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {!toggle && selected.size > 0 ? (
+        <div className="ax-bulk">
+          <strong>{t("common:access.selectedCount", { count: selected.size })}</strong>
+          <RoleSelect value={bulkRole} options={rowOptions} label={t("common:access.roleToGrant")} disabled={busy} onChange={setBulkRole} />
+          <Button variant="primary" compact onClick={() => void applySelected()} disabled={busy}>
+            <Check size={15} aria-hidden="true" /> {t("common:access.applySelected")}
           </Button>
-          <Button variant="tab" className="modal-tab" selected={tab === "add"} onClick={() => setTab("add")}>{t("common:access.tabAdd")}</Button>
+        </div>
+      ) : (
+        <div className="ax-foot">
+          {showLegend && !toggle ? (
+            <Button variant="text" compact aria-expanded={legendOpen} onClick={() => setLegendOpen((open) => !open)}>
+              {t("common:access.roles")}
+            </Button>
+          ) : <span />}
+          <small><Info size={13} aria-hidden="true" /> {t("common:access.savedAutomatically")}</small>
         </div>
       )}
-
-      {tab === "add" && candidates ? addTab : accessTab}
-
-      <div className="ax-foot">
-        {tab === "add" && candidates ? (
-          <>
-            {!toggle
-              ? <RoleSelect value={newRole} options={roles} label={t("common:access.roleToGrant")} disabled={busy} onChange={setNewRole} />
-              : <span />}
-            <Button variant="primary" compact onClick={() => void add()} disabled={busy || picked.size === 0}>
-              {picked.size ? t("common:access.addCount", { count: picked.size }) : t("common:access.add")}
-            </Button>
-          </>
-        ) : (
-          <>
-            {showLegend && !toggle ? (
-              <Button variant="text" compact aria-expanded={legendOpen} onClick={() => setLegendOpen((open) => !open)}>
-                {t("common:access.roles")}
-              </Button>
-            ) : <span />}
-            <small>{t("common:access.savedAsYouGo")}</small>
-          </>
-        )}
-      </div>
 
       {/* What each role may do, in the order they escalate — the same objects the
           menus render, so the two can never drift apart. */}
-      {legendOpen && tab === "access" && (
+      {legendOpen && selected.size === 0 && (
         <dl className="ax-legend">
           {roles.map((role) => (
             <div key={role.value}>
@@ -352,4 +426,6 @@ export function AccessControl({
       )}
     </div>
   );
+
+  return <div className="access-control">{accessTab}</div>;
 }

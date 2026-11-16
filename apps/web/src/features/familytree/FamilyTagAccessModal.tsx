@@ -5,7 +5,8 @@ import type { TFunction } from "i18next";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { AccessControl } from "../../shared/AccessControl";
-import { SelectField } from "../../shared/SelectField";
+import { AccessDialog } from "../../shared/AccessDialog";
+import { CommandRow, GroupedList } from "../../shared/GroupedList";
 import type { ManagedGroup, ManagedUser } from "../control/types";
 import type { FamilyTag } from "./types";
 
@@ -32,13 +33,15 @@ interface TagEditor {
   missing: number;
 }
 
-// The branch-access body, rendered as the Security tab of the family-tree
-// settings modal (it used to be a modal of its own).
+// The Security tab of the family-tree settings: each branch a row, its Change
+// opening the standard access window (shared/AccessDialog, owner 2026-11-16) for
+// who may edit that branch.
 export function FamilyTagAccessPanel() {
   const { t } = useTranslation(["common", "family"]);
   const [tags, setTags] = useState<FamilyTag[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
+  // The branch whose access window is open ("" = none).
   const [tagId, setTagId] = useState("");
   const [editors, setEditors] = useState<TagEditor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,6 @@ export function FamilyTagAccessPanel() {
         setTags(tagPayload.tags);
         setUsers(userPayload.users);
         setGroups(groupPayload.groups);
-        if (tagPayload.tags.length > 0) setTagId((prev) => prev || tagPayload.tags[0].id);
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("family:tagAccess.errors.loadTags")))
       .finally(() => setLoading(false));
@@ -115,7 +117,7 @@ export function FamilyTagAccessPanel() {
         {t("family:tagAccess.intro")}
       </p>
 
-      {error && <MessageBox tone="error" title={t("family:tagAccess.unableToUpdate")}>{error}</MessageBox>}
+      {error && !tagId && <MessageBox tone="error" title={t("family:tagAccess.unableToUpdate")}>{error}</MessageBox>}
 
       {loading ? (
         <p className="management-empty">{t("family:tagAccess.loading")}</p>
@@ -124,20 +126,29 @@ export function FamilyTagAccessPanel() {
           {t("family:tagAccess.noTagsBody")}
         </MessageBox>
       ) : (
-        <>
-          <SelectField
-            className="member-field-grow"
-            label={t("family:tagAccess.tagAria")}
-            hideLabel
-            icon={<Tags size={17} />}
-            value={tagId}
-            onChange={setTagId}
-            options={tags.map((tag) => ({
-              value: tag.id,
-              label: `${tag.name} — ${t("family:common.counts.person", { count: tag.reach })}`
-            }))}
-          />
+        <GroupedList>
+          {tags.map((tag) => (
+            <CommandRow
+              key={tag.id}
+              icon={<Tags size={17} />}
+              label={tag.name}
+              sub={t("family:common.counts.person", { count: tag.reach })}
+              value={t("common:common.change")}
+              onClick={() => { setEditors([]); setTagId(tag.id); }}
+            />
+          ))}
+        </GroupedList>
+      )}
 
+      {tagId && (
+        <AccessDialog
+          title={t("family:tagAccess.dialogTitle", { branch: tags.find((tag) => tag.id === tagId)?.name ?? "" })}
+          intro={t("family:tagAccess.dialogIntro")}
+          error={error}
+          errorTitle={t("family:tagAccess.unableToUpdate")}
+          busy={saving}
+          onClose={() => setTagId("")}
+        >
           <AccessControl
             roles={roleOptions(t)}
             members={editors.map((editor) => ({
@@ -149,17 +160,16 @@ export function FamilyTagAccessPanel() {
               missing: Boolean(editor.missing)
             }))}
             candidates={{
-              users: users.map((user) => ({ id: user.id, name: `${user.displayName} (${user.email})` })),
+              users: users.map((user) => ({ id: user.id, name: user.displayName, sub: user.email })),
               groups: groups.map((group) => ({ id: group.id, name: group.name }))
             }}
             busy={saving}
             emptyHint={t("family:tagAccess.noEditorsYet")}
             onGrant={(subjectType, subjectId, role) => grant(subjectType, subjectId, role as EditorRole)}
-            onRevoke={(subjectType, subjectId) => void revoke(subjectType, subjectId)}
+            onRevoke={(subjectType, subjectId) => revoke(subjectType, subjectId)}
           />
-        </>
+        </AccessDialog>
       )}
-
     </div>
   );
 }

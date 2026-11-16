@@ -102,8 +102,9 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   several choices is ONE `CommandRow` saying its value, with **Change** opening a
   `Modal` of the choices — not the choices spread over the page.
 - **Access** ("who may open/see/change this") is ONE window everywhere:
-  `shared/AccessDialog` around `shared/AccessControl` — a compact popup with Access and
-  Add tabs; each place passes only its roles (none = on/off), people and requests.
+  `shared/AccessDialog` around `shared/AccessControl` — one popup listing everyone, with
+  search, filter and tick boxes (with roles: a role menu per row and Apply to selected;
+  on/off: the tick box is the access); each place passes only its roles, people and requests.
   Never build another access list.
 - **Messages**: inline errors/notices use `shared/MessageBox` with a tone
   (`info|warning|error|success`); no custom error divs. Error titles say what

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, Link2Off, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { Check, Copy, Link2Off, ShieldCheck } from "lucide-react";
 import { api } from "../../../api";
 import { queryParam, replaceQuery } from "../../../router";
-import { ACCESS_NONE } from "../../../shared/AccessControl";
+import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl, type AccessRole } from "../../../shared/AccessControl";
+import { AccessDialog } from "../../../shared/AccessDialog";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
-import { AddRow, GroupedList, GroupedSearch, NavRow, PickerRow, initials } from "../../../shared/GroupedList";
-import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
+import { CommandRow, GroupedList, PickerRow } from "../../../shared/GroupedList";
+import { useQueryPage } from "../../../shared/useQueryPage";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
@@ -331,10 +332,10 @@ function useCapabilityWords() {
 
 // Who may use each container and from where (docs/apps-platform-plan.md →
 // Access, Network rules), as grouped rows (control panel v2): which application,
-// then who may use it — Everyone, and each person or group with their role (or
-// Remove) — then one rule per capability for where it is allowed from. Adding a
-// person or group opens a page of its own (?show=add) with a search. Every change
-// is saved at once and the page redrawn from what the server answers.
+// then who may use it — ONE row saying it, whose Change opens the standard access
+// window (shared/AccessDialog, owner 2026-11-16) — then one rule per capability for
+// where it is allowed from. Every change is saved at once and the page redrawn from
+// what the server answers.
 export function AppsAccessSection() {
   const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const appName = useAppName();
@@ -346,9 +347,9 @@ export function AppsAccessSection() {
   const [people, setPeople] = useState<{ users: Candidate[]; groups: Candidate[] } | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
+  // The access window, open; ?show=add (the old add page's address) opens it too.
   const [show, go] = useQueryPage();
-  const adding = show === "add";
+  const [accessOpen, setAccessOpen] = useState(show === "add");
 
   useEffect(() => {
     if (!current) return;
@@ -408,25 +409,25 @@ export function AppsAccessSection() {
     { value: "home", label: t("controlAdmin:apps.access.ruleHome") }
   ];
 
-  /** "Remove" is the last choice of a grant's role: picking it takes the row away. */
-  const REMOVE = "__remove";
-  const grantRole = (grant: AppAccess["grants"][number], value: string) => {
-    if (value === REMOVE) void change(`/grants/${grant.subjectType}/${encodeURIComponent(grant.subjectId)}`, { method: "DELETE" });
-    else void change("/grants", { method: "POST", body: JSON.stringify({ subjectType: grant.subjectType, subjectId: grant.subjectId, role: value }) });
+  // The access window's vocabulary: what a grant may be, and the baseline's.
+  const roleDot: Record<string, string> = { member: ACCESS_ROLE_DOT.member, manager: ACCESS_ROLE_DOT.manager, deny: ACCESS_ROLE_DOT.deny, [ACCESS_NONE]: ACCESS_ROLE_DOT.none };
+  const accessRole = (value: string): AccessRole => ({
+    value,
+    label: roleLabel(value),
+    tagline: value === "manager" ? t("controlAdmin:apps.access.roleManagerMeans") : value === "deny" ? t("controlAdmin:apps.access.roleDenyMeans") : value === ACCESS_NONE ? "" : t("controlAdmin:apps.access.roleMemberMeans"),
+    dot: roleDot[value]
+  });
+  /** Who has it, in a line: the baseline, then the grants by role. */
+  const accessSummary = (payload: AppAccess): string => {
+    const parts: string[] = [];
+    if (payload.everyone) parts.push(`${t("common:access.everyone")} (${roleLabel(payload.everyone)})`);
+    const allowed = payload.grants.filter((grant) => grant.role !== "deny");
+    if (allowed.length) parts.push(allowed.slice(0, 3).map((grant) => `${grant.name} (${roleLabel(grant.role)})`).join(", ") + (allowed.length > 3 ? " …" : ""));
+    const blocked = payload.grants.length - allowed.length;
+    if (blocked) parts.push(t("controlAdmin:apps.access.blockedCount", { count: blocked }));
+    return parts.join(" · ") || t("controlAdmin:apps.access.noGrants");
   };
-  const add = async (subjectType: "user" | "group", subjectId: string) => {
-    // A new grant starts as Member; its row changes it after.
-    if (await change("/grants", { method: "POST", body: JSON.stringify({ subjectType, subjectId, role: "member" }) })) {
-      setSearch("");
-      go(null);
-    }
-  };
-
-  const held = new Set(access?.grants.map((grant) => `${grant.subjectType}:${grant.subjectId}`) ?? []);
-  const query = search.trim().toLowerCase();
-  const matches = (candidate: Candidate) => !query || [candidate.name, candidate.sub ?? ""].some((text) => text.toLowerCase().includes(query));
-  const freeGroups = (people?.groups ?? []).filter((group) => !held.has(`group:${group.id}`) && matches(group));
-  const freeUsers = (people?.users ?? []).filter((user) => !held.has(`user:${user.id}`) && matches(user));
+  const closeAccess = () => { setAccessOpen(false); if (show === "add") go(null); };
 
   return (
     <>
@@ -434,9 +435,7 @@ export function AppsAccessSection() {
         section="appsAccess"
         icon={<ShieldCheck size={30} />}
         iconClassName="blue"
-        description={adding ? undefined : t("controlAdmin:apps.access.description")}
-        title={adding ? t("common:access.grantTitle") : undefined}
-        back={adding ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
+        description={t("controlAdmin:apps.access.description")}
       />
       {appsError && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{appsError}</MessageBox>}
       {!apps && !appsError && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
@@ -445,30 +444,7 @@ export function AppsAccessSection() {
         <div className="grouped-page">
           {error && <MessageBox tone="error" title={t("controlAdmin:apps.access.saveFailed")}>{error}</MessageBox>}
 
-          {adding ? (
-            // ── Give a person or a group access ────────────────────────────
-            <>
-              <GroupedSearch value={search} onChange={setSearch} label={t("controlAdmin:apps.access.searchPeople")} />
-              {freeGroups.length > 0 && (
-                <GroupedList title={t("common:access.groupsGroup")}>
-                  {freeGroups.map((group) => (
-                    <NavRow key={group.id} icon={<UsersRound size={17} />} iconShape="round" label={group.name} disabled={saving} onClick={() => void add("group", group.id)} />
-                  ))}
-                </GroupedList>
-              )}
-              {freeUsers.length > 0 && (
-                <GroupedList title={t("common:access.usersGroup")}>
-                  {freeUsers.map((user) => (
-                    <NavRow key={user.id} icon={initials(user.name)} iconShape="round" label={user.name} sub={user.sub} disabled={saving} onClick={() => void add("user", user.id)} />
-                  ))}
-                </GroupedList>
-              )}
-              {people && freeGroups.length === 0 && freeUsers.length === 0 && (
-                <p className="grouped-list-note">{t("controlAdmin:apps.access.nobodyLeft")}</p>
-              )}
-            </>
-          ) : (
-            <>
+          <>
               {apps.length > 1 && (
                 <GroupedList>
                   <PickerRow
@@ -482,38 +458,52 @@ export function AppsAccessSection() {
 
               {access && (
                 <>
-                  <GroupedList
-                    id="app-access-who"
-                    title={t("controlAdmin:apps.access.whoTitle", { app: appName(current.id) })}
-                    note={access.grants.length === 0
-                      ? <>{t("controlAdmin:apps.access.noGrants")} {t("controlAdmin:apps.access.whoIntro")}</>
-                      : t("controlAdmin:apps.access.whoIntro")}
-                  >
-                    <AddRow icon={<UserPlus size={17} />} label={t("controlAdmin:apps.access.addRow")} onClick={() => { setSearch(""); go("add"); }} />
-                    <PickerRow
-                      label={t("common:access.everyone")}
-                      sub={t("controlAdmin:apps.access.everyoneHint")}
-                      value={access.everyone ?? ACCESS_NONE}
-                      options={[ACCESS_NONE, "member", "manager"].map((value) => ({ value, label: roleLabel(value) }))}
+                  {/* Who may use it: one row, the standard access window behind Change. */}
+                  <GroupedList id="app-access-who" title={t("controlAdmin:apps.access.whoTitle", { app: appName(current.id) })} note={t("controlAdmin:apps.access.whoIntro")}>
+                    <CommandRow
+                      icon={<ShieldCheck size={17} />}
+                      label={t("common:access.title")}
+                      sub={accessSummary(access)}
+                      value={t("controlAdmin:personalLibraries.change")}
                       disabled={saving}
-                      onChange={(value) => void change("/everyone", { method: "PUT", body: JSON.stringify({ role: value }) })}
+                      onClick={() => setAccessOpen(true)}
                     />
-                    {access.grants.map((grant) => (
-                      <PickerRow
-                        key={`${grant.subjectType}:${grant.subjectId}`}
-                        label={<>{grant.name}{grant.missing && <> {t("common:access.deleted")}</>}</>}
-                        sub={grant.subjectType === "user" ? grant.email ?? t("common:access.userLabel") : t("common:access.groupLabel")}
-                        ariaLabel={t("common:access.roleFor", { name: grant.name })}
-                        value={grant.role}
-                        options={[
-                          ...["member", "manager", "deny"].map((value) => ({ value, label: roleLabel(value) })),
-                          { value: REMOVE, label: t("common:access.remove", { name: grant.name }) }
-                        ]}
-                        disabled={saving}
-                        onChange={(value) => grantRole(grant, value)}
-                      />
-                    ))}
                   </GroupedList>
+
+                  {accessOpen && (
+                    <AccessDialog
+                      title={t("controlAdmin:apps.access.whoTitle", { app: appName(current.id) })}
+                      intro={t("controlAdmin:apps.access.whoIntro")}
+                      error={error}
+                      errorTitle={t("controlAdmin:apps.access.saveFailed")}
+                      busy={saving}
+                      onClose={closeAccess}
+                    >
+                      <AccessControl
+                        roles={["member", "manager", "deny"].map(accessRole)}
+                        defaultRole="member"
+                        members={access.grants.map((grant) => ({
+                          subjectType: grant.subjectType,
+                          subjectId: grant.subjectId,
+                          name: grant.name,
+                          sub: grant.subjectType === "user" ? grant.email ?? undefined : undefined,
+                          role: grant.role,
+                          missing: grant.missing
+                        }))}
+                        candidates={people ?? { users: [], groups: [] }}
+                        everyone={{
+                          role: access.everyone,
+                          hint: t("controlAdmin:apps.access.everyoneHint"),
+                          options: [ACCESS_NONE, "member", "manager"].map(accessRole),
+                          publicTag: false,
+                          onChange: (role) => void change("/everyone", { method: "PUT", body: JSON.stringify({ role: role ?? ACCESS_NONE }) })
+                        }}
+                        busy={saving}
+                        onGrant={(subjectType, subjectId, role) => change("/grants", { method: "POST", body: JSON.stringify({ subjectType, subjectId, role }) })}
+                        onRevoke={(subjectType, subjectId) => change(`/grants/${subjectType}/${encodeURIComponent(subjectId)}`, { method: "DELETE" })}
+                      />
+                    </AccessDialog>
+                  )}
 
                   <GroupedList
                     id="app-access-where"
@@ -538,8 +528,7 @@ export function AppsAccessSection() {
                   </GroupedList>
                 </>
               )}
-            </>
-          )}
+          </>
         </div>
       )}
     </>

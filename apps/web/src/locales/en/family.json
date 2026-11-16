@@ -306,6 +306,8 @@
     }
   },
   "tagAccess": {
+    "dialogTitle": "Access to the {{branch}} branch",
+    "dialogIntro": "Who may edit the people in this branch. Everyone signed in can see them anyway.",
     "roleEditor": "Editor",
     "roleEditorTagline": "Edit tagged people + add relatives",
     "roleBlocked": "Blocked",
@@ -315,7 +317,6 @@
     "loading": "Loading…",
     "noTagsTitle": "No family tags yet",
     "noTagsBody": "Tag people first (Edit person → Family tags), then grant edit rights on those tags here.",
-    "tagAria": "Family tag",
     "deletedLabel": "(deleted)",
     "noEditorsYet": "No editors yet — only admins can edit this branch.",
     "errors": {

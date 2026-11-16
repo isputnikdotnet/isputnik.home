@@ -1610,7 +1610,7 @@
   margin-top: 0;
 }
 
-/* Branch access, now a tab body rather than its own modal. */
+/* Branch access: the list of branches, each opening the shared access window. */
 .ft-access-panel {
   display: grid;
   align-content: start;

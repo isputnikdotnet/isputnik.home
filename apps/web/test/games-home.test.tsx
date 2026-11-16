@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUser } from "../src/api";
@@ -149,7 +149,8 @@ describe("Security → App access", () => {
     mockApi.mockImplementation(answer as never);
     render(<AppsAccessSection />);
     expect(await screen.findByText("Access to Games")).toBeInTheDocument();
-    expect(screen.getByText("Kids")).toBeInTheDocument();
+    // Who may: one row saying it, the standard access window behind Change.
+    expect(screen.getByRole("button", { name: /^Access/ })).toHaveTextContent("Everyone (Member) · 1 blocked");
     expect(screen.getByText("The lobby, the games and matches, and guests' play")).toBeInTheDocument();
     expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/access/games");
   });
@@ -166,20 +167,21 @@ describe("Security → App access", () => {
     await waitFor(() => expect(screen.getByLabelText("Where Play is allowed from")).toHaveValue("home"));
   });
 
-  it("removes a group from the list by choosing Remove as its role", async () => {
+  it("removes a group in the access window by setting it to No access", async () => {
     mockApi.mockImplementation(((path: string, init?: RequestInit) => {
       if (path === "/api/apps/admin/access/games/grants/group/grp-kids" && init?.method === "DELETE") return Promise.resolve({ ...accessPayload, grants: [] });
       return answer(path, init);
     }) as never);
     render(<AppsAccessSection />);
-    const role = await screen.findByLabelText("Role for Kids");
-    expect(role).toHaveValue("deny");
-    await userEvent.selectOptions(role, "__remove");
+    await userEvent.click(await screen.findByRole("button", { name: /^Access/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Access to Games" });
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Role for Kids: Denied/ }));
+    await userEvent.click(within(dialog).getByRole("option", { name: /No access/ }));
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/access/games/grants/group/grp-kids", { method: "DELETE" }));
-    await waitFor(() => expect(screen.queryByLabelText("Role for Kids")).toBeNull());
+    expect(await within(dialog).findByRole("button", { name: /^Role for Kids: No access/ })).toBeInTheDocument();
   });
 
-  it("adds a member from its own page, as Member, and comes back to the list", async () => {
+  it("gives a member access in the access window", async () => {
     mockApi.mockImplementation(((path: string, init?: RequestInit) => {
       if (path === "/api/apps/admin/access/games/grants" && init?.method === "POST") {
         return Promise.resolve({ ...accessPayload, grants: [...accessPayload.grants, { subjectType: "user", subjectId: "mum", role: "member", name: "Mum", email: "mum@example.com", missing: false }] });
@@ -187,16 +189,16 @@ describe("Security → App access", () => {
       return answer(path, init);
     }) as never);
     render(<AppsAccessSection />);
-    await userEvent.click(await screen.findByRole("button", { name: "Add a person or group" }));
-    // Kids already has a role, so only Mum is offered.
-    expect(await screen.findByRole("button", { name: /Mum/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Kids/ })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: /Mum/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Access/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Access to Games" });
+    // Everyone is listed: Mum has no access yet.
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Role for Mum: No access/ }));
+    await userEvent.click(within(dialog).getByRole("option", { name: /^Member/ }));
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith(
       "/api/apps/admin/access/games/grants",
       { method: "POST", body: JSON.stringify({ subjectType: "user", subjectId: "mum", role: "member" }) }
     ));
-    expect(await screen.findByLabelText("Role for Mum")).toHaveValue("member");
+    expect(await within(dialog).findByRole("button", { name: /^Role for Mum: Member/ })).toBeInTheDocument();
   });
 });
 

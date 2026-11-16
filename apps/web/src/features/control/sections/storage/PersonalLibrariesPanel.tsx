@@ -461,6 +461,7 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
             // The whole list is one setting: everyone ticked goes in one save.
             onGrantMany={(subjects) => save({ subjects: [...settings.subjects, ...subjects.map((subject) => ({ type: subject.subjectType, id: subject.subjectId }))] })}
             onRevoke={(type, id) => toggleSubject({ type, id }, false)}
+            onRevokeMany={(subjects) => save({ subjects: settings.subjects.filter((s) => !subjects.some((r) => r.subjectType === s.type && r.subjectId === s.id)) })}
           />
         </AccessDialog>
       )}
