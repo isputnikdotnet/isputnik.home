@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, UserRoundCheck } from "lucide-react";
+import { BookOpen, FolderOpen, Gauge, UserRoundCheck, Users } from "lucide-react";
 import { api } from "../../../../api";
 import { libraryManageHref } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { formatDate } from "../../../../shared/dates";
-import { ActionRow, AddRow, CheckRow, FieldRow, GroupedList, InfoRow, NavRow, ToggleRow } from "../../../../shared/GroupedList";
+import { ActionRow, AddRow, CheckRow, CommandRow, FieldRow, GroupedList, InfoRow, NavRow, ToggleRow } from "../../../../shared/GroupedList";
+import { Field } from "../../../../shared/Field";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Modal } from "../../../../shared/Modal";
 import { SelectField } from "../../../../shared/SelectField";
@@ -52,6 +53,8 @@ type Pending =
   | { kind: "handOver"; library: PersonalLibraryRow; userId: string }
   | { kind: "delete"; library: PersonalLibraryRow };
 
+const BACKSLASH = String.fromCharCode(92);
+
 /** The size limits offered as one tap; anything else is typed under them. */
 const LIMIT_CHOICES = [25, 50, 100, 250];
 
@@ -78,6 +81,10 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
   const [folderText, setFolderText] = useState("");
   const [limitText, setLimitText] = useState("");
 
+  const [whereOpen, setWhereOpen] = useState(false);
+  const [whoOpen, setWhoOpen] = useState(false);
+  const [limitOpen, setLimitOpen] = useState(false);
+  const [whereRoot, setWhereRoot] = useState("");
   const [adoptOpen, setAdoptOpen] = useState(false);
   const [adoptLibrary, setAdoptLibrary] = useState("");
   const [adoptMember, setAdoptMember] = useState("");
@@ -125,7 +132,7 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
   const settings = view.settings;
 
   /** One change, applied at once and saved; put back if the save fails. */
-  const save = async (patch: Partial<PersonalSettings>) => {
+  const save = async (patch: Partial<PersonalSettings>): Promise<boolean> => {
     const before = view;
     const next = { ...settings, ...patch };
     setView({ ...view, settings: next });
@@ -136,9 +143,11 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
       setSaved(true);
       window.clearTimeout(savedTimer.current);
       savedTimer.current = window.setTimeout(() => setSaved(false), 1800);
+      return true;
     } catch (err) {
       apply(before);
       setError(err instanceof Error ? err.message : t("controlAdmin:personalLibraries.saveFailed"));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -149,9 +158,24 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
     subjects: on ? [...settings.subjects, subject] : settings.subjects.filter((s) => !(s.type === subject.type && s.id === subject.id))
   });
 
-  const saveFolder = () => {
-    if (folderText.trim() && folderText.trim() !== settings.folder) void save({ folder: folderText.trim() });
-  };
+  const currentRoot = storageRoots.find((root) => root.id === settings.storageRootId) ?? null;
+  // Who may have one, in a line: everyone, or the first few chosen and how many more.
+  const chosenNames = settings.subjects.map((subject) => subject.type === "group"
+    ? t("controlAdmin:personalLibraries.groupLabel", { name: groups.find((g) => g.id === subject.id)?.name ?? "" })
+    : memberName(subject.id)).filter(Boolean);
+  const whoSummary = settings.who === "everyone"
+    ? t("controlAdmin:personalLibraries.whoEveryone")
+    : chosenNames.length === 0
+      ? t("controlAdmin:personalLibraries.whoNone")
+      : chosenNames.length <= 3
+        ? chosenNames.join(", ")
+        : t("controlAdmin:personalLibraries.whoMore", { names: chosenNames.slice(0, 3).join(", "), count: chosenNames.length - 3 });
+  // The folder the dialog would make, spelled the way the location is (Windows or not).
+  const chosenRoot = storageRoots.find((root) => root.id === whereRoot) ?? null;
+  const sep = chosenRoot?.path.includes(BACKSLASH) ? BACKSLASH : "/";
+  const previewPath = chosenRoot && folderText.trim()
+    ? [chosenRoot.path.replace(/[\\/]+$/, ""), ...folderText.trim().split(/[\\/]+/).filter(Boolean)].join(sep)
+    : null;
   const saveCustomLimit = () => {
     const text = limitText.trim();
     if (text === "") return;
@@ -211,17 +235,122 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
       <p className="muted">{t("controlAdmin:personalLibraries.description")}</p>
       {error && <MessageBox tone="error" title={t("controlAdmin:personalLibraries.saveFailed")}>{error}</MessageBox>}
 
-      <GroupedList>
+      {/* The switch, then — while it is on — the two things it needs, each ONE row
+          saying what it is set to, with Change (a standard compact button) opening a
+          dialog: where they are made (a location and a folder name, the path shown
+          before saving) and who may have one. */}
+      <GroupedList note={settings.enabled ? t("controlAdmin:personalLibraries.whereNote") : undefined}>
         <ToggleRow label={t("controlAdmin:personalLibraries.enabled")} checked={settings.enabled} disabled={saving} onChange={(enabled) => void save({ enabled })} />
+        {settings.enabled && (
+          <>
+            <CommandRow
+              icon={<FolderOpen size={17} />}
+              label={t("controlAdmin:personalLibraries.locationLabel")}
+              sub={view.parentFolder
+                ? <><code>{view.parentFolder}</code>{currentRoot && <> · {t("controlAdmin:personalLibraries.whereInside", { root: currentRoot.name })}</>}</>
+                : t("controlAdmin:personalLibraries.notChosen")}
+              value={t("controlAdmin:personalLibraries.change")}
+              disabled={saving}
+              onClick={() => { setWhereRoot(settings.storageRootId ?? storageRoots[0]?.id ?? ""); setFolderText(settings.folder); setWhereOpen(true); }}
+            />
+            <CommandRow
+              icon={<Users size={17} />}
+              label={t("controlAdmin:personalLibraries.who")}
+              sub={whoSummary}
+              value={t("controlAdmin:personalLibraries.change")}
+              disabled={saving}
+              onClick={() => setWhoOpen(true)}
+            />
+            <CommandRow
+              icon={<Gauge size={17} />}
+              label={t("controlAdmin:personalLibraries.limitTitle")}
+              sub={settings.sizeLimitGB == null
+                ? t("controlAdmin:personalLibraries.limitPlaceholder")
+                : t("controlAdmin:personalLibraries.limitEach", { size: settings.sizeLimitGB })}
+              value={t("controlAdmin:personalLibraries.change")}
+              disabled={saving}
+              onClick={() => setLimitOpen(true)}
+            />
+          </>
+        )}
       </GroupedList>
 
-      {settings.enabled && (
-        <>
-          <GroupedList title={t("controlAdmin:personalLibraries.who")}>
+      <GroupedList title={t("controlAdmin:personalLibraries.listTitle")} note={[totals, t("controlAdmin:personalLibraries.listNote")].filter(Boolean).join(" · ")}>
+        {/* The list's own action leads it (UI-CONVENTIONS: add-style rows go first). */}
+        <AddRow
+          icon={<UserRoundCheck size={17} />}
+          label={t("controlAdmin:personalLibraries.adopt")}
+          onClick={() => { setAdoptLibrary(""); setAdoptMember(""); setActionError(""); setAdoptOpen(true); }}
+        />
+        {view.libraries.length === 0 && <InfoRow icon={<BookOpen size={17} />} label={t("controlAdmin:personalLibraries.none")} />}
+        {inUse.map((library) => (
+          <NavRow
+            key={library.id}
+            icon={<BookOpen size={17} />}
+            label={t("controlAdmin:personalLibraries.whose", { name: library.ownerName })}
+            sub={library.adoptedAt ? t("controlAdmin:personalLibraries.adoptedOn", { date: formatDate(library.adoptedAt) }) : t("controlAdmin:personalLibraries.phonesCount", { count: library.phones })}
+            value={formatBytes(library.sizeBytes)}
+            href={libraryManageHref(library.id)}
+          />
+        ))}
+      </GroupedList>
+
+      {ownerless.map((library) => (
+        <GroupedList key={library.id} title={t("controlAdmin:personalLibraries.ownerlessTitle")}>
+          <InfoRow
+            icon={<BookOpen size={17} />}
+            iconTone="warn"
+            label={t("controlAdmin:personalLibraries.whose", { name: library.ownerName })}
+            sub={t("controlAdmin:personalLibraries.orphanedOn", { date: formatDate(library.orphanedAt ?? library.createdAt) })}
+            value={formatBytes(library.sizeBytes)}
+          />
+          <ActionRow label={t("controlAdmin:personalLibraries.handOverRow")} onClick={() => { setHandOverMember(""); setActionError(""); setHandOver(library); }} />
+          <ActionRow tone="danger" label={t("controlAdmin:personalLibraries.deleteRow")} onClick={() => { setActionError(""); setPending({ kind: "delete", library }); }} />
+        </GroupedList>
+      ))}
+
+      {limitOpen && (
+        <Modal title={t("controlAdmin:personalLibraries.limitDialogTitle")} onClose={() => { saveCustomLimit(); setLimitOpen(false); }}>
+          {/* A tap saves; another limit saves when you leave the field or press Enter. */}
+          <GroupedList note={t("controlAdmin:personalLibraries.limitNote")}>
+            <CheckRow label={t("controlAdmin:personalLibraries.limitPlaceholder")} checked={settings.sizeLimitGB == null} disabled={saving} onSelect={() => { setLimitText(""); void save({ sizeLimitGB: null }); }} />
+            {LIMIT_CHOICES.map((limit) => (
+              <CheckRow
+                key={limit}
+                label={t("controlAdmin:personalLibraries.limitEach", { size: limit })}
+                checked={settings.sizeLimitGB === limit}
+                disabled={saving}
+                onSelect={() => { setLimitText(""); void save({ sizeLimitGB: limit }); }}
+              />
+            ))}
+            <FieldRow>
+              <label className={`grouped-field${customLimit ? " is-chosen" : ""}`}>
+                <span>{t("controlAdmin:personalLibraries.limitOther")}</span>
+                <input
+                  inputMode="decimal"
+                  value={limitText}
+                  placeholder={t("controlAdmin:personalLibraries.limitOtherPlaceholder")}
+                  onChange={(event) => setLimitText(event.target.value)}
+                  onBlur={saveCustomLimit}
+                  onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); saveCustomLimit(); } }}
+                />
+              </label>
+            </FieldRow>
+          </GroupedList>
+          {error && <MessageBox tone="error" title={t("controlAdmin:personalLibraries.saveFailed")}>{error}</MessageBox>}
+          <div className="modal-actions">
+            <Button variant="primary" onClick={() => { saveCustomLimit(); setLimitOpen(false); }}>{t("controlAdmin:personalLibraries.done")}</Button>
+          </div>
+        </Modal>
+      )}
+
+      {whoOpen && (
+        <Modal title={t("controlAdmin:personalLibraries.whoDialogTitle")} onClose={() => setWhoOpen(false)}>
+          {/* Each choice saves the moment it is made, as everywhere on this page. */}
+          <GroupedList>
             <CheckRow label={t("controlAdmin:personalLibraries.whoEveryone")} checked={settings.who === "everyone"} disabled={saving} onSelect={() => void save({ who: "everyone" })} />
             <CheckRow label={t("controlAdmin:personalLibraries.whoChosen")} checked={settings.who === "chosen"} disabled={saving} onSelect={() => void save({ who: "chosen" })} />
           </GroupedList>
-
           {settings.who === "chosen" && (
             <GroupedList title={t("controlAdmin:personalLibraries.chosenTitle")}>
               {groups.map((group) => (
@@ -244,90 +373,49 @@ export function PersonalLibrariesPanel({ storageRoots }: { storageRoots: Storage
               ))}
             </GroupedList>
           )}
-
-          <GroupedList
-            title={t("controlAdmin:personalLibraries.root")}
-            note={view.parentFolder ? t("controlAdmin:personalLibraries.createdIn", { path: view.parentFolder }) : undefined}
-          >
-            {storageRoots.length === 0 && <InfoRow label={t("controlAdmin:personalLibraries.noRoot")} />}
-            {storageRoots.map((root) => (
-              <CheckRow
-                key={root.id}
-                label={root.name}
-                sub={root.path}
-                checked={settings.storageRootId === root.id}
-                disabled={saving}
-                onSelect={() => void save({ storageRootId: root.id })}
-              />
-            ))}
-            <FieldRow>
-              <label className="grouped-field">
-                <span>{t("controlAdmin:personalLibraries.folder")}</span>
-                <input value={folderText} onChange={(event) => setFolderText(event.target.value)} onBlur={saveFolder} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); saveFolder(); } }} />
-              </label>
-            </FieldRow>
-          </GroupedList>
-
-          <GroupedList title={t("controlAdmin:personalLibraries.limitTitle")} note={t("controlAdmin:personalLibraries.limitNote")}>
-            <CheckRow label={t("controlAdmin:personalLibraries.limitPlaceholder")} checked={settings.sizeLimitGB == null} disabled={saving} onSelect={() => void save({ sizeLimitGB: null })} />
-            {LIMIT_CHOICES.map((limit) => (
-              <CheckRow
-                key={limit}
-                label={t("controlAdmin:personalLibraries.limitEach", { size: limit })}
-                checked={settings.sizeLimitGB === limit}
-                disabled={saving}
-                onSelect={() => void save({ sizeLimitGB: limit })}
-              />
-            ))}
-            <FieldRow>
-              <label className={`grouped-field${customLimit ? " is-chosen" : ""}`}>
-                <span>{t("controlAdmin:personalLibraries.limitOther")}</span>
-                <input
-                  inputMode="decimal"
-                  value={limitText}
-                  placeholder={t("controlAdmin:personalLibraries.limitOtherPlaceholder")}
-                  onChange={(event) => setLimitText(event.target.value)}
-                  onBlur={saveCustomLimit}
-                  onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); saveCustomLimit(); } }}
-                />
-              </label>
-            </FieldRow>
-          </GroupedList>
-        </>
+          {error && <MessageBox tone="error" title={t("controlAdmin:personalLibraries.saveFailed")}>{error}</MessageBox>}
+          <div className="modal-actions">
+            <Button variant="primary" onClick={() => setWhoOpen(false)} autoFocus>{t("controlAdmin:personalLibraries.done")}</Button>
+          </div>
+        </Modal>
       )}
 
-      <GroupedList title={t("controlAdmin:personalLibraries.listTitle")} note={[totals, t("controlAdmin:personalLibraries.listNote")].filter(Boolean).join(" · ")}>
-        {view.libraries.length === 0 && <InfoRow icon={<BookOpen size={17} />} label={t("controlAdmin:personalLibraries.none")} />}
-        {inUse.map((library) => (
-          <NavRow
-            key={library.id}
-            icon={<BookOpen size={17} />}
-            label={t("controlAdmin:personalLibraries.whose", { name: library.ownerName })}
-            sub={library.adoptedAt ? t("controlAdmin:personalLibraries.adoptedOn", { date: formatDate(library.adoptedAt) }) : t("controlAdmin:personalLibraries.phonesCount", { count: library.phones })}
-            value={formatBytes(library.sizeBytes)}
-            href={libraryManageHref(library.id)}
-          />
-        ))}
-        <AddRow
-          icon={<UserRoundCheck size={17} />}
-          label={t("controlAdmin:personalLibraries.adopt")}
-          onClick={() => { setAdoptLibrary(""); setAdoptMember(""); setActionError(""); setAdoptOpen(true); }}
-        />
-      </GroupedList>
-
-      {ownerless.map((library) => (
-        <GroupedList key={library.id} title={t("controlAdmin:personalLibraries.ownerlessTitle")}>
-          <InfoRow
-            icon={<BookOpen size={17} />}
-            iconTone="warn"
-            label={t("controlAdmin:personalLibraries.whose", { name: library.ownerName })}
-            sub={t("controlAdmin:personalLibraries.orphanedOn", { date: formatDate(library.orphanedAt ?? library.createdAt) })}
-            value={formatBytes(library.sizeBytes)}
-          />
-          <ActionRow label={t("controlAdmin:personalLibraries.handOverRow")} onClick={() => { setHandOverMember(""); setActionError(""); setHandOver(library); }} />
-          <ActionRow tone="danger" label={t("controlAdmin:personalLibraries.deleteRow")} onClick={() => { setActionError(""); setPending({ kind: "delete", library }); }} />
-        </GroupedList>
-      ))}
+      {whereOpen && (
+        <Modal
+          title={t("controlAdmin:personalLibraries.whereDialogTitle")}
+          busy={saving}
+          onClose={() => setWhereOpen(false)}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!whereRoot || !folderText.trim()) return;
+            void save({ storageRootId: whereRoot, folder: folderText.trim() }).then((ok) => { if (ok) setWhereOpen(false); });
+          }}
+        >
+          <p>{t("controlAdmin:personalLibraries.whereIntro")}</p>
+          {storageRoots.length === 0
+            ? <MessageBox tone="warning" title={t("controlAdmin:personalLibraries.noRoot")}>{t("controlAdmin:personalLibraries.noRootBody")}</MessageBox>
+            : (
+              <>
+                <SelectField
+                  label={t("controlAdmin:personalLibraries.root")}
+                  value={whereRoot}
+                  options={storageRoots.map((root) => ({ value: root.id, label: `${root.name} — ${root.path}` }))}
+                  onChange={setWhereRoot}
+                />
+                <Field label={t("controlAdmin:personalLibraries.folder")} value={folderText} onChange={setFolderText} />
+                {previewPath && <p className="muted">{t("controlAdmin:personalLibraries.preview", { path: previewPath })}</p>}
+                {view.libraries.length > 0 && <p className="muted">{t("controlAdmin:personalLibraries.existingStay", { count: view.libraries.length })}</p>}
+              </>
+            )}
+          {error && <MessageBox tone="error" title={t("controlAdmin:personalLibraries.saveFailed")}>{error}</MessageBox>}
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setWhereOpen(false)} disabled={saving} autoFocus>{t("common.cancel")}</Button>
+            <Button variant="primary" type="submit" disabled={saving || !whereRoot || !folderText.trim()}>
+              {saving ? t("controlAdmin:personalLibraries.saving") : t("controlAdmin:personalLibraries.saveWhere")}
+            </Button>
+          </div>
+        </Modal>
+      )}
 
       {adoptOpen && (
         <Modal

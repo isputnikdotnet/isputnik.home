@@ -359,6 +359,22 @@ button.grouped-row:disabled { cursor: default; opacity: 0.6; }
 .storage-path small.is-warn, .storage-inside-list .is-warn { display: flex; align-items: center; gap: 4px; color: var(--warning); }
 .storage-path .space-meter { margin-top: 4px; }
 .storage-folder-row > .storage-path-row:first-child { border-top: 0; }
+/* Library locations: rows closer together than elsewhere; grouped by drive, the free
+   space once over its locations; personal libraries set apart in a tinted box. */
+.storage-locations .storage-path-row { padding: 7px 0; }
+/* No rule between What goes here and the locations under it. */
+.storage-inside + .storage-locations > .storage-drive:first-child,
+.storage-inside + .storage-locations > .storage-path-row:first-child { border-top: 0; }
+/* Remove on a location in use: grey, not a faded red. */
+.storage-locations .danger-button:disabled { background: var(--line); border-color: var(--line); color: var(--muted); opacity: 1; cursor: not-allowed; }
+.storage-sub { margin: 10px 0 12px; padding: 10px 14px 4px; border-radius: 10px; }
+.storage-sub.is-personal { background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+.storage-sub .storage-path-row { border-top: 0; }
+.storage-drive { border-top: 1px solid var(--line); }
+.storage-drive-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 11px 0 4px; }
+.storage-drive-head strong { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.storage-drive-head .space-meter { flex: 1 1 220px; max-width: 420px; }
+.storage-drive .storage-path-row { border-top: 0; padding-left: 21px; }
 .storage-inside { padding: 11px 0 8px; border-top: 1px solid var(--line); }
 .storage-inside-head { display: flex; align-items: flex-start; gap: 12px; }
 .storage-inside-head > div { flex: 1; min-width: 0; }

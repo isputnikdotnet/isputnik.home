@@ -112,6 +112,7 @@ export function QuotesSection() {
           ) : <p className="muted">{t("controlAdmin:quotes.gone")}</p>
         ) : (
           <GroupedList note={imports.length === 0 ? t("controlAdmin:quotes.empty") : undefined}>
+            <AddRow icon={<FileUp size={17} />} label={t("controlAdmin:quotes.import")} onClick={() => setImportOpen(true)} />
             {imports.map((entry) => (
               <NavRow
                 key={entry.id}
@@ -122,7 +123,6 @@ export function QuotesSection() {
                 onClick={() => go(`import:${entry.id}`)}
               />
             ))}
-            <AddRow icon={<FileUp size={17} />} label={t("controlAdmin:quotes.import")} onClick={() => setImportOpen(true)} />
           </GroupedList>
         )}
       </div>

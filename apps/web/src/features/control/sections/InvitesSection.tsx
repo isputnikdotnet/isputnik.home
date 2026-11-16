@@ -182,6 +182,9 @@ export function InvitesSection() {
           <>
             <GroupedSearch value={searchQuery} onChange={setSearchQuery} label={t("control:invites.searchAria")} placeholder={t("control:invites.searchPlaceholder")} />
             <GroupedList note={visibleInvites.length === 0 ? (invites.length === 0 ? t("control:invites.emptyNone") : t("control:invites.emptyFiltered")) : undefined}>
+              {!searchQuery.trim() && (
+                <AddRow icon={<UserPlus size={17} />} label={t("control:invites.newInvite")} onClick={openCreate} />
+              )}
               {visibleInvites.map((invite) => (
                 <NavRow
                   key={invite.id}
@@ -197,9 +200,6 @@ export function InvitesSection() {
                   onClick={() => go(`invite:${invite.id}`)}
                 />
               ))}
-              {!searchQuery.trim() && (
-                <AddRow icon={<UserPlus size={17} />} label={t("control:invites.newInvite")} onClick={openCreate} />
-              )}
             </GroupedList>
             {gamesConfigured && <GuestLinks />}
           </>

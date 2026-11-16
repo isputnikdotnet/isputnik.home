@@ -70,6 +70,37 @@ for (const file of walk(ROOT)) {
   }
 }
 
+// ── A list's add row leads it ──
+// The iPhone-style row that adds to a list (AddRow: "+ Add network", "Make a library
+// personal") is the list's FIRST child, never its last — on a long list the action
+// was out of sight below the fold. So an <AddRow> (or its `{cond && (` wrapper) must
+// come straight after its <GroupedList …> opening tag: nothing but the tag's own
+// attribute lines and comments between them.
+for (const file of walk(ROOT)) {
+  const path = relative(ROOT, file).split(sep).join("/");
+  if (!path.endsWith(".tsx") || path === "shared/GroupedList.tsx") continue;
+  const lines = readFileSync(file, "utf8").split("\n");
+  lines.forEach((line, i) => {
+    if (!/<AddRow\b/.test(line)) return;
+    let j = i - 1;
+    if (j >= 0 && /&&\s*\(\s*$/.test(lines[j])) j--;
+    let ok = false;
+    for (let k = j; k >= 0 && k > i - 25; k--) {
+      const text = lines[k].trim();
+      if (text.startsWith("<GroupedList")) { ok = true; break; }
+      if (text === "" || text.startsWith("{/*") || text.startsWith("//")) continue;
+      // Another element, a {…} child, or the end of one: the add row is not first.
+      if (/^[<{)]/.test(text) || /^\}\)?\s*$/.test(text)) break;
+      if (k === j && !/>\s*$/.test(text)) break;
+    }
+    if (!ok) {
+      console.error(`apps/web/src/${path}:${i + 1}  An add row goes FIRST in its GroupedList, straight after the opening tag — not after the rows it adds to.`);
+      console.error(`    ${line.trim()}`);
+      failures++;
+    }
+  });
+}
+
 // ── Buttons render through shared/Button ──
 // A raw <button> outside shared/ is a ratchet, not a ban: the files that still
 // have some are listed with their count in raw-buttons-baseline.json, and a file

@@ -489,6 +489,7 @@ export function AppsAccessSection() {
                       ? <>{t("controlAdmin:apps.access.noGrants")} {t("controlAdmin:apps.access.whoIntro")}</>
                       : t("controlAdmin:apps.access.whoIntro")}
                   >
+                    <AddRow icon={<UserPlus size={17} />} label={t("controlAdmin:apps.access.addRow")} onClick={() => { setSearch(""); go("add"); }} />
                     <PickerRow
                       label={t("common:access.everyone")}
                       sub={t("controlAdmin:apps.access.everyoneHint")}
@@ -512,7 +513,6 @@ export function AppsAccessSection() {
                         onChange={(value) => grantRole(grant, value)}
                       />
                     ))}
-                    <AddRow icon={<UserPlus size={17} />} label={t("controlAdmin:apps.access.addRow")} onClick={() => { setSearch(""); go("add"); }} />
                   </GroupedList>
 
                   <GroupedList

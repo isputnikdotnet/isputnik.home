@@ -97,6 +97,10 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   (docs/UI-CONVENTIONS.md › Buttons in the control panel). Verbs: **Add** = attach existing,
   **Create** = make new, **Remove** = detach (no data loss), **Delete** = destroy
   (always confirmed).
+- **Grouped lists** (`shared/GroupedList`, the iPhone-style rows): an `AddRow` is the
+  FIRST row of its list, never the last (`check:ui` fails otherwise). A setting with
+  several choices is ONE `CommandRow` saying its value, with **Change** opening a
+  `Modal` of the choices — not the choices spread over the page.
 - **Messages**: inline errors/notices use `shared/MessageBox` with a tone
   (`info|warning|error|success`); no custom error divs. Error titles say what
   failed ("Unable to save").

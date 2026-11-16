@@ -905,6 +905,14 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         ? <>{t("controlAdmin:security.trustedEmptyBody")} {t("controlAdmin:security.trustedEmptyNote")}</>
                         : t("controlAdmin:security.trustedDesc")}
                     >
+                      <AddRow
+                        icon={<Plus size={17} />}
+                        label={t("controlAdmin:security.addNetwork")}
+                        onClick={() => {
+                          setTrustedError("");
+                          setTrustedOpen(true);
+                        }}
+                      />
                       {data.trustedNetworks.map((network) => (
                         <NavRow
                           key={network.id}
@@ -916,14 +924,6 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           onClick={() => go(`network:${network.id}`)}
                         />
                       ))}
-                      <AddRow
-                        icon={<Plus size={17} />}
-                        label={t("controlAdmin:security.addNetwork")}
-                        onClick={() => {
-                          setTrustedError("");
-                          setTrustedOpen(true);
-                        }}
-                      />
                     </GroupedList>
                     {/* Moved to its own tab in phase 5 (docs/photo-sync-plan.md); said here so
                         whoever looks for it beside the trusted networks finds the way. */}
@@ -1058,6 +1058,14 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                               : t("controlAdmin:security.noBlocksLapsed"))
                           : t("controlAdmin:security.blockedDesc")}
                     >
+                      <AddRow
+                        icon={<Ban size={17} />}
+                        label={t("controlAdmin:security.blockIp")}
+                        onClick={() => {
+                          setBlockError("");
+                          setBlockOpen(true);
+                        }}
+                      />
                       {blockedPage.map((entry) => (
                         <NavRow
                           key={entry.ip}
@@ -1074,14 +1082,6 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           onClick={() => go(`ip:${entry.ip}`)}
                         />
                       ))}
-                      <AddRow
-                        icon={<Ban size={17} />}
-                        label={t("controlAdmin:security.blockIp")}
-                        onClick={() => {
-                          setBlockError("");
-                          setBlockOpen(true);
-                        }}
-                      />
                     </GroupedList>
                     {data.blockedIps.length > 0 && blockTotalPages > 1 && (
                       <Pager page={blockCurrent} totalPages={blockTotalPages} onChange={setBlockPage} label={t("controlAdmin:security.blockedPagerLabel")} />

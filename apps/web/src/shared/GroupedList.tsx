@@ -146,7 +146,7 @@ export function ActionRow({ label, onClick, tone = "accent", disabled = false, h
   );
 }
 
-/** "+ Add …" at the end of a list. */
+/** "+ Add …" — the FIRST row of its list, never the last (check:ui enforces it). */
 export function AddRow({ label, onClick, icon }: { label: ReactNode; onClick: () => void; icon: ReactNode }) {
   return (
     <Button variant="bare" className="grouped-row grouped-row-add" onClick={onClick}>

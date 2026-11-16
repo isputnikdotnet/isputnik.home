@@ -430,6 +430,7 @@ export function PhoneSyncSection() {
         <SettingsCard id="phone-sync-networks" icon={<Wifi size={20} />} title={t("controlAdmin:deviceSync.cardNetworks")} description={t("controlAdmin:deviceSync.networksTitle")}
           note={t("controlAdmin:deviceSync.networksNote")}>
         <GroupedList>
+          <AddRow icon={<Plus size={17} />} label={t("controlAdmin:phoneSync.add")} onClick={() => go({ page: "addNetwork" })} />
           {networks.networks.map((network) => (
             <NavRow
               key={network.id}
@@ -439,7 +440,6 @@ export function PhoneSyncSection() {
               onClick={() => go({ page: "network", id: network.id })}
             />
           ))}
-          <AddRow icon={<Plus size={17} />} label={t("controlAdmin:phoneSync.add")} onClick={() => go({ page: "addNetwork" })} />
         </GroupedList>
         </SettingsCard>
 

@@ -102,6 +102,9 @@ export function GroupsSection() {
       <div className="grouped-page">
         <GroupedSearch value={searchQuery} onChange={setSearchQuery} label={t("control:groups.searchAria")} placeholder={t("control:groups.searchPlaceholder")} />
         <GroupedList note={visibleGroups.length === 0 ? (groups.length === 0 ? t("control:groups.emptyNone") : t("control:groups.emptyFiltered")) : undefined}>
+          {!searchQuery.trim() && (
+            <AddRow icon={<Plus size={17} />} label={t("control:groups.newGroup")} onClick={openCreate} />
+          )}
           {visibleGroups.map((group) => (
             <NavRow
               key={group.id}
@@ -113,9 +116,6 @@ export function GroupsSection() {
               href={groupHref(group.id)}
             />
           ))}
-          {!searchQuery.trim() && (
-            <AddRow icon={<Plus size={17} />} label={t("control:groups.newGroup")} onClick={openCreate} />
-          )}
         </GroupedList>
       </div>
 

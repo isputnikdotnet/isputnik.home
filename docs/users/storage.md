@@ -6,8 +6,8 @@ numbered sections. Every row is a name, its folder and one button on the right:
 
 | Section | What it lists | The button |
 |---|---|---|
-| **1. System** | The system folder, then **What goes here**: the database, thumbnails, backups, metadata and App storage — each *In the system folder*, or its own folder if it was given one | **Change** moves the system folder; **Manage** opens a page with each of the rest |
-| **2. Libraries** | Your library locations, and where personal libraries are made (or *Off*) | **Manage** opens a location; **Add location**; personal libraries open on Device Sync |
+| **1. System locations** | The system folder, then **What goes here**: the database, thumbnails, backups, metadata and App storage — each *In the system folder*, or its own folder if it was given one | **Change** moves the system folder; **Manage** opens a page with each of the rest |
+| **2. Library locations** | The folders your libraries may use — grouped by drive, with its free space, once there are several — then **What goes here** (digital libraries for audiobooks, ebooks and photos), and in a box of its own where personal libraries are made (or *Off*) | **Add location** adds one; **Remove** forgets one no library uses (its files stay; greyed while in use); **Manage** opens the Libraries page; **Change** / **Set up** opens personal libraries on Device Sync |
 | **3. Containers and applications** | The applications whose files the app keeps: Gallery's Photo Inbox and kept maps, Stories' recordings, Videos' download cache | **Manage** opens that application's own settings |
 
 Section 3 waits until a system folder is chosen and a library location exists. A
@@ -277,8 +277,8 @@ they are kept):
 | Setting | What it does |
 |---|---|
 | **Members may have a personal library** | Off by default. While off, nobody can turn one on |
-| **Library location** and **Folder inside it** | Where new personal libraries are made: one folder per member, named after them. The folder may not sit inside another library |
-| **Who may have one** | Every member, or only the members and groups you tick |
+| **Personal libraries location** | Right under the switch: the one folder new personal libraries are made in, shown as its path: one folder per member inside it, named after them. **Change** opens a dialog to pick a library location and a folder name, and shows the path it makes before you save. The folder may not sit inside another library, and changing it moves no library already made |
+| **Who may have one** | Under the location: every member, or only the members and groups you tick — shown in a line; **Change** opens the choices |
 | **Size limit per member (GB)** | Optional. Uploads that would pass it are refused |
 
 Members turn their own library on from **Profile › My library**.

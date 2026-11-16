@@ -6,7 +6,7 @@ vi.mock("../src/api", () => ({ api: vi.fn() }));
 
 const { api } = await import("../src/api");
 const { AppStoragePanel } = await import("../src/features/control/sections/storage/AppStoragePanel");
-const { StorageSection } = await import("../src/features/control/sections/StorageSection");
+const { StorageSection, driveOf } = await import("../src/features/control/sections/StorageSection");
 const { PhotoInboxCard } = await import("../src/features/control/sections/storage/PhotoInboxCard");
 const mockApi = vi.mocked(api);
 
@@ -72,11 +72,14 @@ const librarySettings = {
   typeDefaults: { gallery: { extensions: [".jpg"], companions: [], sources: scanSources } }
 };
 
+let roots: object[] = [];
+
 function mount(view: object, Component: typeof AppStoragePanel | typeof StorageSection | typeof PhotoInboxCard = AppStoragePanel) {
   posts = [];
   let current = view;
   mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
     if (typeof path !== "string") return undefined;
+    if (init?.method === "DELETE") { posts.push({ path, body: null }); return { ok: true }; }
     if (init?.method === "POST" || init?.method === "PUT" || init?.method === "PATCH") {
       posts.push({ path, body: init.body ? JSON.parse(String(init.body)) : null });
       if (path.includes("/reviewers")) return reviewers;
@@ -89,7 +92,7 @@ function mount(view: object, Component: typeof AppStoragePanel | typeof StorageS
     if (path === "/api/library/settings") return librarySettings;
     if (path === "/api/library/gallery-libraries?manage=1") return { libraries: [inboxLibrary] };
     if (path.startsWith("/api/storage/disk-space")) return { space: { free: 3000, total: 4000 } };
-    if (path === "/api/storage/roots") return { roots: [] };
+    if (path === "/api/storage/roots") return { roots };
     if (path === "/api/storage/personal-libraries") return { settings: { enabled: false }, parentFolder: null, libraries: [] };
     if (path === "/api/apps/admin/status") return { apps: [] };
     if (path === "/api/storage/system-data") {
@@ -106,7 +109,7 @@ function mount(view: object, Component: typeof AppStoragePanel | typeof StorageS
   render(<Component />);
 }
 
-beforeEach(() => { mockApi.mockReset(); });
+beforeEach(() => { mockApi.mockReset(); roots = []; });
 
 describe("while off", () => {
   it("offers where it will live, and switches on after naming the folder", async () => {
@@ -223,21 +226,51 @@ describe("while on", () => {
 });
 
 describe("the Storage page", () => {
-  it("lists the system folder and what goes in it, the libraries, and waits on step 3", async () => {
+  it("lists the system folder and what goes in it, the locations, and waits on steps 3 and 4", async () => {
     const user = userEvent.setup();
     mount(off, StorageSection);
     const headings = await screen.findAllByRole("heading", { level: 2 });
-    expect(headings.map((h) => h.textContent)).toEqual(expect.arrayContaining(["System", "Libraries", "Containers and applications"]));
+    expect(headings.map((h) => h.textContent)).toEqual(expect.arrayContaining(["System locations", "Library locations", "Containers and applications"]));
     // 1. The folder, then each thing in it: in the system folder unless it has its own.
     expect(await screen.findByText("D:\\iSputnikData")).toBeInTheDocument();
     expect(await screen.findByText("What goes here")).toBeInTheDocument();
     expect(screen.getAllByText("In the system folder").length).toBeGreaterThanOrEqual(3);
-    // 3. No library location yet: Containers and applications waits.
+    // No library location yet: Containers and applications waits, and personal libraries are not offered.
     expect(screen.getByText("After steps 1 and 2")).toBeInTheDocument();
-    // Personal libraries are off on a new install: Set up.
-    expect(screen.getByRole("button", { name: "Set up" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set up" })).not.toBeInTheDocument();
     // Manage opens the full System data and App storage panels.
     await user.click(screen.getByRole("button", { name: "Manage" }));
     expect(await screen.findByRole("switch", { name: "App storage" })).toBeInTheDocument();
+  });
+});
+
+describe("the Storage page's library locations", () => {
+  it("names a folder's drive", () => {
+    expect(driveOf(String.raw`d:\Demo\media`)).toBe("D:");
+    expect(driveOf(String.raw`\\nas\share\photos`)).toBe(String.raw`\\nas\share`);
+    expect(driveOf("/mnt/user/media/photos")).toBe("/mnt/user");
+  });
+
+  it("groups several locations by drive, greys Remove on a location in use, and asks first", async () => {
+    const user = userEvent.setup();
+    // The test before left the page on ?show=system.
+    window.history.replaceState(null, "", "/control/settings/storage");
+    roots = [
+      { id: "a", name: "Media", path: String.raw`D:\Media`, libraryCount: 3 },
+      { id: "b", name: "Old", path: String.raw`D:\Old`, libraryCount: 0 },
+      { id: "c", name: "Photos", path: String.raw`E:\Photos`, libraryCount: 1 }
+    ];
+    mount(off, StorageSection);
+    expect(await screen.findByText("Drive D:")).toBeInTheDocument();
+    expect(screen.getByText("Drive E:")).toBeInTheDocument();
+    // What goes in them, in a line; personal libraries set apart under them.
+    expect(screen.getByText("Digital libraries for audiobooks, ebooks and photos.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set up" })).toBeInTheDocument();
+    const removes = screen.getAllByRole("button", { name: "Remove" });
+    expect(removes.map((button) => (button as HTMLButtonElement).disabled)).toEqual([true, false, true]);
+    await user.click(removes[1]);
+    const confirm = await screen.findByRole("dialog", { name: 'Remove "Old"?' });
+    await user.click(within(confirm).getByRole("button", { name: "Remove location" }));
+    await waitFor(() => expect(posts).toContainEqual({ path: "/api/storage/roots/b", body: null }));
   });
 });

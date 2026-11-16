@@ -103,6 +103,25 @@ tokens instead of hard-coding a border.
 <Button variant="icon" danger title="Delete backup" onClick={...}><Trash2 size={15} /></Button>
 ```
 
+### GroupedList — `shared/GroupedList.tsx`
+
+The iPhone-Settings-style lists: a `GroupedList` (title, note) of rows — `NavRow`,
+`InfoRow`, `ToggleRow`, `CheckRow`, `CommandRow`, `ActionRow`, `AddRow`, `FieldRow`.
+
+- **A list's add row goes first.** An `AddRow` ("+ Add network", "Make a library
+  personal", "New group") is the list's FIRST child, straight after the opening tag —
+  never after the rows it adds to, where a long list pushes it out of sight.
+  `check:ui` fails otherwise. A search-hidden add row (`{!query && (<AddRow…/>)}`)
+  sits in the same place.
+- **A setting is one row.** A setting with several choices (who may, a size limit, a
+  folder) is ONE `CommandRow` saying what it is set to (`sub`) with **Change**
+  (`value`, drawn as the standard compact secondary button) opening a `Modal` that
+  holds the choices — not the choices spread across the page. Choices in the dialog
+  save as they are made, as on the page; **Done** closes it. A choice that needs a
+  preview before it lands (a folder: show the path it makes) saves on **Save**.
+- Never draw a row's verb by hand as text that looks like a button: `CommandRow`
+  (does something here) and `NavRow` (goes somewhere, chevron) are the two shapes.
+
 ### PhotoPicker — `features/gallery/PhotoPicker.tsx`
 
 Choosing gallery photos or videos from anywhere in the app goes through
@@ -610,6 +629,7 @@ order and the full token tables are in [`css-map.md`](css-map.md).
   `"compact-button"`…) instead of `variant` / `compact`;
 - a control page links back with `PageBack` or a `control-page-back` link instead of
   `ControlBackBar`;
+- an `<AddRow>` is not the first child of its `<GroupedList>` (see GroupedList);
 - a rule in the control panel's own stylesheets (`admin.css`, `admin-pages.css`,
   `admin-shared.css`, the member/access, system-data and duplicates sheets) sets a
   height on a button class — `.primary-button`, `.secondary-button`, `.danger-button`,

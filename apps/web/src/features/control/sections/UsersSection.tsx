@@ -144,6 +144,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       <div className="grouped-page">
         <GroupedSearch value={searchQuery} onChange={setSearchQuery} label={t("controlAdmin:users.searchUsers")} placeholder={t("controlAdmin:users.searchPlaceholder")} />
         <GroupedList note={visibleUsers.length === 0 ? (users.length === 0 ? t("controlAdmin:users.noUsers") : t("controlAdmin:users.noMatch")) : undefined}>
+          {!searchQuery.trim() && (
+            <AddRow icon={<Plus size={17} />} label={t("controlAdmin:users.newUser")} onClick={openCreate} />
+          )}
           {visibleUsers.map((account) => {
             const isCurrent = account.id === currentUser.id;
             const badges = [
@@ -171,9 +174,6 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
               />
             );
           })}
-          {!searchQuery.trim() && (
-            <AddRow icon={<Plus size={17} />} label={t("controlAdmin:users.newUser")} onClick={openCreate} />
-          )}
         </GroupedList>
       </div>
 
