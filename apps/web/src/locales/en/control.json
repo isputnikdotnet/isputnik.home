@@ -113,14 +113,11 @@
   },
   "applications": {
     "description": "Manage your apps and the services they use.",
-    "open": "Open {{app}}",
-    "connection": "Connection",
     "yourApps": "Your applications",
     "sharedTools": "Shared tools",
     "tagsScope": "Across applications"
   },
   "appSetup": {
-    "description": "What {{app}} needs, whether it is on, and the libraries, connection, access and storage it uses — each linked to where it is managed.",
     "loadFailed": "Some application checks could not be loaded",
     "status": {
       "ready": "Ready",
@@ -146,11 +143,6 @@
     "menuSwitch": "Show {{app}} in the menu",
     "menuHint": "Switched off, it leaves the menu, the home feed and Tags for everyone; nothing is deleted, and the Control panel still shows its libraries. One application always stays on.",
     "librariesTitle": "Libraries",
-    "items_one": "{{formatted}} item",
-    "items_other": "{{formatted}} items",
-    "scanning": "Scanning…",
-    "scanFailed": "Last scan failed",
-    "personal": "Personal",
     "connectionTitle": "Connection",
     "connectionOkNoVersion": "Connected",
     "connectionDown": "Not answering",
@@ -230,7 +222,6 @@
     "test": "Test connection",
     "logs": "Logs",
     "about": "About",
-    "diagnostics": "Diagnostics",
     "testAll": "Test connections",
     "testingAll": "Testing…"
   },
@@ -337,9 +328,6 @@
     "fileName": "File name",
     "coverageNote": "Media files are not included. Full and minimal backups also include the application databases you select below.",
     "summaryNote": "Home backups, including uploaded files. Separate application backups are listed below.",
-    "eyebrow": "System Settings",
-    "title": "Backup",
-    "intro": "Creates a consistent snapshot of the application database (accounts, libraries, metadata, listening progress, bookmarks, saved lists) while the server keeps running, with its two-factor key beside it. Media files are never modified. A minimal backup adds the pictures a rescan could not put back — covers you uploaded or fetched, author portraits, category tiles; a full one adds the whole thumbnail store, rendered previews included; a quick copy is the database file alone.",
     "pathTitle": "Where the server writes backups. In Docker this is a path inside the container — it sits under the folder you mapped to /config.",
     "createFull": "Full backup",
     "createFullTitle": "Database, two-factor key and every cover image, as one .zip",
@@ -409,7 +397,6 @@
     "savedIn": "Saved in"
   },
   "containerBackup": {
-    "title": "Containers",
     "intro": "Each container's database, backed up and restored apart from Home and from the others. Video files and other media are never included. Restoring takes effect at once, with no restart.",
     "loadFailed": "Unable to load container backups",
     "backUpNow": "Back up now",
@@ -557,7 +544,6 @@
     "emptyFiltered": "No groups match this search.",
     "memberCount_one": "{{count}} member",
     "memberCount_other": "{{count}} members",
-    "manage": "Manage",
     "unableToCreate": "Unable to create group",
     "unableToDelete": "Unable to delete group",
     "groupName": "Group name",

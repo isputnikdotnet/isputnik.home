@@ -264,8 +264,6 @@
       "whenFullWait": "Keep less ahead",
       "total": "At most {{memory}} of memory when everyone allowed is watching.",
       "totalDiskOnly": "Everything converted is kept on the disk.",
-      "save": "Save video settings",
-      "saved": "The video container uses these at once; people already watching carry on.",
       "hardwareLabel": "Where to convert",
       "hardwareHelp": "An Intel CPU's graphics (Quick Sync) convert several films at once for little CPU. Automatic uses them where they can and the CPU for the rest, and switches a film to the CPU if they fail.",
       "hardwareAuto": "On the GPU where it can (automatic)",
@@ -300,9 +298,7 @@
       "hdr": "HDR"
     },
     "card": {
-      "address": "Address",
-      "container": "Container",
-      "secretRefused": "Set, but the container refuses it"
+      "container": "Container"
     },
     "access": {
       "description": "Who may use each app, and from where.",
@@ -486,10 +482,8 @@
       "clearAllConfirm": "Remove all",
       "insideTitle": "No copies are prepared",
       "insideBody": "The video container's Transcode folder isn't mapped to a disk, and copies kept there would fill the container. Downloads are converted as they come down instead. Copies made before take {{used}} inside the container; Remove all copies frees it.",
-      "saving": "Saving…",
       "loadFailed": "Unable to load this setting.",
-      "saveFailed": "The setting could not be saved.",
-      "save": "Save"
+      "saveFailed": "The setting could not be saved."
     },
     "jobs": {
       "title": "When downloads are prepared",
@@ -706,12 +700,7 @@
     }
   },
   "games": {
-    "intro": "The games run in a second container and are reached through this server at /games, which signs people in for them. The two settings are environment variables on this container; this page shows how they stand.",
     "refusedTitle": "The games server refuses this app's secret",
-    "url": "Games URL",
-    "secret": "Gateway secret",
-    "secretRefused": "Set, but the games server refuses it",
-    "server": "Games server",
     "serverNotAsked": "Not checked while the gateway is off",
     "serverVersion": "Answering, version {{version}}",
     "serverDown": "Not answering",
@@ -1705,7 +1694,6 @@
     "missing": "Not made yet",
     "moveIn": "Move in",
     "make": "Make it",
-    "contents": "Contents",
     "files_one": "{{count}} file",
     "files_other": "{{count}} files",
     "moving": "Moving: {{moved}} of {{total}}",
@@ -2103,7 +2091,6 @@
     "quoteCount_one": "{{count}} quote",
     "quoteCount_other": "{{count}} quotes",
     "quoteCountOf": "{{remaining}} of {{imported}} quotes left",
-    "delete": "Delete",
     "deleteTitle": "Delete everything {{name}} brought in?",
     "deleteBody_one": "This deletes the {{count}} quote still here from that import, wherever it appears — the Quotes page, the quote of the day, and any collection holding it. Quotes typed in by hand and passages highlighted while reading are not affected, and the file can always be imported again.",
     "deleteBody_other": "This deletes the {{count}} quotes still here from that import, wherever they appear — the Quotes page, the quote of the day, and any collection holding them. Quotes typed in by hand and passages highlighted while reading are not affected, and the file can always be imported again.",
@@ -2291,28 +2278,14 @@
       "title": "Unable to update access",
       "preview": "Unable to start the preview"
     },
-    "summary": {
-      "members_one": "{{count}} member",
-      "members_other": "{{count}} members",
-      "libraries_one": "{{count}} library",
-      "libraries_other": "{{count}} libraries",
-      "people_one": "photos of {{count}} person",
-      "people_other": "photos of {{count}} people"
-    },
     "tabs": {
       "account": "Account",
       "libraries": "Libraries",
       "photos": "Photos of people",
-      "family": "Family and stories",
-      "members_one": "Members · {{count}}",
-      "members_other": "Members · {{count}}",
-      "groups_one": "Groups {{count}}",
-      "groups_other": "Groups {{count}}",
       "sharedWith": "Shared with them"
     },
     "libraries": {
       "directFor": "Access to {{library}}, given directly",
-      "intro": "What {{name}} can do in each library. Access that comes from a group is named under the library.",
       "sameAsGroups": "Same as their groups",
       "noAccess": "No access"
     },
@@ -2347,8 +2320,6 @@
     },
     "shared": {
       "untitled": "Untitled",
-      "from": "from {{name}}, {{date}}",
-      "none": "Nothing has been sent to {{name}} directly.",
       "kinds": {
         "gallery_album": "Album",
         "gallery_slideshow": "Slideshow",
