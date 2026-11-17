@@ -65,6 +65,12 @@ export interface HardwareState {
   /** Engine 0.41+: the formats vainfo says it encodes (decode's keys); before,
    *  only `encode` — H.264, the one a conversion makes. */
   encodeFormats?: string[];
+  /** Engine 0.41+: the render node's PCI ids, and the CPU's model — which picture to show. */
+  pci?: { vendor: string; device: string } | null;
+  cpu?: string | null;
+  /** Engine 0.41+: the largest picture it decodes, and what the engine's ffmpeg decodes on the CPU. */
+  maxDecode?: { width: number; height: number } | null;
+  cpuDecoders?: string[];
   error: string | null;
   checking: boolean;
   /** Automatic gave up on the GPU after failures, until Check again. */
@@ -118,7 +124,8 @@ interface DetectionState {
 
 /** The decode test's codec names as people know them; not words to translate. */
 export const CODEC_NAMES: Record<string, string> = {
-  h264: "H.264", hevc: "HEVC", hevc10: "HEVC 10-bit", vp9: "VP9", vp9_10: "VP9 10-bit", av1: "AV1", mpeg2video: "MPEG-2", vc1: "VC-1"
+  h264: "H.264", hevc: "HEVC", hevc10: "HEVC 10-bit", hevc12: "HEVC 12-bit", vp9: "VP9", vp9_10: "VP9 10-bit", vp9_12: "VP9 12-bit",
+  av1: "AV1", av1_10: "AV1 10-bit", mpeg2video: "MPEG-2", vc1: "VC-1", mjpeg: "MJPEG"
 };
 
 /** A change to the conversion settings, as the engine wants it sent. An engine with

@@ -262,27 +262,49 @@ Faces): what it is and its version, one line of how it is, and its state (**Heal
 **Video's page** has tabs:
 
 - **Overview** — the long cards first:
-  - **The GPU:** what it is, its driver and the mode. Four checks say whether it
-    was found, whether its driver answers, whether it encodes H.264 and whether it
-    is ready to convert. **Check again** runs the GPU check now.
-  - **Right now:** how fast each conversion is going (under 1× real time is
-    **Falling behind**), how busy the CPU is, how much memory is free and how much
-    is being sent. Each comes with a small graph of the last ten minutes. They are
-    read only while the page is open, every 5 seconds, and nothing is kept: the
-    graphs start when you open it.
-  - **Live sessions:** who is watching what, and how far through.
-  - **GPU test results:** the last hardware test, in short.
+  - **At a glance:** eight cards showing how things stand, looked at again every
+    30 seconds:
+    - how busy the CPU is;
+    - how many are watching, and how many of those are converting;
+    - how much is being sent;
+    - the server's free memory;
+    - the conversion settings (GPU or CPU, how many at once, the quality away
+      from home);
+    - the memory set aside for conversions, and how much of it is in use;
+    - the disk for conversions;
+    - how many films are kept ready, and their size.
+  - **Hardware:** three tiles, each with a picture.
+    - **CPU:** its model and how many threads it has.
+    - **Memory:** how much there is and how much is free.
+    - **GPU:** which one it is (an Intel Arc card, Intel's older or newer built-in
+      graphics, AMD or NVIDIA), and whether it is passed to the video container.
 
-  Beside the cards, in a narrow column:
-  - **Capabilities:** which formats the GPU decodes and encodes, and whether HDR
-    and subtitles are done on the GPU or the CPU. It is filled in by the GPU check
-    when the video engine starts, so no test has to run first.
-  - **Diagnostic mode**.
-  - **The newest saved reports**.
+    Under the tiles, the formats are labels in four groups:
+    - **Hardware decoding:** H.264, HEVC (and its 10- and 12-bit kinds), VP9
+      (likewise), AV1 (and AV1 10-bit), MPEG-2, VC-1 and MJPEG.
+    - **Hardware encoding:** what the GPU could encode. Conversions always make
+      H.264.
+    - **Software fallback:** what only the CPU plays: DivX/Xvid, VP8, H.264 10-bit,
+      and VVC where the video engine's ffmpeg has it.
+    - **Additional capabilities:** HDR → SDR tone mapping, hardware scaling,
+      subtitles drawn in on the GPU, and 4K.
+
+    A label lights up green where the GPU does it; the rest the CPU does, more
+    slowly. The labels come from the GPU check the video engine runs when it
+    starts, so no test has to run first. **Check again** runs the GPU check now.
+
+  Beside the cards, in a narrow column: **Diagnostic mode** and **the newest saved
+  reports**.
 - **GPU tests** — the hardware test: how fast each kind of film converts on the
   GPU and the CPU, and how many can watch at once.
-- **Live sessions** — everything being watched or downloaded, as on
-  Infrastructure › Now playing.
+- **Live sessions:**
+  - **Right now**, on top: four tiles, two to a row, each with a graph of the last
+    ten minutes. They show how fast each conversion is going (under 1× real time
+    is **Falling behind**), how busy the CPU is, how much memory is in use and how
+    much is being sent. They are read only while the page is open, every 5
+    seconds, and nothing is kept: the graphs start when you open it.
+  - Under it, everything being watched or downloaded, as on Infrastructure ›
+    Now playing.
 - **Logs** — the video container's own log, with its diagnostic mode.
 - **Reports** — the saved reports that include Video.
 

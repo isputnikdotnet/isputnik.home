@@ -646,6 +646,15 @@
         "testRunning": "A hardware test is running. Check the disks when it has finished.",
         "stoppedTitle": "The disk check stopped",
         "noLibraries": "No video libraries to check."
+      },
+      "tiles": {
+        "last": "Last test",
+        "atOnce": "Viewers at once",
+        "yourLimit_one": "your limit is {{count}}",
+        "yourLimit_other": "your limit is {{count}}",
+        "hdrGpu": "4K HDR on the GPU",
+        "hdrCpu": "4K HDR on the CPU",
+        "gpu": "The GPU"
       }
     },
     "pairing": {
@@ -2876,18 +2885,13 @@
         "reports": "Reports"
       },
       "gpu": {
-        "maker": {
-          "intel": "Intel",
-          "amd": "AMD",
-          "nvidia": "NVIDIA",
-          "other": "GPU"
-        },
         "title": {
           "intel": "Intel graphics",
           "amd": "AMD graphics",
           "nvidia": "NVIDIA graphics",
           "other": "Graphics card",
-          "none": "No GPU in use"
+          "none": "No GPU in use",
+          "arc": "Intel Arc graphics"
         },
         "state": {
           "inUse": "In use",
@@ -2896,36 +2900,13 @@
           "none": "Not found",
           "checking": "Checking…"
         },
-        "driver": "Driver",
-        "device": "Through",
-        "vaapi": "VA-API · {{device}}",
         "mode": "Mode",
         "modeValue": {
           "auto": "Automatic — GPU first",
           "cpu": "CPU only",
           "gpu": "GPU only"
         },
-        "check": {
-          "found": "GPU found",
-          "driver": "Driver answers",
-          "encodes": "Encodes H.264",
-          "ready": "Ready to convert"
-        },
         "settings": "Conversion settings"
-      },
-      "caps": {
-        "title": "Capabilities",
-        "format": "Format",
-        "decode": "Decode",
-        "encode": "Encode",
-        "yes": "Yes",
-        "no": "No",
-        "tonemap": "HDR tone map",
-        "subtitles": "Subtitles",
-        "gpu": "on the GPU",
-        "cpu": "on the CPU",
-        "note": "From the GPU check when the video engine starts.",
-        "noteOld": "From the GPU check when the video engine starts. Encode beyond H.264 shows with video engine 0.41."
       },
       "now": {
         "title": "Right now",
@@ -2950,31 +2931,79 @@
         "sending": "Sending now",
         "sendingValue_one": "{{mbps}} Mbit/s to {{count}} viewer",
         "sendingValue_other": "{{mbps}} Mbit/s to {{count}} viewers",
-        "foot": "Read only while this page is open; the graphs start when it opens. Nothing is kept on the server."
+        "foot": "Read only while this page is open; the graphs start when it opens. Nothing is kept on the server.",
+        "collecting": "Collecting…",
+        "peak": "peak {{value}}",
+        "mbitUnit": " Mbit/s",
+        "usedUnit": "% in use"
       },
       "sessions": {
         "title_one": "Live sessions · {{count}}",
         "title_other": "Live sessions · {{count}}",
-        "all": "All sessions"
-      },
-      "tests": {
-        "title": "GPU test results",
-        "phase": {
-          "done": "Passed",
-          "stopped": "Didn't finish",
-          "running": "Running"
-        },
-        "open": "Open GPU tests",
-        "run": "Run the test",
-        "none": "Not run yet. The test shows how fast each kind of film converts on the GPU and the CPU, and how many can watch at once.",
-        "speed": "{{speed}}× real time",
-        "together_one": "{{count}} at once",
-        "together_other": "{{count}} at once",
-        "suggested_one": "suggested limit {{count}} viewer",
-        "suggested_other": "suggested limit {{count}} viewers"
+        "all": "All sessions",
+        "speed": "{{speed}}× speed"
       },
       "savedNone": "None yet.",
-      "savedAll": "All reports"
+      "savedAll": "All reports",
+      "hw": {
+        "title": "Hardware",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "gpu": "GPU",
+        "threads_one": "{{count}} thread",
+        "threads_other": "{{count}} threads",
+        "attached": "Passed to the video container · {{device}}",
+        "notAttached": "Not passed to the video container",
+        "formatsNote": "Green: done on the GPU. The rest the CPU does, more slowly.",
+        "formatsNoGpu": "No GPU in use: the CPU does all of these, more slowly.",
+        "onCpu": "On the CPU",
+        "onGpu": "On the GPU",
+        "hdr": "HDR → SDR",
+        "subtitles": "Subtitles",
+        "decoding": "Hardware decoding",
+        "encoding": "Hardware encoding",
+        "software": "Software fallback",
+        "extras": "Additional capabilities",
+        "encodingNote": "Conversions always make H.264; the rest is what the GPU could encode.",
+        "noEncode": "Doesn't encode it on the GPU",
+        "encodeUnknown": "Shows with video engine 0.41",
+        "cpuOnly": {
+          "divx": "DivX / Xvid",
+          "vp8": "VP8",
+          "h264_10": "H.264 10-bit",
+          "vvc": "VVC"
+        },
+        "scaling": "Hardware scaling",
+        "largest": "Decodes pictures up to {{width}}×{{height}}"
+      },
+      "tiles": {
+        "title": "At a glance",
+        "asOf": "As of {{time}} · every 30 s",
+        "cpu": "CPU",
+        "sessions": "Live sessions",
+        "converting_one": "{{count}} converting",
+        "converting_other": "{{count}} converting",
+        "allDirect": "All play as they are",
+        "nobody": "Nobody is watching",
+        "sending": "Sending now",
+        "mbps": "{{mbps}} Mbit/s",
+        "viewers_one": "to {{count}} viewer",
+        "viewers_other": "to {{count}} viewers",
+        "serverMemory": "Server memory",
+        "freeOf": "free of {{total}}",
+        "conversion": "Conversion",
+        "atOnce_one": "up to {{count}} at once",
+        "atOnce_other": "up to {{count}} at once",
+        "away": "away up to {{height}}p",
+        "awayOriginal": "away as it is",
+        "convMemory": "Memory for conversions",
+        "perViewer": "{{size}} a viewer",
+        "inUse": "{{size}} in use",
+        "convDisk": "Disk for conversions",
+        "free": "{{size}} free",
+        "noDisk": "No disk mapped",
+        "kept": "Films kept ready"
+      }
     }
   },
   "nowPlaying": {

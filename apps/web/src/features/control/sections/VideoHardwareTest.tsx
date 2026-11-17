@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Gauge, HardDrive, History, Play, Square, Wrench } from "lucide-react";
+import { Cpu, Gauge, HardDrive, History, Play, Square, Users, Zap } from "lucide-react";
 import { api, ApiError } from "../../../api";
 import { Button } from "../../../shared/Button";
-import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { GroupedList, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
+import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { formatManagedDate } from "../../../shared/utils";
 
 // Videos › Settings › Hardware test (docs/video-hardware-tests-plan.md, phase 2):
@@ -13,7 +14,9 @@ import { formatManagedDate } from "../../../shared/utils";
 // how many times faster than real time each kind of film converts on the GPU and
 // on the CPU, how many can watch at once, the viewer limit that allows, and the
 // hardware changes noted between starts. The engine does the work; this page
-// starts it, follows it and words the results.
+// starts it, follows it and words the results — in the Diagnostics style
+// (2026-11-17): tiles of the headline numbers, a card of speed bars, how many at
+// once, the disks; the GPU, past tests and hardware changes in a narrow column.
 
 type ScenarioId = "4k-hdr" | "4k-sdr" | "1080p-hevc" | "1080p-to-720p" | "divx" | "av1";
 type Verdict = "smooth" | "tight" | "slow" | "failed";
@@ -150,48 +153,59 @@ export function DiskCheckSection({ prefix, testRunning }: { prefix: string; test
   };
 
   return (
-    <>
+    <section className="organization-card hwt-card" aria-labelledby="hwt-disks-title">
+      <header className="diag-card-head">
+        <span className="diag-card-icon" aria-hidden="true"><HardDrive size={17} /></span>
+        <h3 id="hwt-disks-title">{t("controlAdmin:apps.hardwareTest.disks.title")}</h3>
+        <span className="diag-card-actions">
+          {running ? (
+            <Button variant="secondary" compact onClick={() => void stop()} disabled={stopping}>
+              <Square size={14} aria-hidden="true" /> {stopping ? t("controlAdmin:apps.hardwareTest.stopping") : t("controlAdmin:apps.hardwareTest.stop")}
+            </Button>
+          ) : (
+            <Button variant="secondary" compact onClick={() => void start()} disabled={testRunning}>
+              <HardDrive size={14} aria-hidden="true" /> {t("controlAdmin:apps.hardwareTest.disks.run")}
+            </Button>
+          )}
+        </span>
+      </header>
       {error && <MessageBox tone="error" title={t("controlAdmin:apps.hardwareTest.startFailed")}>{error}</MessageBox>}
       {check && check.phase !== "running" && check.phase !== "done" && (
         <MessageBox tone="warning" title={t("controlAdmin:apps.hardwareTest.disks.stoppedTitle")}>{reasonWords(check.reason, t)}</MessageBox>
       )}
-      <GroupedList title={t("controlAdmin:apps.hardwareTest.disks.title")} note={t("controlAdmin:apps.hardwareTest.disks.note")}>
-        {check && !running && check.phase === "done" && check.libraries.length === 0 && <InfoRow label={t("controlAdmin:apps.hardwareTest.disks.noLibraries")} />}
-        {(check?.libraries ?? []).map((entry) => (
-          <InfoRow
-            key={entry.libraryId}
-            icon={<HardDrive size={17} />}
-            iconTone={entry.error ? "warn" : entry.wake.asleep ? "warn" : VERDICT_TONE[entry.verdict]}
-            label={entry.name}
-            sub={summary(entry)}
-            value={entry.error || running?.step?.libraryId === entry.libraryId ? undefined : t(`controlAdmin:apps.hardwareTest.disks.verdict.${entry.verdict}`)}
-            valueTone={entry.verdict === "short" ? "danger" : undefined}
-          />
-        ))}
-        <div className="grouped-row hw-test-actions">
-          {running ? (
-            <>
-              <span className="hw-test-now" role="status">
-                <strong>{t("controlAdmin:apps.hardwareTest.disks.running")}</strong>
-                {running.step && <small>{running.step.kind === "wake"
-                  ? t("controlAdmin:apps.hardwareTest.disks.stepWake", { name: running.step.name })
-                  : t("controlAdmin:apps.hardwareTest.disks.stepRead", { name: running.step.name })}</small>}
-              </span>
-              <Button variant="secondary" onClick={() => void stop()} disabled={stopping}>
-                <Square size={15} aria-hidden="true" /> {stopping ? t("controlAdmin:apps.hardwareTest.stopping") : t("controlAdmin:apps.hardwareTest.stop")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <span className="hw-test-now"><small>{state.last ? t("controlAdmin:apps.hardwareTest.disks.lastChecked", { date: formatManagedDate(state.last.startedAt) }) : t("controlAdmin:apps.hardwareTest.disks.notRun")}</small></span>
-              <Button variant="secondary" compact onClick={() => void start()} disabled={testRunning}>
-                <HardDrive size={15} aria-hidden="true" /> {t("controlAdmin:apps.hardwareTest.disks.run")}
-              </Button>
-            </>
-          )}
+      {running ? (
+        <p className="hwt-now" role="status">
+          <span className="hwt-pulse" aria-hidden="true" />
+          <strong>{t("controlAdmin:apps.hardwareTest.disks.running")}</strong>
+          {running.step && <span className="muted">{running.step.kind === "wake"
+            ? t("controlAdmin:apps.hardwareTest.disks.stepWake", { name: running.step.name })
+            : t("controlAdmin:apps.hardwareTest.disks.stepRead", { name: running.step.name })}</span>}
+        </p>
+      ) : (
+        <p className="muted hwt-note">{state.last ? t("controlAdmin:apps.hardwareTest.disks.lastChecked", { date: formatManagedDate(state.last.startedAt) }) : t("controlAdmin:apps.hardwareTest.disks.notRun")}</p>
+      )}
+      {check && !running && check.phase === "done" && check.libraries.length === 0 && <p className="muted">{t("controlAdmin:apps.hardwareTest.disks.noLibraries")}</p>}
+      {(check?.libraries ?? []).length > 0 && (
+        <div className="hwt-disks">
+          {(check?.libraries ?? []).map((entry) => {
+            const tone = entry.error || entry.wake.asleep ? "warn" : VERDICT_TONE[entry.verdict];
+            return (
+              <div key={entry.libraryId} className={`hwt-disk is-${tone}`}>
+                <span className="hwt-disk-icon" aria-hidden="true"><HardDrive size={16} /></span>
+                <div className="hwt-disk-text">
+                  <strong>{entry.name}</strong>
+                  <small className="muted">{summary(entry)}</small>
+                </div>
+                {!entry.error && running?.step?.libraryId !== entry.libraryId && (
+                  <span className={`diag-badge-mini is-${entry.verdict}`}>{t(`controlAdmin:apps.hardwareTest.disks.verdict.${entry.verdict}`)}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
-      </GroupedList>
-    </>
+      )}
+      <p className="muted hwt-note">{t("controlAdmin:apps.hardwareTest.disks.note")}</p>
+    </section>
   );
 }
 
@@ -330,133 +344,191 @@ export function HardwareTestPage({ prefix, capabilities, maxViewers, saving, onU
     return <span className={`hw-verdict is-${run.verdict}`}>{t("controlAdmin:apps.hardwareTest.speed", { speed: run.speed.toLocaleString(undefined, { maximumFractionDigits: 1 }), verdict })}</span>;
   };
   const hasGpu = (test?.scenarios ?? []).some((entry) => entry.gpuRun !== null);
+  // The bars' scale: the fastest run, and never under 2× so 1× sits in the middle at most.
+  const top = Math.max(2, ...(test?.scenarios ?? []).flatMap((entry) => [entry.gpuRun?.speed ?? 0, entry.cpuRun?.speed ?? 0]));
+  const hardest = test?.scenarios.find((entry) => entry.id === "4k-hdr" && !entry.skipped) ?? null;
+  const times = (run: RunResult | null | undefined) => (run?.speed != null ? `${run.speed.toLocaleString(undefined, { maximumFractionDigits: 1 })}×` : "—");
+  const phaseWords = (entry: HardwareTest) => entry.phase === "done" ? t("controlAdmin:apps.hardwareTest.historyDone") : entry.phase === "stopped" ? t("controlAdmin:apps.hardwareTest.historyStopped") : t("controlAdmin:apps.hardwareTest.historyFailed");
+
+  const tiles: StatTile[] = [
+    {
+      icon: <History size={19} />, iconTone: "blue",
+      label: t("controlAdmin:apps.hardwareTest.tiles.last"),
+      value: running ? t("controlAdmin:apps.hardwareTest.runningTitle") : test ? formatManagedDate(test.startedAt) : t("controlAdmin:apps.hardwareTest.notRun"),
+      sub: !running && test ? phaseWords(test) : undefined
+    },
+    {
+      icon: <Users size={19} />, iconTone: "mint",
+      label: t("controlAdmin:apps.hardwareTest.tiles.atOnce"),
+      value: test?.suggestedViewers != null ? String(test.suggestedViewers) : "—",
+      sub: maxViewers !== null ? t("controlAdmin:apps.hardwareTest.tiles.yourLimit", { count: maxViewers }) : undefined
+    },
+    {
+      icon: <Zap size={19} />, iconTone: hardest?.gpuRun && hardest.gpuRun.verdict !== "smooth" ? "warn" : "gold",
+      label: t("controlAdmin:apps.hardwareTest.tiles.hdrGpu"),
+      value: hardest?.gpuRun ? times(hardest.gpuRun) : hasGpu || !test ? "—" : t("controlAdmin:apps.hardwareTest.noGpu"),
+      sub: hardest?.gpuRun ? t(`controlAdmin:apps.hardwareTest.verdict.${hardest.gpuRun.verdict}`) : undefined
+    },
+    {
+      icon: <Cpu size={19} />, iconTone: "rose",
+      label: t("controlAdmin:apps.hardwareTest.tiles.hdrCpu"),
+      value: times(hardest?.cpuRun),
+      sub: hardest?.cpuRun ? t(`controlAdmin:apps.hardwareTest.verdict.${hardest.cpuRun.verdict}`) : undefined
+    }
+  ];
+
+  /** One run as a bar: how far past real time it got, the 1× mark on its track. */
+  const bar = (who: string, run: RunResult | null, gpu: boolean) => (
+    <div className="hwt-bar">
+      <span className="hwt-who">{who}</span>
+      <div className="hwt-track" aria-hidden="true">
+        {run?.speed != null && <span className={`hwt-fill is-${run.verdict}`} style={{ width: `${Math.min(100, (run.speed / top) * 100)}%` }} />}
+        <span className="hwt-one" style={{ left: `${(1 / top) * 100}%` }} />
+      </div>
+      <span className="hwt-value">{run ? runCell(run, true) : runCell(null, gpu)}</span>
+    </div>
+  );
 
   return (
-    <div className="grouped-page hw-test-page">
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.hardwareTest.startFailed")}>{error}</MessageBox>}
-      {changedSince && !running && (
-        <MessageBox tone="warning" title={t("controlAdmin:apps.hardwareTest.changedSinceTitle")}>
-          {t("controlAdmin:apps.hardwareTest.changedSinceBody", { change: changedSince.summary })}
-        </MessageBox>
-      )}
+    <div className="diag-video hw-test-page">
+      <div className="diag-video-main">
+        {error && <MessageBox tone="error" title={t("controlAdmin:apps.hardwareTest.startFailed")}>{error}</MessageBox>}
+        {changedSince && !running && (
+          <MessageBox tone="warning" title={t("controlAdmin:apps.hardwareTest.changedSinceTitle")}>
+            {t("controlAdmin:apps.hardwareTest.changedSinceBody", { change: changedSince.summary })}
+          </MessageBox>
+        )}
+        {test && finished(test) && test.phase !== "done" && (
+          <MessageBox tone={test.phase === "failed" ? "error" : "warning"} title={test.phase === "failed" ? t("controlAdmin:apps.hardwareTest.failedTitle") : t("controlAdmin:apps.hardwareTest.stoppedTitle")}>
+            {reasonText(test.reason)} {test.scenarios.length > 0 ? t("controlAdmin:apps.hardwareTest.partial") : ""}
+          </MessageBox>
+        )}
+        {selected && !running && (
+          <MessageBox tone="info" title={t("controlAdmin:apps.hardwareTest.showing", { date: formatManagedDate(selected.startedAt) })}>
+            <Button variant="text" onClick={() => setShown(null)}>{t("controlAdmin:apps.hardwareTest.showLatest")}</Button>
+          </MessageBox>
+        )}
 
-      <GroupedList note={<>{t("controlAdmin:apps.hardwareTest.intro")} {t("controlAdmin:apps.hardwareTest.clipsNote")}</>}>
-        {capabilities}
-        <div className="grouped-row hw-test-actions">
-          {running ? (
-            <>
-              <span className="hw-test-now" role="status">
-                <strong>{t("controlAdmin:apps.hardwareTest.runningTitle")}</strong>
-                <small>{stepText(running)}</small>
-              </span>
-              <Button variant="secondary" onClick={() => void stop()} disabled={stopping}>
-                <Square size={15} aria-hidden="true" /> {stopping ? t("controlAdmin:apps.hardwareTest.stopping") : t("controlAdmin:apps.hardwareTest.stop")}
-              </Button>
-            </>
-          ) : (
-            <Button variant="primary" compact onClick={() => void start()} disabled={!state.available}>
-              <Play size={15} aria-hidden="true" /> {t("controlAdmin:apps.hardwareTest.run")}
-            </Button>
-          )}
+        <div className="diag-tiles">
+          <StatTiles tiles={tiles} label={t("controlAdmin:apps.hardwareTest.title")} />
         </div>
-      </GroupedList>
 
-      {test && finished(test) && test.phase !== "done" && (
-        <MessageBox tone={test.phase === "failed" ? "error" : "warning"} title={test.phase === "failed" ? t("controlAdmin:apps.hardwareTest.failedTitle") : t("controlAdmin:apps.hardwareTest.stoppedTitle")}>
-          {reasonText(test.reason)} {test.scenarios.length > 0 ? t("controlAdmin:apps.hardwareTest.partial") : ""}
-        </MessageBox>
-      )}
-      {selected && !running && (
-        <MessageBox tone="info" title={t("controlAdmin:apps.hardwareTest.showing", { date: formatManagedDate(selected.startedAt) })}>
-          <Button variant="text" onClick={() => setShown(null)}>{t("controlAdmin:apps.hardwareTest.showLatest")}</Button>
-        </MessageBox>
-      )}
+        <section className="organization-card hwt-card" aria-labelledby="hwt-speed-title">
+          <header className="diag-card-head">
+            <span className="diag-card-icon" aria-hidden="true"><Gauge size={17} /></span>
+            <h3 id="hwt-speed-title">{t("controlAdmin:apps.hardwareTest.resultsTitle")}</h3>
+            <span className="diag-card-actions">
+              {running ? (
+                <Button variant="secondary" compact onClick={() => void stop()} disabled={stopping}>
+                  <Square size={14} aria-hidden="true" /> {stopping ? t("controlAdmin:apps.hardwareTest.stopping") : t("controlAdmin:apps.hardwareTest.stop")}
+                </Button>
+              ) : (
+                <Button variant="primary" compact onClick={() => void start()} disabled={!state.available}>
+                  <Play size={14} aria-hidden="true" /> {t("controlAdmin:apps.hardwareTest.run")}
+                </Button>
+              )}
+            </span>
+          </header>
+          {running && (
+            <p className="hwt-now" role="status">
+              <span className="hwt-pulse" aria-hidden="true" />
+              <strong>{t("controlAdmin:apps.hardwareTest.runningTitle")}</strong>
+              <span className="muted">{stepText(running)}</span>
+            </p>
+          )}
+          {test && test.scenarios.length > 0 ? (
+            <div className="hwt-rows">
+              {test.scenarios.map((entry) => (
+                <div key={entry.id} className="hwt-row">
+                  <strong className="hwt-name">{scenarioName(entry)}</strong>
+                  {entry.skipped ? (
+                    <span className="muted hwt-skipped">{t("controlAdmin:apps.hardwareTest.skipped", { reason: entry.skipped })}</span>
+                  ) : (
+                    <div className="hwt-bars">
+                      {hasGpu && bar(t("controlAdmin:apps.hardwareTest.thGpu"), entry.gpuRun, hasGpu)}
+                      {bar(t("controlAdmin:apps.hardwareTest.thCpu"), entry.cpuRun, true)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">{t("controlAdmin:apps.hardwareTest.intro")}</p>
+          )}
+          <p className="muted hwt-note">{test && test.scenarios.length > 0 ? t("controlAdmin:apps.hardwareTest.resultsNote") : t("controlAdmin:apps.hardwareTest.clipsNote")}</p>
+        </section>
 
-      {test && test.scenarios.length > 0 && (
-        <GroupedList title={t("controlAdmin:apps.hardwareTest.resultsTitle")} note={t("controlAdmin:apps.hardwareTest.resultsNote")}>
-          <div className="hw-test-table">
-            <table className="datagrid datagrid-phone-stack">
-              <thead>
-                <tr>
-                  <th>{t("controlAdmin:apps.hardwareTest.thFilm")}</th>
-                  {/* No GPU tried at all: no column of "No GPU" (the row above says why). */}
-                  {hasGpu && <th>{t("controlAdmin:apps.hardwareTest.thGpu")}</th>}
-                  <th>{t("controlAdmin:apps.hardwareTest.thCpu")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {test.scenarios.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="col-title"><strong>{scenarioName(entry)}</strong></td>
-                    {entry.skipped ? (
-                      <td colSpan={hasGpu ? 2 : 1} className="datagrid-muted" data-label={t("controlAdmin:apps.hardwareTest.thCpu")}>{t("controlAdmin:apps.hardwareTest.skipped", { reason: entry.skipped })}</td>
-                    ) : (
-                      <>
-                        {hasGpu && <td data-label={t("controlAdmin:apps.hardwareTest.thGpu")}>{runCell(entry.gpuRun, hasGpu)}</td>}
-                        <td data-label={t("controlAdmin:apps.hardwareTest.thCpu")}>{runCell(entry.cpuRun, true)}</td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </GroupedList>
-      )}
+        {test && test.together.length > 0 && (
+          <section className="organization-card hwt-card" aria-labelledby="hwt-together-title">
+            <header className="diag-card-head">
+              <span className="diag-card-icon" aria-hidden="true"><Users size={17} /></span>
+              <h3 id="hwt-together-title">{t("controlAdmin:apps.hardwareTest.togetherTitle")}</h3>
+            </header>
+            <div className="hwt-together">
+              {test.together.map((entry) => (
+                <div key={entry.id} className={`hwt-together-item${entry.atOnce === 0 ? " is-none" : ""}`}>
+                  <span className="hwt-together-count">
+                    {entry.atOnce === 0 ? t("controlAdmin:apps.hardwareTest.togetherNone")
+                      : entry.atLeast ? t("controlAdmin:apps.hardwareTest.togetherAtLeast", { count: entry.atOnce })
+                      : t("controlAdmin:apps.hardwareTest.togetherCount", { count: entry.atOnce })}
+                  </span>
+                  <span className="muted">{scenarioName(entry)}</span>
+                  <span className={`diag-badge-mini is-${entry.converter}`}>{entry.converter === "gpu" ? t("controlAdmin:apps.hardwareTest.whereGpu") : t("controlAdmin:apps.hardwareTest.whereCpu")}</span>
+                </div>
+              ))}
+            </div>
+            <p className="muted hwt-note">{t("controlAdmin:apps.hardwareTest.togetherNote")}</p>
+            {test.phase === "done" && test.suggestedViewers !== null && maxViewers !== null && !selected && (
+              <MessageBox tone={test.suggestedViewers === maxViewers ? "success" : "info"} title={t("controlAdmin:apps.hardwareTest.suggestTitle", { count: test.suggestedViewers })}>
+                {t("controlAdmin:apps.hardwareTest.suggestBody", { limit: maxViewers })}{" "}
+                {test.suggestedViewers === maxViewers
+                  ? t("controlAdmin:apps.hardwareTest.suggestSame")
+                  : <Button variant="secondary" compact disabled={saving} onClick={() => onUseLimit(test.suggestedViewers!)}>{t("controlAdmin:apps.hardwareTest.useLimit", { count: test.suggestedViewers })}</Button>}
+              </MessageBox>
+            )}
+          </section>
+        )}
 
-      {test && test.together.length > 0 && (
-        <GroupedList title={t("controlAdmin:apps.hardwareTest.togetherTitle")} note={t("controlAdmin:apps.hardwareTest.togetherNote")}>
-          {test.together.map((entry) => (
-            <InfoRow
-              key={entry.id}
-              icon={<Wrench size={17} />}
-              iconTone={entry.atOnce > 0 ? "ok" : "warn"}
-              label={t("controlAdmin:apps.hardwareTest.togetherRow", {
-                name: scenarioName(entry),
-                where: entry.converter === "gpu" ? t("controlAdmin:apps.hardwareTest.whereGpu") : t("controlAdmin:apps.hardwareTest.whereCpu")
-              })}
-              sub={entry.atOnce === 0 ? t("controlAdmin:apps.hardwareTest.togetherNone")
-                : entry.atLeast ? t("controlAdmin:apps.hardwareTest.togetherAtLeast", { count: entry.atOnce })
-                : t("controlAdmin:apps.hardwareTest.togetherCount", { count: entry.atOnce })}
-            />
+        <DiskCheckSection prefix={prefix} testRunning={Boolean(running)} />
+      </div>
+
+      <aside className="diag-video-side">
+        {capabilities && (
+          <section className="organization-card diag-side-card" aria-labelledby="hwt-gpu-title">
+            <h3 id="hwt-gpu-title">{t("controlAdmin:apps.hardwareTest.tiles.gpu")}</h3>
+            <GroupedList>{capabilities}</GroupedList>
+          </section>
+        )}
+        <section className="organization-card diag-side-card" aria-labelledby="hwt-history-title">
+          <h3 id="hwt-history-title">{t("controlAdmin:apps.hardwareTest.historyTitle")}</h3>
+          {pastTests.length === 0 && <p className="muted">{t("controlAdmin:apps.hardwareTest.historyEmpty")}</p>}
+          {pastTests.map((past) => (
+            <Button
+              key={past.id ?? past.startedAt}
+              variant="bare"
+              className={`hwt-past${test && past.id === test.id ? " is-shown" : ""}`}
+              onClick={() => setShown(past.id)}
+            >
+              <span className={`hwt-past-dot is-${past.phase}`} aria-hidden="true" />
+              <span className="hwt-past-text">
+                <strong>{formatManagedDate(past.startedAt)}</strong>
+                <small>{[phaseWords(past), past.suggestedViewers ? t("controlAdmin:apps.hardwareTest.togetherCount", { count: past.suggestedViewers }) : null].filter(Boolean).join(" · ")}</small>
+              </span>
+            </Button>
           ))}
-        </GroupedList>
-      )}
-
-      {test && test.phase === "done" && test.suggestedViewers !== null && maxViewers !== null && !selected && (
-        <MessageBox tone={test.suggestedViewers === maxViewers ? "success" : "info"} title={t("controlAdmin:apps.hardwareTest.suggestTitle", { count: test.suggestedViewers })}>
-          {t("controlAdmin:apps.hardwareTest.suggestBody", { limit: maxViewers })}{" "}
-          {test.suggestedViewers === maxViewers
-            ? t("controlAdmin:apps.hardwareTest.suggestSame")
-            : <Button variant="secondary" compact disabled={saving} onClick={() => onUseLimit(test.suggestedViewers!)}>{t("controlAdmin:apps.hardwareTest.useLimit", { count: test.suggestedViewers })}</Button>}
-        </MessageBox>
-      )}
-
-      <DiskCheckSection prefix={prefix} testRunning={Boolean(running)} />
-
-      <GroupedList title={t("controlAdmin:apps.hardwareTest.historyTitle")}>
-        {pastTests.length === 0 && <InfoRow label={t("controlAdmin:apps.hardwareTest.historyEmpty")} />}
-        {pastTests.map((past) => (
-          <NavRow
-            key={past.id ?? past.startedAt}
-            icon={<History size={17} />}
-            iconTone={past.phase === "done" ? "ok" : "muted"}
-            label={formatManagedDate(past.startedAt)}
-            sub={[
-              past.phase === "done" ? t("controlAdmin:apps.hardwareTest.historyDone") : past.phase === "stopped" ? t("controlAdmin:apps.hardwareTest.historyStopped") : t("controlAdmin:apps.hardwareTest.historyFailed"),
-              past.suggestedViewers ? t("controlAdmin:apps.hardwareTest.togetherCount", { count: past.suggestedViewers }) : null
-            ].filter(Boolean).join(" · ")}
-            onClick={() => setShown(past.id)}
-          />
-        ))}
-      </GroupedList>
-
-      <GroupedList title={t("controlAdmin:apps.hardwareTest.changesTitle")} note={t("controlAdmin:apps.hardwareTest.changesNote")}>
-        {(history?.changes ?? []).length === 0 && <InfoRow label={t("controlAdmin:apps.hardwareTest.changesEmpty")} />}
-        {(history?.changes ?? []).map((change) => (
-          <InfoRow key={change.id} label={change.summary} sub={formatManagedDate(change.at)} />
-        ))}
-      </GroupedList>
+        </section>
+        <section className="organization-card diag-side-card" aria-labelledby="hwt-changes-title">
+          <h3 id="hwt-changes-title">{t("controlAdmin:apps.hardwareTest.changesTitle")}</h3>
+          {(history?.changes ?? []).length === 0 && <p className="muted">{t("controlAdmin:apps.hardwareTest.changesEmpty")}</p>}
+          {(history?.changes ?? []).map((change) => (
+            <div key={change.id} className="hwt-change">
+              <span>{change.summary}</span>
+              <small className="muted">{formatManagedDate(change.at)}</small>
+            </div>
+          ))}
+          <p className="muted">{t("controlAdmin:apps.hardwareTest.changesNote")}</p>
+        </section>
+      </aside>
     </div>
   );
 }

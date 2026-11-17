@@ -43,7 +43,8 @@ describe("HardwareTestPage", () => {
   it("words each kind of film's speed and verdict, the skipped one, and how many at once", async () => {
     answer(done);
     render(<HardwareTestPage prefix="/video" capabilities={null} maxViewers={3} saving={false} onUseLimit={() => undefined} />);
-    expect(await screen.findByText("4K HDR (HEVC 10-bit) to 1080p")).toBeInTheDocument();
+    // Named in the speed bars and in how many at once.
+    expect(await screen.findAllByText("4K HDR (HEVC 10-bit) to 1080p")).toHaveLength(2);
     expect(screen.getByText("2.4× · smooth")).toBeInTheDocument();
     expect(screen.getByText("0.9× · too slow")).toBeInTheDocument();
     expect(screen.getByText(/Skipped: This ffmpeg can't make the clip/)).toBeInTheDocument();

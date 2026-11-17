@@ -3245,15 +3245,17 @@ tr.control-anchor-flash > td {
    another beside a narrow column of small boxes. */
 .diag-video-tabs { margin-bottom: 4px; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .diag-video-tabs a { white-space: nowrap; }
-.diag-tab-count { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, transparent); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
-.diag-video { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 260px); gap: 16px; align-items: start; min-width: 0; }
-.diag-video-main, .diag-video-side { display: grid; gap: 14px; min-width: 0; }
-.diag-video .organization-card h3 { margin: 0; font-size: 1rem; }
-.diag-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.diag-card-head .diag-more { margin-left: auto; }
-.diag-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 0.86rem; text-decoration: none; }
+.diag-tab-count { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.diag-video { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 270px); gap: 18px; align-items: start; min-width: 0; }
+.diag-video-main, .diag-video-side { display: grid; gap: 16px; min-width: 0; }
+.diag-video .organization-card { border-radius: 16px; padding: 18px 20px; }
+.diag-video .organization-card h3 { margin: 0; font-size: 1.02rem; }
+.diag-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.diag-card-head .diag-more, .diag-card-actions { margin-left: auto; }
+.diag-card-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.diag-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 0.86rem; font-weight: 500; text-decoration: none; }
 .diag-link:hover { text-decoration: underline; }
-.diag-side-card { gap: 8px; }
+.diag-side-card { gap: 10px; }
 .diag-side-card h3 { font-size: 0.95rem; }
 .diag-side-card > p { margin: 0; font-size: 0.8rem; }
 /* Its diagnostic mode: the heading says what it is, the switch takes the width. */
@@ -3261,65 +3263,74 @@ tr.control-anchor-flash > td {
 .diag-side-card .diagnostics-mode-label { display: none; }
 .diag-side-card .diagnostics-mode .segmented { width: 100%; }
 .diag-side-card .diagnostics-mode .segmented > * { flex: 1; }
-/* The GPU: its picture (the maker's, once there are pictures), then what it is. */
-.diag-gpu { flex-direction: row; align-items: flex-start; gap: 16px; }
-.diag-gpu-picture { display: grid; place-items: center; align-content: center; gap: 4px; flex: none; width: 96px; height: 96px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); font-size: 0.75rem; }
-.diag-gpu-picture.is-intel { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
-.diag-gpu-picture.is-nvidia { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
-.diag-gpu-picture.is-amd { color: var(--rose); background: color-mix(in srgb, var(--rose) 12%, transparent); }
-.diag-gpu-text { display: grid; gap: 8px; min-width: 0; flex: 1; }
-.diag-gpu-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.diag-gpu-name h3 { font-size: 1.1rem !important; }
-.diag-gpu-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; margin: 0; font-size: 0.86rem; }
-.diag-gpu-facts dt { color: var(--muted); }
-.diag-gpu-facts dd { margin: 0; overflow-wrap: anywhere; }
-.diag-gpu-error { margin: 0; color: var(--warning); font-size: 0.84rem; }
-.diag-gpu-checks { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: 0.84rem; }
-.diag-gpu-checks li { display: inline-flex; align-items: center; gap: 5px; }
-.diag-gpu-checks .is-ok svg { color: var(--success); }
-.diag-gpu-checks .is-no { color: var(--muted); }
-.diag-gpu-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
-/* Capabilities: a format a row, decode and encode as ticks. */
-.diag-caps { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.diag-caps th, .diag-caps td { padding: 4px 2px; border-top: 1px solid var(--line); text-align: left; font-weight: 400; }
-.diag-caps thead th { border-top: 0; color: var(--muted); font-size: 0.75rem; }
-.diag-caps td.is-ok { color: var(--success); }
-.diag-caps td.is-no, .diag-caps td.is-unknown { color: var(--muted); }
+/* Hardware: the CPU, the memory and the GPU as tiles, then the formats it plays. */
+.diag-hw { gap: 16px; }
+.diag-hw-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.diag-hw-tile { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.diag-hw-tile.is-missing .diag-hw-picture { filter: grayscale(1); opacity: 0.45; }
+.diag-hw-picture { display: grid; place-items: center; width: 72px; height: 72px; color: var(--muted); }
+.diag-hw-picture img { width: 72px; height: 72px; object-fit: contain; }
+.diag-hw-text { display: grid; gap: 2px; min-width: 0; font-size: 0.84rem; }
+.diag-hw-text strong { font-size: 0.95rem; line-height: 1.3; overflow-wrap: anywhere; }
+.diag-hw-kind { color: var(--muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.diag-hw-ok, .diag-hw-warn { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; }
+.diag-hw-ok { color: var(--success); }
+.diag-hw-warn { color: var(--warning); }
+.diag-hw-driver { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; }
+.diag-hw-error { margin: 0; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warning) 10%, transparent); color: var(--warning); font-size: 0.84rem; }
+.diag-hw-formats { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px 18px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
+.diag-hw-formats > p { grid-column: 1 / -1; margin: 0; font-size: 0.78rem; }
+.diag-hw-group { display: grid; align-content: start; gap: 7px; min-width: 0; }
+.diag-hw-group p { margin: 0; font-size: 0.76rem; }
+.diag-hw-group ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.diag-hw-group li { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 0.8rem; font-weight: 500; opacity: 0.75; }
+.diag-hw-group li.is-lit { border-color: color-mix(in srgb, var(--success) 45%, var(--line)); background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); font-weight: 600; opacity: 1; }
+.diag-hw-group li.is-cpu { border-color: transparent; background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); opacity: 1; }
+.diag-hw-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 0.84rem; }
 /* Right now: a reading a row, its verdict, and its last ten minutes as a line. */
 .diag-now { gap: 0; }
-.diag-now .diag-card-head { margin-bottom: 6px; }
-.diag-now-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 160px; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
-.diag-now-row:first-of-type { border-top: 0; }
-.diag-now-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
-.diag-now-text { display: grid; gap: 2px; min-width: 0; font-size: 0.86rem; }
-.diag-now-label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.diag-spark { width: 160px; height: 30px; overflow: visible; }
-.diag-spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.diag-spark-dot { fill: var(--accent); }
-.diag-spark-limit { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.diag-now .diag-card-head { margin-bottom: 12px; }
+.diag-now-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 740px) { .diag-now-grid { grid-template-columns: minmax(0, 1fr); } }
+.diag-now-tile { display: grid; gap: 6px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 2%, transparent); }
+.diag-now-tile.is-warn { border-color: color-mix(in srgb, var(--warning) 45%, var(--line)); }
+.diag-now-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.diag-now-tile.is-warn .diag-now-icon { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
+.diag-now-label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.92rem; }
+.diag-now-sub { min-height: 1.3em; font-size: 0.82rem; }
+/* A graph: a soft area under a curve, the newest reading a glowing dot, the limit dotted. */
+.diag-spark-wrap { position: relative; width: 100%; height: 108px; margin-top: 4px; padding: 8px 10px 18px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 5%, transparent); color: var(--accent); }
+.diag-spark-wrap.is-warn { background: color-mix(in srgb, var(--warning) 8%, transparent); color: var(--warning); }
+.diag-spark { display: block; width: 100%; height: 100%; overflow: visible; }
+.diag-spark-line { fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.diag-spark-base { stroke: color-mix(in srgb, var(--ink) 12%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.diag-spark-limit { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.diag-spark-plot { position: relative; width: 100%; height: 100%; }
+.diag-spark-dot { position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%); border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 22%, transparent); pointer-events: none; }
+.diag-spark-limit-label { position: absolute; right: 2px; transform: translateY(-120%); color: var(--muted); font-size: 0.66rem; font-weight: 600; line-height: 1; }
+.diag-spark-caption { position: absolute; left: 10px; bottom: 4px; color: var(--muted); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
 .diag-now-foot { margin: 8px 0 0; font-size: 0.78rem; }
-/* Live sessions, compact: Live sessions' tab has the cards. */
-.diag-session { display: grid; grid-template-columns: auto minmax(0, 1fr) 130px; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
-.diag-session-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
-.diag-session-icon.is-direct { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
-.diag-session-text { display: grid; gap: 2px; min-width: 0; font-size: 0.86rem; }
-.diag-session-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.diag-session-progress { display: grid; gap: 4px; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
-/* The last GPU test, in a few rows. */
-.diag-tests-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
-.diag-tests-table th, .diag-tests-table td { padding: 6px 4px; border-top: 1px solid var(--line); text-align: left; font-weight: 400; }
-.diag-tests-table thead th { border-top: 0; color: var(--muted); font-size: 0.78rem; }
-.diag-tests-foot { margin: 0; font-size: 0.86rem; }
-.diag-saved-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 0.84rem; }
+/* Overview's cards: four to a row, two where narrow; a snapshot every 30 seconds. */
+.diag-tiles { display: grid; gap: 10px; min-width: 0; }
+.diag-tiles-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.diag-tiles-head h3 { margin: 0; font-size: 1.02rem; }
+.diag-tiles-head .muted { font-size: 0.8rem; }
+.diag-tiles .stat-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* Every card alike: the label small, the value bold at body size, the line under it. */
+.diag-tiles .stat-tile { align-items: start; border-radius: 16px; padding: 14px 16px; }
+.diag-tiles .stat-tile dt { font-size: 0.78rem; }
+.diag-tiles .stat-tile dd { display: grid; gap: 2px; margin-top: 2px; }
+.diag-tiles .stat-tile dd strong { overflow: hidden; font-size: 0.98rem; font-weight: 700; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.diag-tiles .stat-tile dd small { overflow: hidden; font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.diag-tiles .stat-tile-icon { width: 34px; height: 34px; }
+@media (max-width: 1250px) { .diag-tiles .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Live sessions: the graphs on top, the cards under them. */
+.diag-sessions-tab { display: grid; gap: 18px; min-width: 0; }
+.diag-saved-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 0.84rem; }
 @media (max-width: 1000px) {
   .diag-video { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 740px) {
-  .diag-gpu { flex-direction: column; }
-  .diag-now-row { grid-template-columns: auto minmax(0, 1fr); }
-  .diag-now-row .diag-spark { grid-column: 1 / -1; width: 100%; }
-  .diag-session { grid-template-columns: auto minmax(0, 1fr); }
-  .diag-session-progress { grid-column: 2; }
 }
 .diagnostics-logging { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 8px 12px; border-radius: 10px; background: var(--field); min-width: 0; }
 .diagnostics-logging.is-raised { background: color-mix(in srgb, var(--warning) 12%, var(--field)); }
@@ -3359,6 +3370,58 @@ tr.control-anchor-flash > td {
 .hw-verdict.is-smooth { color: var(--success); }
 .hw-verdict.is-tight { color: var(--warning); }
 .hw-verdict.is-slow, .hw-verdict.is-failed { color: var(--danger); }
+/* The hardware test in the Diagnostics style (VideoHardwareTest.tsx): cards with an
+   icon in the head, speed as bars with real time marked, small rows in the side. */
+.hwt-card { gap: 12px; }
+.hwt-note { margin: 0; font-size: 0.78rem; }
+.hwt-now { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 0.86rem; }
+.hwt-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: hwt-pulse 1.2s ease-in-out infinite; }
+@keyframes hwt-pulse { 50% { opacity: 0.3; transform: scale(0.75); } }
+@media (prefers-reduced-motion: reduce) { .hwt-pulse { animation: none; } }
+.hwt-rows { display: grid; }
+.hwt-row { display: grid; grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.6fr); align-items: center; gap: 8px 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+.hwt-row:first-child { border-top: 0; }
+.hwt-name { font-size: 0.88rem; font-weight: 600; }
+.hwt-skipped { font-size: 0.82rem; }
+.hwt-bars { display: grid; gap: 6px; min-width: 0; }
+.hwt-bar { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(120px, auto); align-items: center; gap: 10px; font-size: 0.8rem; }
+.hwt-who { color: var(--muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; }
+.hwt-track { position: relative; height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
+.hwt-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--success); }
+.hwt-fill.is-tight { background: var(--warning); }
+.hwt-fill.is-slow, .hwt-fill.is-failed { background: var(--danger); }
+.hwt-one { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--ink); opacity: 0.35; }
+.hwt-value { text-align: right; white-space: nowrap; }
+.hwt-together { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.hwt-together-item { display: grid; gap: 4px; align-content: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--success) 6%, transparent); font-size: 0.82rem; }
+.hwt-together-item.is-none { background: color-mix(in srgb, var(--warning) 7%, transparent); }
+.hwt-together-count { font-size: 0.98rem; font-weight: 700; }
+.diag-badge-mini { justify-self: start; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, transparent); font-size: 0.72rem; font-weight: 600; }
+.diag-badge-mini.is-gpu, .diag-badge-mini.is-plenty, .diag-badge-mini.is-enough { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.diag-badge-mini.is-cpu { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue); }
+.diag-badge-mini.is-short { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.hwt-disks { display: grid; }
+.hwt-disk { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.hwt-disk:first-child { border-top: 0; }
+.hwt-disk-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: color-mix(in srgb, var(--success) 13%, transparent); color: var(--success); }
+.hwt-disk.is-warn .hwt-disk-icon, .hwt-disk.is-danger .hwt-disk-icon { background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
+.hwt-disk.is-muted .hwt-disk-icon { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--muted); }
+.hwt-disk-text { display: grid; gap: 2px; min-width: 0; font-size: 0.86rem; }
+.hwt-disk-text small { font-size: 0.78rem; }
+.hwt-past { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border-radius: 10px; text-align: left; }
+.hwt-past:hover, .hwt-past.is-shown { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.hwt-past-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.hwt-past-dot.is-stopped { background: var(--warning); }
+.hwt-past-dot.is-failed { background: var(--danger); }
+.hwt-past-text { display: grid; gap: 1px; min-width: 0; font-size: 0.82rem; }
+.hwt-past-text small { color: var(--muted); font-size: 0.74rem; }
+.hwt-change { display: grid; gap: 2px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 0.82rem; }
+.hwt-change small { font-size: 0.74rem; }
+@media (max-width: 740px) {
+  .hwt-row { grid-template-columns: minmax(0, 1fr); }
+  .hwt-bar { grid-template-columns: 34px minmax(0, 1fr); }
+  .hwt-value { grid-column: 2; text-align: left; }
+}
 
 /* Infrastructure › Now playing: a card a stream, the way Plex's dashboard shows them. */
 .now-playing { display: grid; gap: 16px; min-width: 0; }

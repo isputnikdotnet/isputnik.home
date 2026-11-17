@@ -13,6 +13,8 @@ export interface ServerNow {
     /** Share of all cores busy since the last reading (or over a short sample), 0–100. */
     percent: number;
     cores: number;
+    /** The CPU's model, as the system names it. */
+    model: string | null;
     /** 1, 5 and 15-minute load averages; null where the system has none (Windows). */
     load: [number, number, number] | null;
   };
@@ -73,7 +75,7 @@ export async function serverNow(): Promise<ServerNow> {
   const load = process.platform === "win32" ? null : (os.loadavg().map((value) => Math.round(value * 100) / 100) as [number, number, number]);
   return {
     at: new Date(now.at).toISOString(),
-    cpu: { percent: percentBetween(before, now), cores: os.cpus().length, load },
+    cpu: { percent: percentBetween(before, now), cores: os.cpus().length, model: os.cpus()[0]?.model.trim() || null, load },
     memory: { totalBytes: os.totalmem(), availableBytes: memAvailable() ?? os.freemem(), homeBytes: process.memoryUsage().rss }
   };
 }

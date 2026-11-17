@@ -678,6 +678,17 @@
         "testRunning": "Идёт проверка оборудования. Проверьте диски, когда она закончится.",
         "stoppedTitle": "Проверка дисков остановлена",
         "noLibraries": "Нет видеобиблиотек для проверки."
+      },
+      "tiles": {
+        "last": "Последний тест",
+        "atOnce": "Зрителей одновременно",
+        "yourLimit_one": "ваш предел {{count}}",
+        "yourLimit_few": "ваш предел {{count}}",
+        "yourLimit_many": "ваш предел {{count}}",
+        "yourLimit_other": "ваш предел {{count}}",
+        "hdrGpu": "4K HDR на GPU",
+        "hdrCpu": "4K HDR на процессоре",
+        "gpu": "GPU"
       }
     },
     "pairing": {
@@ -3128,18 +3139,13 @@
         "reports": "Отчёты"
       },
       "gpu": {
-        "maker": {
-          "intel": "Intel",
-          "amd": "AMD",
-          "nvidia": "NVIDIA",
-          "other": "GPU"
-        },
         "title": {
           "intel": "Графика Intel",
           "amd": "Графика AMD",
           "nvidia": "Графика NVIDIA",
           "other": "Видеокарта",
-          "none": "GPU не используется"
+          "none": "GPU не используется",
+          "arc": "Графика Intel Arc"
         },
         "state": {
           "inUse": "Используется",
@@ -3148,36 +3154,13 @@
           "none": "Не найден",
           "checking": "Проверка…"
         },
-        "driver": "Драйвер",
-        "device": "Через",
-        "vaapi": "VA-API · {{device}}",
         "mode": "Режим",
         "modeValue": {
           "auto": "Автоматически — сначала GPU",
           "cpu": "Только CPU",
           "gpu": "Только GPU"
         },
-        "check": {
-          "found": "GPU найден",
-          "driver": "Драйвер отвечает",
-          "encodes": "Кодирует H.264",
-          "ready": "Готов к перекодированию"
-        },
         "settings": "Настройки перекодирования"
-      },
-      "caps": {
-        "title": "Возможности",
-        "format": "Формат",
-        "decode": "Декод.",
-        "encode": "Кодир.",
-        "yes": "Да",
-        "no": "Нет",
-        "tonemap": "HDR → SDR",
-        "subtitles": "Субтитры",
-        "gpu": "на GPU",
-        "cpu": "на CPU",
-        "note": "По проверке GPU при запуске видеодвижка.",
-        "noteOld": "По проверке GPU при запуске видеодвижка. Кодирование кроме H.264 покажет видеодвижок 0.41."
       },
       "now": {
         "title": "Сейчас",
@@ -3206,37 +3189,89 @@
         "sendingValue_few": "{{mbps}} Мбит/с, {{count}} зрителя",
         "sendingValue_many": "{{mbps}} Мбит/с, {{count}} зрителей",
         "sendingValue_other": "{{mbps}} Мбит/с, {{count}} зрителя",
-        "foot": "Читается, только пока страница открыта; графики начинаются с её открытия. На сервере ничего не хранится."
+        "foot": "Читается, только пока страница открыта; графики начинаются с её открытия. На сервере ничего не хранится.",
+        "collecting": "Сбор данных…",
+        "peak": "пик {{value}}",
+        "mbitUnit": " Мбит/с",
+        "usedUnit": "% занято"
       },
       "sessions": {
         "title_one": "Сеансы · {{count}}",
         "title_few": "Сеансы · {{count}}",
         "title_many": "Сеансы · {{count}}",
         "title_other": "Сеансы · {{count}}",
-        "all": "Все сеансы"
-      },
-      "tests": {
-        "title": "Результаты теста GPU",
-        "phase": {
-          "done": "Пройден",
-          "stopped": "Не завершён",
-          "running": "Идёт"
-        },
-        "open": "Открыть тесты GPU",
-        "run": "Запустить тест",
-        "none": "Ещё не запускался. Тест показывает, как быстро каждый вид фильма перекодируется на GPU и CPU и сколько зрителей потянет сервер.",
-        "speed": "{{speed}}× реального времени",
-        "together_one": "{{count}} одновременно",
-        "together_few": "{{count}} одновременно",
-        "together_many": "{{count}} одновременно",
-        "together_other": "{{count}} одновременно",
-        "suggested_one": "рекомендуемый предел {{count}} зритель",
-        "suggested_few": "рекомендуемый предел {{count}} зрителя",
-        "suggested_many": "рекомендуемый предел {{count}} зрителей",
-        "suggested_other": "рекомендуемый предел {{count}} зрителя"
+        "all": "Все сеансы",
+        "speed": "скорость {{speed}}×"
       },
       "savedNone": "Пока нет.",
-      "savedAll": "Все отчёты"
+      "savedAll": "Все отчёты",
+      "hw": {
+        "title": "Оборудование",
+        "cpu": "Процессор",
+        "memory": "Память",
+        "gpu": "GPU",
+        "threads_one": "{{count}} поток",
+        "threads_few": "{{count}} потока",
+        "threads_many": "{{count}} потоков",
+        "threads_other": "{{count}} потока",
+        "attached": "Передан в видеоконтейнер · {{device}}",
+        "notAttached": "Не передан в видеоконтейнер",
+        "formatsNote": "Зелёным — делается на GPU. Остальное делает процессор, медленнее.",
+        "formatsNoGpu": "GPU не используется: всё это делает процессор, медленнее.",
+        "onCpu": "На процессоре",
+        "onGpu": "На GPU",
+        "hdr": "HDR → SDR",
+        "subtitles": "Субтитры",
+        "decoding": "Аппаратное декодирование",
+        "encoding": "Аппаратное кодирование",
+        "software": "Программно, на процессоре",
+        "extras": "Дополнительно",
+        "encodingNote": "Перекодирование всегда делает H.264; остальное — что GPU мог бы кодировать.",
+        "noEncode": "Не кодирует это на GPU",
+        "encodeUnknown": "Покажет видеодвижок 0.41",
+        "cpuOnly": {
+          "divx": "DivX / Xvid",
+          "vp8": "VP8",
+          "h264_10": "H.264 10-bit",
+          "vvc": "VVC"
+        },
+        "scaling": "Аппаратное масштабирование",
+        "largest": "Декодирует кадры до {{width}}×{{height}}"
+      },
+      "tiles": {
+        "title": "Коротко",
+        "asOf": "На {{time}} · каждые 30 с",
+        "cpu": "Процессор",
+        "sessions": "Сеансы",
+        "converting_one": "{{count}} перекодируется",
+        "converting_few": "{{count}} перекодируются",
+        "converting_many": "{{count}} перекодируются",
+        "converting_other": "{{count}} перекодируются",
+        "allDirect": "Всё идёт как есть",
+        "nobody": "Никто не смотрит",
+        "sending": "Отдаётся сейчас",
+        "mbps": "{{mbps}} Мбит/с",
+        "viewers_one": "{{count}} зрителю",
+        "viewers_few": "{{count}} зрителям",
+        "viewers_many": "{{count}} зрителям",
+        "viewers_other": "{{count}} зрителям",
+        "serverMemory": "Память сервера",
+        "freeOf": "свободно из {{total}}",
+        "conversion": "Перекодирование",
+        "atOnce_one": "до {{count}} одновременно",
+        "atOnce_few": "до {{count}} одновременно",
+        "atOnce_many": "до {{count}} одновременно",
+        "atOnce_other": "до {{count}} одновременно",
+        "away": "вне дома до {{height}}p",
+        "awayOriginal": "вне дома как есть",
+        "convMemory": "Память для перекодирования",
+        "perViewer": "{{size}} на зрителя",
+        "inUse": "занято {{size}}",
+        "convDisk": "Диск для перекодирования",
+        "free": "свободно {{size}}",
+        "noDisk": "Диск не подключён",
+        "kept": "Готовые фильмы"
+      }
     }
   },
   "nowPlaying": {

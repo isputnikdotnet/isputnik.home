@@ -1,28 +1,29 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Check, Cpu, FileText, Gauge, MemoryStick, Minus, MonitorPlay, Network, Play as PlayIcon, RefreshCw, Shuffle } from "lucide-react";
+import { Activity, Archive, ArrowRight, Check, Cpu, FileText, Gauge, HardDrive, MemoryStick, Minus, MonitorPlay, Network, RefreshCw, Server, Settings2 } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, diagnosticsPartHref, followRoute, libraryManageHref, type DiagnosticsTab } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RouteTab } from "../../../shared/RouteTab";
+import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes } from "../../../shared/utils";
 import { AppLog, isRunning, useAppsStatus } from "../sections/AppsSection";
-import { clockOf, NowPlayingList } from "../sections/NowPlayingSection";
-import { HardwareTestPage, type HardwareTest } from "../sections/VideoHardwareTest";
+import { NowPlayingList } from "../sections/NowPlayingSection";
+import { HardwareTestPage } from "../sections/VideoHardwareTest";
 import { CODEC_NAMES, conversionBody, GpuRow, useEngine, type ConversionSettings, type ConversionState, type HardwareState } from "../sections/VideoSettingsSection";
 import { SavedReports, useSavedReports } from "./SavedReports";
 import { useWatching, type Play } from "./Watching";
 
 // Diagnostics › Video (docs/diagnostics-pages-plan.md; redrawn 2026-11-17 with tabs,
-// the one part page allowed a row of them): Overview — the GPU, the machine right
-// now, who is watching, the last GPU test — with its capabilities, diagnostic mode
-// and the newest saved reports in a narrow column; then GPU tests, Live sessions,
-// Logs and Reports, each the page those already are, not a copy. "Right now" is read
-// only while the page is open and kept nowhere but here: its little graphs are the
-// last ten minutes of what the page itself read.
+// the one part page allowed a row of them): Overview — cards of how things stand,
+// looked at again every 30 seconds, then the hardware and the formats it plays — with
+// diagnostic mode and the newest saved reports in a narrow column; Live sessions —
+// the machine right now as graphs (read every 5 seconds while open, kept nowhere but
+// here), then everything being watched; then GPU tests, Logs and Reports, each the
+// page those already are, not a copy.
 
 const TABS: DiagnosticsTab[] = ["overview", "tests", "sessions", "logs", "reports"];
 
@@ -68,7 +69,7 @@ export function VideoPartBody({ tab, saved, modeCard, logLinks }: {
 
       {tab === "overview" && prefix && <Overview prefix={prefix} plays={watching.plays} saved={saved} modeCard={modeCard} />}
       {tab === "tests" && prefix && <TestsTab prefix={prefix} />}
-      {tab === "sessions" && prefix && <NowPlayingList plays={watching.plays} missing={watching.missing} />}
+      {tab === "sessions" && prefix && <SessionsTab prefix={prefix} plays={watching.plays} missing={watching.missing} />}
       {tab === "logs" && (
         <div className="diag-video">
           <div className="diag-video-main">{prefix && <AppLog prefix={prefix} />}</div>
@@ -85,19 +86,29 @@ export function VideoPartBody({ tab, saved, modeCard, logLinks }: {
 
 // ── Overview ───────────────────────────────────────────────────────────────────
 
+/** How often the Overview's cards look again: a snapshot, not a live graph. */
+const OVERVIEW_MS = 30_000;
+
 function Overview({ prefix, plays, saved, modeCard }: { prefix: string; plays: Play[] | null; saved: ReturnType<typeof useSavedReports>; modeCard: ReactNode }) {
   const conversion = useEngine<ConversionState>(`${prefix}/api/admin/conversion`);
+  const server = useServerNow(OVERVIEW_MS);
+  const { load } = conversion;
+  useEffect(() => {
+    const timer = window.setInterval(() => void load().catch(() => undefined), OVERVIEW_MS);
+    return () => window.clearInterval(timer);
+  }, [load]);
+  // The plays as they were at the last look, kept until the next one.
+  const [snapshot, setSnapshot] = useState<{ at: string | null; plays: Play[] | null }>({ at: null, plays: null });
+  const at = server.now?.at ?? null;
+  if ((at !== snapshot.at && plays) || (snapshot.plays === null && plays)) setSnapshot({ at, plays });
   return (
     <div className="diag-video">
       <div className="diag-video-main">
-        <GpuCard prefix={prefix} conversion={conversion} />
-        <RightNow plays={plays} conversion={conversion.state} />
-        <LiveSessions plays={plays} />
-        <TestSummary prefix={prefix} />
+        <OverviewTiles conversion={conversion.state} now={server.now} plays={snapshot.plays} />
+        <HardwareCard prefix={prefix} conversion={conversion} now={server.now} />
         <CatalogWork prefix={prefix} />
       </div>
       <aside className="diag-video-side">
-        {conversion.state?.hardware && <Capabilities hardware={conversion.state.hardware} />}
         {modeCard}
         <SavedMini saved={saved} />
       </aside>
@@ -105,13 +116,143 @@ function Overview({ prefix, plays, saved, modeCard }: { prefix: string; plays: P
   );
 }
 
-/** Intel, AMD or NVIDIA, from the driver vainfo names: the picture to show. */
-export function gpuMaker(hardware: Pick<HardwareState, "driver">): "intel" | "amd" | "nvidia" | "other" {
+/** The Overview's cards: the machine, who is watching and how much goes out, and
+ *  what conversions may use and hold — as of the last look, every 30 seconds. */
+function OverviewTiles({ conversion, now, plays }: { conversion: ConversionState | null; now: ServerNow | null; plays: Play[] | null }) {
+  const { t, i18n } = useTranslation(["controlAdmin"]);
+  const streams = (plays ?? []).filter((play) => play.kind !== "download");
+  const converting = streams.filter((play) => play.kind === "converted" && play.converting && play.converter !== null && !play.kept).length;
+  const sending = Math.round((plays ?? []).reduce((sum, play) => sum + (play.mbps ?? 0), 0) * 10) / 10;
+  const settings = conversion?.settings;
+  const usage = conversion?.usage;
+  const disk = conversion?.disk;
+  const mode = settings?.hardware ?? "auto";
+  const dash = "—";
+  const tiles: StatTile[] = [
+    {
+      icon: <Cpu size={19} />, iconTone: "blue",
+      label: t("controlAdmin:diagnostics.video.tiles.cpu"),
+      value: now ? `${Math.round(now.cpu.percent)}%` : dash,
+      sub: now ? t("controlAdmin:diagnostics.video.hw.threads", { count: now.cpu.cores }) : undefined,
+      tone: now && now.cpu.percent >= 90 ? "warn" : undefined
+    },
+    {
+      icon: <MonitorPlay size={19} />, iconTone: "mint",
+      label: t("controlAdmin:diagnostics.video.tiles.sessions"),
+      value: plays ? String(streams.length) : dash,
+      sub: plays ? (converting > 0 ? t("controlAdmin:diagnostics.video.tiles.converting", { count: converting }) : streams.length ? t("controlAdmin:diagnostics.video.tiles.allDirect") : t("controlAdmin:diagnostics.video.tiles.nobody")) : undefined
+    },
+    {
+      icon: <Network size={19} />, iconTone: "gold",
+      label: t("controlAdmin:diagnostics.video.tiles.sending"),
+      value: plays ? t("controlAdmin:diagnostics.video.tiles.mbps", { mbps: sending }) : dash,
+      sub: plays ? t("controlAdmin:diagnostics.video.tiles.viewers", { count: streams.length }) : undefined
+    },
+    {
+      icon: <MemoryStick size={19} />, iconTone: "rose",
+      label: t("controlAdmin:diagnostics.video.tiles.serverMemory"),
+      value: now ? formatBytes(now.memory.availableBytes) : dash,
+      sub: now ? t("controlAdmin:diagnostics.video.tiles.freeOf", { total: formatBytes(now.memory.totalBytes) }) : undefined,
+      tone: now && now.memory.availableBytes / now.memory.totalBytes < 0.1 ? "warn" : undefined
+    },
+    {
+      icon: <Settings2 size={19} />, iconTone: "blue",
+      label: t("controlAdmin:diagnostics.video.tiles.conversion"),
+      value: settings ? t(`controlAdmin:diagnostics.video.gpu.modeValue.${mode}`) : dash,
+      sub: settings ? [
+        t("controlAdmin:diagnostics.video.tiles.atOnce", { count: settings.maxViewers }),
+        settings.remoteQuality !== undefined ? (settings.remoteQuality ? t("controlAdmin:diagnostics.video.tiles.away", { height: settings.remoteQuality }) : t("controlAdmin:diagnostics.video.tiles.awayOriginal")) : null
+      ].filter(Boolean).join(" · ") : undefined
+    },
+    {
+      icon: <MemoryStick size={19} />, iconTone: "mint",
+      label: t("controlAdmin:diagnostics.video.tiles.convMemory"),
+      value: settings?.memoryMb !== undefined ? formatBytes(settings.memoryMb * 1024 * 1024) : settings ? t("controlAdmin:diagnostics.video.tiles.perViewer", { size: formatBytes(settings.memoryPerViewerMb * 1024 * 1024) }) : dash,
+      sub: usage ? t("controlAdmin:diagnostics.video.tiles.inUse", { size: formatBytes(usage.memoryBytes) }) : undefined
+    },
+    {
+      icon: <HardDrive size={19} />, iconTone: disk && !disk.mapped ? "warn" : "gold",
+      label: t("controlAdmin:diagnostics.video.tiles.convDisk"),
+      value: !disk ? dash : disk.mapped && disk.freeBytes !== null ? t("controlAdmin:diagnostics.video.tiles.free", { size: formatBytes(disk.freeBytes) }) : t("controlAdmin:diagnostics.video.tiles.noDisk"),
+      sub: usage ? t("controlAdmin:diagnostics.video.tiles.inUse", { size: formatBytes(usage.diskBytes) }) : undefined
+    },
+    {
+      icon: <Archive size={19} />, iconTone: "rose",
+      label: t("controlAdmin:diagnostics.video.tiles.kept"),
+      value: usage?.kept ? String(usage.kept.count) : dash,
+      sub: usage?.kept ? formatBytes(usage.kept.bytes) : undefined
+    }
+  ];
+  return (
+    <section className="diag-tiles" aria-labelledby="diag-tiles-title">
+      <header className="diag-tiles-head">
+        <h3 id="diag-tiles-title">{t("controlAdmin:diagnostics.video.tiles.title")}</h3>
+        {now && <span className="muted">{t("controlAdmin:diagnostics.video.tiles.asOf", { time: new Date(now.at).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit", second: "2-digit" }) })}</span>}
+      </header>
+      <StatTiles tiles={tiles} label={t("controlAdmin:diagnostics.video.tiles.title")} />
+    </section>
+  );
+}
+
+/** Live sessions: the machine right now as graphs, then everything being watched. */
+function SessionsTab({ prefix, plays, missing }: { prefix: string; plays: Play[] | null; missing: boolean }) {
+  const conversion = useEngine<ConversionState>(`${prefix}/api/admin/conversion`);
+  const server = useServerNow(POLL_MS);
+  return (
+    <div className="diag-sessions-tab">
+      <RightNow plays={plays} conversion={conversion.state} now={server.now} failed={server.failed} />
+      <NowPlayingList plays={plays} missing={missing} />
+    </div>
+  );
+}
+
+const PCI_MAKERS: Record<string, "intel" | "amd" | "nvidia"> = { "0x8086": "intel", "0x1002": "amd", "0x10de": "nvidia" };
+
+/** Intel, AMD or NVIDIA: by its PCI vendor where the engine says (0.41+), else by
+ *  the driver vainfo names. */
+export function gpuMaker(hardware: Pick<HardwareState, "driver" | "pci">): "intel" | "amd" | "nvidia" | "other" {
+  const byPci = hardware.pci ? PCI_MAKERS[hardware.pci.vendor] : undefined;
+  if (byPci) return byPci;
   const driver = hardware.driver ?? "";
   if (/intel|\biHD\b|i965/i.test(driver)) return "intel";
   if (/\bAMD\b|radeon|gallium/i.test(driver)) return "amd";
   if (/nvidia|nouveau/i.test(driver)) return "nvidia";
   return "other";
+}
+
+// The pictures (public/Assets/gpu, 256 px): one per kind of card, and the CPUs'.
+// Which Intel it is takes the PCI device id: Arc cards are DG2 (0x56xx) and
+// Battlemage (0xe2xx); built-in graphics up to Comet Lake (gen 9) is the older
+// Quick Sync, Ice Lake on the newer.
+export type HardwarePicture = "intel-arc-a300" | "intel-arc-a700" | "intel-quicksync-modern" | "intel-quicksync-legacy" | "amd-radeon-gpu" | "nvidia-gpu" | "amd-cpu" | "generic-gpu";
+
+/** Arc A310, A380 and the A3xx mobiles. */
+const ARC_A300 = new Set(["0x5693", "0x5694", "0x5695", "0x5696", "0x5697", "0x56a5", "0x56a6", "0x56b0", "0x56b1", "0x56b2", "0x56b3", "0x56ba", "0x56bb", "0x56bc", "0x56bd"]);
+/** Built-in graphics before Ice Lake, by the device id's first byte: Sandy Bridge to Comet Lake, Atom's Apollo and Gemini Lake. */
+const QUICKSYNC_LEGACY = new Set(["0x01", "0x04", "0x0a", "0x0c", "0x0d", "0x0f", "0x16", "0x19", "0x22", "0x31", "0x3e", "0x59", "0x5a", "0x87", "0x9b"]);
+
+/** The GPU's picture, by its maker and, for Intel, which one it is. */
+export function gpuPicture(hardware: Pick<HardwareState, "driver" | "pci">): HardwarePicture {
+  const maker = gpuMaker(hardware);
+  if (maker === "nvidia") return "nvidia-gpu";
+  if (maker === "amd") return "amd-radeon-gpu";
+  if (maker !== "intel") return "generic-gpu";
+  const id = hardware.pci?.vendor === "0x8086" ? hardware.pci.device : null;
+  if (!id) return "intel-quicksync-modern";
+  if (ARC_A300.has(id)) return "intel-arc-a300";
+  if (id.startsWith("0x56") || id.startsWith("0xe2")) return "intel-arc-a700";
+  return QUICKSYNC_LEGACY.has(id.slice(0, 4)) ? "intel-quicksync-legacy" : "intel-quicksync-modern";
+}
+
+/** The CPU's picture, from its model: AMD's, or Intel's older or newer; null for anything else. */
+export function cpuPicture(model: string | null | undefined): HardwarePicture | null {
+  const name = model ?? "";
+  if (/\bAMD\b|Ryzen|EPYC|Athlon/i.test(name)) return "amd-cpu";
+  if (!/Intel/i.test(name)) return null;
+  // Tenth generation on (and Core Ultra, the N-series Atoms): the newer one.
+  const generation = Number(name.match(/(\d+)(?:th|nd|rd|st) Gen/i)?.[1] ?? name.match(/i[3579]-(\d{4,5})/i)?.[1]?.slice(0, -3) ?? NaN);
+  if (/Ultra|\bN\d{2,3}\b/i.test(name) || generation >= 10) return "intel-quicksync-modern";
+  return "intel-quicksync-legacy";
 }
 
 type GpuState = "inUse" | "setAside" | "cpuOnly" | "none" | "checking";
@@ -123,7 +264,82 @@ function gpuState(hardware: HardwareState): GpuState {
 }
 const GPU_PILL: Record<GpuState, string> = { inUse: "is-ready", setAside: "is-needsSetup", cpuOnly: "is-off", none: "is-needsSetup", checking: "is-off" };
 
-function GpuCard({ prefix, conversion }: { prefix: string; conversion: ReturnType<typeof useEngine<ConversionState>> }) {
+/** The formats a GPU may decode, in the order people know them: lit where this one does. */
+const DECODE_FORMATS = ["h264", "hevc", "hevc10", "hevc12", "vp9", "vp9_10", "vp9_12", "av1", "av1_10", "mpeg2video", "vc1", "mjpeg"] as const;
+/** What it may encode (vainfo's list): conversions only ever make H.264. */
+const ENCODE_FORMATS = ["h264", "hevc", "hevc10", "vp9", "vp9_10", "av1", "mjpeg"] as const;
+/** What only the CPU plays, by the ffmpeg decoder that does it (engine 0.41+ says which it has). */
+const CPU_ONLY: { decoder: string; key: "divx" | "vp8" | "h264_10" | "vvc" }[] = [
+  { decoder: "mpeg4", key: "divx" },
+  { decoder: "vp8", key: "vp8" },
+  { decoder: "h264", key: "h264_10" },
+  { decoder: "vvc", key: "vvc" }
+];
+
+function Chip({ lit, label, title, tone = "gpu" }: { lit: boolean; label: string; title: string; tone?: "gpu" | "cpu" }) {
+  return (
+    <li className={lit ? (tone === "cpu" ? "is-cpu" : "is-lit") : undefined} title={title} aria-label={`${label}: ${title}`}>
+      {lit && tone === "gpu" && <Check size={12} aria-hidden="true" />}
+      {label}
+    </li>
+  );
+}
+
+/** What it plays on the GPU, what the GPU could encode, what falls back to the CPU, and the rest. */
+function Formats({ hardware, usable }: { hardware: HardwareState | null; usable: boolean }) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const decodes = new Set(hardware?.decode ?? []);
+  const known = hardware?.encodeFormats !== undefined;
+  const encodes = new Set(hardware?.encodeFormats ?? (hardware?.encode ? ["h264"] : []));
+  const name = (key: string) => CODEC_NAMES[key] ?? key;
+  const onGpu = t("controlAdmin:diagnostics.video.hw.onGpu");
+  const onCpu = t("controlAdmin:diagnostics.video.hw.onCpu");
+  // An engine before 0.41 says nothing of the CPU's decoders: the three every ffmpeg has.
+  const cpu = hardware?.cpuDecoders ? CPU_ONLY.filter((entry) => hardware.cpuDecoders!.includes(entry.decoder)) : CPU_ONLY.filter((entry) => entry.key !== "vvc");
+  // 4K where it decodes pictures that large; nothing where the engine can't say.
+  const fourK = Boolean(hardware?.maxDecode && hardware.maxDecode.width >= 3840);
+  return (
+    <div className="diag-hw-formats">
+      <div className="diag-hw-group">
+        <span className="diag-hw-kind">{t("controlAdmin:diagnostics.video.hw.decoding")}</span>
+        <ul aria-label={t("controlAdmin:diagnostics.video.hw.decoding")}>
+          {DECODE_FORMATS.map((key) => <Chip key={key} lit={usable && decodes.has(key)} label={name(key)} title={usable && decodes.has(key) ? onGpu : onCpu} />)}
+        </ul>
+      </div>
+      <div className="diag-hw-group">
+        <span className="diag-hw-kind">{t("controlAdmin:diagnostics.video.hw.encoding")}</span>
+        <ul aria-label={t("controlAdmin:diagnostics.video.hw.encoding")}>
+          {ENCODE_FORMATS.map((key) => {
+            const lit = usable && encodes.has(key);
+            const title = lit ? onGpu : known || key === "h264" ? t("controlAdmin:diagnostics.video.hw.noEncode") : t("controlAdmin:diagnostics.video.hw.encodeUnknown");
+            return <Chip key={key} lit={lit} label={name(key)} title={title} />;
+          })}
+        </ul>
+        <p className="muted">{t("controlAdmin:diagnostics.video.hw.encodingNote")}</p>
+      </div>
+      <div className="diag-hw-group">
+        <span className="diag-hw-kind">{t("controlAdmin:diagnostics.video.hw.software")}</span>
+        <ul aria-label={t("controlAdmin:diagnostics.video.hw.software")}>
+          {cpu.map((entry) => <Chip key={entry.key} lit tone="cpu" label={t(`controlAdmin:diagnostics.video.hw.cpuOnly.${entry.key}`)} title={onCpu} />)}
+        </ul>
+      </div>
+      <div className="diag-hw-group">
+        <span className="diag-hw-kind">{t("controlAdmin:diagnostics.video.hw.extras")}</span>
+        <ul aria-label={t("controlAdmin:diagnostics.video.hw.extras")}>
+          {hardware?.tonemap !== undefined && <Chip lit={usable && hardware.tonemap} label={t("controlAdmin:diagnostics.video.hw.hdr")} title={usable && hardware.tonemap ? onGpu : onCpu} />}
+          <Chip lit={usable} label={t("controlAdmin:diagnostics.video.hw.scaling")} title={usable ? onGpu : onCpu} />
+          {hardware?.overlay !== undefined && <Chip lit={usable && hardware.overlay} label={t("controlAdmin:diagnostics.video.hw.subtitles")} title={usable && hardware.overlay ? onGpu : onCpu} />}
+          {hardware?.maxDecode && <Chip lit={usable && fourK} label="4K" title={t("controlAdmin:diagnostics.video.hw.largest", { width: hardware!.maxDecode!.width, height: hardware!.maxDecode!.height })} />}
+        </ul>
+      </div>
+      <p className="muted">{usable ? t("controlAdmin:diagnostics.video.hw.formatsNote") : t("controlAdmin:diagnostics.video.hw.formatsNoGpu")}</p>
+    </div>
+  );
+}
+
+/** The machine the video plays from: its CPU, its memory and its GPU — found, and
+ *  passed to the video container — with the formats the GPU plays lit. */
+function HardwareCard({ prefix, conversion, now }: { prefix: string; conversion: ReturnType<typeof useEngine<ConversionState>>; now: ServerNow | null }) {
   const { t } = useTranslation(["controlAdmin"]);
   const [checking, setChecking] = useState(false);
   const hardware = conversion.state?.hardware ?? null;
@@ -141,100 +357,78 @@ function GpuCard({ prefix, conversion }: { prefix: string; conversion: ReturnTyp
     }
   };
 
-  const maker = hardware ? gpuMaker(hardware) : "other";
   const state = hardware ? gpuState(hardware) : "none";
-  const checks = hardware ? [
-    { key: "found", ok: hardware.device !== null },
-    { key: "driver", ok: hardware.driver !== null },
-    { key: "encodes", ok: hardware.encode },
-    { key: "ready", ok: state === "inUse" }
-  ] as const : [];
+  const usable = state === "inUse";
+  const attached = Boolean(hardware?.device);
+  const maker = hardware ? gpuMaker(hardware) : "other";
+  const gpuPic = hardware && (attached || hardware.encode) ? gpuPicture(hardware) : "generic-gpu";
+  const gpuName = !attached && !hardware?.encode
+    ? t("controlAdmin:diagnostics.video.gpu.title.none")
+    : gpuPic.startsWith("intel-arc") ? t("controlAdmin:diagnostics.video.gpu.title.arc") : t(`controlAdmin:diagnostics.video.gpu.title.${maker}`);
+  const cpuModel = now?.cpu.model ?? hardware?.cpu ?? null;
+  const cpuPic = cpuPicture(cpuModel);
   const mode = conversion.state.settings.hardware ?? "auto";
+  const settingsHref = `${controlHref("videoSettings")}?show=conversion`;
 
   return (
-    <section className="organization-card diag-gpu" aria-labelledby="diag-gpu-title">
-      <div className={`diag-gpu-picture is-${maker}`} aria-hidden="true">
-        {/* The maker's picture goes here once there are pictures; until then, a chip. */}
-        <Cpu size={34} />
-        <span>{t(`controlAdmin:diagnostics.video.gpu.maker.${maker}`)}</span>
-      </div>
-      <div className="diag-gpu-text">
-        <div className="diag-gpu-name">
-          <h3 id="diag-gpu-title">{hardware && hardware.encode ? t(`controlAdmin:diagnostics.video.gpu.title.${maker}`) : t("controlAdmin:diagnostics.video.gpu.title.none")}</h3>
-          <span className={`app-status-pill ${GPU_PILL[state]}`}>{t(`controlAdmin:diagnostics.video.gpu.state.${state}`)}</span>
-        </div>
-        <dl className="diag-gpu-facts">
-          {hardware?.driver && <><dt>{t("controlAdmin:diagnostics.video.gpu.driver")}</dt><dd>{hardware.driver}</dd></>}
-          {hardware?.device && <><dt>{t("controlAdmin:diagnostics.video.gpu.device")}</dt><dd>{t("controlAdmin:diagnostics.video.gpu.vaapi", { device: hardware.device })}</dd></>}
-          <dt>{t("controlAdmin:diagnostics.video.gpu.mode")}</dt>
-          <dd>{t(`controlAdmin:diagnostics.video.gpu.modeValue.${mode}`)}</dd>
-        </dl>
-        {hardware?.error && state !== "inUse" && <p className="diag-gpu-error">{hardware.error}</p>}
-        <ul className="diag-gpu-checks">
-          {checks.map((entry) => (
-            <li key={entry.key} className={entry.ok ? "is-ok" : "is-no"}>
-              {entry.ok ? <Check size={14} aria-hidden="true" /> : <Minus size={14} aria-hidden="true" />}
-              {t(`controlAdmin:diagnostics.video.gpu.check.${entry.key}`)}
-            </li>
-          ))}
-        </ul>
-        <div className="diag-gpu-actions">
+    <section className="organization-card diag-hw" aria-labelledby="diag-hw-title">
+      <header className="diag-card-head">
+        <span className="diag-card-icon" aria-hidden="true"><Server size={17} /></span>
+        <h3 id="diag-hw-title">{t("controlAdmin:diagnostics.video.hw.title")}</h3>
+        <span className={`app-status-pill ${GPU_PILL[state]}`}>{t(`controlAdmin:diagnostics.video.gpu.state.${state}`)}</span>
+        <span className="diag-card-actions">
           <Button variant="secondary" compact onClick={() => void check()} disabled={checking || hardware?.checking}>
             <RefreshCw size={14} aria-hidden="true" />
             {checking || hardware?.checking ? t("controlAdmin:apps.conversion.checking") : t("controlAdmin:apps.conversion.checkAgain")}
           </Button>
-          <a className="diag-link" href={`${controlHref("videoSettings")}?show=conversion`} onClick={(event) => followRoute(event, `${controlHref("videoSettings")}?show=conversion`)}>
-            {t("controlAdmin:diagnostics.video.gpu.settings")}
-          </a>
+        </span>
+      </header>
+
+      <div className="diag-hw-tiles">
+        <div className="diag-hw-tile">
+          <div className="diag-hw-picture">
+            {cpuPic ? <img src={`/Assets/gpu/${cpuPic}.webp`} alt="" width={72} height={72} data-picture={cpuPic} /> : <Cpu size={34} aria-hidden="true" />}
+          </div>
+          <div className="diag-hw-text">
+            <span className="diag-hw-kind">{t("controlAdmin:diagnostics.video.hw.cpu")}</span>
+            <strong>{cpuModel ?? "—"}</strong>
+            {now && <span className="muted">{t("controlAdmin:diagnostics.video.hw.threads", { count: now.cpu.cores })}</span>}
+          </div>
+        </div>
+        <div className="diag-hw-tile">
+          <div className="diag-hw-picture"><MemoryStick size={38} aria-hidden="true" /></div>
+          <div className="diag-hw-text">
+            <span className="diag-hw-kind">{t("controlAdmin:diagnostics.video.hw.memory")}</span>
+            <strong>{now ? formatBytes(now.memory.totalBytes) : "—"}</strong>
+            {now && <span className="muted">{t("controlAdmin:diagnostics.video.now.memoryFree", { free: formatBytes(now.memory.availableBytes), total: formatBytes(now.memory.totalBytes) })}</span>}
+          </div>
+        </div>
+        <div className={`diag-hw-tile${attached || hardware?.encode ? "" : " is-missing"}`}>
+          <div className="diag-hw-picture">
+            <img src={`/Assets/gpu/${gpuPic}.webp`} alt="" width={72} height={72} data-picture={gpuPic} />
+          </div>
+          <div className="diag-hw-text">
+            <span className="diag-hw-kind">{t("controlAdmin:diagnostics.video.hw.gpu")}</span>
+            <strong>{gpuName}</strong>
+            <span className={attached ? "diag-hw-ok" : "diag-hw-warn"}>
+              {attached ? <Check size={13} aria-hidden="true" /> : <Minus size={13} aria-hidden="true" />}
+              {attached ? t("controlAdmin:diagnostics.video.hw.attached", { device: hardware?.device }) : t("controlAdmin:diagnostics.video.hw.notAttached")}
+            </span>
+            {hardware?.driver && <span className="muted diag-hw-driver" title={hardware.driver}>{hardware.driver}</span>}
+          </div>
         </div>
       </div>
-    </section>
-  );
-}
 
-/** What the GPU decodes and encodes, format by format; and where HDR and subtitles are done. */
-function Capabilities({ hardware }: { hardware: HardwareState }) {
-  const { t } = useTranslation(["controlAdmin"]);
-  const decodes = new Set(hardware.decode);
-  const known = hardware.encodeFormats !== undefined;
-  const encodes = new Set(hardware.encodeFormats ?? (hardware.encode ? ["h264"] : []));
-  const rows = ["h264", "hevc", "hevc10", "vp9", "av1", ...(["vp9_10", "mpeg2video", "vc1"].filter((key) => decodes.has(key) || encodes.has(key)))];
-  const mark = (on: boolean, label: string) => (
-    <td className={on ? "is-ok" : "is-no"}>
-      {on ? <Check size={14} aria-label={label} /> : <Minus size={14} aria-label={label} />}
-    </td>
-  );
-  const yes = t("controlAdmin:diagnostics.video.caps.yes");
-  const no = t("controlAdmin:diagnostics.video.caps.no");
-  const usable = hardware.mode !== "cpu" && hardware.encode;
-  return (
-    <section className="organization-card diag-side-card" aria-labelledby="diag-caps-title">
-      <h3 id="diag-caps-title">{t("controlAdmin:diagnostics.video.caps.title")}</h3>
-      <table className="diag-caps">
-        <thead>
-          <tr>
-            <th scope="col"><span className="sr-only">{t("controlAdmin:diagnostics.video.caps.format")}</span></th>
-            <th scope="col">{t("controlAdmin:diagnostics.video.caps.decode")}</th>
-            <th scope="col">{t("controlAdmin:diagnostics.video.caps.encode")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((key) => (
-            <tr key={key}>
-              <th scope="row">{CODEC_NAMES[key] ?? key}</th>
-              {mark(usable && decodes.has(key), decodes.has(key) ? yes : no)}
-              {key === "h264" || known ? mark(usable && encodes.has(key), encodes.has(key) ? yes : no) : <td className="is-unknown">?</td>}
-            </tr>
-          ))}
-          {hardware.tonemap !== undefined && (
-            <tr><th scope="row">{t("controlAdmin:diagnostics.video.caps.tonemap")}</th><td colSpan={2} className={hardware.tonemap && usable ? "is-ok" : "is-no"}>{hardware.tonemap && usable ? t("controlAdmin:diagnostics.video.caps.gpu") : t("controlAdmin:diagnostics.video.caps.cpu")}</td></tr>
-          )}
-          {hardware.overlay !== undefined && (
-            <tr><th scope="row">{t("controlAdmin:diagnostics.video.caps.subtitles")}</th><td colSpan={2} className={hardware.overlay && usable ? "is-ok" : "is-no"}>{hardware.overlay && usable ? t("controlAdmin:diagnostics.video.caps.gpu") : t("controlAdmin:diagnostics.video.caps.cpu")}</td></tr>
-          )}
-        </tbody>
-      </table>
-      <p className="muted">{known ? t("controlAdmin:diagnostics.video.caps.note") : t("controlAdmin:diagnostics.video.caps.noteOld")}</p>
+      {hardware?.error && !usable && <p className="diag-hw-error">{hardware.error}</p>}
+
+      <Formats hardware={hardware} usable={usable} />
+
+      <footer className="diag-hw-foot">
+        <span className="muted">{t("controlAdmin:diagnostics.video.gpu.mode")}: {t(`controlAdmin:diagnostics.video.gpu.modeValue.${mode}`)}</span>
+        <a className="diag-link" href={settingsHref} onClick={(event) => followRoute(event, settingsHref)}>
+          {t("controlAdmin:diagnostics.video.gpu.settings")} <ArrowRight size={14} aria-hidden="true" />
+        </a>
+      </footer>
     </section>
   );
 }
@@ -243,7 +437,7 @@ function Capabilities({ hardware }: { hardware: HardwareState }) {
 
 interface ServerNow {
   at: string;
-  cpu: { percent: number; cores: number; load: [number, number, number] | null };
+  cpu: { percent: number; cores: number; load: [number, number, number] | null; model?: string | null };
   memory: { totalBytes: number; availableBytes: number; homeBytes: number };
 }
 
@@ -252,7 +446,7 @@ const POLL_MS = 5000;
 const KEEP = 120;
 
 /** The machine every few seconds while the page is open, and the readings so far. */
-function useServerNow() {
+function useServerNow(every: number) {
   const [now, setNow] = useState<ServerNow | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -269,12 +463,12 @@ function useServerNow() {
       }
     };
     void read();
-    const timer = window.setInterval(() => void read(), POLL_MS);
+    const timer = window.setInterval(() => void read(), every);
     return () => {
       live = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [every]);
   return { now, failed };
 }
 
@@ -295,9 +489,8 @@ function useHistories(tick: string | undefined, values: Record<Series, number | 
   return histories;
 }
 
-function RightNow({ plays, conversion }: { plays: Play[] | null; conversion: ConversionState | null }) {
+function RightNow({ plays, conversion, now, failed }: { plays: Play[] | null; conversion: ConversionState | null; now: ServerNow | null; failed: boolean }) {
   const { t } = useTranslation(["controlAdmin"]);
-  const { now, failed } = useServerNow();
   const converting = (plays ?? []).filter((play) => play.kind === "converted" && play.converting && play.converter !== null && !play.kept);
   const speeds = converting.map((play) => play.speed).filter((speed): speed is number => typeof speed === "number");
   const slowest = speeds.length ? Math.min(...speeds) : null;
@@ -327,11 +520,13 @@ function RightNow({ plays, conversion }: { plays: Play[] | null; conversion: Con
   return (
     <section className="organization-card diag-now" aria-labelledby="diag-now-title">
       <header className="diag-card-head">
+        <span className="diag-card-icon" aria-hidden="true"><Activity size={17} /></span>
         <h3 id="diag-now-title">{t("controlAdmin:diagnostics.video.now.title")}</h3>
         <span className="muted">{t("controlAdmin:diagnostics.video.now.window")}</span>
       </header>
       {failed && !now && <p className="muted">{t("controlAdmin:diagnostics.video.now.failed")}</p>}
-      <NowRow icon={<Gauge size={17} />} label={t("controlAdmin:diagnostics.video.now.speed")} sub={speedRow.sub} verdict={speedRow.verdict} values={speedHistory} max={Math.max(2, ...speedHistory)} line={1} />
+      <div className="diag-now-grid">
+      <NowRow icon={<Gauge size={17} />} label={t("controlAdmin:diagnostics.video.now.speed")} sub={speedRow.sub} verdict={speedRow.verdict} values={speedHistory} max={Math.max(2, ...speedHistory)} line={1} lineLabel="1×" unit="×" />
       {now && (
         <>
           <NowRow
@@ -344,6 +539,8 @@ function RightNow({ plays, conversion }: { plays: Play[] | null; conversion: Con
             values={cpuHistory}
             max={100}
             line={90}
+            lineLabel="90%"
+            unit="%"
           />
           <NowRow
             icon={<MemoryStick size={17} />}
@@ -355,6 +552,7 @@ function RightNow({ plays, conversion }: { plays: Play[] | null; conversion: Con
             verdict={memoryLow ? { tone: "warn", label: t("controlAdmin:diagnostics.video.now.low") } : { tone: "ok", label: t("controlAdmin:diagnostics.video.now.fine") }}
             values={memoryHistory}
             max={100}
+            unit={t("controlAdmin:diagnostics.video.now.usedUnit")}
           />
         </>
       )}
@@ -365,15 +563,17 @@ function RightNow({ plays, conversion }: { plays: Play[] | null; conversion: Con
           sub={t("controlAdmin:diagnostics.video.now.sendingValue", { mbps: Math.round(sending * 10) / 10, count: viewers })}
           verdict={null}
           values={sendingHistory}
-          max={Math.max(1, ...sendingHistory)}
+          max={Math.max(1, ...sendingHistory) * 1.15}
+          unit={t("controlAdmin:diagnostics.video.now.mbitUnit")}
         />
       )}
+      </div>
       <p className="muted diag-now-foot">{t("controlAdmin:diagnostics.video.now.foot")}</p>
     </section>
   );
 }
 
-function NowRow({ icon, label, sub, verdict, values, max, line }: {
+function NowRow({ icon, label, sub, verdict, values, max, line, lineLabel, unit }: {
   icon: ReactNode;
   label: string;
   sub: string;
@@ -382,79 +582,86 @@ function NowRow({ icon, label, sub, verdict, values, max, line }: {
   max: number;
   /** A dotted line for the limit: 1× real time, 90% of the CPU. */
   line?: number;
+  lineLabel?: string;
+  /** How the graph names its peak ("%", "×", " Mbit/s"). */
+  unit: string;
 }) {
   return (
-    <div className="diag-now-row">
-      <span className="diag-now-icon" aria-hidden="true">{icon}</span>
-      <div className="diag-now-text">
-        <div className="diag-now-label">
-          <strong>{label}</strong>
-          {verdict && <span className={`app-status-pill ${verdict.tone === "ok" ? "is-ready" : "is-needsSetup"}`}>{verdict.label}</span>}
-        </div>
-        <span className="muted">{sub}</span>
+    <div className={`diag-now-tile${verdict?.tone === "warn" ? " is-warn" : ""}`}>
+      <div className="diag-now-label">
+        <span className="diag-now-icon" aria-hidden="true">{icon}</span>
+        <strong>{label}</strong>
+        {verdict && <span className={`app-status-pill ${verdict.tone === "ok" ? "is-ready" : "is-needsSetup"}`}>{verdict.label}</span>}
       </div>
-      <Sparkline values={values} max={max} line={line} />
+      <span className="muted diag-now-sub">{sub}</span>
+      <Sparkline values={values} max={max} line={line} lineLabel={lineLabel} unit={unit} warn={verdict?.tone === "warn"} />
     </div>
   );
 }
 
-/** Ten minutes as a line, right-aligned: a page just opened draws only its first readings. */
-export function Sparkline({ values, max, line }: { values: number[]; max: number; line?: number }) {
-  const width = 160;
-  const height = 30;
-  const step = width / (KEEP - 1);
-  const y = (value: number) => height - 2 - (Math.min(value, max) / max) * (height - 4);
-  const start = width - (values.length - 1) * step;
-  const points = values.map((value, index) => `${(start + index * step).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
-  return (
-    <svg className="diag-spark" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-      {line !== undefined && line <= max && <line className="diag-spark-limit" x1="0" x2={width} y1={y(line)} y2={y(line)} />}
-      {values.length > 1 && <polyline className="diag-spark-line" points={points} />}
-      {values.length === 1 && <circle className="diag-spark-dot" cx={width - 1.5} cy={y(values[0])} r="1.5" />}
-    </svg>
-  );
+/** A smooth curve through the points (Catmull-Rom as cubic Béziers). */
+function curve(points: [number, number][]): string {
+  if (points.length === 0) return "";
+  let d = `M${points[0][0].toFixed(1)},${points[0][1].toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x0, y0] = points[i - 1] ?? points[i];
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[i + 1];
+    const [x3, y3] = points[i + 2] ?? points[i + 1];
+    const c1 = [x1 + (x2 - x0) / 6, y1 + (y2 - y0) / 6];
+    const c2 = [x2 - (x3 - x1) / 6, y2 - (y3 - y1) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`;
+  }
+  return d;
 }
 
-// ── Live sessions, the last test, what it's working through ────────────────────
+/** Readings the graph is at least as wide as: two minutes. */
+const MIN_SPAN = 24;
 
-function LiveSessions({ plays }: { plays: Play[] | null }) {
+/** Ten minutes as a soft area under a curve, the newest reading a dot at the right,
+ *  the limit a dotted line; a page just opened draws only its first readings. */
+export function Sparkline({ values, max, line, lineLabel, unit, warn = false }: { values: number[]; max: number; line?: number; lineLabel?: string; unit: string; warn?: boolean }) {
   const { t } = useTranslation(["controlAdmin"]);
-  if (!plays) return null;
-  const streams = plays.filter((play) => play.kind !== "download");
-  const how = (play: Play) =>
-    play.kind === "direct" ? t("controlAdmin:nowPlaying.stream.direct")
-      : play.kept ? t("controlAdmin:nowPlaying.stream.kept")
-      : play.converter === null || play.mode === "remux" ? t("controlAdmin:nowPlaying.stream.remux")
-      : play.converter === "gpu" ? t("controlAdmin:nowPlaying.stream.gpu")
-      : t("controlAdmin:nowPlaying.stream.cpu");
+  const id = useId().replace(/:/g, "");
+  const width = 300;
+  const height = 84;
+  const top = 8;
+  const bottom = height - 4;
+  // Two minutes wide at first, widening to ten as readings come in: a page just
+  // opened draws a line across, not a stub at the right.
+  const step = width / Math.min(KEEP - 1, Math.max(values.length - 1, MIN_SPAN));
+  const y = (value: number) => bottom - (Math.min(Math.max(value, 0), max) / max) * (bottom - top);
+  const start = width - (values.length - 1) * step;
+  const points = values.map((value, index) => [start + index * step, y(value)] as [number, number]);
+  const path = curve(points);
+  const last = points[points.length - 1];
+  const peak = values.length ? Math.max(...values) : null;
   return (
-    <section className="organization-card diag-sessions" aria-labelledby="diag-sessions-title">
-      <header className="diag-card-head">
-        <h3 id="diag-sessions-title">{t("controlAdmin:diagnostics.video.sessions.title", { count: streams.length })}</h3>
-        <MoreLink tab="sessions">{t("controlAdmin:diagnostics.video.sessions.all")}</MoreLink>
-      </header>
-      {streams.length === 0 && <p className="muted">{t("controlAdmin:nowPlaying.nobody")}</p>}
-      {streams.map((play) => {
-        const share = play.positionSeconds != null && play.durationSeconds ? Math.min(100, (play.positionSeconds / play.durationSeconds) * 100) : null;
-        return (
-          <div key={`${play.kind}-${play.user}-${play.itemId ?? play.title}-${play.since}`} className="diag-session">
-            <span className={`diag-session-icon is-${play.kind}`} aria-hidden="true">{play.kind === "direct" ? <PlayIcon size={16} /> : <Shuffle size={16} />}</span>
-            <div className="diag-session-text">
-              <strong>{play.heading ?? play.title}{play.subheading ? ` · ${play.subheading}` : ""}</strong>
-              <span className="muted">
-                {[how(play), play.rung ? t("controlAdmin:nowPlaying.quality", { height: play.rung }) : null, play.user, play.device && play.device !== "Unknown" ? play.device : null, play.network === "internet" ? t("controlAdmin:nowPlaying.away") : null].filter(Boolean).join(" · ")}
-              </span>
-            </div>
-            <div className="diag-session-progress">
-              <div className="now-playing-bar"><span style={{ width: `${share ?? 0}%` }} /></div>
-              <span className="muted">{play.positionSeconds != null ? clockOf(play.positionSeconds) : "—"}{play.durationSeconds ? ` / ${clockOf(play.durationSeconds)}` : ""}</span>
-            </div>
-          </div>
-        );
-      })}
-    </section>
+    <div className={`diag-spark-wrap${warn ? " is-warn" : ""}`}>
+      <div className="diag-spark-plot">
+      <svg className="diag-spark" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id={`spark-${id}`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line className="diag-spark-base" x1="0" x2={width} y1={bottom} y2={bottom} />
+        {line !== undefined && line <= max && <line className="diag-spark-limit" x1="0" x2={width} y1={y(line)} y2={y(line)} />}
+        {points.length > 1 && <path d={`${path} L${last[0].toFixed(1)},${bottom} L${points[0][0].toFixed(1)},${bottom} Z`} fill={`url(#spark-${id})`} />}
+        {points.length > 1 && <path className="diag-spark-line" d={path} />}
+      </svg>
+      {last && <span className="diag-spark-dot" style={{ left: `${(last[0] / width) * 100}%`, top: `${(last[1] / height) * 100}%` }} aria-hidden="true" />}
+      {line !== undefined && lineLabel && line <= max && <span className="diag-spark-limit-label" style={{ top: `${(y(line) / height) * 100}%` }} aria-hidden="true">{lineLabel}</span>}
+      </div>
+      <span className="diag-spark-caption" aria-hidden="true">
+        {values.length < 2 ? t("controlAdmin:diagnostics.video.now.collecting") : t("controlAdmin:diagnostics.video.now.peak", { value: `${Math.round((peak ?? 0) * 10) / 10}${unit}` })}
+      </span>
+    </div>
   );
 }
+
+// ── Links, what it's working through ───────────────────────────────────────────
 
 function MoreLink({ tab, children }: { tab: DiagnosticsTab; children: ReactNode }) {
   const href = diagnosticsPartHref("video", tab);
@@ -462,65 +669,6 @@ function MoreLink({ tab, children }: { tab: DiagnosticsTab; children: ReactNode 
     <a className="diag-link diag-more" href={href} onClick={(event) => followRoute(event, href)}>
       {children} <ArrowRight size={14} aria-hidden="true" />
     </a>
-  );
-}
-
-/** The last GPU test in a few lines; the GPU tests tab has the rest. */
-function TestSummary({ prefix }: { prefix: string }) {
-  const { t } = useTranslation(["controlAdmin"]);
-  const [test, setTest] = useState<HardwareTest | null | undefined>(undefined);
-  useEffect(() => {
-    let live = true;
-    api<{ running: HardwareTest | null; last: HardwareTest | null }>(`${prefix}/api/admin/hardware/test`)
-      .then((body) => live && setTest(body.running ?? body.last))
-      .catch(() => live && setTest(null));
-    return () => {
-      live = false;
-    };
-  }, [prefix]);
-  if (test === undefined) return null;
-  const speed = (run: { speed: number | null } | null) => (run?.speed != null ? t("controlAdmin:diagnostics.video.tests.speed", { speed: run.speed.toLocaleString(undefined, { maximumFractionDigits: 1 }) }) : "—");
-  const hasGpu = (test?.scenarios ?? []).some((entry) => entry.gpuRun !== null);
-  const together = test?.together.find((entry) => entry.converter === "gpu") ?? test?.together[0] ?? null;
-  const passed = test?.phase === "done";
-  return (
-    <section className="organization-card diag-tests" aria-labelledby="diag-tests-title">
-      <header className="diag-card-head">
-        <h3 id="diag-tests-title">{t("controlAdmin:diagnostics.video.tests.title")}</h3>
-        {test && <span className={`app-status-pill ${passed ? "is-ready" : test.finishedAt ? "is-needsSetup" : "is-off"}`}>{t(`controlAdmin:diagnostics.video.tests.phase.${passed ? "done" : test.finishedAt ? "stopped" : "running"}`)}</span>}
-        {test && <span className="muted">{relativeTime(test.startedAt)}</span>}
-        <MoreLink tab="tests">{test ? t("controlAdmin:diagnostics.video.tests.open") : t("controlAdmin:diagnostics.video.tests.run")}</MoreLink>
-      </header>
-      {!test && <p className="muted">{t("controlAdmin:diagnostics.video.tests.none")}</p>}
-      {test && test.scenarios.length > 0 && (
-        <table className="diag-tests-table">
-          <thead>
-            <tr>
-              <th scope="col">{t("controlAdmin:apps.hardwareTest.thFilm")}</th>
-              {hasGpu && <th scope="col">{t("controlAdmin:apps.hardwareTest.thGpu")}</th>}
-              <th scope="col">{t("controlAdmin:apps.hardwareTest.thCpu")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {test.scenarios.filter((entry) => !entry.skipped).map((entry) => (
-              <tr key={entry.id}>
-                <th scope="row">{t(`controlAdmin:apps.hardwareTest.scenario.${entry.id}`, { defaultValue: entry.label })}</th>
-                {hasGpu && <td>{speed(entry.gpuRun)}</td>}
-                <td className="muted">{speed(entry.cpuRun)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {test && (together || test.suggestedViewers) && (
-        <p className="diag-tests-foot">
-          {[
-            together ? t("controlAdmin:diagnostics.video.tests.together", { count: together.atOnce }) : null,
-            test.suggestedViewers ? t("controlAdmin:diagnostics.video.tests.suggested", { count: test.suggestedViewers }) : null
-          ].filter(Boolean).join(" · ")}
-        </p>
-      )}
-    </section>
   );
 }
 
