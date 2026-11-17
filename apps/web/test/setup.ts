@@ -4,7 +4,11 @@ import { afterEach, vi } from "vitest";
 // Initialize i18n so components using useTranslation render real English
 // strings — text queries in tests keep matching the visible UI. jsdom has no
 // stored language, so this always boots "en" and never loads another bundle.
-import "../src/i18n";
+import { loadControlStrings } from "../src/i18n";
+
+// The control panel's strings load on demand in the app (i18n.ts); here they are
+// in memory up front, so a control component renders at once instead of suspending.
+await loadControlStrings("en");
 
 // Unmount between tests so a leaked component can't be found by the next one.
 afterEach(cleanup);

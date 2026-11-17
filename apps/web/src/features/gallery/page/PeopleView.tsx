@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronRight, Combine, Image as ImageIcon, Pencil, Share2, SquareCheck, Trash2, Users, X } from "lucide-react";
 import { PersonSharingModal } from "../PersonSharingModal";
@@ -99,7 +99,13 @@ export function PeopleView({
             </Button>
           )}
         </div>
-        {sharingOpen && <PersonSharingModal person={{ id: selectedPerson.id, name: selectedPerson.name }} onClose={() => setSharingOpen(false)} />}
+        {/* Its strings are the control panel's (i18n.ts), fetched the first time it
+            opens: it waits here for them rather than blanking the gallery. */}
+        {sharingOpen && (
+          <Suspense fallback={null}>
+            <PersonSharingModal person={{ id: selectedPerson.id, name: selectedPerson.name }} onClose={() => setSharingOpen(false)} />
+          </Suspense>
+        )}
 
         <div className="gallery-album-header">
           <span className="gallery-person-avatar">

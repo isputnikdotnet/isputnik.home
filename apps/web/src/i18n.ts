@@ -1,6 +1,7 @@
-import i18n from "i18next";
+import i18n, { type BackendModule, type ReadCallback } from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "./locales/en";
+import type enControlPanel from "./locales/en/control-panel";
 
 // The app's interface languages. English is the source of truth: every key is
 // authored in locales/en first, other languages mirror it (scripts/
@@ -14,7 +15,8 @@ export type Language = (typeof LANGUAGES)[number];
 declare module "i18next" {
   interface CustomTypeOptions {
     defaultNS: "common";
-    resources: typeof en;
+    // Every namespace, the control panel's included, though those load later.
+    resources: typeof en & typeof enControlPanel;
     returnNull: false;
   }
 }
@@ -51,6 +53,70 @@ const BUNDLE_LOADERS: Record<Exclude<Language, "en">, () => Promise<{ default: R
 
 const loaded = new Set<Language>(["en"]);
 
+// ── The control panel's strings, on demand ──────────────────────────────────
+// `control`, `controlAdmin` and `controlDash` are about half of every
+// language's strings (67 KB of English, compressed) and only the control panel
+// and a few admin dialogs use them, so they are not in the barrels above: each
+// language keeps them in its own control-panel.ts, one chunk.
+//
+// i18next fetches them through the small backend below the first time a
+// component asks for one (useTranslation("controlAdmin"), …). react-i18next
+// suspends that component meanwhile, so it shows its Suspense fallback — the
+// page's, or a closer one — rather than raw keys. One request loads all three, so
+// a component that reads "controlAdmin:…" while asking only for "control" still
+// finds them. English always comes too: it is the fallback for a missing string.
+export const CONTROL_NAMESPACES = ["control", "controlAdmin", "controlDash"] as const;
+
+const CONTROL_LOADERS: Record<Language, () => Promise<{ default: Record<string, object> }>> = {
+  en: () => import("./locales/en/control-panel"),
+  ru: () => import("./locales/ru/control-panel")
+};
+
+const controlLoads = new Map<Language, Promise<void>>();
+
+function loadControlStringsFor(language: Language): Promise<void> {
+  let load = controlLoads.get(language);
+  if (!load) {
+    load = CONTROL_LOADERS[language]().then((bundle) => {
+      for (const [ns, resources] of Object.entries(bundle.default)) {
+        i18n.addResourceBundle(language, ns, resources, true, true);
+      }
+    });
+    // A failed chunk (offline, a release replaced it) may be asked for again.
+    load.catch(() => controlLoads.delete(language));
+    controlLoads.set(language, load);
+  }
+  return load;
+}
+
+/** Load the control panel's strings for `language` (and English, the fallback).
+ *  Components need not call this — asking for the namespace is enough; the test
+ *  setup does, so control components render without suspending. */
+export function loadControlStrings(language: string = i18n.language): Promise<void> {
+  const lang = isLanguage(language) ? language : "en";
+  return Promise.all([loadControlStringsFor("en"), lang === "en" ? null : loadControlStringsFor(lang)]).then(() => undefined);
+}
+
+const isControlNamespace = (ns: string): boolean => (CONTROL_NAMESPACES as readonly string[]).includes(ns);
+
+/** i18next's on-demand loader. Only the control namespaces are ever missing: the
+ *  rest is bundled, or added by setAppLanguage before the language switches. */
+const controlPanelBackend: BackendModule = {
+  type: "backend",
+  init() {},
+  read(language: string, namespace: string, callback: ReadCallback) {
+    if (!isControlNamespace(namespace)) {
+      callback(null, i18n.getResourceBundle(language, namespace) ?? {});
+      return;
+    }
+    const lang = isLanguage(language) ? language : "en";
+    loadControlStrings(lang).then(
+      () => callback(null, i18n.getResourceBundle(lang, namespace) ?? {}),
+      (err: unknown) => callback(err instanceof Error ? err : new Error(String(err)), false)
+    );
+  }
+};
+
 /** Switch the app to `language`: persist it for the next boot, lazy-load its
  *  strings, and re-render everything under a useTranslation hook. */
 export async function setAppLanguage(language: Language): Promise<void> {
@@ -77,12 +143,18 @@ i18n.on("languageChanged", (lng) => {
  *  after this so a Russian device never flashes an English frame. */
 export const i18nReady: Promise<void> = i18n
   .use(initReactI18next)
+  .use(controlPanelBackend)
   .init({
     lng: "en",
     fallbackLng: "en",
     defaultNS: "common",
     ns: Object.keys(en),
-    resources: { en },
+    // A copy: i18next adds the namespaces it loads later into the object it is
+    // given, and the imported barrel should stay what it says it is.
+    resources: { en: { ...en } },
+    // English is bundled except the control panel's namespaces, which the backend
+    // above fetches when they are first asked for.
+    partialBundledLanguages: true,
     // React already escapes interpolated values; double-escaping shows &#39;.
     interpolation: { escapeValue: false },
     returnNull: false

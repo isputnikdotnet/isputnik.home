@@ -1,6 +1,6 @@
 import { SelectField } from "../shared/SelectField";
 import { chooseLayout, layoutChoice, type LayoutChoice } from "../app/layoutChoice";
-import { useEffect, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Images, Link2, Palette, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
@@ -292,8 +292,14 @@ export function ProfilePage({
 
             <LinkedDevicesSection />
 
-            {/* Mounted only when open: it fetches the person's tokens on arrival. */}
-            {activeTab === "security" && <ReaderAccessSection />}
+            {/* Mounted only when open: it fetches the person's tokens on arrival. Its
+                strings are the control panel's (i18n.ts), fetched the first time, so it
+                waits here for them rather than blanking the whole page. */}
+            {activeTab === "security" && (
+              <Suspense fallback={null}>
+                <ReaderAccessSection />
+              </Suspense>
+            )}
           </div>
 
           <div
