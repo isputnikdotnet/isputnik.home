@@ -266,8 +266,10 @@ export function GallerySlideshowEditor({
       )}
 
       {/* Movie: render an MP4, then watch/download it. Non-editors see only a ready
-          movie; editors get the Render/Re-render controls and progress. */}
-      {ordered.length > 0 && (slideshow.renderStatus !== "draft" || canEdit) && (
+          movie they may watch — the server leaves movieUrl out for someone who may not
+          see every photo baked into it — so they never get an empty frame; editors get
+          the Render/Re-render controls and progress. */}
+      {ordered.length > 0 && (canEdit || (slideshow.renderStatus === "ready" && slideshow.movieUrl)) && (
         <div className="slideshow-movie">
           {slideshow.renderStatus === "ready" && slideshow.movieUrl ? (
             <>
