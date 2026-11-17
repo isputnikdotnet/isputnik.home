@@ -29,6 +29,7 @@ import {
   type MovieConflictPolicy
 } from "./slideshows.js";
 import { getMusicTrack, summarizeTrack } from "./music.js";
+import { viewerSeesWholeSlideshow } from "./tv-picks.js";
 import path from "node:path";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { enqueueSlideshowRender, renderProgressPercent } from "./slideshow-render-queue.js";
@@ -66,9 +67,18 @@ const movieTargetPreviewQuerySchema = z.object({
   onConflict: z.string().optional()
 });
 
+/** Whether this viewer may watch the slideshow's rendered movie. Every photo is baked
+ *  into it and it can't leave one out, so — as on a TV (tv-picks.ts) — only those who
+ *  may see every photo in it, besides its creator and admins. Seeing ONE photo was
+ *  once enough, which handed a relative who sees photos by person the rest of the
+ *  slideshow in the movie. */
+function canWatchMovie(slideshow: SlideshowRow, user: { id: string; role: string }): boolean {
+  return canEditSlideshow(slideshow, user) || viewerSeesWholeSlideshow(user, slideshow.id);
+}
+
 // Render state a detail response carries. `movieUrl` is present only when a movie is
-// ready; `percent` is the live encode progress while rendering.
-function renderFields(slideshow: SlideshowRow) {
+// ready and this viewer may watch it; `percent` is the live encode progress while rendering.
+function renderFields(slideshow: SlideshowRow, canWatch: boolean) {
   return {
     renderStatus: slideshow.render_status,
     // A ready movie that predates a later edit — shown, but flagged for a re-render.
@@ -82,7 +92,7 @@ function renderFields(slideshow: SlideshowRow) {
     // The movie URL is per-slideshow, but a re-render overwrites the file in place —
     // so version it by rendered_at, otherwise the browser keeps serving the previous
     // render (e.g. the one made before music was added) from cache.
-    movieUrl: slideshow.render_status === "ready" && slideshow.output_storage_key
+    movieUrl: canWatch && slideshow.render_status === "ready" && slideshow.output_storage_key
       ? `/api/library/gallery/slideshows/${slideshow.id}/movie?v=${encodeURIComponent(slideshow.rendered_at ?? "")}`
       : null,
     // Whether the latest render was saved into a gallery library (so the delete
@@ -356,7 +366,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         ...movieTargetFields(slideshow),
         outroClip: clipSummary(libIds, slideshow.outro_item_id),
         ...musicFields(slideshow.music_track_id),
-        ...renderFields(slideshow)
+        ...renderFields(slideshow, canWatchMovie(slideshow, user))
       },
       assets,
       total
@@ -402,8 +412,8 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "No movie available" });
       return;
     }
-    // Reuse the detail visibility rule: a member who can't see any items can't watch.
-    if (getSlideshowItems(user.id, resolveGalleryScopeLibraryIds(user), slideshow, 1, 0).total === 0 && !canEditSlideshow(slideshow, user)) {
+    // The movie holds every photo, so only someone who may see them all watches it.
+    if (!canWatchMovie(slideshow, user)) {
       reply.code(404).send({ error: "No movie available" });
       return;
     }
