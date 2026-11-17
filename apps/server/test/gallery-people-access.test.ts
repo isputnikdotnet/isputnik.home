@@ -10,6 +10,9 @@ import { canUserAccessBook, canUserDownloadBook } from "../src/modules/library/s
 import { resolveGalleryBrowseLibraryIds, resolveGalleryScopeLibraryIds, SHARED_PEOPLE_SCOPE } from "../src/modules/library/gallery/catalog-scope.js";
 import { galleryFacets, queryGalleryFolders, queryGalleryMapPoints, queryGalleryTimeline } from "../src/modules/library/gallery/catalog.js";
 import { getGalleryAsset } from "../src/modules/library/gallery/catalog-asset.js";
+import { addAlbumItems, createAlbum, getAlbum, getAlbumFilePaths, getAlbumItems, listAlbums } from "../src/modules/library/gallery/albums.js";
+import { hydrateEntities } from "../src/modules/social/subjects.js";
+import { blockPreviewAssets } from "../src/modules/stories/blocks.js";
 import { confirmPersonPhotos, getGalleryPersonPhotos, listGalleryPeople, mergeGalleryPeople, deleteGalleryPerson } from "../src/modules/library/gallery/people.js";
 import {
   canSeeThumbnailThroughPeople, personShareCounts, personReviewItemIds, setPersonGrant, setShareExcluded, setShowLocation,
@@ -144,6 +147,70 @@ describe("the rule", () => {
     deleteLibraryMembersForSubject("group", "petrov");
     expect(sharedPeopleFor(cousin)).toEqual([]);
     expect(db.prepare("SELECT COUNT(*) AS n FROM access_settings").get()).toEqual({ n: 0 });
+  });
+});
+
+describe("an album sent to a relative who sees photos by person", () => {
+  // The bug: the relative opened the album from Gallery and saw only the photos
+  // with Ivan in them, not the album that was sent to them.
+  const albumOf = (user: { id: string; role: string }, albumId: string, withShares = true) => runAsViewer(user, () =>
+    getAlbumItems(user.id, resolveGalleryScopeLibraryIds(user), getAlbum(albumId)!, 50, 0, withShares));
+
+  let album = "";
+  beforeEach(() => {
+    setPersonGrant({ subjectType: "user", subjectId: "cousin" }, "ivan", true, "admin");
+    album = createAlbum(admin, "Summer", null).id;
+    addAlbumItems(album, new Set(["fam"]), ["p1", "p2", "p3"]);
+  });
+
+  it("shows only the photos shared by person until the album itself is sent", () => {
+    expect(ids(albumOf(cousin, album).assets)).toEqual(["p1"]);
+    const listed = runAsViewer(cousin, () => listAlbums(cousin, resolveGalleryScopeLibraryIds(cousin)));
+    expect(listed.map((a) => [a.id, a.itemCount])).toEqual([[album, 1]]);
+  });
+
+  it("shows the whole album once it is shared with them — list, page and download", () => {
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by) VALUES ('s1', 'gallery_album', ?, 'cousin', 'admin')").run(album);
+    const page = albumOf(cousin, album);
+    expect(ids(page.assets)).toEqual(["p1", "p2", "p3"]);
+    expect(page.total).toBe(3);
+    const listed = runAsViewer(cousin, () => listAlbums(cousin, resolveGalleryScopeLibraryIds(cousin)));
+    expect(listed.map((a) => [a.id, a.itemCount])).toEqual([[album, 3]]);
+    const files = runAsViewer(cousin, () => getAlbumFilePaths(resolveGalleryScopeLibraryIds(cousin), getAlbum(album)!, cousin.id));
+    expect(files.map((f) => f.id).sort()).toEqual(["p1", "p2", "p3"]);
+    // Only through the album: not the rest of the library, not another album, not
+    // a read made on the creator's behalf (a story's guest link).
+    expect(ids(timeline(cousin))).toEqual(["p1"]);
+    const another = createAlbum(admin, "Other", null).id;
+    addAlbumItems(another, new Set(["fam"]), ["p5"]);
+    expect(albumOf(cousin, another).total).toBe(0);
+    expect(ids(albumOf(cousin, album, false).assets)).toEqual(["p1"]);
+  });
+
+  it("closes again when the share is revoked", () => {
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by, revoked_at) VALUES ('s1', 'gallery_album', ?, 'cousin', 'admin', '2024-01-01T00:00:00Z')").run(album);
+    expect(ids(albumOf(cousin, album).assets)).toEqual(["p1"]);
+  });
+
+  // A story's album block: its card (the hydrator) and its strip of photos.
+  const storyBlock = (user: { id: string; role: string }) => runAsViewer(user, () => ({
+    card: hydrateEntities([{ entityType: "gallery_album", entityId: album }], user).get(`gallery_album:${album}`),
+    strip: ids(blockPreviewAssets("album", album, user.id, resolveGalleryScopeLibraryIds(user)))
+  }));
+
+  it("a story's album block shows the relative the photos they see by person", () => {
+    const { card, strip } = storyBlock(cousin);
+    expect(card?.fileCount).toBe(1);
+    expect(strip).toEqual(["p1"]);
+    // Somebody who sees none of it does not learn the album is there.
+    expect(storyBlock(other).card).toBeUndefined();
+  });
+
+  it("a story's album block shows the whole album once it is sent to them", () => {
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by) VALUES ('s1', 'gallery_album', ?, 'cousin', 'admin')").run(album);
+    const { card, strip } = storyBlock(cousin);
+    expect(card?.fileCount).toBe(3);
+    expect(strip).toEqual(["p1", "p2", "p3"]);
   });
 });
 

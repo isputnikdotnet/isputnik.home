@@ -268,7 +268,8 @@ export function blockPreviewAssets(
   if (kind === "album") {
     const album = getAlbum(entityId);
     if (!album) return [];
-    return getAlbumItems(userId, libIds, album, BLOCK_PREVIEW_LIMIT, 0).assets;
+    // The reader's own view (never a guest link's): an album sent to them shows whole.
+    return getAlbumItems(userId, libIds, album, BLOCK_PREVIEW_LIMIT, 0, true).assets;
   }
   if (kind === "slideshow") {
     const slideshow = getSlideshow(entityId);

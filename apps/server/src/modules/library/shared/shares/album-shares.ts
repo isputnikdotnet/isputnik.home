@@ -31,6 +31,33 @@ export function curatableGalleryLibraryIds(user: { id: string; role: string }): 
   return libs.filter((lib) => canUserCurateLibrary(lib, user.id, user.role)).map((lib) => lib.id);
 }
 
+/** What live album shares sent to `userId` open, as "albumId|libraryId" pairs:
+ *  each shared album × the libraries its share's creator may curate (the same
+ *  bound as userHasGalleryAlbumShareForItem). The album lists and pages add these
+ *  to the viewer's own scope, so a member who otherwise sees only some photos —
+ *  by person, say — sees the whole album that was sent to them. */
+export function albumShareReachFor(userId: string): string[] {
+  const shares = db.prepare(`
+    SELECT shares.resource_id AS album_id, users.id AS creator_id, users.role AS creator_role
+    FROM shares
+    JOIN users ON users.id = shares.created_by
+    WHERE shares.module = 'gallery_album' AND shares.user_id = ? AND shares.revoked_at IS NULL
+      AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  `).all(userId) as { album_id: string; creator_id: string; creator_role: string }[];
+  if (shares.length === 0) return [];
+  const curatable = new Map<string, string[]>();
+  const pairs = new Set<string>();
+  for (const share of shares) {
+    let libs = curatable.get(share.creator_id);
+    if (!libs) {
+      libs = curatableGalleryLibraryIds({ id: share.creator_id, role: share.creator_role });
+      curatable.set(share.creator_id, libs);
+    }
+    for (const lib of libs) pairs.add(`${share.album_id}|${lib}`);
+  }
+  return [...pairs];
+}
+
 function albumShareOrder(sortMode: string): string {
   return sortMode === "manual"
     ? "gallery_album_items.position ASC"

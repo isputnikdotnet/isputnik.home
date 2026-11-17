@@ -13,6 +13,8 @@ import { accessibleLibraryIds, canUserAccessBook } from "../library/shared/libra
 import { visibleCollectionIds } from "../stories/collection-access.js";
 import { COVER_BLOCK_JOINS, COVER_BLOCK_ORDER, COVER_BLOCK_WHERE } from "../stories/cover-sql.js";
 import { withAppFilesLibrary } from "../library/gallery/app-files-access.js";
+import { listAlbums } from "../library/gallery/albums.js";
+import { resolveGalleryScopeLibraryIds } from "../library/gallery/catalog-scope.js";
 import { canSeeTree, earliestChildBirthOf, isLiving, showLivingDetailsFor } from "../familytree/tree-access.js";
 import { canEditPerson } from "../familytree/access.js";
 import type { BookLibraryType } from "../library/shared/library-types.js";
@@ -269,6 +271,11 @@ type AlbumRow = Pick<GalleryAlbumRow, "id" | "name" | "created_by"> & { visible_
 //
 // Otherwise "can you open it" is "is any of it visible to you", which is also
 // why sending an album is worth doing: each person sees their share of it.
+//
+// "Visible to you" is what the Albums list counts (listAlbums), not libraries
+// alone: it also holds the photos shared with you by person. Counting libraries
+// only, a relative who sees photos by person found an album block in a story
+// "unavailable" while the album page itself showed them their photos.
 function makeAlbumHydrator(): Hydrator {
   return (entityIds, user) => {
     const result = new Map<string, HydratedEntity>();
@@ -329,19 +336,25 @@ function makeAlbumHydrator(): Hydrator {
         AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     `).all(user.id, ...entityIds) as { album_id: ShareRow["resource_id"]; total_count: number; cover_key: string | null }[];
     const shared = new Map(sharedRows.map((row) => [row.album_id, row]));
+    const wanted = new Set(entityIds);
+    const listed = new Map(listAlbums(user, resolveGalleryScopeLibraryIds(user))
+      .filter((album) => wanted.has(album.id))
+      .map((album) => [album.id, album]));
 
     for (const row of rows) {
       const grant = shared.get(row.id);
+      const seen = listed.get(row.id);
       const mine = user.role === "admin" || row.created_by === user.id;
-      if (row.visible_count === 0 && !mine && !grant) continue;
+      if (row.visible_count === 0 && !mine && !grant && !seen) continue;
 
-      const count = grant && grant.total_count > row.visible_count ? grant.total_count : row.visible_count;
-      const cover = row.cover_key ?? grant?.cover_key ?? null;
+      const count = Math.max(row.visible_count, seen?.itemCount ?? 0, grant?.total_count ?? 0);
+      const coverUrl = row.cover_key ? `/api/library/covers/${row.cover_key}`
+        : seen?.coverUrl ?? (grant?.cover_key ? `/api/library/covers/${grant.cover_key}` : null);
       result.set(row.id, {
         available: true,
         title: row.name,
         subtitle: `${count} ${count === 1 ? "photo" : "photos"}`,
-        coverUrl: cover ? `/api/library/covers/${cover}` : null,
+        coverUrl,
         durationSeconds: null,
         fileCount: count,
         href: `/gallery/albums/${row.id}`,

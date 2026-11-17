@@ -121,7 +121,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     const libIds = resolveGalleryScopeLibraryIds(user);
-    const { assets, total } = getAlbumItems(user.id, libIds, album, limit, offset);
+    const { assets, total } = getAlbumItems(user.id, libIds, album, limit, offset, true);
     // The zero-visible rule from the list applies here too: a member who can't
     // see any of the album's items shouldn't learn it exists via deep link.
     if (total === 0 && !canEditAlbum(album, user)) {
@@ -218,7 +218,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       return;
     }
     const libIds = resolveGalleryScopeLibraryIds(user);
-    const available = getAlbumFilePaths(libIds, album).filter((file) => {
+    const available = getAlbumFilePaths(libIds, album, user.id).filter((file) => {
       const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
       return pathIsInside(filePath, file.source_path) && fs.existsSync(filePath);
     });

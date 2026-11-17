@@ -9,11 +9,28 @@ import { db } from "../../../db.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { entityTagsByIds } from "../shared/tagging.js";
 import { galleryScopeSql, scopeIsEmpty } from "./app-files-access.js";
+import { albumShareReachFor } from "../shared/shares/album-shares.js";
 import type { GalleryAlbumItemRow, GalleryAlbumRow, GalleryDetailRow, ItemMetadataRow, LibraryItemRow, LibraryRow, Nullable } from "../../../db/rows.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
 export type AlbumRow = GalleryAlbumRow;
+
+/** The viewer's gallery scope, widened by the albums shared WITH `sharedTo`
+ *  (a live `gallery_album` share): a member who otherwise sees only some photos
+ *  — by person, or not that library at all — sees the whole album sent to them,
+ *  bounded by what its sender may share (album-shares.ts). `albumExpr` names the
+ *  album id column of the query. Leave `sharedTo` out for anything a guest sees. */
+function albumScopeSql(libIds: string[], albumExpr: string, sharedTo?: string): { sql: string; params: unknown[]; empty: boolean } {
+  const scope = galleryScopeSql(libIds);
+  const reach = sharedTo ? albumShareReachFor(sharedTo) : [];
+  if (reach.length === 0) return { ...scope, empty: scopeIsEmpty(libIds) };
+  return {
+    sql: `(${scope.sql} OR (${albumExpr} || '|' || library_items.library_id) IN (SELECT value FROM json_each(?)))`,
+    params: [...scope.params, JSON.stringify(reach)],
+    empty: false
+  };
+}
 
 export function getAlbum(albumId: string): AlbumRow | undefined {
   return db.prepare("SELECT * FROM gallery_albums WHERE id = ?").get(albumId) as AlbumRow | undefined;
@@ -137,7 +154,7 @@ interface AlbumListRow extends AlbumRow {
 export function listAlbums(user: { id: string; role: string }, libIds: string[]) {
   // With no accessible gallery libraries every count is 0, but creators/admins
   // must still see their albums — so query anyway instead of returning early.
-  const scope = galleryScopeSql(libIds);
+  const scope = albumScopeSql(libIds, "gallery_albums.id", user.id);
   const rows = db.prepare(`
     SELECT
       gallery_albums.*,
@@ -180,9 +197,11 @@ export function listAlbums(user: { id: string; role: string }, libIds: string[])
 
 // One album's visible items, paged. taken_at mode is chronological (an album
 // reads like a story); manual mode follows position (append order today).
-export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow, limit: number, offset: number) {
-  if (scopeIsEmpty(libIds)) return { assets: [], total: 0 };
-  const scope = galleryScopeSql(libIds);
+/** `withShares`: also the photos an album share sent to `userId` opens — the
+ *  album page; never a story's guest link, which reads with its creator's id. */
+export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow, limit: number, offset: number, withShares = false) {
+  const scope = albumScopeSql(libIds, "gallery_album_items.album_id", withShares ? userId : undefined);
+  if (scope.empty) return { assets: [], total: 0 };
   const where = `
     gallery_album_items.album_id = ?
     AND ${scope.sql}
@@ -210,9 +229,9 @@ export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow,
 // Every album item id the viewer can see, in the album's sort order — for
 // "Share album", which hands the set to the multi-photo share modal. Filtered by
 // library access like getAlbumItems; just the ids, no thumbnails/metadata.
-export function getAlbumItemIds(libIds: string[], album: AlbumRow): string[] {
-  if (scopeIsEmpty(libIds)) return [];
-  const scope = galleryScopeSql(libIds);
+export function getAlbumItemIds(libIds: string[], album: AlbumRow, sharedTo?: string): string[] {
+  const scope = albumScopeSql(libIds, "gallery_album_items.album_id", sharedTo);
+  if (scope.empty) return [];
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
     : "gallery_details.taken_at ASC, library_items.id ASC";
@@ -234,9 +253,9 @@ export type AlbumFileRow = Pick<LibraryItemRow, "id" | "folder_path">
   & Pick<LibraryRow, "source_path">
   & Nullable<Pick<ItemMetadataRow, "title">>;
 
-export function getAlbumFilePaths(libIds: string[], album: AlbumRow): AlbumFileRow[] {
-  if (scopeIsEmpty(libIds)) return [];
-  const scope = galleryScopeSql(libIds);
+export function getAlbumFilePaths(libIds: string[], album: AlbumRow, sharedTo?: string): AlbumFileRow[] {
+  const scope = albumScopeSql(libIds, "gallery_album_items.album_id", sharedTo);
+  if (scope.empty) return [];
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
     : "gallery_details.taken_at ASC, library_items.id ASC";
