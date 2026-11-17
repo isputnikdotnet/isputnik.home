@@ -8,12 +8,19 @@
 // test a fresh temp folder): its own vi.spyOn(process, "cwd") takes over the pin,
 // and its own BACKUP_PATH wins over this one. When a test restores its mocks, the
 // pin is put back before the next test starts.
+//
+// Each test FILE gets a backup folder of its own under <sandbox>/backups. Files
+// run side by side in separate workers, and one shared folder let them see each
+// other's zips: system-data's "move the backups to their own folder" carried off
+// the zip diagnostics-tests had just written (ENOENT there, and one backup too
+// many counted here) — only in a full run, never with either file alone.
+import fs from "node:fs";
 import path from "node:path";
 import { beforeEach, inject, vi } from "vitest";
 
 const root = inject("testSandbox");
 const cwd = path.join(root, "apps", "server");
-const backups = path.join(root, "backups");
+const backups = fs.mkdtempSync(path.join(root, "backups", "file-"));
 
 function pin(): void {
   if (!vi.isMockFunction(process.cwd)) vi.spyOn(process, "cwd").mockReturnValue(cwd);
