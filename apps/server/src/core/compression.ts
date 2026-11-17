@@ -38,6 +38,8 @@ import { brotliCompressSync, gzipSync, constants as zlib } from "node:zlib";
 // Deliberately NOT handled here: streams. Audio, video, file downloads and
 // backups either hijack the reply (bypassing onSend entirely) or arrive as a
 // stream, and both fall through untouched — they are already compressed formats.
+// The web app's own files are streams too; they are compressed at build time and
+// sent as such instead (core/static-files.ts).
 
 /** Below this, framing overhead outweighs the saving. */
 const THRESHOLD_BYTES = 1024;

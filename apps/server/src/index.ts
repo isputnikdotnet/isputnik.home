@@ -4,7 +4,6 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import helmet from "@fastify/helmet";
-import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { db } from "./db.js";
 import { registerAuthDecorators } from "./auth.js";
@@ -15,6 +14,7 @@ import { maskLogUrl } from "./core/log-redaction.js";
 import { BLOCKED_MESSAGE, BLOCKED_PAGE_HTML, wantsHtml } from "./core/blocked-page.js";
 import { registerCsrf } from "./core/csrf.js";
 import { registerCompression } from "./core/compression.js";
+import { registerStaticFiles } from "./core/static-files.js";
 import { registerErrorHandler } from "./core/error-handler.js";
 import { setAppLogger } from "./core/logger.js";
 import { logStream } from "./core/log-buffer.js";
@@ -326,10 +326,8 @@ await app.register(profilesPlugin);
 await app.register(diagnosticsPlugin);
 
 if (config.staticPath) {
-  await app.register(staticFiles, {
-    root: config.staticPath,
-    wildcard: false
-  });
+  // Precompressed, and hashed files cached for good: see core/static-files.ts.
+  await registerStaticFiles(app, config.staticPath);
   app.setNotFoundHandler((request, reply) => {
     // An unknown API or OPDS path is a missing endpoint, not a page: answer a
     // proper 404 instead of the app shell (scanners probing /api/… were getting
