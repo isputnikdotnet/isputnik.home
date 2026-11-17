@@ -1871,7 +1871,9 @@
     "listNoteShort": "Someone else's is private, even to you: you see whose it is and its size.",
     "noAdoptable": "No gallery library can become personal",
     "noMemberWithout": "Every member already has one",
-    "nobodyChosen": "Nobody chosen yet — add members or groups."
+    "nobodyChosen": "Nobody chosen yet — add members or groups.",
+    "chooseFirst": "Personal libraries need a place to be made in first. Choose it, and they're switched on with it.",
+    "saveWhereOn": "Save and switch on"
   },
   "phoneSync": {
     "add": "Add network",
@@ -2528,7 +2530,15 @@
     "librariesPager": "Personal libraries pages",
     "devicesPager": "Device pages",
     "adoptSub": "Give a gallery library to one member",
-    "logSub": "Every phone backup event"
+    "logSub": "Every phone backup event",
+    "offTitle": "Phone backup is off",
+    "offBoth": "It goes on once a network is listed under Allowed networks and the server address is set, both below.",
+    "offNetwork": "It goes on once a network is listed under Allowed networks, below.",
+    "offAddress": "It goes on once the server address is set, below.",
+    "backupTile": "Phone backup",
+    "on": "On",
+    "offShort": "needs a network and the address",
+    "noNetworks": "No network yet: phones can't back up from anywhere"
   },
   "diagnostics": {
     "description": "How each part of iSputnik is, what needs a look, and a report to attach to a bug report.",

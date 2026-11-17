@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { useTranslation } from "react-i18next";
 import { BarChart3, BookOpen, Link2, Plus, ScrollText, Smartphone, UserRoundCheck, Wifi } from "lucide-react";
 import { api } from "../../../api";
-import { libraryManageHref, memberHref } from "../../../router";
+import { followRoute, libraryManageHref, memberHref } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
@@ -10,7 +10,6 @@ import { ActionRow, AddRow, CommandRow, GroupedList, InfoRow, NavRow } from "../
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { SettingsCard } from "../../../shared/SettingsCard";
 import { StatTiles } from "../../../shared/StatTiles";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
@@ -370,32 +369,12 @@ export function PhoneSyncSection() {
       {head}
       <div className="device-sync device-sync-overview">
         {errors}
+        {/* Off: what is missing, once, pointing at the two sections below that set it. */}
         {!on && (
-          <SettingsCard icon={<Smartphone size={20} />} title={t("controlAdmin:deviceSync.setupTitle")} note={t("controlAdmin:deviceSync.setupNote")}>
-          <GroupedList>
-            <NavRow
-              icon={<Wifi size={17} />}
-              iconTone={networks.networks.length ? "ok" : "warn"}
-              label={t("controlAdmin:deviceSync.stepNetwork")}
-              value={networks.networks.length ? t("controlAdmin:deviceSync.networkCount", { count: networks.networks.length }) : t("controlAdmin:deviceSync.noneYet")}
-              onClick={() => go({ page: "addNetwork" })}
-            />
-            <NavRow
-              icon={<Link2 size={17} />}
-              iconTone={networks.address ? "ok" : "warn"}
-              label={t("controlAdmin:deviceSync.stepAddress")}
-              value={networks.address ?? t("controlAdmin:deviceSync.notSet")}
-              onClick={() => go({ page: "address" })}
-            />
-            <NavRow
-              icon={<Smartphone size={17} />}
-              label={t("controlAdmin:deviceSync.stepPhone")}
-              sub={t("controlAdmin:deviceSync.stepPhoneSub")}
-              value={t("controlAdmin:deviceSync.guide")}
-              href="/help/phone-sync-setup"
-            />
-          </GroupedList>
-          </SettingsCard>
+          <MessageBox tone="info" title={t("controlAdmin:deviceSync.offTitle")}>
+            {t(networks.networks.length === 0 && !networks.address ? "controlAdmin:deviceSync.offBoth" : networks.networks.length === 0 ? "controlAdmin:deviceSync.offNetwork" : "controlAdmin:deviceSync.offAddress")}
+            {" "}<a href="/help/phone-sync-setup" onClick={(event) => followRoute(event, "/help/phone-sync-setup")}>{t("controlAdmin:deviceSync.guide")}</a>
+          </MessageBox>
         )}
 
         <StatTiles
@@ -419,10 +398,10 @@ export function PhoneSyncSection() {
               value: lastBackup ? relativeTime(lastBackup) : t("controlAdmin:phoneSyncPage.never")
             },
             {
-              label: t("controlAdmin:deviceSync.cardNetworks"),
-              value: networks.networks.length,
-              sub: networks.networks.length === 0 ? t("controlAdmin:deviceSync.noneYet") : undefined,
-              tone: networks.networks.length === 0 ? "warn" : undefined
+              label: t("controlAdmin:deviceSync.backupTile"),
+              value: on ? t("controlAdmin:deviceSync.on") : t("controlAdmin:deviceSync.off"),
+              sub: on ? undefined : t("controlAdmin:deviceSync.offShort"),
+              tone: on ? undefined : "warn"
             }
           ]}
         />
@@ -435,6 +414,7 @@ export function PhoneSyncSection() {
 
             <GroupedList id="phone-sync-networks" title={t("controlAdmin:deviceSync.cardNetworks")} note={t("controlAdmin:deviceSync.networksNote")}>
               <AddRow icon={<Plus size={17} />} label={t("controlAdmin:phoneSync.add")} onClick={() => go({ page: "addNetwork" })} />
+              {networks.networks.length === 0 && <InfoRow icon={<Wifi size={17} />} iconTone="warn" label={t("controlAdmin:deviceSync.noNetworks")} />}
               {networks.networks.map((network) => (
                 <NavRow
                   key={network.id}
@@ -449,7 +429,7 @@ export function PhoneSyncSection() {
             <GroupedList title={t("controlAdmin:deviceSync.cardAddress")} note={t("controlAdmin:deviceSync.addressNote")}>
               <CommandRow
                 icon={<Link2 size={17} />}
-                iconTone={networks.address && networks.addressOutsideNetworks ? "warn" : undefined}
+                iconTone={!networks.address || networks.addressOutsideNetworks ? "warn" : "ok"}
                 label={networks.address ?? t("controlAdmin:deviceSync.notSet")}
                 sub={networks.address && networks.addressOutsideNetworks ? t("controlAdmin:phoneSync.outsideTitle") : t("controlAdmin:phoneSync.addressHeading")}
                 value={networks.address ? t("controlAdmin:personalLibraries.change") : t("controlAdmin:deviceSync.setAddress")}

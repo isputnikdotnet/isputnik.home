@@ -44,6 +44,48 @@ beforeEach(() => {
   });
 });
 
+describe("switching them on", () => {
+  it("asks where they're made first when no place is chosen, and switches on with it", async () => {
+    const user = userEvent.setup();
+    mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body));
+        puts.push(body);
+        return view(body);
+      }
+      if (path === "/api/storage/personal-libraries") return view({ enabled: false, storageRootId: null });
+      if (path === "/api/users") return { users: [] };
+      if (path === "/api/groups") return { groups: [] };
+      if (path.startsWith("/api/library/gallery-libraries")) return { libraries: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<PersonalLibrariesPanel storageRoots={roots} />);
+    await user.click(await screen.findByRole("switch", { name: /Members may have a personal library/ }));
+    // Nothing saved yet: the place comes first.
+    const dialog = await screen.findByRole("dialog", { name: "Where personal libraries are made" });
+    expect(puts).toEqual([]);
+    expect(within(dialog).getByText(/need a place to be made in first/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Save and switch on" }));
+    await waitFor(() => expect(puts).toEqual([expect.objectContaining({ enabled: true, storageRootId: "media", folder: "Personal" })]));
+  });
+
+  it("stays off when the place isn't chosen", async () => {
+    const user = userEvent.setup();
+    mockApi.mockImplementation(async (path: string) => {
+      if (path === "/api/storage/personal-libraries") return view({ enabled: false, storageRootId: null });
+      if (path === "/api/users") return { users: [] };
+      if (path === "/api/groups") return { groups: [] };
+      if (path.startsWith("/api/library/gallery-libraries")) return { libraries: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<PersonalLibrariesPanel storageRoots={roots} />);
+    const toggle = await screen.findByRole("switch", { name: /Members may have a personal library/ });
+    await user.click(toggle);
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+});
+
 describe("where personal libraries are made", () => {
   it("shows one folder, and changes it in a dialog that previews the path", async () => {
     const user = userEvent.setup();

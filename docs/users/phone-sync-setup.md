@@ -47,7 +47,9 @@ libraries of removed members, each with **Hand over** and **Delete**.
 
 1. Open **Applications › Gallery › Device Sync** in the control panel. The first section,
    **Personal libraries**, starts with the switch **Members may have a personal library**.
-2. Turn it on. Three rows appear, each saying what it is set to, with **Change**:
+2. Turn it on. The first time, the window for where they are made opens first: choose a
+   library location and a folder name, then **Save and switch on** (cancel, and it stays
+   off). Three rows appear, each saying what it is set to, with **Change**:
    **Personal libraries location** (a library location and a folder name — the dialog shows the
    path before you save), **Access** (who may have one), and **Size limit for each**. Members see how
    full theirs is; phones are refused once a library is full.
@@ -63,11 +65,12 @@ back up into it, and when it last got a backup. Yours opens its Manage page; som
 Phones are refused unless they come from a **phone-backup network**.
 
 1. Open **Applications › Gallery › Device Sync**.
-2. Under **Where phones may back up from**, press **Add network** and add your home network, for
-   example `192.168.2.0/24`. **Copy trusted networks**, on the same page, is a starting point.
-3. Open **Address phones use** and type the address phones on that network reach the server at,
-   such as `http://192.168.2.10:4000`. Members are shown it when they add a phone. Once both are
-   set, the line at the top of the page says phone backup is on.
+2. Under **Allowed networks**, press **Add network** and add your home network, for example
+   `192.168.2.0/24`. **Copy trusted networks**, in the same window, is a starting point.
+3. Under **Server address**, press **Set address** and type the address phones on that network
+   reach the server at, such as `http://192.168.2.10:4000`. Members are shown it when they add a
+   phone. Until both are set, a note at the top of the page says phone backup is off and what it
+   still needs; the **Phone backup** card says **On** once it is.
 
 The list is separate from Trusted networks, so adding a VPN range for phones does not relax
 sign-in for it.

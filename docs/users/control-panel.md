@@ -466,13 +466,13 @@ step has [its own guide](phone-sync-setup.md).
   there aren't backed up twice), its history in the logs, and **Remove this phone**. A
   phone refused from an address on no list offers **Allow 192.168.12.0/24 for phone
   backup** — the /24 it came from.
-- **Where phones may back up from** — the phone-backup networks. It is a list of its
+- **Allowed networks** — the phone-backup networks. It is a list of its
   own: it relaxes nothing about signing in, so a VPN range can go here without skipping
   two-factor sign-in or lockout for it. **Add network** opens a short page for the range
   (with its size, `192.168.12.0/24` — a bare address would mean that one address) and a
   name, or **Copy trusted networks** in one go; after that the two lists are kept apart.
   A network opens its range, name and **Remove network**.
-- **Address phones use** — this server's address on your home network with its port
+- **Server address** — this server's address on your home network with its port
   (`http://192.168.2.10:4000`), typed once; the phone setup card in Profile › My
   library shows it to members. The row warns if it is outside the networks on the list.
 - **Personal libraries** — whether members may have a private photo library, and each
