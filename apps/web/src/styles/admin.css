@@ -3161,25 +3161,19 @@ tr.control-anchor-flash > td {
 
 /* Control panel › Infrastructure › Diagnostics: the report, as it will be pasted. */
 .diagnostics-section { display: grid; gap: 16px; min-width: 0; }
-.diagnostics-preview { display: grid; gap: 10px; min-width: 0; }
-.diagnostics-preview-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.diagnostics-preview-head h3 { margin: 0; }
 .diagnostics-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The cards, one per part of iSputnik (docs/diagnostics-pages-plan.md). */
-/* Diagnostics overview: a card per part — name, kind · version and its state on
-   top, one line of how it is, then a footer row: its logging on the left (tinted
-   while raised), small Tests / Details on the right. */
+/* Diagnostics overview (redrawn 2026-11-17): a card per part — an icon box, its name,
+   kind · version and one line of how it is, the state pill on the right; then a
+   footer: its diagnostic mode (a segmented Normal | Detailed | Full, tinted while
+   raised) and one button (Open details, or Pair now). The modes' legend closes. */
 .diagnostics-parts { display: grid; gap: 14px; min-width: 0; }
-.diagnostics-part {
-  /* No overflow: hidden — the logging menu opens below the footer, out of the card. */
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface-raised);
-}
+.diagnostics-part { min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-raised); }
 .diagnostics-part.is-attention, .diagnostics-part.is-down { border-color: color-mix(in srgb, var(--warning) 45%, var(--line)); }
-.diagnostics-part-body { display: grid; gap: 6px; min-width: 0; padding: 16px 18px 14px; }
-.diagnostics-part-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.diagnostics-part-body { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 4px 16px; min-width: 0; padding: 16px 18px 14px; }
+.diagnostics-part-icon { display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.diagnostics-part.is-off .diagnostics-part-icon { color: var(--muted); }
+.diagnostics-part-text { display: grid; gap: 4px; min-width: 0; }
 .diagnostics-part-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
 .diagnostics-part-name h2 { margin: 0; font-size: 1.1rem; }
 .diagnostics-part-name .muted { font-size: 0.85rem; }
@@ -3195,50 +3189,144 @@ tr.control-anchor-flash > td {
   padding: 10px 18px;
   border-top: 1px solid var(--line);
   border-radius: 0 0 13px 13px;
-  background: color-mix(in srgb, var(--ink) 3%, transparent);
 }
-.diagnostics-part:has(.diagnostics-logging-inline.is-raised) .diagnostics-part-foot { background: color-mix(in srgb, var(--warning) 9%, transparent); }
+.diagnostics-part:has(.diagnostics-mode.is-raised) .diagnostics-part-foot { background: color-mix(in srgb, var(--warning) 9%, transparent); }
 .diagnostics-part-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
-.secondary-button.diagnostics-part-button { gap: 2px; }
-.diagnostics-part-notests { font-size: 0.85rem; }
-.diagnostics-logging-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; font-size: 0.9rem; }
-/* The standard compact SelectField; raised, its text takes the warning colour. */
-.diagnostics-logging-inline.is-raised .diagnostics-logging-select select { color: var(--warning); font-weight: 600; }
+.secondary-button.diagnostics-part-button { gap: 6px; }
+/* Diagnostic mode: its label with ⓘ (the help as its tooltip), the shared segmented
+   control, and while raised "until 15:40". */
+.diagnostics-mode { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; font-size: 0.9rem; }
+.diagnostics-mode-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.diagnostics-mode.is-raised .segmented .active { color: var(--warning); }
 .diagnostics-logging-until { color: var(--warning); font-size: 0.85rem; }
+/* While raised: the timer — how long, and until when. */
+.diagnostics-mode-timer { display: inline-flex; align-items: center; gap: 8px; }
+.diagnostics-mode-length > .select-menu-trigger { min-height: 32px; padding: 0 10px; gap: 6px; font-size: var(--text-sm); color: var(--warning); }
 .diagnostics-logging-error { color: var(--danger, var(--warning)); font-size: 0.82rem; }
-/* The report dialog: the choices beside the report as it will be saved. */
-/* Diagnostics › Download a report: a panel of header · body · actions. The body
-   scrolls (choices, Private details), the actions stay at the bottom; on a wide
-   screen the preview stays in view beside the choices as they scroll. */
-.metadata-modal.diagnostics-report-modal {
-  /* 100% of what the backdrop leaves inside its padding, not of the window. */
-  width: min(100%, 1100px);
-  height: min(860px, calc(100vh - 48px));
-  grid-template-rows: auto minmax(0, 1fr) auto;
-}
-.diagnostics-report-modal .modal-actions {
-  margin-top: 0;
-  padding: 12px 20px 16px;
-  border-top: 1px solid var(--line);
-}
-.diagnostics-report { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; min-width: 0; padding: 16px 20px 20px; }
-.diagnostics-report-choices { display: grid; gap: 14px; align-content: start; min-width: 0; }
-.diagnostics-report .diagnostics-preview { position: sticky; top: 0; align-content: start; align-self: start; }
-.diagnostics-report .diagnostics-preview h3 { margin: 0; }
-.diagnostics-report .diagnostics-text { max-height: min(62vh, 640px); min-height: 240px; margin: 0; }
+/* The modes, explained once at the foot. */
+.diagnostics-modes { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px 24px; margin-top: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-raised); }
+.diagnostics-modes h2 { display: inline-flex; align-items: center; gap: 10px; margin: 0; padding-right: 24px; border-right: 1px solid var(--line); font-size: 1rem; white-space: nowrap; }
+.diagnostics-modes dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; margin: 0; }
+.diagnostics-modes dt { justify-self: start; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 7%, transparent); font-size: 0.85rem; font-weight: 600; }
+.diagnostics-modes .is-normal dt { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
+.diagnostics-modes dl > div { display: grid; gap: 6px; align-content: start; }
+.diagnostics-modes dd { margin: 0; color: var(--muted); font-size: 0.86rem; }
+.diagnostics-modes-time { grid-column: 2; display: flex; align-items: center; gap: 8px; margin: 0; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.86rem; }
+@media (max-width: 860px) { .diagnostics-modes-time { grid-column: 1; } }
 @media (max-width: 860px) {
-  .diagnostics-report { grid-template-columns: minmax(0, 1fr); }
-  .diagnostics-report .diagnostics-preview { position: static; }
+  .diagnostics-modes { grid-template-columns: minmax(0, 1fr); }
+  .diagnostics-modes h2 { padding-right: 0; border-right: 0; }
+  .diagnostics-modes dl { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 740px) {
+  .diagnostics-part-body { grid-template-columns: auto minmax(0, 1fr); }
+  .diagnostics-part-body > .app-status-pill { grid-column: 2; justify-self: start; }
+}
+/* Diagnostics › Download report (compact since 2026-11-17): a card with two tabs —
+   What goes in (private details first) and Report (the text) — whose body scrolls
+   between the tabs and the buttons, so both stay in reach. */
+.confirm-modal.diagnostics-report-modal { width: min(100%, 600px); }
+.diagnostics-report-tabs { margin: 4px -24px 0; padding: 0 24px; }
+.diagnostics-report-body { display: grid; gap: 14px; align-content: start; max-height: min(58vh, 540px); overflow-y: auto; min-width: 0; padding: 2px 2px 4px; }
+.diagnostics-report-body .diagnostics-text { margin: 0; min-height: 300px; max-height: none; }
+/* A saved report's viewer: Delete stands apart, on the left. */
+.diagnostics-report-modal .diagnostics-saved-delete { margin-right: auto; }
+/* On a phone the buttons stack: the body takes what the screen leaves them. */
+@media (max-width: 740px) {
+  .diagnostics-report-body { max-height: max(200px, calc(100dvh - 420px)); }
+  .diagnostics-report-body .diagnostics-text { min-height: 0; }
+  .diagnostics-report-modal .modal-actions { flex-wrap: wrap; }
+  .diagnostics-report-modal .modal-actions > * { flex: 1 1 auto; white-space: nowrap; }
 }
 /* A part's own page: its checks, and a column of where to look next. */
 .diagnostics-part-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px; align-items: start; min-width: 0; }
 .diagnostics-part-main, .diagnostics-part-aside { display: grid; gap: 16px; min-width: 0; }
+/* Diagnostics › Video (VideoPage.tsx): a row of tabs, then long cards one after
+   another beside a narrow column of small boxes. */
+.diag-video-tabs { margin-bottom: 4px; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.diag-video-tabs a { white-space: nowrap; }
+.diag-tab-count { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, transparent); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.diag-video { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 260px); gap: 16px; align-items: start; min-width: 0; }
+.diag-video-main, .diag-video-side { display: grid; gap: 14px; min-width: 0; }
+.diag-video .organization-card h3 { margin: 0; font-size: 1rem; }
+.diag-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.diag-card-head .diag-more { margin-left: auto; }
+.diag-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 0.86rem; text-decoration: none; }
+.diag-link:hover { text-decoration: underline; }
+.diag-side-card { gap: 8px; }
+.diag-side-card h3 { font-size: 0.95rem; }
+.diag-side-card > p { margin: 0; font-size: 0.8rem; }
+/* Its diagnostic mode: the heading says what it is, the switch takes the width. */
+.diag-side-card .diagnostics-mode { display: grid; gap: 8px; }
+.diag-side-card .diagnostics-mode-label { display: none; }
+.diag-side-card .diagnostics-mode .segmented { width: 100%; }
+.diag-side-card .diagnostics-mode .segmented > * { flex: 1; }
+/* The GPU: its picture (the maker's, once there are pictures), then what it is. */
+.diag-gpu { flex-direction: row; align-items: flex-start; gap: 16px; }
+.diag-gpu-picture { display: grid; place-items: center; align-content: center; gap: 4px; flex: none; width: 96px; height: 96px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); font-size: 0.75rem; }
+.diag-gpu-picture.is-intel { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.diag-gpu-picture.is-nvidia { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.diag-gpu-picture.is-amd { color: var(--rose); background: color-mix(in srgb, var(--rose) 12%, transparent); }
+.diag-gpu-text { display: grid; gap: 8px; min-width: 0; flex: 1; }
+.diag-gpu-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.diag-gpu-name h3 { font-size: 1.1rem !important; }
+.diag-gpu-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; margin: 0; font-size: 0.86rem; }
+.diag-gpu-facts dt { color: var(--muted); }
+.diag-gpu-facts dd { margin: 0; overflow-wrap: anywhere; }
+.diag-gpu-error { margin: 0; color: var(--warning); font-size: 0.84rem; }
+.diag-gpu-checks { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: 0.84rem; }
+.diag-gpu-checks li { display: inline-flex; align-items: center; gap: 5px; }
+.diag-gpu-checks .is-ok svg { color: var(--success); }
+.diag-gpu-checks .is-no { color: var(--muted); }
+.diag-gpu-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+/* Capabilities: a format a row, decode and encode as ticks. */
+.diag-caps { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.diag-caps th, .diag-caps td { padding: 4px 2px; border-top: 1px solid var(--line); text-align: left; font-weight: 400; }
+.diag-caps thead th { border-top: 0; color: var(--muted); font-size: 0.75rem; }
+.diag-caps td.is-ok { color: var(--success); }
+.diag-caps td.is-no, .diag-caps td.is-unknown { color: var(--muted); }
+/* Right now: a reading a row, its verdict, and its last ten minutes as a line. */
+.diag-now { gap: 0; }
+.diag-now .diag-card-head { margin-bottom: 6px; }
+.diag-now-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 160px; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.diag-now-row:first-of-type { border-top: 0; }
+.diag-now-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.diag-now-text { display: grid; gap: 2px; min-width: 0; font-size: 0.86rem; }
+.diag-now-label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.diag-spark { width: 160px; height: 30px; overflow: visible; }
+.diag-spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.diag-spark-dot { fill: var(--accent); }
+.diag-spark-limit { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.diag-now-foot { margin: 8px 0 0; font-size: 0.78rem; }
+/* Live sessions, compact: Live sessions' tab has the cards. */
+.diag-session { display: grid; grid-template-columns: auto minmax(0, 1fr) 130px; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.diag-session-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.diag-session-icon.is-direct { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+.diag-session-text { display: grid; gap: 2px; min-width: 0; font-size: 0.86rem; }
+.diag-session-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.diag-session-progress { display: grid; gap: 4px; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+/* The last GPU test, in a few rows. */
+.diag-tests-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.diag-tests-table th, .diag-tests-table td { padding: 6px 4px; border-top: 1px solid var(--line); text-align: left; font-weight: 400; }
+.diag-tests-table thead th { border-top: 0; color: var(--muted); font-size: 0.78rem; }
+.diag-tests-foot { margin: 0; font-size: 0.86rem; }
+.diag-saved-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 0.84rem; }
+@media (max-width: 1000px) {
+  .diag-video { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 740px) {
+  .diag-gpu { flex-direction: column; }
+  .diag-now-row { grid-template-columns: auto minmax(0, 1fr); }
+  .diag-now-row .diag-spark { grid-column: 1 / -1; width: 100%; }
+  .diag-session { grid-template-columns: auto minmax(0, 1fr); }
+  .diag-session-progress { grid-column: 2; }
+}
 .diagnostics-logging { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 8px 12px; border-radius: 10px; background: var(--field); min-width: 0; }
 .diagnostics-logging.is-raised { background: color-mix(in srgb, var(--warning) 12%, var(--field)); }
 .diagnostics-logging.is-raised strong { color: var(--warning); }
 .diagnostics-logging-card { display: grid; gap: 10px; min-width: 0; }
 .diagnostics-logging-card h3 { margin: 0; }
-.diagnostics-logging-card p, .diagnostics-logging-help { margin: 0; font-size: 0.88rem; }
+.diagnostics-logging-card p { margin: 0; font-size: 0.88rem; }
 .diagnostics-test { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 16px; min-width: 0; }
 .diagnostics-test-text { display: grid; gap: 3px; flex: 1 1 280px; min-width: 0; }
 .diagnostics-test-text .muted { font-size: 0.88rem; }

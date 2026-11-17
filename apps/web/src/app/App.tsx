@@ -456,7 +456,7 @@ export function App() {
 
     if (route.name === "controlDiagnosticsPart") {
       return isAdminSession(session.user)
-        ? <ControlPanelPage section="diagnostics" diagnosticsPart={route.part} />
+        ? <ControlPanelPage section="diagnostics" diagnosticsPart={route.part} diagnosticsTab={route.tab} />
         : <HomePage />;
     }
 

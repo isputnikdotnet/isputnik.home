@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, FileDown, Stethoscope } from "lucide-react";
+import { Box, ChevronRight, FileDown, Gamepad2, Link2, ScanFace, Server, SquareArrowOutUpRight, Stethoscope, Video } from "lucide-react";
 import { controlHref, diagnosticsPartHref, followRoute, libraryManageHref, type DiagnosticsPart } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -10,34 +10,40 @@ import { ReportDialog } from "../diagnostics/ReportDialog";
 import { useDiagnosticsOverview, useProblemText, type PartOverview, type PartState } from "../diagnostics/overview";
 import { appPageHref } from "../links";
 import { useAppName, useAppsStatus } from "./AppsSection";
-import { LoggingSelect, loggingUrl } from "../diagnostics/Logging";
+import { LoggingModes, LoggingModesLegend, loggingUrl } from "../diagnostics/Logging";
 import { useWatchingCount } from "../diagnostics/Watching";
+import { SavedReports, useSavedReports } from "../diagnostics/SavedReports";
 
-// Control panel › Infrastructure › Diagnostics (docs/diagnostics-pages-plan.md):
-// one card per part of iSputnik — this server, then each container — saying how it
-// is and what needs a look, with links to where it is fixed and its tests; and one
-// Download report button, which opens the report dialog with every part ticked.
+// Control panel › Infrastructure › Diagnostics (docs/diagnostics-pages-plan.md;
+// redrawn 2026-11-17): one card per part of iSputnik — this server, then each
+// container — its icon, what it is and its version, one line of how it is and a
+// state pill; under that its diagnostic mode (Normal | Detailed | Full) and one way
+// on: Open details, or Pair now while it is not set up (plus where a problem is put
+// right). The modes are explained once, at the foot. One Download report button
+// opens the report dialog with every part ticked; the reports saved from it are
+// listed at the foot (SavedReports).
 // The server's side is modules/diagnostics (overview.ts for the cards).
 
 const PILL: Record<PartState, string> = { ok: "is-ready", attention: "is-needsSetup", down: "is-needsSetup", off: "is-off" };
 
-/** A card's small footer button: a real link, so it opens in a new tab on Ctrl/Cmd-click. */
-function Link({ href, children, chevron = false }: { href: string; children: React.ReactNode; chevron?: boolean }) {
+/** A card's button: a real link, so it opens in a new tab on Ctrl/Cmd-click. */
+function Link({ href, children, icon, chevron = false }: { href: string; children: React.ReactNode; icon?: React.ReactNode; chevron?: boolean }) {
   return (
     <a className="secondary-button compact-button diagnostics-part-button" href={href} onClick={(event) => followRoute(event, href)}>
+      {icon}
       {children}
       {chevron && <ChevronRight size={14} aria-hidden="true" />}
     </a>
   );
 }
 
-/** Where a part's tests are, on its own page; null when it has none. */
-function testsHref(part: PartOverview): string | null {
-  if (part.state === "off" || part.state === "down") return null;
-  if (part.id === "home") return `${diagnosticsPartHref("home")}#libraries`;
-  if (part.id === "video") return `${diagnosticsPartHref("video")}#tests`;
-  return null;
-}
+/** Each part's picture: the server, and each container by what it does. */
+const PART_ICON: Record<string, React.ReactNode> = {
+  home: <Server size={22} />,
+  games: <Gamepad2 size={22} />,
+  video: <Video size={22} />,
+  faces: <ScanFace size={22} />
+};
 
 /** " · 2 watching" after Video's line, once the engine says. */
 function WatchingSuffix({ prefix }: { prefix: string | null }) {
@@ -59,6 +65,7 @@ export function DiagnosticsSection() {
   };
   const problemText = useProblemText();
   const [reporting, setReporting] = useState(false);
+  const saved = useSavedReports();
 
   const lineOf = (part: PartOverview): string => {
     if (part.problems.length > 0) return part.problems.map(problemText).join(" · ");
@@ -80,7 +87,7 @@ export function DiagnosticsSection() {
       if (part.problems.some((problem) => problem.kind.startsWith("backup") || problem.kind === "noBackup")) links.push({ href: controlHref("backup"), label: t("controlAdmin:diagnostics.action.backups") });
       return links;
     }
-    if (part.state === "off" || part.state === "down" || part.state === "attention") links.push({ href: appPageHref("appsSetup", part.id), label: t("controlAdmin:diagnostics.action.pairing") });
+    if (part.state === "attention") links.push({ href: appPageHref("appsSetup", part.id), label: t("controlAdmin:diagnostics.action.pairing") });
     return links;
   };
 
@@ -96,34 +103,34 @@ export function DiagnosticsSection() {
         {(parts ?? []).map((part) => {
           const name = part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id);
           const logging = loggingOf(part);
-          const tests = testsHref(part);
+          const unpaired = part.state === "off" || part.state === "down";
           return (
           <section key={part.id} className={`diagnostics-part is-${part.state}`} aria-labelledby={`diagnostics-${part.id}`}>
             <div className="diagnostics-part-body">
-            <div className="diagnostics-part-head">
-              <div className="diagnostics-part-name">
-                <h2 id={`diagnostics-${part.id}`}>{part.id === "home" ? t("controlAdmin:diagnostics.home") : appName(part.id)}</h2>
-                <span className="muted">
-                  {part.id === "home"
-                    ? t("controlAdmin:diagnostics.thisServer", { version: part.version ?? "?" })
-                    : part.version ? t("controlAdmin:diagnostics.container", { version: part.version }) : t("controlAdmin:diagnostics.containerNoVersion")}
-                </span>
+              <span className="diagnostics-part-icon" aria-hidden="true">{PART_ICON[part.id] ?? <Box size={22} />}</span>
+              <div className="diagnostics-part-text">
+                <div className="diagnostics-part-name">
+                  <h2 id={`diagnostics-${part.id}`}>{name}</h2>
+                  <span className="muted">
+                    {part.id === "home"
+                      ? t("controlAdmin:diagnostics.thisServer", { version: part.version ?? "?" })
+                      : part.version ? t("controlAdmin:diagnostics.container", { version: part.version }) : t("controlAdmin:diagnostics.containerNoVersion")}
+                  </span>
+                </div>
+                <p className={part.problems.length ? "diagnostics-part-line is-warning" : "diagnostics-part-line"}>
+                  {lineOf(part)}
+                  {part.id === "video" && part.state === "ok" && <WatchingSuffix prefix={apps?.find((app) => app.id === "video")?.prefix ?? null} />}
+                </p>
               </div>
               <span className={`app-status-pill ${PILL[part.state]}`}>{t(`controlAdmin:diagnostics.state.${part.state}`)}</span>
             </div>
-            <p className={part.problems.length ? "diagnostics-part-line is-warning" : "diagnostics-part-line"}>
-              {lineOf(part)}
-              {part.id === "video" && part.state === "ok" && <WatchingSuffix prefix={apps?.find((app) => app.id === "video")?.prefix ?? null} />}
-            </p>
-            </div>
             <div className="diagnostics-part-foot">
-              {logging ? <LoggingSelect url={logging} name={name} /> : <span />}
+              <LoggingModes url={logging} name={name} />
               <div className="diagnostics-part-actions">
                 {fixesOf(part).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
-                {part.state !== "off" && (tests
-                  ? <Link href={tests}>{t("controlAdmin:diagnostics.action.tests")}</Link>
-                  : <span className="muted diagnostics-part-notests">{t("controlAdmin:diagnostics.noTests")}</span>)}
-                {part.state !== "off" && <Link href={diagnosticsPartHref(part.id as DiagnosticsPart)} chevron>{t("controlAdmin:diagnostics.action.details")}</Link>}
+                {unpaired
+                  ? <Link href={appPageHref("appsSetup", part.id)} icon={<Link2 size={15} aria-hidden="true" />} chevron>{t("controlAdmin:diagnostics.action.pairNow")}</Link>
+                  : <Link href={diagnosticsPartHref(part.id as DiagnosticsPart)} icon={<SquareArrowOutUpRight size={15} aria-hidden="true" />} chevron>{t("controlAdmin:diagnostics.action.openDetails")}</Link>}
               </div>
             </div>
           </section>
@@ -132,9 +139,11 @@ export function DiagnosticsSection() {
         {parts === null && !error && <p className="muted">{t("controlAdmin:diagnostics.looking")}</p>}
       </div>
 
-      <p className="muted diagnostics-logging-help">{t("controlAdmin:diagnostics.logging.help")}</p>
+      {parts && <LoggingModesLegend />}
 
-      {reporting && <ReportDialog parts="all" onClose={() => setReporting(false)} />}
+      <SavedReports saved={saved} />
+
+      {reporting && <ReportDialog parts="all" onClose={() => setReporting(false)} onSaved={() => void saved.load()} />}
     </div>
   );
 }

@@ -893,7 +893,12 @@
     "applySelected": "Применить к выбранным",
     "savedAutomatically": "Изменения сохраняются сразу.",
     "giveAllShown": "Дать доступ всем показанным",
-    "accessFor": "Доступ: {{name}}"
+    "accessFor": "Доступ: {{name}}",
+    "titleFor": "Доступ к «{{name}}»",
+    "viewLabel": "Вид",
+    "viewBoth": "Все",
+    "viewGroups": "Группы",
+    "viewUsers": "Люди"
   },
   "app": {
     "loading": "Загрузка isputnik.home..."

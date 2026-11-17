@@ -62,6 +62,9 @@ export interface HardwareState {
   /** Engine 0.25+: HDR tone-mapped on the GPU, and subtitles drawn there. */
   tonemap?: boolean;
   overlay?: boolean;
+  /** Engine 0.41+: the formats vainfo says it encodes (decode's keys); before,
+   *  only `encode` — H.264, the one a conversion makes. */
+  encodeFormats?: string[];
   error: string | null;
   checking: boolean;
   /** Automatic gave up on the GPU after failures, until Check again. */
@@ -114,7 +117,7 @@ interface DetectionState {
 }
 
 /** The decode test's codec names as people know them; not words to translate. */
-const CODEC_NAMES: Record<string, string> = {
+export const CODEC_NAMES: Record<string, string> = {
   h264: "H.264", hevc: "HEVC", hevc10: "HEVC 10-bit", vp9: "VP9", vp9_10: "VP9 10-bit", av1: "AV1", mpeg2video: "MPEG-2", vc1: "VC-1"
 };
 

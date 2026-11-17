@@ -8,6 +8,8 @@ import { appSettingsResolver, type AppsPluginOptions } from "../apps/index.js";
 import { overview } from "./overview.js";
 import { HIDE_ALL, HIDE_KINDS, HIDE_NOTHING, type HideChoice } from "./redact.js";
 import { buildReport, REPORT_PARTS, type SectionKey } from "./report.js";
+import { serverNow } from "./now.js";
+import { deleteSaved, getSaved, listSaved, SAVED_KEPT, SAVED_MAX_CHARS, saveReport } from "./saved.js";
 import { recordSpeed, startTest, testsState } from "./tests.js";
 
 const list = z.string().max(500).optional();
@@ -28,7 +30,14 @@ const speedSchema = z.object({
   bytes: z.number().int().min(0).max(1024 * 1024 * 1024)
 });
 
-const csv = (value: string) => value.split(",").map((entry) => entry.trim()).filter(Boolean);
+const saveSchema = z.object({
+  text: z.string().min(1).max(SAVED_MAX_CHARS),
+  span: z.enum(["hour", "day", "week"]),
+  parts: z.array(z.string().max(100)).max(50),
+  hidden: z.array(z.enum(HIDE_KINDS)).max(HIDE_KINDS.length)
+});
+
+const csv =(value: string) => value.split(",").map((entry) => entry.trim()).filter(Boolean);
 
 /** What the query asks to hide. Anything it doesn't name is shown; no query hides all. */
 export function hideChoiceOf(query: { private?: string; hide?: string }): HideChoice {
@@ -73,7 +82,38 @@ export async function diagnosticsPlugin(app: FastifyInstance, opts: AppsPluginOp
     return reply.code(202).send(testsState());
   });
 
-  app.get("/api/admin/diagnostics/overview", { preHandler: app.requireAdmin }, async (request, reply) => {
+  // The machine right now (now.ts): read when asked, while a part's page is open.
+  app.get("/api/admin/diagnostics/now", { preHandler: app.requireAdmin }, async (_request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    return serverNow();
+  });
+
+  // Saved reports (saved.ts): the text as the admin saved it, the last 10 kept.
+  app.get("/api/admin/diagnostics/saved", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const part = (request.query as { part?: unknown } | undefined)?.part;
+    reply.header("Cache-Control", "no-store");
+    return { reports: listSaved(typeof part === "string" && part ? part : undefined), kept: SAVED_KEPT };
+  });
+
+  app.get("/api/admin/diagnostics/saved/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const report = getSaved((request.params as { id: string }).id);
+    if (!report) return reply.code(404).send({ error: "Report not found" });
+    reply.header("Cache-Control", "no-store");
+    return { report };
+  });
+
+  app.post("/api/admin/diagnostics/saved", { preHandler: app.requireAdmin, bodyLimit: SAVED_MAX_CHARS * 4 }, async (request, reply) => {
+    const parsed = saveSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid report" });
+    return reply.code(201).send({ report: saveReport(parsed.data, request.user?.id ?? null) });
+  });
+
+  app.delete("/api/admin/diagnostics/saved/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    if (!deleteSaved((request.params as { id: string }).id)) return reply.code(404).send({ error: "Report not found" });
+    return { ok: true };
+  });
+
+  app.get("/api/admin/diagnostics/overview",{ preHandler: app.requireAdmin }, async (request, reply) => {
     reply.header("Cache-Control", "no-store");
     return { parts: await overview(request, settings) };
   });

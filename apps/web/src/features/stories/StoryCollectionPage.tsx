@@ -203,7 +203,7 @@ export function StoryCollectionPage({
       )}
 
       {accessOpen && collection && (
-        <StoryCollectionAccessModal collectionId={collection.id} onClose={() => setAccessOpen(false)} />
+        <StoryCollectionAccessModal collectionId={collection.id} collectionTitle={collection.title} onClose={() => setAccessOpen(false)} />
       )}
     </DashboardShell>
   );

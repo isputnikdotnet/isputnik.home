@@ -835,7 +835,12 @@
     "applySelected": "Apply to selected",
     "savedAutomatically": "Changes are saved automatically.",
     "giveAllShown": "Give access to everyone shown",
-    "accessFor": "Access for {{name}}"
+    "accessFor": "Access for {{name}}",
+    "titleFor": "Access to {{name}}",
+    "viewLabel": "View",
+    "viewBoth": "All",
+    "viewGroups": "Groups",
+    "viewUsers": "People"
   },
   "app": {
     "loading": "Loading isputnik.home..."

@@ -28,12 +28,31 @@ const report = (hidden: string[]): DiagnosticsReport => ({
   ]
 });
 
+// Saved reports, as the server keeps them (modules/diagnostics/saved.ts).
+let saved: { id: string; createdAt: string; createdBy: string; createdByName: string; span: string; parts: string[]; hidden: string[]; sizeBytes: number; text: string }[] = [];
+function savedApi(url: string, init?: RequestInit) {
+  const id = url.split("/saved/")[1];
+  if (init?.method === "POST") {
+    const body = JSON.parse(String(init.body));
+    saved.unshift({ id: `r${saved.length + 1}`, createdAt: "2026-11-14T10:00:00.000Z", createdBy: "admin", createdByName: "Ann", sizeBytes: body.text.length, ...body });
+    return { report: saved[0] };
+  }
+  if (init?.method === "DELETE") {
+    saved = saved.filter((report) => report.id !== id);
+    return { ok: true };
+  }
+  if (id) return { report: saved.find((report) => report.id === id) };
+  return { reports: saved.map(({ text: _text, ...summary }) => summary), kept: 10 };
+}
+
 beforeEach(() => {
   mockApi.mockReset();
-  mockApi.mockImplementation(async (url: string) => {
+  saved = [];
+  mockApi.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/overview")) return { parts };
     if (url.endsWith("/logging")) return { level: "normal", until: null, minutes: [15, 60, 240] };
     if (url.includes("/api/admin/apps")) return { apps: [] };
+    if (url.startsWith("/api/admin/diagnostics/saved")) return savedApi(url, init);
     const hide = new URL(url, "http://x").searchParams.get("hide") ?? "";
     return { report: report(hide ? hide.split(",") : []) };
   });
@@ -55,31 +74,45 @@ describe("Diagnostics", () => {
     render(<DiagnosticsSection />);
     await user.click(await screen.findByRole("button", { name: /Download report/ }));
     const dialog = await screen.findByRole("dialog");
+    // Three tabs: what goes in, privacy, and the report itself.
+    await user.click(within(dialog).getByRole("tab", { name: "Report" }));
     expect(await within(dialog).findByText(/gallery: <name> at <path>/)).toBeTruthy();
     expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,paths,names,net&since=day");
 
+    await user.click(within(dialog).getByRole("tab", { name: "Privacy" }));
     await user.click(within(dialog).getByRole("switch", { name: /Include folders and file paths/ }));
+    await user.click(within(dialog).getByRole("tab", { name: "Report" }));
     expect(await within(dialog).findByText(/gallery: Kids at \/mnt\/kids/)).toBeTruthy();
     expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,names,net&since=day");
 
     // Leaving a part out takes it out of the text.
+    await user.click(within(dialog).getByRole("tab", { name: "What goes in" }));
     await user.click(within(dialog).getByRole("switch", { name: /video container/ }));
+    await user.click(within(dialog).getByRole("tab", { name: "Report" }));
     expect(within(dialog).queryByText(/gpu: vaapi/)).toBeNull();
   });
 });
 
 describe("logging", () => {
-  it("turns on Detailed for an hour from the card's select, and says until when", async () => {
+  it("turns on Detailed for an hour from the card's mode switch, and says until when", async () => {
     const user = userEvent.setup();
     render(<DiagnosticsSection />);
     const home = (await screen.findByRole("heading", { name: "iSputnik" })).closest("section") as HTMLElement;
-    const select = await within(home).findByRole("combobox", { name: /Logging for iSputnik/ });
-    expect((select as HTMLSelectElement).value).toBe("normal");
+    const modes = await within(home).findByRole("group", { name: "Diagnostic mode for iSputnik" });
+    expect(await within(modes).findByRole("button", { name: "Normal" })).toHaveAttribute("aria-pressed", "true");
     mockApi.mockImplementationOnce(async () => ({ level: "detailed", until: "2026-11-14T15:40:00.000Z", minutes: [15, 60, 240] }));
-    await user.selectOptions(select, "detailed");
+    await user.click(within(modes).getByRole("button", { name: "Detailed" }));
     expect(mockApi).toHaveBeenCalledWith("/api/admin/logging", { method: "PUT", body: JSON.stringify({ level: "detailed", minutes: 60 }) });
     expect(await within(home).findByText(/^until /)).toBeTruthy();
-    expect((within(home).getByRole("combobox", { name: /Logging for iSputnik/ }) as HTMLSelectElement).value).toBe("detailed");
+    expect(within(modes).getByRole("button", { name: "Detailed" })).toHaveAttribute("aria-pressed", "true");
+
+    // Raised, a timer shows how long — an hour — and changing it starts it again from now.
+    const timer = within(home).getByRole("button", { name: /^For how long: 1 hour/ });
+    mockApi.mockImplementationOnce(async () => ({ level: "detailed", until: "2026-11-14T18:40:00.000Z", minutes: [15, 60, 240] }));
+    await user.click(timer);
+    await user.click(within(home).getByRole("option", { name: /4 hours/ }));
+    expect(mockApi).toHaveBeenCalledWith("/api/admin/logging", { method: "PUT", body: JSON.stringify({ level: "detailed", minutes: 240 }) });
+    expect(await within(home).findByRole("button", { name: /^For how long: 4 hours/ })).toBeInTheDocument();
   });
 });
 
@@ -90,5 +123,34 @@ describe("the report's text", () => {
     expect(text).toContain("## isputnik.home");
     expect(text).not.toContain("## Libraries");
     expect(reportText(report([]), new Set(["system"]))).toContain("Names, folders and addresses are included.");
+  });
+});
+
+describe("saved reports", () => {
+  it("saves the report as shown, lists it at the foot, and opens and deletes it", async () => {
+    const user = userEvent.setup();
+    render(<DiagnosticsSection />);
+    expect(await screen.findByText(/None yet\. Save a report/)).toBeTruthy();
+
+    await user.click(await screen.findByRole("button", { name: /Download report/ }));
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("switch", { name: /video container/ });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByRole("button", { name: "Saved" })).toBeDisabled();
+    const post = mockApi.mock.calls.find(([url, init]) => url === "/api/admin/diagnostics/saved" && init?.method === "POST");
+    const body = JSON.parse(String(post?.[1]?.body));
+    expect(body).toMatchObject({ span: "day", parts: ["system", "libraries", "container:video"], hidden: ["people", "paths", "names", "net"] });
+    expect(body.text).toContain("gallery: <name> at <path>");
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+
+    const list = (await screen.findByText("Saved reports")).closest(".grouped-list-wrap, section, div") as HTMLElement;
+    await user.click(await within(list).findByRole("button", { name: /private details hidden/ }));
+    const viewer = await screen.findByRole("dialog");
+    expect(await within(viewer).findByText(/gallery: <name> at <path>/)).toBeTruthy();
+    expect(within(viewer).getByText(/saved by Ann/)).toBeTruthy();
+    await user.click(within(viewer).getByRole("button", { name: "Delete" }));
+    await user.click(await screen.findByRole("button", { name: "Delete report" }));
+    expect(await screen.findByText(/None yet\. Save a report/)).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

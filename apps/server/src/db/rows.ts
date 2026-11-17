@@ -207,6 +207,17 @@ export interface DeviceLinkWindowRow {
   revoked_at: string | null;
 }
 
+/** `diagnostic_reports` */
+export interface DiagnosticReportRow {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  span: "hour" | "day" | "week";
+  parts_json: string;
+  hidden_json: string;
+  text: string;
+}
+
 /** `document_files` */
 export interface DocumentFileRow {
   id: string;
@@ -1645,6 +1656,7 @@ export interface TableRows {
   collections: CollectionRow;
   device_link_requests: DeviceLinkRequestRow;
   device_link_windows: DeviceLinkWindowRow;
+  diagnostic_reports: DiagnosticReportRow;
   document_files: DocumentFileRow;
   duplicate_job_actions: DuplicateJobActionRow;
   duplicate_job_errors: DuplicateJobErrorRow;

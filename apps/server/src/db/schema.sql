@@ -2661,3 +2661,20 @@ CREATE TABLE IF NOT EXISTS storage_samples (
   holds_json  TEXT NOT NULL DEFAULT '[]',
   PRIMARY KEY (day, mount)
 );
+
+-- Saved diagnostics reports (Diagnostics › Saved reports): the text exactly as the
+-- admin saved it from the report window, with the private details they chose to
+-- include (none unless switched on). The last 10 are kept; saving an eleventh
+-- drops the oldest. created_by, like activity_logs: a deleted account leaves its
+-- reports behind. parts_json: the report's section keys ("system",
+-- "container:video" …); hidden_json: the kinds left out ("people", "paths" …).
+CREATE TABLE IF NOT EXISTS diagnostic_reports (
+  id          TEXT PRIMARY KEY,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  created_by  TEXT,
+  span        TEXT NOT NULL CHECK (span IN ('hour', 'day', 'week')),
+  parts_json  TEXT NOT NULL DEFAULT '[]',
+  hidden_json TEXT NOT NULL DEFAULT '[]',
+  text        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_diagnostic_reports_created ON diagnostic_reports(created_at);

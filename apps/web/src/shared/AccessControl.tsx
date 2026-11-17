@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Filter, Globe2, Info, Search, Users } from "lucide-react";
+import { Ban, Check, Globe2, Info, Layers, List, Search, User, Users } from "lucide-react";
 import { Button } from "./Button";
 import { SelectMenu } from "./SelectMenu";
 import { avatarHue, avatarInitials } from "./utils";
@@ -227,17 +227,22 @@ export function AccessControl({
   const everyoneEditable = Boolean(everyone?.onChange && everyone.options);
   const everyoneValue = everyone?.role ? (toggle ? HAS : everyone.role) : ACCESS_NONE;
 
-  // ── Search and filter.
+  // ── Search, view (groups, people or both) and filter (with or without access).
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<"both" | "groups" | "users">("both");
   const [filter, setFilter] = useState<"all" | "with" | "without">("all");
   const needle = query.trim().toLowerCase();
   const has = (row: Row) => row.role !== null;
-  const everyoneShown = Boolean(everyone) && (!needle || t("common:access.everyone").toLowerCase().includes(needle))
+  // Everyone is the widest group: it shows with groups, not with people.
+  const everyoneInView = Boolean(everyone) && view !== "users";
+  const inView = rows.filter((row) => view === "both" || (view === "groups") === (row.kind === "group"));
+  const everyoneShown = everyoneInView && (!needle || t("common:access.everyone").toLowerCase().includes(needle))
     && (filter === "all" || (filter === "with") === Boolean(everyone?.role));
-  const shown = rows.filter((row) => (!needle || row.name.toLowerCase().includes(needle))
+  const shown = inView.filter((row) => (!needle || row.name.toLowerCase().includes(needle))
     && (filter === "all" || (filter === "with") === has(row)));
-  const total = rows.length + (everyone ? 1 : 0);
-  const withCount = rows.filter(has).length + (everyone?.role ? 1 : 0);
+  // The filter's counts are of what the view shows.
+  const total = inView.length + (everyoneInView ? 1 : 0);
+  const withCount = inView.filter(has).length + (everyoneInView && everyone?.role ? 1 : 0);
 
   // ── Ticks, and setting the ticked all at once.
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -302,9 +307,14 @@ export function AccessControl({
   };
 
   const filterOptions = [
-    { value: "all" as const, label: t("common:access.filterAll", { count: total }) },
-    { value: "with" as const, label: t("common:access.filterWith", { count: withCount }) },
-    { value: "without" as const, label: t("common:access.filterWithout", { count: total - withCount }) }
+    { value: "all" as const, label: t("common:access.filterAll", { count: total }), icon: <List size={15} /> },
+    { value: "with" as const, label: t("common:access.filterWith", { count: withCount }), icon: <Check size={15} /> },
+    { value: "without" as const, label: t("common:access.filterWithout", { count: total - withCount }), icon: <Ban size={15} /> }
+  ];
+  const viewOptions = [
+    { value: "both" as const, label: t("common:access.viewBoth"), icon: <Layers size={15} /> },
+    { value: "groups" as const, label: t("common:access.viewGroups"), icon: <Users size={15} /> },
+    { value: "users" as const, label: t("common:access.viewUsers"), icon: <User size={15} /> }
   ];
 
   const accessTab = (
@@ -314,7 +324,8 @@ export function AccessControl({
           <Search size={14} aria-hidden="true" />
           <input type="search" value={query} placeholder={t("common:access.search")} aria-label={t("common:access.search")} onChange={(event) => setQuery(event.target.value)} />
         </label>
-        <SelectMenu className="ax-filter" value={filter} label={t("common:access.filterLabel")} triggerIcon={<Filter size={14} />} options={filterOptions} onChange={setFilter} />
+        <SelectMenu className="ax-filter" value={view} label={t("common:access.viewLabel")} options={viewOptions} onChange={setView} />
+        <SelectMenu className="ax-filter" value={filter} label={t("common:access.filterLabel")} options={filterOptions} onChange={setFilter} />
       </div>
 
       <div className="ax-table">

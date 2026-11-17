@@ -141,8 +141,11 @@ export function groupHref(groupId: string): string {
 // ("home") or a container — its checks and tests (docs/diagnostics-pages-plan.md).
 export type DiagnosticsPart = "home" | "video" | "games" | "faces";
 export const DIAGNOSTICS_PARTS: readonly DiagnosticsPart[] = ["home", "video", "games", "faces"];
-export function diagnosticsPartHref(part: DiagnosticsPart): string {
-  return `${CONTROL_PATHS.diagnostics}/${part}`;
+/** A part page's tabs (allowed there since 2026-11-17): Overview has no suffix. */
+export type DiagnosticsTab = "overview" | "tests" | "sessions" | "logs" | "reports";
+export const DIAGNOSTICS_TABS: readonly DiagnosticsTab[] = ["overview", "tests", "sessions", "logs", "reports"];
+export function diagnosticsPartHref(part: DiagnosticsPart, tab: DiagnosticsTab = "overview"): string {
+  return `${CONTROL_PATHS.diagnostics}/${part}${tab === "overview" ? "" : `/${tab}`}`;
 }
 
 // One library's Manage page under Library › Libraries (4.73): its settings, access,
@@ -562,7 +565,7 @@ export type Route =
   /** One group's page under Members › Groups (groupHref). */
   | { name: "controlGroup"; groupId: string }
   /** One part's page under Infrastructure › Diagnostics (diagnosticsPartHref). */
-  | { name: "controlDiagnosticsPart"; part: DiagnosticsPart }
+  | { name: "controlDiagnosticsPart"; part: DiagnosticsPart; tab: DiagnosticsTab }
   | { name: "about" }
   | { name: "help" }
   | { name: "helpGuides" }
@@ -968,9 +971,9 @@ export function getRoute(): Route {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
     }
 
-    const diagnosticsMatch = path.match(/^\/control\/infrastructure\/diagnostics\/(home|video|games|faces)$/);
+    const diagnosticsMatch = path.match(/^\/control\/infrastructure\/diagnostics\/(home|video|games|faces)(?:\/(tests|sessions|logs|reports))?$/);
     if (diagnosticsMatch) {
-      return { name: "controlDiagnosticsPart", part: diagnosticsMatch[1] as DiagnosticsPart };
+      return { name: "controlDiagnosticsPart", part: diagnosticsMatch[1] as DiagnosticsPart, tab: (diagnosticsMatch[2] ?? "overview") as DiagnosticsTab };
     }
 
     // A library's Manage page, after the table: /control/libraries/storage is a tab,

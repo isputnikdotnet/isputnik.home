@@ -294,7 +294,8 @@
       "checkFolders": "Check library folders",
       "verifyBackup": "Verify the last backup",
       "speedToDevice": "Speed to this device",
-      "videoHardwareAcceleration": "Video hardware acceleration"
+      "videoHardwareAcceleration": "Video hardware acceleration",
+      "savedReports": "Saved diagnostics reports"
     }
   },
   "about": {

@@ -20,9 +20,12 @@ const EVERYONE_ROLES = [ACCESS_NONE, "viewer", "contributor"] as const;
 // collection's role vocabulary, its data, and the four calls that change it.
 export function StoryCollectionAccessModal({
   collectionId,
+  collectionTitle,
   onClose
 }: {
   collectionId: string;
+  /** For the title: "Access to Reviews". */
+  collectionTitle?: string;
   onClose: () => void;
 }) {
   const { t } = useTranslation(["common", "stories"]);
@@ -57,10 +60,9 @@ export function StoryCollectionAccessModal({
     dot: ACCESS_ROLE_DOT[value]
   });
 
-  // The standard access window (shared/AccessDialog). One generic word for the
-  // title: the page behind already says which collection this is.
+  // The standard access window (shared/AccessDialog), titled like every other one.
   return (
-    <AccessDialog title={t("common:access.title")} error={error} errorTitle={t("stories:errors.saveTitle")} busy={busy} onClose={onClose}>
+    <AccessDialog title={collectionTitle ? t("common:access.titleFor", { name: collectionTitle }) : t("common:access.title")} error={error} errorTitle={t("stories:errors.saveTitle")} busy={busy} onClose={onClose}>
         {!access && !error && <p className="management-empty">{t("stories:common.loading")}</p>}
 
         {access && (

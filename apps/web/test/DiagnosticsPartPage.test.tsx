@@ -46,6 +46,7 @@ beforeEach(() => {
     if (url.endsWith("/diagnostics/tests")) return testsState;
     if (url.endsWith("/logging")) return { level: "normal", until: null, minutes: [15, 60, 240] };
     if (url.includes("/api/admin/apps")) return { apps: [] };
+    if (url.startsWith("/api/admin/diagnostics/saved")) return { reports: [], kept: 10 };
     return { report: { generatedAt: "2026-11-14T10:00:00.000Z", includesPrivate: false, hidden: ["people", "paths", "names", "net"], sections: [
       { key: "system", title: "isputnik.home", lines: ["version: 4.90.0"] },
       { key: "container:video", title: "video container", lines: ["gpu: vaapi"] }
@@ -70,11 +71,14 @@ describe("this server's page", () => {
     render(<DiagnosticsPartPage part="home" />);
     await user.click(await screen.findByRole("button", { name: /Download report/ }));
     const dialog = await screen.findByRole("dialog");
+    // Private details are switched off on the Privacy tab; the text is on Report.
+    await user.click(await within(dialog).findByRole("tab", { name: "Privacy" }));
+    for (const name of [/Include names of people/, /Include folders and file paths/, /Include names of libraries/, /Include addresses/]) {
+      expect((await within(dialog).findByRole("switch", { name })).getAttribute("aria-checked")).toBe("false");
+    }
+    await user.click(within(dialog).getByRole("tab", { name: "Report" }));
     expect(await within(dialog).findByText(/version: 4\.90\.0/)).toBeTruthy();
     expect(within(dialog).queryByText(/gpu: vaapi/)).toBeNull();
-    for (const name of [/Include names of people/, /Include folders and file paths/, /Include names of libraries/, /Include addresses/]) {
-      expect(within(dialog).getByRole("switch", { name }).getAttribute("aria-checked")).toBe("false");
-    }
     expect(mockApi).toHaveBeenCalledWith("/api/admin/diagnostics?hide=people,paths,names,net&since=day");
   });
 });
@@ -95,9 +99,17 @@ describe("this server's tests", () => {
 });
 
 describe("a container's page", () => {
-  it("shows its connection and the requests through this server", async () => {
+  it("shows its connection and the requests through this server, over its tabs", async () => {
     render(<DiagnosticsPartPage part="video" />);
-    expect(await screen.findByText("Video is healthy")).toBeTruthy();
-    expect(screen.getByText(/1204 requests today, 3 failed/)).toBeTruthy();
+    // Healthy: no banner, the line under its name says it (VideoPage.tsx draws the rest).
+    expect(await screen.findByText(/Answers in 6 ms · 1204 requests today, 3 failed/)).toBeTruthy();
+    expect(screen.queryByText("Video is healthy")).toBeNull();
+    expect(screen.getByRole("tablist", { name: "Video diagnostics" })).toBeTruthy();
+  });
+
+  it("shows only how to pair a container that isn't set up", async () => {
+    render(<DiagnosticsPartPage part="faces" />);
+    expect(await screen.findByText("Pairing")).toBeTruthy();
+    expect(screen.queryByRole("tablist")).toBeNull();
   });
 });

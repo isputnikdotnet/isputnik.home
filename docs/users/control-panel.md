@@ -246,8 +246,48 @@ application's Overview opens it that way.
 
 ### Diagnostics
 
-A report to attach to a bug report, so whoever reads it doesn't have to ask what
-you are running. It has five parts:
+One card for each part of iSputnik — this server, then each container (Games, Video,
+Faces): what it is and its version, one line of how it is, and its state (**Healthy**,
+**Attention**, **Not answering**, **Not set up**). Under that:
+
+- **Diagnostic mode** — **Normal**, **Detailed** or **Full**: how much that part
+  writes to its log. Detailed and Full last an hour and then go back to Normal by
+  themselves; while one is on, a **⏱ timer** beside the switch sets 15 minutes, 1 hour
+  or 4 hours (starting again from now) and says until when. Normal ends it at once.
+  The modes and their timing are explained at the foot of the page. Greyed out for a
+  part that isn't set up.
+- **Open details** — that part's own page: its checks, tests and logs. A container
+  that isn't set up shows **Pair now** instead, which opens its pairing.
+
+**Video's page** has tabs:
+
+- **Overview** — the long cards first:
+  - **The GPU:** what it is, its driver and the mode. Four checks say whether it
+    was found, whether its driver answers, whether it encodes H.264 and whether it
+    is ready to convert. **Check again** runs the GPU check now.
+  - **Right now:** how fast each conversion is going (under 1× real time is
+    **Falling behind**), how busy the CPU is, how much memory is free and how much
+    is being sent. Each comes with a small graph of the last ten minutes. They are
+    read only while the page is open, every 5 seconds, and nothing is kept: the
+    graphs start when you open it.
+  - **Live sessions:** who is watching what, and how far through.
+  - **GPU test results:** the last hardware test, in short.
+
+  Beside the cards, in a narrow column:
+  - **Capabilities:** which formats the GPU decodes and encodes, and whether HDR
+    and subtitles are done on the GPU or the CPU. It is filled in by the GPU check
+    when the video engine starts, so no test has to run first.
+  - **Diagnostic mode**.
+  - **The newest saved reports**.
+- **GPU tests** — the hardware test: how fast each kind of film converts on the
+  GPU and the CPU, and how many can watch at once.
+- **Live sessions** — everything being watched or downloaded, as on
+  Infrastructure › Now playing.
+- **Logs** — the video container's own log, with its diagnostic mode.
+- **Reports** — the saved reports that include Video.
+
+**Download report** at the top makes a report to attach to a bug report, so
+whoever reads it doesn't have to ask what you are running. It has five parts:
 
 - **This server:** iSputnik's version, Node.js, the operating system, CPU and
   memory, uptime, timezone, free space on the data disk, the database size, whether
@@ -261,17 +301,26 @@ you are running. It has five parts:
   its machine, ffmpeg, what the GPU check found and the GPU's recent failures, its
   conversion settings, its libraries, and the warnings and errors in its own log.
 
-**Nothing is sent anywhere.** The page only shows the report. You read it, then
-**Copy report** or **Download .txt**, and paste it into the issue yourself.
-**Open a bug report** opens GitHub's form with your version filled in.
+**Nothing is sent anywhere.** The window has three tabs: **What goes in** (how far
+back, and which parts), **Privacy** (the private details below) and **Report**, the
+text itself. You read it, then **Copy report** or **Download .txt**, and paste it
+into the issue yourself. **Save** keeps it on this server (see below). **Open a bug
+report** opens GitHub's form with your version filled in.
 
 **Your family's details are hidden unless you ask.** People's names and emails,
 library names, folders and file names, IP addresses and web addresses are replaced
 with `<person>`, `<name>`, `<path>`, `<ip>` (or `<lan-ip>` for an address on
-your own network) and `<host>`. Turn on **Include names, folders and addresses**
-only when the names matter to the problem: bug reports on GitHub are public. Under
-**What goes in**, switch off any part you'd rather not share; the report below
-changes as you choose.
+your own network) and `<host>`. On **Privacy**, turn one on only when it matters to
+the problem: bug reports on GitHub are public. Under **What goes in**, switch off any
+part you'd rather not share; the **Report** tab changes as you choose.
+
+**Saved reports**, at the foot of the page, lists the reports you saved: when, how
+far back, which parts and whether private details are in it. Save one before a fix
+and one after to compare them, or to attach a report later. **View** shows the text
+with **Copy report**, **Download .txt** and **Delete**. The newest 10 are kept, and
+saving one more drops the oldest. They stay on this server, in its database, so they
+go into full backups with it. A part's own page lists only the reports that include
+that part.
 
 ### Activity
 

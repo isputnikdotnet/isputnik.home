@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Archive, Boxes, Cpu, FileDown, FolderOpen, Gauge, HardDrive, ListChecks, ScrollText, Server, Stethoscope } from "lucide-react";
-import { api } from "../../../api";
-import { controlHref, diagnosticsPartHref, libraryManageHref, type DiagnosticsPart } from "../../../router";
+import { Activity, Archive, Boxes, FileDown, FolderOpen, Gauge, ListChecks, ScrollText, Server, Stethoscope } from "lucide-react";
+import { controlHref, diagnosticsPartHref, libraryManageHref, type DiagnosticsPart, type DiagnosticsTab } from "../../../router";
 import { Button } from "../../../shared/Button";
-import { GroupedList, InfoRow, NavRow, PickerRow } from "../../../shared/GroupedList";
+import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { relativeTime } from "../../../shared/relativeTime";
@@ -12,21 +11,19 @@ import { formatBytes, formatUptime } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { activityHref, appPageHref, logsHref, tasksHref } from "../links";
 import type { AppKey } from "../nav";
-import { isRunning, useAppName, useAppsStatus } from "../sections/AppsSection";
-import { HardwareTestPage } from "../sections/VideoHardwareTest";
-import { conversionBody, GpuRow, useEngine, type ConversionSettings, type ConversionState, type HardwareMode } from "../sections/VideoSettingsSection";
+import { useAppName, useAppsStatus } from "../sections/AppsSection";
 import { HOME_PARTS, ReportDialog } from "./ReportDialog";
+import { SavedReports, useSavedReports } from "./SavedReports";
 import { useDiagnosticsOverview, useProblemText, type LibraryCheck, type PartOverview } from "./overview";
-import { LoggingControl, loggingUrl } from "./Logging";
-import { useWatchingCount } from "./Watching";
-import { NowPlayingLink } from "../sections/NowPlayingSection";
+import { LoggingControl, LoggingModes, loggingUrl } from "./Logging";
+import { VideoPartBody } from "./VideoPage";
 import { speedVerdict, TestBar, useHomeTests, useRunWords, type FolderResult, type TestRun } from "./HomeTests";
 
 // One part of iSputnik's page under Infrastructure › Diagnostics
 // (docs/diagnostics-pages-plan.md): how it is, its checks with their tests beside
 // them, and a column of where to look next — its log, activity and tasks, and for
 // this server, how the other containers answer. A page of one thing: its own
-// route, a back link, no tab row. Settings shown here are the application's own
+// route, a back link; Video's has a row of tabs (VideoPage.tsx), no other does. Settings shown here are the application's own
 // (Videos › Settings), read and saved through the same engine endpoint, never a copy.
 
 /** The workspace whose Activity and Tasks a part's links filter to. */
@@ -34,16 +31,21 @@ const APPLICATION: Partial<Record<DiagnosticsPart, AppKey>> = { video: "videos",
 
 const LIBRARY_TONE: Record<LibraryCheck["state"], "ok" | "warn" | "muted"> = { ok: "ok", missing: "warn", slow: "warn", scanFailed: "warn", container: "muted" };
 
-export function DiagnosticsPartPage({ part }: { part: DiagnosticsPart }) {
+export function DiagnosticsPartPage({ part, tab = "overview" }: { part: DiagnosticsPart; tab?: DiagnosticsTab }) {
   const { t } = useTranslation(["controlAdmin", "control"]);
   const appName = useAppName();
   const { parts, error, load } = useDiagnosticsOverview();
   const problemText = useProblemText();
   const [reporting, setReporting] = useState(false);
+  const saved = useSavedReports(part);
   const tests = useHomeTests(part === "home");
   const overview = parts?.find((entry) => entry.id === part) ?? null;
   const versionLine = useVersionLine();
+  const callsLine = useCallsLine();
   const name = part === "home" ? t("controlAdmin:diagnostics.home") : appName(part);
+  // Video draws its tabs while it answers; not set up or not answering, the
+  // connection is all there is to show.
+  const videoTabs = part === "video" && overview !== null && overview.state !== "off" && overview.state !== "down";
 
   return (
     <div className="diagnostics-section">
@@ -51,7 +53,7 @@ export function DiagnosticsPartPage({ part }: { part: DiagnosticsPart }) {
         section="diagnostics"
         icon={<Stethoscope size={30} />}
         title={name}
-        description={overview ? versionLine(overview) : undefined}
+        description={overview ? (videoTabs ? `${versionLine(overview)} · ${callsLine(overview)}` : versionLine(overview)) : undefined}
         back={{ href: controlHref("diagnostics"), label: t("controlAdmin:diagnostics.page.back") }}
       >
         <RefreshButton onRefresh={load} />
@@ -64,7 +66,7 @@ export function DiagnosticsPartPage({ part }: { part: DiagnosticsPart }) {
       {error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.overviewFailed")}>{error}</MessageBox>}
       {!parts && !error && <p className="muted">{t("controlAdmin:diagnostics.looking")}</p>}
 
-      {overview && (
+      {overview && !(videoTabs && overview.state === "ok") && (
         <MessageBox
           tone={overview.state === "ok" ? "success" : overview.state === "off" ? "info" : "warning"}
           title={t(`controlAdmin:diagnostics.page.banner.${overview.state}`, { name })}
@@ -73,22 +75,31 @@ export function DiagnosticsPartPage({ part }: { part: DiagnosticsPart }) {
         </MessageBox>
       )}
 
-      {overview && (
+      {overview && videoTabs && (
+        <VideoPartBody
+          tab={tab}
+          saved={saved}
+          modeCard={<LoggingCard part={part} name={name} reachable compact />}
+          logLinks={<LogsAndEvents part={part} />}
+        />
+      )}
+
+      {overview && !videoTabs && (
         <div className="diagnostics-part-page">
           <div className="diagnostics-part-main">
             {part === "home" ? <HomeChecks overview={overview} tests={tests} /> : <Connection part={part} overview={overview} />}
-            {part === "video" && overview.state !== "off" && <VideoChecks />}
           </div>
           <aside className="diagnostics-part-aside" aria-label={t("controlAdmin:diagnostics.page.asideLabel")}>
             {overview.state !== "off" && <LoggingCard part={part} name={name} reachable={overview.state !== "down"} />}
             {part === "home" && tests.state && tests.state.runs.length > 0 && <RecentRuns runs={tests.state.runs} />}
             {part === "home" && parts && <OtherContainers parts={parts} />}
             <LogsAndEvents part={part} />
+            <SavedReports saved={saved} />
           </aside>
         </div>
       )}
 
-      {reporting && <ReportDialog parts={part === "home" ? HOME_PARTS : [`container:${part}`]} onClose={() => setReporting(false)} />}
+      {reporting && <ReportDialog parts={part === "home" ? HOME_PARTS : [`container:${part}`]} onClose={() => setReporting(false)} onSaved={() => void saved.load()} />}
     </div>
   );
 }
@@ -309,150 +320,17 @@ function Connection({ part, overview }: { part: DiagnosticsPart; overview: PartO
   );
 }
 
-/** Video's hardware and its tests: what the GPU does, where it converts, how fast, how many at once, and the disks. */
-function VideoChecks() {
-  const { t } = useTranslation(["controlAdmin"]);
-  const { apps } = useAppsStatus();
-  const video = apps?.find((app) => app.id === "video") ?? null;
-  if (!apps) return null;
-  if (!video || !isRunning(video)) {
-    return <MessageBox tone="info" title={t("controlAdmin:diagnostics.page.video.unavailableTitle")}>{t("controlAdmin:diagnostics.page.video.unavailable")}</MessageBox>;
-  }
-  return (
-    <>
-      <WatchingLink prefix={video.prefix} />
-      <CatalogWork prefix={video.prefix} />
-      <VideoHardware prefix={video.prefix} />
-    </>
-  );
-}
-
-/** "Now playing · 2 watching": its own page (Infrastructure › Now playing). */
-function WatchingLink({ prefix }: { prefix: string }) {
-  const count = useWatchingCount(prefix);
-  return <NowPlayingLink count={count} />;
-}
-
-interface EngineLibraryWork {
-  id: string;
-  name: string;
-  kind: "movies" | "shows";
-  scanState: string;
-  metadata?: { state: "queued" | "running"; done: number; total: number; startedAt: string | null; tmdb: boolean } | null;
-}
-
-/** What the video app is working through: each library's scan and metadata pass, looked at again while one runs. */
-function CatalogWork({ prefix }: { prefix: string }) {
-  const { t } = useTranslation(["controlAdmin", "control"]);
-  const [libraries, setLibraries] = useState<EngineLibraryWork[] | null>(null);
-  const load = useCallback(async () => {
-    try {
-      setLibraries((await api<{ libraries: EngineLibraryWork[] }>(`${prefix}/api/admin/libraries`)).libraries);
-    } catch {
-      setLibraries([]);
-    }
-  }, [prefix]);
-  useEffect(() => {
-    void load();
-  }, [load]);
-  const busy = (libraries ?? []).filter((library) => library.metadata || library.scanState === "scanning" || library.scanState === "queued");
-  useEffect(() => {
-    if (busy.length === 0) return;
-    const timer = window.setTimeout(() => void load(), 3000);
-    return () => window.clearTimeout(timer);
-  }, [libraries, busy.length, load]);
-  if (!libraries) return null;
-  return (
-    <GroupedList id="catalog" title={t("controlAdmin:diagnostics.page.video.catalogTitle")} note={t("controlAdmin:diagnostics.page.video.catalogNote")}>
-      {busy.length === 0 && <InfoRow icon={<ListChecks size={17} />} iconTone="ok" label={t("controlAdmin:diagnostics.page.video.catalogIdle")} />}
-      {busy.map((library) => {
-        const work = library.metadata;
-        const unit = library.kind === "shows" ? "shows" : "films";
-        const label = library.scanState === "scanning" || library.scanState === "queued"
-          ? t("control:libraries.status.scanning")
-          : work?.state === "queued" ? t("control:libraries.status.detailsQueued") : t("control:libraries.status.details");
-        const sub = work?.state === "running" && work.total > 0
-          ? `${t(`control:libraries.status.detailsProgress.${unit}`, { done: work.done.toLocaleString(), total: work.total.toLocaleString() })}${work.startedAt ? ` · ${t("controlAdmin:diagnostics.page.video.catalogSince", { when: relativeTime(work.startedAt) })}` : ""}${work.tmdb ? "" : ` · ${t("controlAdmin:diagnostics.page.video.catalogNoKey")}`}`
-          : undefined;
-        return <NavRow key={library.id} icon={<ListChecks size={17} />} iconTone="muted" label={`${library.name} · ${label}`} sub={sub} href={libraryManageHref(library.id)} />;
-      })}
-    </GroupedList>
-  );
-}
-
-function VideoHardware({ prefix }: { prefix: string }) {
-  const { t } = useTranslation(["controlAdmin"]);
-  const url = `${prefix}/api/admin/conversion`;
-  const conversion = useEngine<ConversionState>(url);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const state = conversion.state;
-
-  const save = async (patch: Partial<ConversionSettings>) => {
-    if (!state) return;
-    setSaving(true);
-    setError("");
-    try {
-      conversion.setState(await api<ConversionState>(url, { method: "PUT", body: JSON.stringify(conversionBody(state.settings, patch)) }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("controlAdmin:apps.conversion.saveFailed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const settingsHref = `${controlHref("videoSettings")}?show=conversion`;
-  const disk = state?.disk;
-  return (
-    <>
-      {error && <MessageBox tone="error" title={t("controlAdmin:apps.conversion.saveFailed")}>{error}</MessageBox>}
-      {conversion.missing && <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.loadFailed")}>{t("controlAdmin:diagnostics.page.video.unavailable")}</MessageBox>}
-      {state && (
-        <GroupedList id="hardware" title={t("controlAdmin:diagnostics.page.video.hardwareTitle")} note={t("controlAdmin:diagnostics.page.video.hardwareNote")}>
-          {state.hardware ? <GpuRow hardware={state.hardware} /> : <InfoRow icon={<Cpu size={17} />} iconTone="muted" label={t("controlAdmin:apps.conversion.gpuNoneTitle")} />}
-          {state.settings.hardware && (
-            <PickerRow
-              label={t("controlAdmin:apps.conversion.hardwareLabel")}
-              value={state.settings.hardware}
-              disabled={saving}
-              options={[
-                { value: "auto", label: t("controlAdmin:apps.conversion.hardwareAuto") },
-                { value: "cpu", label: t("controlAdmin:apps.conversion.hardwareCpu") },
-                { value: "gpu", label: t("controlAdmin:apps.conversion.hardwareGpu") }
-              ]}
-              onChange={(value) => void save({ hardware: value as HardwareMode })}
-            />
-          )}
-          <InfoRow label={t("controlAdmin:diagnostics.page.video.atOnce")} value={String(state.settings.maxViewers)} />
-          {disk && (
-            <InfoRow
-              icon={<HardDrive size={17} />}
-              iconTone={disk.mapped ? "ok" : "muted"}
-              label={t("controlAdmin:diagnostics.page.video.disk")}
-              value={disk.mapped && disk.freeBytes !== null ? t("controlAdmin:diagnostics.page.video.diskFree", { free: formatBytes(disk.freeBytes) }) : t("controlAdmin:diagnostics.page.video.diskNone")}
-            />
-          )}
-          <NavRow label={t("controlAdmin:diagnostics.page.video.allSettings")} href={settingsHref} />
-        </GroupedList>
-      )}
-      <div id="tests" className="diagnostics-part-tests">
-        <HardwareTestPage prefix={prefix} capabilities={null} maxViewers={state?.settings.maxViewers ?? null} saving={saving} onUseLimit={(count) => void save({ maxViewers: count })} />
-      </div>
-    </>
-  );
-}
-
 // ── Where to look next ─────────────────────────────────────────────────────────
 
-function LoggingCard({ part, name, reachable }: { part: DiagnosticsPart; name: string; reachable: boolean }) {
+function LoggingCard({ part, name, reachable, compact = false }: { part: DiagnosticsPart; name: string; reachable: boolean; /** Video's side column: the Normal · Detailed · Full switch, as on Diagnostics. */ compact?: boolean }) {
   const { t } = useTranslation(["controlAdmin"]);
   const { apps } = useAppsStatus();
   const prefix = part === "home" ? null : apps?.find((app) => app.id === part)?.prefix;
   const url = part === "home" ? loggingUrl(null) : prefix && reachable ? loggingUrl(prefix) : null;
   return (
-    <section className="organization-card diagnostics-logging-card" aria-labelledby="diagnostics-logging-title">
+    <section className={compact ? "organization-card diag-side-card diagnostics-logging-card" : "organization-card diagnostics-logging-card"} aria-labelledby="diagnostics-logging-title">
       <h3 id="diagnostics-logging-title">{t("controlAdmin:diagnostics.logging.label")}</h3>
-      {url ? <LoggingControl url={url} name={name} /> : <p className="muted">{t("controlAdmin:diagnostics.logging.cannot")}</p>}
+      {!url ? <p className="muted">{t("controlAdmin:diagnostics.logging.cannot")}</p> : compact ? <LoggingModes url={url} name={name} /> : <LoggingControl url={url} name={name} />}
       <p className="muted">{t("controlAdmin:diagnostics.logging.help")}</p>
     </section>
   );

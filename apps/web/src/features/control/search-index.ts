@@ -158,7 +158,7 @@ type SettingKey =
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
   | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoStorage" | "videoCopies" | "videoKeptFilms" | "videoKeepReady" | "videoJobs" | "videoMetadata" | "videoDetection" | "videoHardwareTest" | "sections"
-  | "loggingLevel" | "checkFolders" | "verifyBackup" | "speedToDevice" | "videoHardwareAcceleration";
+  | "loggingLevel" | "checkFolders" | "verifyBackup" | "speedToDevice" | "videoHardwareAcceleration" | "savedReports";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab. `anchor` is the id of the card the setting sits in, where the
@@ -171,6 +171,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   { titleKey: "verifyBackup", section: "diagnostics", page: "home", anchor: "backups", keywords: "verify backup check backup intact damaged corrupt restore test zip database integrity проверить резервную копию цела повреждена восстановление целостность базы" },
   { titleKey: "speedToDevice", section: "diagnostics", page: "home", anchor: "speed", keywords: "speed test connection network bandwidth download mbps slow phone tv away from home wifi скорость тест соединение сеть пропускная способность загрузка медленно телефон телевизор" },
   { titleKey: "videoHardwareAcceleration", section: "diagnostics", page: "video", anchor: "hardware", keywords: "hardware acceleration gpu quick sync vaapi nvidia amd intel decode encode tone map hdr transcoding аппаратное ускорение видеокарта декодирование кодирование hdr перекодирование" },
+  { titleKey: "savedReports", section: "diagnostics", anchor: "saved-reports", keywords: "saved reports save report keep compare before after fix history old reports view delete сохранённые отчёты сохранить отчёт сравнить до после исправления история открыть удалить" },
   { titleKey: "logRetention", section: "logs", keywords: "keep days delete old activity prune хранение дней удалить старые записи журнала" },
   { titleKey: "systemData", section: "storage", anchor: "system-data", keywords: "system data required folder config database metadata disk space free move системные данные обязательная папка база данных метаданные место на диске перенос" },
   { titleKey: "appStorage", section: "storage", anchor: "app-storage", keywords: "app storage switch on off enable one folder system data custom folder photo inbox app files made in the app renders music map data move in disk space хранилище приложения включить выключить одна папка системные данные своя папка входящие файлы приложения рендеры музыка данные карт перенести место на диске" },

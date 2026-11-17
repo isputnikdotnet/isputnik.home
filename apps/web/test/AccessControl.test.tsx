@@ -40,6 +40,20 @@ describe("the access window", () => {
     expect(overlapped).toBe(false);
   });
 
+  it("views groups, people or all, and the filter counts what the view shows", async () => {
+    const user = userEvent.setup();
+    render(<AccessControl roles={roles} members={[{ subjectType: "group", subjectId: "g1", name: "Kids", role: "viewer" }]} candidates={candidates} onGrant={() => {}} onRevoke={() => {}} />);
+    await user.click(screen.getByRole("button", { name: /^View: All/ }));
+    await user.click(screen.getByRole("option", { name: /People/ }));
+    expect(screen.queryByText("Kids")).not.toBeInTheDocument();
+    expect(screen.getByText("Ann")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Show: All \(2\)/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^View: People/ }));
+    await user.click(screen.getByRole("option", { name: /Groups/ }));
+    expect(screen.getByText("Kids")).toBeInTheDocument();
+    expect(screen.queryByText("Ann")).not.toBeInTheDocument();
+  });
+
   it("on/off: the tick box is the access, and the header's box gives it to all shown", async () => {
     const user = userEvent.setup();
     const onGrant = vi.fn();

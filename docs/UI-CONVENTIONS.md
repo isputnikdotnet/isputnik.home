@@ -544,7 +544,12 @@ there — nothing else keeps a parallel list.
   - A **page of one thing** — a member, a group, a library's Manage page
     (`libraryManageHref()`) — has its own route matched after the table in
     `getRoute()`, drops the tab row, and opens with the same back line, its list last
-    ("← Back │ Libraries").
+    ("← Back │ Libraries"). A page of one thing may draw its OWN tab row, every tab
+    a real address (`RouteTab`): a member's page, and Diagnostics › Video
+    (`diagnosticsPartHref(part, tab)`: Overview · GPU tests · Live sessions · Logs ·
+    Reports, agreed 2026-11-17). Its tabs show pages that exist elsewhere (the
+    hardware test, Now playing's cards, the container's log, saved reports) as
+    shared parts, never copies.
 - **A shared page has one address and several ways in.** Book categories (Ebooks and
   Audiobooks) and Tags (every application's Organize, and Shared organization) are one
   editor each. Opened from a workspace it carries `?from=<app>` (`controlHrefFrom`),

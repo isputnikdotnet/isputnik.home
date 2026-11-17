@@ -28,6 +28,9 @@ export interface Play {
   kept?: boolean;
   /** Its rate lately, in Mbit/s (as it is, and downloads). */
   mbps?: number;
+  /** Engine 0.41+, a conversion: how many times faster than real time it is
+   *  converting now, from ffmpeg's progress; under 1 is falling behind. */
+  speed?: number | null;
   /** For the card: what it is, its pictures, and how far through. */
   type?: "movie" | "episode";
   heading?: string;

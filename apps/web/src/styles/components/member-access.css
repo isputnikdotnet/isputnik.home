@@ -22,11 +22,12 @@
 .ax-modal { width: min(100%, 640px); }
 .ax-modal .modal-title-icon { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
 .access-control { display: grid; gap: 10px; min-width: 0; font-size: 0.875rem; }
-.ax-pane { display: grid; gap: 10px; min-width: 0; }
+/* Room between the window's header (its icon and title) and the search row. */
+.ax-pane { display: grid; gap: 10px; min-width: 0; margin-top: 6px; }
 .ax-toolbar { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .ax-toolbar > .ax-search { flex: 1; }
 .ax-filter > .select-menu-trigger { min-height: 34px; padding: 0 10px; gap: 6px; font-size: var(--text-sm); white-space: nowrap; }
-.ax-filter .select-menu-popover { right: 0; left: auto; }
+.ax-filter .select-menu-popover { right: 0; left: auto; min-width: 200px; }
 .ax-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 34px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); }
 .ax-search > input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; }
 .ax-table { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }

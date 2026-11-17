@@ -33,10 +33,6 @@ export function NowPlayingSection() {
   const running = video ? isRunning(video) : false;
   const { plays, missing } = useWatching(running ? video!.prefix : null);
 
-  const streams = (plays ?? []).filter((play) => play.kind !== "download");
-  const converting = streams.filter((play) => play.kind === "converted" && play.converting && play.converter !== null).length;
-  const bandwidth = (plays ?? []).reduce((sum, play) => sum + (play.mbps ?? 0), 0);
-
   return (
     <div className="now-playing">
       <ControlSectionHead section="nowPlaying" icon={<MonitorPlay size={30} />} description={t("controlAdmin:nowPlaying.description")} />
@@ -44,7 +40,22 @@ export function NowPlayingSection() {
       {apps && !running && (
         <MessageBox tone="info" title={t("controlAdmin:nowPlaying.noVideoTitle")}>{t("controlAdmin:nowPlaying.noVideo")}</MessageBox>
       )}
-      {running && missing && (
+      <NowPlayingList plays={plays} missing={running && missing} />
+    </div>
+  );
+}
+
+/** The plays as cards, with a line of how many and how much: Now playing's, and
+ *  the Live sessions tab of Diagnostics › Video. */
+export function NowPlayingList({ plays, missing }: { plays: Play[] | null; missing: boolean }) {
+  const { t } = useTranslation(["controlAdmin", "control"]);
+  const streams = (plays ?? []).filter((play) => play.kind !== "download");
+  const converting = streams.filter((play) => play.kind === "converted" && play.converting && play.converter !== null).length;
+  const bandwidth = (plays ?? []).reduce((sum, play) => sum + (play.mbps ?? 0), 0);
+
+  return (
+    <>
+      {missing && (
         <MessageBox tone="info" title={t("controlAdmin:nowPlaying.oldEngineTitle")}>{t("controlAdmin:nowPlaying.oldEngine")}</MessageBox>
       )}
 
@@ -67,7 +78,7 @@ export function NowPlayingSection() {
           )}
         </>
       )}
-    </div>
+    </>
   );
 }
 

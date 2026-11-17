@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileDown } from "lucide-react";
+import { FileDown, X } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { GroupedList, PickerRow, ToggleRow } from "../../../shared/GroupedList";
@@ -9,9 +9,10 @@ import { Modal } from "../../../shared/Modal";
 import { APP_VERSION } from "../../../shared/appVersion";
 import { bugReportUrl } from "../../../shared/links";
 
-// The report dialog (docs/diagnostics-pages-plan.md): which parts go in, which
-// private details go in too (none, unless ticked), and the report itself as it will be saved, changing as the admin
-// chooses. Opened from Diagnostics with every part ticked, and from a part's own
+// The report dialog (docs/diagnostics-pages-plan.md; compact since 2026-11-17): three
+// tabs. "What goes in" — how far back, and which parts; "Privacy" — the private
+// details (none, unless switched on: a bug report is public); "Report" — the text as
+// it will be saved, changing as the admin chooses. The buttons stay below all three. Opened from Diagnostics with every part ticked, and from a part's own
 // page with only that part. Nothing is sent anywhere: the admin copies or saves
 // the text and attaches it themselves.
 
@@ -54,12 +55,24 @@ export function reportText(report: DiagnosticsReport, chosen: ReadonlySet<string
   ].join("\n").trimEnd() + "\n";
 }
 
-export function ReportDialog({ parts, onClose }: {
+/** Saves the text as isputnik-diagnostics-<date>.txt. */
+export function downloadReportText(text: string, generatedAt: string) {
+  const stamp = generatedAt.slice(0, 16).replace(/[:T]/g, "-");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+  link.download = `isputnik-diagnostics-${stamp}.txt`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+export function ReportDialog({ parts, onClose, onSaved }: {
   /** The parts ticked when it opens: "all", or section keys ("system", "container:video" …). */
   parts: "all" | readonly string[];
   onClose: () => void;
+  /** After Save: the page's Saved reports list loads again. */
+  onSaved?: () => void;
 }) {
-  const { t } = useTranslation(["controlAdmin"]);
+  const { t } = useTranslation(["controlAdmin", "common"]);
   // Private details are left out unless the admin ticks them in: a bug report is public.
   const [include, setInclude] = useState<Record<HideKind, boolean>>({ people: false, paths: false, names: false, net: false });
   const [report, setReport] = useState<DiagnosticsReport | null>(null);
@@ -68,6 +81,7 @@ export function ReportDialog({ parts, onClose }: {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [span, setSpan] = useState<ReportSpan>("day");
+  const [tab, setTab] = useState<"settings" | "privacy" | "report">("settings");
 
   const hideQuery = HIDE_KINDS.filter((kind) => !include[kind]).join(",");
   const load = useCallback(async () => {
@@ -111,31 +125,63 @@ export function ReportDialog({ parts, onClose }: {
     }
   };
 
-  const download = () => {
-    const stamp = (report?.generatedAt ?? new Date().toISOString()).slice(0, 16).replace(/[:T]/g, "-");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-    link.download = `isputnik-diagnostics-${stamp}.txt`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+  const download = () => downloadReportText(text, report?.generatedAt ?? new Date().toISOString());
+
+  // Save keeps the text on this server exactly as shown (Saved reports below the cards).
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const save = async () => {
+    if (!report) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api("/api/admin/diagnostics/saved", {
+        method: "POST",
+        body: JSON.stringify({
+          text,
+          span,
+          parts: report.sections.map((section) => section.key).filter((key) => picked.has(key)),
+          hidden: report.hidden ?? (report.includesPrivate ? [] : [...HIDE_KINDS])
+        })
+      });
+      setSavedAt(text);
+      onSaved?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("controlAdmin:diagnostics.saved.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
   };
+  // "Saved" holds until the text changes: the same report isn't saved twice by accident.
+  const alreadySaved = savedAt !== null && savedAt === text;
 
   const homeLabel = (key: HomePart) => t(`controlAdmin:diagnostics.parts.${key}.label`);
   const homeSub = (key: HomePart) => t(`controlAdmin:diagnostics.parts.${key}.sub`);
 
   return (
     <Modal
-      variant="panel"
       title={t("controlAdmin:diagnostics.report.title")}
       subtitle={t("controlAdmin:diagnostics.nothingSent")}
       icon={<FileDown size={20} />}
       onClose={onClose}
       className="diagnostics-report-modal"
+      headerAction={
+        <Button variant="bare" className="modal-close" onClick={onClose} aria-label={t("common:common.close")} title={t("common:common.close")}>
+          <X size={18} aria-hidden="true" />
+        </Button>
+      }
     >
-      {/* The panel's body: it scrolls between the header and the action row, so
-          Private details and the buttons are always within reach. */}
-      <div className="modal-tab-content diagnostics-report">
-        <div className="diagnostics-report-choices">
+      <div className="modal-tabs diagnostics-report-tabs" role="tablist">
+        <Button variant="tab" className="modal-tab" selected={tab === "settings"} onClick={() => setTab("settings")}>{t("controlAdmin:diagnostics.report.tabSettings")}</Button>
+        <Button variant="tab" className="modal-tab" selected={tab === "privacy"} onClick={() => setTab("privacy")}>{t("controlAdmin:diagnostics.report.tabPrivacy")}</Button>
+        <Button variant="tab" className="modal-tab" selected={tab === "report"} onClick={() => setTab("report")}>{t("controlAdmin:diagnostics.report.tabReport")}</Button>
+      </div>
+
+      {error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.loadFailed")}>{error}</MessageBox>}
+
+      {tab === "settings" ? (
+        // What goes in: how far back, then which parts.
+        <div className="diagnostics-report-body" role="tabpanel" aria-label={t("controlAdmin:diagnostics.report.tabSettings")}>
           <GroupedList note={t("controlAdmin:diagnostics.report.spanNote")}>
             <PickerRow
               label={t("controlAdmin:diagnostics.report.spanLabel")}
@@ -166,6 +212,10 @@ export function ReportDialog({ parts, onClose }: {
               })}
             </GroupedList>
           )}
+        </div>
+      ) : tab === "privacy" ? (
+        // The private details: each left out unless switched on.
+        <div className="diagnostics-report-body" role="tabpanel" aria-label={t("controlAdmin:diagnostics.report.tabPrivacy")}>
           <GroupedList title={t("controlAdmin:diagnostics.report.includeTitle")} note={t("controlAdmin:diagnostics.report.alwaysRemoved")}>
             {HIDE_KINDS.map((kind) => (
               <ToggleRow
@@ -184,20 +234,22 @@ export function ReportDialog({ parts, onClose }: {
             </MessageBox>
           )}
         </div>
-
-        <section className="diagnostics-preview" aria-label={t("controlAdmin:diagnostics.previewTitle")}>
-          <h3>{t("controlAdmin:diagnostics.previewTitle")}</h3>
-          {error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.loadFailed")}>{error}</MessageBox>}
-          <pre className="diagnostics-text" tabIndex={0}>
+      ) : (
+        // The report as it will be saved.
+        <div className="diagnostics-report-body" role="tabpanel" aria-label={t("controlAdmin:diagnostics.report.tabReport")}>
+          <pre className="diagnostics-text" tabIndex={0} aria-label={t("controlAdmin:diagnostics.previewTitle")}>
             {loading ? t("controlAdmin:diagnostics.making") : nothingChosen ? t("controlAdmin:diagnostics.report.nothingChosen") : text}
           </pre>
-        </section>
-      </div>
+        </div>
+      )}
 
       <div className="modal-actions">
         <a className="secondary-button" href={bugReportUrl(APP_VERSION)} target="_blank" rel="noreferrer">{t("controlAdmin:diagnostics.openBugReport")}</a>
         <Button variant="secondary" onClick={() => void copy()} disabled={loading || nothingChosen || !report}>
           {copied ? t("controlAdmin:diagnostics.copied") : t("controlAdmin:diagnostics.copy")}
+        </Button>
+        <Button variant="secondary" onClick={() => void save()} disabled={loading || nothingChosen || !report || saving || alreadySaved}>
+          {saving ? t("controlAdmin:diagnostics.saved.saving") : alreadySaved ? t("controlAdmin:diagnostics.saved.savedDone") : t("controlAdmin:diagnostics.saved.save")}
         </Button>
         <Button variant="primary" onClick={download} disabled={loading || nothingChosen || !report}>{t("controlAdmin:diagnostics.download")}</Button>
       </div>

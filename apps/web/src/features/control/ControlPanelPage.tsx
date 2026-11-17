@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, Gauge, Home, ListChecks, Menu, Search } from
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { CONTROL_ALIAS_QUERY, controlHref, followRoute, followReplace } from "../../router";
-import type { ControlSection, DiagnosticsPart, MemberPageTab } from "../../router";
+import type { ControlSection, DiagnosticsPart, DiagnosticsTab, MemberPageTab } from "../../router";
 import {
   APPLICATIONS,
   CONTROL_GROUPS,
@@ -99,7 +99,8 @@ export function ControlPanelPage({
   libraryId,
   member,
   group,
-  diagnosticsPart
+  diagnosticsPart,
+  diagnosticsTab
 }: {
   section: ControlSection;
   categoryId?: string | null;
@@ -107,8 +108,9 @@ export function ControlPanelPage({
   libraryId?: string;
   member?: MemberPageTarget;
   group?: GroupPageTarget;
-  /** One part's page, a sub-page of Diagnostics. */
+  /** One part's page, a sub-page of Diagnostics, and which of its tabs. */
   diagnosticsPart?: DiagnosticsPart;
+  diagnosticsTab?: DiagnosticsTab;
 }) {
   const { user } = useSession();
   const { t } = useTranslation(["common", "control"]);
@@ -198,7 +200,7 @@ export function ControlPanelPage({
               {!subPage && place.app && place.app.key !== "shared" && tabs.find((tab) => tab.section === place.selected)?.kind !== "setup" && (
                 <WorkspaceStatusLine app={place.app.key} />
               )}
-              <ControlSectionBody section={section} categoryId={categoryId} libraryId={libraryId} member={member} group={group} diagnosticsPart={diagnosticsPart} currentUser={user} />
+              <ControlSectionBody section={section} categoryId={categoryId} libraryId={libraryId} member={member} group={group} diagnosticsPart={diagnosticsPart} diagnosticsTab={diagnosticsTab} currentUser={user} />
             </Suspense>
           </LoadErrorBoundary>
           </BackBarSlot.Provider>
@@ -218,6 +220,7 @@ function ControlSectionBody({
   member,
   group,
   diagnosticsPart,
+  diagnosticsTab,
   currentUser
 }: {
   section: ControlSection;
@@ -226,6 +229,7 @@ function ControlSectionBody({
   member?: MemberPageTarget;
   group?: GroupPageTarget;
   diagnosticsPart?: DiagnosticsPart;
+  diagnosticsTab?: DiagnosticsTab;
   currentUser: PublicUser;
 }) {
   switch (section) {
@@ -234,7 +238,7 @@ function ControlSectionBody({
     case "libraryStats":    return <LibraryStatsSection />;
     case "logs":            return <LogsSection />;
     case "nowPlaying":      return <NowPlayingSection />;
-    case "diagnostics":     return diagnosticsPart ? <DiagnosticsPartPage part={diagnosticsPart} /> : <DiagnosticsSection />;
+    case "diagnostics":     return diagnosticsPart ? <DiagnosticsPartPage part={diagnosticsPart} tab={diagnosticsTab ?? "overview"} /> : <DiagnosticsSection />;
 
     case "libraries":       return <LibrariesSection libraryId={libraryId} />;
     case "applications":    return <ApplicationsSection />;

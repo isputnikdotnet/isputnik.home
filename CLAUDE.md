@@ -160,7 +160,8 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   page's own back link (`check:ui` fails on `PageBack` in a control page). **A group's pages are listed under it in the sidebar**
   while you are in it; only an application's workspace draws a row across the page, ONE
   short row — never a row of applications over a row of their tabs, no group of one page,
-  no second row of views inside a page. Infrastructure opens on Services (a card per
+  no second row of views inside a page (a page of one thing may have its own one row:
+  a member's page, Diagnostics › Video). Infrastructure opens on Services (a card per
   service); a container's Pairing (`appsSetup`, ?app=) is a page under it.
   Two kinds of sub-page are allowed: a tab's **pages** (`pages` on its `nav.ts` entry —
   Gallery › Organize's Duplicate cleanup, Missing photos and Video streaming) keep their own address and

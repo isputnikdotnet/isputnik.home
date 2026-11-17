@@ -298,7 +298,8 @@
       "checkFolders": "Проверить папки библиотек",
       "verifyBackup": "Проверить последнюю копию",
       "speedToDevice": "Скорость до этого устройства",
-      "videoHardwareAcceleration": "Аппаратное ускорение видео"
+      "videoHardwareAcceleration": "Аппаратное ускорение видео",
+      "savedReports": "Сохранённые отчёты диагностики"
     }
   },
   "about": {
