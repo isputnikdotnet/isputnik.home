@@ -14,6 +14,7 @@ import { addAlbumItems, createAlbum, getAlbum, getAlbumFilePaths, getAlbumItems,
 import { hydrateEntities } from "../src/modules/social/subjects.js";
 import { blockPreviewAssets } from "../src/modules/stories/blocks.js";
 import { loadActivity } from "../src/modules/social/activity.js";
+import { loadAlbumReview } from "../src/modules/library/gallery/review.js";
 import { confirmPersonPhotos, getGalleryPersonPhotos, listGalleryPeople, mergeGalleryPeople, deleteGalleryPerson } from "../src/modules/library/gallery/people.js";
 import {
   canSeeThumbnailThroughPeople, personShareCounts, personReviewItemIds, setPersonGrant, setShareExcluded, setShowLocation,
@@ -212,6 +213,21 @@ describe("an album sent to a relative who sees photos by person", () => {
     const { card, strip } = storyBlock(cousin);
     expect(card?.fileCount).toBe(3);
     expect(strip).toEqual(["p1", "p2", "p3"]);
+  });
+
+  // Review mode walks the album the page shows — not just the libraries.
+  const review = (user: { id: string; role: string }) => runAsViewer(user, () => loadAlbumReview(user, album));
+
+  it("Review mode walks the photos the relative sees by person, viewing only", () => {
+    const walked = review(cousin);
+    expect(ids(walked?.items ?? [])).toEqual(["p1"]);
+    expect(walked?.canEdit).toBe(false);
+    expect(review(other)).toBeNull();
+  });
+
+  it("Review mode walks the whole album once it is sent to them", () => {
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by) VALUES ('s1', 'gallery_album', ?, 'cousin', 'admin')").run(album);
+    expect(ids(review(cousin)?.items ?? [])).toEqual(["p1", "p2", "p3"]);
   });
 
   // The home feed's "made an album" card reads the same card as a story's block.

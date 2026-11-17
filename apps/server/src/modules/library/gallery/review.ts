@@ -4,17 +4,17 @@
 // Review mode over the album's photos rather than the album itself. This is
 // what that page reads: the album's photos in the order she should see them
 // (the ones nobody has gone through first, then the album's own order), and
-// whether she may write on them. Reach is the album's usual reach — her own
-// libraries, plus whatever a live album share from its creator exposes — and
+// whether she may write on them. Reach is the album page's reach (albumScopeSql)
+// — her own libraries, the photos shared with her by person, plus whatever a
+// live album share from its creator exposes — and
 // the write right is per photo (canUserWriteAsset), so the page can say
 // "Viewing only" honestly for an album that was merely sent, not asked about.
 import { db } from "../../../db.js";
 import { canUserWriteAsset } from "../shared/library-access.js";
-import { curatableGalleryLibraryIds } from "../shared/shares/album-shares.js";
-import { getAlbum } from "./albums.js";
+import { albumScopeSql, getAlbum } from "./albums.js";
 import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./catalog-asset.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog-scope.js";
-import type { LibraryRow, UserRow } from "../../../db/rows.js";
+import type { LibraryRow } from "../../../db/rows.js";
 
 type LibraryAccessRow = Pick<LibraryRow, "id" | "type" | "owner_id" | "owner_type" | "policy_json">;
 
@@ -32,34 +32,26 @@ export function loadAlbumReview(user: { id: string; role: string }, albumId: str
   const album = getAlbum(albumId);
   if (!album) return null;
 
-  // Her own reach, widened by a live share of this album from its creator —
-  // bounded, as every album share is, by what the creator may curate.
-  const libIds = new Set(resolveGalleryScopeLibraryIds(user));
-  const share = db.prepare(`
-    SELECT users.id AS creator_id, users.role AS creator_role
-    FROM shares JOIN users ON users.id = shares.created_by
-    WHERE shares.module = 'gallery_album' AND shares.resource_id = ? AND shares.user_id = ?
-      AND shares.revoked_at IS NULL
-      AND (shares.expires_at IS NULL OR shares.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-  `).get(albumId, user.id) as { creator_id: UserRow["id"]; creator_role: UserRow["role"] } | undefined;
-  if (share) {
-    for (const id of curatableGalleryLibraryIds({ id: share.creator_id, role: share.creator_role })) libIds.add(id);
-  }
-  const ids = Array.from(libIds);
-  if (ids.length === 0 && album.created_by !== user.id && user.role !== "admin") return null;
+  // The album page's reach: her own (libraries, and photos shared with her by
+  // person), widened by a live share of this album from its creator — bounded, as
+  // every album share is, by what the creator may curate. It once read libraries
+  // only, so a relative who sees photos by person found Review mode empty on an
+  // album whose page showed them their photos.
+  const scope = albumScopeSql(resolveGalleryScopeLibraryIds(user), "gallery_album_items.album_id", user.id);
+  if (scope.empty && album.created_by !== user.id && user.role !== "admin") return null;
 
   const order = album.sort_mode === "manual"
     ? "gallery_album_items.position ASC"
     : "gallery_details.taken_at ASC, library_items.id ASC";
-  const rows = ids.length === 0 ? [] : db.prepare(`
+  const rows = scope.empty ? [] : db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     JOIN gallery_album_items ON gallery_album_items.item_id = library_items.id
     WHERE gallery_album_items.album_id = ?
-      AND library_items.library_id IN (${ids.map(() => "?").join(", ")})
+      AND ${scope.sql}
       AND library_items.deleted_at IS NULL
     ORDER BY (gallery_details.reviewed_at IS NOT NULL), ${order}
     LIMIT ?
-  `).all(user.id, albumId, ...ids, REVIEW_CAP) as GalleryAssetRow[];
+  `).all(user.id, albumId, ...scope.params, REVIEW_CAP) as GalleryAssetRow[];
   if (rows.length === 0 && album.created_by !== user.id && user.role !== "admin") return null;
 
   // Writable when every photo she can see is: one library she may edit, or an

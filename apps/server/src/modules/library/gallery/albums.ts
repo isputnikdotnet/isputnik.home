@@ -21,7 +21,7 @@ export type AlbumRow = GalleryAlbumRow;
  *  — by person, or not that library at all — sees the whole album sent to them,
  *  bounded by what its sender may share (album-shares.ts). `albumExpr` names the
  *  album id column of the query. Leave `sharedTo` out for anything a guest sees. */
-function albumScopeSql(libIds: string[], albumExpr: string, sharedTo?: string): { sql: string; params: unknown[]; empty: boolean } {
+export function albumScopeSql(libIds: string[], albumExpr: string, sharedTo?: string): { sql: string; params: unknown[]; empty: boolean } {
   const scope = galleryScopeSql(libIds);
   const reach = sharedTo ? albumShareReachFor(sharedTo) : [];
   if (reach.length === 0) return { ...scope, empty: scopeIsEmpty(libIds) };
