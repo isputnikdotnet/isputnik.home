@@ -13,6 +13,7 @@ import { getGalleryAsset } from "../src/modules/library/gallery/catalog-asset.js
 import { addAlbumItems, createAlbum, getAlbum, getAlbumFilePaths, getAlbumItems, listAlbums } from "../src/modules/library/gallery/albums.js";
 import { hydrateEntities } from "../src/modules/social/subjects.js";
 import { blockPreviewAssets } from "../src/modules/stories/blocks.js";
+import { loadActivity } from "../src/modules/social/activity.js";
 import { confirmPersonPhotos, getGalleryPersonPhotos, listGalleryPeople, mergeGalleryPeople, deleteGalleryPerson } from "../src/modules/library/gallery/people.js";
 import {
   canSeeThumbnailThroughPeople, personShareCounts, personReviewItemIds, setPersonGrant, setShareExcluded, setShowLocation,
@@ -211,6 +212,17 @@ describe("an album sent to a relative who sees photos by person", () => {
     const { card, strip } = storyBlock(cousin);
     expect(card?.fileCount).toBe(3);
     expect(strip).toEqual(["p1", "p2", "p3"]);
+  });
+
+  // The home feed's "made an album" card reads the same card as a story's block.
+  const feedCard = (user: { id: string; role: string }) =>
+    runAsViewer(user, () => loadActivity(user, 20)).find((event) => event.id === `album:${album}`);
+
+  it("the home feed shows the album to the relative, counted as they would see it", () => {
+    expect(feedCard(cousin)?.subtitle).toBe("1 photo");
+    expect(feedCard(other)).toBeUndefined();
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by) VALUES ('s1', 'gallery_album', ?, 'cousin', 'admin')").run(album);
+    expect(feedCard(cousin)?.subtitle).toBe("3 photos");
   });
 });
 
