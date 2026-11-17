@@ -4,7 +4,10 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseQuery } from "../../core/shared.js";
 import { resolveCoverKey, LIBRARY_BUCKET_RE } from "./shared/thumbnail.js";
-import { getAccessibleLibrary } from "./shared/library-access.js";
+import { getAccessibleLibrary, userHasGalleryAlbumShareForItem } from "./shared/library-access.js";
+import { userHasItemShare } from "./shared/share-access.js";
+import { mediaKind } from "./shared/library-types.js";
+import { db } from "../../db.js";
 import { appFileItemForThumbnail, canSeeAppFile, isAppFilesLibrary } from "./gallery/app-files-access.js";
 import { canSeeThumbnailThroughPeople } from "./gallery/people-access.js";
 import { canSeeTree } from "../familytree/tree-access.js";
@@ -19,6 +22,29 @@ function mimeTypeForCover(storageKey: string) {
     ".png": "image/png",
     ".webp": "image/webp"
   }[path.extname(storageKey).toLowerCase()] ?? "application/octet-stream";
+}
+
+/** A thumbnail of something SENT to this viewer: the item shared with them on its
+ *  own, or a photo in an album shared with them (bounded, as every album share is,
+ *  by what its sender may share). The album page, For you and the lightbox draw
+ *  their tiles from this route, so without it a photo reached only by a share —
+ *  from a library the viewer cannot open — showed as a broken image. A face crop
+ *  goes with its photo: a photo seen through a share shows all its people
+ *  (people-access.ts, peopleOnlyViewOf). */
+function canSeeThumbnailThroughShares(userId: string, storageKey: string): boolean {
+  const item = db.prepare(`
+    SELECT library_items.id, libraries.type FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE library_items.deleted_at IS NULL AND library_items.id IN (
+      SELECT item_id FROM item_metadata WHERE cover_storage_key = ?
+      UNION SELECT item_id FROM gallery_details WHERE preview_storage_key = ?
+      UNION SELECT item_id FROM gallery_faces WHERE thumb_storage_key = ?)
+    LIMIT 1
+  `).get(storageKey, storageKey, storageKey) as { id: string; type: string } | undefined;
+  if (!item) return false;
+  const module = mediaKind(item.type);
+  if (userHasItemShare(module, item.id, userId)) return true;
+  return module === "gallery" && userHasGalleryAlbumShareForItem(item.id, userId);
 }
 
 export async function coversPlugin(app: FastifyInstance) {
@@ -60,6 +86,8 @@ export async function coversPlugin(app: FastifyInstance) {
       const appFile = isAppFilesLibrary(resolved.bucket) ? appFileItemForThumbnail(storageKey) : null;
       if (!appFile || !canSeeAppFile(user, appFile)) {
         throughPeople = canSeeThumbnailThroughPeople(user, storageKey);
+        // Kept as short as a people-shared one: a revoked share clears soon.
+        if (!throughPeople && canSeeThumbnailThroughShares(user.id, storageKey)) throughPeople = true;
         if (!throughPeople) return reply.code(404).send({ error: "Cover not found" });
       }
     }

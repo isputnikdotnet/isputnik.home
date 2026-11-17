@@ -94,3 +94,45 @@ describe("cover route enforces library access", () => {
     expect(await get(mp4Key, "outsider")).toBe(404);
   });
 });
+
+// A photo the viewer reaches only through something sent to them — an album
+// shared with them, or the photo itself — shows its thumbnail too: the album
+// page, For you and the lightbox draw every tile from this route.
+describe("cover route honours what was shared with the viewer", () => {
+  const lib = "gallerylib000001";
+  let key = "";
+  beforeEach(() => {
+    makeUser("owner");
+    db.prepare("INSERT INTO libraries (id, name, type, source_path, created_by, policy_json) VALUES (?, 'G', 'gallery', '/src', 'owner', '{}')").run(lib);
+    grant("user", "owner", lib, "manager");
+    key = writeThumb(lib, "photo001", "photo001-cover.webp");
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES ('photo001', ?, 'gallery', 'a/photo001.jpg')").run(lib);
+    db.prepare("INSERT INTO item_metadata (item_id, cover_storage_key) VALUES ('photo001', ?)").run(key);
+    db.prepare("INSERT INTO gallery_albums (id, name, created_by) VALUES ('alb1', 'Trip', 'owner')").run();
+    db.prepare("INSERT INTO gallery_album_items (album_id, item_id, position) VALUES ('alb1', 'photo001', 1)").run();
+  });
+
+  it("serves a photo in an album shared with the viewer, and stops when the share goes", async () => {
+    expect(await get(key, "outsider")).toBe(404);
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by) VALUES ('s1', 'gallery_album', 'alb1', 'outsider', 'owner')").run();
+    expect(await get(key, "outsider")).toBe(200);
+    db.prepare("UPDATE shares SET revoked_at = '2024-01-01T00:00:00Z'").run();
+    expect(await get(key, "outsider")).toBe(404);
+  });
+
+  it("serves a photo shared with the viewer on its own", async () => {
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by) VALUES ('s2', 'gallery', 'photo001', 'outsider', 'owner')").run();
+    expect(await get(key, "outsider")).toBe(200);
+  });
+});
+
+describe("cover route honours a book shared with the viewer", () => {
+  it("serves the cover of an audiobook shared with them from a library they cannot open", async () => {
+    const key = writeThumb("privatelib000001", "book0001", "book0001-cover.webp");
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path) VALUES ('book0001', 'privatelib000001', 'audiobook', 'b')").run();
+    db.prepare("INSERT INTO item_metadata (item_id, cover_storage_key) VALUES ('book0001', ?)").run(key);
+    expect(await get(key, "outsider")).toBe(404);
+    db.prepare("INSERT INTO shares (id, module, resource_id, user_id, created_by) VALUES ('s3', 'audiobook', 'book0001', 'outsider', 'member')").run();
+    expect(await get(key, "outsider")).toBe(200);
+  });
+});
