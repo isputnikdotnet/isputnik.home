@@ -99,9 +99,6 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
   const [limitText, setLimitText] = useState("");
 
   const [whereOpen, setWhereOpen] = useState(false);
-  // Switched on before a location was chosen: the location window opens first, and
-  // the switch goes on with the location it saves (the server refuses one without).
-  const [turningOn, setTurningOn] = useState(false);
   const [whoOpen, setWhoOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const [whereRoot, setWhereRoot] = useState("");
@@ -141,8 +138,7 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
   useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   // Storage's Personal libraries row links here with ?personal=where: the window
-  // that says where they are made opens at once — and, while they are off, saving
-  // it turns them on (Set up), so the link lands on the one thing it is for.
+  // that says where they are made opens at once, the one thing the link is for.
   const askedWhere = useRef(false);
   useEffect(() => {
     if (!view || !showSettings || askedWhere.current || queryParam("personal") !== "where") return;
@@ -151,7 +147,6 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
     setError("");
     setWhereRoot(view.settings.storageRootId ?? storageRoots[0]?.id ?? "");
     setFolderText(view.settings.folder);
-    setTurningOn(!view.settings.enabled);
     setWhereOpen(true);
     document.getElementById("personal-libraries")?.scrollIntoView({ block: "start" });
   }, [view, showSettings, storageRoots]);
@@ -287,34 +282,27 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
         title={standalone ? undefined : t("controlAdmin:personalLibraries.title")}
         note={settings.enabled ? t("controlAdmin:personalLibraries.whereNote") : t("controlAdmin:personalLibraries.offNote")}
       >
+        {/* Off with no location: it can't go on yet, and the location row under it says why. */}
         <ToggleRow
           label={t("controlAdmin:personalLibraries.enabled")}
           checked={settings.enabled}
+          disabled={saving || (!settings.enabled && !view.parentFolder)}
+          onChange={(enabled) => void save({ enabled })}
+        />
+        {/* Where they are made: a row of its own, on or off, chosen apart from the switch. */}
+        <CommandRow
+          icon={<FolderOpen size={17} />}
+          iconTone={view.parentFolder ? undefined : "warn"}
+          label={view.parentFolder ? t("controlAdmin:personalLibraries.locationLabel") : t("controlAdmin:personalLibraries.noLocation")}
+          sub={view.parentFolder
+            ? <><code>{view.parentFolder}</code>{currentRoot && <> · {t("controlAdmin:personalLibraries.whereInside", { root: currentRoot.name })}</>}</>
+            : t("controlAdmin:personalLibraries.noLocationSub")}
+          value={view.parentFolder ? t("controlAdmin:personalLibraries.change") : t("controlAdmin:personalLibraries.chooseLocation")}
           disabled={saving}
-          onChange={(enabled) => {
-            if (enabled && !settings.storageRootId) {
-              setError("");
-              setWhereRoot(storageRoots[0]?.id ?? "");
-              setFolderText(settings.folder);
-              setTurningOn(true);
-              setWhereOpen(true);
-              return;
-            }
-            void save({ enabled });
-          }}
+          onClick={() => { setError(""); setWhereRoot(settings.storageRootId ?? storageRoots[0]?.id ?? ""); setFolderText(settings.folder); setWhereOpen(true); }}
         />
         {settings.enabled && (
           <>
-            <CommandRow
-              icon={<FolderOpen size={17} />}
-              label={t("controlAdmin:personalLibraries.locationLabel")}
-              sub={view.parentFolder
-                ? <><code>{view.parentFolder}</code>{currentRoot && <> · {t("controlAdmin:personalLibraries.whereInside", { root: currentRoot.name })}</>}</>
-                : t("controlAdmin:personalLibraries.notChosen")}
-              value={t("controlAdmin:personalLibraries.change")}
-              disabled={saving}
-              onClick={() => { setWhereRoot(settings.storageRootId ?? storageRoots[0]?.id ?? ""); setFolderText(settings.folder); setWhereOpen(true); }}
-            />
             <CommandRow
               icon={<Users size={17} />}
               label={t("controlAdmin:personalLibraries.who")}
@@ -504,15 +492,14 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
         <Modal
           title={t("controlAdmin:personalLibraries.whereDialogTitle")}
           busy={saving}
-          onClose={() => { setWhereOpen(false); setTurningOn(false); }}
+          onClose={() => setWhereOpen(false)}
           onSubmit={(event) => {
             event.preventDefault();
             if (!whereRoot || !folderText.trim()) return;
-            void save({ storageRootId: whereRoot, folder: folderText.trim(), ...(turningOn ? { enabled: true } : {}) })
-              .then((ok) => { if (ok) { setWhereOpen(false); setTurningOn(false); } });
+            void save({ storageRootId: whereRoot, folder: folderText.trim() })
+              .then((ok) => { if (ok) setWhereOpen(false); });
           }}
         >
-          {turningOn && <p className="muted">{t("controlAdmin:personalLibraries.chooseFirst")}</p>}
           <p>{t("controlAdmin:personalLibraries.whereIntro")}</p>
           {storageRoots.length === 0
             ? <MessageBox tone="warning" title={t("controlAdmin:personalLibraries.noRoot")}>{t("controlAdmin:personalLibraries.noRootBody")}</MessageBox>
@@ -531,9 +518,9 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
             )}
           {error && <MessageBox tone="error" title={t("controlAdmin:personalLibraries.saveFailed")}>{error}</MessageBox>}
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => { setWhereOpen(false); setTurningOn(false); }} disabled={saving} autoFocus>{t("common.cancel")}</Button>
+            <Button variant="secondary" onClick={() => setWhereOpen(false)} disabled={saving} autoFocus>{t("common.cancel")}</Button>
             <Button variant="primary" type="submit" disabled={saving || !whereRoot || !folderText.trim()}>
-              {saving ? t("controlAdmin:personalLibraries.saving") : turningOn ? t("controlAdmin:personalLibraries.saveWhereOn") : t("controlAdmin:personalLibraries.saveWhere")}
+              {saving ? t("controlAdmin:personalLibraries.saving") : t("controlAdmin:personalLibraries.saveWhere")}
             </Button>
           </div>
         </Modal>

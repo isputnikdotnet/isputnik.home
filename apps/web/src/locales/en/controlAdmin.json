@@ -1839,6 +1839,9 @@
     "whereNote": "A folder for each member is made inside it. Changing it affects new personal libraries only.",
     "whereInside": "Inside the library location \"{{root}}\"",
     "notChosen": "Not chosen yet",
+    "noLocation": "No location yet",
+    "noLocationSub": "Personal libraries can't be made until one is chosen",
+    "chooseLocation": "Choose",
     "change": "Change",
     "whereDialogTitle": "Where personal libraries are made",
     "whereIntro": "Choose one of your library locations, and the name of a folder inside it. Each member gets a folder of their own in there.",
@@ -1859,9 +1862,7 @@
     "listNoteShort": "Someone else's is private, even to you: you see whose it is and its size.",
     "noAdoptable": "No gallery library can become personal",
     "noMemberWithout": "Every member already has one",
-    "nobodyChosen": "Nobody chosen yet — add members or groups.",
-    "chooseFirst": "Personal libraries need a place to be made in first. Choose it, and they're switched on with it.",
-    "saveWhereOn": "Save and switch on"
+    "nobodyChosen": "Nobody chosen yet — add members or groups."
   },
   "phoneSync": {
     "add": "Add network",
@@ -1928,6 +1929,7 @@
     "appStorageOff": "Off",
     "sameDiskShort": "Same disk as the database",
     "personalOffValue": "Off",
+    "personalNoLocation": "No location yet",
     "setUp": "Set up",
     "afterSetup": "After steps 1 and 2",
     "galleryUses": "Photo Inbox, kept maps",

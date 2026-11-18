@@ -244,7 +244,7 @@ function StorageSteps({ refreshKey, roots, rootsLoaded, onChanged, onRemoveRoot,
   const setUp = Boolean(system?.path) && roots.length > 0;
   const appFolder = (part: AppStorageSummary["parts"][number]["part"]) => app?.parts.find((entry) => entry.part === part)?.folder ?? null;
   // Personal libraries' settings are a section of Device Sync's page now; the link
-  // opens its "where" window there (and, while they are off, saving it turns them on).
+  // opens its "where" window there. Switching them on stays Device Sync's switch.
   const personalHref = `${controlHref("phoneSync")}?personal=where#personal-libraries`;
   const bytes = personal?.libraries.reduce((sum, library) => sum + library.sizeBytes, 0) ?? 0;
 
@@ -311,11 +311,11 @@ function StorageSteps({ refreshKey, roots, rootsLoaded, onChanged, onRemoveRoot,
             </div>
             <StoragePathRow
               label={t("controlAdmin:storage.personalFolder")}
-              path={personal?.settings.enabled && personal.parentFolder ? <code>{personal.parentFolder}</code> : t("controlAdmin:storage.personalOffValue")}
+              path={personal?.parentFolder ? <code>{personal.parentFolder}</code> : t("controlAdmin:storage.personalNoLocation")}
               detail={personal && personal.libraries.length > 0
                 ? `${t("control:appSetup.summaryLibraries", { count: personal.libraries.length })} · ${formatBytes(bytes)}`
                 : undefined}
-              action={manageButton(personal?.settings.enabled ? t("controlAdmin:systemData.change") : t("controlAdmin:storage.setUp"), personalHref)}
+              action={manageButton(personal?.parentFolder ? t("controlAdmin:systemData.change") : t("controlAdmin:storage.setUp"), personalHref)}
             />
           </div>
         )}
