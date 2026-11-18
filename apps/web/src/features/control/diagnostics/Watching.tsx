@@ -21,7 +21,7 @@ export interface MediaSide {
   /** "mkv", "mp4", "webm", "ts", "avi"… or "hls" for converted segments. */
   container: string;
   video: MediaVideo | null;
-  audio: { codec: string; channels: number; language: string | null } | null;
+  audio: { codec: string; channels: number; language: string | null; title?: string | null } | null;
   bitRate: number | null;
 }
 
@@ -33,6 +33,18 @@ export interface PlayMedia {
   videoCopied: boolean;
   audioCopied: boolean;
   subtitlesBurned: boolean;
+  /** Engine 0.42+: the image subtitle drawn onto the picture. */
+  subtitle?: { codec: string; language: string | null; title: string | null; forced: boolean } | null;
+}
+
+/** Where a conversion's picture is decoded, tone-mapped, scaled, drawn on and
+ *  encoded (engine 0.42+); null for a step it doesn't take. */
+export interface Pipeline {
+  decode: "gpu" | "cpu" | null;
+  tonemap: "gpu" | "cpu" | null;
+  scale: "gpu" | "cpu" | null;
+  overlay: "gpu" | "cpu" | null;
+  encode: "gpu" | "cpu" | null;
 }
 
 export interface Play {
@@ -58,6 +70,8 @@ export interface Play {
   /** Engine 0.42+: the file's picture and sound, and what reaches the player
    *  (null for a file played as it is that the engine hasn't probed). */
   media?: PlayMedia | null;
+  /** A conversion running now: where each step of it runs. */
+  pipeline?: Pipeline | null;
   /** Engine 0.41+, a conversion: how many times faster than real time it is
    *  converting now, from ffmpeg's progress; under 1 is falling behind. */
   speed?: number | null;

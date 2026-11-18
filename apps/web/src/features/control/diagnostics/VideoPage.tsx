@@ -14,6 +14,7 @@ import { AppLog, isRunning, useAppsStatus } from "../sections/AppsSection";
 import { NowPlayingList } from "../sections/NowPlayingSection";
 import { HardwareTestPage } from "../sections/VideoHardwareTest";
 import { CODEC_NAMES, conversionBody, GpuRow, useEngine, type ConversionSettings, type ConversionState, type HardwareState } from "../sections/VideoSettingsSection";
+import { FormatChip } from "./FormatChip";
 import { SavedReports, useSavedReports } from "./SavedReports";
 import { useWatching, type Play } from "./Watching";
 
@@ -277,12 +278,7 @@ const CPU_ONLY: { decoder: string; key: "divx" | "vp8" | "h264_10" | "vvc" }[] =
 ];
 
 function Chip({ lit, label, title, tone = "gpu" }: { lit: boolean; label: string; title: string; tone?: "gpu" | "cpu" }) {
-  return (
-    <li className={lit ? (tone === "cpu" ? "is-cpu" : "is-lit") : undefined} title={title} aria-label={`${label}: ${title}`}>
-      {lit && tone === "gpu" && <Check size={12} aria-hidden="true" />}
-      {label}
-    </li>
-  );
+  return <FormatChip tone={lit ? tone : "off"} label={label} title={title} />;
 }
 
 /** What it plays on the GPU, what the GPU could encode, what falls back to the CPU, and the rest. */

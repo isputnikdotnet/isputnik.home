@@ -57,19 +57,33 @@ describe("Now playing", () => {
         media: {
           source,
           sent: { container: "hls", video: { codec: "h264", profile: "High", width: 2592, height: 1080, bitDepth: 8, hdr: null }, audio: { codec: "aac", channels: 2, language: "eng" }, bitRate: null },
-          reasons: ["container", "audio", "video"], videoCopied: false, audioCopied: false, subtitlesBurned: false
-        }
+          reasons: ["container", "audio", "video", "subtitles"], videoCopied: false, audioCopied: false, subtitlesBurned: true,
+          subtitle: { codec: "hdmv_pgs_subtitle", language: "eng", title: null, forced: false }
+        },
+        pipeline: { decode: "gpu", tonemap: "cpu", scale: "gpu", overlay: "gpu", encode: "gpu" }
       },
       { kind: "direct", user: "Mum", itemId: "m2", title: "Up", heading: "Up", network: "home", device: "TV", since: now, mbps: 6, media: { source: direct, sent: direct, reasons: [], videoCopied: true, audioCopied: true, subtitlesBurned: false } }
     ]);
     render(<NowPlayingSection />);
     const dad = await screen.findByRole("article", { name: "Dad · Inception" });
-    expect(within(dad).getByText("4K (3840×1600) · HEVC Main 10 · 10-bit · HDR10 · TrueHD 7.1 · MKV · 61.4 Mbit/s")).toBeTruthy();
-    expect(within(dad).getByText("1080p (2592×1080) · H.264 High · AAC Stereo · HLS")).toBeTruthy();
-    expect(within(dad).getByText("the container, the sound, the picture")).toBeTruthy();
+    // Video: the file, what the player gets, and each step lit where the GPU does it.
+    expect(within(dad).getByText("4K (HEVC Main 10) · 10-bit · HDR10 · 3840×1600")).toBeTruthy();
+    expect(within(dad).getByText("1080p (H.264)")).toBeTruthy();
+    expect(within(dad).getByRole("listitem", { name: "Decode: On the GPU" }).className).toBe("is-lit");
+    expect(within(dad).getByRole("listitem", { name: "HDR → SDR: On the CPU" }).className).toBe("is-cpu");
+    expect(within(dad).getByRole("listitem", { name: "Encode: On the GPU" }).className).toBe("is-lit");
+    // Audio, the burned-in subtitle, and the container with why it is converted.
+    expect(within(dad).getByText("English · TrueHD 7.1")).toBeTruthy();
+    expect(within(dad).getByText("AAC Stereo")).toBeTruthy();
+    expect(within(dad).getByText("English · PGS")).toBeTruthy();
+    expect(within(dad).getByText("Burned into the picture")).toBeTruthy();
+    expect(within(dad).getByRole("listitem", { name: "Burn in: On the GPU" })).toBeTruthy();
+    expect(within(dad).getByText("MKV · 61.4 Mbit/s")).toBeTruthy();
+    expect(within(dad).getByText(/Converted for the container, the sound, the picture, subtitles drawn on/)).toBeTruthy();
     const mum = screen.getByRole("article", { name: "Mum · Up" });
-    expect(within(mum).getByText("1080p (1920×1080) · H.264 High · AAC Stereo · MP4 · 8 Mbit/s")).toBeTruthy();
-    expect(within(mum).getByText("The file as it is")).toBeTruthy();
+    expect(within(mum).getByText("1080p (H.264 High) · 1920×1080")).toBeTruthy();
+    expect(within(mum).getAllByText("As it is")).toHaveLength(3);
+    expect(within(mum).getAllByRole("listitem", { name: /Copied/ })).toHaveLength(2);
   });
 
   it("says when nobody is watching", async () => {

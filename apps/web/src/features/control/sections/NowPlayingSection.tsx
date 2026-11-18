@@ -4,7 +4,8 @@ import { controlHref, followRoute } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { relativeTime } from "../../../shared/relativeTime";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { useWatching, type MediaSide, type Play, type PlayMedia } from "../diagnostics/Watching";
+import { useWatching, type Play } from "../diagnostics/Watching";
+import { PlayStreams } from "./PlayStreams";
 import { isRunning, useAppsStatus } from "./AppsSection";
 
 // Infrastructure › Now playing: every film and episode being played or
@@ -120,7 +121,7 @@ function PlayCard({ play }: { play: Play }) {
           </dl>
         </div>
       </div>
-      {play.media && <MediaFacts media={play.media} />}
+      {play.media && <PlayStreams play={play} media={play.media} />}
       <div className="now-playing-progress" aria-hidden={share === null}>
         <div className="now-playing-bar"><span style={{ width: `${share ?? 0}%` }} /></div>
         <span className="now-playing-time">
@@ -137,64 +138,6 @@ function PlayCard({ play }: { play: Play }) {
         <span className="muted">{t("controlAdmin:nowPlaying.since", { when: relativeTime(play.since) })}</span>
       </footer>
     </article>
-  );
-}
-
-/** Codec names as people know them; the rest as the engine says, upper-cased. */
-const CODEC: Record<string, string> = {
-  h264: "H.264", hevc: "HEVC", av1: "AV1", vp8: "VP8", vp9: "VP9", mpeg2video: "MPEG-2", mpeg4: "MPEG-4", vc1: "VC-1",
-  aac: "AAC", ac3: "Dolby Digital", eac3: "Dolby Digital+", truehd: "TrueHD", dts: "DTS", flac: "FLAC", mp3: "MP3", opus: "Opus", vorbis: "Vorbis", pcm_s16le: "PCM", pcm_s24le: "PCM"
-};
-const codecName = (codec: string) => CODEC[codec] ?? codec.toUpperCase();
-
-/** "4K", "1080p": by height, or by width for a wide film (3840×1600 is 4K, 1920×800 is 1080p). */
-export function resolutionOf(width: number, height: number): string {
-  if (width >= 3200 || height >= 2000) return "4K";
-  if (height >= 1300) return "1440p";
-  if (width >= 1800 || height >= 1000) return "1080p";
-  if (width >= 1200 || height >= 700) return "720p";
-  return `${height}p`;
-}
-
-/** "4K (3840×1600) · HEVC Main 10 · 10-bit · HDR10 · TrueHD 7.1 · MKV · 60 Mbit/s". */
-export function useMediaLine() {
-  const { t } = useTranslation(["controlAdmin"]);
-  const channels = (count: number) =>
-    count === 1 ? t("controlAdmin:nowPlaying.media.mono")
-      : count === 2 ? t("controlAdmin:nowPlaying.media.stereo")
-        : count === 6 ? "5.1" : count === 8 ? "7.1" : t("controlAdmin:nowPlaying.media.channels", { count });
-  return (side: MediaSide) => {
-    const parts: string[] = [];
-    const video = side.video;
-    if (video) {
-      parts.push(`${resolutionOf(video.width, video.height)} (${video.width}×${video.height})`);
-      parts.push([codecName(video.codec), video.profile].filter(Boolean).join(" "));
-      if (video.bitDepth && video.bitDepth > 8) parts.push(t("controlAdmin:nowPlaying.media.bits", { bits: video.bitDepth }));
-      if (video.hdr) parts.push(video.hdr === "pq" ? "HDR10" : "HLG");
-    }
-    if (side.audio) parts.push(`${codecName(side.audio.codec)} ${channels(side.audio.channels)}`);
-    parts.push(side.container === "hls" ? t("controlAdmin:nowPlaying.media.hls") : side.container.toUpperCase());
-    if (side.bitRate) parts.push(t("controlAdmin:nowPlaying.mbps", { mbps: Math.round(side.bitRate / 100_000) / 10 }));
-    return parts.join(" · ");
-  };
-}
-
-/** What the file is, what is sent of it, and why it is converted. */
-function MediaFacts({ media }: { media: PlayMedia }) {
-  const { t } = useTranslation(["controlAdmin"]);
-  const line = useMediaLine();
-  const same = media.sent === media.source || media.reasons.length === 0;
-  return (
-    <dl className="now-playing-media">
-      <div><dt>{t("controlAdmin:nowPlaying.media.file")}</dt><dd>{line(media.source)}</dd></div>
-      <div><dt>{t("controlAdmin:nowPlaying.media.sent")}</dt><dd>{same ? t("controlAdmin:nowPlaying.media.same") : line(media.sent)}</dd></div>
-      {media.reasons.length > 0 && (
-        <div>
-          <dt>{t("controlAdmin:nowPlaying.media.why")}</dt>
-          <dd>{media.reasons.map((reason) => t(`controlAdmin:nowPlaying.media.reason.${reason}`)).join(", ")}</dd>
-        </div>
-      )}
-    </dl>
   );
 }
 
