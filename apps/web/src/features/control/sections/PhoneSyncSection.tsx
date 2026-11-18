@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { useTranslation } from "react-i18next";
 import { BarChart3, BookOpen, Link2, Plus, ScrollText, Smartphone, UserRoundCheck, Wifi } from "lucide-react";
 import { api } from "../../../api";
-import { followRoute, libraryManageHref, memberHref } from "../../../router";
+import { libraryManageHref, memberHref } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
@@ -359,8 +359,9 @@ export function PhoneSyncSection() {
   // Stats across the top, then two columns, the diagnostics detail page's shape
   // (owner, 2026-11-16): the settings in the main one — personal libraries, allowed
   // networks, the server address — and on the right what there is (the phones, the
-  // personal libraries) and where to read more (Log, Activity, the guide). While
-  // phone backup is not set up, the three steps that set it up come first.
+  // personal libraries) and where to read more (Log, Activity, the guide). Set up
+  // or not, the page looks the same (owner, 2026-11-18): while phone backup is off,
+  // its tile says so and what it waits for, and the rows that set it wear a warning.
   const lastBackup = phones.map((phone) => phone.lastSeen).filter((value): value is string => Boolean(value)).sort().pop() ?? null;
   const warnCount = phones.filter((phone) => shortState(phone).warn).length;
   const personalBytes = (personal?.libraries ?? []).reduce((sum, library) => sum + library.sizeBytes, 0);
@@ -369,14 +370,6 @@ export function PhoneSyncSection() {
       {head}
       <div className="device-sync device-sync-overview">
         {errors}
-        {/* Off: what is missing, once, pointing at the two sections below that set it. */}
-        {!on && (
-          <MessageBox tone="info" title={t("controlAdmin:deviceSync.offTitle")}>
-            {t(networks.networks.length === 0 && !networks.address ? "controlAdmin:deviceSync.offBoth" : networks.networks.length === 0 ? "controlAdmin:deviceSync.offNetwork" : "controlAdmin:deviceSync.offAddress")}
-            {" "}<a href="/help/phone-sync-setup" onClick={(event) => followRoute(event, "/help/phone-sync-setup")}>{t("controlAdmin:deviceSync.guide")}</a>
-          </MessageBox>
-        )}
-
         <StatTiles
           label={t("controlAdmin:deviceSync.statsLabel")}
           tiles={[
@@ -400,7 +393,8 @@ export function PhoneSyncSection() {
             {
               label: t("controlAdmin:deviceSync.backupTile"),
               value: on ? t("controlAdmin:deviceSync.on") : t("controlAdmin:deviceSync.off"),
-              sub: on ? undefined : t("controlAdmin:deviceSync.offShort"),
+              sub: on ? undefined : t(networks.networks.length === 0 && !networks.address ? "controlAdmin:deviceSync.offShort"
+                : networks.networks.length === 0 ? "controlAdmin:deviceSync.offShortNetwork" : "controlAdmin:deviceSync.offShortAddress"),
               tone: on ? undefined : "warn"
             }
           ]}
