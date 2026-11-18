@@ -8,6 +8,33 @@ import { api } from "../../../api";
 // Infrastructure › Now playing draws it (NowPlayingSection); the Video card and
 // the Dashboard count it. An engine before it answers 404: nothing is shown.
 
+export interface MediaVideo {
+  codec: string;
+  profile: string | null;
+  width: number;
+  height: number;
+  bitDepth: number | null;
+  hdr: "pq" | "hlg" | null;
+}
+
+export interface MediaSide {
+  /** "mkv", "mp4", "webm", "ts", "avi"… or "hls" for converted segments. */
+  container: string;
+  video: MediaVideo | null;
+  audio: { codec: string; channels: number; language: string | null } | null;
+  bitRate: number | null;
+}
+
+/** The engine's media-summary.ts. */
+export interface PlayMedia {
+  source: MediaSide;
+  sent: MediaSide;
+  reasons: ("container" | "audio" | "video" | "subtitles" | "size")[];
+  videoCopied: boolean;
+  audioCopied: boolean;
+  subtitlesBurned: boolean;
+}
+
 export interface Play {
   kind: "direct" | "converted" | "download";
   user: string;
@@ -28,6 +55,9 @@ export interface Play {
   kept?: boolean;
   /** Its rate lately, in Mbit/s (as it is, and downloads). */
   mbps?: number;
+  /** Engine 0.42+: the file's picture and sound, and what reaches the player
+   *  (null for a file played as it is that the engine hasn't probed). */
+  media?: PlayMedia | null;
   /** Engine 0.41+, a conversion: how many times faster than real time it is
    *  converting now, from ffmpeg's progress; under 1 is falling behind. */
   speed?: number | null;

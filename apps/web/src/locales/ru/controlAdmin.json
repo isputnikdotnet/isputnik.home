@@ -3278,6 +3278,26 @@
       "bandwidth": "Скорость",
       "shared": "Вместе"
     },
+    "media": {
+      "file": "Файл",
+      "sent": "Отправляется",
+      "why": "Перекодируется из-за",
+      "same": "Файл как есть",
+      "hls": "HLS",
+      "bits": "{{bits}} бит",
+      "mono": "Моно",
+      "stereo": "Стерео",
+      "channels_one": "{{count}} канал",
+      "channels_few": "{{count}} канала",
+      "channels_many": "{{count}} каналов",
+      "reason": {
+        "container": "контейнера",
+        "audio": "звука",
+        "video": "изображения",
+        "subtitles": "вшитых субтитров",
+        "size": "ограничения качества"
+      }
+    },
     "sharedValue": "С другим зрителем",
     "unknownDevice": "Неизвестное устройство",
     "home": "Дома",

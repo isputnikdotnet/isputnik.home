@@ -3016,6 +3016,25 @@
       "bandwidth": "Bandwidth",
       "shared": "Shared"
     },
+    "media": {
+      "file": "File",
+      "sent": "Sent",
+      "why": "Converted for",
+      "same": "The file as it is",
+      "hls": "HLS",
+      "bits": "{{bits}}-bit",
+      "mono": "Mono",
+      "stereo": "Stereo",
+      "channels_one": "{{count}} channel",
+      "channels_other": "{{count}} channels",
+      "reason": {
+        "container": "the container",
+        "audio": "the sound",
+        "video": "the picture",
+        "subtitles": "subtitles drawn on",
+        "size": "the quality cap"
+      }
+    },
     "sharedValue": "With another viewer",
     "unknownDevice": "Unknown device",
     "home": "At home",

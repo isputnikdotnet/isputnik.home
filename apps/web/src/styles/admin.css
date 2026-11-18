@@ -3128,6 +3128,11 @@ tr.control-anchor-flash > td {
 .now-playing-facts div { display: flex; gap: 5px; }
 .now-playing-facts dt { color: var(--muted); }
 .now-playing-facts dd { margin: 0; }
+/* The file, what is sent of it, and why: under the poster, the card's width. */
+.now-playing-media { position: relative; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px; margin: 0; font-size: 0.82rem; }
+.now-playing-media div { display: contents; }
+.now-playing-media dt { color: var(--muted); }
+.now-playing-media dd { margin: 0; overflow-wrap: anywhere; }
 .now-playing-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
 .now-playing-bar { height: 5px; border-radius: 3px; background: var(--video-progress-track, var(--field)); overflow: hidden; }
 .now-playing-bar span { display: block; height: 100%; background: var(--video-progress-fill, var(--accent)); }

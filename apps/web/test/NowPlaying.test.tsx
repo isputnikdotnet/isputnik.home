@@ -43,6 +43,35 @@ describe("Now playing", () => {
     expect(screen.getByText("1 being converted")).toBeTruthy();
   });
 
+  it("says what the file is, what is sent of it, and why it is converted", async () => {
+    const source = {
+      container: "mkv",
+      video: { codec: "hevc", profile: "Main 10", width: 3840, height: 1600, bitDepth: 10, hdr: "pq" },
+      audio: { codec: "truehd", channels: 8, language: "eng" },
+      bitRate: 61_400_000
+    };
+    const direct = { container: "mp4", video: { codec: "h264", profile: "High", width: 1920, height: 1080, bitDepth: 8, hdr: null }, audio: { codec: "aac", channels: 2, language: null }, bitRate: 8_000_000 };
+    answer([
+      {
+        kind: "converted", user: "Dad", itemId: "m1", title: "Inception", heading: "Inception", network: "home", device: "Browser", since: now, mode: "transcode", converter: "gpu", rung: null, converting: true,
+        media: {
+          source,
+          sent: { container: "hls", video: { codec: "h264", profile: "High", width: 2592, height: 1080, bitDepth: 8, hdr: null }, audio: { codec: "aac", channels: 2, language: "eng" }, bitRate: null },
+          reasons: ["container", "audio", "video"], videoCopied: false, audioCopied: false, subtitlesBurned: false
+        }
+      },
+      { kind: "direct", user: "Mum", itemId: "m2", title: "Up", heading: "Up", network: "home", device: "TV", since: now, mbps: 6, media: { source: direct, sent: direct, reasons: [], videoCopied: true, audioCopied: true, subtitlesBurned: false } }
+    ]);
+    render(<NowPlayingSection />);
+    const dad = await screen.findByRole("article", { name: "Dad · Inception" });
+    expect(within(dad).getByText("4K (3840×1600) · HEVC Main 10 · 10-bit · HDR10 · TrueHD 7.1 · MKV · 61.4 Mbit/s")).toBeTruthy();
+    expect(within(dad).getByText("1080p (2592×1080) · H.264 High · AAC Stereo · HLS")).toBeTruthy();
+    expect(within(dad).getByText("the container, the sound, the picture")).toBeTruthy();
+    const mum = screen.getByRole("article", { name: "Mum · Up" });
+    expect(within(mum).getByText("1080p (1920×1080) · H.264 High · AAC Stereo · MP4 · 8 Mbit/s")).toBeTruthy();
+    expect(within(mum).getByText("The file as it is")).toBeTruthy();
+  });
+
   it("says when nobody is watching", async () => {
     answer([]);
     render(<NowPlayingSection />);
