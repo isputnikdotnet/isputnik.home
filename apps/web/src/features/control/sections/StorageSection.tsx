@@ -243,8 +243,9 @@ function StorageSteps({ refreshKey, roots, rootsLoaded, onChanged, onRemoveRoot,
   const inside = (path: string | null | undefined) => Boolean(system?.path && path && path.toLowerCase().startsWith(system.path.toLowerCase()));
   const setUp = Boolean(system?.path) && roots.length > 0;
   const appFolder = (part: AppStorageSummary["parts"][number]["part"]) => app?.parts.find((entry) => entry.part === part)?.folder ?? null;
-  // Personal libraries' settings are a section of Device Sync's page now.
-  const personalHref = `${controlHref("phoneSync")}#personal-libraries`;
+  // Personal libraries' settings are a section of Device Sync's page now; the link
+  // opens its "where" window there (and, while they are off, saving it turns them on).
+  const personalHref = `${controlHref("phoneSync")}?personal=where#personal-libraries`;
   const bytes = personal?.libraries.reduce((sum, library) => sum + library.sizeBytes, 0) ?? 0;
 
   return (

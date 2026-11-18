@@ -1943,7 +1943,7 @@
     "removeLocationConfirm": "Remove \"{{name}}\"?",
     "kindsLine": "Digital libraries for audiobooks, ebooks and photos.",
     "personalWhat": "Settings for each member's personal gallery and the photos their phones back up with Device Sync.",
-    "personalFolder": "Made in",
+    "personalFolder": "Location",
     "removeInUse": "Can't be removed — libraries use this location."
   },
   "tags": {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, FolderOpen, Gauge, UserRoundCheck, Users } from "lucide-react";
 import { api } from "../../../../api";
-import { libraryManageHref } from "../../../../router";
+import { libraryManageHref, queryParam, replaceQuery } from "../../../../router";
 import { Button } from "../../../../shared/Button";
 import { ACCESS_NONE, ACCESS_ROLE_DOT, AccessControl } from "../../../../shared/AccessControl";
 import { AccessDialog } from "../../../../shared/AccessDialog";
@@ -139,6 +139,22 @@ export function PersonalLibrariesPanel({ storageRoots, part = "all", onChanged }
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => () => window.clearTimeout(savedTimer.current), []);
+
+  // Storage's Personal libraries row links here with ?personal=where: the window
+  // that says where they are made opens at once — and, while they are off, saving
+  // it turns them on (Set up), so the link lands on the one thing it is for.
+  const askedWhere = useRef(false);
+  useEffect(() => {
+    if (!view || !showSettings || askedWhere.current || queryParam("personal") !== "where") return;
+    askedWhere.current = true;
+    replaceQuery("personal", null);
+    setError("");
+    setWhereRoot(view.settings.storageRootId ?? storageRoots[0]?.id ?? "");
+    setFolderText(view.settings.folder);
+    setTurningOn(!view.settings.enabled);
+    setWhereOpen(true);
+    document.getElementById("personal-libraries")?.scrollIntoView({ block: "start" });
+  }, [view, showSettings, storageRoots]);
 
   const owners = useMemo(() => new Set((view?.libraries ?? []).filter((l) => !l.orphanedAt).map((l) => l.ownerId)), [view]);
   const membersWithout = members.filter((member) => !owners.has(member.id));
