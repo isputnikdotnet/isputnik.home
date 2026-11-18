@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { Bell, BookOpen, ChevronRight, DownloadCloud, HardDrive, Image as ImageIcon, Library, Loader2, Play, SlidersHorizontal, Sparkles } from "lucide-react";
@@ -22,14 +22,23 @@ import { useIsMobile } from "../shared/useIsMobile";
 import { useOnlineStatus } from "../pwa/useOnlineStatus";
 import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownloads, type DownloadRecord, type EbookDownloadRecord } from "../offline/downloads";
 import { isFoliateFormat } from "../shared/utils";
-import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
 import type { GalleryAsset, GalleryMemories } from "../features/gallery/types";
-import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 import { useSession } from "../app/SessionContext";
 import { useInboxSummary } from "../features/social/useInboxSummary";
 import { usesTopLayout } from "../app/layoutChoice";
 import { OrbitHome } from "../features/home/OrbitHome";
+
+// The ebook reader and the photo viewer open from Home's cards, but most visits
+// open neither, and Home is the one page loaded with the app itself: imported
+// here statically they were part of the script every page waits for. They load
+// when Home has drawn and the browser is idle, or at once when a book or photo is
+// opened first. Offline reading is unaffected: the Downloads page, the book page
+// and the catalog import the reader statically, so its code is still precached.
+const loadLightbox = () => import("../features/gallery/GalleryLightbox");
+const loadReader = () => import("../features/audiobooks/reader/EbookReader");
+const GalleryLightbox = lazy(() => loadLightbox().then((m) => ({ default: m.GalleryLightbox })));
+const EbookReader = lazy(() => loadReader().then((m) => ({ default: m.EbookReader })));
 
 // The resume hero — the single most-recent in-progress book, pinned above the
 // feed on every screen size (it grew up on mobile; desktop adopted it in the
@@ -515,6 +524,21 @@ interface ViewerState {
 export function HomePage() {
   const { user } = useSession();
   const { t } = useTranslation();
+
+  // Fetch the photo viewer and the reader once Home has drawn and the browser is
+  // idle, so the first open is instant without either holding up the page.
+  useEffect(() => {
+    const prefetch = () => {
+      void loadLightbox();
+      void loadReader();
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(prefetch, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(prefetch, 2000);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [cards, setCards] = useState<HomeCard[] | null>(null);
   const [heroItem, setHeroItem] = useState<FeedItem | null>(null);
   const [inProgressTotal, setInProgressTotal] = useState(0);
@@ -579,6 +603,7 @@ export function HomePage() {
   const openMemory = useCallback(async (year: number, itemId?: string) => {
     if (memoryLoading) return;
     setMemoryLoading(true);
+    void loadLightbox();
     try {
       const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate()}&perYear=200`);
       // Same tightness the card applied, so the viewer pages through exactly
@@ -608,6 +633,7 @@ export function HomePage() {
   const openRecentPhoto = useCallback(async (itemId: string, days: number) => {
     if (memoryLoading) return;
     setMemoryLoading(true);
+    void loadLightbox();
     try {
       const items = await fetchRecentlyAddedPhotos(days);
       if (items.length === 0) { navigate(galleryRecentHref()); return; }
@@ -657,6 +683,7 @@ export function HomePage() {
   // from the live detail when the server is reachable, else from the saved
   // download record, and the file loads from the offline blob when present.
   const handleRead = useCallback(async (item: FeedItem) => {
+    void loadReader();
     const offlineRecord = await getEbookDownload(item.id).catch(() => null);
     let docId: string | null = offlineRecord?.documentId ?? null;
     let format: string = offlineRecord?.format ?? "epub";
@@ -1014,6 +1041,7 @@ export function HomePage() {
     )}
 
     {photoLightbox && photoLightbox.items[photoLightbox.index] && (
+      <Suspense fallback={null}>
       <GalleryLightbox
         assets={photoLightbox.items}
         index={photoLightbox.index}
@@ -1023,9 +1051,11 @@ export function HomePage() {
           if (change.kind !== "like") void refreshPhotoLightbox(photoLightbox.source, change.kind === "deleted" ? change.id : undefined);
         }}
       />
+      </Suspense>
     )}
 
     {viewer && createPortal(
+      <Suspense fallback={null}>
       <EbookReader
         bookId={viewer.bookId}
         documentId={viewer.docId}
@@ -1039,7 +1069,8 @@ export function HomePage() {
         coverUrl={viewer.coverUrl}
         downloadUrl={viewer.url}
         onExit={() => setViewer(null)}
-      />,
+      />
+      </Suspense>,
       document.body
     )}
     </>
