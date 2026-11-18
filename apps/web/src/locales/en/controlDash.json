@@ -905,7 +905,7 @@
     "holdTranscode": "conversion folder",
     "linkDiagnostics": "Diagnostics",
     "usedBy": "Used by",
-    "linkNowPlaying": "Now playing"
+    "linkNowPlaying": "Live sessions"
   },
   "dashboard": {
     "attentionTitle": "Needs attention",

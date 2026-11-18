@@ -501,7 +501,7 @@ function AppBranch({ app, onServicesPage = false }: { app: AppStatus; onServices
           {state === "running" && <a href={logsHref({ app: app.id, log: "server" })}>{t("controlDash:overview.linkLog")}</a>}
           {app.id === "games" && app.configured && <a href={`${controlHref("invites")}#games-guest-links`}>{t("controlDash:overview.linkGuestLinks")}</a>}
           {app.id === "video" && state === "running" && <a href={controlHref("videoSettings")}>{t("controlDash:overview.linkVideoSettings")}</a>}
-          {app.id === "video" && state === "running" && <a href={controlHref("nowPlaying")}>{t("controlDash:overview.linkNowPlaying")}</a>}
+          {app.id === "video" && state === "running" && <a href={diagnosticsPartHref("video", "sessions")}>{t("controlDash:overview.linkNowPlaying")}</a>}
           <a href={appPageHref("appsAccess", app.id)}>{t("controlDash:overview.linkAccess")}</a>
           {app.configured && <a href={diagnosticsPartHref(app.id as DiagnosticsPart)}>{t("controlDash:overview.linkDiagnostics")}</a>}
           <a href={appPageHref("appsSetup", app.id)}>{t("controlDash:overview.linkSetup")}</a>

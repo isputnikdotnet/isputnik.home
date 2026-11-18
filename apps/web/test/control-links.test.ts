@@ -63,6 +63,12 @@ describe("control page links", () => {
     expect(getRoute()).toEqual({ name: "control", section });
   });
 
+  // Now playing joined Diagnostics › Video's Live sessions, which showed the same.
+  it.each(["/control/apps/videos/now-playing", "/control/infrastructure/now-playing"])("%s opens Live sessions", (path) => {
+    at(path);
+    expect(getRoute()).toEqual({ name: "controlDiagnosticsPart", part: "video", tab: "sessions" });
+  });
+
   it("finds the category editor at its new address and its old ones", () => {
     at("/control/apps/ebooks/organize/categories/cat1");
     expect(getRoute()).toEqual({ name: "controlCategoryEditor", categoryId: "cat1" });

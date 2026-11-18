@@ -303,8 +303,13 @@ Faces): what it is and its version, one line of how it is, and its state (**Heal
     is **Falling behind**), how busy the CPU is, how much memory is in use and how
     much is being sent. They are read only while the page is open, every 5
     seconds, and nothing is kept: the graphs start when you open it.
-  - Under it, everything being watched or downloaded, as on Infrastructure ›
-    Now playing.
+  - Under it, everything being watched or downloaded, a card each: the poster,
+    how far through, who and on what, at home or away. Its **Video**, **Audio**,
+    **Subtitles** and **Container** rows say what the file has and what the player
+    gets (after the ↳), with each step as a chip — green with a tick where the GPU
+    decodes, turns HDR into SDR, scales, burns in subtitles or encodes, grey where
+    the CPU does, and **Copied** where it goes as it is. This is also where the
+    Video page's **Now playing** button and the Dashboard's link lead.
 - **Logs** — the video container's own log, with its diagnostic mode.
 - **Reports** — the saved reports that include Video.
 

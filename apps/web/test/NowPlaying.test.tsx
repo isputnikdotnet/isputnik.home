@@ -1,12 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { clockOf, NowPlayingSection } from "../src/features/control/sections/NowPlayingSection";
+import { clockOf, NowPlayingList } from "../src/features/control/sections/NowPlayingSection";
+import { useWatching } from "../src/features/control/diagnostics/Watching";
 
 vi.mock("../src/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("../src/api")>()), api: vi.fn() }));
 const { api } = await import("../src/api");
 const mockApi = vi.mocked(api);
 
-// Infrastructure › Now playing: a card a stream, the way Plex's dashboard shows
+// Diagnostics › Video › Live sessions: a card a stream, the way Plex's dashboard shows
 // them — the poster, what it is and how far through, Direct Play or Transcode,
 // quality and bandwidth, who, on what and from where.
 const video = { id: "video", prefix: "/video", configured: true, secretAccepted: true, server: { ok: true, version: "0.40.0", error: null, roundTripMs: 4 } };
@@ -22,13 +23,19 @@ const answer = (plays: object[]) => mockApi.mockImplementation((async (url: stri
   throw new Error(`unexpected ${url}`);
 }) as never);
 
-describe("Now playing", () => {
+/** What Live sessions draws: the engine read every few seconds, its plays as cards. */
+function LiveSessions() {
+  const { plays, missing } = useWatching("/video");
+  return <NowPlayingList plays={plays} missing={missing} />;
+}
+
+describe("Live sessions", () => {
   it("shows each stream as a card: poster, how far through, how it plays, who and where", async () => {
     answer([
       { kind: "direct", user: "Mum", itemId: "e2", title: "Радар S01E02", type: "episode", heading: "Радар", subheading: "S1 · E2 · Pilot", poster: "/video/api/art/s1/poster?v=1", backdrop: null, network: "internet", device: "Phone", since: now, mbps: 8.4, positionSeconds: 1330, durationSeconds: 2700 },
       { kind: "converted", user: "Dad", itemId: "m1", title: "Dune", type: "movie", heading: "Dune", subheading: "2021", poster: null, backdrop: null, network: "home", device: "TV", since: now, mode: "transcode", converter: "gpu", rung: 1080, hdr: true, converting: true, positionSeconds: 3725, durationSeconds: 9300 }
     ]);
-    render(<NowPlayingSection />);
+    render(<LiveSessions />);
     const mum = await screen.findByRole("article", { name: "Mum · Радар" });
     expect(within(mum).getByText("S1 · E2 · Pilot")).toBeTruthy();
     expect(within(mum).getByText("Direct Play")).toBeTruthy();
@@ -64,7 +71,7 @@ describe("Now playing", () => {
       },
       { kind: "direct", user: "Mum", itemId: "m2", title: "Up", heading: "Up", network: "home", device: "TV", since: now, mbps: 6, media: { source: direct, sent: direct, reasons: [], videoCopied: true, audioCopied: true, subtitlesBurned: false } }
     ]);
-    render(<NowPlayingSection />);
+    render(<LiveSessions />);
     const dad = await screen.findByRole("article", { name: "Dad · Inception" });
     // Video: the file, what the player gets, and each step lit where the GPU does it.
     expect(within(dad).getByText("4K (HEVC Main 10) · 10-bit · HDR10 · 3840×1600")).toBeTruthy();
@@ -88,7 +95,7 @@ describe("Now playing", () => {
 
   it("says when nobody is watching", async () => {
     answer([]);
-    render(<NowPlayingSection />);
+    render(<LiveSessions />);
     expect(await screen.findByText("Nobody is watching right now.")).toBeTruthy();
   });
 });

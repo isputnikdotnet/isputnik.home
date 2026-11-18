@@ -1,15 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { Download, Film, MonitorPlay, Smartphone, Tablet, Tv, Wifi, Globe } from "lucide-react";
-import { controlHref, followRoute } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { relativeTime } from "../../../shared/relativeTime";
-import { ControlSectionHead } from "../ControlSectionHead";
-import { useWatching, type Play } from "../diagnostics/Watching";
+import type { Play } from "../diagnostics/Watching";
 import { PlayStreams } from "./PlayStreams";
-import { isRunning, useAppsStatus } from "./AppsSection";
 
-// Infrastructure › Now playing: every film and episode being played or
-// downloaded right now, a card each, the way Plex's dashboard shows its streams —
+// Diagnostics › Video › Live sessions' list: every film and episode being played
+// or downloaded right now, a card each, the way Plex's dashboard shows its streams —
 // the poster, what it is and how far through, who and on what, Direct Play or
 // Transcode (and on the GPU or the CPU), the quality, the bandwidth, home or
 // away. From the video engine's GET /admin/watching, looked at again every few
@@ -27,27 +24,7 @@ export function clockOf(seconds: number): string {
   return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
 }
 
-export function NowPlayingSection() {
-  const { t } = useTranslation(["controlAdmin", "control"]);
-  const { apps } = useAppsStatus();
-  const video = apps?.find((app) => app.id === "video") ?? null;
-  const running = video ? isRunning(video) : false;
-  const { plays, missing } = useWatching(running ? video!.prefix : null);
-
-  return (
-    <div className="now-playing">
-      <ControlSectionHead section="nowPlaying" icon={<MonitorPlay size={30} />} description={t("controlAdmin:nowPlaying.description")} />
-
-      {apps && !running && (
-        <MessageBox tone="info" title={t("controlAdmin:nowPlaying.noVideoTitle")}>{t("controlAdmin:nowPlaying.noVideo")}</MessageBox>
-      )}
-      <NowPlayingList plays={plays} missing={running && missing} />
-    </div>
-  );
-}
-
-/** The plays as cards, with a line of how many and how much: Now playing's, and
- *  the Live sessions tab of Diagnostics › Video. */
+/** The plays as cards, with a line of how many and how much: Diagnostics › Video's Live sessions. */
 export function NowPlayingList({ plays, missing }: { plays: Play[] | null; missing: boolean }) {
   const { t } = useTranslation(["controlAdmin", "control"]);
   const streams = (plays ?? []).filter((play) => play.kind !== "download");
@@ -138,20 +115,5 @@ function PlayCard({ play }: { play: Play }) {
         <span className="muted">{t("controlAdmin:nowPlaying.since", { when: relativeTime(play.since) })}</span>
       </footer>
     </article>
-  );
-}
-
-/** "Now playing · 2 watching" for another page: the way to this one. */
-export function NowPlayingLink({ count }: { count: number | null }) {
-  const { t } = useTranslation(["controlAdmin"]);
-  const href = controlHref("nowPlaying");
-  return (
-    <a className="now-playing-link" href={href} onClick={(event) => followRoute(event, href)}>
-      <MonitorPlay size={18} aria-hidden="true" />
-      <span>
-        <strong>{t("controlAdmin:nowPlaying.linkTitle")}</strong>
-        <small>{count === null ? t("controlAdmin:nowPlaying.linkSub") : t("controlAdmin:diagnostics.watching.count", { count })}</small>
-      </span>
-    </a>
   );
 }

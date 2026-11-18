@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronRight, Clapperboard, LayoutGrid, LayoutList, Layers, MonitorPlay, Plus } from "lucide-react";
 import { api } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { controlHref, followRoute, navigate, queryParam, replaceNavigate, replaceQuery } from "../../router";
+import { diagnosticsPartHref, followRoute, navigate, queryParam, replaceNavigate, replaceQuery } from "../../router";
 import { useSession } from "../../app/SessionContext";
 import { Button } from "../../shared/Button";
 import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
@@ -434,9 +434,9 @@ export function VideoHomePage() {
                   <span>{t("video.rows.customize")}</span>
                 </Button>
               )}
-              {/* Who is watching what right now: the control panel's page, admins only. */}
+              {/* Who is watching what right now: Diagnostics › Video's Live sessions, admins only. */}
               {isAdmin && (
-                <Button variant="toolbar" onClick={() => navigate(controlHref("nowPlaying"))}>
+                <Button variant="toolbar" onClick={() => navigate(diagnosticsPartHref("video", "sessions"))}>
                   <MonitorPlay size={18} aria-hidden="true" />
                   <span>{t("video.nowPlaying")}</span>
                 </Button>

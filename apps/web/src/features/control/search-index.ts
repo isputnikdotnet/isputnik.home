@@ -1,5 +1,5 @@
 import { ALL_TABS, sectionEyebrow, sectionHref, tabLabel } from "./nav";
-import { diagnosticsPartHref, profileAnchorHref, type ControlSection, type DiagnosticsPart } from "../../router";
+import { diagnosticsPartHref, profileAnchorHref, type ControlSection, type DiagnosticsPart, type DiagnosticsTab } from "../../router";
 // Plain module-level data, not a component — see nav.ts's note on the same pattern.
 import i18n from "../../i18n";
 
@@ -46,9 +46,6 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "статистика цифры количество всего аудиокнига электронная книга галерея фото видео топ авторы чтецы форматы размер на диске",
   logs: "activity audit trail events sign-in history retention prune clear source apps containers games video server log docker logs lines tail output refused gateway rejected errors " +
     "активность аудит журнал события история входов хранение очистка удалить",
-
-  nowPlaying: "now playing watching streaming who is watching streams sessions activity live plex dashboard transcode direct play bandwidth viewers tv phone " +
-    "сейчас смотрят просмотр трансляция кто смотрит сеансы прямо сейчас перекодирование зрители телевизор телефон",
 
   diagnostics: "diagnostics report bug report issue github support troubleshoot copy download versions gpu ffmpeg containers failures privacy redact hide names paths " +
     "health check status problem broken not working wrong slow help logging log level debug verbose detailed trace " +
@@ -158,14 +155,15 @@ type SettingKey =
   | "smtpServer" | "sendTestEmail" | "twoFactorAlertsDelivery"
   | "shareNotifications" | "recordingsLibrary" | "recipeImport" | "mapRouting" | "inboxScanning"
   | "houseLibrary" | "photoInboxSetup" | "mapCaching" | "namedPlaces" | "locationDatabase" | "gamesIntegration" | "gamesEvents" | "gamesLog" | "gamesGuestLinks" | "videoConversion" | "videoStorage" | "videoCopies" | "videoKeptFilms" | "videoKeepReady" | "videoJobs" | "videoMetadata" | "videoDetection" | "videoHardwareTest" | "sections"
-  | "loggingLevel" | "checkFolders" | "verifyBackup" | "speedToDevice" | "videoHardwareAcceleration" | "savedReports";
+  | "liveSessions" | "loggingLevel" | "checkFolders" | "verifyBackup" | "speedToDevice" | "videoHardwareAcceleration" | "savedReports";
 
 // Settings that live inside a page. `section` is where they are; search takes
 // you to that tab. `anchor` is the id of the card the setting sits in, where the
 // page has more than one, so the hit scrolls to it (useAnchorScroll) rather than
 // leaving you at the top of a long page to find it again.
-// `page`: the setting is on one part's Diagnostics page (diagnosticsPartHref), not the section's own.
-const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords: string; anchor?: string; page?: DiagnosticsPart }[] = [
+// `page`: the setting is on one part's Diagnostics page (diagnosticsPartHref), not the section's own; `tab` the tab of it.
+const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords: string; anchor?: string; page?: DiagnosticsPart; tab?: DiagnosticsTab }[] = [
+  { titleKey: "liveSessions", section: "diagnostics", page: "video", tab: "sessions", keywords: "now playing live sessions watching streaming who is watching streams activity plex dashboard transcode direct play bandwidth viewers tv phone resolution codec hdr gpu decode encode subtitles burn in сейчас смотрят сеансы просмотр трансляция кто смотрит прямо сейчас перекодирование зрители телевизор телефон разрешение кодек видеокарта субтитры" },
   { titleKey: "loggingLevel", section: "diagnostics", keywords: "logging log level debug verbose detailed everything trace more logs for a while back to normal журнал уровень отладка подробный всё больше записей на время вернуть обычный" },
   { titleKey: "checkFolders", section: "diagnostics", page: "home", anchor: "libraries", keywords: "check folders library folder reachable sleeping disk wake slow read speed nas share mount проверить папки папка библиотеки доступна спящий диск медленно скорость чтения" },
   { titleKey: "verifyBackup", section: "diagnostics", page: "home", anchor: "backups", keywords: "verify backup check backup intact damaged corrupt restore test zip database integrity проверить резервную копию цела повреждена восстановление целостность базы" },
@@ -314,7 +312,7 @@ export function getControlSearchEntries(): ControlSearchEntry[] {
       id: `setting:${index}`,
       title: i18n.t(`control:search.settings.${entry.titleKey}`),
       breadcrumb: breadcrumbFor(entry.section),
-      href: `${entry.page ? diagnosticsPartHref(entry.page) : sectionHref(entry.section)}${entry.anchor ? `#${entry.anchor}` : ""}`,
+      href: `${entry.page ? diagnosticsPartHref(entry.page, entry.tab) : sectionHref(entry.section)}${entry.anchor ? `#${entry.anchor}` : ""}`,
       keywords: entry.keywords
     })),
     // Reader tokens left the control panel for Profile (they are each person's

@@ -178,10 +178,9 @@ export const APPLICATIONS: ApplicationDef[] = [
     key: "videos",
     icon: Clapperboard,
     tabs: [
-      // Now playing: what is being watched right now, a card a stream (Plex's
-      // dashboard). Video's own, so a page of its Overview, not Infrastructure's;
-      // reached from Diagnostics › Video and, for admins, the Video page.
-      { section: "videosSetup", kind: "setup", pages: ["nowPlaying"] },
+      // What is being watched right now is Diagnostics › Video's Live sessions
+      // (Now playing was a page here until it joined it).
+      { section: "videosSetup", kind: "setup" },
       { section: "genres", kind: "organize" },
       { section: "videoSettings", kind: "settings" }
     ]

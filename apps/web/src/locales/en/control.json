@@ -99,8 +99,7 @@
       "gamesSetup": "Overview",
       "galleryOrganize": "Organize",
       "ebooksOrganize": "Organize",
-      "audiobooksOrganize": "Organize",
-      "nowPlaying": "Now playing"
+      "audiobooksOrganize": "Organize"
     },
     "exit": "Home",
     "aria": "Control panel",
@@ -285,6 +284,7 @@
       "checkFolders": "Check library folders",
       "verifyBackup": "Verify the last backup",
       "speedToDevice": "Speed to this device",
+      "liveSessions": "Live sessions (now playing)",
       "videoHardwareAcceleration": "Video hardware acceleration",
       "savedReports": "Saved diagnostics reports"
     }

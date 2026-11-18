@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Gauge, Home, ListChecks, Menu, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { CONTROL_ALIAS_QUERY, controlHref, followRoute, followReplace } from "../../router";
+import { CONTROL_ALIAS_QUERY, controlHref, diagnosticsPartHref, followRoute, followReplace } from "../../router";
 import type { ControlSection, DiagnosticsPart, DiagnosticsTab, MemberPageTab } from "../../router";
 import {
   APPLICATIONS,
@@ -44,7 +44,6 @@ const ServicesSection = lazy(() => import("./sections/ServicesSection").then((m)
 const ApplicationsSection = lazy(() => import("./sections/ApplicationsSection").then((m) => ({ default: m.ApplicationsSection })));
 const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
-const NowPlayingSection = lazy(() => import("./sections/NowPlayingSection").then((m) => ({ default: m.NowPlayingSection })));
 const DiagnosticsSection = lazy(() => import("./sections/DiagnosticsSection").then((m) => ({ default: m.DiagnosticsSection })));
 const AboutSection = lazy(() => import("./sections/AboutSection").then((m) => ({ default: m.AboutSection })));
 const StorageSection = lazy(() => import("./sections/StorageSection").then((m) => ({ default: m.StorageSection })));
@@ -139,6 +138,12 @@ export function ControlPanelPage({
   // so Back never returns to the dead address, and the rest of the query and the
   // hash ride along, because a Sign-ins link carrying ?ip=… is a dive, not a page.
   useEffect(() => {
+    // A part page reached by an old address (Now playing → Live sessions).
+    if (diagnosticsPart !== undefined) {
+      const own = diagnosticsPartHref(diagnosticsPart, diagnosticsTab ?? "overview");
+      if (window.location.pathname !== own) window.history.replaceState(window.history.state, "", `${own}${window.location.search}${window.location.hash}`);
+      return;
+    }
     if (categoryId !== undefined || libraryId !== undefined || member !== undefined || group !== undefined || diagnosticsPart !== undefined) return;
     const canonical = controlHref(section);
     const params = new URLSearchParams(window.location.search);
@@ -149,7 +154,7 @@ export function ControlPanelPage({
     }
     const query = params.toString();
     window.history.replaceState(window.history.state, "", `${canonical}${query ? `?${query}` : ""}${window.location.hash}`);
-  }, [section, categoryId, libraryId, member, group, diagnosticsPart]);
+  }, [section, categoryId, libraryId, member, group, diagnosticsPart, diagnosticsTab]);
 
   // Where the page sits — a shared page (Tags, Book categories) by the ?from= it
   // was opened with — and so which row to draw: the workspace's, or the group's.
@@ -237,7 +242,6 @@ function ControlSectionBody({
     case "activity":        return <ActivitySection />;
     case "libraryStats":    return <LibraryStatsSection />;
     case "logs":            return <LogsSection />;
-    case "nowPlaying":      return <NowPlayingSection />;
     case "diagnostics":     return diagnosticsPart ? <DiagnosticsPartPage part={diagnosticsPart} tab={diagnosticsTab ?? "overview"} /> : <DiagnosticsSection />;
 
     case "libraries":       return <LibrariesSection libraryId={libraryId} />;

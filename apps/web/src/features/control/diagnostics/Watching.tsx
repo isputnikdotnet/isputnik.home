@@ -5,7 +5,7 @@ import { api } from "../../../api";
 // hls.ts): every play and download going on — a file played as it is, converted
 // video, a copy fetched for offline — with who, what, how, on what device, from
 // where, since when, and how far through. Looked at again every few seconds.
-// Infrastructure › Now playing draws it (NowPlayingSection); the Video card and
+// Diagnostics › Video › Live sessions draws it (NowPlayingList); the Video card and
 // the Dashboard count it. An engine before it answers 404: nothing is shown.
 
 export interface MediaVideo {

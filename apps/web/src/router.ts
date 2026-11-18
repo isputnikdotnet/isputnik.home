@@ -6,7 +6,7 @@ export type ControlSection =
   // The panel's landing page, opened from its title — not in a group
   | "dashboard"
   // Infrastructure. Services is the overview; appsSetup is a container's Pairing, a page under it
-  | "services" | "nowPlaying" | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "diagnostics" | "activity"
+  | "services" | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "diagnostics" | "activity"
   // Libraries & Scanning
   | "libraries" | "libraryStats"
   // Applications: the directory, then each application's workspace tabs and pages
@@ -41,7 +41,6 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   scheduledJobs: "/control/infrastructure/scheduled-jobs",
   logs: "/control/infrastructure/logs",
   diagnostics: "/control/infrastructure/diagnostics",
-  nowPlaying: "/control/apps/videos/now-playing",
   activity: "/control/infrastructure/activity",
 
   libraries: "/control/libraries",
@@ -189,7 +188,6 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maintenance/videos": "videoStreaming",
   // Infrastructure's until 4.90, when it joined Gallery › Organize.
   "/control/infrastructure/video-streaming": "videoStreaming",
-  "/control/infrastructure/now-playing": "nowPlaying",
   "/control/settings/maps": "mapSetup",
   "/control/settings/stories": "storySettings",
   "/control/settings/apps": "appsSetup",
@@ -969,6 +967,12 @@ export function getRoute(): Route {
     const categoryEditMatch = path.match(/^\/control\/(?:apps\/ebooks\/organize\/|libraries\/(?:organization\/)?)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
+    }
+
+    // Now playing was a page of its own (Videos › Overview, Infrastructure before
+    // 4.90) until it joined Diagnostics › Video's Live sessions, which showed the same.
+    if (path === "/control/apps/videos/now-playing" || path === "/control/infrastructure/now-playing") {
+      return { name: "controlDiagnosticsPart", part: "video", tab: "sessions" };
     }
 
     const diagnosticsMatch = path.match(/^\/control\/infrastructure\/diagnostics\/(home|video|games|faces)(?:\/(tests|sessions|logs|reports))?$/);

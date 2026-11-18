@@ -99,8 +99,7 @@
       "gamesSetup": "Обзор",
       "galleryOrganize": "Упорядочивание",
       "ebooksOrganize": "Упорядочивание",
-      "audiobooksOrganize": "Упорядочивание",
-      "nowPlaying": "Сейчас смотрят"
+      "audiobooksOrganize": "Упорядочивание"
     },
     "exit": "Домой",
     "aria": "Навигация панели управления",
@@ -287,6 +286,7 @@
       "checkFolders": "Проверить папки библиотек",
       "verifyBackup": "Проверить последнюю копию",
       "speedToDevice": "Скорость до этого устройства",
+      "liveSessions": "Сеансы (сейчас смотрят)",
       "videoHardwareAcceleration": "Аппаратное ускорение видео",
       "savedReports": "Сохранённые отчёты диагностики"
     }
