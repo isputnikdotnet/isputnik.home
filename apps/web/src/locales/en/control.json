@@ -1037,7 +1037,7 @@
     "deleteOldFieldLabel": "Delete entries older than",
     "deleteOldFieldSuffix": "days",
     "sourceLabel": "Source",
-    "sourceHome": "Home",
+    "sourceHome": "iSputnik",
     "sourceLoading": "Asking the apps…",
     "appDescription": "What {{app}} recorded — its events, or the newest lines of its server log — read from it through the gateway. Nothing is kept here.",
     "serverDescription": "What this server printed: its newest lines, kept in its memory since it last started, warnings and errors among them.",
