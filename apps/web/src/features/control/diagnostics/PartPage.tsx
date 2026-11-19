@@ -1,30 +1,40 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Archive, Boxes, FileDown, FolderOpen, Gauge, ListChecks, ScrollText, Server, Stethoscope } from "lucide-react";
+import { Activity, Archive, Boxes, Clock, Cpu, FileDown, FolderOpen, Gauge, ListChecks, MemoryStick, ScrollText, Server, Stethoscope } from "lucide-react";
 import { controlHref, diagnosticsPartHref, libraryManageHref, type DiagnosticsPart, type DiagnosticsTab } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatUptime } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { activityHref, appPageHref, logsHref, tasksHref } from "../links";
 import type { AppKey } from "../nav";
-import { useAppName, useAppsStatus } from "../sections/AppsSection";
+import { AppLog, useAppName, useAppsStatus } from "../sections/AppsSection";
 import { HOME_PARTS, ReportDialog } from "./ReportDialog";
 import { SavedReports, useSavedReports } from "./SavedReports";
 import { useDiagnosticsOverview, useProblemText, type LibraryCheck, type PartOverview } from "./overview";
 import { LoggingControl, LoggingModes, loggingUrl } from "./Logging";
-import { VideoPartBody } from "./VideoPage";
+import { SavedMini, useServerNow, VideoPartBody, type ServerNow } from "./VideoPage";
+import { PartTabs, TabCount } from "./PartTabs";
 import { speedVerdict, TestBar, useHomeTests, useRunWords, type FolderResult, type TestRun } from "./HomeTests";
 
 // One part of iSputnik's page under Infrastructure › Diagnostics
 // (docs/diagnostics-pages-plan.md): how it is, its checks with their tests beside
 // them, and a column of where to look next — its log, activity and tasks, and for
 // this server, how the other containers answer. A page of one thing: its own
-// route, a back link; Video's has a row of tabs (VideoPage.tsx), no other does. Settings shown here are the application's own
-// (Videos › Settings), read and saved through the same engine endpoint, never a copy.
+// route, a back link. This server's and Video's have one row of tabs (PartTabs),
+// the same shape (owner, 2026-11-19): Overview is cards, then the part's own tabs,
+// Logs and Reports; the side column follows the tab — diagnostic mode and the
+// newest reports on Overview, mode and where else to look on Logs, the recent runs
+// on Tests, none on Reports. Games and Faces, a connection each, have no tabs.
+// Settings shown here are the application's own (Videos › Settings), read and
+// saved through the same engine endpoint, never a copy.
+
+/** This server's tabs: no Live sessions — what is watched is Video's. */
+const HOME_TABS: DiagnosticsTab[] = ["overview", "tests", "logs", "reports"];
 
 /** The workspace whose Activity and Tasks a part's links filter to. */
 const APPLICATION: Partial<Record<DiagnosticsPart, AppKey>> = { video: "videos", games: "games" };
@@ -46,6 +56,8 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
   // Video draws its tabs while it answers; not set up or not answering, the
   // connection is all there is to show.
   const videoTabs = part === "video" && overview !== null && overview.state !== "off" && overview.state !== "down";
+  const homeTabs = part === "home" && overview !== null;
+  const tabbed = videoTabs || homeTabs;
 
   return (
     <div className="diagnostics-section">
@@ -66,7 +78,7 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
       {error && <MessageBox tone="error" title={t("controlAdmin:diagnostics.overviewFailed")}>{error}</MessageBox>}
       {!parts && !error && <p className="muted">{t("controlAdmin:diagnostics.looking")}</p>}
 
-      {overview && !(videoTabs && overview.state === "ok") && (
+      {overview && !(tabbed && overview.state === "ok") && (
         <MessageBox
           tone={overview.state === "ok" ? "success" : overview.state === "off" ? "info" : "warning"}
           title={t(`controlAdmin:diagnostics.page.banner.${overview.state}`, { name })}
@@ -84,15 +96,25 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
         />
       )}
 
-      {overview && !videoTabs && (
+      {overview && homeTabs && (
+        <HomePartBody
+          tab={tab === "sessions" ? "overview" : tab}
+          overview={overview}
+          parts={parts ?? []}
+          tests={tests}
+          saved={saved}
+          modeCard={<LoggingCard part={part} name={name} reachable compact />}
+          logLinks={<LogsAndEvents part={part} />}
+        />
+      )}
+
+      {overview && !tabbed && (
         <div className="diagnostics-part-page">
           <div className="diagnostics-part-main">
-            {part === "home" ? <HomeChecks overview={overview} tests={tests} /> : <Connection part={part} overview={overview} />}
+            <Connection part={part} overview={overview} />
           </div>
           <aside className="diagnostics-part-aside" aria-label={t("controlAdmin:diagnostics.page.asideLabel")}>
             {overview.state !== "off" && <LoggingCard part={part} name={name} reachable={overview.state !== "down"} />}
-            {part === "home" && tests.state && tests.state.runs.length > 0 && <RecentRuns runs={tests.state.runs} />}
-            {part === "home" && parts && <OtherContainers parts={parts} />}
             <LogsAndEvents part={part} />
             <SavedReports saved={saved} />
           </aside>
@@ -114,10 +136,159 @@ function useVersionLine() {
 
 // ── This server ────────────────────────────────────────────────────────────────
 
+/** "Linux", "Windows": the system's family in a word, for a card (the report keeps the full line). */
+function systemName(os: string): string {
+  const family = os.split(" ")[0].toLowerCase();
+  return family === "win32" || family.startsWith("windows") ? "Windows" : family === "linux" ? "Linux" : family === "darwin" ? "macOS" : os;
+}
+
+/** How often the Overview's cards look again: a snapshot, as Video's. */
+const HOME_OVERVIEW_MS = 30_000;
+
+function HomePartBody({ tab, overview, parts, tests, saved, modeCard, logLinks }: {
+  tab: DiagnosticsTab;
+  overview: PartOverview;
+  parts: PartOverview[];
+  tests: ReturnType<typeof useHomeTests>;
+  saved: ReturnType<typeof useSavedReports>;
+  modeCard: ReactNode;
+  logLinks: ReactNode;
+}) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const label = (id: DiagnosticsTab) => (
+    <>
+      {t(`controlAdmin:diagnostics.homePage.tab.${id as "overview" | "tests" | "logs" | "reports"}`)}
+      <TabCount count={id === "reports" ? saved.reports?.length : null} />
+    </>
+  );
+  const runs = tests.state?.runs ?? [];
+  return (
+    <>
+      <PartTabs part="home" tabs={HOME_TABS} current={tab} label={label} aria={t("controlAdmin:diagnostics.homePage.tabsAria")} />
+      {tab === "overview" && (
+        <div className="diag-video">
+          <div className="diag-video-main">
+            <HomeTiles overview={overview} parts={parts} />
+            <OtherContainers parts={parts} />
+          </div>
+          <aside className="diag-video-side">
+            {modeCard}
+            <SavedMini part="home" saved={saved} />
+          </aside>
+        </div>
+      )}
+      {tab === "tests" && (
+        <div className="diag-video">
+          <div className="diag-video-main"><HomeChecks overview={overview} tests={tests} /></div>
+          <aside className="diag-video-side">
+            {runs.length > 0 ? <RecentRuns runs={runs} /> : (
+              <section className="organization-card diag-side-card" aria-labelledby="diag-home-runs-title">
+                <h3 id="diag-home-runs-title">{t("controlAdmin:diagnostics.tests.recentTitle")}</h3>
+                <p className="muted">{t("controlAdmin:diagnostics.homePage.noRuns")}</p>
+              </section>
+            )}
+          </aside>
+        </div>
+      )}
+      {tab === "logs" && (
+        <div className="diag-video">
+          {/* The server's own newest lines (GET /api/admin/log), as a container's Logs shows its own. */}
+          <div className="diag-video-main"><AppLog prefix="" /></div>
+          <aside className="diag-video-side">
+            {modeCard}
+            {logLinks}
+          </aside>
+        </div>
+      )}
+      {tab === "reports" && <SavedReports saved={saved} />}
+    </>
+  );
+}
+
+/** The Overview's cards: the machine, this server, its libraries and backups, and
+ *  how the containers beside it answer — as of the last look, every 30 seconds. */
+function HomeTiles({ overview, parts }: { overview: PartOverview; parts: PartOverview[] }) {
+  const { t, i18n } = useTranslation(["controlAdmin"]);
+  const server = useServerNow(HOME_OVERVIEW_MS);
+  const now: ServerNow | null = server.now;
+  const machine = overview.machine;
+  const checks = (overview.libraryChecks ?? []).filter((check) => check.state !== "container");
+  const libraryTrouble = checks.filter((check) => LIBRARY_TONE[check.state] === "warn").length;
+  const containers = parts.filter((entry) => entry.id !== "home" && entry.state !== "off");
+  const answering = containers.filter((entry) => entry.state === "ok").length;
+  const backup = overview.lastBackup ?? null;
+  const dash = "—";
+  const tiles: StatTile[] = [
+    {
+      icon: <Cpu size={19} />, iconTone: "blue",
+      label: t("controlAdmin:diagnostics.video.tiles.cpu"),
+      value: now ? `${Math.round(now.cpu.percent)}%` : dash,
+      sub: now ? t("controlAdmin:diagnostics.video.hw.threads", { count: now.cpu.cores }) : undefined,
+      tone: now && now.cpu.percent >= 90 ? "warn" : undefined
+    },
+    {
+      icon: <MemoryStick size={19} />, iconTone: "rose",
+      label: t("controlAdmin:diagnostics.video.tiles.serverMemory"),
+      value: now ? formatBytes(now.memory.availableBytes) : dash,
+      sub: now ? t("controlAdmin:diagnostics.video.tiles.freeOf", { total: formatBytes(now.memory.totalBytes) }) : undefined,
+      tone: now && now.memory.availableBytes / now.memory.totalBytes < 0.1 ? "warn" : undefined
+    },
+    {
+      icon: <MemoryStick size={19} />, iconTone: "mint",
+      label: t("controlAdmin:diagnostics.homePage.tiles.process"),
+      value: now ? formatBytes(now.memory.homeBytes) : machine ? formatBytes(machine.rssBytes) : dash,
+      sub: t("controlAdmin:diagnostics.homePage.tiles.processSub")
+    },
+    {
+      icon: <Clock size={19} />, iconTone: "gold",
+      label: t("controlAdmin:diagnostics.homePage.tiles.uptime"),
+      value: overview.uptimeSeconds !== undefined ? formatUptime(overview.uptimeSeconds) : dash,
+      sub: overview.version ? `v${overview.version}` : undefined
+    },
+    {
+      icon: <FolderOpen size={19} />, iconTone: libraryTrouble ? "warn" : "blue",
+      label: t("controlAdmin:diagnostics.homePage.tiles.libraries"),
+      value: String(checks.length),
+      sub: libraryTrouble ? t("controlAdmin:diagnostics.homePage.tiles.librariesWarn", { count: libraryTrouble }) : checks.length ? t("controlAdmin:diagnostics.homePage.tiles.librariesOk") : undefined,
+      tone: libraryTrouble ? "warn" : undefined
+    },
+    {
+      icon: <Archive size={19} />, iconTone: backup ? "rose" : "warn",
+      label: t("controlAdmin:diagnostics.homePage.tiles.backup"),
+      value: backup ? relativeTime(backup.at) : t("controlAdmin:diagnostics.homePage.tiles.backupNone"),
+      sub: backup ? `${backup.kind} · ${formatBytes(backup.sizeBytes)}` : undefined,
+      tone: backup && !overview.backupError ? undefined : "warn"
+    },
+    {
+      icon: <Boxes size={19} />, iconTone: answering < containers.length ? "warn" : "mint",
+      label: t("controlAdmin:diagnostics.homePage.tiles.containers"),
+      value: containers.length ? t("controlAdmin:diagnostics.homePage.tiles.containersValue", { answering, count: containers.length }) : "0",
+      sub: !containers.length ? t("controlAdmin:diagnostics.homePage.tiles.containersNone")
+        : answering < containers.length ? t("controlAdmin:diagnostics.homePage.tiles.containersDown", { count: containers.length - answering })
+          : t("controlAdmin:diagnostics.homePage.tiles.containersOk"),
+      tone: answering < containers.length ? "warn" : undefined
+    },
+    {
+      icon: <Server size={19} />, iconTone: "gold",
+      label: t("controlAdmin:diagnostics.homePage.tiles.system"),
+      value: machine ? systemName(machine.os) : dash,
+      sub: machine ? t("controlAdmin:diagnostics.homePage.tiles.systemSub", { node: machine.node }) : undefined
+    }
+  ];
+  return (
+    <section className="diag-tiles" aria-labelledby="diag-home-tiles-title">
+      <header className="diag-tiles-head">
+        <h3 id="diag-home-tiles-title">{t("controlAdmin:diagnostics.video.tiles.title")}</h3>
+        {now && <span className="muted">{t("controlAdmin:diagnostics.video.tiles.asOf", { time: new Date(now.at).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit", second: "2-digit" }) })}</span>}
+      </header>
+      <StatTiles tiles={tiles} label={t("controlAdmin:diagnostics.video.tiles.title")} />
+    </section>
+  );
+}
+
 function HomeChecks({ overview, tests }: { overview: PartOverview; tests: ReturnType<typeof useHomeTests> }) {
   const { t } = useTranslation(["controlAdmin"]);
   const checks = overview.libraryChecks ?? [];
-  const machine = overview.machine;
   const state = tests.state;
   const running = state?.running?.kind ?? null;
   const measured = new Map((state?.folders?.libraries ?? []).map((result) => [result.libraryId, result]));
@@ -227,17 +398,6 @@ function HomeChecks({ overview, tests }: { overview: PartOverview; tests: Return
         )}
       </GroupedList>
 
-      {machine && (
-        <GroupedList id="server" title={t("controlAdmin:diagnostics.page.server.title")}>
-          <InfoRow icon={<Server size={17} />} label={t("controlAdmin:diagnostics.page.server.version")} value={overview.version ?? "?"} />
-          {overview.uptimeSeconds !== undefined && <InfoRow label={t("controlAdmin:diagnostics.page.server.uptime")} value={formatUptime(overview.uptimeSeconds)} />}
-          <InfoRow label={t("controlAdmin:diagnostics.page.server.system")} value={`${machine.os} · Node ${machine.node}`} />
-          <InfoRow
-            label={t("controlAdmin:diagnostics.page.server.memory")}
-            value={t("controlAdmin:diagnostics.page.server.memoryValue", { cpus: machine.cpus, total: formatBytes(machine.memoryBytes), used: formatBytes(machine.rssBytes) })}
-          />
-        </GroupedList>
-      )}
     </>
   );
 }

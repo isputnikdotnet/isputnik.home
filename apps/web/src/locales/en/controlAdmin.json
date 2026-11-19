@@ -2847,6 +2847,35 @@
       "deleteConfirm": "Delete report",
       "deleting": "Deleting…"
     },
+    "homePage": {
+      "tabsAria": "iSputnik diagnostics",
+      "tab": {
+        "overview": "Overview",
+        "tests": "Tests",
+        "logs": "Logs",
+        "reports": "Reports"
+      },
+      "noRuns": "No test has been run yet. Each one runs from its own card.",
+      "tiles": {
+        "process": "iSputnik memory",
+        "processSub": "this server's own use",
+        "uptime": "Running for",
+        "libraries": "Libraries",
+        "librariesOk": "all reachable",
+        "librariesWarn_one": "{{count}} needs attention",
+        "librariesWarn_other": "{{count}} need attention",
+        "backup": "Last backup",
+        "backupNone": "None yet",
+        "containers": "Containers",
+        "containersValue": "{{answering}} of {{count}}",
+        "containersOk": "all answering",
+        "containersNone": "none set up",
+        "containersDown_one": "{{count}} not answering",
+        "containersDown_other": "{{count}} not answering",
+        "system": "System",
+        "systemSub": "Node {{node}}"
+      }
+    },
     "video": {
       "tabsAria": "Video diagnostics",
       "tab": {

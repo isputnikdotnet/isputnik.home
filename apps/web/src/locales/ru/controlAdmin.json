@@ -3089,6 +3089,37 @@
       "deleteConfirm": "Удалить отчёт",
       "deleting": "Удаление…"
     },
+    "homePage": {
+      "tabsAria": "Диагностика iSputnik",
+      "tab": {
+        "overview": "Обзор",
+        "tests": "Проверки",
+        "logs": "Журналы",
+        "reports": "Отчёты"
+      },
+      "noRuns": "Ни одной проверки ещё не запускали. Каждая запускается со своей карточки.",
+      "tiles": {
+        "process": "Память iSputnik",
+        "processSub": "занято самим сервером",
+        "uptime": "Работает",
+        "libraries": "Библиотеки",
+        "librariesOk": "все доступны",
+        "librariesWarn_one": "{{count}} требует внимания",
+        "librariesWarn_few": "{{count}} требуют внимания",
+        "librariesWarn_many": "{{count}} требуют внимания",
+        "backup": "Последняя копия",
+        "backupNone": "Ещё нет",
+        "containers": "Контейнеры",
+        "containersValue": "{{answering}} из {{count}}",
+        "containersOk": "все отвечают",
+        "containersNone": "не настроены",
+        "containersDown_one": "{{count}} не отвечает",
+        "containersDown_few": "{{count}} не отвечают",
+        "containersDown_many": "{{count}} не отвечают",
+        "system": "Система",
+        "systemSub": "Node {{node}}"
+      }
+    },
     "video": {
       "tabsAria": "Диагностика видео",
       "tab": {

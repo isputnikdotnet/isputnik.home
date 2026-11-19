@@ -2,11 +2,10 @@ import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Activity, Archive, ArrowRight, Check, Cpu, FileText, Gauge, HardDrive, MemoryStick, Minus, MonitorPlay, Network, RefreshCw, Server, Settings2 } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref, diagnosticsPartHref, followRoute, libraryManageHref, type DiagnosticsTab } from "../../../router";
+import { controlHref, diagnosticsPartHref, followRoute, libraryManageHref, type DiagnosticsPart, type DiagnosticsTab } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
-import { RouteTab } from "../../../shared/RouteTab";
 import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes } from "../../../shared/utils";
@@ -15,11 +14,12 @@ import { NowPlayingList } from "../sections/NowPlayingSection";
 import { HardwareTestPage } from "../sections/VideoHardwareTest";
 import { CODEC_NAMES, conversionBody, GpuRow, useEngine, type ConversionSettings, type ConversionState, type HardwareState } from "../sections/VideoSettingsSection";
 import { FormatChip } from "./FormatChip";
+import { PartTabs, TabCount } from "./PartTabs";
 import { SavedReports, useSavedReports } from "./SavedReports";
 import { useWatching, type Play } from "./Watching";
 
 // Diagnostics › Video (docs/diagnostics-pages-plan.md; redrawn 2026-11-17 with tabs,
-// the one part page allowed a row of them): Overview — cards of how things stand,
+// as is this server's, PartPage.tsx): Overview — cards of how things stand,
 // looked at again every 30 seconds, then the hardware and the formats it plays — with
 // diagnostic mode and the newest saved reports in a narrow column; Live sessions —
 // the machine right now as graphs (read every 5 seconds while open, kept nowhere but
@@ -44,25 +44,16 @@ export function VideoPartBody({ tab, saved, modeCard, logLinks }: {
   const watching = useWatching(prefix);
   const sessions = watching.plays ? watching.plays.filter((play) => play.kind !== "download").length : null;
 
-  const tabLabel = (id: DiagnosticsTab) => {
-    const count = id === "sessions" ? sessions : id === "reports" ? saved.reports?.length ?? null : null;
-    return (
-      <>
-        {t(`controlAdmin:diagnostics.video.tab.${id}`)}
-        {count ? <span className="diag-tab-count">{count}</span> : null}
-      </>
-    );
-  };
+  const tabLabel = (id: DiagnosticsTab) => (
+    <>
+      {t(`controlAdmin:diagnostics.video.tab.${id}`)}
+      <TabCount count={id === "sessions" ? sessions : id === "reports" ? saved.reports?.length : null} />
+    </>
+  );
 
   return (
     <>
-      <div className="control-tabs diag-video-tabs" role="tablist" aria-label={t("controlAdmin:diagnostics.video.tabsAria")}>
-        {TABS.map((id) => (
-          <RouteTab key={id} selected={id === tab} className={id === tab ? "active" : undefined} href={diagnosticsPartHref("video", id)} onClick={followRoute}>
-            {tabLabel(id)}
-          </RouteTab>
-        ))}
-      </div>
+      <PartTabs part="video" tabs={TABS} current={tab} label={tabLabel} aria={t("controlAdmin:diagnostics.video.tabsAria")} />
 
       {apps && !prefix && (
         <MessageBox tone="info" title={t("controlAdmin:diagnostics.page.video.unavailableTitle")}>{t("controlAdmin:diagnostics.page.video.unavailable")}</MessageBox>
@@ -111,7 +102,7 @@ function Overview({ prefix, plays, saved, modeCard }: { prefix: string; plays: P
       </div>
       <aside className="diag-video-side">
         {modeCard}
-        <SavedMini saved={saved} />
+        <SavedMini part="video" saved={saved} />
       </aside>
     </div>
   );
@@ -431,7 +422,7 @@ function HardwareCard({ prefix, conversion, now }: { prefix: string; conversion:
 
 // ── Right now ──────────────────────────────────────────────────────────────────
 
-interface ServerNow {
+export interface ServerNow {
   at: string;
   cpu: { percent: number; cores: number; load: [number, number, number] | null; model?: string | null };
   memory: { totalBytes: number; availableBytes: number; homeBytes: number };
@@ -442,7 +433,7 @@ const POLL_MS = 5000;
 const KEEP = 120;
 
 /** The machine every few seconds while the page is open, and the readings so far. */
-function useServerNow(every: number) {
+export function useServerNow(every: number) {
   const [now, setNow] = useState<ServerNow | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -659,8 +650,8 @@ export function Sparkline({ values, max, line, lineLabel, unit, warn = false }: 
 
 // ── Links, what it's working through ───────────────────────────────────────────
 
-function MoreLink({ tab, children }: { tab: DiagnosticsTab; children: ReactNode }) {
-  const href = diagnosticsPartHref("video", tab);
+function MoreLink({ part, tab, children }: { part: DiagnosticsPart; tab: DiagnosticsTab; children: ReactNode }) {
+  const href = diagnosticsPartHref(part, tab);
   return (
     <a className="diag-link diag-more" href={href} onClick={(event) => followRoute(event, href)}>
       {children} <ArrowRight size={14} aria-hidden="true" />
@@ -715,7 +706,8 @@ function CatalogWork({ prefix }: { prefix: string }) {
 }
 
 /** The two newest saved reports; the Reports tab has them all. */
-function SavedMini({ saved }: { saved: ReturnType<typeof useSavedReports> }) {
+/** The side column's newest saved reports, every part page's Overview the same. */
+export function SavedMini({ part, saved }: { part: DiagnosticsPart; saved: ReturnType<typeof useSavedReports> }) {
   const { t, i18n } = useTranslation(["controlAdmin"]);
   const reports = saved.reports ?? [];
   return (
@@ -728,7 +720,7 @@ function SavedMini({ saved }: { saved: ReturnType<typeof useSavedReports> }) {
           <span>{new Date(report.createdAt).toLocaleString(i18n.language, { dateStyle: "medium", timeStyle: "short" })}</span>
         </div>
       ))}
-      <MoreLink tab="reports">{t("controlAdmin:diagnostics.video.savedAll")}</MoreLink>
+      <MoreLink part={part} tab="reports">{t("controlAdmin:diagnostics.video.savedAll")}</MoreLink>
     </section>
   );
 }

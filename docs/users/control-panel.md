@@ -259,6 +259,24 @@ Faces): what it is and its version, one line of how it is, and its state (**Heal
 - **Open details** — that part's own page: its checks, tests and logs. A container
   that isn't set up shows **Pair now** instead, which opens its pairing.
 
+**iSputnik's page** (this server) has tabs, laid out the same way as Video's:
+
+- **Overview** — **At a glance**: eight cards, looked at again every 30 seconds:
+  how busy the CPU is, the server's free memory, how much memory iSputnik itself
+  uses, how long it has been running (and its version), how many libraries there
+  are and whether any needs attention, the last backup, how many of the containers
+  set up are answering, and the system it runs on. Under the cards, **Other
+  containers**: how fast each answers and how many requests went to it today.
+  Beside the cards: **Diagnostic mode** and **the newest saved reports**.
+- **Tests** — **Check folders** (how fast each library's folder answers, and
+  whether a sleeping disk had to wake), **Verify backup** (opens the newest backup
+  and checks it is whole) and the **speed to this device**. Beside them, the recent
+  runs.
+- **Logs** — the newest 200 lines of this server's own log, as `docker logs`
+  would show them, with **Diagnostic mode** and links to the Log, Activity and
+  Tasks pages beside it.
+- **Reports** — the saved reports.
+
 **Video's page** has tabs:
 
 - **Overview** — the long cards first:

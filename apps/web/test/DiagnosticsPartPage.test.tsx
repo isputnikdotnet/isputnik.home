@@ -42,6 +42,8 @@ beforeEach(() => {
   mockApi.mockReset();
   mockApi.mockImplementation(async (url: string) => {
     if (url.endsWith("/overview")) return { parts };
+    if (url.endsWith("/diagnostics/now")) return { at: "2026-11-14T10:00:00.000Z", cpu: { percent: 23, cores: 4, load: null }, memory: { totalBytes: 16e9, availableBytes: 9e9, homeBytes: 2e8 } };
+    if (url.startsWith("/api/admin/log?")) return { lines: [JSON.stringify({ level: 40, time: 1_763_114_400_000, msg: "a folder took long to answer" })], capacity: 500, available: true };
     if (url.endsWith("/diagnostics/tests/folders")) return { ...testsState, running: { kind: "folders", startedAt: "2026-11-14T10:00:00.000Z", step: "Kids" } };
     if (url.endsWith("/diagnostics/tests")) return testsState;
     if (url.endsWith("/logging")) return { level: "normal", until: null, minutes: [15, 60, 240] };
@@ -55,14 +57,34 @@ beforeEach(() => {
 });
 
 describe("this server's page", () => {
-  it("lists each library's folder, the backup, the other containers and where to look next", async () => {
+  // Laid out as Video's (owner, 2026-11-19): Overview is cards, then Tests, Logs, Reports.
+  it("opens on cards: the machine, its libraries and backup, and the containers beside it", async () => {
     render(<DiagnosticsPartPage part="home" />);
     expect(await screen.findByText("iSputnik needs a look")).toBeTruthy();
-    const libraries = screen.getByText("Libraries").closest("section") ?? document.body;
+    const tabs = screen.getByRole("tablist", { name: "iSputnik diagnostics" });
+    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Tests", "Logs", "Reports"]);
+    const tiles = screen.getByRole("region", { name: "At a glance" });
+    expect(await within(tiles).findByText("23%")).toBeTruthy();
+    // The video library is the container's to check: two here, one of them missing.
+    expect(within(tiles).getByText("1 needs attention")).toBeTruthy();
+    expect(within(tiles).getByText(/full · 1\.9 GB|full · 2 GB|full · 1\.86 GB/)).toBeTruthy();
+    expect(within(tiles).getByText("1 of 1")).toBeTruthy();
+    expect(within(tiles).getByText("Linux")).toBeTruthy();
+    expect(screen.getByText(/Answers in 6 ms · 1204 requests today, 3 failed/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Diagnostic mode" })).toBeTruthy();
+  });
+
+  it("lists each library's folder on Tests", async () => {
+    render(<DiagnosticsPartPage part="home" tab="tests" />);
+    const libraries = (await screen.findByText("Libraries")).closest("section") ?? document.body;
     expect(within(libraries as HTMLElement).getByText(/gallery · folder isn't reachable/)).toBeTruthy();
     expect(within(libraries as HTMLElement).getByText(/video · checked by the video container/)).toBeTruthy();
-    expect(screen.getByText(/full · 1\.9 GB|full · 2 GB|full · 1\.86 GB/)).toBeTruthy();
-    expect(screen.getByText(/Answers in 6 ms · 1204 requests today, 3 failed/)).toBeTruthy();
+  });
+
+  it("shows this server's own newest log lines on Logs, with where else to look", async () => {
+    render(<DiagnosticsPartPage part="home" tab="logs" />);
+    expect(await screen.findByText(/WARN\s+a folder took long to answer/)).toBeTruthy();
+    expect(mockApi).toHaveBeenCalledWith("/api/admin/log?lines=200");
     expect(screen.getByText("Logs and events")).toBeTruthy();
   });
 
@@ -86,7 +108,7 @@ describe("this server's page", () => {
 describe("this server's tests", () => {
   it("shows what the last runs found, and starts a test when asked", async () => {
     const user = userEvent.setup();
-    render(<DiagnosticsPartPage part="home" />);
+    render(<DiagnosticsPartPage part="home" tab="tests" />);
     expect(await screen.findByText(/first answer 7800 ms, then 12 ms \(a disk was asleep\) · reads 610 Mbit\/s/)).toBeTruthy();
     expect(screen.getByText("The last backup is intact")).toBeTruthy();
     expect(screen.getByText("Recent runs")).toBeTruthy();

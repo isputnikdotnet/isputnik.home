@@ -51,6 +51,12 @@ export function logLinesSince(since: number, minLevel: number): BufferedLine[] {
   return out;
 }
 
+/** The newest lines, oldest first, and how many the ring holds now: Diagnostics ›
+ *  iSputnik › Logs reads them (GET /api/admin/log), as the containers' pages do theirs. */
+export function tailLogLines(count: number): { lines: string[]; capacity: number } {
+  return { lines: lines.slice(-Math.max(0, count)), capacity };
+}
+
 /** The stream the logger writes to: stdout, and this ring. */
 export const logStream = {
   write(line: string): void {

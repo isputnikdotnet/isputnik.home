@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../src/db.js";
 import { detailedLogging, loggingPlugin, loggingState, resetLoggingForTests, setLogging, startLogging } from "../src/core/logging.js";
+import { clearLogBuffer, pushLogLine } from "../src/core/log-buffer.js";
 import { bootApp, type BootedApp } from "./helpers/boot.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
@@ -85,5 +86,23 @@ describe("/api/admin/logging", () => {
     expect(row.detail).toMatch(/^detailed until /);
     const bad = await booted!.app.inject({ method: "PUT", url: "/api/admin/logging", headers: { cookie }, payload: { level: "loud" } });
     expect(bad.statusCode).toBe(400);
+  });
+
+  // Diagnostics › iSputnik › Logs: the newest lines, as a container's /admin/log has them.
+  it("hands an admin the newest log lines, oldest first", async () => {
+    clearLogBuffer();
+    for (let n = 1; n <= 5; n += 1) pushLogLine(`{"level":30,"time":${n},"msg":"line ${n}"}\n`);
+    const kid = await booted!.app.inject({ method: "GET", url: "/api/admin/log?lines=2", headers: { cookie: await booted!.signIn("kid") } });
+    expect(kid.statusCode).toBe(403);
+    const cookie = await booted!.signIn("admin");
+    const tail = await booted!.app.inject({ method: "GET", url: "/api/admin/log?lines=2", headers: { cookie } });
+    expect(tail.statusCode).toBe(200);
+    const body = tail.json() as { lines: string[]; capacity: number; available: boolean };
+    expect(body.available).toBe(true);
+    expect(body.capacity).toBe(500);
+    // Signing in logs lines too; the two newest are what was asked for, oldest first.
+    expect(body.lines).toHaveLength(2);
+    expect((await booted!.app.inject({ method: "GET", url: "/api/admin/log?lines=0", headers: { cookie } })).statusCode).toBe(400);
+    clearLogBuffer();
   });
 });

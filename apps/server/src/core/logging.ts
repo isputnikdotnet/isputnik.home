@@ -10,7 +10,7 @@
 import { z } from "zod";
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { db, logActivity } from "../db.js";
-import { setLogBufferDetailed } from "./log-buffer.js";
+import { setLogBufferDetailed, tailLogLines } from "./log-buffer.js";
 import { parseBody } from "./shared.js";
 
 export type LoggingLevel = "normal" | "detailed" | "everything";
@@ -107,6 +107,9 @@ export function setLogging(level: LoggingLevel, minutes: number | null, userId: 
   return loggingState();
 }
 
+/** How many of the newest lines Logs asks for: at most what the ring can hold. */
+const tailSchema = z.object({ lines: z.coerce.number().int().min(1).max(2000).default(200) });
+
 const putSchema = z.object({
   level: z.enum(["normal", "detailed", "everything"]),
   minutes: z.number().int().optional()
@@ -114,6 +117,14 @@ const putSchema = z.object({
 
 export async function loggingPlugin(app: FastifyInstance) {
   app.get("/api/admin/logging", { preHandler: app.requireAdmin }, async () => loggingState());
+
+  // The server's own newest log lines, in the shape a container answers its
+  // /admin/log with, so one viewer shows both. Already masked by the logger.
+  app.get("/api/admin/log", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = tailSchema.safeParse(request.query ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid line count" });
+    return { ...tailLogLines(parsed.data.lines), available: true };
+  });
 
   app.put("/api/admin/logging", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(putSchema, request.body);
