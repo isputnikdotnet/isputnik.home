@@ -121,6 +121,7 @@ const answerByPath = (path: string) => {
   if (path.startsWith("/api/games/guest-invites")) return Promise.resolve({ invites: [] });
   if (path.startsWith("/games/api/admin/events")) return Promise.resolve(eventsPage);
   if (path.startsWith("/games/api/admin/log")) return Promise.resolve(logTail);
+  if (path.startsWith("/api/admin/log?")) return Promise.resolve({ lines: [JSON.stringify({ level: 50, time: 1_763_114_400_000, msg: "this server's own trouble" })], capacity: 500, available: true });
   return Promise.reject(new Error(`unexpected ${path}`));
 };
 
@@ -295,6 +296,17 @@ describe("Overview → Logs, a container as the source", () => {
     expect(mockApi).toHaveBeenCalledWith("/games/api/admin/log?lines=200");
     expect(log.textContent).toContain("WARN   [req-7] 172.18.0.9  Request refused at the gateway check — no gateway header");
     expect(log.textContent).toContain("not json at all");
+  });
+
+  // Every source has the same two views; this server's Server log is its own lines.
+  it("shows this server's own server log the same way", async () => {
+    openLogs("log=server");
+    mockApi.mockImplementation(answerByPath as never);
+    render(<LogsSection />);
+    expect(screen.getByRole("tab", { name: "Server log" })).toHaveAttribute("aria-selected", "true");
+    const log = await screen.findByLabelText("Server log");
+    expect(mockApi).toHaveBeenCalledWith("/api/admin/log?lines=200");
+    expect(log.textContent).toContain("ERROR  this server's own trouble");
   });
 
   it("asks nothing of a container that is not answering, and says so", async () => {

@@ -111,7 +111,23 @@ export function LogsSection() {
     />
   ) : null;
 
-  if (source === "home") return <HomeLogs sourcePicker={picker} />;
+  // Every source has the same two views (owner, 2026-11-19): Events — what it
+  // recorded someone doing — and Server log, what the program printed. This
+  // server's Server log is its own newest lines (GET /api/admin/log), read by the
+  // same viewer a container's are.
+  const sourceName = source === "home" ? t("control:logs.sourceHome") : appName(source);
+  const viewTabs = (
+    <div className="modal-tabs log-view-tabs" role="tablist" aria-label={t("control:logs.viewAria", { app: sourceName })}>
+      <Button variant="tab" className="modal-tab" selected={view === "events"} onClick={() => chooseView("events")}>
+        {t("control:logs.viewEvents")}
+      </Button>
+      <Button variant="tab" className="modal-tab" selected={view === "server"} onClick={() => chooseView("server")}>
+        {t("control:logs.viewServer")}
+      </Button>
+    </div>
+  );
+
+  if (source === "home" && view === "events") return <HomeLogs sourcePicker={picker} viewTabs={viewTabs} />;
 
   return (
     <div className="compact-tables">
@@ -119,20 +135,14 @@ export function LogsSection() {
         section="logs"
         icon={<FileText size={30} />}
         iconClassName="logs"
-        description={t("control:logs.appDescription", { app: appName(source) })}
+        description={source === "home" ? t("control:logs.serverDescription") : t("control:logs.appDescription", { app: sourceName })}
       >
         {picker}
       </ControlSectionHead>
-      <div className="modal-tabs log-view-tabs" role="tablist" aria-label={t("control:logs.viewAria", { app: appName(source) })}>
-        <Button variant="tab" className="modal-tab" selected={view === "events"} onClick={() => chooseView("events")}>
-          {t("control:logs.viewEvents")}
-        </Button>
-        <Button variant="tab" className="modal-tab" selected={view === "server"} onClick={() => chooseView("server")}>
-          {t("control:logs.viewServer")}
-        </Button>
-      </div>
-      {!apps && <p className="muted">{t("control:logs.sourceLoading")}</p>}
-      {apps && (!app || !isRunning(app)) && (
+      {viewTabs}
+      {source === "home" && <AppLog prefix="" />}
+      {source !== "home" && !apps && <p className="muted">{t("control:logs.sourceLoading")}</p>}
+      {source !== "home" && apps && (!app || !isRunning(app)) && (
         <MessageBox tone="info" title={t("control:logs.sourceUnavailableTitle", { app: appName(source) })}>
           {t("control:logs.sourceUnavailableBody")}
         </MessageBox>
@@ -142,7 +152,7 @@ export function LogsSection() {
   );
 }
 
-function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
+function HomeLogs({ sourcePicker, viewTabs }: { sourcePicker: ReactNode; /** Events · Server log, as every source has. */ viewTabs: ReactNode }) {
   const { t } = useTranslation(["common", "control"]);
   const LOG_FACET_ORDER: FacetDef<LogFilterKey>[] = [
     { key: "application", title: t("control:logs.facetApplication"), searchable: false, fixed: LOG_APPLICATIONS.map((key) => ({ value: key, label: appLabel(key) })) },
@@ -362,6 +372,7 @@ function HomeLogs({ sourcePicker }: { sourcePicker: ReactNode }) {
           />
         </label>
       </ControlSectionHead>
+      {viewTabs}
 
       {error && <MessageBox tone="error" title={t("control:logs.errorTitle")}>{error}</MessageBox>}
       {logCleanupStatus && <MessageBox tone="success" title={t("control:logs.deletedTitle")}>{logCleanupStatus}</MessageBox>}

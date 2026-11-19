@@ -205,6 +205,11 @@ The activity history: who signed in, what was scanned, what was deleted, what an
 administrator changed. This is where you look after a security alert, to see
 what actually happened.
 
+The picker at the top chooses whose: **Home** (this server) or a container (Games,
+Video, Faces). Each has the same two tabs: **Events**, what it recorded someone
+doing, and **Server log**, the newest lines the program printed, as `docker logs`
+would show them. Everything below is about this server's Events.
+
 Pick a window first — **All** for the whole archive, or the same 1h … 30d and
 custom presets the dashboard uses — then search, filter by event (each event by
 its full name, so "auth.login_failed" is a filter of its own), by user, or by
