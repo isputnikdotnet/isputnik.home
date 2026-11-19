@@ -548,7 +548,8 @@ there — nothing else keeps a parallel list.
     a real address (`RouteTab`): a member's page, and Diagnostics › Video and
     Diagnostics › iSputnik (`diagnosticsPartHref(part, tab)`, one `PartTabs` row:
     Video's Overview · GPU tests · Live sessions · Logs · Reports, agreed 2026-11-17;
-    iSputnik's Overview · Tests · Logs · Reports, 2026-11-19). Overview is cards; the
+    iSputnik's Overview · Tests · Server log · Reports, Games' and Faces' Overview ·
+    Server log · Reports while they answer, 2026-11-19). Overview is cards; the
     side column follows the tab — diagnostic mode and the newest reports on
     Overview, mode and where else to look on Logs, recent runs on Tests, none on
     Reports. Their tabs show pages that exist elsewhere (the hardware test, a log,

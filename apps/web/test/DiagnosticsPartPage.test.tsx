@@ -25,8 +25,14 @@ const parts = [
     machine: { node: "v24.16.0", os: "linux 6.1 x64", cpus: 4, memoryBytes: 16e9, rssBytes: 2e8 }
   },
   { id: "video", state: "ok", version: "0.39.0", roundTripMs: 6, problems: [], calls: calls(1204, 3) },
-  { id: "faces", state: "off", version: null, roundTripMs: null, problems: [], calls: calls(0, 0) }
+  { id: "faces", state: "off", version: null, roundTripMs: null, problems: [], calls: calls(0, 0) },
+  { id: "games", state: "ok", version: "0.26.0", roundTripMs: 9, problems: [], calls: { ...calls(48, 2), lastFailedAt: "2026-11-14T09:00:00.000Z", lastFailedStatus: 502 } }
 ];
+
+const gamesOn = {
+  id: "games", kind: "app", prefix: "/games", configured: true, reason: null, url: "http://isputnik-games:4200", secretSet: true, secretAccepted: true,
+  pairing: null, server: { ok: true, version: "0.26.0", error: null }
+};
 
 const testsState = {
   running: null,
@@ -43,6 +49,8 @@ beforeEach(() => {
   mockApi.mockImplementation(async (url: string) => {
     if (url.endsWith("/overview")) return { parts };
     if (url.endsWith("/diagnostics/now")) return { at: "2026-11-14T10:00:00.000Z", cpu: { percent: 23, cores: 4, load: null }, memory: { totalBytes: 16e9, availableBytes: 9e9, homeBytes: 2e8 } };
+    if (url === "/api/apps/admin/status") return { apps: [gamesOn] };
+    if (url.startsWith("/games/api/admin/log?")) return { lines: [JSON.stringify({ level: 50, time: 1_763_114_400_000, msg: "a move was refused" })], capacity: 500, available: true };
     if (url.startsWith("/api/admin/log?")) return { lines: [JSON.stringify({ level: 40, time: 1_763_114_400_000, msg: "a folder took long to answer" })], capacity: 500, available: true };
     if (url.endsWith("/diagnostics/tests/folders")) return { ...testsState, running: { kind: "folders", startedAt: "2026-11-14T10:00:00.000Z", step: "Kids" } };
     if (url.endsWith("/diagnostics/tests")) return testsState;
@@ -68,7 +76,7 @@ describe("this server's page", () => {
     // The video library is the container's to check: two here, one of them missing.
     expect(within(tiles).getByText("1 needs attention")).toBeTruthy();
     expect(within(tiles).getByText(/full · 1\.9 GB|full · 2 GB|full · 1\.86 GB/)).toBeTruthy();
-    expect(within(tiles).getByText("1 of 1")).toBeTruthy();
+    expect(within(tiles).getByText("2 of 2")).toBeTruthy();
     expect(within(tiles).getByText("Linux")).toBeTruthy();
     expect(screen.getByText(/Answers in 6 ms · 1204 requests today, 3 failed/)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Diagnostic mode" })).toBeTruthy();
@@ -136,5 +144,25 @@ describe("a container's page", () => {
     render(<DiagnosticsPartPage part="faces" />);
     expect(await screen.findByText("Pairing")).toBeTruthy();
     expect(screen.queryByRole("tablist")).toBeNull();
+  });
+
+  // Games and Faces wear the same shape while they answer (owner, 2026-11-19).
+  it("gives an answering container Overview, Server log and Reports, with the same side column", async () => {
+    render(<DiagnosticsPartPage part="games" />);
+    const tabs = await screen.findByRole("tablist", { name: "Games diagnostics" });
+    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Server log", "Reports"]);
+    const tiles = screen.getByRole("region", { name: "At a glance" });
+    expect(within(tiles).getByText("Healthy")).toBeTruthy();
+    expect(within(tiles).getByText("v0.26.0")).toBeTruthy();
+    expect(within(tiles).getByText("48")).toBeTruthy();
+    expect(within(tiles).getByText(/2 failed · last .* · HTTP 502/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Events/ })).toHaveAttribute("href", "/control/infrastructure/logs?app=games");
+    expect(screen.getByRole("link", { name: /^Tasks/ })).toHaveAttribute("href", "/control/infrastructure/tasks?application=games");
+  });
+
+  it("shows an answering container's own server log", async () => {
+    render(<DiagnosticsPartPage part="games" tab="logs" />);
+    expect(await screen.findByText(/ERROR\s+a move was refused/)).toBeTruthy();
+    expect(mockApi).toHaveBeenCalledWith("/games/api/admin/log?lines=200");
   });
 });

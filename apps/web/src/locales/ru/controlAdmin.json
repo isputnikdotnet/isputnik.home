@@ -3092,6 +3092,17 @@
       "deleteConfirm": "Удалить отчёт",
       "deleting": "Удаление…"
     },
+    "containerPage": {
+      "tabsAria": "Диагностика: {{name}}",
+      "tiles": {
+        "version": "Версия",
+        "requests": "Запросов сегодня",
+        "failed_one": "неудачных: {{count}} · последний {{last}}",
+        "failed_few": "неудачных: {{count}} · последний {{last}}",
+        "failed_many": "неудачных: {{count}} · последний {{last}}",
+        "failedNone": "неудачных нет"
+      }
+    },
     "homePage": {
       "tabsAria": "Диагностика iSputnik",
       "tab": {

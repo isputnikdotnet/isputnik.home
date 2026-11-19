@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Archive, Boxes, Clock, Cpu, FileDown, FolderOpen, Gauge, ListChecks, MemoryStick, ScrollText, Server, Stethoscope } from "lucide-react";
+import { Activity, Archive, Boxes, Clock, Cpu, FileDown, FolderOpen, Gauge, Link2, ListChecks, MemoryStick, ScrollText, Server, Stethoscope, Tag, Timer } from "lucide-react";
 import { controlHref, diagnosticsPartHref, libraryManageHref, type DiagnosticsPart, type DiagnosticsTab } from "../../../router";
 import { Button } from "../../../shared/Button";
 import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
@@ -12,7 +12,7 @@ import { formatBytes, formatUptime } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { activityHref, appPageHref, logsHref, tasksHref } from "../links";
 import type { AppKey } from "../nav";
-import { AppLog, useAppName, useAppsStatus } from "../sections/AppsSection";
+import { AppLog, isRunning, useAppName, useAppsStatus } from "../sections/AppsSection";
 import { HOME_PARTS, ReportDialog } from "./ReportDialog";
 import { SavedReports, useSavedReports } from "./SavedReports";
 import { useDiagnosticsOverview, useProblemText, type LibraryCheck, type PartOverview } from "./overview";
@@ -29,12 +29,15 @@ import { speedVerdict, TestBar, useHomeTests, useRunWords, type FolderResult, ty
 // the same shape (owner, 2026-11-19): Overview is cards, then the part's own tabs,
 // Logs and Reports; the side column follows the tab — diagnostic mode and the
 // newest reports on Overview, mode and where else to look on Logs, the recent runs
-// on Tests, none on Reports. Games and Faces, a connection each, have no tabs.
+// on Tests. Games and Faces have the same row, Overview · Server log · Reports,
+// while they answer; not set up or not answering, their connection is the page.
 // Settings shown here are the application's own (Videos › Settings), read and
 // saved through the same engine endpoint, never a copy.
 
 /** This server's tabs: no Live sessions — what is watched is Video's. */
 const HOME_TABS: DiagnosticsTab[] = ["overview", "tests", "logs", "reports"];
+/** A container with nothing of its own to test or watch (Games, Faces). */
+const CONTAINER_TABS: DiagnosticsTab[] = ["overview", "logs", "reports"];
 
 /** The workspace whose Activity and Tasks a part's links filter to. */
 const APPLICATION: Partial<Record<DiagnosticsPart, AppKey>> = { video: "videos", games: "games" };
@@ -57,7 +60,8 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
   // connection is all there is to show.
   const videoTabs = part === "video" && overview !== null && overview.state !== "off" && overview.state !== "down";
   const homeTabs = part === "home" && overview !== null;
-  const tabbed = videoTabs || homeTabs;
+  const containerTabs = (part === "games" || part === "faces") && overview !== null && overview.state !== "off" && overview.state !== "down";
+  const tabbed = videoTabs || homeTabs || containerTabs;
 
   return (
     <div className="diagnostics-section">
@@ -102,6 +106,17 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
           overview={overview}
           parts={parts ?? []}
           tests={tests}
+          saved={saved}
+          modeCard={<LoggingCard part={part} name={name} reachable compact />}
+          logLinks={<EventsAndTasks part={part} name={name} />}
+        />
+      )}
+
+      {overview && containerTabs && (
+        <ContainerPartBody
+          part={part}
+          tab={CONTAINER_TABS.includes(tab) ? tab : "overview"}
+          overview={overview}
           saved={saved}
           modeCard={<LoggingCard part={part} name={name} reachable compact />}
           logLinks={<EventsAndTasks part={part} name={name} />}
@@ -455,6 +470,109 @@ function useCallsLine() {
 }
 
 // ── A container ────────────────────────────────────────────────────────────────
+
+/** Games' and Faces' page while they answer: Video's and this server's shape, with
+ *  the tabs a container with nothing of its own to test has. */
+function ContainerPartBody({ part, tab, overview, saved, modeCard, logLinks }: {
+  part: DiagnosticsPart;
+  tab: DiagnosticsTab;
+  overview: PartOverview;
+  saved: ReturnType<typeof useSavedReports>;
+  modeCard: ReactNode;
+  logLinks: ReactNode;
+}) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const appName = useAppName();
+  const { apps } = useAppsStatus();
+  const app = apps?.find((entry) => entry.id === part) ?? null;
+  const prefix = app && isRunning(app) ? app.prefix : null;
+  const label = (id: DiagnosticsTab) => (
+    <>
+      {t(`controlAdmin:diagnostics.homePage.tab.${id as "overview" | "logs" | "reports"}`)}
+      <TabCount count={id === "reports" ? saved.reports?.length : null} />
+    </>
+  );
+  return (
+    <>
+      <PartTabs part={part} tabs={CONTAINER_TABS} current={tab} label={label} aria={t("controlAdmin:diagnostics.containerPage.tabsAria", { name: appName(part) })} />
+      {tab === "overview" && (
+        <div className="diag-video">
+          <div className="diag-video-main">
+            <ContainerTiles overview={overview} />
+            <GroupedList title={t("controlAdmin:diagnostics.page.connection.title")}>
+              <NavRow icon={<Link2 size={17} />} label={t("controlAdmin:diagnostics.action.pairing")} href={appPageHref("appsSetup", part)} />
+            </GroupedList>
+          </div>
+          <aside className="diag-video-side">
+            {modeCard}
+            {logLinks}
+            <SavedMini part={part} saved={saved} />
+          </aside>
+        </div>
+      )}
+      {tab === "logs" && (
+        <div className="diag-video">
+          <div className="diag-video-main">{prefix ? <AppLog prefix={prefix} /> : <p className="muted">{t("controlAdmin:diagnostics.logging.cannot")}</p>}</div>
+          <aside className="diag-video-side">
+            {modeCard}
+            {logLinks}
+          </aside>
+        </div>
+      )}
+      {tab === "reports" && (
+        <div className="diag-video">
+          <div className="diag-video-main"><SavedReports saved={saved} /></div>
+          <aside className="diag-video-side">{logLinks}</aside>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** A container's cards: how it is, its version, how fast it answers, and the
+ *  requests this server passed to it today — what home knows of it. */
+function ContainerTiles({ overview }: { overview: PartOverview }) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const calls = overview.calls;
+  const failed = calls?.failed ?? 0;
+  const dash = "—";
+  const tiles: StatTile[] = [
+    {
+      icon: <Boxes size={19} />, iconTone: overview.state === "ok" ? "ok" : "warn",
+      label: t("controlAdmin:diagnostics.page.connection.state"),
+      value: t(`controlAdmin:diagnostics.state.${overview.state}`),
+      tone: overview.state === "ok" ? undefined : "warn"
+    },
+    {
+      icon: <Tag size={19} />, iconTone: "blue",
+      label: t("controlAdmin:diagnostics.containerPage.tiles.version"),
+      value: overview.version ? `v${overview.version}` : dash
+    },
+    {
+      icon: <Timer size={19} />, iconTone: "mint",
+      label: t("controlAdmin:diagnostics.page.connection.answers"),
+      value: overview.roundTripMs !== null ? t("controlAdmin:diagnostics.page.ms", { ms: overview.roundTripMs }) : dash
+    },
+    {
+      icon: <Activity size={19} />, iconTone: failed ? "warn" : "gold",
+      label: t("controlAdmin:diagnostics.containerPage.tiles.requests"),
+      value: calls ? String(calls.count) : dash,
+      // The failed ones on the same card, with the last one's when and status.
+      sub: !calls ? undefined
+        : failed ? t("controlAdmin:diagnostics.containerPage.tiles.failed", { count: failed, last: calls.lastFailedAt ? t("controlAdmin:diagnostics.page.connection.lastFailedValue", { when: relativeTime(calls.lastFailedAt), status: calls.lastFailedStatus }) : "" })
+          : t("controlAdmin:diagnostics.containerPage.tiles.failedNone"),
+      tone: failed ? "warn" : undefined
+    }
+  ];
+  return (
+    <section className="diag-tiles" aria-labelledby="diag-container-tiles-title">
+      <header className="diag-tiles-head">
+        <h3 id="diag-container-tiles-title">{t("controlAdmin:diagnostics.video.tiles.title")}</h3>
+      </header>
+      <StatTiles tiles={tiles} label={t("controlAdmin:diagnostics.video.tiles.title")} />
+    </section>
+  );
+}
 
 function Connection({ part, overview }: { part: DiagnosticsPart; overview: PartOverview }) {
   const { t } = useTranslation(["controlAdmin"]);

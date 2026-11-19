@@ -2850,6 +2850,16 @@
       "deleteConfirm": "Delete report",
       "deleting": "Deleting…"
     },
+    "containerPage": {
+      "tabsAria": "{{name}} diagnostics",
+      "tiles": {
+        "version": "Version",
+        "requests": "Requests today",
+        "failed_one": "{{count}} failed · last {{last}}",
+        "failed_other": "{{count}} failed · last {{last}}",
+        "failedNone": "none failed"
+      }
+    },
     "homePage": {
       "tabsAria": "iSputnik diagnostics",
       "tab": {

@@ -294,6 +294,13 @@ tasks only; from iSputnik's, this server's, for every application. The **Server
 log** is different: it is what the program itself printed, the first place to look
 when something fails.
 
+**Games' and Faces' pages** have the same shape while the container answers:
+**Overview** (four cards: its state, version, how fast it answers, and the
+requests this server passed to it today, with how many failed and when the last
+one did, then its **Pairing**), **Server log** and **Reports**, with the same side
+column. A container that isn't set up, or isn't answering, shows only its
+connection and how to pair it.
+
 **Video's page** has tabs:
 
 - **Overview** — the long cards first:
