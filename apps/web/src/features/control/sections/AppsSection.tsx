@@ -547,7 +547,9 @@ export function AppsAccessSection() {
 // What a container recorded: refused callers, invitations, finished matches,
 // moves thrown out, errors. Asked of the container through the gateway, which
 // forwards this admin's role; nothing is kept here.
-export function AppEvents({ prefix }: { prefix: string }) {
+/** A container's recorded events. `app` and `name` say whose: Games' line names
+ *  what it records (matches, moves); any other container's says it in general. */
+export function AppEvents({ prefix, app, name }: { prefix: string; app: string; name: string }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   // The Dashboard links here with ?level=error for a container that logged errors.
   const [level, setLevel] = useState<LevelFilter>(() => {
@@ -579,7 +581,11 @@ export function AppEvents({ prefix }: { prefix: string }) {
 
   return (
     <section className="config-block" id="app-events">
-      <p className="muted">{t("controlAdmin:games.eventsIntro", { days: data?.retentionDays ?? 90 })}</p>
+      <p className="muted">
+        {app === "games"
+          ? t("controlAdmin:games.eventsIntro", { days: data?.retentionDays ?? 90 })
+          : t("controlAdmin:games.eventsIntroOther", { app: name, days: data?.retentionDays ?? 90 })}
+      </p>
 
       {error && <MessageBox tone="error" title={t("controlAdmin:games.eventsLoadFailed")}>{error}</MessageBox>}
 

@@ -62,7 +62,7 @@ describe("this server's page", () => {
     render(<DiagnosticsPartPage part="home" />);
     expect(await screen.findByText("iSputnik needs a look")).toBeTruthy();
     const tabs = screen.getByRole("tablist", { name: "iSputnik diagnostics" });
-    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Tests", "Logs", "Reports"]);
+    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Tests", "Server log", "Reports"]);
     const tiles = screen.getByRole("region", { name: "At a glance" });
     expect(await within(tiles).findByText("23%")).toBeTruthy();
     // The video library is the container's to check: two here, one of them missing.
@@ -85,7 +85,10 @@ describe("this server's page", () => {
     render(<DiagnosticsPartPage part="home" tab="logs" />);
     expect(await screen.findByText(/WARN\s+a folder took long to answer/)).toBeTruthy();
     expect(mockApi).toHaveBeenCalledWith("/api/admin/log?lines=200");
-    expect(screen.getByText("Logs and events")).toBeTruthy();
+    // Beside it, where this server's events, activity and tasks are.
+    expect(screen.getByText("Events and tasks")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Events/ })).toHaveAttribute("href", "/control/infrastructure/logs");
+    expect(screen.getByText("This server's own, for every application.")).toBeTruthy();
   });
 
   it("opens the report with this server's parts only, and no private details", async () => {

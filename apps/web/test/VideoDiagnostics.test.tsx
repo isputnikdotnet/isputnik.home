@@ -43,7 +43,7 @@ describe("Diagnostics › Video", () => {
   it("has tabs, and on Overview cards of how things stand, the hardware and the formats it plays", async () => {
     render(<DiagnosticsPartPage part="video" tab="overview" />);
     const tabs = await screen.findByRole("tablist", { name: "Video diagnostics" });
-    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual(["Overview", "GPU tests", "Live sessions", "Logs", "Reports"]);
+    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual(["Overview", "GPU tests", "Live sessions", "Server log", "Reports"]);
     // How many are watching, on its tab.
     expect(await within(tabs).findByRole("tab", { name: "Live sessions2" })).toBeTruthy();
     expect(within(tabs).getByRole("tab", { name: /Overview/ })).toHaveAttribute("aria-selected", "true");
@@ -102,6 +102,16 @@ describe("Diagnostics › Video", () => {
     // Then the cards of who is watching, under the graphs.
     const watching = await screen.findByRole("article", { name: /Anna/ });
     expect(now.compareDocumentPosition(watching) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // Beside Reports (and Overview, Server log): its events, activity and tasks, each
+  // opened on Video only — not this server's.
+  it("links to Video's own events, activity and tasks", async () => {
+    render(<DiagnosticsPartPage part="video" tab="reports" />);
+    expect(await screen.findByText("Each opens on Video only.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Events/ })).toHaveAttribute("href", "/control/infrastructure/logs?app=video");
+    expect(screen.getByRole("link", { name: /^Activity/ })).toHaveAttribute("href", "/control/infrastructure/activity?application=videos");
+    expect(screen.getByRole("link", { name: /^Tasks/ })).toHaveAttribute("href", "/control/infrastructure/tasks?application=videos");
   });
 
   it("picks the GPU's picture by its PCI ids, and the CPU's by its model", () => {

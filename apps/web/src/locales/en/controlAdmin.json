@@ -705,6 +705,7 @@
     "serverVersion": "Answering, version {{version}}",
     "serverDown": "Not answering",
     "eventsIntro": "What the games container recorded: callers refused at the gateway check, invitations, finished matches, moves it threw out, errors. Kept in the games database for {{days}} days and read from here through the gateway; nothing is stored in this app.",
+    "eventsIntroOther": "What {{app}} recorded: callers refused at the gateway check, changes made, warnings and errors. Kept in its own database for {{days}} days and read from here through the gateway; nothing is stored in this app.",
     "eventsLoadFailed": "Unable to read the games events",
     "eventsEmpty": "No events on record yet.",
     "rejected24h_zero": "No caller was refused at the gateway check in the last 24 hours.",
@@ -2695,11 +2696,13 @@
         "catalogNoKey": "no TMDB key: files and pictures only"
       },
       "logs": {
-        "title": "Logs and events",
-        "log": "Log",
-        "logSub": "What it wrote, warnings and errors first",
+        "title": "Events and tasks",
+        "noteHome": "This server's own, for every application.",
+        "notePart": "Each opens on {{name}} only.",
+        "log": "Events",
+        "logSub": "Sign-ins, scans and changes it recorded",
         "activity": "Activity",
-        "activitySub": "Plays, scans, sign-ins, uploads",
+        "activitySub": "Plays, scans and uploads over time",
         "tasks": "Tasks",
         "tasksSub": "What is running, waiting or failed"
       }
@@ -2852,7 +2855,7 @@
       "tab": {
         "overview": "Overview",
         "tests": "Tests",
-        "logs": "Logs",
+        "logs": "Server log",
         "reports": "Reports"
       },
       "noRuns": "No test has been run yet. Each one runs from its own card.",
@@ -2882,7 +2885,7 @@
         "overview": "Overview",
         "tests": "GPU tests",
         "sessions": "Live sessions",
-        "logs": "Logs",
+        "logs": "Server log",
         "reports": "Reports"
       },
       "gpu": {

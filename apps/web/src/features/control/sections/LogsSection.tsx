@@ -137,7 +137,7 @@ export function LogsSection() {
           {t("control:logs.sourceUnavailableBody")}
         </MessageBox>
       )}
-      {app && isRunning(app) && (view === "events" ? <AppEvents key={app.id} prefix={app.prefix} /> : <AppLog key={app.id} prefix={app.prefix} />)}
+      {app && isRunning(app) && (view === "events" ? <AppEvents key={app.id} prefix={app.prefix} app={app.id} name={appName(app.id)} /> : <AppLog key={app.id} prefix={app.prefix} />)}
     </div>
   );
 }

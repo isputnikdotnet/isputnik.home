@@ -272,10 +272,22 @@ Faces): what it is and its version, one line of how it is, and its state (**Heal
   whether a sleeping disk had to wake), **Verify backup** (opens the newest backup
   and checks it is whole) and the **speed to this device**. Beside them, the recent
   runs.
-- **Logs** — the newest 200 lines of this server's own log, as `docker logs`
-  would show them, with **Diagnostic mode** and links to the Log, Activity and
-  Tasks pages beside it.
+- **Server log** — the newest 200 lines this server printed, as `docker logs`
+  would show them, with **Diagnostic mode** beside it.
 - **Reports** — the saved reports.
+
+Beside every tab of iSputnik's and Video's pages (except Video's **GPU tests**
+and **Live sessions**, which need the width), **Events and tasks** links to:
+
+- **Events:** what was recorded someone doing (sign-ins, scans, changes), on
+  Infrastructure › Logs.
+- **Activity:** plays, scans and uploads over time.
+- **Tasks:** what is running, waiting or failed.
+
+Each opens filtered to that part: from Video's page, Video's events, activity and
+tasks only; from iSputnik's, this server's, for every application. The **Server
+log** is different: it is what the program itself printed, the first place to look
+when something fails.
 
 **Video's page** has tabs:
 
@@ -328,7 +340,7 @@ Faces): what it is and its version, one line of how it is, and its state (**Heal
     decodes, turns HDR into SDR, scales, burns in subtitles or encodes, grey where
     the CPU does, and **Copied** where it goes as it is. This is also where the
     Video page's **Now playing** button and the Dashboard's link lead.
-- **Logs** — the video container's own log, with its diagnostic mode.
+- **Server log** — what the video container printed, with its diagnostic mode.
 - **Reports** — the saved reports that include Video.
 
 **Download report** at the top makes a report to attach to a bug report, so

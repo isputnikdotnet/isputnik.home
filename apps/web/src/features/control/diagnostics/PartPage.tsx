@@ -92,7 +92,7 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
           tab={tab}
           saved={saved}
           modeCard={<LoggingCard part={part} name={name} reachable compact />}
-          logLinks={<LogsAndEvents part={part} />}
+          logLinks={<EventsAndTasks part={part} name={name} />}
         />
       )}
 
@@ -104,7 +104,7 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
           tests={tests}
           saved={saved}
           modeCard={<LoggingCard part={part} name={name} reachable compact />}
-          logLinks={<LogsAndEvents part={part} />}
+          logLinks={<EventsAndTasks part={part} name={name} />}
         />
       )}
 
@@ -115,7 +115,7 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
           </div>
           <aside className="diagnostics-part-aside" aria-label={t("controlAdmin:diagnostics.page.asideLabel")}>
             {overview.state !== "off" && <LoggingCard part={part} name={name} reachable={overview.state !== "down"} />}
-            <LogsAndEvents part={part} />
+            <EventsAndTasks part={part} name={name} />
             <SavedReports saved={saved} />
           </aside>
         </div>
@@ -173,6 +173,7 @@ function HomePartBody({ tab, overview, parts, tests, saved, modeCard, logLinks }
           </div>
           <aside className="diag-video-side">
             {modeCard}
+            {logLinks}
             <SavedMini part="home" saved={saved} />
           </aside>
         </div>
@@ -187,6 +188,7 @@ function HomePartBody({ tab, overview, parts, tests, saved, modeCard, logLinks }
                 <p className="muted">{t("controlAdmin:diagnostics.homePage.noRuns")}</p>
               </section>
             )}
+            {logLinks}
           </aside>
         </div>
       )}
@@ -200,7 +202,12 @@ function HomePartBody({ tab, overview, parts, tests, saved, modeCard, logLinks }
           </aside>
         </div>
       )}
-      {tab === "reports" && <SavedReports saved={saved} />}
+      {tab === "reports" && (
+        <div className="diag-video">
+          <div className="diag-video-main"><SavedReports saved={saved} /></div>
+          <aside className="diag-video-side">{logLinks}</aside>
+        </div>
+      )}
     </>
   );
 }
@@ -496,14 +503,24 @@ function LoggingCard({ part, name, reachable, compact = false }: { part: Diagnos
   );
 }
 
-function LogsAndEvents({ part }: { part: DiagnosticsPart }) {
+/** Every part page's side card, on every tab that has a side column: the pages
+ *  where this part's events, activity and tasks are — each opened on this part
+ *  only (a container's events, the application's activity and tasks), this
+ *  server's on everything it recorded. Its own Server log is a tab, not a link:
+ *  what the program printed, where Events are what it recorded someone doing. */
+function EventsAndTasks({ part, name }: { part: DiagnosticsPart; name: string }) {
   const { t } = useTranslation(["controlAdmin"]);
   const application = APPLICATION[part];
+  // A container with no application of its own (Faces) has no activity or tasks.
+  const ownPages = part === "home" || application !== undefined;
   return (
-    <GroupedList title={t("controlAdmin:diagnostics.page.logs.title")}>
+    <GroupedList
+      title={t("controlAdmin:diagnostics.page.logs.title")}
+      note={part === "home" ? t("controlAdmin:diagnostics.page.logs.noteHome") : t("controlAdmin:diagnostics.page.logs.notePart", { name })}
+    >
       <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:diagnostics.page.logs.log")} sub={t("controlAdmin:diagnostics.page.logs.logSub")} href={part === "home" ? logsHref() : logsHref({ app: part })} />
-      <NavRow icon={<Activity size={17} />} label={t("controlAdmin:diagnostics.page.logs.activity")} sub={t("controlAdmin:diagnostics.page.logs.activitySub")} href={activityHref(application ? { application } : {})} />
-      <NavRow icon={<ListChecks size={17} />} label={t("controlAdmin:diagnostics.page.logs.tasks")} sub={t("controlAdmin:diagnostics.page.logs.tasksSub")} href={tasksHref(application ? { application } : {})} />
+      {ownPages && <NavRow icon={<Activity size={17} />} label={t("controlAdmin:diagnostics.page.logs.activity")} sub={t("controlAdmin:diagnostics.page.logs.activitySub")} href={activityHref(application ? { application } : {})} />}
+      {ownPages && <NavRow icon={<ListChecks size={17} />} label={t("controlAdmin:diagnostics.page.logs.tasks")} sub={t("controlAdmin:diagnostics.page.logs.tasksSub")} href={tasksHref(application ? { application } : {})} />}
     </GroupedList>
   );
 }

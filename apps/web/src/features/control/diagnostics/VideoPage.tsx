@@ -34,7 +34,7 @@ export function VideoPartBody({ tab, saved, modeCard, logLinks }: {
   saved: ReturnType<typeof useSavedReports>;
   /** Diagnostic mode (Normal · Detailed · Full), the part page's own card. */
   modeCard: ReactNode;
-  /** Where else to look: its log, activity and tasks pages. */
+  /** Where else to look: its events, activity and tasks, beside every tab but the wide ones. */
   logLinks: ReactNode;
 }) {
   const { t } = useTranslation(["controlAdmin"]);
@@ -59,7 +59,7 @@ export function VideoPartBody({ tab, saved, modeCard, logLinks }: {
         <MessageBox tone="info" title={t("controlAdmin:diagnostics.page.video.unavailableTitle")}>{t("controlAdmin:diagnostics.page.video.unavailable")}</MessageBox>
       )}
 
-      {tab === "overview" && prefix && <Overview prefix={prefix} plays={watching.plays} saved={saved} modeCard={modeCard} />}
+      {tab === "overview" && prefix && <Overview prefix={prefix} plays={watching.plays} saved={saved} modeCard={modeCard} logLinks={logLinks} />}
       {tab === "tests" && prefix && <TestsTab prefix={prefix} />}
       {tab === "sessions" && prefix && <SessionsTab prefix={prefix} plays={watching.plays} missing={watching.missing} />}
       {tab === "logs" && (
@@ -71,7 +71,12 @@ export function VideoPartBody({ tab, saved, modeCard, logLinks }: {
           </aside>
         </div>
       )}
-      {tab === "reports" && <SavedReports saved={saved} />}
+      {tab === "reports" && (
+        <div className="diag-video">
+          <div className="diag-video-main"><SavedReports saved={saved} /></div>
+          <aside className="diag-video-side">{logLinks}</aside>
+        </div>
+      )}
     </>
   );
 }
@@ -81,7 +86,7 @@ export function VideoPartBody({ tab, saved, modeCard, logLinks }: {
 /** How often the Overview's cards look again: a snapshot, not a live graph. */
 const OVERVIEW_MS = 30_000;
 
-function Overview({ prefix, plays, saved, modeCard }: { prefix: string; plays: Play[] | null; saved: ReturnType<typeof useSavedReports>; modeCard: ReactNode }) {
+function Overview({ prefix, plays, saved, modeCard, logLinks }: { prefix: string; plays: Play[] | null; saved: ReturnType<typeof useSavedReports>; modeCard: ReactNode; logLinks: ReactNode }) {
   const conversion = useEngine<ConversionState>(`${prefix}/api/admin/conversion`);
   const server = useServerNow(OVERVIEW_MS);
   const { load } = conversion;
@@ -102,6 +107,7 @@ function Overview({ prefix, plays, saved, modeCard }: { prefix: string; plays: P
       </div>
       <aside className="diag-video-side">
         {modeCard}
+        {logLinks}
         <SavedMini part="video" saved={saved} />
       </aside>
     </div>
