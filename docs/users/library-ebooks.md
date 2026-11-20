@@ -32,24 +32,24 @@ which is the one the shelves show; the rest sit underneath, each a click away.
 ## Telling the scanner how folders are arranged
 
 When your folder and file names carry the author, series or title, the scanner
-can read them. Open the library's **Folder structure** (on the library's page in
-the control panel: **Libraries**, the library, then **Folder structure › Edit**).
+can read them. Open the library's **Scanning rules** (on the library's page in
+the control panel: **Libraries**, the library, then **Scanning rules › Edit**).
 
-- **Default layout** applies to the whole library. Choose a starting point such
+- **Default structure** applies to the whole library. Choose a starting point such
   as *Author / Series / 01 - Title*, then label a real file from your folders:
   each part of the path gets a role (Author, Series, Position, Title, Year,
   Publisher, or Skip). The count of books that fit updates as you go.
 - **Rules for specific folders** cover the shelves arranged differently from the
   rest. Tick the folders, label an example, and the rule takes over there.
-- A rule can hold several **layouts**: the first that fits a book wins, so a
+- A rule can hold several **structures**: the first that fits a book wins, so a
   folder that mixes `Series/01 - Title` books with loose `Title` files needs
-  one layout for each.
+  one structure for each.
 - **Preview** before saving shows every book the rule would produce, which
-  layout matched it, and what changes for books already in the library. Books
-  that fit no layout are still added, with details from the file's own metadata.
+  structure matched it, and what changes for books already in the library. Books
+  that fit no structure are still added, with details from the file's own metadata.
 
-What a layout reads from the path wins over the file's metadata; anything the
-layout does not mention still comes from the file. Your manual edits stay
+What a structure reads from the path wins over the file's metadata; anything the
+structure does not mention still comes from the file. Your manual edits stay
 protected either way.
 
 A few things worth knowing once you have more than one rule:
@@ -58,13 +58,13 @@ A few things worth knowing once you have more than one rule:
   the folders of two rules, the one on the deeper folder reads it, so a rule on
   `Sanderson/Cosmere` beats a rule on `Sanderson` for everything inside it. Two
   rules cannot claim the very same folder; the panel says so if you try.
-- **A rule turned off hands its folders to the default layout,** not to a
-  broader rule that also covers them. It keeps its folders and its layouts, and
+- **A rule turned off hands its folders to the default structure,** not to a
+  broader rule that also covers them. It keeps its folders and its structures, and
   takes over again when it is turned back on.
 - **Nothing is re-read until a scan.** Saving a rule records it; the wizard's
   **Save and scan these folders** runs one right away for just that rule's
   folders, and each rule in the panel has **Scan these folders** for later.
-  **Rescan the library** re-reads everything under the current layouts.
+  **Rescan the library** re-reads everything under the current structures.
 
 ## Reading
 

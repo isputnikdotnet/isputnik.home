@@ -26,7 +26,7 @@ beforeEach(() => {
   });
 });
 
-// A new rule is named after its first folder and its first layout, until somebody
+// A new rule is named after its first folder and its first structure, until somebody
 // types a name. That name is COMPUTED from those two, not pushed into state from an
 // effect: as state it lagged a render behind the step just changed, so the Next
 // button (which gates on the name being non-empty) and a save fired in that window
@@ -46,7 +46,7 @@ describe("ScanRuleWizard rule name", () => {
       />
     );
     await user.click(await screen.findByRole("checkbox", { name: /Fiction/ }));
-    await user.click(screen.getByRole("button", { name: /Next: Layout/ }));
+    await user.click(screen.getByRole("button", { name: /Next: Structure/ }));
   }
 
   // The presets are named by their pattern as well as their words, so each is
@@ -54,10 +54,10 @@ describe("ScanRuleWizard rule name", () => {
   // "Author / Series / 01 - Title".
   const preset = (label: string, pattern: string) => screen.getByRole("button", { name: `${label}${pattern}` });
 
-  it("names itself from the folder and the layout it is on", async () => {
+  it("names itself from the folder and the structure it is on", async () => {
     const user = userEvent.setup();
     await reachLayoutStep(user);
-    // The folder chosen, plus the layout guessed from the first example.
+    // The folder chosen, plus the structure guessed from the first example.
     expect(ruleName()).toHaveValue("Fiction · Author / Title");
 
     // Another preset, and the name has followed it in the same render. (The example
@@ -66,7 +66,7 @@ describe("ScanRuleWizard rule name", () => {
     expect(ruleName()).toHaveValue("Fiction · Series / 01");
   });
 
-  it("hands the name over the moment it is typed, and stops following the layout", async () => {
+  it("hands the name over the moment it is typed, and stops following the structure", async () => {
     const user = userEvent.setup();
     await reachLayoutStep(user);
 
@@ -74,7 +74,7 @@ describe("ScanRuleWizard rule name", () => {
     await user.type(ruleName(), "The fiction shelf");
     expect(ruleName()).toHaveValue("The fiction shelf");
 
-    // Another layout picked: the auto name would change, the typed one must not.
+    // Another structure picked: the auto name would change, the typed one must not.
     await user.click(preset("Series / 01 - Title", "{series}/{position} - {title}"));
     expect(ruleName()).toHaveValue("The fiction shelf");
   });

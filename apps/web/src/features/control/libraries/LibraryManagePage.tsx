@@ -7,6 +7,7 @@ import { initialParam, librariesHref } from "../links";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
+import i18n from "../../../i18n";
 import { tabLabel } from "../nav";
 import {
   TYPE_ICON,
@@ -14,6 +15,7 @@ import {
   capabilityLabels,
   formatCount,
   formatLibrarySize,
+  languageLabel,
   modeLabel,
   phoneLinkable,
   roleLabel,
@@ -25,15 +27,28 @@ import {
 } from "./managed-library";
 import { LibraryStatus } from "./LibraryStatus";
 
-// One library's Manage page (4.73), under Library › Libraries at
-// /control/libraries/<id>. The row used to carry an icon per dialog — layout or
-// faces, members, edit, rescan, delete — plus an ⓘ for its details; now the row
-// has Manage and a ⋯ menu, and this page lists what can be set for this type of
-// library, each opening the dialog that already set it. Like a member's page, it
-// is a page of one thing: it drops the tab row and links back to the list.
+// One library's page, under Library › Libraries at /control/libraries/<id>: a page
+// of one thing, which drops the tab row and links back to the list. Everything about
+// the library is in three sections (owner, 2026-11-19) — General, Access, Advanced —
+// each a list of what can be set there, one row per setting saying what it is set to
+// now, with Edit opening that one setting; and under the rows, the facts that belong
+// to the section (what used to be a separate Details card). Every option that can be
+// changed has a row of its own: none is to be found only inside another's dialog.
 // LibrariesSection owns the data and the dialogs; this is the page around them.
 
-export type LibraryEditTab = "access" | "upload" | "scanning" | "video" | "phones";
+/** Which setting the Edit dialog shows. */
+export type LibraryEditTab =
+  | "name" | "video"
+  | "access"
+  | "upload" | "scanning" | "encoding" | "progress" | "backsides" | "phones";
+
+interface Row {
+  key: string;
+  title: string;
+  /** What it is set to now, or — where that is not one value — what it is for. */
+  body: ReactNode;
+  action?: ReactNode;
+}
 
 export function LibraryManagePage({
   library,
@@ -67,74 +82,8 @@ export function LibraryManagePage({
   const listHref = librariesHref(libraryTypeFilter(initialParam("type")));
   const books = library.type === "audiobook" || library.type === "ebook";
   const gallery = library.type === "gallery";
-
-  // What this type of library can have set, each row opening its dialog.
-  const rows: { key: string; title: string; body: string; action: ReactNode }[] = [
-    {
-      key: "access",
-      title: t("control:libraries.manage.accessTitle"),
-      body: t("control:libraries.manage.accessBody", { access: accessSummary(library), owner: ownerLabel }),
-      action: <ManageButton onClick={() => onEdit("access")} />
-    }
-  ];
-  // A personal library has no grants to give; a system one is the app's.
-  if (!library.personal && !library.role) {
-    rows.push({
-      key: "members",
-      title: t("control:libraries.manage.membersTitle"),
-      body: t("control:libraries.manage.membersBody"),
-      action: <ManageButton onClick={onMembers} />
-    });
-  }
-  if (library.type === "video") {
-    rows.push({
-      key: "video",
-      title: t("control:libraries.manage.videoTitle"),
-      body: t("control:libraries.manage.videoBody"),
-      action: <ManageButton onClick={() => onEdit("video")} />
-    });
-  } else {
-    rows.push(
-      {
-        key: "upload",
-        title: t("control:libraries.manage.uploadTitle"),
-        body: t("control:libraries.manage.uploadBody", { extensions }),
-        action: <ManageButton onClick={() => onEdit("upload")} />
-      },
-      {
-        key: "scanning",
-        title: t("control:libraries.manage.scanningTitle"),
-        body: gallery
-          ? t("control:libraries.manage.scanningBodyGallery", { sources: scanSources })
-          : t("control:libraries.manage.scanningBody", { sources: scanSources }),
-        action: <ManageButton onClick={() => onEdit("scanning")} />
-      }
-    );
-  }
-  if (books) {
-    rows.push({
-      key: "layout",
-      title: t("control:libraries.manage.layoutTitle"),
-      body: t("control:libraries.manage.layoutBody"),
-      action: <ManageButton onClick={onScanRules} />
-    });
-  }
-  if (gallery && !library.personal) {
-    rows.push({
-      key: "faces",
-      title: t("control:libraries.manage.facesTitle"),
-      body: t("control:libraries.manage.facesBody"),
-      action: <ManageButton onClick={onFaces} />
-    });
-  }
-  if (phoneLinkable(library)) {
-    rows.push({
-      key: "phones",
-      title: t("control:libraries.manage.phonesTitle"),
-      body: t("control:libraries.manage.phonesBody"),
-      action: <ManageButton onClick={() => onEdit("phones")} />
-    });
-  }
+  const video = library.type === "video";
+  const edit = (tab: LibraryEditTab) => <EditButton onClick={() => onEdit(tab)} />;
 
   // The shared sets this type is organized with (Library › Organization).
   const organizing: ControlSection[] = books ? ["categories", "tags"] : gallery ? ["tags"] : ["genres"];
@@ -142,7 +91,173 @@ export function LibraryManagePage({
     ? t("control:libraries.manage.organizingBooks")
     : gallery ? t("control:libraries.manage.organizingGallery") : t("control:libraries.manage.organizingVideo");
 
-  const facts = [
+  // ── General: what the library is and where it is.
+  const general: Row[] = [
+    {
+      key: "name",
+      title: t("control:libraries.manage.nameTitle"),
+      body: library.name,
+      // A system library keeps the name the app gave it.
+      action: library.role ? undefined : edit("name")
+    },
+    video
+      ? {
+          key: "video",
+          title: t("control:libraries.manage.videoTitle"),
+          body: t("control:libraries.manage.videoValue", {
+            folder: library.folder || t("control:libraries.notConfigured"),
+            language: languageLabel(library.defaultLanguage ?? "en", i18n.resolvedLanguage ?? "en")
+          }),
+          action: edit("video")
+        }
+      : {
+          key: "folder",
+          title: t("control:libraries.manage.folderTitle"),
+          // Where a library reads from is chosen when it is made, and not changed after.
+          body: <code>{library.sourcePath ?? t("control:libraries.pathHidden")}</code>
+        },
+    {
+      key: "organizing",
+      title: t("control:libraries.manage.organizingTitle"),
+      body: organizingBody,
+      action: (
+        <span className="library-manage-links">
+          {organizing.map((section) => {
+            const href = controlHref(section);
+            return (
+              <a key={section} className="secondary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
+                {tabLabel(section)}
+                <ArrowRight size={15} aria-hidden="true" />
+              </a>
+            );
+          })}
+        </span>
+      )
+    }
+  ];
+  const generalFacts: Fact[] = [
+    { label: t("control:libraries.fieldType"), value: rowTypeLabel(library) || typeLabel(library.type) },
+    { label: t("control:libraries.fieldFiles"), value: formatCount(library.fileCount) },
+    { label: t("control:libraries.fieldSize"), value: formatLibrarySize(library.totalSizeBytes) },
+    { label: t("control:libraries.fieldStatus"), value: <span className={`status-badge ${library.scanStatus}`}>{scanStatusLabel(library.scanStatus)}</span> },
+    ...(library.engine?.metadata
+      ? [{ label: t("control:libraries.fieldDetails"), value: <LibraryStatus library={library} scanning={false} videoEngineDown={false} /> }]
+      : []),
+    { label: t("control:libraries.fieldLastScanned"), value: library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : t("control:libraries.notYet") },
+    { label: t("control:libraries.fieldCreated"), value: formatManagedDate(library.createdAt) },
+    { label: t("control:libraries.fieldUpdated"), value: formatManagedDate(library.updatedAt) }
+  ];
+
+  // ── Access: whose it is and who may open it.
+  const access: Row[] = [
+    {
+      key: "access",
+      title: t("control:libraries.manage.accessTitle"),
+      body: t("control:libraries.manage.accessBody", { access: accessSummary(library), owner: ownerLabel }),
+      action: edit("access")
+    }
+  ];
+  // A personal library has no grants to give; a system one is the app's.
+  if (!library.personal && !library.role) {
+    access.push({
+      key: "members",
+      title: t("control:libraries.manage.membersTitle"),
+      body: t("control:libraries.manage.membersBody"),
+      action: <EditButton onClick={onMembers} />
+    });
+  }
+  const capabilities = capabilityLabels(library);
+  const accessFacts: Fact[] = [
+    { label: t("control:libraries.fieldYourRole"), value: roleLabel(library.myRole) },
+    {
+      label: t("control:libraries.fieldCapabilities"),
+      value: capabilities.length > 0 ? (
+        <span className="library-info-chips">
+          {capabilities.map((capability) => <span key={capability} className="library-info-chip">{capability}</span>)}
+        </span>
+      ) : t("control:libraries.role.none")
+    },
+    ...(gallery ? [{
+      label: t("control:libraries.fieldSystem"),
+      value: library.role === "inbox" ? t("control:libraries.systemInbox") : library.role === "app-files" ? t("control:libraries.systemAppFiles") : t("control:libraries.systemNo")
+    }] : [])
+  ];
+
+  // ── Advanced: how files are taken in and read. A video library's are the video
+  // app's own, so it has none here.
+  const advanced: Row[] = [];
+  if (!video) {
+    advanced.push(
+      {
+        key: "upload",
+        title: t("control:libraries.manage.uploadTitle"),
+        body: t("control:libraries.manage.uploadValue", {
+          mode: modeLabel(library.mode ?? "managed"),
+          extensions,
+          limit: library.settings?.maxUploadMB != null ? t("control:libraries.uploadLimitValue", { mb: library.settings.maxUploadMB }) : t("control:libraries.uploadLimitDefault")
+        }),
+        action: edit("upload")
+      },
+      {
+        key: "scanning",
+        title: t("control:libraries.manage.scanningTitle"),
+        body: gallery
+          ? t("control:libraries.manage.scanningBodyGallery", { sources: scanSources })
+          : t("control:libraries.manage.scanningBody", { sources: scanSources }),
+        action: edit("scanning")
+      }
+    );
+  }
+  if (books) {
+    advanced.push({
+      key: "layout",
+      title: t("control:libraries.manage.layoutTitle"),
+      body: t("control:libraries.manage.layoutBody"),
+      action: <EditButton onClick={onScanRules} />
+    });
+  }
+  if (library.type === "audiobook") {
+    advanced.push(
+      {
+        key: "encoding",
+        title: t("control:libraries.tagEncodingFieldLabel"),
+        body: library.settings?.tagEncoding ?? t("control:libraries.tagEncodingNone"),
+        action: edit("encoding")
+      },
+      {
+        key: "progress",
+        title: t("control:libraries.progressTracking"),
+        body: library.settings?.progressMode === "episodic" ? t("control:libraries.progressEpisodic") : t("control:libraries.progressLinear"),
+        action: edit("progress")
+      }
+    );
+  }
+  if (gallery) {
+    advanced.push({
+      key: "backsides",
+      title: t("control:libraries.backSides.title"),
+      body: t("control:libraries.manage.backSidesBody"),
+      action: edit("backsides")
+    });
+  }
+  if (gallery && !library.personal) {
+    advanced.push({
+      key: "faces",
+      title: t("control:libraries.manage.facesTitle"),
+      body: t("control:libraries.manage.facesBody"),
+      action: <EditButton onClick={onFaces} />
+    });
+  }
+  if (phoneLinkable(library)) {
+    advanced.push({
+      key: "phones",
+      title: t("control:libraries.manage.phonesTitle"),
+      body: t("control:libraries.manage.phonesBody"),
+      action: edit("phones")
+    });
+  }
+
+  const headFacts = [
     rowTypeLabel(library),
     library.fileCount != null ? t("control:libraries.contentsFiles", { count: library.fileCount, formatted: formatCount(library.fileCount) }) : null,
     library.totalSizeBytes != null ? formatLibrarySize(library.totalSizeBytes) : null
@@ -159,7 +274,7 @@ export function LibraryManagePage({
           <div className="admin-heading-copy">
             <h1>{library.name}</h1>
             <p className="section-description library-manage-facts">
-              {facts && <span>{facts}</span>}
+              {headFacts && <span>{headFacts}</span>}
               <LibraryStatus library={library} scanning={scanning} videoEngineDown={videoEngineDown} />
             </p>
           </div>
@@ -176,46 +291,16 @@ export function LibraryManagePage({
         <MessageBox tone="info" title={t("control:libraries.systemNoteTitle")}>{t("control:libraries.systemNoteBody")}</MessageBox>
       )}
 
-      <section className="library-manage-card">
-        <h2>{t("control:libraries.manage.settingsTitle")}</h2>
-        <ul className="library-manage-rows">
-          {rows.map((row) => (
-            <li key={row.key}>
-              <div>
-                <strong>{row.title}</strong>
-                <span>{row.body}</span>
-              </div>
-              {row.action}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="library-manage-card">
-        <h2>{t("control:libraries.manage.organizingTitle")}</h2>
-        <p className="muted">{organizingBody}</p>
-        <div className="row-actions library-manage-links">
-          {organizing.map((section) => {
-            const href = controlHref(section);
-            return (
-              <a key={section} className="secondary-button compact-button" href={href} onClick={(event) => followRoute(event, href)}>
-                {tabLabel(section)}
-                <ArrowRight size={15} aria-hidden="true" />
-              </a>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="library-manage-card">
-        <h2>{t("control:libraries.manage.detailsTitle")}</h2>
-        <LibraryDetailsGrid library={library} ownerLabel={ownerLabel} scanSources={scanSources} extensions={extensions} />
-      </section>
+      <ManageSection id="general" title={t("control:libraries.manage.generalTitle")} rows={general} facts={generalFacts} />
+      <ManageSection id="access" title={t("control:libraries.manage.accessSectionTitle")} rows={access} facts={accessFacts} />
+      {advanced.length > 0 && (
+        <ManageSection id="advanced" title={t("control:libraries.manage.advancedTitle")} rows={advanced} />
+      )}
 
       {/* A system library is made and removed by the app, never here. */}
       {!library.role && (
-        <section className="library-manage-card library-manage-danger">
-          <h2>{t("control:libraries.deleteTitle")}</h2>
+        <section className="library-manage-card library-manage-danger" aria-labelledby="library-manage-delete">
+          <h2 id="library-manage-delete">{t("control:libraries.deleteTitle")}</h2>
           <p className="muted">{t("control:libraries.manage.deleteBody")}</p>
           <div className="row-actions">
             <Button variant="danger" onClick={onDelete}>
@@ -229,114 +314,48 @@ export function LibraryManagePage({
   );
 }
 
-function ManageButton({ onClick }: { onClick: () => void }) {
+interface Fact {
+  label: string;
+  value: ReactNode;
+}
+
+/** One section of the page: its settings, then the facts that go with them. */
+function ManageSection({ id, title, rows, facts = [] }: { id: string; title: string; rows: Row[]; facts?: Fact[] }) {
+  const headingId = `library-manage-${id}`;
+  return (
+    <section className="library-manage-card" aria-labelledby={headingId}>
+      <h2 id={headingId}>{title}</h2>
+      <ul className="library-manage-rows">
+        {rows.map((row) => (
+          <li key={row.key}>
+            <div>
+              <strong>{row.title}</strong>
+              <span>{row.body}</span>
+            </div>
+            {row.action}
+          </li>
+        ))}
+      </ul>
+      {facts.length > 0 && (
+        <dl className="library-manage-factlist">
+          {facts.map((fact) => (
+            <div key={fact.label}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}
+
+function EditButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation(["control"]);
   return (
     <Button variant="secondary" compact onClick={onClick}>
       <Pencil size={14} aria-hidden="true" />
       {t("control:libraries.manage.edit")}
     </Button>
-  );
-}
-
-/** What the details dialog showed until 4.73, as a card on the Manage page. */
-function LibraryDetailsGrid({
-  library,
-  ownerLabel,
-  scanSources,
-  extensions
-}: {
-  library: ManagedLibrary;
-  ownerLabel: string;
-  scanSources: string;
-  extensions: string;
-}) {
-  const { t } = useTranslation(["common", "control"]);
-  const capabilities = capabilityLabels(library);
-  return (
-    <div className="library-info-grid">
-      <section className="library-info-section">
-        <h3>{t("control:libraries.sectionLibrary")}</h3>
-        <dl className="library-info-list">
-          <LibraryInfoRow label={t("control:libraries.fieldName")}>{library.name}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldType")}>{typeLabel(library.type)}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldPath")}>
-            <code>{library.sourcePath ?? t("control:libraries.pathHidden")}</code>
-          </LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldOwner")}>{ownerLabel}</LibraryInfoRow>
-        </dl>
-      </section>
-
-      <section className="library-info-section">
-        <h3>{t("control:libraries.sectionAccess")}</h3>
-        <dl className="library-info-list">
-          <LibraryInfoRow label={t("control:libraries.fieldAccess")}>{accessSummary(library)}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldMode")}>{modeLabel(library.mode ?? "managed")}</LibraryInfoRow>
-          {library.type === "gallery" && (
-            <LibraryInfoRow label={t("control:libraries.fieldSystem")}>
-              {library.role === "inbox" ? t("control:libraries.systemInbox") : library.role === "app-files" ? t("control:libraries.systemAppFiles") : t("control:libraries.systemNo")}
-            </LibraryInfoRow>
-          )}
-          <LibraryInfoRow label={t("control:libraries.fieldYourRole")}>{roleLabel(library.myRole)}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldCapabilities")}>
-            {capabilities.length > 0 ? (
-              <span className="library-info-chips">
-                {capabilities.map((capability) => (
-                  <span key={capability} className="library-info-chip">{capability}</span>
-                ))}
-              </span>
-            ) : (
-              t("control:libraries.role.none")
-            )}
-          </LibraryInfoRow>
-        </dl>
-      </section>
-
-      <section className="library-info-section">
-        <h3>{t("control:libraries.sectionContents")}</h3>
-        <dl className="library-info-list">
-          <LibraryInfoRow label={t("control:libraries.fieldFiles")}>{formatCount(library.fileCount)}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldSize")}>{formatLibrarySize(library.totalSizeBytes)}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldStatus")}>
-            <span className={`status-badge ${library.scanStatus}`}>{scanStatusLabel(library.scanStatus)}</span>
-          </LibraryInfoRow>
-          {library.engine?.metadata && (
-            <LibraryInfoRow label={t("control:libraries.fieldDetails")}>
-              <LibraryStatus library={library} scanning={false} videoEngineDown={false} />
-            </LibraryInfoRow>
-          )}
-          <LibraryInfoRow label={t("control:libraries.fieldLastScanned")}>
-            {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : t("control:libraries.notYet")}
-          </LibraryInfoRow>
-        </dl>
-      </section>
-
-      <section className="library-info-section">
-        <h3>{t("control:libraries.sectionScanning")}</h3>
-        <dl className="library-info-list">
-          <LibraryInfoRow label={t("control:libraries.fieldSources")}>{scanSources}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldExtensions")}>{extensions}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldUploadLimit")}>
-            {library.settings?.maxUploadMB != null ? t("control:libraries.uploadLimitValue", { mb: library.settings.maxUploadMB }) : t("control:libraries.uploadLimitDefault")}
-          </LibraryInfoRow>
-          {library.type === "audiobook" && (
-            <LibraryInfoRow label={t("control:libraries.fieldTagEncoding")}>
-              {library.settings?.tagEncoding ?? t("control:libraries.tagEncodingDefault")}
-            </LibraryInfoRow>
-          )}
-          <LibraryInfoRow label={t("control:libraries.fieldCreated")}>{formatManagedDate(library.createdAt)}</LibraryInfoRow>
-          <LibraryInfoRow label={t("control:libraries.fieldUpdated")}>{formatManagedDate(library.updatedAt)}</LibraryInfoRow>
-        </dl>
-      </section>
-    </div>
-  );
-}
-
-function LibraryInfoRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
   );
 }

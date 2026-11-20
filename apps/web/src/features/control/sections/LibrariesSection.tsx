@@ -858,10 +858,14 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
       {editingLibrary && (() => {
         const library = editingLibrary;
         const title = ({
-          access: t("control:libraries.manage.accessTitle"),
+          name: t("control:libraries.manage.nameTitle"),
           video: t("control:libraries.manage.videoTitle"),
+          access: t("control:libraries.manage.accessTitle"),
           upload: t("control:libraries.manage.uploadTitle"),
           scanning: t("control:libraries.manage.scanningTitle"),
+          encoding: t("control:libraries.tagEncodingFieldLabel"),
+          progress: t("control:libraries.progressTracking"),
+          backsides: t("control:libraries.backSides.title"),
           phones: t("control:libraries.manage.phonesTitle")
         })[editTab];
         const canSave = !saving && editName.trim() !== "" && (library.type === "video" ? editVideoFolder !== "" : editExtensions.length > 0);
@@ -881,9 +885,12 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
               <MessageBox tone="info" title={t("control:libraries.systemNoteTitle")}>{t("control:libraries.systemNoteBody")}</MessageBox>
             )}
 
+            {editTab === "name" && (
+              <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} disabled={Boolean(library.role)} />
+            )}
+
             {editTab === "access" && (
               <>
-                <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} disabled={Boolean(library.role)} />
                 <LibraryAccessRows
                   ownerId={editOwnerId}
                   ownerType={editOwnerType}
@@ -952,31 +959,32 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
             )}
 
             {editTab === "scanning" && library.type !== "video" && (
-              <>
-                <ScanSourcesEditor
-                  sources={editSources}
-                  onChange={setEditSources}
-                  sourceInfo={sourceInfoFor(library.type)}
-                />
-                {library.type === "gallery" && (
-                  <BackSidesEditor value={editBackSides} onChange={setEditBackSides} libraryId={library.id} />
-                )}
-                {library.type === "audiobook" && (
-                  <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
-                )}
-                {library.type === "audiobook" && (
-                  <SelectField
-                    label={t("control:libraries.progressTracking")}
-                    value={editProgressMode}
-                    onChange={(value) => setEditProgressMode(value as "linear" | "episodic")}
-                    hint={t("control:libraries.progressEpisodicHint")}
-                    options={[
-                      { value: "linear", label: t("control:libraries.progressLinear") },
-                      { value: "episodic", label: t("control:libraries.progressEpisodic") }
-                    ]}
-                  />
-                )}
-              </>
+              <ScanSourcesEditor
+                sources={editSources}
+                onChange={setEditSources}
+                sourceInfo={sourceInfoFor(library.type)}
+              />
+            )}
+
+            {editTab === "backsides" && library.type === "gallery" && (
+              <BackSidesEditor value={editBackSides} onChange={setEditBackSides} libraryId={library.id} />
+            )}
+
+            {editTab === "encoding" && library.type === "audiobook" && (
+              <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
+            )}
+
+            {editTab === "progress" && library.type === "audiobook" && (
+              <SelectField
+                label={t("control:libraries.progressTracking")}
+                value={editProgressMode}
+                onChange={(value) => setEditProgressMode(value as "linear" | "episodic")}
+                hint={t("control:libraries.progressEpisodicHint")}
+                options={[
+                  { value: "linear", label: t("control:libraries.progressLinear") },
+                  { value: "episodic", label: t("control:libraries.progressEpisodic") }
+                ]}
+              />
             )}
 
             {editTab === "phones" && phoneLinkable(library) && (

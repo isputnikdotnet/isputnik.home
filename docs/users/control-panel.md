@@ -430,12 +430,15 @@ beside them; the table shows twenty libraries a page. To its right: **Rescan all
 (every library you manage, with the sources it already uses), **Scan schedules**,
 **Scan tasks** and the **Storage containers** libraries are made in.
 
-A library's **Manage** page lists what can be set for that type of library, each
-with **Edit**: its name, owner and access; members and groups; files and uploads;
-scanning; the layout rules of a book library; face recognition and phone backups for
-a Gallery library; the folder and language of a Video library. Below are the shared
-sets it is organized with, everything the old details window showed, and **Delete
-library**. Back to the list is the **Libraries** link at the top.
+A library's page has three sections, each listing what can be set there — one row per
+setting, saying what it is set to now, with **Edit** — and under the rows the facts that
+go with them. **General**: its name, its folder (and language, for a Video library) and
+the shared sets it is organized with; then its type, files, size, status and dates.
+**Access**: its owner and visibility, and its members and groups; then your own role
+and what you can do. **Advanced**: files and uploads and scan sources; the scanning
+rules of a book library; tag text encoding and progress tracking for an audiobook
+library; back sides, face recognition and phone backups for a Gallery library. At the
+foot is **Delete library**. Back to the list is the **Libraries** link at the top.
 
 ### Library statistics
 
@@ -529,7 +532,7 @@ step has [its own guide](phone-sync-setup.md).
   when, waiting for first contact, not seen for some days, a library nearly full, or
   *Needs attention*. A phone opens its own page: its member, last contact, the network
   and address it came from, what is wrong now and what went wrong before, the libraries
-  it is linked to (set on each library's **Manage › Phone backups**, so photos already
+  it is linked to (set on each library's page, **Advanced › Phone backups**, so photos already
   there aren't backed up twice), its history in the logs, and **Remove this phone**. A
   phone refused from an address on no list offers **Allow 192.168.12.0/24 for phone
   backup** — the /24 it came from.

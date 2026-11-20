@@ -63,7 +63,9 @@ it("opens a library's page from a click on its row", async () => {
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-it("shows a library's own address as its full page: settings, organizing, details, delete", async () => {
+// The page is three sections (owner, 2026-11-19) — General, Access, Advanced — each
+// with its settings, one row apiece saying what it is set to, and its own facts.
+it("shows a library's own address as its full page: General, Access, Advanced, each with its settings and facts", async () => {
   const user = userEvent.setup();
   window.history.replaceState({}, "", "/control/libraries/gallery");
   render(<LibrariesSection libraryId="gallery" />);
@@ -71,19 +73,26 @@ it("shows a library's own address as its full page: settings, organizing, detail
   // The page, not the list with a popup over it.
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
-  for (const name of ["Settings", "Organizing", "Details", "Delete library"]) {
-    expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
-  }
+  expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["General", "Access", "Advanced", "Delete library"]);
   expect(screen.getByRole("button", { name: /^Rescan/ })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Delete library/ })).toBeInTheDocument();
+
+  const titles = (name: string) => within(screen.getByRole("region", { name })).getAllByRole("listitem").map((item) => item.querySelector("strong")!.textContent);
+  expect(titles("General")).toEqual(["Name", "Folder", "Organizing"]);
+  expect(titles("Access")).toEqual(["Owner and visibility", "Members and groups"]);
+  expect(titles("Advanced")).toEqual(["Files and uploads", "Scan sources", "Back sides", "Face recognition", "Phone backups"]);
+  // The facts sit in the section they are about.
+  expect(within(screen.getByRole("region", { name: "General" })).getByText("Last scanned")).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "Access" })).getByText("Your role")).toBeInTheDocument();
+
   const row = (title: string) => screen.getAllByText(title).find((el) => el.tagName === "STRONG")!.closest("li") as HTMLElement;
-  for (const title of ["Name, owner and access", "Members and groups", "Files and uploads", "Scanning", "Face recognition"]) {
-    expect(within(row(title)).getByRole("button", { name: "Edit" })).toBeInTheDocument();
-  }
+  // A row says what the setting is now.
+  expect(row("Name")).toHaveTextContent("gallery collection");
+  expect(row("Owner and visibility")).toHaveTextContent("Public");
 
   // Each Edit opens that one setting.
-  await user.click(within(row("Name, owner and access")).getByRole("button", { name: "Edit" }));
-  let dialog = await screen.findByRole("dialog", { name: "Name, owner and access" });
+  await user.click(within(row("Name")).getByRole("button", { name: "Edit" }));
+  let dialog = await screen.findByRole("dialog", { name: "Name" });
   expect(within(dialog).getByLabelText("Library name")).toHaveValue("gallery collection");
   expect(within(dialog).queryByLabelText("Mode")).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -101,6 +110,24 @@ it("shows a library's own address as its full page: settings, organizing, detail
   await user.click(within(row("Members and groups")).getByRole("button", { name: "Edit" }));
   dialog = await screen.findByRole("dialog", { name: "Access to gallery collection" });
   expect(await within(dialog).findByRole("combobox", { name: "Add people or groups" })).toBeInTheDocument();
+});
+
+// Nothing that can be changed hides inside another setting's dialog.
+it("gives an audiobook library's every option a row: scanning rules, tag text encoding, progress tracking", async () => {
+  const user = userEvent.setup();
+  window.history.replaceState({}, "", "/control/libraries/audiobook");
+  render(<LibrariesSection libraryId="audiobook" />);
+  await screen.findByRole("heading", { level: 1, name: "audiobook collection" });
+  const advanced = screen.getByRole("region", { name: "Advanced" });
+  expect(within(advanced).getAllByRole("listitem").map((item) => item.querySelector("strong")!.textContent)).toEqual([
+    "Files and uploads", "Scan sources", "Scanning rules", "Tag text encoding", "Progress tracking"
+  ]);
+  const row = (title: string) => within(advanced).getByText(title).closest("li") as HTMLElement;
+  expect(row("Tag text encoding")).toHaveTextContent("None — leave tags as-is");
+  await user.click(within(row("Tag text encoding")).getByRole("button", { name: "Edit" }));
+  const dialog = await screen.findByRole("dialog", { name: "Tag text encoding" });
+  expect(within(dialog).getByLabelText("Tag text encoding")).toBeInTheDocument();
+  expect(within(dialog).queryByLabelText("Progress tracking")).not.toBeInTheDocument();
 });
 
 it("says so when the address is of a library that is not there", async () => {

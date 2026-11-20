@@ -572,9 +572,13 @@ there — nothing else keeps a parallel list.
 - **A row offers one way in.** A list of things to manage (Libraries & Scanning › Libraries) gives
   each row ONE way to its page — a click on the row — and a **⋯** `ActionMenu`, also
   opened by a right-click on the row (`openAt`), for Edit (the same page) and the quick
-  actions (Rescan, Delete); not an icon per dialog. A library's settings are its Manage
-  page (`libraries/LibraryManagePage`): a row per setting, each **Edit** opening that
-  one setting, with Members and groups opening the access window. Never one popup of
+  actions (Rescan, Delete); not an icon per dialog. A library's settings are its own
+  page (`libraries/LibraryManagePage`), in three sections — **General**, **Access**,
+  **Advanced** — each a row per setting that says what it is set to now, with **Edit**
+  opening that one setting (Members and groups opens the access window), and under the
+  rows the facts that belong to the section. Every option that can be changed has a row
+  of its own: none is reachable only through another setting's dialog, and there is no
+  separate Details card. Never one popup of
   every setting (tried 2026-11-19, and taken back the same day).
 - **Personal things live in Profile, not here.** The control panel is admin-only;
   anything that belongs to the signed-in person (reader tokens, devices, theme)

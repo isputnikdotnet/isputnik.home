@@ -48,13 +48,13 @@ shared household library; naming an owner makes it theirs to manage.
 The defaults suit most people — you can change all of it later from the
 library's **Manage** page.
 
-### 3. Layout (audiobooks and ebooks)
+### 3. Scanning rules (audiobooks and ebooks)
 
 **How are your books arranged?** Pick the shape that matches your folders, such
 as *Author / Series / 01 - Title*, and the first scan reads authors, series and
 titles from folder and file names accordingly. Not sure, or your library mixes
 several shapes? Keep **Scanner defaults**; after the first scan, open the
-library's **Folder structure** to label a real file and add rules for folders arranged
+library's **Scanning rules** to label a real file and add rules for folders arranged
 differently. The audiobook and ebook guides explain both.
 
 ### 4. Review
@@ -109,21 +109,27 @@ the row — opens one menu:
 - **Rescan** — re-read the folder.
 - **Delete library** — removes the library *from the app*. **Your files stay on
   disk.** Only the catalogue entry, and the covers generated from it, go away.
-- **Edit** — the library's own page (the same as a click on the row), listing what
-  can be set for its type, each with **Edit**:
-  - **Name, owner and access**, and **Members and groups** — who else may open it
-    and what they may do.
-  - **Files and uploads** and **Scanning** — formats, upload rules, where details
-    come from.
-  - **Folder structure** — for book libraries: how folder and file names are read, and rules
-    for folders arranged differently. See the audiobook and ebook guides.
-  - **Face recognition** and **Phone backups** — for a shared photo library. Phone
-    backups ticks members' phones whose photos are already in it, so switching on
-    [phone backup](phone-backup-linking.md) doesn't store them twice.
+- **Edit** — the library's own page (the same as a click on the row). It has three
+  sections; each lists what can be set there, one row per setting saying what it is
+  set to now, with **Edit** beside it, and under the rows the facts that go with them:
+  - **General** — its **Name**, its **Folder** (or, for a video library, **Folder and
+    language**), and **Organizing**: the shared sets it is sorted by (Book categories,
+    Tags or Video genres). Under them: its type, files, size, status, and when it was
+    last scanned, made and changed.
+  - **Access** — **Owner and visibility** (who owns it, whether everyone may open it
+    and what they may do) and **Members and groups** (who else, and with what role).
+    Under them: your own role and what you can do here.
+  - **Advanced** — **Files and uploads** (whether this app manages the files, the
+    formats it takes, the upload limit) and **Scan sources** (where details come
+    from). A book library adds **Scanning rules**: how folder and file names are
+    read, and rules for folders arranged differently — see the audiobook and ebook
+    guides. An audiobook library adds **Tag text encoding** and **Progress tracking**.
+    A photo library adds **Back sides**, **Face recognition** and **Phone backups**,
+    which ticks members' phones whose photos are already in it, so switching on
+    [phone backup](phone-backup-linking.md) doesn't store them twice. A video
+    library has no Advanced section: the video app reads its files.
 
-  Below them: the shared sets the library is organized with (Book categories, Tags
-  or Video genres, each opened from its application's Overview), everything about it at a glance,
-  and **Delete library**.
+  At the foot is **Delete library**.
 
 ## Next
 

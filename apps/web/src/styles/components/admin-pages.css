@@ -166,6 +166,56 @@
   overflow-wrap: anywhere;
 }
 
+.library-manage-rows code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+}
+
+/* A row's own action: Edit, or the links to the shared sets it is organized with. */
+.library-manage-rows li > .secondary-button,
+.library-manage-links {
+  flex: 0 0 auto;
+}
+
+.library-manage-rows .library-manage-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* The facts that go with a section, under its settings. */
+.library-manage-factlist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 24px;
+  margin: 4px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.library-manage-factlist > div {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A fact that is a row of chips (what you can do here) takes the room two would. */
+.library-manage-factlist > div:has(.library-info-chips) {
+  grid-column: span 2;
+}
+
+.library-manage-factlist dt {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.library-manage-factlist dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .library-manage-danger {
   border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
 }
