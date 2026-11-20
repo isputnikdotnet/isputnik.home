@@ -32,8 +32,8 @@ which is the one the shelves show; the rest sit underneath, each a click away.
 ## Telling the scanner how folders are arranged
 
 When your folder and file names carry the author, series or title, the scanner
-can read them. Open the library's **Layout** (the wand icon on the Libraries
-page in the control panel).
+can read them. Open the library's **Folder structure** (on the library's page in
+the control panel: **Libraries**, the library, then **Folder structure › Edit**).
 
 - **Default layout** applies to the whole library. Choose a starting point such
   as *Author / Series / 01 - Title*, then label a real file from your folders:

@@ -152,10 +152,12 @@ off for everyone until it is paired again.
 
 - **Access.** Everyone signed in is a member until you change something. The
   **Access** row says who has it; **Change** opens the access window: everyone in
-  the household, each with a role — **Member** (uses the app), **Manager** (also
-  looks after it — its admin pages), **Denied** to keep them out, or *No access*.
-  Tick several to set them at once (**Apply to selected**). Take **Everyone** down
-  to *No access* to allow only the people you give a role.
+  household and anyone given a role, each with it — **Member** (uses the app),
+  **Manager** (also looks after it — its admin pages), or **Denied** to keep them
+  out. **Add people or groups** at the top adds someone with the role you choose;
+  **Remove access** at the foot of a role's menu takes them off the list, and ticking
+  several rows changes them all at once. Take **Everyone** down to
+  *No access* to allow only the people you give a role.
   Administrators are always managers. Someone with no role doesn't see the app
   at all: no menu entry, and its address answers as if it weren't installed.
 - **From where.** Each thing the app does has its own rule — **Anywhere**,

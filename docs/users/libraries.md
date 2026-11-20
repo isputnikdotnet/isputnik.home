@@ -46,7 +46,7 @@ shared household library; naming an owner makes it theirs to manage.
 
 **Advanced options** covers file formats, upload rules and how metadata is read.
 The defaults suit most people — you can change all of it later from the
-library's **Edit** window.
+library's **Manage** page.
 
 ### 3. Layout (audiobooks and ebooks)
 
@@ -54,7 +54,7 @@ library's **Edit** window.
 as *Author / Series / 01 - Title*, and the first scan reads authors, series and
 titles from folder and file names accordingly. Not sure, or your library mixes
 several shapes? Keep **Scanner defaults**; after the first scan, open the
-library's **Layout** to label a real file and add rules for folders arranged
+library's **Folder structure** to label a real file and add rules for folders arranged
 differently. The audiobook and ebook guides explain both.
 
 ### 4. Review
@@ -97,34 +97,33 @@ Two ways:
 
 ![The libraries list, one row per library with its file count and size](images/21-libraries-list.png)
 
-Cards across the top count your libraries, their files and size, and say what is
-scanning, when the next scheduled scan runs and what needs a look; **Rescan all**,
-the scan schedules and the storage containers are beside them. A button per type
-(and **Personal**) filters the table below, twenty libraries a page.
-
 Each library row shows who can open it, how many files it holds and how big it is,
 and its **Status** — up to date, scanning (with a link to follow it in Tasks), or what
-went wrong. Its **⋯** — or a right-click anywhere on the row — opens one menu:
+went wrong. A button per type over the table (and **Personal**), each with its count,
+filters it; the table shows twenty libraries a page. To its right are **Rescan all**,
+the scan schedules and tasks, and the **Storage containers** libraries are made in.
+
+A click on a row opens the library's own page. Its **⋯** — or a right-click anywhere on
+the row — opens one menu:
 
 - **Rescan** — re-read the folder.
 - **Delete library** — removes the library *from the app*. **Your files stay on
   disk.** Only the catalogue entry, and the covers generated from it, go away.
-- **Edit** (or a click on the row) — one window for everything about the library.
-  The numbered steps across its top jump to its sections, and the one you are reading
-  stays lit; **Rescan** is beside its title, **Save changes** and **Delete library**
-  at its foot. The sections:
-  - **Summary** — its files, size, status and when it was last scanned.
-  - **Name and access** — its name, owner, whether everyone may open it and what they
-    may do, and under them its **Members and groups**: who else may open it and with
-    what role. Members and groups save as you change them.
-  - **Files and scanning** — its folder, whether this app manages the files (Mode),
-    where details come from, formats and upload rules; **Layout** for a book library
-    and **Face recognition** and **Phone backups** for a shared photo library. Phone
+- **Edit** — the library's own page (the same as a click on the row), listing what
+  can be set for its type, each with **Edit**:
+  - **Name, owner and access**, and **Members and groups** — who else may open it
+    and what they may do.
+  - **Files and uploads** and **Scanning** — formats, upload rules, where details
+    come from.
+  - **Folder structure** — for book libraries: how folder and file names are read, and rules
+    for folders arranged differently. See the audiobook and ebook guides.
+  - **Face recognition** and **Phone backups** — for a shared photo library. Phone
     backups ticks members' phones whose photos are already in it, so switching on
-    [phone backup](phone-backup-linking.md) doesn't store them twice. A video
-    library has its folder and language here.
-  - **Organizing** — the shared sets it is sorted by (Book categories, Tags or Video genres).
-  - **About** — your role, what you can do, and when it was made and changed.
+    [phone backup](phone-backup-linking.md) doesn't store them twice.
+
+  Below them: the shared sets the library is organized with (Book categories, Tags
+  or Video genres, each opened from its application's Overview), everything about it at a glance,
+  and **Delete library**.
 
 ## Next
 

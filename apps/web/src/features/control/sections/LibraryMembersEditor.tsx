@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../api";
 import { AccessControl } from "../../../shared/AccessControl";
-import { MessageBox } from "../../../shared/MessageBox";
+import { AccessDialog } from "../../../shared/AccessDialog";
 import { LIBRARY_ROLE_OPTIONS, type LibraryMember, type LibraryRole, type PublicRole } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup } from "../types";
 // Plain lookup functions rather than module-level consts, so a language switch
@@ -22,6 +22,8 @@ const ROLE_DOT: Record<LibraryRole, string> = {
 };
 
 function roleName(role: LibraryRole): string {
+  // In the menu Deny is something you do, not a state a row is in ("Denied").
+  if (role === "deny") return i18n.t("control:libraryMembers.denyName");
   return i18n.t(`control:libraries.role.${role}`);
 }
 
@@ -149,7 +151,12 @@ function MembersControl({ library, users, groups, state }: {
         // shown here and changed there.
         role: isPublic ? library.publicRole : null,
         hint: t("control:libraryMembers.everyoneSub"),
-        lockedHint: t("control:libraryMembers.publicSetInLibraryTitle")
+        lockedHint: t("control:libraryMembers.publicSetInLibraryTitle"),
+        // The card at the top: what being public (or private) means for this library.
+        cardTitle: isPublic ? t("control:libraryMembers.cardPublic") : t("control:libraryMembers.cardPrivate"),
+        summary: isPublic
+          ? publicDescription(library.publicRole) ?? t("control:libraryMembers.publicFallback")
+          : t("control:libraryMembers.privateBody")
       }}
       busy={state.saving}
       emptyHint={t("control:libraryMembers.noMembersYet")}
@@ -159,18 +166,26 @@ function MembersControl({ library, users, groups, state }: {
   );
 }
 
-/** The same editor inside a page or popup (the library Edit popup's Name and
- *  access step, 2026-11-19): what public or private means for it, then the list. */
-export function LibraryMembersEditor({ library, users, groups }: { library: MembersLibrary; users: ManagedUser[]; groups: ManagedGroup[] }) {
+/** The same editor as the access window — "Access to <library>" — opened from the
+ *  library's Manage page (Members and groups › Edit). */
+export function LibraryMembersDialog({ library, users, groups, onClose }: {
+  library: MembersLibrary;
+  users: ManagedUser[];
+  groups: ManagedGroup[];
+  onClose: () => void;
+}) {
   const { t } = useTranslation(["common", "control"]);
   const state = useLibraryMembers(library.id);
   return (
-    <div className="library-members-editor">
-      <p className="muted">{library.visibility === "public"
-        ? publicDescription(library.publicRole) ?? t("control:libraryMembers.publicFallback")
-        : t("control:libraryMembers.privateBody")}</p>
-      {state.error && <MessageBox tone="error" title={t("control:libraryMembers.errorTitle")}>{state.error}</MessageBox>}
+    <AccessDialog
+      title={t("control:libraryMembers.title", { name: library.name })}
+      intro={t("control:libraryMembers.subtitle")}
+      error={state.error}
+      errorTitle={t("control:libraryMembers.errorTitle")}
+      busy={state.saving}
+      onClose={onClose}
+    >
       <MembersControl library={library} users={users} groups={groups} state={state} />
-    </div>
+    </AccessDialog>
   );
 }

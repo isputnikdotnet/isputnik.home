@@ -55,8 +55,9 @@ you want from it — leave *Cover* or *Year* unticked and yours stays put.
 
 The one-folder-one-book rule is the default. When your folders are nested
 deeper, say `Author / Series / 01 - Title`, or a book is split into `Part 1`
-and `Part 2` folders, open the library's **Layout** (the wand icon on the
-Libraries page in the control panel).
+and `Part 2` folders, open the library's **Folder structure** (on the library's
+page in the control panel: **Libraries**, the library, then **Folder structure ›
+Edit**).
 
 - **Default layout** applies to the whole library. Choose a starting point, then
   label a real path from your folders: each folder gets a role (Author, Series,

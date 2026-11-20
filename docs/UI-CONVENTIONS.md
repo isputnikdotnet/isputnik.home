@@ -124,19 +124,27 @@ The iPhone-Settings-style lists: a `GroupedList` (title, note) of rows — `NavR
 
 ### Access — `shared/AccessDialog` + `shared/AccessControl`
 
-ONE window for "who may open, see or change this", everywhere (2026-11-16): a popup
-titled **Access to …** with an icon and one line saying what it is about. It lists
-everyone who could have it — Everyone, then groups, then people — in a table that
-scrolls on its own, under a search and a filter (All / Has access / No access, with
-counts). No tabs, nothing to add separately: everyone is already in the list.
+ONE window for "who may open, see or change this", everywhere (2026-11-16; redesigned
+2026-11-19): a popup titled **Access to …** with one line saying what it is about, then
+a card saying whether it is **open to everyone** or **only the people below** (where the
+list is about visibility: `everyone.summary` is its line), ONE **Add people or groups**
+field (a list of those without access, groups first) with the role to give and **Add**,
+and the table of those who HAVE access (**People and groups** · **Access**) — Everyone,
+then groups, then people — each one line: a tick box, avatar, name and kind tag (email or
+member count is the row's tooltip). Those with access only through a group are listed
+too, saying how, and changed there.
 
-- **With roles** (libraries, collections, branches, the Inbox): each row has a role menu
-  that includes **No access**, and a tick box; tick several and **Apply to selected** sets
-  them all at once. **Roles** at the foot explains the vocabulary.
-- **On/off** (`roles={[]}`: personal libraries, photos of a person): the tick box IS the
-  access — ticked has it — and the header's box gives it to, or takes it from, everyone
-  shown.
-- Changes save as they are made ("Changes are saved automatically").
+- **With roles** (libraries, collections, branches, the Inbox, apps): each row has a role
+  menu listing every role beside what it allows, then — under a rule — the roles that take
+  access away (`deny`, and **No access** for Everyone), then **Remove access**. **Roles:**
+  under the table spells out the escalating roles on one line, from the same objects the
+  menus use.
+- **Several at once**: tick rows and the **Access** heading becomes **Change access**, the
+  same menu for all of them (on/off: a **Remove access** button). No second bar.
+- **On/off** (`roles={[]}`: personal libraries, photos of a person): **Add** gives access
+  and each row has **Remove**.
+- Changes save as they are made: "Changes are saved automatically" sits under the table,
+  over the roles; the window's foot is **Close** alone.
 
 - Open it from a page as ONE row ("Access · The household (Member)") with **Change**.
 - Each place passes only its roles (`roles`), its baseline (`everyone`), its people
@@ -542,7 +550,8 @@ there — nothing else keeps a parallel list.
     2026-11-19). Each keeps its own `CONTROL_PATHS` address and search entry; the tab
     row stays up with the parent selected, and its back line names the tab ("← Back │
     Applications › Gallery › Overview").
-  - A **page of one thing** — a member, a group — has its own route matched after the table in
+  - A **page of one thing** — a member, a group, a library's Manage page
+    (`libraryManageHref()`) — has its own route matched after the table in
     `getRoute()`, drops the tab row, and opens with the same back line, its list last
     ("← Back │ Libraries"). A page of one thing may draw its OWN tab row, every tab
     a real address (`RouteTab`): a member's page, and Diagnostics › Video and
@@ -561,11 +570,12 @@ there — nothing else keeps a parallel list.
   and `placeOf(section, from)` puts its eyebrow, selected tab and back link there; list
   it in `SHARED_PAGE_PARENTS`. Never a second copy of the editor.
 - **A row offers one way in.** A list of things to manage (Libraries & Scanning › Libraries) gives
-  each row one **⋯** `ActionMenu` — also opened by a right-click on the row (`openAt`) —
-  with every action (Edit, Rescan, Delete); not an icon per dialog. A library's
-  settings are ONE Edit popup in the Add library wizard's shape, a step per setting (members
-  and groups inside Name and access)
-  (owner, 2026-11-19); `libraryManageHref()` opens the list with that popup.
+  each row ONE way to its page — a click on the row — and a **⋯** `ActionMenu`, also
+  opened by a right-click on the row (`openAt`), for Edit (the same page) and the quick
+  actions (Rescan, Delete); not an icon per dialog. A library's settings are its Manage
+  page (`libraries/LibraryManagePage`): a row per setting, each **Edit** opening that
+  one setting, with Members and groups opening the access window. Never one popup of
+  every setting (tried 2026-11-19, and taken back the same day).
 - **Personal things live in Profile, not here.** The control panel is admin-only;
   anything that belongs to the signed-in person (reader tokens, devices, theme)
   goes under `PROFILE_PATHS` so every member can reach their own.
@@ -587,7 +597,7 @@ there — nothing else keeps a parallel list.
   history (opened from a link, the nearest level up); each name opens that level's own
   page — the group's first page, the workspace's Overview, the tab a page sits under,
   or the list a detail page came from. `ControlSectionHead` draws it; a page without
-  that head (a Device Sync phone) draws `ControlBackBar`
+  that head (a Device Sync phone, a library's Manage page) draws `ControlBackBar`
   itself. Wherever it is declared it is drawn in ControlPanelPage's slot: the first
   thing in the work area, at the icon's left edge, ABOVE a workspace's tab row and
   status line — never under them, never centred, never a second line of its own lower

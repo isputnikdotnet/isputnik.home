@@ -102,9 +102,11 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   several choices is ONE `CommandRow` saying its value, with **Change** opening a
   `Modal` of the choices — not the choices spread over the page.
 - **Access** ("who may open/see/change this") is ONE window everywhere:
-  `shared/AccessDialog` around `shared/AccessControl` — one popup listing everyone, with
-  search, filter and tick boxes (with roles: a role menu per row and Apply to selected;
-  on/off: the tick box is the access); each place passes only its roles, people and requests.
+  `shared/AccessDialog` around `shared/AccessControl` — a public/private card, one "Add people
+  or groups" field with the role and Add, then the table of those who have access, each with a
+  tick box and a role menu (every role beside what it allows, then Remove access; ticked rows
+  are changed together from the Access heading; on/off lists have Remove), and the roles
+  spelled out under it; each place passes only its roles, people and requests.
   Never build another access list.
 - **Messages**: inline errors/notices use `shared/MessageBox` with a tone
   (`info|warning|error|success`); no custom error divs. Error titles say what
@@ -170,9 +172,8 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   Two kinds of sub-page are allowed: a tab's **pages** (`pages` on its `nav.ts` entry —
   Gallery › Overview's Duplicate cleanup, Missing photos and Video streaming) keep their own address and
   search entry, keep the tab selected, and open with a back link; a **page of one thing**
-  (a member, a group) has its own route outside the table and drops the tab row. A
-  library has no page: its settings are one Edit popup in the Add library wizard's shape,
-  opened from its row's ⋯ or a right-click; `libraryManageHref()` opens the list with it. A **shared page** (Book categories, Tags) has
+  (a member, a group, a library's Manage page at `libraryManageHref()`) has its own route
+  outside the table and drops the tab row. A **shared page** (Book categories, Tags) has
   ONE address; opened from a workspace it carries `?from=<app>` (`controlHrefFrom`,
   `placeOf`), never a second copy. The v1 six groups (4.15–4.86) and every older address
   stay in `CONTROL_ALIASES` (and the Dashboard's `?view=` in `LEGACY_DASHBOARD_VIEWS`);

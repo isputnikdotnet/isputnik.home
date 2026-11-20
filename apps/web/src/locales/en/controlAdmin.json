@@ -967,9 +967,9 @@
     "browseFolders": "Browse folders"
   },
   "layout": {
-    "panelTitle": "Layout · {{name}}",
+    "panelTitle": "Folder structure · {{name}}",
     "panelIntro": "How the scanner reads folder and file names in this library. The default layout applies everywhere; a rule below takes over inside its own folders, the most specific one winning.",
-    "errorTitle": "Layout",
+    "errorTitle": "Folder structure",
     "loadFailed": "Unable to load the layout",
     "saveFailed": "Unable to save",
     "deleteFailed": "Unable to delete the rule",

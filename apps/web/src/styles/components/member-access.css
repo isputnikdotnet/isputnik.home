@@ -14,59 +14,107 @@
   color: inherit;
 }
 
-/* ── The access window (shared/AccessControl + AccessDialog, owner 2026-11-16) ──
-   One popup everywhere, wide enough for a long list: a search and a filter; a table
-   of everyone that scrolls on its own — with roles, a tick box and a role menu each,
-   and a bar to set the ticked at once; on/off, a switch each. Text a step smaller
-   than a page's, so a household fits without scrolling far. */
-.ax-modal { width: min(100%, 640px); }
-.ax-modal .modal-title-icon { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
-.access-control { display: grid; gap: 10px; min-width: 0; font-size: 0.875rem; }
-/* Room between the window's header (its icon and title) and the search row. */
-.ax-pane { display: grid; gap: 10px; min-width: 0; margin-top: 6px; }
-.ax-toolbar { display: flex; gap: 8px; align-items: center; min-width: 0; }
-.ax-toolbar > .ax-search { flex: 1; }
-.ax-filter > .select-menu-trigger { min-height: 34px; padding: 0 10px; gap: 6px; font-size: var(--text-sm); white-space: nowrap; }
-.ax-filter .select-menu-popover { right: 0; left: auto; min-width: 200px; }
-.ax-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 34px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); }
-.ax-search > input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; }
-.ax-table { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }
-.ax-head { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--line) 30%, transparent); color: var(--muted); font-size: var(--text-xs, 0.75rem); font-weight: 600; }
-.ax-head > span:nth-of-type(1) { flex: 1; }
-.ax-head > span:nth-of-type(2) { width: 150px; }
-/* On/off: the switch sits where the role menu would, at the row's end. */
-.ax-switch { flex: none; display: inline-flex; align-items: center; padding: 2px; min-height: 0; border: 0; background: none; cursor: pointer; }
-.ax-head.is-toggle > .ax-switch { margin-left: auto; }
-/* The list scrolls inside the window, so a long household keeps the bar in view. */
-.ax-list { display: grid; max-height: min(44vh, 380px); overflow-y: auto; min-width: 0; }
-.ax-row { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 4px 12px; border-top: 1px solid var(--line); min-width: 0; }
-.ax-list > .ax-row:first-child { border-top: 0; }
-.ax-row.is-selected { background: color-mix(in srgb, var(--blue) 9%, transparent); }
-.ax-row > input[type=checkbox], .ax-head > input[type=checkbox] { flex: none; width: 15px; height: 15px; margin: 0; }
-.ax-check-spacer { flex: none; width: 15px; }
-.ax-avatar { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 0.68rem; font-weight: 700; }
-.ax-avatar.is-neutral { background: color-mix(in srgb, var(--blue) 15%, transparent); color: var(--blue); }
-.ax-avatar.is-square { border-radius: 8px; }
-.ax-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ax-name > small { margin-left: 6px; color: var(--muted); font-size: var(--text-xs, 0.75rem); }
-.ax-name > small.ax-kind { padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--line) 60%, transparent); }
-.ax-name > small.ax-tag { padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); font-weight: 600; }
-/* The role menu: the shared SelectMenu, compact and one width, its dot as the icon. */
-.ax-role { flex: none; width: 150px; }
-.ax-role > .select-menu-trigger { width: 100%; justify-content: space-between; min-height: 30px; padding: 0 10px; gap: 6px; font-size: var(--text-sm); font-weight: 500; }
-.ax-role .select-menu-popover { right: 0; left: auto; min-width: 170px; }
-.ax-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.ax-empty { margin: 10px 12px; color: var(--muted); font-size: var(--text-sm); }
-/* Setting everyone ticked at once (and Add's choice): a tinted bar under the list. */
-.ax-bulk { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--blue) 7%, transparent); }
-.ax-bulk > strong { flex: 1; font-size: var(--text-sm); }
-.ax-bulk > .primary-button { display: inline-flex; align-items: center; gap: 6px; }
-.ax-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); }
-.ax-foot > small { display: inline-flex; align-items: center; gap: 6px; }
-.ax-legend { display: grid; gap: 6px; margin: 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--line) 35%, transparent); font-size: var(--text-sm); }
-.ax-legend dt { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-.ax-legend dd { margin: 0 0 0 15px; color: var(--muted); }
-@media (max-width: 560px) {
-  .ax-role, .ax-head > span:nth-of-type(2) { width: 124px; }
-  .ax-toolbar { flex-wrap: wrap; }
+/* ── The access window (shared/AccessControl + AccessDialog; redesigned 2026-11-19) ──
+   A card saying whether the thing is open to everyone; one Add field with the role to
+   give; the table of those who have it — a tick, who, and a role menu each; "Changes
+   are saved automatically"; what each role may do; Close. */
+.ax-modal { display: grid; gap: 14px; width: min(100%, 860px); }
+.ax-modal .modal-title-icon { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; background: color-mix(in srgb, var(--line) 55%, transparent); color: var(--ink); }
+.ax-modal .modal-title-row h2 { font-size: 1.3rem; }
+.ax-modal .modal-subtitle { font-size: 0.9rem; }
+.access-control { display: grid; gap: 12px; min-width: 0; }
+
+/* Open to everyone, or only those listed. */
+.ax-card { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--line) 22%, transparent); }
+.ax-card-icon { flex: none; display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+.ax-card > div { display: grid; gap: 1px; min-width: 0; }
+.ax-card strong { display: inline-flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; font-size: 0.98rem; }
+.ax-card span { color: var(--muted); font-size: 0.88rem; }
+
+/* Add: who, as what, and Add. */
+.ax-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 210px) auto; align-items: stretch; gap: 10px; min-width: 0; }
+.ax-add-field { position: relative; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 14px; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--field); }
+.ax-add-field:focus-within { border-color: var(--accent); }
+.ax-add-field > input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; }
+.ax-add-clear { flex: none; }
+.ax-add-list { position: absolute; z-index: 5; left: -1px; right: -1px; top: calc(100% + 4px); display: grid; max-height: 260px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18); }
+.ax-add-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ax-add-option:hover, .ax-add-option:focus-visible { background: var(--hover); }
+.ax-add-option .ax-avatar { width: 28px; height: 28px; font-size: 0.7rem; }
+.ax-add-sub { margin-left: auto; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.ax-add-option .ax-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; }
+.ax-add > .ax-role { min-height: 40px; }
+.ax-add > .primary-button { white-space: nowrap; }
+/* On/off: no role to give, so the field and Add share the row. */
+.ax-add:not(:has(> .ax-role)) { grid-template-columns: minmax(0, 1fr) auto; }
+
+/* Who has it: a tick, who, and what they may do. */
+.ax-list { max-height: min(46vh, 440px); overflow-y: auto; min-width: 0; border: 1px solid var(--line); border-radius: 10px; }
+.ax-row { display: grid; grid-template-columns: 16px 32px minmax(0, 1fr) minmax(0, 240px); align-items: center; gap: 12px; min-height: 42px; padding: 3px 12px 3px 14px; border-top: 1px solid var(--line); min-width: 0; }
+.ax-row.is-selected { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.ax-row > input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.ax-row > input[type="checkbox"]:disabled { cursor: default; opacity: 0.45; }
+/* A row's own button (on/off lists) or its "through a group" sits at the column's start. */
+.ax-row > .secondary-button, .ax-row > .ax-state { justify-self: start; }
+.ax-head { position: sticky; top: 0; z-index: 1; min-height: 36px; border-top: 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 0.86rem; font-weight: 600; background: color-mix(in srgb, var(--line) 30%, var(--surface-raised)); }
+.ax-head + .ax-row, .ax-head + .ax-empty { border-top: 0; }
+.ax-head-name { grid-column: 2 / span 2; }
+.ax-avatar { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; font-size: 0.72rem; font-weight: 700; }
+.ax-avatar.is-neutral { background: color-mix(in srgb, var(--line) 60%, transparent); color: var(--ink); }
+.ax-name { display: grid; gap: 1px; min-width: 0; }
+.ax-name-line { display: inline-flex; align-items: center; gap: 10px; min-width: 0; font-size: 0.94rem; }
+.ax-name > small { color: var(--muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ax-kind, .ax-tag { justify-self: start; width: max-content; padding: 1px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; }
+.ax-kind { background: color-mix(in srgb, var(--line) 70%, transparent); color: var(--muted); }
+.ax-tag { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.ax-tag.is-muted { background: color-mix(in srgb, var(--line) 70%, transparent); color: var(--muted); }
+.ax-state { color: var(--muted); font-size: 0.86rem; }
+.ax-empty { margin: 0; padding: 10px 14px; color: var(--muted); font-size: var(--text-sm); border-top: 1px solid var(--line); }
+.ax-add-list > .ax-empty { border-top: 0; padding: 8px; }
+
+/* The role menu: the trigger says the role; the menu says what each one allows. */
+.ax-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ax-role { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--field); font: inherit; font-size: 0.92rem; font-weight: 600; text-align: left; cursor: pointer; }
+.ax-role > svg { flex: none; margin-left: auto; color: var(--accent); transition: transform 0.15s ease; }
+.ax-role.is-open > svg { transform: rotate(180deg); }
+.ax-role-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ax-role:hover:not(:disabled), .ax-role.is-open { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.ax-role:focus-visible, .ax-role.is-open { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 0; }
+.ax-role:disabled { cursor: default; opacity: 0.75; }
+.ax-role:disabled > svg { visibility: hidden; }
+.ax-role-menu { gap: 0; width: max-content; max-width: min(460px, calc(100vw - 16px)); padding: 6px; box-sizing: border-box; }
+.ax-role-option { display: grid; grid-template-columns: 10px max-content minmax(0, 1fr) 16px; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 30px; padding: 3px 8px; box-sizing: border-box; font-size: 0.92rem; border: 0; border-radius: 6px; color: var(--ink); background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.ax-role-option:hover:not(:disabled), .ax-role-option:focus-visible, .ax-role-option.active { background: var(--hover); outline: 0; }
+.ax-role-option:disabled { cursor: default; }
+.ax-role-option:disabled:not(.active) { opacity: 0.5; }
+.ax-role-option-name { min-width: 92px; white-space: nowrap; }
+.ax-role-option-tagline { min-width: 0; color: var(--muted); font-size: 0.82rem; line-height: 1.25; overflow-wrap: anywhere; }
+.ax-role-option-check { display: grid; place-items: center; color: var(--accent); }
+.ax-role-remove { grid-template-columns: 15px minmax(0, 1fr); min-height: 32px; font-weight: 600; }
+.ax-role-rule { height: 1px; margin: 4px 4px; background: var(--line); }
+
+/* Under the table: how it saves, then what each role may do, on one line. */
+.ax-saved { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 0.84rem; }
+.ax-saved > svg { flex: none; }
+.ax-legend { display: flex; align-items: baseline; gap: 14px; margin: 0; padding: 7px 14px; border: 1px solid var(--line); border-radius: 8px; font-size: 0.8rem; }
+.ax-legend-label { flex: none; font-weight: 700; }
+/* Rules between the roles, none at the start of a line when they wrap: each item's
+   rule is on its left, and the one a line starts with is pulled out of sight. */
+.ax-legend > dl { display: flex; flex-wrap: wrap; gap: 4px 0; min-width: 0; margin: 0 0 0 -12px; overflow: hidden; }
+.ax-legend > dl > div { display: flex; align-items: baseline; gap: 5px; margin-left: -1px; padding: 0 12px; border-left: 1px solid var(--line); }
+.ax-legend dt { font-weight: 700; white-space: nowrap; }
+.ax-legend dd { margin: 0; color: var(--muted); }
+.ax-legend dd::before { content: "— "; }
+.ax-modal-foot { display: flex; justify-content: flex-end; }
+@media (max-width: 640px) {
+  .ax-add { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .ax-add-field { grid-column: 1 / -1; }
+  .ax-row { grid-template-columns: 18px 34px minmax(0, 1fr); gap: 8px 12px; padding: 10px 12px; }
+  .ax-row > .ax-role, .ax-row > .secondary-button, .ax-row > .ax-state { grid-column: 2 / -1; }
+  .ax-head-name { grid-column: 2 / -1; }
+  .ax-head-access { display: none; }
+  .ax-avatar { width: 34px; height: 34px; }
+  .ax-legend { display: grid; gap: 4px; }
+  .ax-legend > dl { display: grid; margin: 0; }
+  .ax-legend > dl > div { margin: 0; padding: 0; border-left: 0; }
 }

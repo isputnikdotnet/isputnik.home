@@ -168,7 +168,7 @@ describe("Security → App access", () => {
     await waitFor(() => expect(screen.getByLabelText("Where Play is allowed from")).toHaveValue("home"));
   });
 
-  it("removes a group in the access window by setting it to No access", async () => {
+  it("removes a group in the access window with Remove access", async () => {
     mockApi.mockImplementation(((path: string, init?: RequestInit) => {
       if (path === "/api/apps/admin/access/games/grants/group/grp-kids" && init?.method === "DELETE") return Promise.resolve({ ...accessPayload, grants: [] });
       return answer(path, init);
@@ -177,9 +177,8 @@ describe("Security → App access", () => {
     await userEvent.click(await screen.findByRole("button", { name: /^Access/ }));
     const dialog = await screen.findByRole("dialog", { name: "Access to Games" });
     await userEvent.click(within(dialog).getByRole("button", { name: /^Role for Kids: Denied/ }));
-    await userEvent.click(within(dialog).getByRole("option", { name: /No access/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Remove access" }));
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/api/apps/admin/access/games/grants/group/grp-kids", { method: "DELETE" }));
-    expect(await within(dialog).findByRole("button", { name: /^Role for Kids: No access/ })).toBeInTheDocument();
   });
 
   it("gives a member access in the access window", async () => {
@@ -193,8 +192,11 @@ describe("Security → App access", () => {
     await userEvent.click(await screen.findByRole("button", { name: /^Access/ }));
     const dialog = await screen.findByRole("dialog", { name: "Access to Games" });
     // Everyone is listed: Mum has no access yet.
-    await userEvent.click(within(dialog).getByRole("button", { name: /^Role for Mum: No access/ }));
-    await userEvent.click(within(dialog).getByRole("option", { name: /^Member/ }));
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Add people or groups" }));
+    await userEvent.click(within(dialog).getByRole("option", { name: /^Mum/ }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Role to give/ }));
+    await userEvent.click(screen.getByRole("menuitemradio", { name: /^Member/ }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith(
       "/api/apps/admin/access/games/grants",
       { method: "POST", body: JSON.stringify({ subjectType: "user", subjectId: "mum", role: "member" }) }

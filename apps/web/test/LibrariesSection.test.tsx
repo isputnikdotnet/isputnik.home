@@ -36,8 +36,9 @@ it("opens with only the linked application's libraries", async () => {
   expect(screen.queryByText("ebook collection")).not.toBeInTheDocument();
 });
 
-// Back to the list (owner, 2026-11-19): a row's menu — its ⋯ or a right-click — has
-// every action, and Edit opens one popup laid out as the Add library wizard.
+// A row's menu — its ⋯ or a right-click — has every action; Edit, like a click on the
+// row, opens the library's own page (the full Manage page; the one popup of every
+// setting lasted a day, 2026-11-19).
 it("gives each row one menu, by ⋯ or a right-click: Edit, Rescan, Delete", async () => {
   const user = userEvent.setup();
   render(<LibrariesSection />);
@@ -48,44 +49,64 @@ it("gives each row one menu, by ⋯ or a right-click: Edit, Rescan, Delete", asy
   fireEvent.contextMenu(screen.getByText("gallery collection"), { clientX: 40, clientY: 60 });
   expect(await screen.findByRole("menu", { name: "More for gallery collection" })).toBeInTheDocument();
   await user.click(screen.getByRole("menuitem", { name: "Edit…" }));
-  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  // A page, not a popup — and the way back keeps the list's filter.
+  expect(window.location.pathname).toBe("/control/libraries/gallery");
+  expect(window.location.search).toBe("?type=gallery");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-// One window of sections, the old Manage page's content arranged by what it is
-// about (owner, 2026-11-19); the step row jumps between them.
-it("edits a library in one window of sections, with Rescan and Delete at hand", async () => {
+it("opens a library's page from a click on its row", async () => {
   const user = userEvent.setup();
   render(<LibrariesSection />);
   await user.click(await screen.findByText("gallery collection"));
-  const dialog = await screen.findByRole("dialog");
-  const steps = within(dialog).getByRole("list", { name: "Settings of gallery collection" });
-  expect(within(steps).getAllByRole("listitem").map((step) => step.textContent)).toEqual([
-    "1Summary", "2Name and access", "3Files and scanning", "4Organizing", "5About"
-  ]);
-  // Every section is in the one window.
-  for (const name of ["Summary", "Name and access", "Files and scanning", "Organizing", "About"]) {
-    expect(within(dialog).getByRole("region", { name })).toBeInTheDocument();
-  }
-  expect(within(dialog).getByLabelText("Library name")).toHaveValue("gallery collection");
-  // Members and groups belong to Name and access; Mode to Files and scanning.
-  const access = within(dialog).getByRole("region", { name: "Name and access" });
-  expect(within(access).getByRole("region", { name: "Members and groups" })).toBeInTheDocument();
-  const files = within(dialog).getByRole("region", { name: "Files and scanning" });
-  expect(within(files).getByLabelText("Mode")).toHaveValue("managed");
-  // A step jumps to its section and is the one lit.
-  await user.click(within(steps).getByRole("button", { name: /About/ }));
-  expect(within(steps).getByRole("button", { name: /About/ }).closest("li")).toHaveAttribute("aria-current", "step");
-  expect(within(dialog).getByRole("button", { name: /^Rescan/ })).toBeInTheDocument();
-  expect(within(dialog).getByRole("button", { name: /Delete library/ })).toBeInTheDocument();
+  expect(window.location.pathname).toBe("/control/libraries/gallery");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-it("opens a library's own address as the list with its popup", async () => {
+it("shows a library's own address as its full page: settings, organizing, details, delete", async () => {
+  const user = userEvent.setup();
   window.history.replaceState({}, "", "/control/libraries/gallery");
   render(<LibrariesSection libraryId="gallery" />);
-  const dialog = await screen.findByRole("dialog");
+  expect(await screen.findByRole("heading", { level: 1, name: "gallery collection" })).toBeInTheDocument();
+  // The page, not the list with a popup over it.
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  for (const name of ["Settings", "Organizing", "Details", "Delete library"]) {
+    expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
+  }
+  expect(screen.getByRole("button", { name: /^Rescan/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Delete library/ })).toBeInTheDocument();
+  const row = (title: string) => screen.getAllByText(title).find((el) => el.tagName === "STRONG")!.closest("li") as HTMLElement;
+  for (const title of ["Name, owner and access", "Members and groups", "Files and uploads", "Scanning", "Face recognition"]) {
+    expect(within(row(title)).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  }
+
+  // Each Edit opens that one setting.
+  await user.click(within(row("Name, owner and access")).getByRole("button", { name: "Edit" }));
+  let dialog = await screen.findByRole("dialog", { name: "Name, owner and access" });
   expect(within(dialog).getByLabelText("Library name")).toHaveValue("gallery collection");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-  await waitFor(() => expect(window.location.pathname).toBe("/control/libraries"));
+  expect(within(dialog).queryByLabelText("Mode")).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  // Cancel closes the dialog; the page stays.
+  expect(window.location.pathname).toBe("/control/libraries/gallery");
+
+  await user.click(within(row("Files and uploads")).getByRole("button", { name: "Edit" }));
+  dialog = await screen.findByRole("dialog", { name: "Files and uploads" });
+  expect(within(dialog).getByLabelText("Mode")).toHaveValue("managed");
+  expect(within(dialog).queryByLabelText("Library name")).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+  // Members and groups is the access window.
+  await user.click(within(row("Members and groups")).getByRole("button", { name: "Edit" }));
+  dialog = await screen.findByRole("dialog", { name: "Access to gallery collection" });
+  expect(await within(dialog).findByRole("combobox", { name: "Add people or groups" })).toBeInTheDocument();
+});
+
+it("says so when the address is of a library that is not there", async () => {
+  window.history.replaceState({}, "", "/control/libraries/nope");
+  render(<LibrariesSection libraryId="nope" />);
+  expect(await screen.findByRole("link", { name: "Back to Libraries" })).toHaveAttribute("href", "/control/libraries");
 });
 
 it("lets the user show all types, keeps that choice in the URL, and restores Back", async () => {
@@ -109,22 +130,23 @@ it("ignores an invalid type rather than showing an empty filtered list", async (
   expect(screen.getByText("ebook collection")).toBeInTheDocument();
 });
 
-// Cards, chips and the side column around the table (owner, 2026-11-19).
-it("opens on cards of every library, a chip per type and Personal, and where scanning is looked after", async () => {
+// Chips over the table, and the side column to its right (owner, 2026-11-19: no
+// "At a glance" cards over them).
+it("opens on a chip per type and Personal over the table, with where scanning is looked after beside it", async () => {
   window.history.replaceState({}, "", "/control/libraries");
   render(<LibrariesSection />);
-  const tiles = await screen.findByRole("region", { name: "At a glance" });
-  await waitFor(() => expect(within(tiles).getAllByText("4")).toHaveLength(2));
-  expect(within(tiles).getByText("across 4 types")).toBeInTheDocument();
-  expect(within(tiles).getByRole("link", { name: "On disk" })).toHaveAttribute("href", "/control/libraries/statistics");
-  // The next library scan, not the next backup.
-  expect(within(tiles).getByText(/^next /)).toBeInTheDocument();
+  expect(await screen.findByText("gallery collection")).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "At a glance" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^All/ })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: /^Gallery/ })).toHaveAttribute("aria-pressed", "false");
   const scanning = screen.getByRole("region", { name: "Scanning" });
   expect(within(scanning).getByRole("button", { name: /^Rescan all/ })).toBeInTheDocument();
   expect(within(scanning).getByRole("link", { name: /^Scan schedules/ })).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "Where files live" })).toBeInTheDocument();
+  const where = screen.getByRole("region", { name: "Where files live" });
+  // The table and the side column are the two halves of one row.
+  const table = screen.getByRole("table");
+  expect(scanning.closest(".library-overview")).toBe(table.closest(".library-overview"));
+  expect(where.closest(".diag-video-side")).toBe(scanning.closest(".diag-video-side"));
 });
 
 it("pages a long list twenty at a time", async () => {

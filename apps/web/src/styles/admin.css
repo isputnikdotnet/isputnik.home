@@ -3011,7 +3011,6 @@ tr.control-anchor-flash > td {
 .library-type-chip:hover { border-color: var(--accent); }
 .library-type-chip.is-on { border-color: transparent; background: var(--ink); color: var(--surface); }
 .library-type-chip-count { font-size: 0.78rem; color: inherit; opacity: 0.75; }
-.library-overview { margin-bottom: 16px; }
 .library-overview-list { display: grid; gap: 12px; min-width: 0; }
 .library-overview-list .library-table-wrap { margin: 0; }
 /* A group of lists under one heading on a workspace page (Gallery › Settings' Maps). */

@@ -793,14 +793,20 @@
   gap: 16px;
 }
 
-/* Edit library — tabbed panel (variant="panel" surface), like the metadata editor.
-   Fixed height so the modal stays one size across tabs; the tab body scrolls when a
-   tab's content is taller. Scoped with .metadata-modal to outrank the surface defaults. */
+/* Edit library — one of the Manage page's settings (variant="panel" surface): header,
+   its fields, footer. As tall as the setting needs and no taller than the window; the
+   fields scroll when they are. Scoped with .metadata-modal to outrank the surface defaults. */
 .metadata-modal.edit-library-panel {
   width: min(100%, 720px);
-  height: min(780px, calc(100vh - 40px));
+  height: auto;
+  max-height: min(780px, calc(100vh - 40px));
   min-height: 0;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.metadata-modal.edit-library-panel > .edit-library-content {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .edit-library-content {
@@ -835,35 +841,7 @@
   gap: 10px;
 }
 
-/* ── Edit library: the Add library wizard's steps across the top (2026-11-19) ── */
-/* Header, the steps over their content, footer: three rows, not the tabbed four. */
-.metadata-modal.edit-library-panel.edit-library-wizard { width: min(100%, 940px); grid-template-rows: auto minmax(0, 1fr) auto; }
-.edit-library-wizard-body { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; min-height: 0; overflow: hidden; padding: 14px 18px 0; }
-.edit-library-wizard-body > .edit-library-content { overflow-y: auto; min-height: 0; min-width: 0; padding: 0 4px 16px 0; }
-/* Seven steps where Add library has four: shorter joins and smaller dots, so they fit one row. */
-.wizard-steps.is-edit { flex-wrap: wrap; gap: 8px 6px; overflow: visible; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.wizard-steps.is-edit .wizard-step { font-size: 0.82rem; }
-.wizard-steps.is-edit .wizard-step:not(:last-child)::after { width: 10px; margin-left: 2px; }
-.wizard-steps.is-edit .wizard-step-jump { gap: 6px; }
-.wizard-steps.is-edit .wizard-step-dot { width: 24px; height: 24px; font-size: 0.78rem; }
-.wizard-steps.is-edit .wizard-step:not(.active) .wizard-step-jump:hover .wizard-step-dot { background: var(--line); }
-.edit-library-actions { flex-wrap: wrap; }
-.edit-library-actions .edit-library-delete { margin-right: auto; }
-/* Rows of the Libraries list open their popup on a click. */
+/* Rows of the Libraries list open the library's page on a click. */
 .library-row-editable { cursor: pointer; }
 .library-row-editable:hover > td { background: var(--hover); }
-/* Name and access: the members and groups under the library's own access. */
-.edit-library-members { display: grid; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-.edit-library-members h4 { margin: 0; font-size: 0.98rem; }
-.edit-library-members .muted { margin: 0; }
-/* The Edit window as one scroll of sections (2026-11-19): the step row jumps between them. */
-.edit-library-sections { display: grid; gap: 22px; align-content: start; scroll-behavior: smooth; }
-.edit-library-kind { margin: 0; }
-.edit-library-section { display: grid; gap: 12px; scroll-margin-top: 8px; }
-.edit-library-section > h3 { margin: 0; font-size: 1.05rem; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-.edit-library-summary .stat-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.edit-library-summary .stat-tile { padding: 10px 12px; }
-.edit-library-summary .stat-tile dd strong { font-size: 1rem; }
 .edit-library-path { margin: 0; overflow-wrap: anywhere; }
-.edit-library-handoff { display: flex; flex-wrap: wrap; gap: 8px; }
-@media (max-width: 740px) { .edit-library-summary .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

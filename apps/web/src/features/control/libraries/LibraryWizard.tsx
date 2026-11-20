@@ -401,7 +401,7 @@ export function LibraryWizard({
     <Modal
       title={t("control:libraries.addLibrary")}
       icon={<LibraryBig size={30} />}
-      className={`create-library-modal library-create-wizard${stepKey === "type" ? " library-type-wizard" : ""}${stepKey === "basics" ? " library-details-wizard" : ""}${stepKey === "review" ? " library-review-wizard" : ""}${advancedOpen ? " library-advanced-open" : ""}`}
+      className={`create-library-modal library-create-wizard${stepKey === "type" ? " library-type-wizard" : ""}${stepKey === "basics" || stepKey === "layout" ? " library-details-wizard" : ""}${stepKey === "review" ? " library-review-wizard" : ""}${advancedOpen ? " library-advanced-open" : ""}`}
       busy={creating}
       onClose={onClose}
       onSubmit={onSubmit}

@@ -416,32 +416,26 @@ application — its phone backup, its tags, its cleanup — is in its workspace 
 
 Adding libraries and pointing them at folders has [its own guide](libraries.md).
 
-Cards across the top count the libraries, their files and size on disk (which opens
-Library statistics), what is scanning now and when the next scheduled scan runs, what
-needs a look, and the last scan. Beside them: **Rescan all** (every library you manage,
-with the sources it already uses), **Scan schedules**, **Scan tasks** and the **Storage
-containers** libraries are made in. Under them, a button per type — **All**, **Gallery**,
-**Video**, **Ebooks**, **Audiobooks** and **Personal**, each with its count — filters the
-table, and the search sits beside them; the table shows twenty libraries a page.
-
 Each row shows the library's name and type, who can open it, how many files it holds
 and how big it is, and its **Status**: up to date (and when it was last checked),
 scanning — with a link to follow it in Tasks — a failed last scan, or, for a video
-library, that the video engine isn't answering. A row's **⋯**, or a right-click on
-it, has **Edit…**, **Rescan** and **Delete library…**; a
-click on the row opens Edit. Someone else's personal library shows only whose it is
-and its size.
+library, that the video engine isn't answering. A click on the row opens the library's
+own page; its **⋯**, or a right-click on the row, has **Edit…** (the same page),
+**Rescan** and **Delete library…**. Someone else's personal library shows only whose
+it is and its size.
 
-**Edit** is one window for everything about the library, its numbered steps across
-the top (as in **Add library**) jumping to its sections: **Summary** (files, size,
-status, last scan); **Name and access**, with its members and groups under it; **Files
-and scanning** (folder, Mode, sources, formats and uploads, plus the layout rules of a
-book library, face recognition and phone backups for a Gallery library, or the folder
-and language of a Video library); **Organizing**; and **About** (your role, what you
-can do, dates). **Rescan** is beside its title; **Save changes** and **Delete
-library** are at its foot. A link
-to one library (from an application's Overview, Diagnostics or Storage) opens this
-list with that library's window.
+A button per type over the table — **All**, **Gallery**, **Video**, **Ebooks**,
+**Audiobooks** and **Personal**, each with its count — filters it, with the search
+beside them; the table shows twenty libraries a page. To its right: **Rescan all**
+(every library you manage, with the sources it already uses), **Scan schedules**,
+**Scan tasks** and the **Storage containers** libraries are made in.
+
+A library's **Manage** page lists what can be set for that type of library, each
+with **Edit**: its name, owner and access; members and groups; files and uploads;
+scanning; the layout rules of a book library; face recognition and phone backups for
+a Gallery library; the folder and language of a Video library. Below are the shared
+sets it is organized with, everything the old details window showed, and **Delete
+library**. Back to the list is the **Libraries** link at the top.
 
 ### Library statistics
 
@@ -495,7 +489,7 @@ Every application opens on Overview:
   panel still shows its libraries. One application always stays on.
 - **Libraries** — a count and a link to Libraries & Scanning for folders and scan rules.
   It opens with only this application’s library type selected. Choose All types to
-  see everything; the filter survives refresh and closing a library's Edit window.
+  see everything; the filter survives refresh and returning from a library’s Manage page.
 - **Connection** — for Videos, Games and Gallery's face recognition: whether its
   container answers, leading to [Services](#services).
 - **Access** — leading to where that is decided: each library's own page, App

@@ -1,60 +1,103 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AccessControl } from "../src/shared/AccessControl";
 
-// The one access window: one list of everyone, a search and a filter. With roles,
-// a role menu per row and tick boxes to set several at once; on/off, the tick box
-// is the access itself.
+// The one access editor (redesigned 2026-11-19): a card for public or private, one
+// Add field with the role to give, the table of those who have access — a tick and a
+// role menu each (the menu says what every role allows and ends in Remove access) —
+// and what each role may do underneath. Without roles, Add gives access and each row
+// has Remove.
 
 const roles = [
   { value: "viewer", label: "Viewer", tagline: "Sees it", dot: "#3b82f6" },
   { value: "manager", label: "Manager", tagline: "Runs it", dot: "#f59e0b" }
 ];
-const candidates = { users: [{ id: "u1", name: "Ann" }, { id: "u2", name: "Bo" }], groups: [{ id: "g1", name: "Kids" }] };
+const candidates = { users: [{ id: "u1", name: "Ann" }, { id: "u2", name: "Bo", sub: "bo@example.com" }], groups: [{ id: "g1", name: "Kids" }] };
 
-describe("the access window", () => {
-  it("with roles: sets everyone ticked, one after another, to the role chosen", async () => {
+describe("the access editor", () => {
+  it("adds one person or group with the role chosen", async () => {
     const user = userEvent.setup();
-    const calls: string[] = [];
-    let inFlight = 0;
-    let overlapped = false;
-    const onGrant = async (type: "user" | "group", id: string, role: string) => {
-      inFlight += 1;
-      if (inFlight > 1) overlapped = true;
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      calls.push(`${type}:${id}:${role}`);
-      inFlight -= 1;
-    };
-    render(<AccessControl roles={roles} members={[]} candidates={candidates} onGrant={onGrant} onRevoke={() => {}} />);
-    // Everyone is listed, with No access until given something; no Add tab.
-    expect(screen.getByRole("button", { name: /^Role for Bo: No access/ })).toBeInTheDocument();
-    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("checkbox", { name: "Select all shown" }));
-    await user.click(screen.getByRole("button", { name: /^Role to give/ }));
-    await user.click(screen.getByRole("option", { name: /Manager/ }));
-    await user.click(screen.getByRole("button", { name: /Apply to selected/ }));
-    await waitFor(() => expect(calls).toHaveLength(3));
-    expect(calls).toEqual(["group:g1:manager", "user:u1:manager", "user:u2:manager"]);
-    expect(overlapped).toBe(false);
-  });
-
-  it("views groups, people or all, and the filter counts what the view shows", async () => {
-    const user = userEvent.setup();
-    render(<AccessControl roles={roles} members={[{ subjectType: "group", subjectId: "g1", name: "Kids", role: "viewer" }]} candidates={candidates} onGrant={() => {}} onRevoke={() => {}} />);
-    await user.click(screen.getByRole("button", { name: /^View: All/ }));
-    await user.click(screen.getByRole("option", { name: /People/ }));
-    expect(screen.queryByText("Kids")).not.toBeInTheDocument();
+    const onGrant = vi.fn();
+    render(<AccessControl roles={roles} members={[{ subjectType: "user", subjectId: "u1", name: "Ann", role: "viewer" }]} candidates={candidates} onGrant={onGrant} onRevoke={() => {}} />);
+    // Only those with access are listed.
     expect(screen.getByText("Ann")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Show: All \(2\)/ })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^View: People/ }));
-    await user.click(screen.getByRole("option", { name: /Groups/ }));
-    expect(screen.getByText("Kids")).toBeInTheDocument();
-    expect(screen.queryByText("Ann")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bo")).not.toBeInTheDocument();
+    // Add offers those who have none yet, groups first.
+    await user.click(screen.getByRole("combobox", { name: "Add people or groups" }));
+    const list = screen.getByRole("listbox");
+    const options = within(list).getAllByRole("option");
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveTextContent(/Kids.*Group/);
+    expect(options[1]).toHaveTextContent(/Bo.*bo@example.com/);
+    await user.type(screen.getByRole("combobox", { name: "Add people or groups" }), "bo");
+    await user.click(screen.getByRole("option", { name: /Bo/ }));
+    await user.click(screen.getByRole("button", { name: /^Role to give/ }));
+    // The menu says what each role allows, beside its name.
+    await user.click(screen.getByRole("menuitemradio", { name: /^Managers*Runs it$/ }));
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    expect(onGrant).toHaveBeenCalledWith("user", "u2", "manager");
   });
 
-  it("on/off: the tick box is the access, and the header's box gives it to all shown", async () => {
+  it("changes a role on the list, and Remove access takes it away", async () => {
+    const user = userEvent.setup();
+    const onGrant = vi.fn();
+    const onRevoke = vi.fn();
+    render(<AccessControl roles={roles} members={[{ subjectType: "group", subjectId: "g1", name: "Kids", role: "viewer" }]} candidates={candidates} onGrant={onGrant} onRevoke={onRevoke} />);
+    await user.click(screen.getByRole("button", { name: /^Role for Kids: Viewer/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: /Manager/ }));
+    expect(onGrant).toHaveBeenCalledWith("group", "g1", "manager");
+    await user.click(screen.getByRole("button", { name: /^Role for Kids/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Remove access" }));
+    expect(onRevoke).toHaveBeenCalledWith("group", "g1");
+  });
+
+  it("sets Deny apart in the menu and leaves it out of the roles underneath", async () => {
+    const user = userEvent.setup();
+    const withDeny = [...roles, { value: "deny", label: "Deny access", tagline: "Explicitly block access", dot: "#ef4444" }];
+    render(<AccessControl roles={withDeny} members={[{ subjectType: "user", subjectId: "u1", name: "Ann", role: "viewer" }]} candidates={candidates} onGrant={() => {}} onRevoke={() => {}} />);
+    expect(screen.getByText(/Roles/).closest(".ax-legend")).not.toHaveTextContent("Deny access");
+    await user.click(screen.getByRole("button", { name: /^Role for Ann/ }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getAllByRole("separator")).toHaveLength(2);
+    expect(within(menu).getByRole("menuitemradio", { name: /^Deny accesss*Explicitly block access$/ })).toBeInTheDocument();
+  });
+
+  it("changes every ticked row at once from the Access heading", async () => {
+    const user = userEvent.setup();
+    const onGrant = vi.fn();
+    const onRevoke = vi.fn();
+    const members = [
+      { subjectType: "group" as const, subjectId: "g1", name: "Kids", role: "viewer" },
+      { subjectType: "user" as const, subjectId: "u1", name: "Ann", role: "viewer" },
+      { subjectType: "user" as const, subjectId: "u2", name: "Bo", role: "manager" }
+    ];
+    render(<AccessControl roles={roles} members={members} candidates={candidates} onGrant={onGrant} onRevoke={onRevoke} />);
+    expect(screen.getByText("People and groups")).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByText("3 selected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Change access" }));
+    await user.click(screen.getByRole("menuitemradio", { name: /Manager/ }));
+    // Bo is a manager already: only the other two are sent, one after the other.
+    await vi.waitFor(() => expect(onGrant.mock.calls).toEqual([["group", "g1", "manager"], ["user", "u1", "manager"]]));
+    // The ticks are spent with the change.
+    expect(screen.getByText("People and groups")).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Select Ann" }));
+    await user.click(screen.getByRole("button", { name: "Change access" }));
+    await user.click(screen.getByRole("menuitem", { name: "Remove access" }));
+    await vi.waitFor(() => expect(onRevoke.mock.calls).toEqual([["user", "u1"]]));
+  });
+
+  it("says whether it is public, and spells out the roles", () => {
+    render(<AccessControl roles={roles} members={[]} candidates={candidates}
+      everyone={{ role: "viewer", hint: "Every signed-in member", summary: "Everyone can view this library." }} onGrant={() => {}} onRevoke={() => {}} />);
+    expect(screen.getByText("Open to everyone")).toBeInTheDocument();
+    expect(screen.getByText("Everyone can view this library.")).toBeInTheDocument();
+    expect(screen.getByText(/Roles/).closest(".ax-legend")).toHaveTextContent("Roles:ViewerSees itManagerRuns it");
+    expect(screen.getByText("Changes are saved automatically.")).toBeInTheDocument();
+  });
+
+  it("on/off: Add gives access and Remove takes it, as a list where the place saves one", async () => {
     const user = userEvent.setup();
     const onGrant = vi.fn();
     const onRevoke = vi.fn();
@@ -69,16 +112,14 @@ describe("the access window", () => {
         onRevoke={onRevoke}
       />
     );
-    // No menus, no Apply bar: ticking is giving.
-    expect(screen.queryByRole("button", { name: /^Role for/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "Access for Ann" })).toBeChecked();
-    await user.click(screen.getByRole("switch", { name: "Access for Bo" }));
-    expect(onGrant).toHaveBeenCalledWith("user", "u2", "");
-    await user.click(screen.getByRole("switch", { name: "Access for Ann" }));
+    // No role menus at all.
+    expect(screen.queryByRole("button", { name: /^Role/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("combobox", { name: "Add people or groups" }));
+    await user.click(screen.getByRole("option", { name: /Bo/ }));
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    expect(onGrantMany).toHaveBeenCalledWith([{ subjectType: "user", subjectId: "u2" }], "");
+    expect(onGrant).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Remove Ann" }));
     expect(onRevoke).toHaveBeenCalledWith("user", "u1");
-    // The header: everyone shown without access, in one go.
-    await user.click(screen.getByRole("switch", { name: "Give access to everyone shown" }));
-    expect(onGrantMany).toHaveBeenCalledWith([{ subjectType: "group", subjectId: "g1" }, { subjectType: "user", subjectId: "u2" }], "");
-    expect(screen.queryByRole("button", { name: /Apply to selected/ })).not.toBeInTheDocument();
   });
 });

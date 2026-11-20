@@ -34,8 +34,11 @@ describe("family branch editors", () => {
     expect(row).toHaveTextContent("Change");
     await user.click(row);
     const dialog = await screen.findByRole("dialog", { name: "Access to the Posse branch" });
-    await user.click(await within(dialog).findByRole("button", { name: /^Role for Ann: No access/ }));
-    await user.click(within(dialog).getByRole("option", { name: /^Editor/ }));
+    await user.click(await within(dialog).findByRole("combobox", { name: "Add people or groups" }));
+    await user.click(within(dialog).getByRole("option", { name: /^Ann/ }));
+    await user.click(within(dialog).getByRole("button", { name: /^Role to give/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: /^Editor/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(posts).toEqual([{ path: "/api/family-tree/tags/t1/editors", body: { subjectType: "user", subjectId: "u1", role: "contributor" } }]));
   });
 });

@@ -34,20 +34,23 @@ beforeEach(() => {
 });
 
 describe("access to photos of a person", () => {
-  it("is the standard window: a switch each, and the other ways said on the row", async () => {
+  it("is the standard window: Add and Remove, and the other ways said on the row", async () => {
     const user = userEvent.setup();
     render(<PersonSharingModal person={{ id: "p1", name: "Ivan" }} onClose={() => {}} />);
     const dialog = await screen.findByRole("dialog", { name: "Access to photos of Ivan" });
-    expect(await within(dialog).findByRole("switch", { name: "Access for Ann" })).toBeChecked();
-    expect(within(dialog).getByRole("switch", { name: "Access for Bo" })).not.toBeChecked();
+    // On/off: those with access are listed with Remove; Bo is not among them.
+    expect(await within(dialog).findByRole("button", { name: "Remove Ann" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Remove Bo" })).not.toBeInTheDocument();
     // Admins see everything already, and the built-in groups are not choices.
     expect(within(dialog).queryByText("Admin")).not.toBeInTheDocument();
     // Ivan's own account, and Kids through a branch, say so on their rows.
     expect(within(dialog).getByText(/Posse/)).toBeInTheDocument();
 
-    await user.click(within(dialog).getByRole("switch", { name: "Access for Bo" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Add people or groups" }));
+    await user.click(within(dialog).getByRole("option", { name: /^Bo/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(calls).toContainEqual({ path: "/api/library/gallery/people/p1/sharing/user/u2", method: "PUT" }));
-    await user.click(within(dialog).getByRole("switch", { name: "Access for Ann" }));
+    await user.click(within(dialog).getByRole("button", { name: "Remove Ann" }));
     await waitFor(() => expect(calls).toContainEqual({ path: "/api/library/gallery/people/p1/sharing/user/u1", method: "DELETE" }));
   });
 });

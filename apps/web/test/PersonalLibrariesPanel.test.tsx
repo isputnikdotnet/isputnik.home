@@ -163,14 +163,14 @@ describe("where personal libraries are made", () => {
     await user.click(row);
     // The standard access window, on/off: Everyone has access, or only those listed.
     const dialog = await screen.findByRole("dialog", { name: "Access to personal libraries" });
-    // On/off: the tick box is the access. Unticking Everyone means only those listed.
-    await user.click(within(dialog).getByRole("switch", { name: "Access for Everyone" }));
+    // On/off: Everyone has it until removed; then only those listed do.
+    await user.click(within(dialog).getByRole("button", { name: "Remove Everyone" }));
     await waitFor(() => expect(puts).toEqual([expect.objectContaining({ who: "chosen" })]));
     await user.click(within(dialog).getByRole("button", { name: "Close" }));
     expect(await screen.findByRole("button", { name: /^Access/ })).toHaveTextContent("No one chosen yet");
   });
 
-  it("lists everyone, filters, and gives or takes access with the tick boxes", async () => {
+  it("lists those with access, adds one, and removes one, each in one save", async () => {
     const user = userEvent.setup();
     let current = view({ storageRootId: "media", who: "chosen", subjects: [{ type: "user", id: "u1" }] });
     mockApi.mockImplementation(async (path: string, init?: RequestInit) => {
@@ -190,25 +190,20 @@ describe("where personal libraries are made", () => {
     await user.click(await screen.findByRole("button", { name: /^Access/ }));
     const dialog = await screen.findByRole("dialog", { name: "Access to personal libraries" });
 
-    // Everyone is listed, ticked when they have access: Ann has it, Kids and Bo don't.
-    expect(within(dialog).getByRole("switch", { name: "Access for Ann" })).toBeChecked();
-    expect(within(dialog).getByRole("switch", { name: "Access for Bo" })).not.toBeChecked();
+    // Only Ann has access: she is listed, Bo is not.
+    expect(within(dialog).getByRole("button", { name: "Remove Ann" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Remove Bo" })).not.toBeInTheDocument();
 
-    // The filter narrows to those with access.
-    await user.click(within(dialog).getByRole("button", { name: /^Show: All/ }));
-    await user.click(within(dialog).getByRole("option", { name: "Has access (1)" }));
-    expect(within(dialog).queryByText("Bo")).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: /^Show: Has access/ }));
-    await user.click(within(dialog).getByRole("option", { name: "All (4)" }));
-
-    // The header's box: everyone shown without access gets it — in ONE save.
-    await user.click(within(dialog).getByRole("switch", { name: "Give access to everyone shown" }));
+    // Add Bo: one save with both.
+    await user.click(within(dialog).getByRole("combobox", { name: "Add people or groups" }));
+    await user.click(within(dialog).getByRole("option", { name: /Bo/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(puts).toHaveLength(1));
-    expect(puts[0]).toEqual(expect.objectContaining({ subjects: [{ type: "user", id: "u1" }, { type: "group", id: "g1" }, { type: "user", id: "u2" }] }));
+    expect(puts[0]).toEqual(expect.objectContaining({ subjects: [{ type: "user", id: "u1" }, { type: "user", id: "u2" }] }));
 
-    // Unticking one takes it away.
-    await user.click(await within(dialog).findByRole("switch", { name: "Access for Ann" }));
+    // Remove Ann: one save without her.
+    await user.click(await within(dialog).findByRole("button", { name: "Remove Ann" }));
     await waitFor(() => expect(puts).toHaveLength(2));
-    expect(puts[1]).toEqual(expect.objectContaining({ subjects: [{ type: "group", id: "g1" }, { type: "user", id: "u2" }] }));
+    expect(puts[1]).toEqual(expect.objectContaining({ subjects: [{ type: "user", id: "u2" }] }));
   });
 });
