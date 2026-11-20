@@ -59,6 +59,10 @@ describe("GET /api/admin/diagnostics", () => {
   let engine: FastifyInstance;
   let engineUrl: string;
   let booted: BootedApp | null = null;
+  // When the stand-in engine's log line was written: two days ago, whole seconds.
+  // Relative to today, never a date written out — a fixed 13 November sat inside
+  // "the last 7 days" only until 20 November, and then failed every build.
+  const engineLogAt = Math.floor((Date.now() - 2 * 86400_000) / 1000) * 1000;
 
   beforeEach(async () => {
     resetDb();
@@ -80,7 +84,7 @@ describe("GET /api/admin/diagnostics", () => {
         gpu: { device: "/dev/dri/renderD128", decode: ["h264", "hevc10"], tonemap: false, recentFailures: [] },
         libraries: [{ name: "Galina cartoons", kind: "movies", folder: "Kids/Galina", titles: 12 }],
         paths: { media: "/media", database: "/config/video.sqlite" },
-        log: [JSON.stringify({ level: 50, time: Date.UTC(2026, 10, 13, 3, 0, 0), msg: "ffmpeg failed", stderr: "/media/Kids/Galina/Cartoon.mkv: Invalid data" })]
+        log: [JSON.stringify({ level: 50, time: engineLogAt, msg: "ffmpeg failed", stderr: "/media/Kids/Galina/Cartoon.mkv: Invalid data" })]
       };
     });
     await engine.listen({ host: "127.0.0.1", port: 0 });
@@ -106,7 +110,7 @@ describe("GET /api/admin/diagnostics", () => {
   });
 
   it("has a section for this server, the containers, the libraries, the failures, and each container with its own", async () => {
-    // A week back: the stand-in engine's log line is from 13 November.
+    // A week back: the stand-in engine's log line is from two days ago.
     const report = (await ask("admin", "?since=week")).json().report;
     expect(report.sections.map((section: { key: string }) => section.key)).toEqual(["system", "containers", "libraries", "failures", "tasks", "log", "container:video"]);
     const body = text(report);
@@ -116,7 +120,7 @@ describe("GET /api/admin/diagnostics", () => {
     expect(body).toContain("library.scan.failed");
     // The container's own facts, and its log as readable lines.
     expect(body).toContain("decode: h264, hevc10");
-    expect(body).toContain("2026-11-13 03:00:00 ERROR ffmpeg failed");
+    expect(body).toContain(`${new Date(engineLogAt).toISOString().slice(0, 19).replace("T", " ")} ERROR ffmpeg failed`);
   });
 
   it("hides names, folders and addresses unless asked to include them", async () => {
