@@ -1,30 +1,39 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  AlertTriangle,
+  CalendarClock,
+  Clock,
+  Database,
+  Files,
+  ListChecks,
+  FolderTree,
+  ScanFace,
+  Users,
   Plus,
   RefreshCw,
   Pencil,
   Trash2,
   KeyRound,
-  Headphones,
-  BookOpen,
   Search,
   HardDrive,
-  LayoutGrid,
-  LibraryBig,
-  Clapperboard
+  LibraryBig
 } from "lucide-react";
 import { useVideoAvailable } from "../../../app/useVideoAvailable";
 import { api } from "../../../api";
-import { controlHref, followRoute, navigate } from "../../../router";
-import { initialParam, librariesHref, libraryRowHref, tasksHref } from "../links";
+import { controlHref, followRoute, navigate, replaceNavigate } from "../../../router";
+import { CommandRow, GroupedList, NavRow } from "../../../shared/GroupedList";
+import { Pager } from "../../../shared/Pager";
+import { StatTiles, type StatTile } from "../../../shared/StatTiles";
+import { relativeTime } from "../../../shared/relativeTime";
+import { tabLabel } from "../nav";
+import { initialParam, librariesHref, storageHref, tasksHref } from "../links";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { SelectField } from "../../../shared/SelectField";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { SelectMenu } from "../../../shared/SelectMenu";
 import { ActionMenu } from "../../../shared/ActionMenu";
 import { DEFAULT_BACK_SIDES, type PublicRole, type LibraryMode, type ScanSource, type MetadataSourceInfo, type LibraryTypeDefaults, type BackSidesSettings } from "../../audiobooks/types";
 import { BackSidesEditor } from "../libraries/BackSidesEditor";
@@ -44,7 +53,6 @@ import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal
 import { ControlSectionHead } from "../ControlSectionHead";
 import i18n from "../../../i18n";
 import {
-  TYPE_FILTER_VALUES,
   TYPE_ICON,
   VIDEO_LANGUAGES,
   accessSummary,
@@ -59,14 +67,17 @@ import {
   type ManagedLibrary,
   type ManagedLibraryType
 } from "../libraries/managed-library";
-import { LibraryManagePage, type LibraryEditTab } from "../libraries/LibraryManagePage";
+import { LibraryDetailsGrid, type LibraryEditTab } from "../libraries/LibraryDetails";
 import { LibraryStatus } from "../libraries/LibraryStatus";
 // Scan layouts' stylesheet: it loads with this section, not on every route (docs/css-map.md).
 import "../../../styles/scan-layout.css";
 
-// Library › Libraries: every library in one list, and — with `libraryId` — one
-// library's Manage page (libraries/LibraryManagePage). Both share the data and the
-// dialogs below; the row's Manage button and ⋯ menu replaced its six icons in 4.73.
+// Library › Libraries: every library in one list. A row's menu — its ⋯, or a
+// right-click anywhere on it — has Edit, Members, Rescan and Delete, and a click on
+// the row opens Edit: one popup laid out as the Add library wizard, every setting
+// a step (owner, 2026-11-19; the Manage page of 4.73 is gone). With `libraryId`
+// (/control/libraries/<id>, every link to a library) the list opens with that
+// library's popup.
 export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
   const { t } = useTranslation(["common", "control"]);
   const [libraries, setLibraries] = useState<ManagedLibrary[]>([]);
@@ -91,6 +102,22 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${query.size ? `?${query}` : ""}${window.location.hash}`);
   };
   const [searchQuery, setSearchQuery] = useState("");
+  // The Personal chip: only members' personal libraries, whatever their type.
+  const [personalOnly, setPersonalOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const [rescanningAll, setRescanningAll] = useState(false);
+  // When the scheduled scans of every library type run next (their scan_*_libraries jobs).
+  const [nextScanAt, setNextScanAt] = useState<string | null>(null);
+  useEffect(() => {
+    api<{ jobs: { key: string; enabled: boolean; nextRunAt: string | null }[] }>("/api/scheduled-jobs")
+      .then((payload) => setNextScanAt(payload.jobs
+        .filter((job) => job.enabled && job.nextRunAt && /^scan_.+_libraries$/.test(job.key))
+        .map((job) => job.nextRunAt!)
+        .sort()[0] ?? null))
+      .catch(() => setNextScanAt(null));
+  }, []);
+  // A right-click on a row: which row's menu opens, and where.
+  const [contextMenu, setContextMenu] = useState<{ id: string; at: { x: number; y: number } } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [rescanTarget, setRescanTarget] = useState<ManagedLibrary | null>(null);
   const [rescanSources, setRescanSources] = useState<ScanSource[]>([]);
@@ -329,7 +356,8 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
     try {
       await api(`${apiBase(deleteConfirmLibrary)}/${deleteConfirmLibrary.id}`, { method: "DELETE" });
       setDeleteConfirmLibrary(null);
-      // Deleted from its own Manage page: back to the list it is no longer in.
+      // Deleted from its popup: the popup goes too, and its address with it.
+      setEditingLibrary(null);
       if (libraryId) navigate(librariesHref(typeFilter));
       await loadLibraries();
     } catch (err) {
@@ -378,7 +406,8 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
       // The Photo Inbox and App files are the app's own (docs/system-data-plan.md):
       // listed on the Storage page, whose Access link opens their editor here.
       const ordinary = libraries.filter((library) => !library.role);
-      const typeFiltered = typeFilter === "all" ? ordinary : ordinary.filter((library) => library.type === typeFilter);
+      const typeFiltered = personalOnly ? ordinary.filter((library) => library.personal != null)
+        : typeFilter === "all" ? ordinary : ordinary.filter((library) => library.type === typeFilter);
       const query = searchQuery.trim().toLowerCase();
       if (!query) return typeFiltered;
       return typeFiltered.filter((library) => [
@@ -390,47 +419,102 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
         library.scanStatus
       ].some((value) => value.toLowerCase().includes(query)));
     },
-    [libraries, libraryOwnerLabel, searchQuery, typeFilter]
+    [libraries, libraryOwnerLabel, searchQuery, typeFilter, personalOnly]
   );
+  // Paged: a household with many libraries (personal ones grow with every phone)
+  // reads one screen at a time. A new filter or search starts again at page one.
+  const PAGE_SIZE = 20;
+  const totalPages = Math.max(1, Math.ceil(visibleLibraries.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedLibraries = visibleLibraries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  useEffect(() => { setPage(1); }, [typeFilter, personalOnly, searchQuery]);
+
+  // The cards, from what the page already loads.
+  const ordinaryLibraries = libraries.filter((library) => !library.role);
+  const overviewTiles: StatTile[] = (() => {
+    const dash = "—";
+    const scanningNow = ordinaryLibraries.filter((library) => library.scanStatus === "scanning");
+    const failed = ordinaryLibraries.filter((library) => library.scanStatus === "error");
+    const files = ordinaryLibraries.reduce((sum, library) => sum + (library.fileCount ?? 0), 0);
+    const bytes = ordinaryLibraries.reduce((sum, library) => sum + (library.totalSizeBytes ?? 0), 0);
+    const types = new Set(ordinaryLibraries.map((library) => library.type)).size;
+    const personal = ordinaryLibraries.filter((library) => library.personal != null).length;
+    const last = ordinaryLibraries.filter((library) => library.lastScannedAt).sort((a, b) => b.lastScannedAt!.localeCompare(a.lastScannedAt!))[0] ?? null;
+    return [
+      { icon: <LibraryBig size={19} />, iconTone: "blue", label: t("control:libraries.overview.libraries"), value: loaded ? String(ordinaryLibraries.length) : dash,
+        sub: personal ? t("control:libraries.overview.personalCount", { count: personal }) : undefined },
+      { icon: <Files size={19} />, iconTone: "mint", label: t("control:libraries.overview.files"), value: loaded ? formatCount(files) : dash,
+        sub: loaded ? t("control:libraries.overview.types", { count: types }) : undefined },
+      { icon: <Database size={19} />, iconTone: "gold", label: t("control:appSetup.overview.size"), value: loaded ? formatLibrarySize(bytes) : dash,
+        sub: tabLabel("libraryStats"), href: controlHref("libraryStats") },
+      { icon: <RefreshCw size={19} />, iconTone: scanningNow.length ? "ok" : "blue", label: t("control:libraries.overview.scanningNow"),
+        value: loaded ? String(scanningNow.length) : dash,
+        sub: scanningNow.length ? scanningNow[0].name : nextScanAt ? t("control:libraries.overview.nextScan", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage, { weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(nextScanAt)) }) : undefined,
+        href: scanningNow.length ? tasksHref() : undefined },
+      { icon: <AlertTriangle size={19} />, iconTone: failed.length ? "warn" : "ok", label: t("control:libraries.overview.needsLook"), value: loaded ? String(failed.length) : dash,
+        sub: failed.length ? failed[0].name : t("control:libraries.overview.allFine"), tone: failed.length ? "warn" : undefined },
+      { icon: <Clock size={19} />, iconTone: "rose", label: t("control:libraries.overview.lastScan"),
+        value: last ? relativeTime(last.lastScannedAt!, { style: "short" }) : dash, sub: last?.name }
+    ];
+  })();
+
+  // A chip per type there is, then Personal; one is on at a time.
+  const chips = [
+    { key: "all", label: typeFilterLabel("all"), count: ordinaryLibraries.length, on: typeFilter === "all" && !personalOnly,
+      select: () => { setPersonalOnly(false); changeTypeFilter("all"); } },
+    ...(["gallery", "video", "ebook", "audiobook"] as ManagedLibraryType[])
+      .map((type) => ({ type, count: ordinaryLibraries.filter((library) => library.type === type).length }))
+      .filter(({ count }) => count > 0)
+      .map(({ type, count }) => ({ key: type, label: typeFilterLabel(type), count, on: typeFilter === type && !personalOnly,
+        select: () => { setPersonalOnly(false); changeTypeFilter(type); } })),
+    ...(ordinaryLibraries.some((library) => library.personal != null) ? [{
+      key: "personal", label: t("control:libraries.overview.personalChip"), count: ordinaryLibraries.filter((library) => library.personal != null).length, on: personalOnly,
+      select: () => { changeTypeFilter("all"); setPersonalOnly(true); }
+    }] : [])
+  ];
+
+  // Rescan all: every library this admin manages, one after another, with the
+  // sources each already scans with (a book library's options dialog is for one).
+  const rescannable = ordinaryLibraries.filter((library) => library.canManageLibrary && library.scanStatus !== "scanning");
+  const rescanAll = async () => {
+    setRescanningAll(true);
+    setError("");
+    try {
+      for (const library of rescannable) {
+        const books = library.type === "audiobook" || library.type === "ebook";
+        await api(`${apiBase(library)}/${library.id}/rescan`, {
+          method: "POST",
+          body: books ? JSON.stringify({ sources: library.settings?.scanSources ?? typeDefaults[library.type]?.sources ?? [] }) : "{}"
+        });
+      }
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("control:libraries.unableToStartRescan"));
+    } finally {
+      setRescanningAll(false);
+    }
+  };
 
   const setupReady = Boolean(librarySettings?.thumbnailPathReady) && storageRoots.length > 0;
   const scanningLibraries = libraries.filter((library) => !library.role && library.scanStatus === "scanning" && (typeFilter === "all" || library.type === typeFilter));
   const managed = libraryId ? libraries.find((library) => library.id === libraryId) ?? null : null;
   const listHref = librariesHref(typeFilter);
+  // A library's own address opens its popup once the list has loaded.
+  const [openedFor, setOpenedFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!libraryId || openedFor === libraryId || !managed?.canManageLibrary) return;
+    setOpenedFor(libraryId);
+    openEdit(managed);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryId, managed, openedFor]);
+  /** Closes the popup; one opened by its address goes back to the list's. */
+  const closeEdit = () => {
+    setEditingLibrary(null);
+    if (libraryId) replaceNavigate(listHref);
+  };
 
   return (
     <>
-      {libraryId ? (
-        <>
-          {error && <MessageBox tone="error" title={t("control:libraries.errorTitle")}>{error}</MessageBox>}
-          {managed && managed.canManageLibrary ? (
-            <LibraryManagePage
-              library={managed}
-              ownerLabel={libraryOwnerLabel(managed)}
-              scanSources={scanSourceSummary(managed)}
-              extensions={extensionSummary(managed)}
-              scanning={managed.scanStatus === "scanning" || rescanningId === managed.id}
-              videoEngineDown={videoEngineDown}
-              onEdit={(tab) => openEdit(managed, tab)}
-              onMembers={() => setMembersLibrary(managed)}
-              onScanRules={() => setScanRulesLibrary(managed)}
-              onFaces={() => { setError(""); setFaceSettingsOpen(true); }}
-              onRescan={() => startRescan(managed)}
-              onDelete={() => setDeleteConfirmLibrary(managed)}
-            />
-          ) : loaded ? (
-            <MessageBox
-              tone="warning"
-              title={t("control:libraries.manage.notFoundTitle")}
-              action={<a className="secondary-button compact-button" href={listHref} onClick={(event) => followRoute(event, listHref)}>{t("control:libraries.manage.backToList")}</a>}
-            >
-              {t("control:libraries.manage.notFoundBody")}
-            </MessageBox>
-          ) : (
-            <p className="muted">{t("control:ui.loading")}</p>
-          )}
-        </>
-      ) : (
       <>
       <ControlSectionHead
         section="libraries"
@@ -462,7 +546,16 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
         </div>
       </ControlSectionHead>
 
-      {error && <MessageBox tone="error" title={t("control:libraries.errorTitle")}>{error}</MessageBox>}
+      {error && !editingLibrary && <MessageBox tone="error" title={t("control:libraries.errorTitle")}>{error}</MessageBox>}
+      {libraryId && loaded && !managed?.canManageLibrary && (
+        <MessageBox
+          tone="warning"
+          title={t("control:libraries.manage.notFoundTitle")}
+          action={<a className="secondary-button compact-button" href={listHref} onClick={(event) => followRoute(event, listHref)}>{t("control:libraries.manage.backToList")}</a>}
+        >
+          {t("control:libraries.manage.notFoundBody")}
+        </MessageBox>
+      )}
       {!setupReady && (
         <MessageBox
           tone="warning"
@@ -505,151 +598,190 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
         </MessageBox>
       )}
 
-      <div className="library-controls">
-        <SelectMenu
-          className="library-type-filter"
-          value={typeFilter}
-          label={t("control:libraries.filterByType")}
-          onChange={changeTypeFilter}
-          options={TYPE_FILTER_VALUES.map((value) => ({
-            value,
-            label: typeFilterLabel(value),
-            icon: value === "audiobook"
-              ? <Headphones size={18} />
-              : value === "ebook"
-                ? <BookOpen size={18} />
-                : value === "video"
-                  ? <Clapperboard size={18} />
-                  : <LayoutGrid size={18} />
-          }))}
-        />
-        <label className="search-field library-search">
-          <Search size={17} aria-hidden="true" />
-          <span className="sr-only">{t("control:libraries.searchAria")}</span>
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("control:libraries.searchPlaceholder")}
-          />
-        </label>
+      {/* Cards with where scanning and storage are looked after beside them, then a
+          chip per type and the table across the whole width (owner, 2026-11-19). */}
+      <div className="diag-video app-overview-v3 library-overview">
+        <div className="diag-video-main">
+          <section className="diag-tiles" aria-labelledby="libraries-tiles-title">
+            <header className="diag-tiles-head">
+              <h3 id="libraries-tiles-title">{t("control:appSetup.overview.tilesTitle")}</h3>
+            </header>
+            <StatTiles tiles={overviewTiles} label={t("control:appSetup.overview.tilesTitle")} />
+          </section>
+        </div>
+        <aside className="diag-video-side">
+          <GroupedList title={t("control:libraries.overview.scanningTitle")}>
+            <CommandRow icon={<RefreshCw size={17} />} label={rescanningAll ? t("control:libraries.overview.rescanningAll") : t("control:libraries.overview.rescanAll")}
+              sub={t("control:libraries.overview.rescanAllSub")} disabled={rescanningAll || rescannable.length === 0} onClick={() => void rescanAll()} />
+            <NavRow icon={<CalendarClock size={17} />} label={t("control:libraries.overview.schedules")} sub={t("control:libraries.overview.schedulesSub")} href={controlHref("scheduledJobs")} />
+            <NavRow icon={<ListChecks size={17} />} label={t("control:libraries.overview.tasks")} href={tasksHref()} />
+          </GroupedList>
+          <GroupedList title={t("control:libraries.overview.whereTitle")}>
+            <NavRow icon={<HardDrive size={17} />} label={t("control:libraries.overview.containers")} sub={t("control:libraries.overview.containersSub")} href={storageHref("storage-containers")} />
+          </GroupedList>
+        </aside>
       </div>
 
-      {visibleLibraries.length === 0 ? (
-        <p className="management-empty">
-          {libraries.length === 0 ? t("control:libraries.emptyNone") : t("control:libraries.emptyFiltered")}
-        </p>
-      ) : (
-        <div className="datagrid-wrap library-table-wrap">
-          <table className="datagrid library-table">
-            <thead>
-              <tr>
-                <th>{t("control:libraries.thLibrary")}</th>
-                <th>{t("control:libraries.thAccess")}</th>
-                <th className="col-num">{t("control:libraries.thContents")}</th>
-                <th>{t("control:libraries.thStatus")}</th>
-                <th className="col-actions"><span className="sr-only">{t("control:libraries.thActions")}</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleLibraries.map((library) => {
-                const TypeIcon = TYPE_ICON[library.type];
-                const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
-                // Someone else's personal library: whose it is and its size, no actions.
-                const othersPersonal = library.personal != null && !library.canManageLibrary;
-                const manageHref = libraryRowHref(library.id, typeFilter);
-                return (
-                  <tr key={library.id} id={`library-${library.id}`}>
-                    <td>
-                      <div className="library-name-cell">
-                        <span className={`library-folder-icon ${library.type}`} aria-hidden="true">
-                          <TypeIcon size={19} />
-                        </span>
-                        <div className="library-name-copy">
-                          <span className="library-name-line">
-                            <strong>
-                              {othersPersonal
-                                ? t(library.personal!.orphaned ? "control:libraries.personalOrphaned" : "control:libraries.personalBadge", { name: library.personal!.ownerName })
-                                : library.name}
-                            </strong>
-                          </span>
-                          <small>{othersPersonal ? t("control:libraries.personalNote") : `${rowTypeLabel(library)} · ${libraryOwnerLabel(library)}`}</small>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`status-badge ${library.visibility}`}>
-                        {accessSummary(library)}
-                      </span>
-                    </td>
-                    <td className="col-num library-contents-cell">
-                      {library.fileCount != null && (
-                        <span>{t("control:libraries.contentsFiles", { count: library.fileCount, formatted: formatCount(library.fileCount) })}</span>
-                      )}
-                      <small className="datagrid-muted">{formatLibrarySize(library.totalSizeBytes)}</small>
-                    </td>
-                    <td>
-                      <LibraryStatus library={library} scanning={scanning} videoEngineDown={videoEngineDown} />
-                    </td>
-                    <td className="col-actions">
-                      <div className="row-actions">
-                        {othersPersonal ? null : library.canManageLibrary ? (
-                          <>
-                            <a
-                              className="secondary-button compact-button"
-                              href={manageHref}
-                              aria-label={t("control:libraries.manageAria", { name: library.name })}
-                              onClick={(event) => followRoute(event, manageHref)}
-                            >
-                              {t("control:libraries.manageAction")}
-                            </a>
-                            <ActionMenu
-                              trigger="icon"
-                              compact
-                              label={t("control:libraries.moreActions", { name: library.name })}
-                              items={[
-                                {
-                                  key: "rescan",
-                                  label: scanning ? t("control:libraries.rescanningTitle") : t("control:libraries.manage.rescan"),
-                                  icon: <RefreshCw size={15} />,
-                                  disabledReason: scanning ? t("control:libraries.rescanningTitle") : undefined,
-                                  onSelect: () => startRescan(library)
-                                },
-                                // A system library is made and removed by the app, never here.
-                                ...(library.role ? [] : [{
-                                  key: "delete",
-                                  label: t("control:libraries.manage.deleteAction"),
-                                  icon: <Trash2 size={15} />,
-                                  danger: true,
-                                  onSelect: () => setDeleteConfirmLibrary(library)
-                                }])
-                              ]}
-                            />
-                          </>
-                        ) : (
-                          // Private library this admin can't access — take ownership (logged) to manage it.
-                          <Button
-                            variant="secondary"
-                            compact
-                            title={t("control:libraries.takeOwnershipTitle")}
-                            onClick={() => {
-                              setError("");
-                              setTakeOwnershipConfirmLibrary(library);
-                            }}
-                          >
-                            <KeyRound size={14} /> {t("control:libraries.takeOwnership")}
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="library-overview-list">
+          <div className="library-overview-controls">
+            <div className="library-type-chips" role="group" aria-label={t("control:libraries.filterByType")}>
+              {chips.map((chip) => (
+                <Button key={chip.key} variant="chip" className={`library-type-chip${chip.on ? " is-on" : ""}`} aria-pressed={chip.on} onClick={chip.select}>
+                  {chip.label}<span className="library-type-chip-count">{chip.count}</span>
+                </Button>
+              ))}
+            </div>
+            <label className="search-field library-search">
+              <Search size={17} aria-hidden="true" />
+              <span className="sr-only">{t("control:libraries.searchAria")}</span>
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t("control:libraries.searchPlaceholder")}
+              />
+            </label>
+          </div>
+
+          {visibleLibraries.length === 0 ? (
+            <p className="management-empty">
+              {libraries.length === 0 ? t("control:libraries.emptyNone") : t("control:libraries.emptyFiltered")}
+            </p>
+          ) : (
+            <>
+              <div className="datagrid-wrap library-table-wrap">
+                <table className="datagrid library-table">
+                  <thead>
+                    <tr>
+                      <th>{t("control:libraries.thLibrary")}</th>
+                      <th>{t("control:libraries.thAccess")}</th>
+                      <th className="col-num">{t("control:libraries.thContents")}</th>
+                      <th>{t("control:libraries.thStatus")}</th>
+                      <th className="col-actions"><span className="sr-only">{t("control:libraries.thActions")}</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedLibraries.map((library) => {
+                      const TypeIcon = TYPE_ICON[library.type];
+                      const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
+                      // Someone else's personal library: whose it is and its size, no actions.
+                      const othersPersonal = library.personal != null && !library.canManageLibrary;
+                      const editable = !othersPersonal && library.canManageLibrary;
+                      return (
+                        <tr
+                          key={library.id}
+                          id={`library-${library.id}`}
+                          className={editable ? "library-row-editable" : undefined}
+                          // A click on the row edits it; a right-click opens its menu where the pointer is.
+                          onClick={editable ? (event) => {
+                            if ((event.target as HTMLElement).closest("button, a, input, [role=menu]")) return;
+                            openEdit(library);
+                          } : undefined}
+                          onContextMenu={editable ? (event) => {
+                            event.preventDefault();
+                            setContextMenu({ id: library.id, at: { x: event.clientX, y: event.clientY } });
+                          } : undefined}
+                        >
+                          <td>
+                            <div className="library-name-cell">
+                              <span className={`library-folder-icon ${library.type}`} aria-hidden="true">
+                                <TypeIcon size={19} />
+                              </span>
+                              <div className="library-name-copy">
+                                <span className="library-name-line">
+                                  <strong>
+                                    {othersPersonal
+                                      ? t(library.personal!.orphaned ? "control:libraries.personalOrphaned" : "control:libraries.personalBadge", { name: library.personal!.ownerName })
+                                      : library.name}
+                                  </strong>
+                                </span>
+                                <small>{othersPersonal ? t("control:libraries.personalNote") : `${rowTypeLabel(library)} · ${libraryOwnerLabel(library)}`}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`status-badge ${library.visibility}`}>
+                              {accessSummary(library)}
+                            </span>
+                          </td>
+                          <td className="col-num library-contents-cell">
+                            {library.fileCount != null && (
+                              <span>{t("control:libraries.contentsFiles", { count: library.fileCount, formatted: formatCount(library.fileCount) })}</span>
+                            )}
+                            <small className="datagrid-muted">{formatLibrarySize(library.totalSizeBytes)}</small>
+                          </td>
+                          <td>
+                            <LibraryStatus library={library} scanning={scanning} videoEngineDown={videoEngineDown} />
+                          </td>
+                          <td className="col-actions">
+                            <div className="row-actions">
+                              {othersPersonal ? null : library.canManageLibrary ? (
+                                <>
+                                  <ActionMenu
+                                    trigger="icon"
+                                    compact
+                                    label={t("control:libraries.moreActions", { name: library.name })}
+                                    openAt={contextMenu?.id === library.id ? contextMenu.at : null}
+                                    items={[
+                                      {
+                                        key: "edit",
+                                        label: t("control:libraries.edit.menuEdit"),
+                                        icon: <Pencil size={15} />,
+                                        onSelect: () => openEdit(library)
+                                      },
+                                      // A personal library has no grants to give; a system one is the app's.
+                                      ...(library.personal || library.role ? [] : [{
+                                        key: "members",
+                                        label: t("control:libraries.edit.menuMembers"),
+                                        icon: <Users size={15} />,
+                                        onSelect: () => setMembersLibrary(library)
+                                      }]),
+                                      {
+                                        key: "rescan",
+                                        label: scanning ? t("control:libraries.rescanningTitle") : t("control:libraries.manage.rescan"),
+                                        icon: <RefreshCw size={15} />,
+                                        disabledReason: scanning ? t("control:libraries.rescanningTitle") : undefined,
+                                        onSelect: () => startRescan(library)
+                                      },
+                                      // A system library is made and removed by the app, never here.
+                                      ...(library.role ? [] : [{
+                                        key: "delete",
+                                        label: t("control:libraries.manage.deleteAction"),
+                                        icon: <Trash2 size={15} />,
+                                        danger: true,
+                                        onSelect: () => setDeleteConfirmLibrary(library)
+                                      }])
+                                    ]}
+                                  />
+                                </>
+                              ) : (
+                                // Private library this admin can't access — take ownership (logged) to manage it.
+                                <Button
+                                  variant="secondary"
+                                  compact
+                                  title={t("control:libraries.takeOwnershipTitle")}
+                                  onClick={() => {
+                                    setError("");
+                                    setTakeOwnershipConfirmLibrary(library);
+                                  }}
+                                >
+                                  <KeyRound size={14} /> {t("control:libraries.takeOwnership")}
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label={t("control:libraries.overview.pagerAria")} />
+              )}
+            </>
+          )}
+      </div>
       </>
-      )}
 
       {createLibraryOpen && (
         <LibraryWizard
@@ -773,46 +905,62 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
         </ConfirmDialog>
       )}
 
-      {editingLibrary && (
+      {editingLibrary && (() => {
+        const library = editingLibrary;
+        const books = library.type === "audiobook" || library.type === "ebook";
+        // Every setting this type of library has, in the order the wizard would ask.
+        const steps: LibraryEditTab[] = [
+          "access",
+          ...(library.personal || library.role ? [] : ["members" as const]),
+          ...(library.type === "video" ? ["video" as const] : ["upload" as const, "scanning" as const]),
+          ...(books ? ["layout" as const] : []),
+          ...(library.type === "gallery" && !library.personal ? ["faces" as const] : []),
+          ...(phoneLinkable(library) ? ["phones" as const] : []),
+          "details"
+        ];
+        const index = Math.max(0, steps.indexOf(editTab));
+        const step = steps[index];
+        const stepTitle = (key: LibraryEditTab) => ({
+          access: t("control:libraries.tabAccess"),
+          members: t("control:libraries.manage.membersTitle"),
+          video: t("control:libraries.video.tabVideo"),
+          upload: t("control:libraries.tabUpload"),
+          scanning: t("control:libraries.tabScanning"),
+          layout: t("control:libraries.manage.layoutTitle"),
+          faces: t("control:libraries.manage.facesTitle"),
+          phones: t("control:libraries.tabPhoneBackups"),
+          details: t("control:libraries.manage.detailsTitle")
+        })[key];
+        const canSave = !saving && editName.trim() !== "" && (library.type === "video" ? Boolean(library.folder || editVideoFolder) && editVideoFolder !== "" : editExtensions.length > 0);
+        return (
         <Modal
           variant="panel"
-          title={t("control:libraries.editModalTitle", { type: typeLabel(editingLibrary.type).toLowerCase() })}
+          title={t("control:libraries.editModalTitle", { type: typeLabel(library.type).toLowerCase() })}
           icon={<Pencil size={22} />}
-          className="edit-library-panel"
+          className="edit-library-panel edit-library-wizard"
           headerClassName="edit-library-header"
           busy={saving}
-          onClose={() => setEditingLibrary(null)}
+          onClose={closeEdit}
         >
-          <div className="modal-tabs" role="tablist">
-            <Button variant="tab" className="modal-tab" selected={editTab === "access"} onClick={() => setEditTab("access")}>
-              {t("control:libraries.tabAccess")}
-            </Button>
-            {editingLibrary.type === "video" ? (
-              <Button variant="tab" className="modal-tab" selected={editTab === "video"} onClick={() => setEditTab("video")}>
-                {t("control:libraries.video.tabVideo")}
-              </Button>
-            ) : (
-              <>
-                <Button variant="tab" className="modal-tab" selected={editTab === "upload"} onClick={() => setEditTab("upload")}>
-                  {t("control:libraries.tabUpload")}
-                </Button>
-                <Button variant="tab" className="modal-tab" selected={editTab === "scanning"} onClick={() => setEditTab("scanning")}>
-                  {t("control:libraries.tabScanning")}
-                </Button>
-                {phoneLinkable(editingLibrary) && (
-                  <Button variant="tab" className="modal-tab" selected={editTab === "phones"} onClick={() => setEditTab("phones")}>
-                    {t("control:libraries.tabPhoneBackups")}
+          <div className="edit-library-wizard-body">
+            {/* The Add library wizard's step row, across the top: every step can be opened. */}
+            <ol className="wizard-steps is-edit" aria-label={t("control:libraries.edit.stepsAria", { name: library.name })}>
+              {steps.map((key, position) => (
+                <li key={key} className={`wizard-step${key === step ? " active" : ""}`} aria-current={key === step ? "step" : undefined}>
+                  <Button variant="bare" className="wizard-step-jump" onClick={() => setEditTab(key)}>
+                    <span className="wizard-step-dot">{position + 1}</span>
+                    <span className="wizard-step-label">{stepTitle(key)}</span>
                   </Button>
-                )}
-              </>
-            )}
-          </div>
+                </li>
+              ))}
+            </ol>
 
           <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>
-            {editTab === "access" && (
+            <h3 className="edit-library-step-title">{stepTitle(step)}</h3>
+            {step === "access" && (
               <>
-                <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} disabled={Boolean(editingLibrary.role)} />
-                {editingLibrary.role && (
+                <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} disabled={Boolean(library.role)} />
+                {library.role && (
                   <MessageBox tone="info" title={t("control:libraries.systemNoteTitle")}>{t("control:libraries.systemNoteBody")}</MessageBox>
                 )}
                 <LibraryAccessRows
@@ -823,21 +971,50 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
                   onVisibilityChange={setEditVisibility}
                   publicRole={editPublicRole}
                   onPublicRoleChange={setEditPublicRole}
-                  mode={editingLibrary.type === "video" ? undefined : editMode}
-                  onModeChange={editingLibrary.type === "video" ? undefined : setEditMode}
+                  mode={library.type === "video" ? undefined : editMode}
+                  onModeChange={library.type === "video" ? undefined : setEditMode}
                   users={users}
                   groups={groups}
                 />
               </>
             )}
 
-            {editTab === "video" && editingLibrary.type === "video" && (
+            {/* Members, layout and faces keep their own editors, opened over this one. */}
+            {step === "members" && (
+              <div className="edit-library-handoff">
+                <p className="muted">{t("control:libraries.manage.membersBody")}</p>
+                <Button variant="secondary" onClick={() => setMembersLibrary(library)}>
+                  <Users size={16} aria-hidden="true" />
+                  {t("control:libraries.edit.openMembers")}
+                </Button>
+              </div>
+            )}
+            {step === "layout" && (
+              <div className="edit-library-handoff">
+                <p className="muted">{t("control:libraries.manage.layoutBody")}</p>
+                <Button variant="secondary" onClick={() => setScanRulesLibrary(library)}>
+                  <FolderTree size={16} aria-hidden="true" />
+                  {t("control:libraries.edit.openLayout")}
+                </Button>
+              </div>
+            )}
+            {step === "faces" && (
+              <div className="edit-library-handoff">
+                <p className="muted">{t("control:libraries.manage.facesBody")}</p>
+                <Button variant="secondary" onClick={() => setFaceSettingsOpen(true)}>
+                  <ScanFace size={16} aria-hidden="true" />
+                  {t("control:libraries.edit.openFaces")}
+                </Button>
+              </div>
+            )}
+
+            {step === "video" && library.type === "video" && (
               <>
                 <p className="muted">
-                  {editingLibrary.kind === "movies" ? t("control:libraries.video.editKindMovies") : t("control:libraries.video.editKindShows")}
+                  {library.kind === "movies" ? t("control:libraries.video.editKindMovies") : t("control:libraries.video.editKindShows")}
                 </p>
                 <VideoFolderPicker value={editVideoFolder} onChange={setEditVideoFolder} onError={setError} />
-                {editVideoFolder !== (editingLibrary.folder ?? "") && (
+                {editVideoFolder !== (library.folder ?? "") && (
                   <MessageBox tone="info" title={t("control:libraries.video.folderChangeTitle")}>{t("control:libraries.video.folderChangeHint")}</MessageBox>
                 )}
                 <SelectField
@@ -850,18 +1027,18 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
               </>
             )}
 
-            {editTab === "upload" && (
+            {step === "upload" && (
               <>
                 <ExtensionsEditor
                   extensions={editExtensions}
                   onChange={setEditExtensions}
-                  defaults={typeDefaults[editingLibrary.type]?.extensions ?? []}
+                  defaults={typeDefaults[library.type]?.extensions ?? []}
                   label={t("control:libraries.extensionsLabel")}
                 />
                 <ExtensionsEditor
                   extensions={editCompanions}
                   onChange={setEditCompanions}
-                  defaults={typeDefaults[editingLibrary.type]?.companions ?? []}
+                  defaults={typeDefaults[library.type]?.companions ?? []}
                   label={t("control:libraries.companionsLabel")}
                   emptyHint={t("control:libraries.companionsEmptyHint")}
                 />
@@ -873,20 +1050,20 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
               </>
             )}
 
-            {editTab === "scanning" && (
+            {step === "scanning" && (
               <>
                 <ScanSourcesEditor
                   sources={editSources}
                   onChange={setEditSources}
-                  sourceInfo={sourceInfoFor(editingLibrary.type)}
+                  sourceInfo={sourceInfoFor(library.type)}
                 />
-                {editingLibrary.type === "gallery" && (
-                  <BackSidesEditor value={editBackSides} onChange={setEditBackSides} libraryId={editingLibrary.id} />
+                {library.type === "gallery" && (
+                  <BackSidesEditor value={editBackSides} onChange={setEditBackSides} libraryId={library.id} />
                 )}
-                {editingLibrary.type === "audiobook" && (
+                {library.type === "audiobook" && (
                   <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
                 )}
-                {editingLibrary.type === "audiobook" && (
+                {library.type === "audiobook" && (
                   <SelectField
                     label={t("control:libraries.progressTracking")}
                     value={editProgressMode}
@@ -900,29 +1077,46 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
                 )}
               </>
             )}
-            {editTab === "phones" && phoneLinkable(editingLibrary) && (
-              <PhoneBackupsEditor libraryId={editingLibrary.id} value={editPhoneLinks} onChange={setEditPhoneLinks} />
+            {step === "phones" && phoneLinkable(library) && (
+              <PhoneBackupsEditor libraryId={library.id} value={editPhoneLinks} onChange={setEditPhoneLinks} />
+            )}
+            {step === "details" && (
+              <LibraryDetailsGrid library={library} ownerLabel={libraryOwnerLabel(library)} scanSources={scanSourceSummary(library)} extensions={extensionSummary(library)} />
             )}
           </form>
+          </div>
 
           <div className="edit-library-footer">
             {error && <MessageBox tone="error" title={t("control:libraries.unableToSave")}>{error}</MessageBox>}
-            <div className="modal-actions">
-              <Button variant="secondary" onClick={() => setEditingLibrary(null)} disabled={saving}>
+            <div className="modal-actions edit-library-actions">
+              {/* A system library is made and removed by the app, never here. */}
+              {!library.role && (
+                <Button variant="text" danger className="edit-library-delete" onClick={() => setDeleteConfirmLibrary(library)} disabled={saving}>
+                  <Trash2 size={15} aria-hidden="true" />
+                  {t("control:libraries.manage.deleteAction")}
+                </Button>
+              )}
+              <Button variant="secondary" onClick={closeEdit} disabled={saving}>
                 {t("control:ui.cancel")}
               </Button>
-              <Button
-                variant="primary"
-                type="submit"
-                form="edit-library-form"
-                disabled={saving || !editName.trim() || (editingLibrary.type === "video" ? !editVideoFolder : editExtensions.length === 0)}
-              >
+              {index > 0 && (
+                <Button variant="secondary" onClick={() => setEditTab(steps[index - 1])} disabled={saving}>
+                  {t("control:libraries.edit.back")}
+                </Button>
+              )}
+              {index < steps.length - 1 && (
+                <Button variant="secondary" onClick={() => setEditTab(steps[index + 1])} disabled={saving}>
+                  {t("control:libraries.edit.next")}
+                </Button>
+              )}
+              <Button variant="primary" type="submit" form="edit-library-form" disabled={!canSave}>
                 {saving ? t("control:ui.saving") : t("control:ui.saveChanges")}
               </Button>
             </div>
           </div>
         </Modal>
-      )}
+        );
+      })()}
     </>
   );
 }

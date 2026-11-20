@@ -46,7 +46,7 @@ shared household library; naming an owner makes it theirs to manage.
 
 **Advanced options** covers file formats, upload rules and how metadata is read.
 The defaults suit most people — you can change all of it later from the
-library's **Manage** page.
+library's **Edit** window.
 
 ### 3. Layout (audiobooks and ebooks)
 
@@ -97,15 +97,23 @@ Two ways:
 
 ![The libraries list, one row per library with its file count and size](images/21-libraries-list.png)
 
+Cards across the top count your libraries, their files and size, and say what is
+scanning, when the next scheduled scan runs and what needs a look; **Rescan all**,
+the scan schedules and the storage containers are beside them. A button per type
+(and **Personal**) filters the table below, twenty libraries a page.
+
 Each library row shows who can open it, how many files it holds and how big it is,
 and its **Status** — up to date, scanning (with a link to follow it in Tasks), or what
-went wrong. Beside it are **Manage** and a **⋯** menu:
+went wrong. Its **⋯** — or a right-click anywhere on the row — opens one menu:
 
-- **⋯ › Rescan** — re-read the folder.
-- **⋯ › Delete library** — removes the library *from the app*. **Your files stay on
+- **Rescan** — re-read the folder.
+- **Delete library** — removes the library *from the app*. **Your files stay on
   disk.** Only the catalogue entry, and the covers generated from it, go away.
-- **Manage** — the library's own page, listing what can be set for its type, each
-  with **Edit**:
+- **Members and groups** — who else may open it and what they may do.
+- **Edit** (or a click on the row) — one window laid out like **Add library**: every
+  setting of that type of library is a numbered step across its top. Click any step,
+  or go through them with **Back** and **Next**; **Save changes** works from every
+  step, and **Delete library** is at its foot. The steps:
   - **Name, owner and access**, and **Members and groups** — who else may open it
     and what they may do.
   - **Files and uploads** and **Scanning** — formats, upload rules, where details
@@ -116,9 +124,7 @@ went wrong. Beside it are **Manage** and a **⋯** menu:
     backups ticks members' phones whose photos are already in it, so switching on
     [phone backup](phone-backup-linking.md) doesn't store them twice.
 
-  Below them: the shared sets the library is organized with (Book categories, Tags
-  or Video genres, each opened from its application's Overview), everything about it at a glance,
-  and **Delete library**.
+  - **Details** — everything about the library at a glance.
 
 ## Next
 

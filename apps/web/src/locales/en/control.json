@@ -791,7 +791,8 @@
       "detailsProgress": {
         "films": "{{done}} of {{total}} films",
         "shows": "{{done}} of {{total}} shows"
-      }
+      },
+      "checkedAgo": "checked {{when}}"
     },
     "manage": {
       "rescan": "Rescan",
@@ -1052,7 +1053,42 @@
     "manageAction": "Manage",
     "manageAria": "Manage {{name}}",
     "moreActions": "More for {{name}}",
-    "fieldDetails": "Details"
+    "fieldDetails": "Details",
+    "edit": {
+      "menuEdit": "Edit…",
+      "menuMembers": "Members and groups…",
+      "stepsAria": "Settings of {{name}}",
+      "openMembers": "Edit members and groups",
+      "openLayout": "Edit layout rules",
+      "openFaces": "Face recognition settings",
+      "back": "Back",
+      "next": "Next"
+    },
+    "overview": {
+      "libraries": "Libraries",
+      "personalCount_one": "{{count}} personal",
+      "personalCount_other": "{{count}} personal",
+      "files": "Files",
+      "types_one": "{{count}} type",
+      "types_other": "across {{count}} types",
+      "scanningNow": "Scanning now",
+      "nextScan": "next {{when}}",
+      "needsLook": "Needs a look",
+      "allFine": "every scan finished",
+      "lastScan": "Last scan",
+      "personalChip": "Personal",
+      "scanningTitle": "Scanning",
+      "rescanAll": "Rescan all",
+      "rescanningAll": "Rescanning…",
+      "rescanAllSub": "Every library you manage, with the sources it already uses",
+      "schedules": "Scan schedules",
+      "schedulesSub": "When every library is scanned again",
+      "tasks": "Scan tasks",
+      "whereTitle": "Where files live",
+      "containers": "Storage containers",
+      "containersSub": "Approved folders",
+      "pagerAria": "Libraries pages"
+    }
   },
   "libraryMembers": {
     "viewerTagline": "View only",

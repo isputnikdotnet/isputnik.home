@@ -25,6 +25,9 @@ export interface ActionMenuItem {
 // wall of unlabelled glyphs whose meaning lives in tooltips; collapsed into this,
 // each one gets its name back.
 //
+// `openAt` opens the same menu where the pointer is — a right-click on a table
+// row (Libraries, 2026-11-19) — so the row's actions are one menu either way.
+//
 // The keyboard is useMenuKeyboard's, as in SortMenu: opening puts focus on the
 // first enabled action, Up/Down wrap, Home/End jump, and Escape, Tab or running
 // an action hand focus back to the trigger — the popover is portalled to <body>,
@@ -35,7 +38,8 @@ export function ActionMenu({
   items,
   compact = false,
   trigger = "button",
-  className
+  className,
+  openAt
 }: {
   label: string;
   icon?: React.ReactNode;
@@ -43,8 +47,17 @@ export function ActionMenu({
   compact?: boolean;
   trigger?: "button" | "icon";
   className?: string;
+  /** Open at this point (a right-click), anchored there instead of the trigger. A new
+   *  object each time opens it again. */
+  openAt?: { x: number; y: number } | null;
 }) {
   const [open, setOpen] = useState(false);
+  const pointRef = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!openAt) return;
+    pointRef.current = openAt;
+    setOpen(true);
+  }, [openAt]);
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -58,7 +71,10 @@ export function ActionMenu({
   const place = useCallback(() => {
     const trigger = rootRef.current?.querySelector("button");
     if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
+    const point = pointRef.current;
+    const rect = point
+      ? { top: point.y, bottom: point.y, left: point.x, right: point.x }
+      : trigger.getBoundingClientRect();
     const height = popoverRef.current?.offsetHeight ?? 0;
     const width = popoverRef.current?.offsetWidth ?? 0;
     // Flip above the trigger when there isn't room below — a row near the bottom of
@@ -89,6 +105,7 @@ export function ActionMenu({
   useLayoutEffect(() => {
     if (!open) {
       setAnchor(null);
+      pointRef.current = null;
       return;
     }
     place();
@@ -141,7 +158,7 @@ export function ActionMenu({
           aria-haspopup="menu"
           aria-expanded={open}
           aria-controls={open ? menuId : undefined}
-          onClick={() => setOpen((current) => !current)}
+          onClick={() => { pointRef.current = null; setOpen((current) => !current); }}
         >
           <MoreVertical size={15} aria-hidden="true" />
         </Button>

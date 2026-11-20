@@ -57,7 +57,7 @@ libraries of removed members, each with **Hand over** and **Delete**.
 ![Applications › Gallery › Device Sync › Personal libraries: on, the folder, who may have one, a size limit](images/123-personal-libraries.png)
 
 **Statistics** lists the libraries: whose each is, its size against the limit, how many phones
-back up into it, and when it last got a backup. Yours opens its Manage page; someone else's is private, even to you. More in
+back up into it, and when it last got a backup. Yours opens its Edit window; someone else's is private, even to you. More in
 [Storage](storage.md#personal-libraries).
 
 ## Listing the networks

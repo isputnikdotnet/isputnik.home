@@ -839,7 +839,8 @@
       "detailsProgress": {
         "films": "{{done}} из {{total}} фильмов",
         "shows": "{{done}} из {{total}} сериалов"
-      }
+      },
+      "checkedAgo": "проверено {{when}}"
     },
     "manage": {
       "rescan": "Пересканировать",
@@ -1107,7 +1108,46 @@
     "manageAction": "Управлять",
     "manageAria": "Управлять «{{name}}»",
     "moreActions": "Ещё для «{{name}}»",
-    "fieldDetails": "Сведения"
+    "fieldDetails": "Сведения",
+    "edit": {
+      "menuEdit": "Изменить…",
+      "menuMembers": "Участники и группы…",
+      "stepsAria": "Настройки «{{name}}»",
+      "openMembers": "Изменить участников и группы",
+      "openLayout": "Изменить правила раскладки",
+      "openFaces": "Настройки распознавания лиц",
+      "back": "Назад",
+      "next": "Далее"
+    },
+    "overview": {
+      "libraries": "Библиотеки",
+      "personalCount_one": "{{count}} личная",
+      "personalCount_few": "{{count}} личные",
+      "personalCount_many": "{{count}} личных",
+      "personalCount_other": "{{count}} личных",
+      "files": "Файлы",
+      "types_one": "{{count}} тип",
+      "types_few": "{{count}} типа",
+      "types_many": "{{count}} типов",
+      "types_other": "{{count}} типа",
+      "scanningNow": "Сканируется сейчас",
+      "nextScan": "следующее {{when}}",
+      "needsLook": "Требуют внимания",
+      "allFine": "все сканирования завершены",
+      "lastScan": "Последнее сканирование",
+      "personalChip": "Личные",
+      "scanningTitle": "Сканирование",
+      "rescanAll": "Пересканировать все",
+      "rescanningAll": "Сканирование…",
+      "rescanAllSub": "Все библиотеки, которыми вы управляете, с их источниками",
+      "schedules": "Расписание сканирования",
+      "schedulesSub": "Когда библиотеки сканируются снова",
+      "tasks": "Задачи сканирования",
+      "whereTitle": "Где лежат файлы",
+      "containers": "Контейнеры хранилища",
+      "containersSub": "Разрешённые папки",
+      "pagerAria": "Страницы библиотек"
+    }
   },
   "libraryMembers": {
     "viewerTagline": "Только просмотр",

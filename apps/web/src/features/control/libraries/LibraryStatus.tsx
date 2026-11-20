@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { followRoute } from "../../../router";
 import { formatManagedDate } from "../../../shared/utils";
+import { relativeTime } from "../../../shared/relativeTime";
 import { tasksHref } from "../links";
 import type { ManagedLibrary } from "./managed-library";
 
@@ -58,7 +59,8 @@ export function LibraryStatus({
     <Status
       tone="ok"
       label={library.lastScannedAt ? t("control:libraries.status.upToDate") : t("control:libraries.status.notScanned")}
-      note={library.lastScannedAt ? t("control:libraries.status.checked", { date: formatManagedDate(library.lastScannedAt) }) : undefined}
+      // How long ago, short ("checked 9 h ago"), so the Status column stays one line or two.
+      note={library.lastScannedAt ? <span title={formatManagedDate(library.lastScannedAt)}>{t("control:libraries.status.checkedAgo", { when: relativeTime(library.lastScannedAt, { style: "short" }) })}</span> : undefined}
     />
   );
 }

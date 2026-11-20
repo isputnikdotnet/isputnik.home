@@ -542,8 +542,7 @@ there — nothing else keeps a parallel list.
     2026-11-19). Each keeps its own `CONTROL_PATHS` address and search entry; the tab
     row stays up with the parent selected, and its back line names the tab ("← Back │
     Applications › Gallery › Overview").
-  - A **page of one thing** — a member, a group, a library's Manage page
-    (`libraryManageHref()`) — has its own route matched after the table in
+  - A **page of one thing** — a member, a group — has its own route matched after the table in
     `getRoute()`, drops the tab row, and opens with the same back line, its list last
     ("← Back │ Libraries"). A page of one thing may draw its OWN tab row, every tab
     a real address (`RouteTab`): a member's page, and Diagnostics › Video and
@@ -562,8 +561,10 @@ there — nothing else keeps a parallel list.
   and `placeOf(section, from)` puts its eyebrow, selected tab and back link there; list
   it in `SHARED_PAGE_PARENTS`. Never a second copy of the editor.
 - **A row offers one way in.** A list of things to manage (Libraries & Scanning › Libraries) gives
-  each row a **Manage** link to its page and a **⋯** `ActionMenu` for the quick
-  actions (Rescan, Delete); not an icon per dialog.
+  each row one **⋯** `ActionMenu` — also opened by a right-click on the row (`openAt`) —
+  with every action (Edit, Members, Rescan, Delete); not an icon per dialog. A library's
+  settings are ONE Edit popup in the Add library wizard's shape, a step per setting
+  (owner, 2026-11-19); `libraryManageHref()` opens the list with that popup.
 - **Personal things live in Profile, not here.** The control panel is admin-only;
   anything that belongs to the signed-in person (reader tokens, devices, theme)
   goes under `PROFILE_PATHS` so every member can reach their own.
@@ -585,7 +586,7 @@ there — nothing else keeps a parallel list.
   history (opened from a link, the nearest level up); each name opens that level's own
   page — the group's first page, the workspace's Overview, the tab a page sits under,
   or the list a detail page came from. `ControlSectionHead` draws it; a page without
-  that head (a Device Sync phone, a library's Manage page) draws `ControlBackBar`
+  that head (a Device Sync phone) draws `ControlBackBar`
   itself. Wherever it is declared it is drawn in ControlPanelPage's slot: the first
   thing in the work area, at the icon's left edge, ABOVE a workspace's tab row and
   status line — never under them, never centred, never a second line of its own lower

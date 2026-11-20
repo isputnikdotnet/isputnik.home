@@ -834,3 +834,23 @@
   display: grid;
   gap: 10px;
 }
+
+/* ── Edit library: the Add library wizard's steps across the top (2026-11-19) ── */
+/* Header, the steps over their content, footer: three rows, not the tabbed four. */
+.metadata-modal.edit-library-panel.edit-library-wizard { width: min(100%, 940px); grid-template-rows: auto minmax(0, 1fr) auto; }
+.edit-library-wizard-body { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; min-height: 0; overflow: hidden; padding: 14px 18px 0; }
+.edit-library-wizard-body > .edit-library-content { overflow-y: auto; min-height: 0; min-width: 0; padding: 0 4px 16px 0; }
+/* Seven steps where Add library has four: shorter joins and smaller dots, so they fit one row. */
+.wizard-steps.is-edit { flex-wrap: wrap; gap: 8px 6px; overflow: visible; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.wizard-steps.is-edit .wizard-step { font-size: 0.82rem; }
+.wizard-steps.is-edit .wizard-step:not(:last-child)::after { width: 10px; margin-left: 2px; }
+.wizard-steps.is-edit .wizard-step-jump { gap: 6px; }
+.wizard-steps.is-edit .wizard-step-dot { width: 24px; height: 24px; font-size: 0.78rem; }
+.wizard-steps.is-edit .wizard-step:not(.active) .wizard-step-jump:hover .wizard-step-dot { background: var(--line); }
+.edit-library-step-title { margin: 0 0 12px; font-size: 1.05rem; }
+.edit-library-handoff { display: grid; gap: 12px; justify-items: start; }
+.edit-library-actions { flex-wrap: wrap; }
+.edit-library-actions .edit-library-delete { margin-right: auto; }
+/* Rows of the Libraries list open their popup on a click. */
+.library-row-editable { cursor: pointer; }
+.library-row-editable:hover > td { background: var(--hover); }
