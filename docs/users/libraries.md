@@ -109,25 +109,29 @@ the row — opens one menu:
 - **Rescan** — re-read the folder.
 - **Delete library** — removes the library *from the app*. **Your files stay on
   disk.** Only the catalogue entry, and the covers generated from it, go away.
-- **Edit** — the library's own page (the same as a click on the row). It has three
+- **Edit** — the library's own page (the same as a click on the row). It has four
   sections; each lists what can be set there, one row per setting saying what it is
   set to now, with **Edit** beside it, and under the rows the facts that go with them:
   - **General** — its **Name**, its **Folder** (or, for a video library, **Folder and
     language**), and **Organizing**: the shared sets it is sorted by (Book categories,
-    Tags or Video genres). Under them: its type, files, size, status, and when it was
-    last scanned, made and changed.
+    Tags or Video genres). Under them: its type, files, size, and when it was made
+    and changed.
   - **Access** — **Owner and visibility** (who owns it, whether everyone may open it
     and what they may do) and **Members and groups** (who else, and with what role).
     Under them: your own role and what you can do here.
+  - **Scanning** — everything about how the folder is read: **Scan sources** (where
+    details come from); for a book library **Scanning rules** (how folder and file
+    names are read, and rules for folders arranged differently — see the audiobook
+    and ebook guides); **Tag text encoding** for an audiobook library; **Back
+    sides** and **Face recognition** for a photo library. Under them: its status
+    and when it was last scanned. A video library is read by the video app, so it
+    shows only those.
   - **Advanced** — **Files and uploads** (whether this app manages the files, the
-    formats it takes, the upload limit) and **Scan sources** (where details come
-    from). A book library adds **Scanning rules**: how folder and file names are
-    read, and rules for folders arranged differently — see the audiobook and ebook
-    guides. An audiobook library adds **Tag text encoding** and **Progress tracking**.
-    A photo library adds **Back sides**, **Face recognition** and **Phone backups**,
-    which ticks members' phones whose photos are already in it, so switching on
+    formats it takes, the upload limit); **Progress tracking** for an audiobook
+    library; and for a photo library **Phone backups**, which ticks members' phones
+    whose photos are already in it, so switching on
     [phone backup](phone-backup-linking.md) doesn't store them twice. A video
-    library has no Advanced section: the video app reads its files.
+    library has no Advanced section.
 
   At the foot is **Delete library**.
 

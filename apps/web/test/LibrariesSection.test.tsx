@@ -63,9 +63,9 @@ it("opens a library's page from a click on its row", async () => {
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-// The page is three sections (owner, 2026-11-19) — General, Access, Advanced — each
-// with its settings, one row apiece saying what it is set to, and its own facts.
-it("shows a library's own address as its full page: General, Access, Advanced, each with its settings and facts", async () => {
+// The page is four sections (owner, 2026-11-19) — General, Access, Scanning, Advanced —
+// each with its settings, one row apiece saying what it is set to, and its own facts.
+it("shows a library's own address as its full page: General, Access, Scanning, Advanced, each with its settings and facts", async () => {
   const user = userEvent.setup();
   window.history.replaceState({}, "", "/control/libraries/gallery");
   render(<LibrariesSection libraryId="gallery" />);
@@ -73,16 +73,18 @@ it("shows a library's own address as its full page: General, Access, Advanced, e
   // The page, not the list with a popup over it.
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
-  expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["General", "Access", "Advanced", "Delete library"]);
+  expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["General", "Access", "Scanning", "Advanced", "Delete library"]);
   expect(screen.getByRole("button", { name: /^Rescan/ })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Delete library/ })).toBeInTheDocument();
 
   const titles = (name: string) => within(screen.getByRole("region", { name })).getAllByRole("listitem").map((item) => item.querySelector("strong")!.textContent);
   expect(titles("General")).toEqual(["Name", "Folder", "Organizing"]);
   expect(titles("Access")).toEqual(["Owner and visibility", "Members and groups"]);
-  expect(titles("Advanced")).toEqual(["Files and uploads", "Scan sources", "Back sides", "Face recognition", "Phone backups"]);
+  expect(titles("Scanning")).toEqual(["Scan sources", "Back sides", "Face recognition"]);
+  expect(titles("Advanced")).toEqual(["Files and uploads", "Phone backups"]);
   // The facts sit in the section they are about.
-  expect(within(screen.getByRole("region", { name: "General" })).getByText("Last scanned")).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "General" })).getByText("Created")).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "Scanning" })).getByText("Last scanned")).toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "Access" })).getByText("Your role")).toBeInTheDocument();
 
   const row = (title: string) => screen.getAllByText(title).find((el) => el.tagName === "STRONG")!.closest("li") as HTMLElement;
@@ -118,11 +120,11 @@ it("gives an audiobook library's every option a row: scanning rules, tag text en
   window.history.replaceState({}, "", "/control/libraries/audiobook");
   render(<LibrariesSection libraryId="audiobook" />);
   await screen.findByRole("heading", { level: 1, name: "audiobook collection" });
-  const advanced = screen.getByRole("region", { name: "Advanced" });
-  expect(within(advanced).getAllByRole("listitem").map((item) => item.querySelector("strong")!.textContent)).toEqual([
-    "Files and uploads", "Scan sources", "Scanning rules", "Tag text encoding", "Progress tracking"
-  ]);
-  const row = (title: string) => within(advanced).getByText(title).closest("li") as HTMLElement;
+  const titles = (name: string) => within(screen.getByRole("region", { name })).getAllByRole("listitem").map((item) => item.querySelector("strong")!.textContent);
+  // Everything about reading the folder is together, under Scanning.
+  expect(titles("Scanning")).toEqual(["Scan sources", "Scanning rules", "Tag text encoding"]);
+  expect(titles("Advanced")).toEqual(["Files and uploads", "Progress tracking"]);
+  const row = (title: string) => within(screen.getByRole("region", { name: "Scanning" })).getByText(title).closest("li") as HTMLElement;
   expect(row("Tag text encoding")).toHaveTextContent("None — leave tags as-is");
   await user.click(within(row("Tag text encoding")).getByRole("button", { name: "Edit" }));
   const dialog = await screen.findByRole("dialog", { name: "Tag text encoding" });

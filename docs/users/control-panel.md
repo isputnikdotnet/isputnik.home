@@ -430,14 +430,16 @@ beside them; the table shows twenty libraries a page. To its right: **Rescan all
 (every library you manage, with the sources it already uses), **Scan schedules**,
 **Scan tasks** and the **Storage containers** libraries are made in.
 
-A library's page has three sections, each listing what can be set there — one row per
+A library's page has four sections, each listing what can be set there — one row per
 setting, saying what it is set to now, with **Edit** — and under the rows the facts that
 go with them. **General**: its name, its folder (and language, for a Video library) and
-the shared sets it is organized with; then its type, files, size, status and dates.
+the shared sets it is organized with; then its type, files, size and dates.
 **Access**: its owner and visibility, and its members and groups; then your own role
-and what you can do. **Advanced**: files and uploads and scan sources; the scanning
-rules of a book library; tag text encoding and progress tracking for an audiobook
-library; back sides, face recognition and phone backups for a Gallery library. At the
+and what you can do. **Scanning**: scan sources; the scanning rules of a book library; tag
+text encoding for an audiobook library; back sides and face recognition for a Gallery
+library; then its status and when it was last scanned. **Advanced**: files and
+uploads; progress tracking for an audiobook library; phone backups for a Gallery
+library. At the
 foot is **Delete library**. Back to the list is the **Libraries** link at the top.
 
 ### Library statistics

@@ -828,7 +828,8 @@
       "folderTitle": "Folder",
       "videoValue": "{{folder}} · titles looked up in {{language}}",
       "uploadValue": "{{mode}} · takes {{extensions}} · upload limit {{limit}}",
-      "backSidesBody": "Which files are the back of a scanned print, so the two sides stay one photo."
+      "backSidesBody": "Which files are the back of a scanned print, so the two sides stay one photo.",
+      "scanningSectionTitle": "Scanning"
     },
     "rescanModalTitle": "Rescan \"{{name}}\"",
     "rescanIntro": "Re-index this library from disk. Your files are never modified, and manually edited metadata is kept.",

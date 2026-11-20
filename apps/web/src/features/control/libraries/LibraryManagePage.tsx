@@ -29,8 +29,8 @@ import { LibraryStatus } from "./LibraryStatus";
 
 // One library's page, under Library › Libraries at /control/libraries/<id>: a page
 // of one thing, which drops the tab row and links back to the list. Everything about
-// the library is in three sections (owner, 2026-11-19) — General, Access, Advanced —
-// each a list of what can be set there, one row per setting saying what it is set to
+// the library is in four sections (owner, 2026-11-19) — General, Access, Scanning,
+// Advanced — each a list of what can be set there, one row per setting saying what it is set to
 // now, with Edit opening that one setting; and under the rows, the facts that belong
 // to the section (what used to be a separate Details card). Every option that can be
 // changed has a row of its own: none is to be found only inside another's dialog.
@@ -139,11 +139,6 @@ export function LibraryManagePage({
     { label: t("control:libraries.fieldType"), value: rowTypeLabel(library) || typeLabel(library.type) },
     { label: t("control:libraries.fieldFiles"), value: formatCount(library.fileCount) },
     { label: t("control:libraries.fieldSize"), value: formatLibrarySize(library.totalSizeBytes) },
-    { label: t("control:libraries.fieldStatus"), value: <span className={`status-badge ${library.scanStatus}`}>{scanStatusLabel(library.scanStatus)}</span> },
-    ...(library.engine?.metadata
-      ? [{ label: t("control:libraries.fieldDetails"), value: <LibraryStatus library={library} scanning={false} videoEngineDown={false} /> }]
-      : []),
-    { label: t("control:libraries.fieldLastScanned"), value: library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : t("control:libraries.notYet") },
     { label: t("control:libraries.fieldCreated"), value: formatManagedDate(library.createdAt) },
     { label: t("control:libraries.fieldUpdated"), value: formatManagedDate(library.updatedAt) }
   ];
@@ -183,8 +178,63 @@ export function LibraryManagePage({
     }] : [])
   ];
 
-  // ── Advanced: how files are taken in and read. A video library's are the video
-  // app's own, so it has none here.
+  // ── Scanning: how the folder is read into the catalogue — where details come from,
+  // how folder and file names are read, and what the scan does with what it finds —
+  // with how the last scan went. A video library is read by the video app, so it has
+  // the facts and no settings.
+  const scanningRows: Row[] = [];
+  if (!video) {
+    scanningRows.push({
+      key: "scanning",
+      title: t("control:libraries.manage.scanningTitle"),
+      body: gallery
+        ? t("control:libraries.manage.scanningBodyGallery", { sources: scanSources })
+        : t("control:libraries.manage.scanningBody", { sources: scanSources }),
+      action: edit("scanning")
+    });
+  }
+  if (books) {
+    scanningRows.push({
+      key: "layout",
+      title: t("control:libraries.manage.layoutTitle"),
+      body: t("control:libraries.manage.layoutBody"),
+      action: <EditButton onClick={onScanRules} />
+    });
+  }
+  if (library.type === "audiobook") {
+    scanningRows.push({
+      key: "encoding",
+      title: t("control:libraries.tagEncodingFieldLabel"),
+      body: library.settings?.tagEncoding ?? t("control:libraries.tagEncodingNone"),
+      action: edit("encoding")
+    });
+  }
+  if (gallery) {
+    scanningRows.push({
+      key: "backsides",
+      title: t("control:libraries.backSides.title"),
+      body: t("control:libraries.manage.backSidesBody"),
+      action: edit("backsides")
+    });
+  }
+  if (gallery && !library.personal) {
+    scanningRows.push({
+      key: "faces",
+      title: t("control:libraries.manage.facesTitle"),
+      body: t("control:libraries.manage.facesBody"),
+      action: <EditButton onClick={onFaces} />
+    });
+  }
+  const scanningFacts: Fact[] = [
+    { label: t("control:libraries.fieldStatus"), value: <span className={`status-badge ${library.scanStatus}`}>{scanStatusLabel(library.scanStatus)}</span> },
+    ...(library.engine?.metadata
+      ? [{ label: t("control:libraries.fieldDetails"), value: <LibraryStatus library={library} scanning={false} videoEngineDown={false} /> }]
+      : []),
+    { label: t("control:libraries.fieldLastScanned"), value: library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : t("control:libraries.notYet") }
+  ];
+
+  // ── Advanced: how files are taken in, and the rest. A video library's files are the
+  // video app's own, so it has none here.
   const advanced: Row[] = [];
   if (!video) {
     advanced.push(
@@ -197,55 +247,15 @@ export function LibraryManagePage({
           limit: library.settings?.maxUploadMB != null ? t("control:libraries.uploadLimitValue", { mb: library.settings.maxUploadMB }) : t("control:libraries.uploadLimitDefault")
         }),
         action: edit("upload")
-      },
-      {
-        key: "scanning",
-        title: t("control:libraries.manage.scanningTitle"),
-        body: gallery
-          ? t("control:libraries.manage.scanningBodyGallery", { sources: scanSources })
-          : t("control:libraries.manage.scanningBody", { sources: scanSources }),
-        action: edit("scanning")
       }
     );
-  }
-  if (books) {
-    advanced.push({
-      key: "layout",
-      title: t("control:libraries.manage.layoutTitle"),
-      body: t("control:libraries.manage.layoutBody"),
-      action: <EditButton onClick={onScanRules} />
-    });
   }
   if (library.type === "audiobook") {
-    advanced.push(
-      {
-        key: "encoding",
-        title: t("control:libraries.tagEncodingFieldLabel"),
-        body: library.settings?.tagEncoding ?? t("control:libraries.tagEncodingNone"),
-        action: edit("encoding")
-      },
-      {
-        key: "progress",
-        title: t("control:libraries.progressTracking"),
-        body: library.settings?.progressMode === "episodic" ? t("control:libraries.progressEpisodic") : t("control:libraries.progressLinear"),
-        action: edit("progress")
-      }
-    );
-  }
-  if (gallery) {
     advanced.push({
-      key: "backsides",
-      title: t("control:libraries.backSides.title"),
-      body: t("control:libraries.manage.backSidesBody"),
-      action: edit("backsides")
-    });
-  }
-  if (gallery && !library.personal) {
-    advanced.push({
-      key: "faces",
-      title: t("control:libraries.manage.facesTitle"),
-      body: t("control:libraries.manage.facesBody"),
-      action: <EditButton onClick={onFaces} />
+      key: "progress",
+      title: t("control:libraries.progressTracking"),
+      body: library.settings?.progressMode === "episodic" ? t("control:libraries.progressEpisodic") : t("control:libraries.progressLinear"),
+      action: edit("progress")
     });
   }
   if (phoneLinkable(library)) {
@@ -293,6 +303,7 @@ export function LibraryManagePage({
 
       <ManageSection id="general" title={t("control:libraries.manage.generalTitle")} rows={general} facts={generalFacts} />
       <ManageSection id="access" title={t("control:libraries.manage.accessSectionTitle")} rows={access} facts={accessFacts} />
+      <ManageSection id="scanning" title={t("control:libraries.manage.scanningSectionTitle")} rows={scanningRows} facts={scanningFacts} />
       {advanced.length > 0 && (
         <ManageSection id="advanced" title={t("control:libraries.manage.advancedTitle")} rows={advanced} />
       )}
@@ -325,19 +336,21 @@ function ManageSection({ id, title, rows, facts = [] }: { id: string; title: str
   return (
     <section className="library-manage-card" aria-labelledby={headingId}>
       <h2 id={headingId}>{title}</h2>
-      <ul className="library-manage-rows">
-        {rows.map((row) => (
-          <li key={row.key}>
-            <div>
-              <strong>{row.title}</strong>
-              <span>{row.body}</span>
-            </div>
-            {row.action}
-          </li>
-        ))}
-      </ul>
+      {rows.length > 0 && (
+        <ul className="library-manage-rows">
+          {rows.map((row) => (
+            <li key={row.key}>
+              <div>
+                <strong>{row.title}</strong>
+                <span>{row.body}</span>
+              </div>
+              {row.action}
+            </li>
+          ))}
+        </ul>
+      )}
       {facts.length > 0 && (
-        <dl className="library-manage-factlist">
+        <dl className={`library-manage-factlist${rows.length === 0 ? " is-alone" : ""}`}>
           {facts.map((fact) => (
             <div key={fact.label}>
               <dt>{fact.label}</dt>

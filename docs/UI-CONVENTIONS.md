@@ -573,8 +573,8 @@ there — nothing else keeps a parallel list.
   each row ONE way to its page — a click on the row — and a **⋯** `ActionMenu`, also
   opened by a right-click on the row (`openAt`), for Edit (the same page) and the quick
   actions (Rescan, Delete); not an icon per dialog. A library's settings are its own
-  page (`libraries/LibraryManagePage`), in three sections — **General**, **Access**,
-  **Advanced** — each a row per setting that says what it is set to now, with **Edit**
+  page (`libraries/LibraryManagePage`), in four sections — **General**, **Access**,
+  **Scanning**, **Advanced** — each a row per setting that says what it is set to now, with **Edit**
   opening that one setting (Members and groups opens the access window), and under the
   rows the facts that belong to the section. Every option that can be changed has a row
   of its own: none is reachable only through another setting's dialog, and there is no
