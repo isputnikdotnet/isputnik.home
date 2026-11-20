@@ -428,16 +428,18 @@ Each row shows the library's name and type, who can open it, how many files it h
 and how big it is, and its **Status**: up to date (and when it was last checked),
 scanning — with a link to follow it in Tasks — a failed last scan, or, for a video
 library, that the video engine isn't answering. A row's **⋯**, or a right-click on
-it, has **Edit…**, **Members and groups…**, **Rescan** and **Delete library…**; a
+it, has **Edit…**, **Rescan** and **Delete library…**; a
 click on the row opens Edit. Someone else's personal library shows only whose it is
 and its size.
 
-**Edit** is one window laid out like **Add library**, every setting of that type of
-library a numbered step across its top: its name, owner and access; members and
-groups; files and uploads; scanning; the layout rules of a book library; face
-recognition and phone backups for a Gallery library; the folder and language of a
-Video library; and its details. Any step can be opened, **Back** and **Next** walk
-them, **Save changes** works from each, and **Delete library** is at its foot. A link
+**Edit** is one window for everything about the library, its numbered steps across
+the top (as in **Add library**) jumping to its sections: **Summary** (files, size,
+status, last scan); **Name and access**, with its members and groups under it; **Files
+and scanning** (folder, Mode, sources, formats and uploads, plus the layout rules of a
+book library, face recognition and phone backups for a Gallery library, or the folder
+and language of a Video library); **Organizing**; and **About** (your role, what you
+can do, dates). **Rescan** is beside its title; **Save changes** and **Delete
+library** are at its foot. A link
 to one library (from an application's Overview, Diagnostics or Storage) opens this
 list with that library's window.
 

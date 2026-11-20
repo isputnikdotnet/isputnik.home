@@ -56,7 +56,7 @@ after the first backup. A photo edited on the phone is new to the server and is 
 
 1. Open **Libraries & Scanning › Libraries** in the control panel and **Edit** the library that already
    holds the member's photos (its **⋯**, a right-click, or a click on the row).
-2. Open its **Phone backups** step. It lists the phones of the members who can open this library.
+2. Under **Files and scanning**, find **Phone backups**. It lists the phones of the members who can open this library.
 3. Tick the member's phone and save.
 
 ![A gallery library's Edit dialog on the Phone backups tab, with a member's phone ticked](images/124-library-phone-backups.png)

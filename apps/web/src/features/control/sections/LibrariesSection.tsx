@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
@@ -9,7 +9,6 @@ import {
   ListChecks,
   FolderTree,
   ScanFace,
-  Users,
   Plus,
   RefreshCw,
   Pencil,
@@ -21,8 +20,9 @@ import {
 } from "lucide-react";
 import { useVideoAvailable } from "../../../app/useVideoAvailable";
 import { api } from "../../../api";
-import { controlHref, followRoute, navigate, replaceNavigate } from "../../../router";
-import { CommandRow, GroupedList, NavRow } from "../../../shared/GroupedList";
+import { controlHref, controlHrefFrom, followRoute, navigate, replaceNavigate, type ControlSection } from "../../../router";
+import { CommandRow, GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
+import { formatManagedDate } from "../../../shared/utils";
 import { Pager } from "../../../shared/Pager";
 import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { relativeTime } from "../../../shared/relativeTime";
@@ -47,7 +47,7 @@ import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
 import { TagEncodingField } from "../libraries/TagEncodingField";
 import { LibraryWizard } from "../libraries/LibraryWizard";
 import { VideoFolderPicker } from "../libraries/VideoFolderPicker";
-import { LibraryMembersModal } from "./LibraryMembersModal";
+import { LibraryMembersEditor } from "./LibraryMembersEditor";
 import { LayoutPanel } from "../layout/LayoutPanel";
 import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -56,10 +56,12 @@ import {
   TYPE_ICON,
   VIDEO_LANGUAGES,
   accessSummary,
+  capabilityLabels,
   formatCount,
   formatLibrarySize,
   languageLabel,
   phoneLinkable,
+  roleLabel,
   rowTypeLabel,
   typeFilterLabel,
   libraryTypeFilter,
@@ -67,7 +69,8 @@ import {
   type ManagedLibrary,
   type ManagedLibraryType
 } from "../libraries/managed-library";
-import { LibraryDetailsGrid, type LibraryEditTab } from "../libraries/LibraryDetails";
+/** The Edit window's sections, which its step row jumps between. */
+type EditSection = "summary" | "access" | "files" | "organizing" | "about";
 import { LibraryStatus } from "../libraries/LibraryStatus";
 // Scan layouts' stylesheet: it loads with this section, not on every route (docs/css-map.md).
 import "../../../styles/scan-layout.css";
@@ -124,7 +127,6 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
   const [rescanEncoding, setRescanEncoding] = useState("");
   const [rescanRunning, setRescanRunning] = useState(false);
   const [rescanningId, setRescanningId] = useState("");
-  const [membersLibrary, setMembersLibrary] = useState<ManagedLibrary | null>(null);
   const [scanRulesLibrary, setScanRulesLibrary] = useState<ManagedLibrary | null>(null);
   const [faceSettingsOpen, setFaceSettingsOpen] = useState(false);
   const [takeOwnershipConfirmLibrary, setTakeOwnershipConfirmLibrary] = useState<ManagedLibrary | null>(null);
@@ -146,7 +148,9 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
-  const [editTab, setEditTab] = useState<LibraryEditTab>("access");
+  const [editTab, setEditTab] = useState<EditSection>("summary");
+  // Until when a step clicked in the Edit window stays lit while the scroll settles.
+  const jumpingTo = useRef(0);
   // Phase 6 of Photo Sync: the phones that skip photos already here (null until the tab loads them).
   const [editPhoneLinks, setEditPhoneLinks] = useState<string[] | null>(null);
   const [editVideoFolder, setEditVideoFolder] = useState("");
@@ -222,7 +226,7 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
     return Number.isFinite(value) && value > 0 ? value : null;
   };
 
-  const openEdit = (library: ManagedLibrary, tab: LibraryEditTab = "access") => {
+  const openEdit = (library: ManagedLibrary, tab: EditSection = "summary") => {
     setEditingLibrary(library);
     setEditName(library.name);
     setEditVisibility(library.visibility);
@@ -379,26 +383,6 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
       return t("control:libraries.noOwner");
     },
     [groups, users, t]
-  );
-
-  const scanSourceSummary = useCallback(
-    (library: ManagedLibrary) => {
-      const sources = library.settings?.scanSources;
-      if (!sources?.length) return t("control:libraries.scanDefault");
-      const enabled = sources
-        .filter((source) => source.enabled)
-        .map((source) => metadataSources.find((info) => info.id === source.id)?.label ?? source.id);
-      return enabled.length ? enabled.join(" > ") : t("control:libraries.scanNone");
-    },
-    [metadataSources, t]
-  );
-
-  const extensionSummary = useCallback(
-    (library: ManagedLibrary) => {
-      const extensions = library.settings?.scanExtensions ?? typeDefaults[library.type]?.extensions ?? [];
-      return extensions.length ? extensions.join(", ") : t("control:libraries.notConfigured");
-    },
-    [typeDefaults, t]
   );
 
   const visibleLibraries = useMemo(
@@ -728,13 +712,6 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
                                         icon: <Pencil size={15} />,
                                         onSelect: () => openEdit(library)
                                       },
-                                      // A personal library has no grants to give; a system one is the app's.
-                                      ...(library.personal || library.role ? [] : [{
-                                        key: "members",
-                                        label: t("control:libraries.edit.menuMembers"),
-                                        icon: <Users size={15} />,
-                                        onSelect: () => setMembersLibrary(library)
-                                      }]),
                                       {
                                         key: "rescan",
                                         label: scanning ? t("control:libraries.rescanningTitle") : t("control:libraries.manage.rescan"),
@@ -797,15 +774,6 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
           onCreated={() => {
             loadLibraries().catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToLoad")));
           }}
-        />
-      )}
-
-      {membersLibrary && (
-        <LibraryMembersModal
-          library={membersLibrary}
-          users={users}
-          groups={groups}
-          onClose={() => setMembersLibrary(null)}
         />
       )}
 
@@ -908,181 +876,237 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
       {editingLibrary && (() => {
         const library = editingLibrary;
         const books = library.type === "audiobook" || library.type === "ebook";
-        // Every setting this type of library has, in the order the wizard would ask.
-        const steps: LibraryEditTab[] = [
-          "access",
-          ...(library.personal || library.role ? [] : ["members" as const]),
-          ...(library.type === "video" ? ["video" as const] : ["upload" as const, "scanning" as const]),
-          ...(books ? ["layout" as const] : []),
-          ...(library.type === "gallery" && !library.personal ? ["faces" as const] : []),
-          ...(phoneLinkable(library) ? ["phones" as const] : []),
-          "details"
-        ];
-        const index = Math.max(0, steps.indexOf(editTab));
-        const step = steps[index];
-        const stepTitle = (key: LibraryEditTab) => ({
-          access: t("control:libraries.tabAccess"),
-          members: t("control:libraries.manage.membersTitle"),
-          video: t("control:libraries.video.tabVideo"),
-          upload: t("control:libraries.tabUpload"),
-          scanning: t("control:libraries.tabScanning"),
-          layout: t("control:libraries.manage.layoutTitle"),
-          faces: t("control:libraries.manage.facesTitle"),
-          phones: t("control:libraries.tabPhoneBackups"),
-          details: t("control:libraries.manage.detailsTitle")
+        const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
+        // One window of sections (owner, 2026-11-19: the old Manage page's content,
+        // arranged by what it is about); the step row jumps to each.
+        const sections: EditSection[] = ["summary", "access", "files", "organizing", "about"];
+        const sectionTitle = (key: EditSection) => ({
+          summary: t("control:libraries.edit.summaryTitle"),
+          access: t("control:libraries.edit.accessTitle"),
+          files: t("control:libraries.edit.filesScanningTitle"),
+          organizing: t("control:libraries.manage.organizingTitle"),
+          about: t("control:libraries.edit.aboutTitle")
         })[key];
-        const canSave = !saving && editName.trim() !== "" && (library.type === "video" ? Boolean(library.folder || editVideoFolder) && editVideoFolder !== "" : editExtensions.length > 0);
+        // Scrolls only the window's own content (scrollIntoView would move the page,
+        // and the popup with it), and keeps the chosen step lit while it glides there.
+        const jump = (key: EditSection) => {
+          setEditTab(key);
+          jumpingTo.current = Date.now() + 800;
+          const form = document.getElementById("edit-library-form");
+          const section = document.getElementById(`edit-library-${key}`);
+          if (form && section) {
+            form.scrollTo?.({ top: form.scrollTop + section.getBoundingClientRect().top - form.getBoundingClientRect().top, behavior: "smooth" });
+          }
+        };
+        // The step of the section being read, as the window scrolls.
+        const follow = (event: React.UIEvent<HTMLFormElement>) => {
+          if (Date.now() < jumpingTo.current) return;
+          const box = event.currentTarget.getBoundingClientRect();
+          let current: EditSection = "summary";
+          for (const key of sections) {
+            const section = document.getElementById(`edit-library-${key}`);
+            if (section && section.getBoundingClientRect().top - box.top <= 48) current = key;
+          }
+          // At the very bottom the last section is the one being read, however short.
+          if (event.currentTarget.scrollTop + event.currentTarget.clientHeight >= event.currentTarget.scrollHeight - 4) current = sections[sections.length - 1];
+          if (current !== editTab) setEditTab(current);
+        };
+        const app = ({ gallery: "gallery", video: "videos", ebook: "ebooks", audiobook: "audiobooks" } as const)[library.type];
+        const organizing: ControlSection[] = books ? ["categories", "tags"] : library.type === "gallery" ? ["tags"] : ["genres"];
+        const capabilities = capabilityLabels(library);
+        const summaryTiles: StatTile[] = [
+          { label: t("control:libraries.fieldFiles"), value: formatCount(library.fileCount) },
+          { label: t("control:libraries.fieldSize"), value: formatLibrarySize(library.totalSizeBytes) },
+          { label: t("control:libraries.fieldStatus"), value: <LibraryStatus library={library} scanning={scanning} videoEngineDown={videoEngineDown} /> },
+          { label: t("control:libraries.fieldLastScanned"), value: library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : t("control:libraries.notYet") }
+        ];
+        const canSave = !saving && editName.trim() !== "" && (library.type === "video" ? editVideoFolder !== "" : editExtensions.length > 0);
         return (
         <Modal
           variant="panel"
-          title={t("control:libraries.editModalTitle", { type: typeLabel(library.type).toLowerCase() })}
+          title={library.name}
           icon={<Pencil size={22} />}
           className="edit-library-panel edit-library-wizard"
           headerClassName="edit-library-header"
           busy={saving}
           onClose={closeEdit}
+          headerAction={(
+            <Button variant="secondary" compact disabled={scanning} onClick={() => startRescan(library)}>
+              <RefreshCw size={15} aria-hidden="true" />
+              {scanning ? t("control:libraries.rescanningTitle") : t("control:libraries.manage.rescan")}
+            </Button>
+          )}
         >
           <div className="edit-library-wizard-body">
-            {/* The Add library wizard's step row, across the top: every step can be opened. */}
+            {/* The Add library wizard's step row, across the top: each jumps to its section. */}
             <ol className="wizard-steps is-edit" aria-label={t("control:libraries.edit.stepsAria", { name: library.name })}>
-              {steps.map((key, position) => (
-                <li key={key} className={`wizard-step${key === step ? " active" : ""}`} aria-current={key === step ? "step" : undefined}>
-                  <Button variant="bare" className="wizard-step-jump" onClick={() => setEditTab(key)}>
+              {sections.map((key, position) => (
+                <li key={key} className={`wizard-step${key === editTab ? " active" : ""}`} aria-current={key === editTab ? "step" : undefined}>
+                  <Button variant="bare" className="wizard-step-jump" onClick={() => jump(key)}>
                     <span className="wizard-step-dot">{position + 1}</span>
-                    <span className="wizard-step-label">{stepTitle(key)}</span>
+                    <span className="wizard-step-label">{sectionTitle(key)}</span>
                   </Button>
                 </li>
               ))}
             </ol>
 
-          <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>
-            <h3 className="edit-library-step-title">{stepTitle(step)}</h3>
-            {step === "access" && (
-              <>
-                <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} disabled={Boolean(library.role)} />
-                {library.role && (
-                  <MessageBox tone="info" title={t("control:libraries.systemNoteTitle")}>{t("control:libraries.systemNoteBody")}</MessageBox>
-                )}
-                <LibraryAccessRows
-                  ownerId={editOwnerId}
-                  ownerType={editOwnerType}
-                  onOwnerChange={(type, id) => { setEditOwnerType(type); setEditOwnerId(id); }}
-                  visibility={editVisibility}
-                  onVisibilityChange={setEditVisibility}
-                  publicRole={editPublicRole}
-                  onPublicRoleChange={setEditPublicRole}
-                  mode={library.type === "video" ? undefined : editMode}
-                  onModeChange={library.type === "video" ? undefined : setEditMode}
-                  users={users}
-                  groups={groups}
-                />
-              </>
+          <form id="edit-library-form" className="modal-tab-content edit-library-content edit-library-sections" onSubmit={saveEdit} onScroll={follow}>
+            <p className="muted edit-library-kind">{rowTypeLabel(library)}</p>
+            {library.role && (
+              <MessageBox tone="info" title={t("control:libraries.systemNoteTitle")}>{t("control:libraries.systemNoteBody")}</MessageBox>
             )}
 
-            {/* Members, layout and faces keep their own editors, opened over this one. */}
-            {step === "members" && (
-              <div className="edit-library-handoff">
-                <p className="muted">{t("control:libraries.manage.membersBody")}</p>
-                <Button variant="secondary" onClick={() => setMembersLibrary(library)}>
-                  <Users size={16} aria-hidden="true" />
-                  {t("control:libraries.edit.openMembers")}
-                </Button>
-              </div>
-            )}
-            {step === "layout" && (
-              <div className="edit-library-handoff">
-                <p className="muted">{t("control:libraries.manage.layoutBody")}</p>
-                <Button variant="secondary" onClick={() => setScanRulesLibrary(library)}>
-                  <FolderTree size={16} aria-hidden="true" />
-                  {t("control:libraries.edit.openLayout")}
-                </Button>
-              </div>
-            )}
-            {step === "faces" && (
-              <div className="edit-library-handoff">
-                <p className="muted">{t("control:libraries.manage.facesBody")}</p>
-                <Button variant="secondary" onClick={() => setFaceSettingsOpen(true)}>
-                  <ScanFace size={16} aria-hidden="true" />
-                  {t("control:libraries.edit.openFaces")}
-                </Button>
-              </div>
-            )}
+            <section id="edit-library-summary" className="edit-library-section" aria-labelledby="edit-library-summary-title">
+              <h3 id="edit-library-summary-title">{sectionTitle("summary")}</h3>
+              <div className="edit-library-summary"><StatTiles tiles={summaryTiles} label={sectionTitle("summary")} /></div>
+            </section>
 
-            {step === "video" && library.type === "video" && (
-              <>
-                <p className="muted">
-                  {library.kind === "movies" ? t("control:libraries.video.editKindMovies") : t("control:libraries.video.editKindShows")}
-                </p>
-                <VideoFolderPicker value={editVideoFolder} onChange={setEditVideoFolder} onError={setError} />
-                {editVideoFolder !== (library.folder ?? "") && (
-                  <MessageBox tone="info" title={t("control:libraries.video.folderChangeTitle")}>{t("control:libraries.video.folderChangeHint")}</MessageBox>
-                )}
-                <SelectField
-                  label={t("control:libraries.video.languageLabel")}
-                  hint={t("control:libraries.video.languageHint")}
-                  value={editVideoLanguage}
-                  onChange={setEditVideoLanguage}
-                  options={[...new Set([...VIDEO_LANGUAGES, editVideoLanguage])].map((code) => ({ value: code, label: languageLabel(code, i18n.resolvedLanguage ?? "en") }))}
-                />
-              </>
-            )}
+            <section id="edit-library-access" className="edit-library-section" aria-labelledby="edit-library-access-title">
+              <h3 id="edit-library-access-title">{sectionTitle("access")}</h3>
+              <Field label={t("control:libraries.libraryName")} value={editName} onChange={setEditName} disabled={Boolean(library.role)} />
+              <LibraryAccessRows
+                ownerId={editOwnerId}
+                ownerType={editOwnerType}
+                onOwnerChange={(type, id) => { setEditOwnerType(type); setEditOwnerId(id); }}
+                visibility={editVisibility}
+                onVisibilityChange={setEditVisibility}
+                publicRole={editPublicRole}
+                onPublicRoleChange={setEditPublicRole}
+                users={users}
+                groups={groups}
+              />
+              {/* Who else, by name: given and taken back at once, not by Save. A
+                  personal library has no grants to give; a system one is the app's. */}
+              {!library.personal && !library.role && (
+                <section className="edit-library-members" aria-labelledby="edit-library-members-title">
+                  <h4 id="edit-library-members-title">{t("control:libraries.manage.membersTitle")}</h4>
+                  <LibraryMembersEditor
+                    library={{ id: library.id, name: library.name, visibility: editVisibility, publicRole: editPublicRole }}
+                    users={users}
+                    groups={groups}
+                  />
+                </section>
+              )}
+            </section>
 
-            {step === "upload" && (
-              <>
-                <ExtensionsEditor
-                  extensions={editExtensions}
-                  onChange={setEditExtensions}
-                  defaults={typeDefaults[library.type]?.extensions ?? []}
-                  label={t("control:libraries.extensionsLabel")}
-                />
-                <ExtensionsEditor
-                  extensions={editCompanions}
-                  onChange={setEditCompanions}
-                  defaults={typeDefaults[library.type]?.companions ?? []}
-                  label={t("control:libraries.companionsLabel")}
-                  emptyHint={t("control:libraries.companionsEmptyHint")}
-                />
-                <UploadSettingsFields
-                  maxUploadMB={editMaxUploadMB}
-                  onChange={setEditMaxUploadMB}
-                  mode={editMode}
-                />
-              </>
-            )}
-
-            {step === "scanning" && (
-              <>
-                <ScanSourcesEditor
-                  sources={editSources}
-                  onChange={setEditSources}
-                  sourceInfo={sourceInfoFor(library.type)}
-                />
-                {library.type === "gallery" && (
-                  <BackSidesEditor value={editBackSides} onChange={setEditBackSides} libraryId={library.id} />
-                )}
-                {library.type === "audiobook" && (
-                  <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
-                )}
-                {library.type === "audiobook" && (
+            <section id="edit-library-files" className="edit-library-section" aria-labelledby="edit-library-files-title">
+              <h3 id="edit-library-files-title">{sectionTitle("files")}</h3>
+              {library.type === "video" ? (
+                <>
+                  <p className="muted">
+                    {library.kind === "movies" ? t("control:libraries.video.editKindMovies") : t("control:libraries.video.editKindShows")}
+                  </p>
+                  <VideoFolderPicker value={editVideoFolder} onChange={setEditVideoFolder} onError={setError} />
+                  {editVideoFolder !== (library.folder ?? "") && (
+                    <MessageBox tone="info" title={t("control:libraries.video.folderChangeTitle")}>{t("control:libraries.video.folderChangeHint")}</MessageBox>
+                  )}
                   <SelectField
-                    label={t("control:libraries.progressTracking")}
-                    value={editProgressMode}
-                    onChange={(value) => setEditProgressMode(value as "linear" | "episodic")}
-                    hint={t("control:libraries.progressEpisodicHint")}
+                    label={t("control:libraries.video.languageLabel")}
+                    hint={t("control:libraries.video.languageHint")}
+                    value={editVideoLanguage}
+                    onChange={setEditVideoLanguage}
+                    options={[...new Set([...VIDEO_LANGUAGES, editVideoLanguage])].map((code) => ({ value: code, label: languageLabel(code, i18n.resolvedLanguage ?? "en") }))}
+                  />
+                </>
+              ) : (
+                <>
+                  <p className="muted edit-library-path"><code>{library.sourcePath ?? t("control:libraries.pathHidden")}</code></p>
+                  <SelectField
+                    label={t("control:libraries.fieldMode")}
+                    hint={t("control:libraries.modeRowDescription")}
+                    value={editMode}
+                    onChange={(value) => setEditMode(value as LibraryMode)}
                     options={[
-                      { value: "linear", label: t("control:libraries.progressLinear") },
-                      { value: "episodic", label: t("control:libraries.progressEpisodic") }
+                      { value: "managed", label: t("control:libraries.modeManagedFull") },
+                      { value: "external", label: t("control:libraries.modeExternalFull") }
                     ]}
                   />
-                )}
-              </>
-            )}
-            {step === "phones" && phoneLinkable(library) && (
-              <PhoneBackupsEditor libraryId={library.id} value={editPhoneLinks} onChange={setEditPhoneLinks} />
-            )}
-            {step === "details" && (
-              <LibraryDetailsGrid library={library} ownerLabel={libraryOwnerLabel(library)} scanSources={scanSourceSummary(library)} extensions={extensionSummary(library)} />
-            )}
+                  <ScanSourcesEditor
+                    sources={editSources}
+                    onChange={setEditSources}
+                    sourceInfo={sourceInfoFor(library.type)}
+                  />
+                  <ExtensionsEditor
+                    extensions={editExtensions}
+                    onChange={setEditExtensions}
+                    defaults={typeDefaults[library.type]?.extensions ?? []}
+                    label={t("control:libraries.extensionsLabel")}
+                  />
+                  <ExtensionsEditor
+                    extensions={editCompanions}
+                    onChange={setEditCompanions}
+                    defaults={typeDefaults[library.type]?.companions ?? []}
+                    label={t("control:libraries.companionsLabel")}
+                    emptyHint={t("control:libraries.companionsEmptyHint")}
+                  />
+                  <UploadSettingsFields
+                    maxUploadMB={editMaxUploadMB}
+                    onChange={setEditMaxUploadMB}
+                    mode={editMode}
+                  />
+                  {library.type === "gallery" && (
+                    <BackSidesEditor value={editBackSides} onChange={setEditBackSides} libraryId={library.id} />
+                  )}
+                  {library.type === "audiobook" && (
+                    <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
+                  )}
+                  {library.type === "audiobook" && (
+                    <SelectField
+                      label={t("control:libraries.progressTracking")}
+                      value={editProgressMode}
+                      onChange={(value) => setEditProgressMode(value as "linear" | "episodic")}
+                      hint={t("control:libraries.progressEpisodicHint")}
+                      options={[
+                        { value: "linear", label: t("control:libraries.progressLinear") },
+                        { value: "episodic", label: t("control:libraries.progressEpisodic") }
+                      ]}
+                    />
+                  )}
+                </>
+              )}
+              {/* Layout and faces keep their own editors, opened over this one. */}
+              {(books || (library.type === "gallery" && !library.personal)) && (
+                <div className="edit-library-handoff">
+                  {books && (
+                    <Button variant="secondary" onClick={() => setScanRulesLibrary(library)}>
+                      <FolderTree size={16} aria-hidden="true" />
+                      {t("control:libraries.edit.openLayout")}
+                    </Button>
+                  )}
+                  {library.type === "gallery" && !library.personal && (
+                    <Button variant="secondary" onClick={() => setFaceSettingsOpen(true)}>
+                      <ScanFace size={16} aria-hidden="true" />
+                      {t("control:libraries.edit.openFaces")}
+                    </Button>
+                  )}
+                </div>
+              )}
+              {phoneLinkable(library) && (
+                <section className="edit-library-members" aria-labelledby="edit-library-phones-title">
+                  <h4 id="edit-library-phones-title">{t("control:libraries.tabPhoneBackups")}</h4>
+                  <PhoneBackupsEditor libraryId={library.id} value={editPhoneLinks} onChange={setEditPhoneLinks} />
+                </section>
+              )}
+            </section>
+
+            <section id="edit-library-organizing" className="edit-library-section" aria-labelledby="edit-library-organizing-title">
+              <h3 id="edit-library-organizing-title">{sectionTitle("organizing")}</h3>
+              <GroupedList note={books ? t("control:libraries.manage.organizingBooks") : library.type === "gallery" ? t("control:libraries.manage.organizingGallery") : t("control:libraries.manage.organizingVideo")}>
+                {organizing.map((section) => (
+                  <NavRow key={section} label={tabLabel(section)} href={section === "genres" ? controlHref(section) : controlHrefFrom(section, app)} />
+                ))}
+              </GroupedList>
+            </section>
+
+            <section id="edit-library-about" className="edit-library-section" aria-labelledby="edit-library-about-title">
+              <h3 id="edit-library-about-title">{sectionTitle("about")}</h3>
+              <GroupedList>
+                <InfoRow label={t("control:libraries.fieldYourRole")} value={roleLabel(library.myRole)} />
+                <InfoRow label={t("control:libraries.edit.youCan")} sub={capabilities.length > 0 ? capabilities.join(" · ") : t("control:libraries.role.none")} />
+                <InfoRow label={t("control:libraries.fieldCreated")} value={formatManagedDate(library.createdAt)} />
+                <InfoRow label={t("control:libraries.fieldUpdated")} value={formatManagedDate(library.updatedAt)} />
+              </GroupedList>
+            </section>
           </form>
           </div>
 
@@ -1099,16 +1123,6 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
               <Button variant="secondary" onClick={closeEdit} disabled={saving}>
                 {t("control:ui.cancel")}
               </Button>
-              {index > 0 && (
-                <Button variant="secondary" onClick={() => setEditTab(steps[index - 1])} disabled={saving}>
-                  {t("control:libraries.edit.back")}
-                </Button>
-              )}
-              {index < steps.length - 1 && (
-                <Button variant="secondary" onClick={() => setEditTab(steps[index + 1])} disabled={saving}>
-                  {t("control:libraries.edit.next")}
-                </Button>
-              )}
               <Button variant="primary" type="submit" form="edit-library-form" disabled={!canSave}>
                 {saving ? t("control:ui.saving") : t("control:ui.saveChanges")}
               </Button>

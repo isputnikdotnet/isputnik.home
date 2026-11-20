@@ -1056,13 +1056,16 @@
     "fieldDetails": "Details",
     "edit": {
       "menuEdit": "Edit…",
-      "menuMembers": "Members and groups…",
       "stepsAria": "Settings of {{name}}",
-      "openMembers": "Edit members and groups",
       "openLayout": "Edit layout rules",
       "openFaces": "Face recognition settings",
       "back": "Back",
-      "next": "Next"
+      "next": "Next",
+      "accessTitle": "Name and access",
+      "summaryTitle": "Summary",
+      "filesScanningTitle": "Files and scanning",
+      "aboutTitle": "About",
+      "youCan": "You can"
     },
     "overview": {
       "libraries": "Libraries",

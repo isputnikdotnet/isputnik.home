@@ -847,10 +847,23 @@
 .wizard-steps.is-edit .wizard-step-jump { gap: 6px; }
 .wizard-steps.is-edit .wizard-step-dot { width: 24px; height: 24px; font-size: 0.78rem; }
 .wizard-steps.is-edit .wizard-step:not(.active) .wizard-step-jump:hover .wizard-step-dot { background: var(--line); }
-.edit-library-step-title { margin: 0 0 12px; font-size: 1.05rem; }
-.edit-library-handoff { display: grid; gap: 12px; justify-items: start; }
 .edit-library-actions { flex-wrap: wrap; }
 .edit-library-actions .edit-library-delete { margin-right: auto; }
 /* Rows of the Libraries list open their popup on a click. */
 .library-row-editable { cursor: pointer; }
 .library-row-editable:hover > td { background: var(--hover); }
+/* Name and access: the members and groups under the library's own access. */
+.edit-library-members { display: grid; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.edit-library-members h4 { margin: 0; font-size: 0.98rem; }
+.edit-library-members .muted { margin: 0; }
+/* The Edit window as one scroll of sections (2026-11-19): the step row jumps between them. */
+.edit-library-sections { display: grid; gap: 22px; align-content: start; scroll-behavior: smooth; }
+.edit-library-kind { margin: 0; }
+.edit-library-section { display: grid; gap: 12px; scroll-margin-top: 8px; }
+.edit-library-section > h3 { margin: 0; font-size: 1.05rem; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.edit-library-summary .stat-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.edit-library-summary .stat-tile { padding: 10px 12px; }
+.edit-library-summary .stat-tile dd strong { font-size: 1rem; }
+.edit-library-path { margin: 0; overflow-wrap: anywhere; }
+.edit-library-handoff { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 740px) { .edit-library-summary .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

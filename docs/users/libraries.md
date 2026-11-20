@@ -109,22 +109,22 @@ went wrong. Its **⋯** — or a right-click anywhere on the row — opens one m
 - **Rescan** — re-read the folder.
 - **Delete library** — removes the library *from the app*. **Your files stay on
   disk.** Only the catalogue entry, and the covers generated from it, go away.
-- **Members and groups** — who else may open it and what they may do.
-- **Edit** (or a click on the row) — one window laid out like **Add library**: every
-  setting of that type of library is a numbered step across its top. Click any step,
-  or go through them with **Back** and **Next**; **Save changes** works from every
-  step, and **Delete library** is at its foot. The steps:
-  - **Name, owner and access**, and **Members and groups** — who else may open it
-    and what they may do.
-  - **Files and uploads** and **Scanning** — formats, upload rules, where details
-    come from.
-  - **Layout** — for book libraries: how folder and file names are read, and rules
-    for folders arranged differently. See the audiobook and ebook guides.
-  - **Face recognition** and **Phone backups** — for a shared photo library. Phone
+- **Edit** (or a click on the row) — one window for everything about the library.
+  The numbered steps across its top jump to its sections, and the one you are reading
+  stays lit; **Rescan** is beside its title, **Save changes** and **Delete library**
+  at its foot. The sections:
+  - **Summary** — its files, size, status and when it was last scanned.
+  - **Name and access** — its name, owner, whether everyone may open it and what they
+    may do, and under them its **Members and groups**: who else may open it and with
+    what role. Members and groups save as you change them.
+  - **Files and scanning** — its folder, whether this app manages the files (Mode),
+    where details come from, formats and upload rules; **Layout** for a book library
+    and **Face recognition** and **Phone backups** for a shared photo library. Phone
     backups ticks members' phones whose photos are already in it, so switching on
-    [phone backup](phone-backup-linking.md) doesn't store them twice.
-
-  - **Details** — everything about the library at a glance.
+    [phone backup](phone-backup-linking.md) doesn't store them twice. A video
+    library has its folder and language here.
+  - **Organizing** — the shared sets it is sorted by (Book categories, Tags or Video genres).
+  - **About** — your role, what you can do, and when it was made and changed.
 
 ## Next
 

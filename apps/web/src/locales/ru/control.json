@@ -1111,13 +1111,16 @@
     "fieldDetails": "Сведения",
     "edit": {
       "menuEdit": "Изменить…",
-      "menuMembers": "Участники и группы…",
       "stepsAria": "Настройки «{{name}}»",
-      "openMembers": "Изменить участников и группы",
       "openLayout": "Изменить правила раскладки",
       "openFaces": "Настройки распознавания лиц",
       "back": "Назад",
-      "next": "Далее"
+      "next": "Далее",
+      "accessTitle": "Название и доступ",
+      "summaryTitle": "Сводка",
+      "filesScanningTitle": "Файлы и сканирование",
+      "aboutTitle": "О библиотеке",
+      "youCan": "Вам доступно"
     },
     "overview": {
       "libraries": "Библиотеки",

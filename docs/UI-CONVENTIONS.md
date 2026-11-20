@@ -562,8 +562,9 @@ there — nothing else keeps a parallel list.
   it in `SHARED_PAGE_PARENTS`. Never a second copy of the editor.
 - **A row offers one way in.** A list of things to manage (Libraries & Scanning › Libraries) gives
   each row one **⋯** `ActionMenu` — also opened by a right-click on the row (`openAt`) —
-  with every action (Edit, Members, Rescan, Delete); not an icon per dialog. A library's
-  settings are ONE Edit popup in the Add library wizard's shape, a step per setting
+  with every action (Edit, Rescan, Delete); not an icon per dialog. A library's
+  settings are ONE Edit popup in the Add library wizard's shape, a step per setting (members
+  and groups inside Name and access)
   (owner, 2026-11-19); `libraryManageHref()` opens the list with that popup.
 - **Personal things live in Profile, not here.** The control panel is admin-only;
   anything that belongs to the signed-in person (reader tokens, devices, theme)

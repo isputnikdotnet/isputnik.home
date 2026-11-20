@@ -16,6 +16,7 @@ beforeEach(() => {
     if (path === "/api/storage/roots") return { roots: [{ id: "root", name: "Media", path: "/media" }] };
     if (path === "/api/users") return { users: [] };
     if (path === "/api/groups") return { groups: [] };
+    if (path.endsWith("/members")) return { members: [] };
     if (path === "/api/scheduled-jobs") return { jobs: [
       { key: "scan_gallery_libraries", enabled: true, nextRunAt: "2026-11-20T09:37:00.000Z" },
       { key: "backup_full", enabled: true, nextRunAt: "2026-11-20T01:00:00.000Z" }
@@ -37,12 +38,12 @@ it("opens with only the linked application's libraries", async () => {
 
 // Back to the list (owner, 2026-11-19): a row's menu — its ⋯ or a right-click — has
 // every action, and Edit opens one popup laid out as the Add library wizard.
-it("gives each row one menu, by ⋯ or a right-click: Edit, Members, Rescan, Delete", async () => {
+it("gives each row one menu, by ⋯ or a right-click: Edit, Rescan, Delete", async () => {
   const user = userEvent.setup();
   render(<LibrariesSection />);
   await screen.findByText("gallery collection");
   await user.click(screen.getByRole("button", { name: "More for gallery collection" }));
-  expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Edit…", "Members and groups…", "Rescan", "Delete library…"]);
+  expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Edit…", "Rescan", "Delete library…"]);
   await user.keyboard("{Escape}");
   fireEvent.contextMenu(screen.getByText("gallery collection"), { clientX: 40, clientY: 60 });
   expect(await screen.findByRole("menu", { name: "More for gallery collection" })).toBeInTheDocument();
@@ -50,19 +51,31 @@ it("gives each row one menu, by ⋯ or a right-click: Edit, Members, Rescan, Del
   expect(await screen.findByRole("dialog")).toBeInTheDocument();
 });
 
-it("edits a library in one popup whose steps are its settings", async () => {
+// One window of sections, the old Manage page's content arranged by what it is
+// about (owner, 2026-11-19); the step row jumps between them.
+it("edits a library in one window of sections, with Rescan and Delete at hand", async () => {
   const user = userEvent.setup();
   render(<LibrariesSection />);
   await user.click(await screen.findByText("gallery collection"));
   const dialog = await screen.findByRole("dialog");
   const steps = within(dialog).getByRole("list", { name: "Settings of gallery collection" });
   expect(within(steps).getAllByRole("listitem").map((step) => step.textContent)).toEqual([
-    "1Access", "2Members and groups", "3Upload", "4Scanning", "5Face recognition", "6Phone backups", "7Details"
+    "1Summary", "2Name and access", "3Files and scanning", "4Organizing", "5About"
   ]);
+  // Every section is in the one window.
+  for (const name of ["Summary", "Name and access", "Files and scanning", "Organizing", "About"]) {
+    expect(within(dialog).getByRole("region", { name })).toBeInTheDocument();
+  }
   expect(within(dialog).getByLabelText("Library name")).toHaveValue("gallery collection");
-  await user.click(within(dialog).getByRole("button", { name: "Next" }));
-  expect(within(dialog).getByRole("button", { name: "Edit members and groups" })).toBeInTheDocument();
-  await user.click(within(dialog).getByRole("button", { name: /Details/ }));
+  // Members and groups belong to Name and access; Mode to Files and scanning.
+  const access = within(dialog).getByRole("region", { name: "Name and access" });
+  expect(within(access).getByRole("region", { name: "Members and groups" })).toBeInTheDocument();
+  const files = within(dialog).getByRole("region", { name: "Files and scanning" });
+  expect(within(files).getByLabelText("Mode")).toHaveValue("managed");
+  // A step jumps to its section and is the one lit.
+  await user.click(within(steps).getByRole("button", { name: /About/ }));
+  expect(within(steps).getByRole("button", { name: /About/ }).closest("li")).toHaveAttribute("aria-current", "step");
+  expect(within(dialog).getByRole("button", { name: /^Rescan/ })).toBeInTheDocument();
   expect(within(dialog).getByRole("button", { name: /Delete library/ })).toBeInTheDocument();
 });
 
@@ -121,6 +134,7 @@ it("pages a long list twenty at a time", async () => {
     if (path === "/api/storage/roots") return { roots: [{ id: "root", name: "Media", path: "/media" }] };
     if (path === "/api/users") return { users: [] };
     if (path === "/api/groups") return { groups: [] };
+    if (path.endsWith("/members")) return { members: [] };
     if (path === "/api/scheduled-jobs") return { jobs: [] };
     if (path.includes("gallery-libraries")) return { libraries: Array.from({ length: 25 }, (_, index) => ({
       id: `g${index + 1}`, name: `Album ${String(index + 1).padStart(2, "0")}`, type: "gallery", createdAt: `2026-01-${String(index + 1).padStart(2, "0")}`,
