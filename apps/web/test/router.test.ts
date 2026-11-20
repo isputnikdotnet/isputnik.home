@@ -151,6 +151,10 @@ describe("getRoute", () => {
     ["/control/infrastructure/services", "services"],
     ["/control/settings/video", "videoSettings"],
     ["/control/apps/gallery", "gallerySetup"],
+    // Gallery › Organize until its Overview listed the same tools.
+    ["/control/apps/gallery/organize", "gallerySetup"],
+    ["/control/apps/gallery/organize/duplicate-cleanup", "duplicateCleanup"],
+    ["/control/apps/gallery/organize/video-streaming", "videoStreaming"],
     ["/control/apps/family-tree", "familyTreeSetup"],
     ["/control/apps/stories", "storiesSetup"]
   ])("sends the v1 address %s to %s", (path, section) => {

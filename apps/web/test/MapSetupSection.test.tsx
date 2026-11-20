@@ -6,6 +6,7 @@ vi.mock("../src/api", () => ({ api: vi.fn() }));
 
 const { api } = await import("../src/api");
 const { MapSetupSection } = await import("../src/features/control/sections/maps/MapSetupSection");
+const { MapFeatures } = await import("../src/features/control/sections/maps/MapFeatures");
 const mockApi = vi.mocked(api);
 
 // The Maps page (docs/map-approach-proposal.md, "A simpler Maps › Setup"): four
@@ -62,7 +63,8 @@ let calls: { path: string; method: string; body?: unknown }[] = [];
 function mount(
   initial: ReturnType<typeof status>,
   handlers: Record<string, (body: unknown) => unknown> = {},
-  routing = { endpoint: "", hasApiKey: false }
+  routing = { endpoint: "", hasApiKey: false },
+  page: "gallery" | "signIns" | "routes" = "gallery"
 ) {
   calls = [];
   let current = initial;
@@ -83,7 +85,7 @@ function mount(
     if (method === "GET" && path === "/api/config/routing") return { routing: routes, configured: routes.hasApiKey };
     throw new Error(`unexpected ${method} ${path}`);
   });
-  render(<MapSetupSection />);
+  render(page === "gallery" ? <MapSetupSection /> : <MapFeatures only={[page]} />);
 }
 
 const card = async (title: string) => (await screen.findByRole("heading", { name: new RegExp(`^${title}`) })).closest("section") as HTMLElement;
@@ -102,13 +104,17 @@ describe("the Maps page", () => {
     expect(within(placesCard).getByRole("switch")).toHaveAttribute("aria-checked", "true");
     expect(within(placesCard).getByText(/235.747 places · built/)).toBeInTheDocument();
 
-    const signIns = await card("Sign-in locations");
-    expect(within(signIns).getByRole("switch")).toHaveAttribute("aria-checked", "true");
-    expect(within(signIns).getByText("Not added")).toBeInTheDocument();
-
-    const routes = await card("Road routes");
-    expect(within(routes).getByRole("switch")).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByText(/All map data is kept in D:\\Demo\\Map data/)).toBeInTheDocument();
+    // Sign-in locations is Security's, road routes Stories': not on Gallery's page.
+    expect(screen.queryByRole("heading", { name: /^Sign-in locations/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /^Road routes/ })).toBeNull();
+    // Laid out as Gallery's Overview (2026-11-19): cards across the top, and where
+    // the map data is kept beside the features rather than under them.
+    const tiles = screen.getByRole("region", { name: "At a glance" });
+    expect(within(tiles).getByText("235,747")).toBeInTheDocument();
+    expect(within(tiles).getByRole("link", { name: "Map data" })).toHaveAttribute("href", expect.stringContaining("storage"));
+    const where = screen.getByRole("region", { name: "Where it is kept" });
+    expect(within(where).getByText("D:\\Demo\\Map data")).toBeInTheDocument();
+    expect(screen.queryByText(/All map data is kept in/)).not.toBeInTheDocument();
   });
 
   it("asks before turning offline maps on, saying the limit and the folder, then turns them on", async () => {
@@ -130,9 +136,27 @@ describe("the Maps page", () => {
     mount(status({ cache: true, bytes: 180 * MB }), {
       "PUT /api/map/settings": () => ({ next: status({ cache: true, bytes: 90 * MB, limit: 100 }), reply: { freedBytes: 90 * MB } })
     });
-    await user.selectOptions(within(await card("Offline maps")).getByLabelText("Keep up to"), "100");
+    await user.selectOptions(within(await card("Offline maps")).getByLabelText("Size limit"), "100");
     await waitFor(() => expect(calls.find((call) => call.method === "PUT")?.body).toEqual({ cacheLimitMb: 100 }));
     expect(await screen.findByText(/90(\.\d+)? MB freed/)).toBeInTheDocument();
+  });
+
+  // Nothing to upload or update: kept maps refresh themselves; clearing them is the
+  // one thing done by hand, and it leaves offline maps on (2026-11-19).
+  it("clears the kept maps after asking, leaving offline maps on", async () => {
+    const user = userEvent.setup();
+    mount(status({ cache: true, bytes: 60 * MB }), {
+      "DELETE /api/map/cache": () => ({ next: status({ cache: true, bytes: 0 }), reply: { settings: { cache: true, cacheLimitMb: 200 }, freedBytes: 60 * MB } })
+    });
+    const offline = await card("Offline maps");
+    expect(within(offline).getByText(/refreshed|fetched again after 30 days/)).toBeInTheDocument();
+    await user.click(within(offline).getByRole("button", { name: "Clear" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/Offline maps stays on/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Clear kept maps" }));
+    await waitFor(() => expect(actions()).toEqual(["DELETE /api/map/cache"]));
+    expect(await screen.findByText(/60(\.\d+)? MB freed/)).toBeInTheDocument();
+    expect(within(await card("Offline maps")).getByRole("switch")).toHaveAttribute("aria-checked", "true");
   });
 
   it("follows a places build, and cannot be switched off while one runs", async () => {
@@ -152,7 +176,7 @@ describe("the Maps page", () => {
     mount(status({ country: true, city: true }), {
       "DELETE /api/dashboard/locations/database/owner-city.mmdb": () => ({ reply: { freedBytes: 120 * MB } }),
       "DELETE /api/dashboard/locations/database/dbip-country-lite.mmdb": () => ({ next: status(), reply: { freedBytes: 8 * MB } })
-    });
+    }, undefined, "signIns");
     await user.click(within(await card("Sign-in locations")).getByRole("switch"));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(/"owner-city.mmdb" came from you, so the app cannot fetch it again/)).toBeInTheDocument();
@@ -168,7 +192,7 @@ describe("the Maps page", () => {
     const user = userEvent.setup();
     mount(status({ country: true }), {
       "POST /api/dashboard/locations/database/url": () => ({ next: status({ country: true, city: true }), reply: { installed: { name: "owner-city.mmdb" } } })
-    });
+    }, undefined, "signIns");
     const signIns = await card("Sign-in locations");
     await user.click(within(signIns).getByRole("button", { name: "Where to get a towns database" }));
     expect(screen.getByRole("link", { name: /DB-IP City Lite/ })).toHaveAttribute("href", "https://db-ip.com/db/download/ip-to-city-lite");
@@ -188,7 +212,7 @@ describe("the Maps page", () => {
     mount(status(), {
       "PUT /api/config/routing": () => ({ routing: { endpoint: "", hasApiKey: true }, reply: { routing: { endpoint: "", hasApiKey: true }, configured: true } }),
       "POST /api/config/routing/test": () => ({ reply: { ok: true } })
-    });
+    }, undefined, "routes");
     const routes = await card("Road routes");
     await user.click(within(routes).getByRole("switch"));
     // Nothing is saved by the switch itself: there is no key yet.
@@ -204,7 +228,7 @@ describe("the Maps page", () => {
     const user = userEvent.setup();
     mount(status(), {
       "PUT /api/config/routing": () => ({ routing: { endpoint: "", hasApiKey: false }, reply: {} })
-    }, { endpoint: "", hasApiKey: true });
+    }, { endpoint: "", hasApiKey: true }, "routes");
     await user.click(within(await card("Road routes")).getByRole("switch"));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(/Routes already saved keep their roads/)).toBeInTheDocument();

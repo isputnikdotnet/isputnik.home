@@ -34,18 +34,19 @@ describe("control panel nav", () => {
 
   // A page under a tab keeps that tab selected and names it in its eyebrow; a tab is
   // its own selection and has no parent.
-  it("keeps Organize selected on Gallery's cleanup pages", () => {
-    for (const page of ["duplicateCleanup", "missingPhotos"] as const) {
-      expect(parentTab(page)).toBe("galleryOrganize");
-      expect(selectedTab(page)).toBe("galleryOrganize");
+  // Gallery has no Organize tab (owner, 2026-11-19): its Overview lists the tools.
+  it("keeps Overview selected on Gallery's cleanup pages", () => {
+    for (const page of ["duplicateCleanup", "missingPhotos", "videoStreaming"] as const) {
+      expect(parentTab(page)).toBe("gallerySetup");
+      expect(selectedTab(page)).toBe("gallerySetup");
       expect(placeOf(page).app?.key).toBe("gallery");
     }
-    expect(parentTab("galleryOrganize")).toBeNull();
+    expect(parentTab("gallerySetup")).toBeNull();
   });
 
-  it("gives Gallery its workspace row: Setup · Device Sync · Organize · Settings", () => {
+  it("gives Gallery its workspace row: Overview · Device Sync · Settings", () => {
     const gallery = APPLICATIONS.find((app) => app.key === "gallery");
-    expect(gallery?.tabs.map((tab) => tab.kind)).toEqual(["setup", "deviceSync", "organize", "settings"]);
+    expect(gallery?.tabs.map((tab) => tab.kind)).toEqual(["setup", "deviceSync", "settings"]);
   });
 
   // Every application opens on Setup; Shared organization is not an application.
@@ -60,12 +61,12 @@ describe("control panel nav", () => {
     expect(placeOf("categories", "shared")).toMatchObject({ app: null, selected: "applications", parent: "applications" });
     expect(placeOf("tags", "shared")).toMatchObject({ app: null, selected: "applications", parent: "applications" });
     expect(placeOf("categories").app?.key).toBe("ebooks");
-    expect(placeOf("categories", "audiobooks")).toMatchObject({ selected: "audiobooksOrganize", parent: "audiobooksOrganize" });
+    expect(placeOf("categories", "audiobooks")).toMatchObject({ selected: "audiobooksSetup", parent: "audiobooksSetup" });
     expect(placeOf("categories", "audiobooks").app?.key).toBe("audiobooks");
 
     expect(placeOf("tags").app?.key).toBe("shared");
     expect(placeOf("tags").parent).toBeNull();
-    expect(placeOf("tags", "gallery")).toMatchObject({ selected: "galleryOrganize", parent: "galleryOrganize" });
+    expect(placeOf("tags", "gallery")).toMatchObject({ selected: "gallerySetup", parent: "gallerySetup" });
     // A ?from= that is not an application, or one that does not use the page, is ignored.
     expect(placeOf("tags", "nonsense").app?.key).toBe("shared");
     expect(placeOf("categories", "gallery").app?.key).toBe("ebooks");

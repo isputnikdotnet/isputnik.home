@@ -235,13 +235,13 @@ const SHOTS = [
   // The control panel and the user's own pages. These need a library with some
   // history behind it — an install with nothing in it photographs as empty boxes.
   { name: "60-dashboard", url: "control", state: "libraries scanned" },
-  { name: "61-duplicate-cleanup", url: "control/apps/gallery/organize/duplicate-cleanup", state: "a cleanup job in review" },
+  { name: "61-duplicate-cleanup", url: "control/apps/gallery/duplicate-cleanup", state: "a cleanup job in review" },
   {
     // The header shot above says what the scan found; this one shows a result
     // card, which is the thing the guide spends most of its length explaining —
     // what was matched, which copy is kept and why, and the three buttons.
     name: "68-duplicate-result",
-    url: "control/apps/gallery/organize/duplicate-cleanup",
+    url: "control/apps/gallery/duplicate-cleanup",
     state: "a cleanup job in review",
     wait: 4000,
     setup: `
@@ -323,7 +323,7 @@ const SHOTS = [
   },
   {
     name: "84-inbox-check-results",
-    url: "control/apps/gallery/organize/duplicate-cleanup",
+    url: "control/apps/gallery/duplicate-cleanup",
     state: "an Inbox check in review",
     height: 1000
   },
@@ -331,7 +331,7 @@ const SHOTS = [
     // Scrolled to the near-identical section: a set where the incoming scan is a
     // different file from the library's, with Replace on offer.
     name: "88-inbox-check-near",
-    url: "control/apps/gallery/organize/duplicate-cleanup",
+    url: "control/apps/gallery/duplicate-cleanup",
     state: "an Inbox check in review with a near-identical set",
     setup: `
       const heading = [...document.querySelectorAll("h2, h3")]

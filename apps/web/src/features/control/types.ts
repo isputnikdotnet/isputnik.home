@@ -195,6 +195,12 @@ export interface SystemStatus {
   };
   ebookStats: EbookStats;
   galleryStats: GalleryStats;
+  /** Face recognition's counts; there whenever Gallery is (gallery/stats.ts). */
+  faceStats?: { enabled: boolean; people: number; faces: number; scannedItems: number };
+  /** Stories' counts (stories/stats.ts), for its Overview. */
+  storyStats?: { stories: number; published: number; recipes: number; collections: number; recordings: number; recordingSeconds: number };
+  /** The family tree's counts (familytree/stats.ts), for its Overview. */
+  familyTreeStats?: { people: number; couples: number; sources: number; photos: number; places: number };
   uptimeSeconds: number;
   generatedAt: string;
 }

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { BarChart3, Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, Info, KeyRound, ListChecks, Monitor, Play, PlayCircle, ScrollText, SkipForward, Tag, Wrench } from "lucide-react";
+import { BarChart3, Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, Info, KeyRound, ListChecks, Monitor, MonitorPlay, Play, ScrollText, SkipForward } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref } from "../../../router";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { ActionRow, GroupedList, InfoRow, InputRow, NavRow, NavToggleRow, PickerRow, ToggleRow } from "../../../shared/GroupedList";
 import { ActionMenu } from "../../../shared/ActionMenu";
-import { Button } from "../../../shared/Button";
-import { SettingsCard } from "../../../shared/SettingsCard";
+import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { MessageBox } from "../../../shared/MessageBox";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
@@ -200,6 +199,8 @@ export function VideoSettingsSection() {
 /** The overview and the four topic pages, over one reading of each endpoint. */
 export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page | null; go: (page: Page | null) => void }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
+  // The control panel's own words, for the cards across the top.
+  const { t: tc } = useTranslation(["control"]);
   const conversion = useEngine<ConversionState>(`${prefix}/api/admin/conversion`);
   const metadata = useEngine<MetadataState>(`${prefix}/api/admin/metadata`);
   const copies = useEngine<CopiesState>(`${prefix}/api/admin/copies`);
@@ -286,6 +287,29 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   const det = detection.state;
   const cop = copies.state;
   const meta = metadata.state;
+  // Across the top, as Gallery's Settings (owner, 2026-11-19): what each list below
+  // is set to, at a glance.
+  const dash = "—";
+  const tiles: StatTile[] = [
+    { icon: <MonitorPlay size={19} />, iconTone: "rose", label: tc("control:appSetup.overview.watching"), value: conv ? String(conv.usage.viewers.length) : dash },
+    { icon: <Cpu size={19} />, iconTone: conv?.available ? "ok" : "warn", label: tc("control:appSetup.overview.conversion"), value: conv ? converterWord(conv, t) : dash },
+    {
+      icon: <Monitor size={19} />, iconTone: "blue", label: tc("control:appSetup.overview.quality"),
+      value: quality === undefined ? dash : quality === null ? t("controlAdmin:apps.conversion.qualityOriginal") : t("controlAdmin:apps.conversion.qualityUpTo", { height: quality })
+    },
+    {
+      icon: <ImageIcon size={19} />, iconTone: meta?.hasKey ? "ok" : "blue", label: tc("control:appSetup.overview.posters"),
+      value: meta ? (meta.hasKey ? t("controlAdmin:apps.videoSettings.tmdbSet") : t("controlAdmin:apps.videoSettings.tmdbNone")) : dash
+    },
+    {
+      icon: <Download size={19} />, iconTone: "gold", label: tc("control:appSetup.overview.copies"),
+      value: cop ? formatBytes(cop.usedBytes) : dash, sub: cop ? tc("control:settingsPage.ofLimitOnly", { limit: `${cop.settings.limitGb} GB` }) : undefined
+    },
+    {
+      icon: <Clock size={19} />, iconTone: "mint", label: t("controlAdmin:apps.jobs.title"),
+      value: jobs.state && Array.isArray(jobs.state.jobs) ? String(jobs.state.jobs.length) : dash
+    }
+  ];
 
   return (
     <>
@@ -294,10 +318,18 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
         <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
       )}
 
-      <div className="settings-card-grid">
-      <SettingsCard id="video-conversion" icon={<PlayCircle size={20} />} title={t("controlAdmin:apps.videoSettings.cardPlayback")} description={t("controlAdmin:apps.videoSettings.cardPlaybackBody")}
-        note={quality !== undefined ? t("controlAdmin:apps.videoSettings.remoteQualityNote") : undefined}>
-      <GroupedList>
+      {/* Gallery's Settings shape (owner, 2026-11-19): cards across the top, each
+          card of settings a titled list, and where to look next beside them. */}
+      <div className="diag-video app-overview-v3">
+      <div className="diag-video-main">
+      <section className="diag-tiles" aria-labelledby="video-settings-tiles-title">
+        <header className="diag-tiles-head">
+          <h3 id="video-settings-tiles-title">{tc("control:appSetup.overview.tilesTitle")}</h3>
+        </header>
+        <StatTiles tiles={tiles} label={tc("control:appSetup.overview.tilesTitle")} />
+      </section>
+      <GroupedList id="video-conversion" title={t("controlAdmin:apps.videoSettings.cardPlayback")}
+        note={quality !== undefined ? t("controlAdmin:apps.videoSettings.remoteQualityNote") : t("controlAdmin:apps.videoSettings.cardPlaybackBody")}>
         <NavRow
           icon={<Cpu size={17} />}
           iconTone={!conv ? "muted" : conv.available ? "ok" : "warn"}
@@ -322,11 +354,9 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
           />
         )}
       </GroupedList>
-      </SettingsCard>
 
       {(meta || det) && (
-        <SettingsCard id="video-metadata" icon={<Tag size={20} />} title={t("controlAdmin:apps.videoSettings.cardCatalogue")} description={t("controlAdmin:apps.videoSettings.cardCatalogueBody")}>
-        <GroupedList>
+        <GroupedList id="video-metadata" title={t("controlAdmin:apps.videoSettings.cardCatalogue")} note={t("controlAdmin:apps.videoSettings.cardCatalogueBody")}>
           {meta && (
             <NavRow
               icon={<ImageIcon size={17} />}
@@ -351,12 +381,10 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
             />
           )}
         </GroupedList>
-        </SettingsCard>
       )}
 
       {cop && (
-        <SettingsCard id="video-copies" icon={<Download size={20} />} title={t("controlAdmin:apps.videoSettings.cardDownloads")} description={t("controlAdmin:apps.videoSettings.cardDownloadsBody")}>
-        <GroupedList>
+        <GroupedList id="video-copies" title={t("controlAdmin:apps.videoSettings.cardDownloads")} note={t("controlAdmin:apps.videoSettings.cardDownloadsBody")}>
           <NavRow
             icon={<Download size={17} />}
             label={t("controlAdmin:apps.copies.title")}
@@ -374,26 +402,19 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
             />
           )}
         </GroupedList>
-        </SettingsCard>
       )}
+      </div>
 
       {/* What the engine is doing: Infrastructure's pages, narrowed to Videos, and
           the hardware test, which is the engine's own check. */}
-      <SettingsCard id="video-activity" icon={<Wrench size={20} />} title={t("controlAdmin:apps.videoSettings.cardActivity")} description={t("controlAdmin:apps.videoSettings.cardActivityBody")}>
-        <GroupedList>
+      <aside className="diag-video-side">
+        <GroupedList id="video-activity" title={t("controlAdmin:apps.videoSettings.cardActivity")} note={t("controlAdmin:apps.videoSettings.cardActivityBody")}>
           <NavRow icon={<BarChart3 size={17} />} label={t("controlAdmin:apps.videoSettings.activityRow")} sub={t("controlAdmin:apps.videoSettings.activitySub")} href={activityHref({ application: "videos" })} />
           <NavRow icon={<ListChecks size={17} />} label={t("controlAdmin:apps.videoSettings.tasksRow")} sub={t("controlAdmin:apps.videoSettings.tasksSub")} href={tasksHref({ application: "videos" })} />
           <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:apps.videoSettings.logsRow")} sub={t("controlAdmin:apps.videoSettings.logsSub")} href={logsHref({ application: "videos" })} />
+          {conv?.available && <NavRow icon={<Play size={17} />} label={t("controlAdmin:apps.videoSettings.runTests")} onClick={() => go("hardware")} />}
         </GroupedList>
-        {conv?.available && (
-          <div className="settings-card-actions">
-            <Button variant="secondary" compact onClick={() => go("hardware")}>
-              <Play size={14} aria-hidden="true" />
-              {t("controlAdmin:apps.videoSettings.runTests")}
-            </Button>
-          </div>
-        )}
-      </SettingsCard>
+      </aside>
       </div>
 
       <p className="settings-page-note">

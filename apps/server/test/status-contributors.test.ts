@@ -75,4 +75,23 @@ describe("the real media-type contributors", () => {
       "libraryStats"
     ]);
   });
+
+  // Stories' and the family tree's summaries for their control-panel Overviews
+  // (2026-11-19): counts only, from their own modules.
+  it("gives Stories and the family tree their own summaries", async () => {
+    const { registerStoryStats } = await import("../src/modules/stories/stats.js");
+    const { registerFamilyTreeStats } = await import("../src/modules/familytree/stats.js");
+    resetStatusContributors();
+    registerStoryStats();
+    registerFamilyTreeStats();
+    // Registering again (a plugin booted twice) is the same contributor.
+    expect(() => { registerStoryStats(); registerFamilyTreeStats(); }).not.toThrow();
+    const out = collectStatusContributions() as {
+      storyStats: { stories: number; published: number; recipes: number; collections: number; recordings: number; recordingSeconds: number };
+      familyTreeStats: { people: number; couples: number; sources: number; photos: number; places: number };
+    };
+    expect(Object.keys(out).sort()).toEqual(["familyTreeStats", "storyStats"]);
+    expect(out.storyStats).toEqual({ stories: expect.any(Number), published: expect.any(Number), recipes: expect.any(Number), collections: expect.any(Number), recordings: expect.any(Number), recordingSeconds: expect.any(Number) });
+    expect(out.familyTreeStats).toEqual({ people: expect.any(Number), couples: expect.any(Number), sources: expect.any(Number), photos: expect.any(Number), places: expect.any(Number) });
+  });
 });

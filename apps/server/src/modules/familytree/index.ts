@@ -6,8 +6,10 @@ import type { FastifyInstance } from "fastify";
 import { familyTreeRoutesPlugin } from "./routes.js";
 import { keepUploadedPortraitsAsPhotos, renderPendingPortraits } from "./portraits.js";
 import { sweepPendingImports } from "./package/pending.js";
+import { registerFamilyTreeStats } from "./stats.js";
 
 export async function familyTreePlugin(app: FastifyInstance) {
+  registerFamilyTreeStats();
   await app.register(familyTreeRoutesPlugin);
 
   // A package upload waiting for its confirmation does not survive a restart

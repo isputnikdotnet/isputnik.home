@@ -536,11 +536,12 @@ there — nothing else keeps a parallel list.
   page. (v1 retired fold-out sidebar branches when its groups mixed unrelated pages;
   v2's groups are coherent and the tab rows were what crowded, so the pages moved there.)
 - **Sub-pages come in two kinds, and neither is a second row** (4.73).
-  - A tab's **pages**: list them in `pages` on the tab's `nav.ts` entry (Gallery ›
-    Organize owns Duplicate cleanup and Missing photos). Each keeps its own
-    `CONTROL_PATHS` address and search entry; the tab row stays up with the parent
-    selected, and its back line names the tab ("← Back │ Applications › Gallery ›
-    Organize").
+  - A tab's **pages**: list them in `pages` on the tab's `nav.ts` entry (Gallery's
+    Overview owns Duplicate cleanup, Missing photos and Video streaming; Videos' Video
+    genres; Ebooks' Book categories — no application has an Organize tab since
+    2026-11-19). Each keeps its own `CONTROL_PATHS` address and search entry; the tab
+    row stays up with the parent selected, and its back line names the tab ("← Back │
+    Applications › Gallery › Overview").
   - A **page of one thing** — a member, a group, a library's Manage page
     (`libraryManageHref()`) — has its own route matched after the table in
     `getRoute()`, drops the tab row, and opens with the same back line, its list last
@@ -556,7 +557,7 @@ there — nothing else keeps a parallel list.
     saved reports) as shared parts, never copies. Live sessions is the one page of
     what is being watched (Now playing joined it in 4.91).
 - **A shared page has one address and several ways in.** Book categories (Ebooks and
-  Audiobooks) and Tags (every application's Organize, and Shared organization) are one
+  Audiobooks) and Tags (every application's Overview, and Shared organization) are one
   editor each. Opened from a workspace it carries `?from=<app>` (`controlHrefFrom`),
   and `placeOf(section, from)` puts its eyebrow, selected tab and back link there; list
   it in `SHARED_PAGE_PARENTS`. Never a second copy of the editor.

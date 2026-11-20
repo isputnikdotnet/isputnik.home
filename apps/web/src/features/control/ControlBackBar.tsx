@@ -7,7 +7,7 @@ import { controlHref, followBack, followRoute, type ControlSection } from "../..
 import { appLabel, groupLabel, placeOf, rowLabel, tabLabel, tabRowFor } from "./nav";
 
 // The line above every control-panel page's title (but the Dashboard's): the way
-// back, and where the page sits — "← Back │ Applications › Gallery › Organize".
+// back, and where the page sits — "← Back │ Applications › Gallery › Overview".
 // Back steps back through history (or, opened from a link, to the nearest level
 // up); each name after it opens that level's own page: the group's first page,
 // the workspace's Overview, the tab a page sits under, or the list a detail page
@@ -89,7 +89,7 @@ export function ControlBackBar({ section, from = null, list, fallback, onBack }:
       {crumbs.length > 0 && (
         <ol className="control-backbar-crumbs">
           {crumbs.map((crumb, index) => (
-            <li key={crumb.href}>
+            <li key={`${index}:${crumb.href}`}>
               {index > 0 && <ChevronRight size={13} aria-hidden="true" />}
               <a href={crumb.href} onClick={(event) => followRoute(event, crumb.href)}>{crumb.label}</a>
             </li>

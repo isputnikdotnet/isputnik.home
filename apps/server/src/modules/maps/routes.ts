@@ -381,4 +381,18 @@ export function registerMapRoutes(app: FastifyInstance) {
     }
     return { settings: getMapSettings(), freedBytes };
   });
+
+  // Clear the kept maps and keep keeping them (owner, 2026-11-19): what turning
+  // caching off and on again did, in one step. Pieces are fetched again as they
+  // are next viewed; a writer racing this recreates its folder (writeCached).
+  app.delete("/api/map/cache", { preHandler: app.requireAdmin }, async (request) => {
+    const freedBytes = clearTileCache();
+    logActivity({
+      event: "maps.settings_updated",
+      actorUserId: request.user!.id,
+      detail: `Kept maps cleared (${freedBytes} bytes freed)`,
+      ipAddress: request.ip
+    });
+    return { settings: getMapSettings(), freedBytes };
+  });
 }

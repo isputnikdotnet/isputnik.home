@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, ExternalLink, Folder, Globe, Link as LinkIcon, Map as MapIcon, MapPin, Route, ShieldCheck, Upload } from "lucide-react";
+import { ChevronRight, Database, ExternalLink, Folder, Globe, Layers, Link as LinkIcon, Map as MapIcon, MapPin, Route, ShieldCheck, Upload } from "lucide-react";
 import { api } from "../../../../api";
 import { followRoute, navigate } from "../../../../router";
 import { Button } from "../../../../shared/Button";
@@ -57,6 +57,7 @@ const ORS_URL = "https://api.openrouteservice.org";
 type Pending =
   | { kind: "offlineOn" }
   | { kind: "offlineOff" }
+  | { kind: "offlineClear" }
   | { kind: "placesOn" }
   | { kind: "placesOff" }
   | { kind: "villages"; countries: string[] }
@@ -88,10 +89,23 @@ function SourceLink({ href, children }: { href: string; children: string }) {
   );
 }
 
-export function MapFeatures() {
+export type MapFeatureKey = "offline" | "places" | "signIns" | "routes";
+
+/** `plain`: each feature a titled list, one under another, and no folder line —
+ *  Gallery › Settings says where map data lives beside them. `onLoaded` hands what
+ *  was read to the page, for its cards across the top. `only`: the features this
+ *  page shows (2026-11-19): Gallery's offline maps and place names, Security's
+ *  sign-in locations, Stories' road routes; the setup guide shows all four. */
+export function MapFeatures({ plain = false, onLoaded, only }: {
+  plain?: boolean;
+  onLoaded?: (status: MapSettingsDto, routing: RoutingDto["routing"]) => void;
+  only?: MapFeatureKey[];
+} = {}) {
+  const shows = (key: MapFeatureKey) => !only || only.includes(key);
   const { t, i18n } = useTranslation(["common", "controlAdmin"]);
   const [status, setStatus] = useState<MapSettingsDto | null>(null);
   const [routing, setRouting] = useState<RoutingDto["routing"] | null>(null);
+  useEffect(() => { if (status && routing) onLoaded?.(status, routing); }, [status, routing, onLoaded]);
   const [loadError, setLoadError] = useState("");
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -150,6 +164,12 @@ export function MapFeatures() {
         ok = await act("offline", async () => {
           const result = await api<{ freedBytes: number }>("/api/map/settings", { method: "PUT", body: JSON.stringify({ cache: false }) });
           forgetMapConfig();
+          return result.freedBytes;
+        }, saveFailed);
+        break;
+      case "offlineClear":
+        ok = await act("offline", async () => {
+          const result = await api<{ freedBytes: number }>("/api/map/cache", { method: "DELETE" });
           return result.freedBytes;
         }, saveFailed);
         break;
@@ -293,7 +313,7 @@ export function MapFeatures() {
   const cachePercent = cache.limitBytes > 0 ? Math.min(100, Math.round((cache.bytes / cache.limitBytes) * 100)) : 0;
 
   return (
-    <div className="map-features">
+    <div className={`map-features${plain ? " is-plain" : ""}`}>
       {freed !== null && (
         <MessageBox tone="success" title={t("controlAdmin:mapFeatures.freedTitle")}>{t("controlAdmin:mapFeatures.freed", { size: formatBytes(freed) })}</MessageBox>
       )}
@@ -308,255 +328,291 @@ export function MapFeatures() {
         </MessageBox>
       )}
 
-      <MapFeatureCard
-        id="offline-maps"
-        icon={<MapIcon size={22} />}
-        title={t("controlAdmin:mapFeatures.offlineTitle")}
-        description={t("controlAdmin:mapFeatures.offlineDescription")}
-        infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "OpenFreeMap" })}
-        info={<>
-          <p>{t("controlAdmin:mapFeatures.offlineInfo")}</p>
-          <SourceLink href={LINKS.openFreeMap}>openfreemap.org</SourceLink>
-        </>}
-        checked={settings.cache}
-        disabled={busy !== null || (needsAppStorage && !settings.cache)}
-        onToggle={(next) => { setActionError(""); setPending({ kind: next ? "offlineOn" : "offlineOff" }); }}
-        facts={[
-          { label: t("controlAdmin:mapFeatures.source"), value: "OpenFreeMap" },
-          { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.offlineArrives") },
-          settings.cache
-            ? {
-                label: t("controlAdmin:mapFeatures.spaceUsed"),
-                value: t("controlAdmin:mapFeatures.usedOfPercent", { used: formatBytes(cache.bytes), limit: limitLabel(settings.cacheLimitMb), percent: cachePercent })
-              }
-            : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.upTo", { limit: limitLabel(settings.cacheLimitMb) }) },
-          ...(settings.cache ? [serviceFact(service, t)].filter((fact) => fact !== null) : [])
-        ]}
-      >
-        <PickerRow
-          label={t("controlAdmin:mapFeatures.limitLabel")}
-          value={String(settings.cacheLimitMb)}
-          options={CACHE_LIMITS_MB.map((mb) => ({ value: String(mb), label: limitLabel(mb) }))}
-          onChange={(value) => setLimit(Number(value) as CacheLimitMb)}
-          disabled={busy !== null}
-        />
-        {settings.cache && (
-          <div className="map-feature-row">
-            <MapFeatureMeter
-              used={cache.bytes}
-              limit={cache.limitBytes}
-              usedLabel={t("controlAdmin:mapFeatures.meterUsed", { used: formatBytes(cache.bytes) })}
-              limitLabel={limitLabel(settings.cacheLimitMb)}
-            />
-          </div>
-        )}
-      </MapFeatureCard>
-
-      <MapFeatureCard
-        id="named-places"
-        icon={<MapPin size={22} />}
-        title={t("controlAdmin:mapFeatures.placesTitle")}
-        description={t("controlAdmin:mapFeatures.placesDescription")}
-        infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "GeoNames" })}
-        info={<>
-          <p>{t("controlAdmin:mapFeatures.placesInfo")}</p>
-          <SourceLink href={LINKS.geoNames}>geonames.org</SourceLink>
-        </>}
-        checked={places.present || places.build.running}
-        disabled={busy !== null || places.build.running || (needsAppStorage && !places.present)}
-        onToggle={(next) => { setActionError(""); setPending({ kind: next ? "placesOn" : "placesOff" }); }}
-        facts={[
-          { label: t("controlAdmin:mapFeatures.source"), value: "GeoNames" },
-          { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.placesArrives") },
-          places.present
-            ? { label: t("controlAdmin:mapFeatures.spaceUsed"), value: formatBytes(places.sizeBytes) }
-            : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.placesSpace") }
-        ]}
-      >
-        {(places.present || places.build.running || places.build.error) && (
-          <div className="map-feature-strip">
-            {places.build.running ? (
-              <span className="map-feature-status">{t("controlAdmin:mapFeatures.placesBuilding", { progress: placesProgressText(t, places.build) })}</span>
-            ) : places.present ? (
-              <>
-                <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.placesBuilt", { count: places.places, number: places.places.toLocaleString(), date: formatManagedDate(places.builtAt ?? "") })}</span>
-                <Button variant="secondary" compact disabled={busy !== null} onClick={() => void act("places", async () => { await startPlacesBuild(); }, saveFailed)}>
-                  {t("controlAdmin:mapFeatures.update")}
-                </Button>
-              </>
-            ) : (
-              <span className="map-feature-status is-failed">{t("controlAdmin:mapFeatures.placesFailed", { error: places.build.error })}</span>
-            )}
-          </div>
-        )}
-        {places.present && (
-          <VillageCountries
-            places={places}
-            disabled={busy !== null || places.build.running}
-            onSave={(countries) => { setActionError(""); setPending({ kind: "villages", countries }); }}
-          />
-        )}
-      </MapFeatureCard>
-
-      <MapFeatureCard
-        id="sign-in-locations"
-        icon={<ShieldCheck size={22} />}
-        title={t("controlAdmin:mapFeatures.signInsTitle")}
-        description={t("controlAdmin:mapFeatures.signInsDescription")}
-        infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "DB-IP" })}
-        info={<p>{t("controlAdmin:mapFeatures.signInsInfo")}</p>}
-        checked={signInsOn}
-        disabled={busy !== null}
-        onToggle={(next) => { setActionError(""); setPending({ kind: next ? "signInsOn" : "signInsOff" }); }}
-        facts={[
-          { label: t("controlAdmin:mapFeatures.source"), value: city ? (country ? t("controlAdmin:mapFeatures.signInsSourceWithTowns") : t("controlAdmin:mapFeatures.signInsSourceTownsOnly")) : "DB-IP" },
-          { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.signInsArrives") },
-          signInsOn
-            ? { label: t("controlAdmin:mapFeatures.spaceUsed"), value: formatBytes(locationsBytes) }
-            : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.signInsSpace") }
-        ]}
-      >
-        <MapFeaturePart
-          icon={<Globe size={18} />}
-          title={t("controlAdmin:mapFeatures.countries")}
-          detail={t("controlAdmin:mapFeatures.countriesDetail")}
-          info={
-            <InfoHint label={t("controlAdmin:mapFeatures.aboutSource", { name: "DB-IP Country Lite" })}>
-              <p>{t("controlAdmin:mapFeatures.countriesInfo")}</p>
-              <SourceLink href={LINKS.dbipCountry}>DB-IP Country Lite</SourceLink>
-            </InfoHint>
-          }
-          state={country
-            ? <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.installed", { size: formatBytes(country.sizeBytes), date: formatManagedDate(country.buildDate ?? country.updatedAt) })}</span>
-            : <span className="map-feature-status">{city ? t("controlAdmin:mapFeatures.countriesCovered") : t("controlAdmin:mapFeatures.notInstalled")}</span>}
+      {shows("offline") && (
+        <MapFeatureCard
+          plain={plain}
+          id="offline-maps"
+          icon={<MapIcon size={22} />}
+          title={t("controlAdmin:mapFeatures.offlineTitle")}
+          description={t("controlAdmin:mapFeatures.offlineDescription")}
+          infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "OpenFreeMap" })}
+          info={<>
+            <p>{t("controlAdmin:mapFeatures.offlineInfo")}</p>
+            <SourceLink href={LINKS.openFreeMap}>openfreemap.org</SourceLink>
+          </>}
+          checked={settings.cache}
+          disabled={busy !== null || (needsAppStorage && !settings.cache)}
+          onToggle={(next) => { setActionError(""); setPending({ kind: next ? "offlineOn" : "offlineOff" }); }}
+          facts={[
+            { label: t("controlAdmin:mapFeatures.source"), value: "OpenFreeMap" },
+            { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.offlineArrives") },
+            settings.cache
+              ? {
+                  label: t("controlAdmin:mapFeatures.spaceUsed"),
+                  value: t("controlAdmin:mapFeatures.usedOfPercent", { used: formatBytes(cache.bytes), limit: limitLabel(settings.cacheLimitMb), percent: cachePercent })
+                }
+              : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.upTo", { limit: limitLabel(settings.cacheLimitMb) }) },
+            ...(settings.cache ? [serviceFact(service, t)].filter((fact) => fact !== null) : [])
+          ]}
         >
-          <Button
-            variant="secondary"
-            compact
+          <PickerRow
+            label={t("controlAdmin:mapFeatures.limitLabel")}
+            value={String(settings.cacheLimitMb)}
+            options={CACHE_LIMITS_MB.map((mb) => ({ value: String(mb), label: limitLabel(mb) }))}
+            onChange={(value) => setLimit(Number(value) as CacheLimitMb)}
             disabled={busy !== null}
-            onClick={() => void act("countries", async () => { await api("/api/dashboard/locations/database", { method: "POST" }); }, saveFailed)}
-          >
-            {busy === "countries" ? t("controlAdmin:mapFeatures.downloading") : country ? t("controlAdmin:mapFeatures.update") : t("controlAdmin:mapFeatures.download")}
-          </Button>
-        </MapFeaturePart>
-
-        <MapFeaturePart
-          icon={<MapPin size={18} />}
-          title={<>{t("controlAdmin:mapFeatures.towns")} <span className="muted">{t("controlAdmin:mapFeatures.optional")}</span></>}
-          detail={city ? city.name : t("controlAdmin:mapFeatures.townsDetail")}
-          info={
-            <InfoHint label={t("controlAdmin:mapFeatures.whereToGetTowns")}>
-              <p>{t("controlAdmin:mapFeatures.townsInfo")}</p>
-              <ul className="map-feature-sources">
-                <li>
-                  <SourceLink href={LINKS.dbipCity}>DB-IP City Lite</SourceLink>
-                  <small>{t("controlAdmin:mapFeatures.dbipCityDetail")}</small>
-                </li>
-                <li>
-                  <SourceLink href={LINKS.maxmind}>MaxMind GeoLite2 City</SourceLink>
-                  <small>{t("controlAdmin:mapFeatures.maxmindDetail")}</small>
-                </li>
-              </ul>
-            </InfoHint>
-          }
-          state={city
-            ? <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.installed", { size: formatBytes(city.sizeBytes), date: formatManagedDate(city.buildDate ?? city.updatedAt) })}</span>
-            : <span className="map-feature-status">{t("controlAdmin:mapFeatures.notAdded")}</span>}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".mmdb,.gz"
-            hidden
-            onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadTowns(file); }}
           />
-          <Button variant="secondary" compact disabled={busy !== null} onClick={() => fileRef.current?.click()}>
-            <Upload size={14} aria-hidden="true" />
-            {busy === "towns" && !linkOpen ? t("controlAdmin:mapFeatures.uploading") : t("controlAdmin:mapFeatures.upload")}
-          </Button>
-          <Button variant="secondary" compact disabled={busy !== null} onClick={() => { setLinkError(""); setLinkOpen(true); }}>
-            <LinkIcon size={14} aria-hidden="true" />
-            {t("controlAdmin:mapFeatures.link")}
-          </Button>
-          {city && (
-            <Button variant="text" danger compact disabled={busy !== null} onClick={() => { setActionError(""); setPending({ kind: "townsRemove", name: city.name }); }}>
-              {t("controlAdmin:mapFeatures.remove")}
-            </Button>
-          )}
-        </MapFeaturePart>
-      </MapFeatureCard>
-
-      <MapFeatureCard
-        id="road-routes"
-        icon={<Route size={22} />}
-        title={t("controlAdmin:mapFeatures.routesTitle")}
-        description={t("controlAdmin:mapFeatures.routesDescription")}
-        infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "OpenRouteService" })}
-        info={<>
-          <p>{t("controlAdmin:mapFeatures.routesInfo")}</p>
-          <SourceLink href={LINKS.openRouteService}>{t("controlAdmin:mapFeatures.routesGetKey")}</SourceLink>
-        </>}
-        checked={routesOn || routesOpen}
-        disabled={busy !== null}
-        onToggle={(next) => {
-          setActionError("");
-          if (next) setRoutesOpen(true);
-          else if (routesOn) setPending({ kind: "routesOff" });
-          else { setRoutesOpen(false); setApiKey(""); }
-        }}
-        facts={[
-          { label: t("controlAdmin:mapFeatures.source"), value: "OpenRouteService" },
-          { label: t("controlAdmin:mapFeatures.needs"), value: t("controlAdmin:mapFeatures.routesNeeds") },
-          { label: t("controlAdmin:mapFeatures.sent"), value: t("controlAdmin:mapFeatures.routesSent") }
-        ]}
-      >
-        {(routesOn || routesOpen) && (
-          <div className="map-feature-routes">
+          {settings.cache && (
             <div className="map-feature-row">
-              <Field
-                label={t("controlAdmin:mapFeatures.keyLabel")}
-                value={apiKey}
-                onChange={(value) => { setApiKey(value); setTestResult(null); }}
-                type="password"
-                placeholder={routing.hasApiKey ? t("controlAdmin:mapFeatures.keyStored") : t("controlAdmin:mapFeatures.keyEmpty")}
-                autoComplete="new-password"
-                required={false}
+              <MapFeatureMeter
+                used={cache.bytes}
+                limit={cache.limitBytes}
+                usedLabel={t("controlAdmin:mapFeatures.meterUsed", { used: formatBytes(cache.bytes) })}
+                limitLabel={limitLabel(settings.cacheLimitMb)}
               />
-              <Button variant="secondary" disabled={busy !== null || (!routesDirty && !routing.hasApiKey)} onClick={() => void saveAndTest()}>
-                {busy === "routes" ? t("controlAdmin:mapFeatures.testing") : routesDirty ? t("controlAdmin:mapFeatures.saveAndTest") : t("controlAdmin:mapFeatures.test")}
-              </Button>
-              {testResult?.ok && <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.works")}</span>}
             </div>
-            {testResult && !testResult.ok && (
-              <MessageBox tone="error" title={t("controlAdmin:mapFeatures.routesNotWorking")}>{testResult.error}</MessageBox>
-            )}
-            <Button variant="bare" className="map-feature-disclosure" onClick={() => setOwnServerOpen(!ownServerOpen)} aria-expanded={ownServerOpen}>
-              <ChevronRight size={15} className={ownServerOpen ? "rotated" : ""} aria-hidden="true" />
-              {t("controlAdmin:mapFeatures.ownServer")}
+          )}
+          {settings.cache && (
+            // Nothing to upload or update: kept pieces refresh themselves (resolve.ts
+            // MAX_AGE). Clearing them all is the one thing done by hand (owner,
+            // 2026-11-19) — before, only switching off and on again did it.
+            <MapFeaturePart
+              icon={<Layers size={18} />}
+              title={t("controlAdmin:mapFeatures.keptTitle")}
+              detail={t("controlAdmin:mapFeatures.keptDetail")}
+              state={<span className="map-feature-status">{formatBytes(cache.bytes)}</span>}
+            >
+              <Button variant="secondary" compact disabled={busy !== null || cache.bytes === 0} onClick={() => { setActionError(""); setPending({ kind: "offlineClear" }); }}>
+                {t("controlAdmin:mapFeatures.keptClear")}
+              </Button>
+            </MapFeaturePart>
+          )}
+        </MapFeatureCard>
+      )}
+
+      {shows("places") && (
+        <MapFeatureCard
+          plain={plain}
+          id="named-places"
+          icon={<MapPin size={22} />}
+          title={t("controlAdmin:mapFeatures.placesTitle")}
+          description={t("controlAdmin:mapFeatures.placesDescription")}
+          infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "GeoNames" })}
+          info={<>
+            <p>{t("controlAdmin:mapFeatures.placesInfo")}</p>
+            <SourceLink href={LINKS.geoNames}>geonames.org</SourceLink>
+          </>}
+          checked={places.present || places.build.running}
+          disabled={busy !== null || places.build.running || (needsAppStorage && !places.present)}
+          onToggle={(next) => { setActionError(""); setPending({ kind: next ? "placesOn" : "placesOff" }); }}
+          facts={[
+            { label: t("controlAdmin:mapFeatures.source"), value: "GeoNames" },
+            { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.placesArrives") },
+            places.present
+              ? { label: t("controlAdmin:mapFeatures.spaceUsed"), value: formatBytes(places.sizeBytes) }
+              : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.placesSpace") }
+          ]}
+        >
+          {/* The place list as a named part, as Countries is (owner, 2026-11-19: Update
+              on an unnamed strip was missed), and ALWAYS there: Update when there is a
+              list, Download when there is none — the same as switching it on. */}
+          <MapFeaturePart
+            icon={<Database size={18} />}
+            title={t("controlAdmin:mapFeatures.placeList")}
+            detail={t("controlAdmin:mapFeatures.placeListDetail")}
+            state={places.build.running
+              ? <span className="map-feature-status">{t("controlAdmin:mapFeatures.placesBuilding", { progress: placesProgressText(t, places.build) })}</span>
+              : places.present
+                ? <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.placesBuilt", { count: places.places, number: places.places.toLocaleString(), date: formatManagedDate(places.builtAt ?? "") })}</span>
+                : places.build.error
+                  ? <span className="map-feature-status is-failed">{t("controlAdmin:mapFeatures.placesFailed", { error: places.build.error })}</span>
+                  : <span className="map-feature-status">{t("controlAdmin:mapFeatures.notInstalled")}</span>}
+          >
+            {!places.build.running && (places.present ? (
+              <Button variant="secondary" compact disabled={busy !== null} onClick={() => void act("places", async () => { await startPlacesBuild(); }, saveFailed)}>
+                {t("controlAdmin:mapFeatures.update")}
+              </Button>
+            ) : (
+              <Button variant="secondary" compact disabled={busy !== null || needsAppStorage} onClick={() => { setActionError(""); setPending({ kind: "placesOn" }); }}>
+                {t("controlAdmin:mapFeatures.download")}
+              </Button>
+            ))}
+          </MapFeaturePart>
+          {places.present && (
+            <VillageCountries
+              places={places}
+              disabled={busy !== null || places.build.running}
+              onSave={(countries) => { setActionError(""); setPending({ kind: "villages", countries }); }}
+            />
+          )}
+        </MapFeatureCard>
+      )}
+
+      {shows("signIns") && (
+        <MapFeatureCard
+          plain={plain}
+          id="sign-in-locations"
+          icon={<ShieldCheck size={22} />}
+          title={t("controlAdmin:mapFeatures.signInsTitle")}
+          description={t("controlAdmin:mapFeatures.signInsDescription")}
+          infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "DB-IP" })}
+          info={<p>{t("controlAdmin:mapFeatures.signInsInfo")}</p>}
+          checked={signInsOn}
+          disabled={busy !== null}
+          onToggle={(next) => { setActionError(""); setPending({ kind: next ? "signInsOn" : "signInsOff" }); }}
+          facts={[
+            { label: t("controlAdmin:mapFeatures.source"), value: city ? (country ? t("controlAdmin:mapFeatures.signInsSourceWithTowns") : t("controlAdmin:mapFeatures.signInsSourceTownsOnly")) : "DB-IP" },
+            { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.signInsArrives") },
+            signInsOn
+              ? { label: t("controlAdmin:mapFeatures.spaceUsed"), value: formatBytes(locationsBytes) }
+              : { label: t("controlAdmin:mapFeatures.space"), value: t("controlAdmin:mapFeatures.signInsSpace") }
+          ]}
+        >
+          <MapFeaturePart
+            icon={<Globe size={18} />}
+            title={t("controlAdmin:mapFeatures.countries")}
+            detail={t("controlAdmin:mapFeatures.countriesDetail")}
+            info={
+              <InfoHint label={t("controlAdmin:mapFeatures.aboutSource", { name: "DB-IP Country Lite" })}>
+                <p>{t("controlAdmin:mapFeatures.countriesInfo")}</p>
+                <SourceLink href={LINKS.dbipCountry}>DB-IP Country Lite</SourceLink>
+              </InfoHint>
+            }
+            state={country
+              ? <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.installed", { size: formatBytes(country.sizeBytes), date: formatManagedDate(country.buildDate ?? country.updatedAt) })}</span>
+              : <span className="map-feature-status">{city ? t("controlAdmin:mapFeatures.countriesCovered") : t("controlAdmin:mapFeatures.notInstalled")}</span>}
+          >
+            <Button
+              variant="secondary"
+              compact
+              disabled={busy !== null}
+              onClick={() => void act("countries", async () => { await api("/api/dashboard/locations/database", { method: "POST" }); }, saveFailed)}
+            >
+              {busy === "countries" ? t("controlAdmin:mapFeatures.downloading") : country ? t("controlAdmin:mapFeatures.update") : t("controlAdmin:mapFeatures.download")}
             </Button>
-            {ownServerOpen && (
-              <div className="map-feature-own-server">
+          </MapFeaturePart>
+  
+          <MapFeaturePart
+            icon={<MapPin size={18} />}
+            title={<>{t("controlAdmin:mapFeatures.towns")} <span className="muted">{t("controlAdmin:mapFeatures.optional")}</span></>}
+            detail={city ? city.name : t("controlAdmin:mapFeatures.townsDetail")}
+            info={
+              <InfoHint label={t("controlAdmin:mapFeatures.whereToGetTowns")}>
+                <p>{t("controlAdmin:mapFeatures.townsInfo")}</p>
+                <ul className="map-feature-sources">
+                  <li>
+                    <SourceLink href={LINKS.dbipCity}>DB-IP City Lite</SourceLink>
+                    <small>{t("controlAdmin:mapFeatures.dbipCityDetail")}</small>
+                  </li>
+                  <li>
+                    <SourceLink href={LINKS.maxmind}>MaxMind GeoLite2 City</SourceLink>
+                    <small>{t("controlAdmin:mapFeatures.maxmindDetail")}</small>
+                  </li>
+                </ul>
+              </InfoHint>
+            }
+            state={city
+              ? <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.installed", { size: formatBytes(city.sizeBytes), date: formatManagedDate(city.buildDate ?? city.updatedAt) })}</span>
+              : <span className="map-feature-status">{t("controlAdmin:mapFeatures.notAdded")}</span>}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".mmdb,.gz"
+              hidden
+              onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadTowns(file); }}
+            />
+            <Button variant="secondary" compact disabled={busy !== null} onClick={() => fileRef.current?.click()}>
+              <Upload size={14} aria-hidden="true" />
+              {busy === "towns" && !linkOpen ? t("controlAdmin:mapFeatures.uploading") : t("controlAdmin:mapFeatures.upload")}
+            </Button>
+            <Button variant="secondary" compact disabled={busy !== null} onClick={() => { setLinkError(""); setLinkOpen(true); }}>
+              <LinkIcon size={14} aria-hidden="true" />
+              {t("controlAdmin:mapFeatures.link")}
+            </Button>
+            {city && (
+              <Button variant="text" danger compact disabled={busy !== null} onClick={() => { setActionError(""); setPending({ kind: "townsRemove", name: city.name }); }}>
+                {t("controlAdmin:mapFeatures.remove")}
+              </Button>
+            )}
+          </MapFeaturePart>
+        </MapFeatureCard>
+      )}
+
+      {shows("routes") && (
+        <MapFeatureCard
+          plain={plain}
+          id="road-routes"
+          icon={<Route size={22} />}
+          title={t("controlAdmin:mapFeatures.routesTitle")}
+          description={t("controlAdmin:mapFeatures.routesDescription")}
+          infoLabel={t("controlAdmin:mapFeatures.aboutSource", { name: "OpenRouteService" })}
+          info={<>
+            <p>{t("controlAdmin:mapFeatures.routesInfo")}</p>
+            <SourceLink href={LINKS.openRouteService}>{t("controlAdmin:mapFeatures.routesGetKey")}</SourceLink>
+          </>}
+          checked={routesOn || routesOpen}
+          disabled={busy !== null}
+          onToggle={(next) => {
+            setActionError("");
+            if (next) setRoutesOpen(true);
+            else if (routesOn) setPending({ kind: "routesOff" });
+            else { setRoutesOpen(false); setApiKey(""); }
+          }}
+          facts={[
+            { label: t("controlAdmin:mapFeatures.source"), value: "OpenRouteService" },
+            { label: t("controlAdmin:mapFeatures.needs"), value: t("controlAdmin:mapFeatures.routesNeeds") },
+            { label: t("controlAdmin:mapFeatures.sent"), value: t("controlAdmin:mapFeatures.routesSent") }
+          ]}
+        >
+          {(routesOn || routesOpen) && (
+            <div className="map-feature-routes">
+              <div className="map-feature-row">
                 <Field
-                  label={t("controlAdmin:mapFeatures.endpointLabel")}
-                  value={endpointValue}
-                  onChange={(value) => { setEndpoint(value); setTestResult(null); }}
-                  type="url"
-                  placeholder="https://api.openrouteservice.org"
-                  autoComplete="off"
+                  label={t("controlAdmin:mapFeatures.keyLabel")}
+                  value={apiKey}
+                  onChange={(value) => { setApiKey(value); setTestResult(null); }}
+                  type="password"
+                  placeholder={routing.hasApiKey ? t("controlAdmin:mapFeatures.keyStored") : t("controlAdmin:mapFeatures.keyEmpty")}
+                  autoComplete="new-password"
                   required={false}
                 />
-                <small className="muted">{t("controlAdmin:mapFeatures.endpointHint")}</small>
+                <Button variant="secondary" disabled={busy !== null || (!routesDirty && !routing.hasApiKey)} onClick={() => void saveAndTest()}>
+                  {busy === "routes" ? t("controlAdmin:mapFeatures.testing") : routesDirty ? t("controlAdmin:mapFeatures.saveAndTest") : t("controlAdmin:mapFeatures.test")}
+                </Button>
+                {testResult?.ok && <span className="map-feature-status is-ok">{t("controlAdmin:mapFeatures.works")}</span>}
               </div>
-            )}
-          </div>
-        )}
-      </MapFeatureCard>
+              {testResult && !testResult.ok && (
+                <MessageBox tone="error" title={t("controlAdmin:mapFeatures.routesNotWorking")}>{testResult.error}</MessageBox>
+              )}
+              <Button variant="bare" className="map-feature-disclosure" onClick={() => setOwnServerOpen(!ownServerOpen)} aria-expanded={ownServerOpen}>
+                <ChevronRight size={15} className={ownServerOpen ? "rotated" : ""} aria-hidden="true" />
+                {t("controlAdmin:mapFeatures.ownServer")}
+              </Button>
+              {ownServerOpen && (
+                <div className="map-feature-own-server">
+                  <Field
+                    label={t("controlAdmin:mapFeatures.endpointLabel")}
+                    value={endpointValue}
+                    onChange={(value) => { setEndpoint(value); setTestResult(null); }}
+                    type="url"
+                    placeholder="https://api.openrouteservice.org"
+                    autoComplete="off"
+                    required={false}
+                  />
+                  <small className="muted">{t("controlAdmin:mapFeatures.endpointHint")}</small>
+                </div>
+              )}
+            </div>
+          )}
+        </MapFeatureCard>
+      )}
 
-      <p className="map-features-folder">
+      {!plain && !only && <p className="map-features-folder">
         <Folder size={15} aria-hidden="true" />
         <span>{t("controlAdmin:mapFeatures.folder", { path: folder })}</span>
         <Button variant="text" compact onClick={() => navigate(storageHref("app-storage"))}>{t("controlAdmin:mapFeatures.changeFolder")}</Button>
-      </p>
+      </p>}
 
       {linkOpen && (
         <Modal variant="card" title={t("controlAdmin:mapFeatures.linkTitle")} busy={busy === "towns"} onClose={() => setLinkOpen(false)}>
@@ -585,7 +641,7 @@ export function MapFeatures() {
           title={confirmText(pending, "Title")}
           confirmLabel={confirmText(pending, "Label")}
           busyLabel={t("controlAdmin:mapFeatures.working")}
-          danger={pending.kind.endsWith("Off") || pending.kind === "townsRemove"}
+          danger={pending.kind.endsWith("Off") || pending.kind === "townsRemove" || pending.kind === "offlineClear"}
           busy={busy !== null}
           error={actionError}
           onConfirm={() => void confirmPending()}
@@ -602,6 +658,7 @@ export function MapFeatures() {
     switch (which.kind) {
       case "offlineOn": return title ? t("controlAdmin:mapFeatures.offlineOnTitle") : t("controlAdmin:mapFeatures.offlineOnLabel");
       case "offlineOff": return title ? t("controlAdmin:mapFeatures.offlineOffTitle") : t("controlAdmin:mapFeatures.offlineOffLabel");
+      case "offlineClear": return title ? t("controlAdmin:mapFeatures.keptClearTitle") : t("controlAdmin:mapFeatures.keptClearLabel");
       case "placesOn": return title ? t("controlAdmin:mapFeatures.placesOnTitle") : t("controlAdmin:mapFeatures.placesOnLabel");
       case "placesOff": return title ? t("controlAdmin:mapFeatures.placesOffTitle") : t("controlAdmin:mapFeatures.placesOffLabel");
       case "villages": return title ? t("controlAdmin:mapFeatures.villagesConfirmTitle") : t("controlAdmin:mapFeatures.villagesConfirmLabel");
@@ -618,6 +675,7 @@ export function MapFeatures() {
       case "offlineOff": return cache.bytes > 0
         ? t("controlAdmin:mapFeatures.offlineOffBody", { size: formatBytes(cache.bytes) })
         : t("controlAdmin:mapFeatures.offlineOffBodyEmpty");
+      case "offlineClear": return t("controlAdmin:mapFeatures.keptClearBody", { size: formatBytes(cache.bytes) });
       case "placesOn": return t("controlAdmin:mapFeatures.placesOnBody", { path: folder });
       case "placesOff": return t("controlAdmin:mapFeatures.placesOffBody", { size: formatBytes(places.sizeBytes) });
       case "villages": return which.countries.length > 0

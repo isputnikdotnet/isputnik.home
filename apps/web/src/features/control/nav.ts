@@ -164,13 +164,13 @@ export const APPLICATIONS: ApplicationDef[] = [
     key: "gallery",
     icon: Images,
     tabs: [
-      { section: "gallerySetup", kind: "setup" },
+      // Its Overview lists the Organize tools too, so Gallery has no Organize tab
+      // (owner, 2026-11-19): Duplicate cleanup, Missing photos and Video streaming
+      // are pages under the Overview.
+      { section: "gallerySetup", kind: "setup", pages: ["duplicateCleanup", "missingPhotos", "videoStreaming"] },
       // "Back up my phone photos" is a Gallery task; the libraries it feeds stay in
       // Libraries & Scanning.
       { section: "phoneSync", kind: "deviceSync" },
-      // Video streaming fixes Gallery's own videos (an index at the end of the file): a
-      // Gallery page, not Infrastructure's (4.90).
-      { section: "galleryOrganize", kind: "organize", pages: ["duplicateCleanup", "missingPhotos", "videoStreaming"] },
       { section: "mapSetup", kind: "settings" }
     ]
   },
@@ -180,8 +180,9 @@ export const APPLICATIONS: ApplicationDef[] = [
     tabs: [
       // What is being watched right now is Diagnostics › Video's Live sessions
       // (Now playing was a page here until it joined it).
-      { section: "videosSetup", kind: "setup" },
-      { section: "genres", kind: "organize" },
+      // Genres is a page under the Overview, which lists it under Organize (owner,
+      // 2026-11-19: no application has an Organize tab).
+      { section: "videosSetup", kind: "setup", pages: ["genres"] },
       { section: "videoSettings", kind: "settings" }
     ]
   },
@@ -190,16 +191,14 @@ export const APPLICATIONS: ApplicationDef[] = [
     icon: BookOpen,
     // Book categories' canonical home; Audiobooks opens the same editor with ?from=.
     tabs: [
-      { section: "ebooksSetup", kind: "setup" },
-      { section: "ebooksOrganize", kind: "organize", pages: ["categories"] }
+      { section: "ebooksSetup", kind: "setup", pages: ["categories"] }
     ]
   },
   {
     key: "audiobooks",
     icon: Headphones,
     tabs: [
-      { section: "audiobooksSetup", kind: "setup" },
-      { section: "audiobooksOrganize", kind: "organize" }
+      { section: "audiobooksSetup", kind: "setup" }
     ]
   },
   {
@@ -233,8 +232,8 @@ export const APPLICATIONS: ApplicationDef[] = [
 
 /** Shared pages, and the workspace tab each application opens them under. */
 const SHARED_PAGE_PARENTS: Partial<Record<ControlSection, Partial<Record<AppKey, ControlSection>>>> = {
-  categories: { ebooks: "ebooksOrganize", audiobooks: "audiobooksOrganize" },
-  tags: { gallery: "galleryOrganize", ebooks: "ebooksOrganize", audiobooks: "audiobooksOrganize" }
+  categories: { ebooks: "ebooksSetup", audiobooks: "audiobooksSetup" },
+  tags: { gallery: "gallerySetup", ebooks: "ebooksSetup", audiobooks: "audiobooksSetup" }
 };
 
 /** Every destination there is: each tab, then the pages under it — what search

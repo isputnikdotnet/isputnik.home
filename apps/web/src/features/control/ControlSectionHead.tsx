@@ -9,7 +9,7 @@ import { currentFrom, sectionEyebrow, sectionTitle } from "./nav";
 // never disagree with the nav about where it lives, which is how the old panel
 // ended up with "Maintenance" pages sitting under "Digital Library".
 //
-// A page under a tab (Duplicate cleanup under Gallery › Organize) also opens with a link back to that
+// A page under a tab (Duplicate cleanup under Gallery › Overview) also opens with a link back to that
 // tab, and its eyebrow names it: the tab row above stays on the tab, so this is
 // where the page says it is one step down.
 //

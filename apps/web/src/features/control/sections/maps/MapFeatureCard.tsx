@@ -17,6 +17,7 @@ export function MapFeatureCard({
   disabled = false,
   onToggle,
   facts,
+  plain = false,
   children
 }: {
   /** The card's anchor, so control-panel search can land on it. */
@@ -31,9 +32,36 @@ export function MapFeatureCard({
   disabled?: boolean;
   onToggle: (next: boolean) => void;
   facts: { label: string; value: ReactNode }[];
+  /** Drawn as a titled list (Gallery › Settings, laid out as its Overview,
+   *  2026-11-19): the name over the list, its switch the list's first row. */
+  plain?: boolean;
   children?: ReactNode;
 }) {
   const headingId = useId();
+  if (plain) {
+    return (
+      <section id={id} className="grouped-list map-feature map-feature-card is-plain" aria-labelledby={headingId}>
+        <h3 id={headingId} className="grouped-list-title map-feature-list-title">
+          {title}
+          <InfoHint label={infoLabel}>{info}</InfoHint>
+        </h3>
+        <div className="grouped-list-rows">
+          <div className="grouped-row map-feature-switch">
+            <span className="grouped-row-icon" aria-hidden="true">{icon}</span>
+            <span className="grouped-row-label"><strong>{description}</strong></span>
+            <ToggleSwitch checked={checked} disabled={disabled} onChange={onToggle} ariaLabel={title} />
+          </div>
+          {facts.map((fact) => (
+            <div key={fact.label} className="grouped-row map-feature-fact">
+              <span className="grouped-row-label"><strong>{fact.label}</strong></span>
+              <span className="map-feature-fact-value">{fact.value}</span>
+            </div>
+          ))}
+          {children}
+        </div>
+      </section>
+    );
+  }
   return (
     <section id={id} className="settings-card map-feature-card" aria-labelledby={headingId}>
       <header className="settings-card-head">

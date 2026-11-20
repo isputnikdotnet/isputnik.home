@@ -4,6 +4,7 @@ import { storyCollectionsPlugin } from "./collections-routes.js";
 import { registerStoryShareKind, storyShareRoutesPlugin } from "./share-routes.js";
 import { migrateLegacyNarrations, pendingLegacyNarrations } from "./recordings.js";
 import { getRecordingsLibrary } from "./settings.js";
+import { registerStoryStats } from "./stats.js";
 
 /** Narration recorded before recordings lived in the gallery (pre-3.x clips in
  *  the app's own bucket) moves itself into the App files library once
@@ -38,6 +39,7 @@ export function startLegacyNarrationImporter(app: FastifyInstance): () => void {
 }
 
 export async function storiesPlugin(app: FastifyInstance) {
+  registerStoryStats();
   // Story links are served by the shared guest-link engine through this kind;
   // the engine never imports the stories module (library/shared/share-kinds.ts).
   registerStoryShareKind();

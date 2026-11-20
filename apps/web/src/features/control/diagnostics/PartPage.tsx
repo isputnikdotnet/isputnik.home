@@ -5,7 +5,6 @@ import { controlHref, diagnosticsPartHref, libraryManageHref, type DiagnosticsPa
 import { Button } from "../../../shared/Button";
 import { GroupedList, InfoRow, NavRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
-import { RefreshButton } from "../../../shared/RefreshButton";
 import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatUptime } from "../../../shared/utils";
@@ -47,7 +46,7 @@ const LIBRARY_TONE: Record<LibraryCheck["state"], "ok" | "warn" | "muted"> = { o
 export function DiagnosticsPartPage({ part, tab = "overview" }: { part: DiagnosticsPart; tab?: DiagnosticsTab }) {
   const { t } = useTranslation(["controlAdmin", "control"]);
   const appName = useAppName();
-  const { parts, error, load } = useDiagnosticsOverview();
+  const { parts, error } = useDiagnosticsOverview();
   const problemText = useProblemText();
   const [reporting, setReporting] = useState(false);
   const saved = useSavedReports(part);
@@ -72,7 +71,6 @@ export function DiagnosticsPartPage({ part, tab = "overview" }: { part: Diagnost
         description={overview ? (videoTabs ? `${versionLine(overview)} · ${callsLine(overview)}` : versionLine(overview)) : undefined}
         back={{ href: controlHref("diagnostics"), label: t("controlAdmin:diagnostics.page.back") }}
       >
-        <RefreshButton onRefresh={load} />
         <Button variant="primary" onClick={() => setReporting(true)}>
           <FileDown size={16} aria-hidden="true" />
           {t("controlAdmin:diagnostics.downloadReport")}

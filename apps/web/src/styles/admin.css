@@ -3000,6 +3000,12 @@ tr.control-anchor-flash > td {
 .diag-tiles-head h3 { margin: 0; font-size: 1.02rem; }
 .diag-tiles-head .muted { font-size: 0.8rem; }
 .diag-tiles .stat-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* An application's Overview: six cards, three across (owner, 2026-11-19). */
+.app-overview-v3 .diag-tiles .stat-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 740px) { .app-overview-v3 .diag-tiles .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* A group of lists under one heading on a workspace page (Gallery › Settings' Maps). */
+.app-settings-group { gap: 12px; }
+.app-settings-group .map-features { gap: 16px; }
 /* Every card alike: the label small, the value bold at body size, the line under it. */
 .diag-tiles .stat-tile { align-items: start; border-radius: 16px; padding: 14px 16px; }
 .diag-tiles .stat-tile dt { font-size: 0.78rem; }

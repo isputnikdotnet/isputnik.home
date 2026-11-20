@@ -36,6 +36,8 @@ export interface ApplicationsData {
   /** null means the check failed; an empty list means it succeeded with no entries. */
   containers: AppStatus[] | null;
   libraries: Record<LibraryType, AppLibrary[] | null>;
+  /** /api/status, for the totals an Overview shows (photos, people); null when it failed. */
+  status?: SystemStatus | null;
 }
 
 /** What each application is made of. `container` is required for it to work
@@ -145,7 +147,8 @@ async function fetchApplicationsData(): Promise<ApplicationsData> {
       ebook: ebook ? toLibraries(ebook.libraries, sizes) : null,
       gallery: gallery ? toLibraries(gallery.libraries, sizes) : null,
       video: video ? toLibraries(video.libraries, sizes) : null
-    }
+    },
+    status
   };
 }
 

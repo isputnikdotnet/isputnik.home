@@ -56,20 +56,20 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "добавить библиотеку сканирование источники папки пути расширения загрузки доступ участники мастер пересканировать управлять состояние",
   applications: "applications apps workspace gallery videos ebooks audiobooks stories games shared organization organize " +
     "приложения рабочее пространство галерея видео электронные книги аудиокниги истории игры общее упорядочивание",
-  gallerySetup: "setup gallery photos libraries face engine faces turn on off menu storage access " +
-    "настройка галерея фото библиотеки распознавание лиц включить выключить меню хранилище доступ",
-  videosSetup: "setup videos films shows libraries video engine connection turn on off menu storage access " +
-    "настройка видео фильмы сериалы библиотеки видеодвижок подключение включить выключить меню хранилище доступ",
-  familyTreeSetup: "setup family tree turn on off menu import export gedcom " +
-    "настройка семейное древо включить выключить меню импорт экспорт",
-  gamesSetup: "setup games container pairing connection turn on off menu guest links access " +
-    "настройка игры контейнер связать подключение включить выключить меню гостевые ссылки доступ",
-  galleryOrganize: "organize organise gallery photos tags duplicates missing cleanup " +
-    "упорядочить галерея фото теги дубликаты пропавшие очистка",
-  ebooksOrganize: "organize organise ebooks books categories tags re-match " +
-    "упорядочить электронные книги категории теги пересопоставить",
-  audiobooksOrganize: "organize organise audiobooks books categories tags re-match " +
-    "упорядочить аудиокниги категории теги пересопоставить",
+  gallerySetup: "setup gallery photos libraries face engine faces turn on off menu storage access organize organise tags duplicates missing cleanup features phone backup offline maps place names " +
+    "настройка галерея фото библиотеки распознавание лиц включить выключить меню хранилище доступ упорядочить теги дубликаты пропавшие очистка возможности карты названия мест",
+  videosSetup: "setup videos films shows libraries video engine connection turn on off menu storage access organize genres watching now live sessions posters tmdb intros credits quality copies gpu " +
+    "настройка видео фильмы сериалы библиотеки видеодвижок подключение включить выключить меню хранилище доступ жанры смотрят сейчас сеансы постеры заставки титры качество копии видеокарта",
+  familyTreeSetup: "setup family tree turn on off menu import export gedcom people couples photos places sources " +
+    "настройка семейное древо включить выключить меню импорт экспорт люди пары фото места источники",
+  ebooksSetup: "setup ebooks books libraries turn on off menu access organize organise categories tags re-match formats authors " +
+    "настройка электронные книги библиотеки включить выключить меню доступ упорядочить категории теги пересопоставить форматы авторы",
+  audiobooksSetup: "setup audiobooks books libraries turn on off menu access organize organise categories tags re-match narrators listening time " +
+    "настройка аудиокниги библиотеки включить выключить меню доступ упорядочить категории теги пересопоставить чтецы время прослушивания",
+  storiesSetup: "setup stories turn on off menu drafts recipes collections narration recordings road routes " +
+    "настройка истории включить выключить меню черновики рецепты подборки озвучка записи маршруты",
+  gamesSetup: "setup games container pairing connection turn on off menu guest links access requests today version " +
+    "настройка игры контейнер связать подключение включить выключить меню гостевые ссылки доступ запросы сегодня версия",
   storage: "thumbnails cache path library locations containers approved folders disk location free space recycle bin trash folder " +
     "миниатюры кэш путь места библиотек контейнеры разрешённые папки диск расположение свободное место корзина папка",
   storageContents: "app storage contents what is in it size on disk parts app files recordings voice notes music movies family tree orphans orphaned files delete other files move folder " +
@@ -130,9 +130,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   notifications: "notify email alerts members shared with me sharing switch on off opt in " +
     "уведомления почта оповещения участники поделились со мной включить выключить",
   mapSetup: "maps map caching offline privacy openfreemap tiles basemap set up turn on off limit named places geonames " +
-    "geoip location database mmdb dbip maxmind geolite country city sign-in towns upload link remove " +
-    "route roads openrouteservice api key directions " +
-    "геолокация база расположений страны города входы загрузить удалить маршрут дороги ключ прокладка " +
+    "photo inbox villages " +
+    "входящие сёла " +
     "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
   appsAccess: "apps containers access who may use members managers deny everyone groups network rules trusted home network anywhere outside internet lan restrict games " +
     "приложения контейнеры доступ кто может участники менеджеры запретить все группы сеть правила доверенные домашняя сеть откуда снаружи интернет ограничить игры",
@@ -237,7 +236,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   {
     titleKey: "mapRouting",
-    section: "mapSetup",
+    section: "storySettings",
     anchor: "road-routes",
     keywords: "route roads driving walking cycling openrouteservice api key directions story map itinerary travel маршрут дороги машина пешком велосипед ключ прокладка карта путешествие"
   },
@@ -257,7 +256,7 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   {
     titleKey: "locationDatabase",
-    section: "mapSetup",
+    section: "signInLocations",
     anchor: "sign-in-locations",
     keywords: "sign-in locations geoip database country city mmdb dbip geolite maxmind fetch upload remove " +
       "расположение входов геолокация база страна город скачать загрузить удалить"

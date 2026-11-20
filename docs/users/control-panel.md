@@ -32,7 +32,7 @@ page here can be bookmarked, linked to, or opened in a new tab.
 the control panel — searches every page *and* the settings on them. Typing `smtp`
 goes to System Settings → Email; `lockout` goes to Security & Members → Policies and scrolls to the
 lockout card, which flashes so you can see which one it means; `duplicate` goes to
-Applications → Gallery → Organize → Duplicate cleanup. Arrow keys move through the results, Enter opens one.
+Applications → Gallery → Duplicate cleanup. Arrow keys move through the results, Enter opens one.
 
 Use it rather than hunting through tabs. It's usually faster even when you know
 where a setting lives.
@@ -452,8 +452,20 @@ check says **Status unavailable** and offers Retry. Shared tools — Tags and Bo
 categories — sit below the application list.
 
 Choosing an application opens its workspace, with a row of tabs from **Overview · Device Sync ·
-Organize · Settings** — only the ones it needs, so an application with a single page
+Settings** — only the ones it needs, so an application with a single page
 has no row.
+
+Every **Overview** is laid out the same way. Cards across the top say what the
+application holds (its libraries, how much, how big, and what is special to it:
+films being watched, top authors, stories and recipes, people in the tree), and the
+cards that count something you can list (Libraries, On disk, Phones…) open that
+list. Under them: **Visibility & access** — whether it is in the menu, and who may
+use it (**Manage libraries** where each library decides); **Features**, each with
+whether it is on; and **Organize** or **Tools**, its own pages and the shared lists
+it is sorted by. Beside them, **Activity & troubleshooting** opens Activity, Tasks,
+Logs and Diagnostics showing that application only. An application has no Organize
+tab: those pages open from its Overview and keep it selected. Backups are not an
+application's: each server and container has its own, on Infrastructure → Services.
 
 An application shows the libraries, connection, access and storage it uses, and
 links to where each is managed rather than keeping copies. Changing a library's
@@ -493,8 +505,9 @@ editor or Backup. A direct link falls back to its natural parent.
 
 ### Gallery
 
-**Device Sync**, **Organize** — Tags, Duplicate cleanup and Missing photos — and
-**Settings**, which is Maps.
+**Overview**, **Device Sync** and **Settings**, which is Maps. Gallery has no
+Organize tab: the Overview lists its Organize tools — Duplicate cleanup, Missing
+photos, Video streaming and Tags.
 
 #### Device Sync
 
@@ -572,8 +585,11 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
 
 
 The maps across the app — the gallery map, a photo's location, a story's route,
-Security & Members → Sign-in locations — and what this server keeps for them. It is one page
-of four features, each a group of rows: a switch with the feature's name, then where
+Security & Members → Sign-in locations — and what this server keeps for them. Four
+features, each on the page of what it feeds: **Offline maps** and **Photo place
+names** under **Maps** on Applications → Gallery → Settings, **Sign-in locations**
+under its map on Security & Members → Sign-in locations, and **Road routes** on
+Applications → Stories → Settings. Each is a group of rows: a switch with the feature's name, then where
 its data comes from, how that gets here and how much space it takes, and whatever
 else it needs; what it does is the line under the group. Turning one on says what
 will be downloaded, how big it is and where it goes before it does anything; turning
@@ -585,10 +601,14 @@ link to it. Maps work with every feature off.
 - **Offline maps** — maps come through this server and are kept, so places you've
   viewed draw without internet, and OpenFreeMap (the map provider) no longer sees
   where you look. An area nobody has viewed still needs the internet the first time.
-  **Keep up to** sets how much is kept, from 100 MB to 2 GB (200 MB to start); when
+  **Size limit** sets how much is kept, from 100 MB to 2 GB (200 MB to start); when
   it is full, what was viewed longest ago goes first, and lowering it trims the cache
   there and then. Turning it off deletes what was kept; maps carry on, straight
   from OpenFreeMap.
+  There is nothing to upload or update: what is kept refreshes itself — a map
+  piece is fetched again once it is 30 days old, the map's style daily. **Clear** on
+  **Kept maps** deletes what is kept and leaves offline maps on, so each place is
+  fetched again the next time someone views it.
 - **Photo place names** — the town each photo was taken in, worked out from its
   location on this server and shown in each person's own language: "Verona,
   Veneto, Italy" in the photo viewer, and a **Places** view and filter in the
@@ -606,7 +626,7 @@ link to it. Maps work with every feature off.
   towns. **Save and rebuild** builds the list again with them, downloading the
   usual GeoNames files plus one file per country.
 - **Sign-in locations** — where each sign-in came from, on Security →
-  Sign-in locations. It is used for nothing else. Two parts:
+  Sign-in locations, under that map. It is used for nothing else. Two parts:
   - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when
     you turn the card on. **Update** fetches the latest; addresses move between
     networks, so every few months is worth it.
@@ -619,7 +639,8 @@ link to it. Maps work with every feature off.
 
   Turning it off deletes both. None of these databases are in backups: the
   country one can be fetched again, a towns one has to come from your own copy.
-- **Road routes** — whether a route in a [story](stories.md) follows real roads.
+- **Road routes** — on Applications → Stories → Settings: whether a route in a
+  [story](stories.md) follows real roads.
   Turn it on and paste a free **OpenRouteService** key (the ⓘ links to the sign-up;
   the service is run by a research institute at Heidelberg University, not the
   similarly named delivery-planning company a search may turn up), then **Save and
@@ -634,13 +655,14 @@ link to it. Maps work with every feature off.
   Turning it off removes the key; routes already saved keep their roads.
 
 Everything these keep is in the **Map data** part of App storage
-([Storage](#storage)), named at the bottom of the page. Offline maps and place names
+([Storage](#storage)), named beside the maps on Gallery → Settings. Offline maps and place names
 wait while App storage is off: their switches are disabled, with a link to Storage.
 
 ### Videos
 
-**Organize** is **Video genres**: one list of your own that films and shows are filed
-under. **Settings** opens on a short overview, each row saying how it stands:
+**Video genres** — one list of your own that films and shows are filed under — opens
+from the Overview's **Organize**, beside **Live sessions**. **Settings** opens on cards
+of how each setting stands, then a short list per area, each row saying how it stands:
 **Converting video** (on the GPU or the CPU, and how many are watching), **Quality
 away from home**, chosen right there, **Posters and descriptions** (whether a TMDB key
 is set), **Intros, recaps and credits** with its switch on the row, **Copies for
@@ -650,26 +672,29 @@ and settings, and everything saves as it changes. [Apps](apps.md) covers both.
 
 ### Ebooks and Audiobooks
 
-**Organize** has **Book categories** — the shelves the scanner sorts books onto, by
+The Overview's **Organize** has **Book categories** — the shelves the scanner sorts books onto, by
 keyword rules — and **Tags**. Categories are one set shared by both, so Audiobooks
 opens the same editor, which then stays in Audiobooks: its tab, title and back link
 follow where you came from. **Re-match all books**, in the categories editor, sorts every book again.
 
 ### Stories, Family Tree and Games
 
-- **Stories** — **Settings**: whether members may start a recipe from a link, and which
-  library narration goes to (App files, shown here, not chosen). Narration recorded
+- **Stories** — Overview: stories, drafts, recipes, collections and narrations, and
+  which of its features are on. **Settings**: whether members may start a recipe from
+  a link, **Road routes**, and which library narration goes to (App files, shown here,
+  not chosen). Narration recorded
   before recordings lived in the gallery moves into App files by itself once App
   storage is on; the page says how many recordings are still waiting.
-- **Family Tree** — Overview. Importing, exporting and the tree's own settings are in
-  Family Tree itself.
-- **Games** — Overview: whether the games container answers, who may play, and guest links.
+- **Family Tree** — Overview: people, couples, photos, places and sources. Importing,
+  exporting and the tree's own settings are in Family Tree itself.
+- **Games** — Overview: whether the games container answers, its requests today, who
+  may play, and guest links.
 
 ### Shared tools
 
 **Tags** for the whole install: books, Gallery photos (and video clips), albums,
 slideshows, stories and family-tree people. Rename, merge and delete there; **Remove
-unused** clears tags nothing carries. An application's Organize tab opens the same
+unused** clears tags nothing carries. An application's Overview opens the same
 editor within that application, but a tag is still one tag: renaming or merging it
 changes it everywhere it is used.
 
@@ -896,18 +921,18 @@ internet](exposing-to-the-internet.md).
 
   Countries are worked out on your server from a database file, so no address is
   ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
-  **Sign-in locations** on [Maps](#maps) and it fetches DB-IP's Country
+  **Sign-in locations** under the map (see [Maps](#maps)) and it fetches DB-IP's Country
   Lite database (about 8 MB, free, no account) into your data folder. Until then
-  the map still draws, with a notice offering the way there. That download is the
+  the map still draws, with a notice whose button scrolls down to it. That download is the
   only outbound call; lookups after it never leave the machine. Worth fetching
   again every few months, since addresses move between networks. The databases
-  themselves are on the **Sign-in locations** card on [Maps](#maps), which
-  **Location database** under the map opens.
+  themselves are on the **Sign-in locations** card under the map, which
+  **Location database** scrolls to.
 
   **Want town-level detail?** That database is yours to choose. Download any
   city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
   whichever licence suits you — and give it to the server from the **Towns** part of
-  the **Sign-in locations** card on [Maps](#maps): **Link** to paste its download
+  the **Sign-in locations** card under the map: **Link** to paste its download
   link and let the server fetch it, or **Upload** to pick the file from your
   computer. Dropping the `.mmdb` straight into the `Locations` folder of Map data
   works too. A `.mmdb.gz` from the vendor

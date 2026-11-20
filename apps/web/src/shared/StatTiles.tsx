@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { followRoute } from "../router";
 import { Button } from "./Button";
 
 // A row of small numbers across the top of a page (Device Sync): an icon in the
@@ -17,17 +18,20 @@ export interface StatTile {
   iconTone?: "blue" | "gold" | "rose" | "mint" | "ok" | "warn";
   /** Makes the short line a link to where its reason is ("2 need attention" → which). */
   onSubClick?: () => void;
+  /** Makes the whole tile a link to the page that lists what it counts (Libraries,
+   *  Storage). The label carries the link; it stretches over the tile. */
+  href?: string;
 }
 
 export function StatTiles({ tiles, label }: { tiles: StatTile[]; /** The row's accessible name. */ label?: string }) {
   return (
     <dl className="stat-tiles" aria-label={label}>
       {tiles.map((tile, index) => (
-        <div className={`stat-tile${tile.tone ? ` is-${tile.tone}` : ""}${tile.icon ? " has-icon" : ""}`} key={index}>
+        <div className={`stat-tile${tile.tone ? ` is-${tile.tone}` : ""}${tile.icon ? " has-icon" : ""}${tile.href ? " is-link" : ""}`} key={index}>
           {tile.icon && (
             <span className={`stat-tile-icon is-${tile.tone === "warn" ? "warn" : tile.iconTone ?? "blue"}`} aria-hidden="true">{tile.icon}</span>
           )}
-          <dt>{tile.label}</dt>
+          <dt>{tile.href ? <a className="stat-tile-cover" href={tile.href} onClick={(event) => followRoute(event, tile.href!)}>{tile.label}</a> : tile.label}</dt>
           <dd>
             <strong>{tile.value}</strong>
             {tile.sub && (tile.onSubClick

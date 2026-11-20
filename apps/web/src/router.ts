@@ -12,9 +12,9 @@ export type ControlSection =
   // Applications: the directory, then each application's workspace tabs and pages
   | "applications"
   | "gallerySetup" | "videosSetup" | "ebooksSetup" | "audiobooksSetup" | "storiesSetup" | "familyTreeSetup" | "gamesSetup"
-  | "phoneSync" | "galleryOrganize" | "duplicateCleanup" | "missingPhotos" | "mapSetup"
+  | "phoneSync" | "duplicateCleanup" | "missingPhotos" | "mapSetup"
   | "genres" | "videoSettings"
-  | "ebooksOrganize" | "audiobooksOrganize" | "categories"
+  | "categories"
   | "storySettings"
   | "tags"
   // Security & Members
@@ -59,17 +59,14 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   gamesSetup: "/control/apps/games/setup",
   // Device Sync. The section keeps its first name (Security › Phone sync until 4.73).
   phoneSync: "/control/apps/gallery/device-sync",
-  galleryOrganize: "/control/apps/gallery/organize",
-  duplicateCleanup: "/control/apps/gallery/organize/duplicate-cleanup",
-  missingPhotos: "/control/apps/gallery/organize/missing-photos",
-  videoStreaming: "/control/apps/gallery/organize/video-streaming",
+  duplicateCleanup: "/control/apps/gallery/duplicate-cleanup",
+  missingPhotos: "/control/apps/gallery/missing-photos",
+  videoStreaming: "/control/apps/gallery/video-streaming",
   mapSetup: "/control/apps/gallery/settings",
-  genres: "/control/apps/videos/organize",
+  genres: "/control/apps/videos/genres",
   videoSettings: "/control/apps/videos/settings",
-  ebooksOrganize: "/control/apps/ebooks/organize",
-  audiobooksOrganize: "/control/apps/audiobooks/organize",
   // One editor for both book applications: Audiobooks opens it with ?from=audiobooks.
-  categories: "/control/apps/ebooks/organize/categories",
+  categories: "/control/apps/ebooks/categories",
   storySettings: "/control/apps/stories/settings",
   // Shared organization: tags cross every application. An app's Organize page opens
   // it with ?from=<app>.
@@ -188,6 +185,11 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/maintenance/videos": "videoStreaming",
   // Infrastructure's until 4.90, when it joined Gallery › Organize.
   "/control/infrastructure/video-streaming": "videoStreaming",
+  // Gallery › Organize until its Overview listed the same tools (4.91).
+  "/control/apps/gallery/organize": "gallerySetup",
+  "/control/apps/gallery/organize/duplicate-cleanup": "duplicateCleanup",
+  "/control/apps/gallery/organize/missing-photos": "missingPhotos",
+  "/control/apps/gallery/organize/video-streaming": "videoStreaming",
   "/control/settings/maps": "mapSetup",
   "/control/settings/stories": "storySettings",
   "/control/settings/apps": "appsSetup",
@@ -257,6 +259,11 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/libraries/categories": "categories",
   "/control/libraries/tags": "tags",
   "/control/libraries/genres": "genres",
+  // Each application's Organize tab until its Overview listed the same (4.91).
+  "/control/apps/videos/organize": "genres",
+  "/control/apps/ebooks/organize": "ebooksSetup",
+  "/control/apps/audiobooks/organize": "audiobooksSetup",
+  "/control/apps/ebooks/organize/categories": "categories",
   "/control/security/phone-sync": "phoneSync",
   "/control/libraries/phone-sync": "phoneSync",
 
@@ -962,9 +969,9 @@ export function getRoute(): Route {
       return { name: "control", section };
     }
 
-    // Under Ebooks › Organize since v2; under Library › Organization (4.73), Library
-    // and the panel's root before that.
-    const categoryEditMatch = path.match(/^\/control\/(?:apps\/ebooks\/organize\/|libraries\/(?:organization\/)?)?categories\/([^/]+)$/);
+    // Under Ebooks' Overview since 4.91; Ebooks › Organize in v2, Library ›
+    // Organization (4.73), Library and the panel's root before that.
+    const categoryEditMatch = path.match(/^\/control\/(?:apps\/ebooks\/(?:organize\/)?|libraries\/(?:organization\/)?)?categories\/([^/]+)$/);
     if (categoryEditMatch) {
       return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
     }

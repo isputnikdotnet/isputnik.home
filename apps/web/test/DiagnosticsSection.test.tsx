@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DiagnosticsSection } from "../src/features/control/sections/DiagnosticsSection";
+import { DiagnosticsPartPage } from "../src/features/control/diagnostics/PartPage";
 import { reportText, type DiagnosticsReport } from "../src/features/control/diagnostics/ReportDialog";
 
 vi.mock("../src/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("../src/api")>()), api: vi.fn() }));
@@ -127,10 +128,10 @@ describe("the report's text", () => {
 });
 
 describe("saved reports", () => {
-  it("saves the report as shown, lists it at the foot, and opens and deletes it", async () => {
+  // The main page saves but lists none (owner, 2026-11-19): a part's Reports tab does.
+  it("saves the report as shown, lists it on a part's Reports tab, and opens and deletes it", async () => {
     const user = userEvent.setup();
-    render(<DiagnosticsSection />);
-    expect(await screen.findByText(/None yet\. Save a report/)).toBeTruthy();
+    const main = render(<DiagnosticsSection />);
 
     await user.click(await screen.findByRole("button", { name: /Download report/ }));
     const dialog = await screen.findByRole("dialog");
@@ -142,7 +143,10 @@ describe("saved reports", () => {
     expect(body).toMatchObject({ span: "day", parts: ["system", "libraries", "container:video"], hidden: ["people", "paths", "names", "net"] });
     expect(body.text).toContain("gallery: <name> at <path>");
     await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("Saved reports")).toBeNull();
+    main.unmount();
 
+    render(<DiagnosticsPartPage part="home" tab="reports" />);
     const list = (await screen.findByText("Saved reports")).closest(".grouped-list-wrap, section, div") as HTMLElement;
     await user.click(await within(list).findByRole("button", { name: /private details hidden/ }));
     const viewer = await screen.findByRole("dialog");

@@ -18,6 +18,13 @@
 }
 .control-panel .map-features > :not(.map-feature-card) { grid-column: 1 / -1; }
 @media (max-width: 1100px) { .control-panel .map-features { grid-template-columns: minmax(0, 1fr); } }
+/* Gallery › Settings in the Overview's shape: each feature a titled list, one
+   under another (MapFeatureCard plain). */
+.control-panel .map-features.is-plain { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.map-feature-list-title { display: inline-flex; align-items: center; gap: 4px; }
+.map-feature-switch { gap: 12px; }
+.map-feature-switch .grouped-row-label { flex: 1 1 auto; min-width: 0; }
+.map-feature-switch .grouped-row-label strong { font-weight: 600; }
 .map-feature-card .settings-card-head h3 { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 2px; font-size: 1.15rem; font-weight: 650; }
 
 /* Control panel v2: each feature is a group of rows (shared/GroupedList styles);

@@ -386,6 +386,27 @@ describe("with caching off", () => {
     expect(on.json().error).toMatch(/App storage is off/);
   });
 
+  // Clear kept maps (2026-11-19): the same delete, with caching left on.
+  it("clears what was kept while leaving it on, for admins only, and says how much that freed", async () => {
+    const cookie = await signIn("dad");
+    await app.inject({ method: "PUT", url: "/api/map/settings", headers: { cookie }, payload: { cache: true } });
+    await get("/api/map/tiles/14/9401/5288.pbf", { cookie });
+    expect(fs.existsSync(vectorFile())).toBe(true);
+
+    expect((await app.inject({ method: "DELETE", url: "/api/map/cache", headers: { cookie: await signIn("kid") } })).statusCode).toBe(403);
+    const cleared = await app.inject({ method: "DELETE", url: "/api/map/cache", headers: { cookie } });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json().freedBytes).toBeGreaterThan(0);
+    expect(cleared.json().settings.cache).toBe(true);
+    expect(fs.existsSync(vectorFile())).toBe(false);
+
+    // And the next view keeps it again.
+    await get("/api/map/tiles/14/9401/5288.pbf", { cookie });
+    expect(fs.existsSync(vectorFile())).toBe(true);
+    const events = db.prepare("SELECT detail FROM activity_logs WHERE event = 'maps.settings_updated' ORDER BY created_at").all() as { detail: string }[];
+    expect(events.at(-1)?.detail).toMatch(/^Kept maps cleared \(\d+ bytes freed\)$/);
+  });
+
   it("deletes what was kept when an admin turns it off, and says how much that freed", async () => {
     const cookie = await signIn("dad");
     const on = await app.inject({ method: "PUT", url: "/api/map/settings", headers: { cookie }, payload: { cache: true } });

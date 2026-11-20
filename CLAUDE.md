@@ -145,8 +145,12 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   Diagnostics, Activity) · Libraries & Scanning · Applications · Security & Members · System Settings.
   Five is the budget. Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
   Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, with Shared tools below the directory. Each workspace has
-  only the tabs it needs from Overview · Device Sync · Organize · Settings, opening on Overview
-  (internal setup keys and /setup URLs stay stable).
+  only the tabs it needs from Overview · Device Sync · Settings, opening on Overview
+  (internal setup keys and /setup URLs stay stable). No Organize tab (owner, 2026-11-19):
+  every Overview has one shape — cards across the top (`OverviewLayout`,
+  `sections/AppOverviews.tsx`; Gallery's in `GalleryOverview.tsx`), Visibility & access,
+  Features with on/off, Organize/Tools — and its organize pages hang under it as `pages`.
+  Backups belong to servers and containers (Infrastructure › Services), never applications.
   System-wide pages go in a group; an application's own controls go in its workspace,
   which SHOWS and LINKS to what it uses (libraries, connection, access, storage —
   `features/control/applications.ts`) but owns none of it; Infrastructure's Tasks, Logs
@@ -164,7 +168,7 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   a member's page, Diagnostics › Video). Infrastructure opens on Services (a card per
   service); a container's Pairing (`appsSetup`, ?app=) is a page under it.
   Two kinds of sub-page are allowed: a tab's **pages** (`pages` on its `nav.ts` entry —
-  Gallery › Organize's Duplicate cleanup, Missing photos and Video streaming) keep their own address and
+  Gallery › Overview's Duplicate cleanup, Missing photos and Video streaming) keep their own address and
   search entry, keep the tab selected, and open with a back link; a **page of one thing**
   (a member, a group, a library's Manage page at `libraryManageHref()`) has its own route
   outside the table and drops the tab row. A **shared page** (Book categories, Tags) has

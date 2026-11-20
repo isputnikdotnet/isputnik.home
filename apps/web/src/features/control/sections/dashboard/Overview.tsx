@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Archive,
@@ -72,6 +73,17 @@ function useAppName() {
 const APP_ICONS: Record<string, LucideIcon> = { games: Gamepad2, video: Tv, faces: ScanFace };
 
 const containerBackupHref = backupHref;
+
+/** A row of links to other control pages: a click on one moves inside the app, as
+ *  every control link does, so the page it opens can step Back to this one. A plain
+ *  load would leave Back nothing to return to, and it would fall back to that
+ *  page's own parent (Access opened from Services went back to Security). */
+function followLinkInside(event: MouseEvent<HTMLElement>) {
+  const link = (event.target as HTMLElement).closest("a");
+  const href = link?.getAttribute("href");
+  if (!href || !href.startsWith("/")) return;
+  followRoute(event as MouseEvent<HTMLAnchorElement>, href);
+}
 
 /** One filesystem and the folders mapped from it, in every container: one bar, since
  *  they all show the same numbers. Within a container the device id says it is one
@@ -371,7 +383,7 @@ export function ServicesDiagram({ status, overview, apps, onServicesPage = false
       <div className="dash-section-head">
         <h2 id="dash-services">{onServicesPage ? t("controlDash:dashboard.diagramTitle") : t("controlDash:overview.servicesTitle")}</h2>
         <span className="muted">{t("controlDash:overview.servicesNote")}</span>
-        {!onServicesPage && <a href={controlHref("services")}>{t("controlDash:overview.servicesLink")}</a>}
+        {!onServicesPage && <a href={controlHref("services")} onClick={(event) => followRoute(event, controlHref("services"))}>{t("controlDash:overview.servicesLink")}</a>}
       </div>
       <div className="dash-diagram">
         <article className="dash-node dash-home" id={onServicesPage ? "service-home" : undefined}>
@@ -393,10 +405,13 @@ export function ServicesDiagram({ status, overview, apps, onServicesPage = false
             <Fact label={t("controlDash:system.uptime")} value={formatUptime(status.uptimeSeconds)} />
             <Fact label={t("controlDash:overview.signedIn")} value={formatNumber(status.activeSessions)} />
           </dl>
-          <nav className="dash-links" aria-label={t("controlDash:overview.pagesOf", { name: t("controlDash:overview.homeName") })}>
+          <nav className="dash-links" aria-label={t("controlDash:overview.pagesOf", { name: t("controlDash:overview.homeName") })} onClick={followLinkInside}>
             <a href={controlHref("logs")}>{t("controlDash:overview.linkLogs")}</a>
             <a href={controlHref("activity")}>{t("controlDash:overview.linkActivity")}</a>
             <a href={diagnosticsPartHref("home")}>{t("controlDash:overview.linkDiagnostics")}</a>
+            {/* Backups are a server's or a container's, never an application's
+                (owner, 2026-11-19): this server's, as each container box has its own. */}
+            <a href={backupHref()}>{t("controlDash:overview.linkBackups")}</a>
             <a href={controlHref("about")}>{t("controlDash:overview.linkAbout")}</a>
           </nav>
         </article>
@@ -496,7 +511,7 @@ function AppBranch({ app, onServicesPage = false }: { app: AppStatus; onServices
           </dl>
         )}
         {state === "down" && app.server?.error && <p className={`dash-node-note tone-${tone}`}>{app.server.error}</p>}
-        <nav className="dash-links" aria-label={t("controlDash:overview.pagesOf", { name })}>
+        <nav className="dash-links" aria-label={t("controlDash:overview.pagesOf", { name })} onClick={followLinkInside}>
           {state === "running" && <a href={logsHref({ app: app.id })}>{t("controlDash:overview.linkEvents")}</a>}
           {state === "running" && <a href={logsHref({ app: app.id, log: "server" })}>{t("controlDash:overview.linkLog")}</a>}
           {app.id === "games" && app.configured && <a href={`${controlHref("invites")}#games-guest-links`}>{t("controlDash:overview.linkGuestLinks")}</a>}
@@ -542,7 +557,7 @@ function Fact({ label, value, line, tone, title }: { label: string; value: strin
 
 function BackupRow({ name, href, when, stale, detail, note }: { name: string; href: string; when: string; stale: boolean; detail: string; note?: string }) {
   return (
-    <a href={href} className="dash-backup-row">
+    <a href={href} className="dash-backup-row" onClick={(event) => followRoute(event, href)}>
       <span className="dash-backup-head">
         <span>{name}</span>
         <strong className={stale ? "tone-warning" : undefined}>{when}</strong>

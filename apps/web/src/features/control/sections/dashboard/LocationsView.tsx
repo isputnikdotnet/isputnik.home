@@ -3,6 +3,14 @@ import { useTranslation } from "react-i18next";
 import { ChevronRight, Database, Globe2, House, MapPin, ShieldQuestion } from "lucide-react";
 import { api } from "../../../../api";
 import { controlHref, navigate } from "../../../../router";
+
+/** The location databases' setting, under the map on this page; from elsewhere,
+ *  this page opened at it. */
+function openDatabaseSetting() {
+  const setting = document.getElementById("sign-in-locations");
+  if (setting) setting.scrollIntoView({ behavior: "smooth", block: "start" });
+  else navigate(`${controlHref("signInLocations")}#sign-in-locations`);
+}
 import { Button } from "../../../../shared/Button";
 import { signInsHref } from "./SignInsView";
 import { KpiCard } from "../../../../shared/KpiCard";
@@ -202,8 +210,8 @@ export function LocationsView() {
             <p>{t("controlDash:locations.noDatabaseBody")}</p>
             <div className="modal-actions">
               {/* The map still draws without it; the notice offers the way to turn it on,
-                  which lives with the other map features on the Maps page. */}
-              <Button variant="primary" onClick={() => navigate(controlHref("mapSetup"))}>{t("controlDash:locations.setUpDatabase")}</Button>
+                  which is under the map on this page. */}
+              <Button variant="primary" onClick={openDatabaseSetting}>{t("controlDash:locations.setUpDatabase")}</Button>
             </div>
           </MessageBox>
         )}
@@ -283,7 +291,7 @@ export function LocationsView() {
               </p>
 
               <div className="locations-map-actions">
-                <Button variant="secondary" onClick={() => navigate(controlHref("mapSetup"))}>
+                <Button variant="secondary" onClick={openDatabaseSetting}>
                   <Database size={15} aria-hidden="true" />
                   {t("controlDash:locations.databaseButton")}
                 </Button>

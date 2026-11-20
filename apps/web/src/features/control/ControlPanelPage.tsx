@@ -37,7 +37,6 @@ import { BackBarSlot } from "./ControlBackBar";
 // any one tab. The page itself is now just the nav and the tab row.
 const UsersSection = lazy(() => import("./sections/UsersSection").then((m) => ({ default: m.UsersSection })));
 const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) => ({ default: m.InvitesSection })));
-const AppOrganizeSection = lazy(() => import("./sections/OrganizationSection").then((m) => ({ default: m.AppOrganizeSection })));
 const AppSetupSection = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.AppSetupSection })));
 const WorkspaceStatusLine = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.WorkspaceStatusLine })));
 const ServicesSection = lazy(() => import("./sections/ServicesSection").then((m) => ({ default: m.ServicesSection })));
@@ -253,9 +252,6 @@ function ControlSectionBody({
     case "storiesSetup":    return <AppSetupSection app="stories" />;
     case "familyTreeSetup": return <AppSetupSection app="familyTree" />;
     case "gamesSetup":      return <AppSetupSection app="games" />;
-    case "galleryOrganize": return <AppOrganizeSection app="gallery" />;
-    case "ebooksOrganize":  return <AppOrganizeSection app="ebooks" />;
-    case "audiobooksOrganize": return <AppOrganizeSection app="audiobooks" />;
     case "phoneSync":       return <PhoneSyncSection />;
     case "storage":         return <StorageSection />;
     case "storageContents": return <StorageContentsSection />;
@@ -335,7 +331,8 @@ function ControlPanelNav({ place, section, onSearch }: { place: ControlPlace; se
           const pages = !active || (group.key === "applications" && !place.app)
             ? []
             : group.key === "applications"
-              ? APPLICATIONS.map((app) => ({ key: app.key, label: app.key === "shared" ? tabLabel("tags") : appLabel(app.key), section: app.tabs[0].section, current: place.app?.key === app.key }))
+              // Not Shared (Tags): the Applications directory lists it under Shared tools (owner, 2026-11-19).
+              ? APPLICATIONS.filter((app) => app.key !== "shared").map((app) => ({ key: app.key, label: appLabel(app.key), section: app.tabs[0].section, current: place.app?.key === app.key }))
               : group.tabs.map((tab) => ({ key: tab.section, label: tabLabel(tab.section), section: tab.section, current: tab.section === place.selected }));
           return (
             <div key={group.key} className="control-nav-group">
@@ -533,9 +530,9 @@ function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSe
                 {group.tabs.map((tab) => entry(tab.section, tabLabel(tab.section), !place.app && tab.section === place.selected))}
                 {/* Applications lists each workspace tab: "Gallery · Organize", or
                     the application alone when it has one tab. */}
-                {group.key === "applications" && APPLICATIONS.flatMap((app) => app.tabs.map((tab) => entry(
+                {group.key === "applications" && APPLICATIONS.filter((app) => app.key !== "shared").flatMap((app) => app.tabs.map((tab) => entry(
                   tab.section,
-                  app.key === "shared" ? tabLabel("tags") : app.tabs.length > 1 && tab.kind ? `${appLabel(app.key)} · ${kindLabel(tab.kind)}` : appLabel(app.key),
+                  app.tabs.length > 1 && tab.kind ? `${appLabel(app.key)} · ${kindLabel(tab.kind)}` : appLabel(app.key),
                   place.app?.key === app.key && tab.section === place.selected
                 )))}
               </ul>

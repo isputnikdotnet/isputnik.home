@@ -117,7 +117,7 @@ went wrong. Beside it are **Manage** and a **⋯** menu:
     [phone backup](phone-backup-linking.md) doesn't store them twice.
 
   Below them: the shared sets the library is organized with (Book categories, Tags
-  or Video genres, each on its application's **Organize** tab), everything about it at a glance,
+  or Video genres, each opened from its application's Overview), everything about it at a glance,
   and **Delete library**.
 
 ## Next

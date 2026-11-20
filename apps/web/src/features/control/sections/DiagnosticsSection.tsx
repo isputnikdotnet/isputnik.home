@@ -12,7 +12,6 @@ import { appPageHref } from "../links";
 import { useAppName, useAppsStatus } from "./AppsSection";
 import { LoggingModes, LoggingModesLegend, loggingUrl } from "../diagnostics/Logging";
 import { useWatchingCount } from "../diagnostics/Watching";
-import { SavedReports, useSavedReports } from "../diagnostics/SavedReports";
 
 // Control panel › Infrastructure › Diagnostics (docs/diagnostics-pages-plan.md;
 // redrawn 2026-11-17): one card per part of iSputnik — this server, then each
@@ -20,8 +19,9 @@ import { SavedReports, useSavedReports } from "../diagnostics/SavedReports";
 // state pill; under that its diagnostic mode (Normal | Detailed | Full) and one way
 // on: Open details, or Pair now while it is not set up (plus where a problem is put
 // right). The modes are explained once, at the foot. One Download report button
-// opens the report dialog with every part ticked; the reports saved from it are
-// listed at the foot (SavedReports).
+// opens the report dialog with every part ticked. The reports saved from it are
+// not listed here (owner, 2026-11-19): each carries every part, so each part's
+// Reports tab lists it.
 // The server's side is modules/diagnostics (overview.ts for the cards).
 
 const PILL: Record<PartState, string> = { ok: "is-ready", attention: "is-needsSetup", down: "is-needsSetup", off: "is-off" };
@@ -65,7 +65,6 @@ export function DiagnosticsSection() {
   };
   const problemText = useProblemText();
   const [reporting, setReporting] = useState(false);
-  const saved = useSavedReports();
 
   const lineOf = (part: PartOverview): string => {
     if (part.problems.length > 0) return part.problems.map(problemText).join(" · ");
@@ -141,9 +140,7 @@ export function DiagnosticsSection() {
 
       {parts && <LoggingModesLegend />}
 
-      <SavedReports saved={saved} />
-
-      {reporting && <ReportDialog parts="all" onClose={() => setReporting(false)} onSaved={() => void saved.load()} />}
+      {reporting && <ReportDialog parts="all" onClose={() => setReporting(false)} />}
     </div>
   );
 }
