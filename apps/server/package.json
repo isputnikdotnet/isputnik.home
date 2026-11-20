@@ -19,7 +19,7 @@
     "@fastify/http-proxy": "^11.6.5",
     "@fastify/multipart": "^10.1.6",
     "@fastify/rate-limit": "^11.2.1",
-    "@fastify/static": "^10.1.8",
+    "@fastify/static": "^10.1.12",
     "@simplewebauthn/server": "^14.0.3",
     "adm-zip": "^0.6.0",
     "archiver": "^8.0.0",
