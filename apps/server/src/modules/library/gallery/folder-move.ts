@@ -25,6 +25,7 @@ import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js"
 import { getConfiguredThumbnailPath } from "../shared/thumbnail.js";
 import { enqueueStorageMove, folderMoveStatuses, type StorageMoveStatus } from "../shared/storage-move.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
+import { trimChars } from "../../../core/trim.js";
 import type { GalleryDetailRow, GalleryFaceRow, ItemMetadataRow, LibraryFolderLockRow, LibraryItemRow, LibraryRow, NonNull } from "../../../db/rows.js";
 
 export class FolderMoveError extends Error {
@@ -43,7 +44,7 @@ function galleryLibrary(id: string): GalleryLibraryRow | null {
 /** A folder path as the app stores it: "/"-separated, no leading or trailing
  *  slash, no "." or ".." segments. Null when it is not one. */
 export function normaliseFolder(input: string): string | null {
-  const cleaned = normaliseRelativePath(input.replace(/\\/g, "/")).replace(/^\/+|\/+$/g, "");
+  const cleaned = trimChars(normaliseRelativePath(input.replace(/\\/g, "/")), "/");
   if (!cleaned) return null;
   if (cleaned.split("/").some((part) => part === "." || part === "..")) return null;
   return cleaned;

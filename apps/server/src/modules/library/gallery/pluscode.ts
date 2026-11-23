@@ -20,6 +20,9 @@
 // This is the reference algorithm (github.com/google/open-location-code)
 // transcribed, not an approximation — the constants and the integer arithmetic
 // are what keep a decoded point on the same square metre Google shows.
+
+import { trimChars } from "../../../core/trim.js";
+
 const ALPHABET = "23456789CFGHJMPQRVWX";
 const BASE = 20;
 const SEPARATOR = "+";
@@ -52,7 +55,7 @@ function normaliseLng(lng: number): number {
 
 // Strip the separator and any '0' padding, leaving just the significant digits.
 function digitsOf(code: string): string {
-  return code.toUpperCase().replace(/\+/g, "").replace(/0+$/, "");
+  return trimChars(code.toUpperCase().replace(/\+/g, ""), "0", "end");
 }
 
 // The centre of the square a code names. Everything is accumulated in integer
@@ -198,9 +201,10 @@ export function parsePlusCode(query: string): PlusCodeQuery | null {
   // The rest of the address goes to the geocoder as written, commas and all —
   // "Norman Manley Blvd, Negril, Jamaica" is a stronger query than the same words
   // run together. Only the punctuation the code left behind is tidied.
-  const rest = (query.slice(0, match.index) + ", " + query.slice(match.index + match[0].length))
+  // Whitespace is single spaces after the first pass, which is all the second needs.
+  const tidied = (query.slice(0, match.index) + ", " + query.slice(match.index + match[0].length))
     .replace(/\s+/g, " ")
-    .replace(/\s*[,;]\s*(?=[,;])/g, "")
-    .replace(/^[\s,;]+|[\s,;]+$/g, "");
+    .replace(/ ?[,;] ?(?=[,;])/g, "");
+  const rest = trimChars(tidied, " ,;");
   return { code, full, rest };
 }

@@ -29,6 +29,7 @@ import {
   type AlbumRow
 } from "./albums.js";
 import type { LibraryItemRow, ShareRow, UserRow } from "../../../db/rows.js";
+import { trimChars } from "../../../core/trim.js";
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -330,7 +331,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       if (!libIds.has(parsed.data.folder.libraryId)) {
         return reply.code(404).send({ error: "Folder not found" });
       }
-      const folderPath = parsed.data.folder.path.replace(/^\/+|\/+$/g, "");
+      const folderPath = trimChars(parsed.data.folder.path, "/");
       const rows = db.prepare(`
         SELECT library_items.id FROM library_items
         JOIN gallery_details ON gallery_details.item_id = library_items.id

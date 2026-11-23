@@ -1,4 +1,5 @@
 import { db } from "../../../db.js";
+import { trimChars } from "../../../core/trim.js";
 import type { LibraryFolderLockRow, UserRow } from "../../../db/rows.js";
 
 // Folder locks: an admin's "nothing under here may be deleted from the app",
@@ -20,7 +21,7 @@ export interface FolderLock {
 // leading/trailing slashes, no "." / ".." segments, never empty. Returns null
 // when the input can't be read as one.
 export function normaliseLockPath(input: string): string | null {
-  const cleaned = input.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\/+|\/+$/g, "").trim();
+  const cleaned = trimChars(input.replace(/\\/g, "/").replace(/\/+/g, "/"), "/").trim();
   if (!cleaned || cleaned.length > 1024) return null;
   const segments = cleaned.split("/");
   if (segments.some((s) => s === "" || s === "." || s === "..")) return null;

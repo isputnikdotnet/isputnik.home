@@ -21,6 +21,7 @@ import { config } from "../../config.js";
 import { openSecret, sealSecret } from "../../core/mfa.js";
 import type { AppPairingRow, AppSettingRow } from "../../db/rows.js";
 import type { AppId } from "./registry.js";
+import { trimChars } from "../../core/trim.js";
 
 export type SecretSource = "environment" | "paired" | "none";
 export type AddressSource = "environment" | "saved" | "none";
@@ -57,7 +58,7 @@ function savedAddresses(): Record<string, string> {
 
 /** An address as typed, tidied: trimmed, no trailing slash. "" clears it. */
 export function normalizeAddress(value: string): string {
-  return value.trim().replace(/\/+$/, "");
+  return trimChars(value.trim(), "/", "end");
 }
 
 /** Save where a container answers ("" forgets it). The environment's address,

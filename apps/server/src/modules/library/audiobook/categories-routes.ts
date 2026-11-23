@@ -11,6 +11,7 @@ import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.
 import { normalizeText, rematchAllCategories } from "../shared/tagging.js";
 import { deleteAssignmentsForObject } from "../../../core/permissions.js";
 import { FAMILY_TAG_OBJECT_TYPE } from "../../familytree/access.js";
+import { trimChars } from "../../../core/trim.js";
 import type { AppSettingRow, CategoryAliasRow, CategoryRow, TagRow } from "../../../db/rows.js";
 
 type CategoryListRow = Pick<CategoryRow, "id" | "key" | "name" | "sort_order" | "icon" | "image_storage_key"> & {
@@ -41,12 +42,11 @@ function categoryResponse(row: CategoryListRow) {
 }
 
 function categoryKeyBase(name: string) {
-  const slug = name
+  const slug = trimChars(name
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+    .replace(/[^a-z0-9]+/g, "_"), "_");
   return slug || "category";
 }
 
