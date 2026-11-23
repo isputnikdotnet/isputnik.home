@@ -63,7 +63,7 @@ interface HardwareChange {
   summary: string;
 }
 
-interface TestState {
+export interface TestState {
   running: HardwareTest | null;
   last: HardwareTest | null;
   available: boolean;
@@ -208,6 +208,29 @@ export function DiskCheckSection({ prefix, testRunning }: { prefix: string; test
     </section>
   );
 }
+
+/** The engine's hardware test as the Hardware & transcoding card needs it: the last
+ *  one, whether one runs now, and `missing` for an engine with no test (before
+ *  0.39). `start` runs one; it rejects with the engine's reason when it can't. */
+export function useHardwareTest(prefix: string): { state: TestState | null; missing: boolean; start: () => Promise<void> } {
+  const [state, setState] = useState<TestState | null>(null);
+  const [missing, setMissing] = useState(false);
+  const url = `${prefix}/api/admin/hardware/test`;
+  useEffect(() => {
+    let live = true;
+    api<TestState>(url).then((loaded) => { if (live) setState(loaded); }, () => { if (live) setMissing(true); });
+    return () => { live = false; };
+  }, [url]);
+  const start = useCallback(async () => {
+    const body = await api<{ test: HardwareTest }>(url, { method: "POST", body: "{}" });
+    setState((current) => ({ running: body.test, last: current?.last ?? null, available: true }));
+  }, [url]);
+  return { state, missing, start };
+}
+
+/** How many the last finished test found this server converts at once; null with none. */
+export const suggestedViewersOf = (state: TestState | null): number | null =>
+  (state?.last?.phase === "done" ? state.last.suggestedViewers ?? null : null);
 
 /** The overview's row: the last result in a few words, and the way in. */
 export function HardwareTestRow({ prefix, onOpen }: { prefix: string; onOpen: () => void }) {

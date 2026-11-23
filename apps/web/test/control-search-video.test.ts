@@ -18,8 +18,11 @@ describe("searching the video cache settings", () => {
 
   it("lands on the Videos settings page, at the group the setting is in", () => {
     const hit = searchControlPanel("keep ready").find((entry) => entry.title === "Titles kept ready")!;
-    expect(hit.href).toMatch(/\/control\/apps\/videos\/settings#video-copies$/);
+    // Downloads and what is kept are on the Video Downloads tab; the disk on Video Streaming.
+    expect(hit.href).toMatch(/\/control\/apps\/videos\/downloads#video-copies$/);
+    expect(searchControlPanel("transcode disk").find((entry) => entry.title === "Where converted video is kept")!.href).toMatch(/\/control\/apps\/videos\/streaming#/);
     const storage = searchControlPanel("transcode disk").find((entry) => entry.title === "Where converted video is kept")!;
-    expect(storage.href).toMatch(/#video-conversion$/);
+    // Its own card on the one page: Disk and memory.
+    expect(storage.href).toMatch(/#video-conversion-storage$/);
   });
 });

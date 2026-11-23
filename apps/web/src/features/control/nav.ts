@@ -66,7 +66,7 @@ export type GroupKey = "infrastructure" | "libraries" | "applications" | "securi
 export type AppKey = "gallery" | "videos" | "ebooks" | "audiobooks" | "stories" | "familyTree" | "games" | "shared";
 /** The workspace vocabulary. A workspace tab is labelled by its kind; its page's
  *  <h1> is still the section's own name (Settings › "Maps"). */
-export type WorkspaceTabKind = "setup" | "deviceSync" | "organize" | "settings";
+export type WorkspaceTabKind = "setup" | "deviceSync" | "organize" | "settings" | "streaming" | "downloads";
 
 export interface ControlTabDef {
   section: ControlSection;
@@ -185,7 +185,10 @@ export const APPLICATIONS: ApplicationDef[] = [
       // Genres is a page under the Overview, which lists it under Organize (owner,
       // 2026-11-19: no application has an Organize tab).
       { section: "videosSetup", kind: "setup", pages: ["genres"] },
-      { section: "videoSettings", kind: "settings" }
+      // Two tabs where the other applications have one Settings (owner, 2026-11-22):
+      // watching and downloading are set apart, each with everything about it.
+      { section: "videoSettings", kind: "streaming" },
+      { section: "videoDownloads", kind: "downloads" }
     ]
   },
   {

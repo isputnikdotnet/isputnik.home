@@ -370,7 +370,7 @@ function VideoCacheRow({ refreshKey }: { refreshKey: number }) {
         ? t("controlAdmin:apps.videoSettings.copiesValue", { used: formatBytes(copies.usedBytes), limit: `${copies.settings.limitGb} GB` })
         : undefined}
       warn={copies?.insideContainer ? t("controlAdmin:storage.videoCacheNotMapped") : undefined}
-      action={manageButton(t("controlAdmin:storage.manage"), withQuery(controlHref("videoSettings"), { show: "copies" }))}
+      action={manageButton(t("controlAdmin:storage.manage"), withQuery(controlHref("videoDownloads"), { show: "copies" }))}
     />
   );
 }

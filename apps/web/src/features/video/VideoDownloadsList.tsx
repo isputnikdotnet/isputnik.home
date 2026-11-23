@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Film, Pause, Play, RotateCcw, Trash2 } from "lucide-react";
@@ -8,13 +8,15 @@ import { POSTER_PART, type StoredVideoDownload } from "../../offline/video-store
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
-import { formatBytes } from "../../shared/utils";
+import { formatBytes, formatEta } from "../../shared/utils";
 import { downloadStateText, videoQualityLabel } from "./VideoDownloads";
 import { episodeCodeValues, watchHref } from "./types";
 
 // The films and episodes on this device, on the Downloads page: what each is,
 // how far along, and Play, Pause, Resume and Remove. It works with no
-// connection — everything it shows is kept with the download.
+// connection — everything it shows is kept with the download. A row that is
+// waiting says how many are before it (on the server, or on this device), and one
+// that is moving says roughly how long it still needs.
 
 const PROBLEM_KEYS = {
   connection: "video.download.problem.connection",
@@ -29,6 +31,49 @@ function stateText(record: StoredVideoDownload, t: TFunction): string | null {
   if (record.state === "complete") return null;
   if (record.problem) return t(PROBLEM_KEYS[record.problem]);
   return downloadStateText(record, t);
+}
+
+/** What a waiting or moving row adds to its state: its place in the queue, or the
+ *  time left. `aheadHere`: this device's downloads that take their turn first. */
+function stateDetail(record: StoredVideoDownload, t: TFunction, aheadHere: number, secondsLeft: number | null): string | null {
+  if (record.problem) return null;
+  if (record.state === "preparing") {
+    const prepare = record.prepare;
+    if (!prepare) return null;
+    if (prepare.progress === 0 && prepare.ahead > 0) return t("video.download.aheadOnServer", { count: prepare.ahead });
+    return !prepare.paused && prepare.etaSeconds !== null ? formatEta(prepare.etaSeconds) : null;
+  }
+  if (record.state === "queued") return aheadHere > 0 ? t("video.download.aheadHere", { count: aheadHere }) : null;
+  if (record.state === "downloading") return secondsLeft !== null ? formatEta(secondsLeft) : null;
+  return null;
+}
+
+/** How long the window of measurements is, and the least of it worth trusting. */
+const SPEED_WINDOW_MS = 30_000;
+const SPEED_MIN_MS = 4_000;
+
+/** Seconds a download still needs, from how fast it has come down in the last
+ *  half minute; null until that can be said, and whenever it is not downloading. */
+function useSecondsLeft(record: StoredVideoDownload): number | null {
+  const fraction = record.state === "downloading" ? downloadFraction(record) : null;
+  const samples = useRef<{ at: number; fraction: number }[]>([]);
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (fraction === null) {
+      samples.current = [];
+      setLeft(null);
+      return;
+    }
+    const now = Date.now();
+    const kept = samples.current.filter((sample) => now - sample.at <= SPEED_WINDOW_MS && sample.fraction <= fraction);
+    kept.push({ at: now, fraction });
+    samples.current = kept;
+    const first = kept[0];
+    const elapsed = now - first.at;
+    const gained = fraction - first.fraction;
+    if (elapsed >= SPEED_MIN_MS && gained > 0) setLeft(Math.round(((1 - fraction) / gained) * (elapsed / 1000)));
+  }, [fraction]);
+  return left;
 }
 
 /** The poster kept with a download, as an address for an <img>. */
@@ -54,12 +99,19 @@ function usePoster(id: string, has: boolean): string | null {
 export function VideoDownloadsList({ records }: { records: StoredVideoDownload[] }) {
   return (
     <ul className="video-downloads">
-      {records.map((record) => <VideoDownloadRow key={record.id} record={record} />)}
+      {records.map((record) => (
+        <VideoDownloadRow
+          key={record.id}
+          record={record}
+          // Its turn here comes after the ones asked for before it that still come down.
+          aheadHere={records.filter((other) => other.queuedAt < record.queuedAt && (other.state === "queued" || other.state === "downloading")).length}
+        />
+      ))}
     </ul>
   );
 }
 
-function VideoDownloadRow({ record }: { record: StoredVideoDownload }) {
+function VideoDownloadRow({ record, aheadHere }: { record: StoredVideoDownload; aheadHere: number }) {
   const { t } = useTranslation();
   const [removing, setRemoving] = useState(false);
   // Fetched once the download has started, so asked for again then.
@@ -73,7 +125,10 @@ function VideoDownloadRow({ record }: { record: StoredVideoDownload }) {
     record.kind !== null || complete ? videoQualityLabel(record.quality, t) : null,
     size !== null ? formatBytes(size) : record.downloadedBytes > 0 ? formatBytes(record.downloadedBytes) : null
   ].filter(Boolean).join(" · ");
-  const state = stateText(record, t);
+  const secondsLeft = useSecondsLeft(record);
+  const stateOnly = stateText(record, t);
+  const detail = stateDetail(record, t, aheadHere, secondsLeft);
+  const state = stateOnly && detail ? `${stateOnly} · ${detail}` : stateOnly;
   const name = record.showTitle ? `${record.showTitle} · ${[code, record.title].filter(Boolean).join(" · ")}` : record.title;
   const waiting = record.state === "paused" || record.state === "failed";
   const shown = record.state === "preparing" ? record.prepare?.progress ?? 0 : downloadFraction(record);

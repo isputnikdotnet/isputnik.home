@@ -188,7 +188,7 @@ export function VideosOverviewBody({ data, state, visibility, side }: OverviewPr
             href={controlHref("videoSettings")} />
           <NavRow summary icon={<FolderOpen size={17} />} label={t("control:appSetup.overview.copies")} sub={t("control:appSetup.overview.copiesSub")}
             {...rowState(features.copiesGb === null ? null : features.copiesGb > 0, features.copiesGb ? t("control:appSetup.overview.upToGb", { gb: features.copiesGb }) : undefined)}
-            href={controlHref("videoSettings")} />
+            href={controlHref("videoDownloads")} />
         </GroupedList>
       )}
       <GroupedList title={t("control:nav.workspace.organize")}>

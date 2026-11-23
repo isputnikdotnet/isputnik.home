@@ -47,7 +47,9 @@
       "setup": "Overview",
       "deviceSync": "Device Sync",
       "organize": "Organize",
-      "settings": "Settings"
+      "settings": "Settings",
+      "streaming": "Video Streaming",
+      "downloads": "Video Downloads"
     },
     "tabs": {
       "dashboard": "Dashboard",
@@ -84,7 +86,8 @@
       "appsAccess": "App access",
       "services": "Services",
       "appsSetup": "Pairing",
-      "videoSettings": "Video settings",
+      "videoSettings": "Video streaming",
+      "videoDownloads": "Video downloads",
       "email": "Email",
       "notifications": "Notifications",
       "about": "About",

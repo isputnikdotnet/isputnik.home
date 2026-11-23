@@ -199,9 +199,12 @@ go on its next sync.
 A film a browser can't play as it is (an `.mkv`, sound in AC3 or DTS, an HEVC
 picture) is converted while someone watches: the sound alone when the picture
 is fine, both when it isn't. The engine keeps a few minutes ready ahead of the
-player. **Applications → Videos → Settings → Converting video** sets how:
+player. **Applications → Videos → Video Streaming** sets how, all on the one page — the
+**Hardware & transcoding** card for how it is converted, **Disk & memory** for where it is kept:
 
-- **People watching converted video at once** (3 to start with). Each film
+- **Viewers at once** (3 to start with): how many people may watch converted
+  video at the same time. Once the hardware test has run, the row says what it
+  found, with a button to use that number. Each film
   being converted takes a place, and re-encoding a picture keeps a processor core
   busy. One more sees *Too many people are watching right now* with **Try
   again**, rather than everyone stuttering. Films that play as they are don't
@@ -209,8 +212,8 @@ player. **Applications → Videos → Settings → Converting video** sets how:
   quality (see *Watched together* below).
 - **Where converted video is kept** and **Memory for conversion** — see the next
   section.
-- **Quality away from home** (*up to 720p* to start with), chosen on the
-  **Settings** overview itself rather than this page. Someone watching from
+- **Quality away from home** (*up to 720p* to start with), under **Limits** on
+  the same card. Someone watching from
   outside your network gets at most this picture, made smaller while they watch,
   and starts at it; **Quality** under the player's **Settings** lets them pick less. A film
   already under it is sent as it is. At home everyone gets the file as it is,
@@ -219,36 +222,57 @@ player. **Applications → Videos → Settings → Converting video** sets how:
   away. One viewer at 720p needs about 5 Mbit/s of your upload link; a
   Blu-ray rip sent as it is needs 30 or more, which is why the cap exists.
 
-The page shows who is watching what right now, and how much of it sits in
-memory and on the disk. A Blu-ray rip whose sound is converted carries its
+**Watching now**, the first card across the top, opens the list of who is watching
+what right now, and how much of it sits in memory and on the disk. A Blu-ray rip whose sound is converted carries its
 picture unchanged, so it is the one that fills memory fastest. Changes apply at
 once; anyone already watching carries on.
 
 ### Where converted video is kept
 
 The few minutes kept ready ahead of each viewer go into memory first: it is the
-fastest place, and needs nothing set up. The **Where converted video is kept**
-group on the **Converting video** page says what the video container has:
+fastest place, and needs nothing set up. The **Disk & memory**
+card on Videos → Video Streaming says what the video container has:
 
 - **Fast disk** with its folder and free space, when the container's
   `/transcode` folder is mapped to a disk of its own. Map it to a cache pool or
   an SSD folder, not the array.
 - **No disk for video** when it isn't. On Unraid that is the template's
-  *Transcode* field left empty: `/transcode` would then be a folder inside the
+  *Video Cache (Fast Disk)* field left empty (*Transcode*, under the advanced settings, in an install made before it was renamed): `/transcode` would then be a folder inside the
   container (in `docker.img`), so the engine keeps everything in memory instead
   and prepares no copies for download there. Fill in the field, restart the
   container, and the disk choices below appear.
 
+With a video container new enough to take it, the folder is chosen right there:
+**Change** (or **Choose folder**) on that row lists the disks the container can
+already see — a folder mapped into it beside your libraries or on the cache
+drive — and takes one of them, or a folder on one that you type. Nothing is
+chosen for you, and the container's *Config & Data* folder is refused: what is
+kept there is backed up, and kept video has no place in a backup. The container makes a folder of its own,
+`video-cache`, inside the one you choose and touches nothing else there. The
+choice is used from the container's next start, so restart it afterwards; the row
+says so until you have. What was kept in the old folder stays there. **As the
+container's own settings say** goes back to the template's *Video Cache* field.
+
 Then:
 
-- **Keep converted video** — *In memory, then on the disk* (the default with a
-  disk): memory first, and the disk once memory is full. *In memory only*: never
-  the disk; once memory is full each viewer is kept just a few pieces ahead.
-  *On the disk only*: for a server with little memory to spare. Without a disk,
-  only *In memory only* is offered.
-- **Memory for conversion (MB)** — shared by everyone watching converted video
-  (a tenth of the server's memory, at most 1 GB, to start with). About 300 MB
-  keeps a few minutes ready for one viewer.
+- **Keep converted video** — *On disk (cache)* (the default with a disk): memory
+  first, and the disk once memory is full; what is converted all the way through
+  is kept and played from the cache next time. *In memory only*: never the disk;
+  once memory is full each viewer is kept just a few pieces ahead, and nothing is
+  kept. Without a disk, only *In memory only* is offered.
+- **Memory for conversion** — shared by everyone watching converted video (a
+  tenth of the server's memory, at most 1 GB, to start with). About 300 MB keeps
+  a few minutes ready for one viewer. Drag the slider, or type the number beside it.
+- **Disk space for kept video (cache)** — the most the kept films and the copies
+  for download may take together. Past it, what was used longest ago goes first.
+- **Retention** — *Never* to start with: kept video stays until the room runs
+  out. Set to a number of days, kept video nobody has used for that long is
+  removed, once a day.
+
+Everything saves as you change it; a slider when you let go. Two changes delete
+kept video at once — less room than is in use, and a shorter retention — so those
+ask first and say what goes. **Current usage** under them says what the room holds:
+cached videos, downloads, and what is left.
 
 ![Converting video: who is converting now, Where to convert, and Where converted video is kept with the fast disk, its free space, Keep converted video set to In memory, then on the disk, and the memory for conversion](images/125-video-storage.png)
 
@@ -271,7 +295,7 @@ Then:
 An Intel CPU's graphics (Quick Sync) convert several films at once for little
 CPU. To use them, fill in the video container's optional **Intel GPU** field
 with `/dev/dri` on Unraid (or pass `/dev/dri` to the container elsewhere). The
-engine tries the GPU when it starts, and the **Converting video** page says what
+engine tries the GPU when it starts, and the **Hardware & transcoding** card says what
 it found: the graphics and driver, and which kinds of video they decode. Videos
 they can't decode are decoded on the CPU and still converted on the GPU.
 
@@ -291,9 +315,14 @@ they can't decode are decoded on the CPU and still converted on the GPU.
 
 ### How fast is it? The hardware test
 
-**Applications → Videos → Settings → Hardware test** (also linked from
-**Converting video**) answers what the GPU check above can't: whether this server
-converts fast enough to watch, and for how many people at once.
+**Applications → Videos → Video Streaming → Hardware test** (under **Hardware** on the
+**Hardware & transcoding** card) answers what the GPU check above can't: whether this server
+converts fast enough to watch, and for how many people at once. **Run test** is
+at the top of the **Hardware & transcoding** card, with **Test results** beside it
+once one has run. The card then lists, under **Converts fast enough**, only the
+kinds of film that came out fast enough (before a test it asks you to run one),
+and under **Recommended settings** what the test advises — GPU or CPU, and how
+many viewers at once — with a tick where your settings already match.
 
 **Run test** converts short clips of six kinds of film, exactly as a player would
 get them, on the GPU when there is one and on the CPU:
@@ -340,7 +369,7 @@ Pictures saved beside the video files are always shown: `poster.jpg` and
 film, `<episode file name>-thumb.jpg` beside an episode.
 
 For the rest, give the engine a key from a free TMDB account (themoviedb.org →
-Settings → API) on **Applications → Videos → Settings → Posters and descriptions**. It is checked
+Settings → API) on **Applications → Videos → Video Streaming → Posters and descriptions**. It is checked
 with TMDB before it is kept and never shown again. After every scan the engine
 then fetches posters, backdrops and episode pictures, and fills in descriptions
 and episode names where the `.nfo` files have none — an `.nfo`'s own words
@@ -483,7 +512,7 @@ The player knows where they are from, in this order:
   A season takes about 15 minutes the first time, most of it reading each
   episode's picture once, so a large library is a while being covered; it is
   looked at once, and again only when its files change. **Control panel →
-  Applications → Videos → Settings → Intros, recaps and credits** turns this off for a server
+  Applications → Videos → Video Streaming → Intros, recaps and credits** turns this off for a server
   that would rather not spend the time; what was found before still counts.
 
 An `.edl` wins over chapters and counts as soon as it is there, no rescan needed.
@@ -609,8 +638,10 @@ has its own.
 
 ### Copies for download
 
-**Applications → Videos → Settings → Copies for download** is where an admin sees
-what the video app keeps on its disk and how much room it may take:
+**Applications → Videos → Video Streaming** is where an admin sets how much room the video
+app's kept video may take — **Room for kept video** on the **Disk & memory** card,
+with a bar under it for what that room holds — and **Kept films and copies**, on
+**Video Downloads**, opens the list of what is kept:
 
 - **Copies** prepared for download, and **Kept after watching** — the films kept
   once someone watched them to the end, with *watching now* beside one in use.
@@ -661,9 +692,9 @@ allows. Only admins see **Keep ready**.
 
 ### When downloads are prepared
 
-**Applications → Videos → Settings → When downloads are prepared** sets when the
+**Applications → Videos → Video Downloads** sets when the
 video app does its background work — copies for download, titles kept ready and
-films finished off after watching — and shows the queue.
+films finished off after watching — and its **Queue** row opens what runs and waits.
 
 - **Prepare** — *Right away* (the default), *When the server is idle* (nobody
   watching converted video and the server not busy for two minutes), or *Only
@@ -725,5 +756,5 @@ backup still finishes and its log line says which app was left out and why.
 [ ] Infrastructure → Services: Test connection says Paired
 [ ] Security & Members → App access: who may use it, and from where
 [ ] Video: media folder mounted read-only, libraries added on Libraries & Scanning → Libraries
-[ ] Video: /transcode mapped to a fast disk, and Converting video shows the Fast disk
+[ ] Video: /transcode mapped to a fast disk, and Videos → Video Streaming shows the Fast disk under Disk & memory
 ```

@@ -150,6 +150,8 @@ describe("getRoute", () => {
     ["/control/settings/apps", "appsSetup"],
     ["/control/infrastructure/services", "services"],
     ["/control/settings/video", "videoSettings"],
+    // Videos › Settings became Video Streaming and Video Downloads.
+    ["/control/apps/videos/settings", "videoSettings"],
     ["/control/apps/gallery", "gallerySetup"],
     // Gallery › Organize until its Overview listed the same tools.
     ["/control/apps/gallery/organize", "gallerySetup"],

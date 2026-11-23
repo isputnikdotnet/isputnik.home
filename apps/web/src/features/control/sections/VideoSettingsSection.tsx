@@ -1,32 +1,43 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { BarChart3, BookOpen, Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, Info, KeyRound, ListChecks, MemoryStick, Monitor, MonitorPlay, Play, ScrollText, SkipForward } from "lucide-react";
+import { Clapperboard, Clock, Cpu, Download, Gauge, Image as ImageIcon, Info, KeyRound, Layers, Monitor, MonitorPlay, SkipForward, SlidersHorizontal, Users } from "lucide-react";
 import { api } from "../../../api";
-import { controlHref } from "../../../router";
+import { controlHref, navigate, type ControlSection } from "../../../router";
+import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { ActionRow, GroupedList, InfoRow, InputRow, NavRow, NavToggleRow, PickerRow, ToggleRow } from "../../../shared/GroupedList";
 import { ActionMenu } from "../../../shared/ActionMenu";
-import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { MessageBox } from "../../../shared/MessageBox";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
-import { guideHref } from "../../help/catalog";
 import { KEEP_READY_URL, type KeepReadyState } from "../../video/KeepReadyModal";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { activityHref, logsHref, tasksHref } from "../links";
 import { isRunning, useAppsStatus } from "./AppsSection";
-import { HardwareTestPage, HardwareTestRow } from "./VideoHardwareTest";
+import { HardwareTestPage, suggestedViewersOf, useHardwareTest } from "./VideoHardwareTest";
+import type { VideoFolderChoice } from "./VideoFolderModal";
+import { HowVideoPlays, VideoHardwareSummary } from "./VideoSettingsHero";
+import { VideoDiskMemoryCard } from "./VideoDiskMemoryCard";
+import { DownloadsStatusCard, HowDownloadsWork } from "./VideoDownloadsCards";
 
-// Applications › Videos › Settings: the video engine's own settings, laid out like a
-// phone's Settings (control panel v2). The page is a short overview — four cards in a
-// grid (Playback & quality, Metadata & catalogue, Downloads & offline, Activity &
-// diagnostics), each topic one row saying how it stands, the two most-used settings
-// (quality away from home, and finding intros) right on it — and each topic opens a page of its own
-// (?show=conversion|metadata|copies|detection) with its explanation and controls.
-// Everything saves as it changes. All of it lives in the engine and is read and
-// saved through the gateway, so the page needs the engine answering, and a setting
-// an older engine does not have is simply not offered.
+// Applications › Videos › Video Streaming and Video Downloads: the video engine's
+// own settings, on two tabs since 2026-11-22 (owner: watching and downloading set
+// apart). Streaming: how video plays, Hardware & transcoding (with every
+// conversion setting), Disk & memory, the catalogue. Downloads: when copies are prepared and how much, the queue, what is
+// kept. Before that it was all the one Settings tab, laid out on ONE page
+// (owner, 2026-11-22: conversion, downloads and offline all come down to the same
+// disk, so nothing is a page away). It opens on how video plays and the hardware
+// that converts it (VideoSettingsHero.tsx, in place of the "At a glance" cards); then
+// Disk and memory (the folder, where converted video is kept, the memory for it and
+// the room for kept video, with what that room holds), Converting (the GPU, how
+// many at once, the quality away from home), Downloads and offline (when the queue
+// works and how much), and the catalogue. Every setting is changed where it is
+// shown and saves as it changes. Only LISTS open a page of their own
+// (?show=conversion|copies|jobs: who is watching, what is kept, the queue), with
+// the TMDB key, the intro finder and the hardware test (?show=metadata|detection|
+// hardware). All of it lives in the engine and is read and saved through the
+// gateway, so the page needs the engine answering, and a setting an older engine
+// does not have is simply not offered.
 
 // ── What the engine answers ────────────────────────────────────────────────────
 
@@ -48,7 +59,6 @@ export interface ConversionSettings {
 
 export type HardwareMode = "auto" | "cpu" | "gpu";
 type ConversionStorage = "memory" | "memory-disk" | "disk";
-const STORAGES: ConversionStorage[] = ["memory", "memory-disk", "disk"];
 type RemoteQuality = "original" | "1080" | "720" | "480";
 const REMOTE_QUALITIES: RemoteQuality[] = ["original", "1080", "720", "480"];
 
@@ -90,7 +100,11 @@ export interface ConversionState {
   hardware?: HardwareState | null;
   /** Engine 0.35+: whether the conversion folder is a disk mapped into the
    *  container (memory only without one), and the storage in force. */
-  disk?: { mapped: boolean; folder: string; freeBytes: number | null; totalBytes: number | null } | null;
+  disk?: {
+    mapped: boolean; folder: string; freeBytes: number | null; totalBytes: number | null;
+    /** Engine 0.42+: the folder is chosen here (VideoFolderModal), not only in the container. */
+    choice?: VideoFolderChoice;
+  } | null;
   storage?: ConversionStorage | null;
 }
 
@@ -101,8 +115,9 @@ interface MetadataState {
 }
 
 /** GET/PUT/DELETE {prefix}/api/admin/copies (engine 0.33+, copies.ts). */
-interface CopiesState {
-  settings: { limitGb: number };
+export interface CopiesState {
+  /** `retentionDays` (engine 0.42+): kept video unused this long is removed; 0 never. */
+  settings: { limitGb: number; retentionDays?: number };
   folder: string;
   usedBytes: number;
   copies: { itemId: string; quality: number; title: string; state: "queued" | "running" | "ready" | "failed"; sizeBytes: number }[];
@@ -147,44 +162,66 @@ export function useEngine<T>(url: string) {
 }
 
 type Page = "conversion" | "metadata" | "copies" | "detection" | "jobs" | "hardware";
+/** Videos' two tabs, and the lists and forms (?show=) each one opens. */
+export type VideoTab = "streaming" | "downloads";
+const TAB_PAGES: Record<VideoTab, readonly Page[]> = {
+  streaming: ["conversion", "metadata", "detection", "hardware"],
+  downloads: ["copies", "jobs"]
+};
+const TAB_SECTION: Record<VideoTab, ControlSection> = { streaming: "videoSettings", downloads: "videoDownloads" };
 
 /** GET/PUT {prefix}/api/admin/jobs (engine 0.35+): when the queue works, and what is on it. */
-interface JobsState {
+export interface JobsState {
   gate: { open: true } | { open: false; reason: "idle" | "night" };
   settings: { when: "now" | "idle" | "night"; nightStart: string; nightEnd: string; atOnce: number; perPerson: number; remoteMbps: number };
   jobs: { id: string; kind: "copy" | "keep" | "finish"; title: string; quality: number | null; state: "running" | "queued"; progress: number; paused: boolean }[];
 }
 
 export function VideoSettingsSection() {
+  return <VideoTabSection tab="streaming" />;
+}
+
+export function VideoDownloadsSection() {
+  return <VideoTabSection tab="downloads" />;
+}
+
+function VideoTabSection({ tab }: { tab: VideoTab }) {
   const { t } = useTranslation(["common", "controlAdmin", "control"]);
   const { apps, error } = useAppsStatus();
   const video = apps?.find((app) => app.id === "video") ?? null;
   // One reading of ?show= for the head and the pages: two would drift apart.
   const [show, go] = useQueryPage();
-  const page = (["conversion", "metadata", "copies", "detection", "jobs", "hardware"] as const).find((name) => name === show) ?? null;
+  const page = TAB_PAGES[tab].find((name) => name === show) ?? null;
+  // A list that moved with the split (an old link to ?show=copies on what is now
+  // Video Streaming): on to the tab that has it.
+  const other: VideoTab = tab === "streaming" ? "downloads" : "streaming";
+  const moved = TAB_PAGES[other].find((name) => name === show) ?? null;
+  useEffect(() => {
+    if (moved) navigate(`${controlHref(TAB_SECTION[other])}?show=${moved}`);
+  }, [moved, other]);
 
   const titles: Record<Page, string> = {
-    conversion: t("controlAdmin:apps.conversion.title"),
+    conversion: t("controlAdmin:apps.conversion.watching"),
     metadata: t("controlAdmin:apps.metadata.title"),
     copies: t("controlAdmin:apps.copies.title"),
     detection: t("controlAdmin:apps.detection.title"),
-    jobs: t("controlAdmin:apps.jobs.title"),
+    jobs: t("controlAdmin:apps.jobs.queueTitle"),
     hardware: t("controlAdmin:apps.hardwareTest.title")
   };
 
   return (
     <>
       <ControlSectionHead
-        section="videoSettings"
-        icon={<Clapperboard size={30} />}
+        section={TAB_SECTION[tab]}
+        icon={tab === "streaming" ? <Clapperboard size={30} /> : <Download size={30} />}
         iconClassName="blue"
-        description={page ? undefined : t("controlAdmin:apps.videoSettings.description")}
+        description={page ? undefined : tab === "streaming" ? t("controlAdmin:apps.videoSettings.description") : t("controlAdmin:apps.videoSettings.downloadsDescription")}
         title={page ? titles[page] : undefined}
         back={show ? { href: queryPageHref(null), label: t("control:ui.back") } : undefined}
       />
       {error && <MessageBox tone="error" title={t("controlAdmin:apps.loadFailed")}>{error}</MessageBox>}
       {!apps && !error && <p className="muted">{t("controlAdmin:ui.loading")}</p>}
-      {apps && video && isRunning(video) && <VideoSettings prefix={video.prefix} page={page} go={go} />}
+      {apps && video && isRunning(video) && !moved && <VideoSettings tab={tab} prefix={video.prefix} page={page} go={go} />}
       {apps && (!video || !isRunning(video)) && (
         <MessageBox tone="info" title={t("controlAdmin:apps.videoSettings.unavailableTitle")}>
           {video?.configured ? t("controlAdmin:apps.videoSettings.notAnswering") : t("controlAdmin:apps.videoSettings.notSetUp")}{" "}
@@ -198,15 +235,22 @@ export function VideoSettingsSection() {
 }
 
 /** The overview and the four topic pages, over one reading of each endpoint. */
-export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page | null; go: (page: Page | null) => void }) {
+export function VideoSettings({ tab = "streaming", prefix, page, go }: { tab?: VideoTab; prefix: string; page: Page | null; go: (page: Page | null) => void }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
-  // The control panel's own words, for the cards across the top.
-  const { t: tc } = useTranslation(["control"]);
   const conversion = useEngine<ConversionState>(`${prefix}/api/admin/conversion`);
   const metadata = useEngine<MetadataState>(`${prefix}/api/admin/metadata`);
   const copies = useEngine<CopiesState>(`${prefix}/api/admin/copies`);
   const detection = useEngine<DetectionState>(`${prefix}/api/admin/detection`);
   const jobs = useEngine<JobsState>(`${prefix}/api/admin/jobs`);
+  // What the hardware test found, said beside the limit it is about.
+  const hardwareTest = useHardwareTest(prefix);
+  const suggestedViewers = suggestedViewersOf(hardwareTest.state);
+  // Run test, from the card's head: started here, followed on its own page.
+  const startTest = hardwareTest.start;
+  const runTest = () => {
+    setError("");
+    startTest().then(() => go("hardware"), (err) => setError(err instanceof Error ? err.message : t("controlAdmin:apps.hardwareTest.startFailed")));
+  };
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -224,6 +268,8 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   };
 
   const conversionUrl = `${prefix}/api/admin/conversion`;
+  const copiesUrl = `${prefix}/api/admin/copies`;
+  const jobsUrl = `${prefix}/api/admin/jobs`;
   const saveConversion = (patch: Partial<ConversionSettings>) => {
     const current = conversion.state?.settings;
     if (!current) return;
@@ -242,9 +288,23 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
 
   const errors = error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>;
 
+  // Who is watching and what the queue makes change by the minute: the page, and
+  // the two lists, keep themselves current while open.
+  const reloadConversion = conversion.load;
+  const reloadJobs = jobs.load;
+  const live = page === null || page === "conversion" || page === "jobs";
+  useEffect(() => {
+    if (!live) return;
+    const timer = window.setInterval(() => {
+      reloadConversion().catch(() => undefined);
+      reloadJobs().catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [live, reloadConversion, reloadJobs]);
+
   if (page === "conversion") {
     return conversion.state
-      ? <ConversionPage url={conversionUrl} state={conversion.state} setState={conversion.setState} reload={conversion.load} saving={saving} errors={errors} onSave={saveConversion} />
+      ? <div className="grouped-page">{errors}<ConversionCard part="list" url={conversionUrl} state={conversion.state} setState={conversion.setState} saving={saving} onSave={saveConversion} /></div>
       : <Waiting missing={conversion.missing} failed={t("controlAdmin:apps.conversion.loadFailed")} />;
   }
   if (page === "hardware") {
@@ -268,12 +328,12 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   }
   if (page === "copies") {
     return copies.state
-      ? <CopiesPage url={`${prefix}/api/admin/copies`} state={copies.state} setState={copies.setState} />
+      ? <CopiesPage url={copiesUrl} state={copies.state} setState={copies.setState} />
       : <Waiting missing={copies.missing} failed={t("controlAdmin:apps.copies.loadFailed")} />;
   }
   if (page === "jobs") {
     return jobs.state && Array.isArray(jobs.state.jobs)
-      ? <JobsPage url={`${prefix}/api/admin/jobs`} state={jobs.state} setState={jobs.setState} reload={jobs.load} />
+      ? <div className="grouped-page"><JobsCard part="list" url={jobsUrl} state={jobs.state} setState={jobs.setState} /></div>
       : <Waiting missing={jobs.missing} failed={t("controlAdmin:apps.jobs.loadFailed")} />;
   }
   if (page === "detection") {
@@ -282,36 +342,65 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
       : <Waiting missing={detection.missing} failed={t("controlAdmin:apps.detection.loadFailed")} />;
   }
 
-  // ── The overview ───────────────────────────────────────────────────────────
+  // ── The one page ───────────────────────────────────────────────────────────
   const conv = conversion.state;
   const quality = conv?.settings.remoteQuality;
-  const kept = conv ? storageShort(conv, t) : null;
   const det = detection.state;
   const cop = copies.state;
   const meta = metadata.state;
-  // Across the top, as Gallery's Settings (owner, 2026-11-19): what each list below
-  // is set to, at a glance.
-  const dash = "—";
-  const tiles: StatTile[] = [
-    { icon: <MonitorPlay size={19} />, iconTone: "rose", label: tc("control:appSetup.overview.watching"), value: conv ? String(conv.usage.viewers.length) : dash },
-    { icon: <Cpu size={19} />, iconTone: conv?.available ? "ok" : "warn", label: tc("control:appSetup.overview.conversion"), value: conv ? converterWord(conv, t) : dash, sub: (conv && storageShort(conv, t)) ?? undefined },
-    {
-      icon: <Monitor size={19} />, iconTone: "blue", label: tc("control:appSetup.overview.quality"),
-      value: quality === undefined ? dash : quality === null ? t("controlAdmin:apps.conversion.qualityOriginal") : t("controlAdmin:apps.conversion.qualityUpTo", { height: quality })
-    },
-    {
-      icon: <ImageIcon size={19} />, iconTone: meta?.hasKey ? "ok" : "blue", label: tc("control:appSetup.overview.posters"),
-      value: meta ? (meta.hasKey ? t("controlAdmin:apps.videoSettings.tmdbSet") : t("controlAdmin:apps.videoSettings.tmdbNone")) : dash
-    },
-    {
-      icon: <Download size={19} />, iconTone: "gold", label: tc("control:appSetup.overview.copies"),
-      value: cop ? formatBytes(cop.usedBytes) : dash, sub: cop ? tc("control:settingsPage.ofLimitOnly", { limit: `${cop.settings.limitGb} GB` }) : undefined
-    },
-    {
-      icon: <Clock size={19} />, iconTone: "mint", label: t("controlAdmin:apps.jobs.title"),
-      value: jobs.state && Array.isArray(jobs.state.jobs) ? String(jobs.state.jobs.length) : dash
-    }
-  ];
+  const queue = jobs.state && Array.isArray(jobs.state.jobs) ? jobs.state : null;
+  // Engine 0.35+: one storage choice and one memory pool; before, memory per viewer.
+  const hasStorage = Boolean(conv?.settings.storage && conv.disk);
+  // The room for kept video, and what it holds (copies and kept films share it).
+  const room = cop && <CopiesLimitRow url={copiesUrl} state={cop} setState={copies.setState} onError={setError} />;
+
+  if (tab === "downloads") {
+    // Where the room is set: beside the disk, on Video Streaming.
+    const streamingHref = `${controlHref("videoSettings")}#video-conversion-storage`;
+    return (
+      <>
+        {errors}
+        {conv && !conv.available && (
+          <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
+        )}
+        {cop?.insideContainer && (
+          <MessageBox tone="warning" title={t("controlAdmin:apps.copies.insideTitle")}>
+            {t("controlAdmin:apps.copies.insideBody", { used: formatBytes(cop.usedBytes) })}{" "}
+            <a href={streamingHref} onClick={(event) => { event.preventDefault(); navigate(streamingHref); }}>{t("controlAdmin:apps.videoFolder.choose")}</a>
+          </MessageBox>
+        )}
+        <HowDownloadsWork copies={cop} />
+        {!cop && !queue && <p className="muted">{copies.missing ? t("controlAdmin:apps.copies.loadFailed") : t("controlAdmin:ui.loading")}</p>}
+        {(cop || queue) && (
+          <DownloadsStatusCard
+            queue={queue}
+            copies={cop}
+            conversion={conv}
+            streamingHref={streamingHref}
+            onOpenQueue={() => go("jobs")}
+            onOpenKept={() => go("copies")}
+          />
+        )}
+        {queue ? (
+          <section className="settings-card video-rules" aria-labelledby="video-download-rules-title">
+            <header className="settings-card-head">
+              <span className="settings-card-icon" aria-hidden="true"><SlidersHorizontal size={22} /></span>
+              <div>
+                <h3 id="video-download-rules-title">{t("controlAdmin:apps.videoDownloads.rulesTitle")}</h3>
+                <p>{t("controlAdmin:apps.videoDownloads.rulesBody")}</p>
+              </div>
+            </header>
+            {/* How many convert together is what the hardware test measures: the queue never needs more than four. */}
+            <JobsCard part="settings" url={jobsUrl} state={queue} setState={jobs.setState} suggestedAtOnce={suggestedViewers === null ? null : Math.min(4, suggestedViewers)}>
+              {!hasStorage && room}
+            </JobsCard>
+          </section>
+        ) : !hasStorage && cop && (
+          <GroupedList title={t("controlAdmin:apps.videoSettings.cardDownloads")} note={t("controlAdmin:apps.videoSettings.cardDownloadsBody")}>{room}</GroupedList>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -320,56 +409,58 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
         <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
       )}
 
-      {/* Gallery's Settings shape (owner, 2026-11-19): cards across the top, each
-          card of settings a titled list, and where to look next beside them. */}
-      <div className="diag-video app-overview-v3">
-      <div className="diag-video-main">
-      <section className="diag-tiles" aria-labelledby="video-settings-tiles-title">
-        <header className="diag-tiles-head">
-          <h3 id="video-settings-tiles-title">{tc("control:appSetup.overview.tilesTitle")}</h3>
-        </header>
-        <StatTiles tiles={tiles} label={tc("control:appSetup.overview.tilesTitle")} />
-      </section>
-      <GroupedList id="video-conversion" title={t("controlAdmin:apps.videoSettings.cardPlayback")}
-        note={quality !== undefined ? t("controlAdmin:apps.videoSettings.remoteQualityNote") : t("controlAdmin:apps.videoSettings.cardPlaybackBody")}>
-        <NavRow
-          icon={<Cpu size={17} />}
-          iconTone={!conv ? "muted" : conv.available ? "ok" : "warn"}
-          label={t("controlAdmin:apps.conversion.title")}
-          sub={conv ? `${converterWord(conv, t)} · ${t("controlAdmin:apps.videoSettings.atOnce", { limit: conv.settings.maxViewers })}` : conversion.missing ? t("controlAdmin:apps.conversion.loadFailed") : t("controlAdmin:ui.loading")}
-          value={conv ? t("controlAdmin:apps.videoSettings.watching", { now: conv.usage.viewers.length }) : undefined}
-          onClick={() => go("conversion")}
+      <HowVideoPlays conversion={conv} />
+      {conv && (
+        <VideoHardwareSummary
+          conversion={conv}
+          keptBytes={cop && !cop.insideContainer ? cop.usedBytes + (cop.keptBytes ?? 0) : null}
+          limitGb={cop && !cop.insideContainer ? cop.settings.limitGb : null}
+          test={hardwareTest.missing ? null : hardwareTest.state}
+          onRunTest={runTest}
+          onOpenTest={() => go("hardware")}
+        >
+          {/* What converts, then how much of it: every conversion setting in the one card. */}
+          <ConversionCard part="hardware" url={conversionUrl} state={conv} setState={conversion.setState} saving={saving} onSave={saveConversion} />
+          <ConversionCard part="limits" url={conversionUrl} state={conv} setState={conversion.setState} saving={saving} onSave={saveConversion} suggestedViewers={suggestedViewers}>
+            <NavRow
+              icon={<MonitorPlay size={17} />}
+              label={t("controlAdmin:apps.conversion.watching")}
+              value={t("controlAdmin:apps.conversion.watchingValue", { now: conv.usage.viewers.length, limit: conv.settings.maxViewers })}
+              onClick={() => go("conversion")}
+            />
+            {quality !== undefined && (
+              <PickerRow
+                icon={<Monitor size={17} />}
+                label={t("controlAdmin:apps.conversion.remoteQualityLabel")}
+                sub={t("controlAdmin:apps.videoSettings.remoteQualitySub")}
+                value={quality === null ? "original" : String(quality)}
+                options={REMOTE_QUALITIES.map((value) => ({
+                  value,
+                  label: value === "original" ? t("controlAdmin:apps.conversion.qualityOriginal") : t("controlAdmin:apps.conversion.qualityUpTo", { height: Number(value) })
+                }))}
+                disabled={saving}
+                onChange={(value) => saveConversion({ remoteQuality: value === "original" ? null : Number(value) as 1080 | 720 | 480 })}
+              />
+            )}
+          </ConversionCard>
+        </VideoHardwareSummary>
+      )}
+
+      {conv && hasStorage && (
+        <VideoDiskMemoryCard
+          url={conversionUrl}
+          conversion={conv}
+          setConversion={conversion.setState}
+          saving={saving}
+          onSave={saveConversion}
+          copiesUrl={copiesUrl}
+          copies={cop}
+          setCopies={copies.setState}
+          onError={setError}
         />
-        {conv && kept && conv.disk && (
-          <NavRow
-            icon={<HardDrive size={17} />}
-            iconTone={conv.disk.mapped ? "ok" : "warn"}
-            label={t("controlAdmin:apps.conversion.storageTitle")}
-            sub={conv.disk.mapped
-              ? <span className="storage-row-path">{conv.disk.folder}</span>
-              : t("controlAdmin:apps.videoSettings.storageNoDisk")}
-            value={kept}
-            valueTone={conv.disk.mapped ? undefined : "warn"}
-            onClick={() => go("conversion")}
-          />
-        )}
-        {conv?.disk && !conv.disk.mapped && <DiskSetupRow />}
-        {conv?.available && <HardwareTestRow prefix={prefix} onOpen={() => go("hardware")} />}
-        {conv && quality !== undefined && (
-          <PickerRow
-            icon={<Monitor size={17} />}
-            label={t("controlAdmin:apps.conversion.remoteQualityLabel")}
-            sub={t("controlAdmin:apps.videoSettings.remoteQualitySub")}
-            value={quality === null ? "original" : String(quality)}
-            options={REMOTE_QUALITIES.map((value) => ({
-              value,
-              label: value === "original" ? t("controlAdmin:apps.conversion.qualityOriginal") : t("controlAdmin:apps.conversion.qualityUpTo", { height: Number(value) })
-            }))}
-            disabled={saving}
-            onChange={(value) => saveConversion({ remoteQuality: value === "original" ? null : Number(value) as 1080 | 720 | 480 })}
-          />
-        )}
-      </GroupedList>
+      )}
+
+      {!conv && <p className="muted">{conversion.missing ? t("controlAdmin:apps.conversion.loadFailed") : t("controlAdmin:ui.loading")}</p>}
 
       {(meta || det) && (
         <GroupedList id="video-metadata" title={t("controlAdmin:apps.videoSettings.cardCatalogue")} note={t("controlAdmin:apps.videoSettings.cardCatalogueBody")}>
@@ -399,45 +490,42 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
         </GroupedList>
       )}
 
-      {cop && (
-        <GroupedList id="video-copies" title={t("controlAdmin:apps.videoSettings.cardDownloads")} note={t("controlAdmin:apps.videoSettings.cardDownloadsBody")}>
-          <NavRow
-            icon={<Download size={17} />}
-            label={t("controlAdmin:apps.copies.title")}
-            sub={t("controlAdmin:apps.videoSettings.copiesSub")}
-            value={t("controlAdmin:apps.videoSettings.copiesValue", { used: formatBytes(cop.usedBytes), limit: `${cop.settings.limitGb} GB` })}
-            onClick={() => go("copies")}
-          />
-          {jobs.state && Array.isArray(jobs.state.jobs) && (
-            <NavRow
-              icon={<Clock size={17} />}
-              label={t("controlAdmin:apps.jobs.title")}
-              sub={t(`controlAdmin:apps.jobs.when.${jobs.state.settings.when}`, { start: jobs.state.settings.nightStart, end: jobs.state.settings.nightEnd })}
-              value={t("controlAdmin:apps.jobs.queued", { count: jobs.state.jobs.length })}
-              onClick={() => go("jobs")}
-            />
-          )}
-        </GroupedList>
-      )}
-      </div>
-
-      {/* What the engine is doing: Infrastructure's pages, narrowed to Videos, and
-          the hardware test, which is the engine's own check. */}
-      <aside className="diag-video-side">
-        <GroupedList id="video-activity" title={t("controlAdmin:apps.videoSettings.cardActivity")} note={t("controlAdmin:apps.videoSettings.cardActivityBody")}>
-          <NavRow icon={<BarChart3 size={17} />} label={t("controlAdmin:apps.videoSettings.activityRow")} sub={t("controlAdmin:apps.videoSettings.activitySub")} href={activityHref({ application: "videos" })} />
-          <NavRow icon={<ListChecks size={17} />} label={t("controlAdmin:apps.videoSettings.tasksRow")} sub={t("controlAdmin:apps.videoSettings.tasksSub")} href={tasksHref({ application: "videos" })} />
-          <NavRow icon={<ScrollText size={17} />} label={t("controlAdmin:apps.videoSettings.logsRow")} sub={t("controlAdmin:apps.videoSettings.logsSub")} href={logsHref({ application: "videos" })} />
-          {conv?.available && <NavRow icon={<Play size={17} />} label={t("controlAdmin:apps.videoSettings.runTests")} onClick={() => go("hardware")} />}
-        </GroupedList>
-      </aside>
-      </div>
-
       <p className="settings-page-note">
         <Info size={17} aria-hidden="true" />
         <span>{t("controlAdmin:apps.videoSettings.pageNote")}</span>
       </p>
     </>
+  );
+}
+
+/** The room copies and kept films may take together: one row, saved as it changes. */
+function CopiesLimitRow({ url, state, setState, onError }: { url: string; state: CopiesState; setState: (state: CopiesState) => void; onError: (message: string) => void }) {
+  const { t } = useTranslation(["controlAdmin"]);
+  const [limit, setLimit] = useState(String(state.settings.limitGb));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setLimit(String(state.settings.limitGb)), [state.settings.limitGb]);
+  const commit = () => {
+    const wanted = Number(limit);
+    if (!Number.isInteger(wanted) || wanted < 1 || wanted > 10_000) { setLimit(String(state.settings.limitGb)); return; }
+    if (wanted === state.settings.limitGb) return;
+    setBusy(true);
+    onError("");
+    api<CopiesState>(url, { method: "PUT", body: JSON.stringify({ limitGb: wanted }) })
+      .then(setState, (err) => onError(err instanceof Error ? err.message : t("controlAdmin:apps.copies.saveFailed")))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <InputRow
+      label={state.kept ? t("controlAdmin:apps.copies.limitLabelShared") : t("controlAdmin:apps.copies.limitLabel")}
+      sub={t("controlAdmin:apps.videoSettings.roomSub")}
+      type="number"
+      min={1}
+      max={10000}
+      value={limit}
+      disabled={busy}
+      onChange={setLimit}
+      onCommit={commit}
+    />
   );
 }
 
@@ -447,32 +535,6 @@ function Waiting({ missing, failed }: { missing: boolean; failed: string }) {
 }
 
 type T = TFunction<["common", "controlAdmin"]>;
-
-/** Where it converts, in a word or two: the GPU, the CPU, or nothing at all. */
-function converterWord(state: ConversionState, t: T): string {
-  if (!state.available) return t("controlAdmin:apps.videoSettings.conversionNone");
-  const hardware = state.hardware;
-  return hardware && hardware.mode !== "cpu" && hardware.encode && !hardware.setAside
-    ? t("controlAdmin:apps.videoSettings.conversionGpu")
-    : t("controlAdmin:apps.videoSettings.conversionCpu");
-}
-
-/** Where converted video is kept, in a word or two; null from an engine before 0.35. */
-function storageShort(state: ConversionState, t: T): string | null {
-  const storage = state.storage ?? state.settings.storage;
-  if (!storage) return null;
-  if (storage === "memory") return t("controlAdmin:apps.videoSettings.storageShortMemory");
-  return storage === "disk" ? t("controlAdmin:apps.videoSettings.storageShortDisk") : t("controlAdmin:apps.videoSettings.storageShortMemoryDisk");
-}
-
-/** The guide's section on mapping the container's Transcode folder to a disk: the
- *  one thing here that is set outside the app. */
-const DISK_SETUP_HREF = `${guideHref("apps")}#where-converted-video-is-kept`;
-
-function DiskSetupRow() {
-  const { t } = useTranslation(["controlAdmin"]);
-  return <NavRow icon={<BookOpen size={17} />} label={t("controlAdmin:apps.conversion.diskSetupLabel")} sub={t("controlAdmin:apps.conversion.diskSetupSub")} href={DISK_SETUP_HREF} />;
-}
 
 function detectionWord(state: DetectionState, t: T): string {
   if (!state.available) return t("controlAdmin:apps.detection.unavailableTitle");
@@ -516,29 +578,28 @@ export function GpuRow({ hardware }: { hardware: HardwareState }) {
   );
 }
 
-function ConversionPage({ url, state, setState, reload, saving, errors, onSave }: {
+/** The conversion settings as two short lists inside the Hardware & transcoding
+ *  card (VideoSettingsHero.tsx) — `hardware`: where to convert and Check again;
+ *  `limits`: how many at once — and its one list, `list`: who is watching now
+ *  (its own page). `children` are rows the page adds to a list. Disk & memory is a
+ *  card of its own (VideoDiskMemoryCard.tsx). */
+function ConversionCard({ part, url, state, setState, saving, onSave, suggestedViewers = null, children }: {
+  part: "hardware" | "limits" | "list";
   url: string;
   state: ConversionState;
   setState: (state: ConversionState) => void;
-  reload: () => Promise<ConversionState>;
   saving: boolean;
-  errors: ReactNode;
   onSave: (patch: Partial<ConversionSettings>) => void;
+  /** How many the last hardware test found it converts at once; null with no finished test. */
+  suggestedViewers?: number | null;
+  children?: ReactNode;
 }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const [checking, setChecking] = useState(false);
   const [viewers, setViewers] = useState(String(state.settings.maxViewers));
   const [memory, setMemory] = useState(String(state.settings.memoryPerViewerMb));
-  const [pool, setPool] = useState(String(state.settings.memoryMb ?? ""));
   useEffect(() => setViewers(String(state.settings.maxViewers)), [state.settings.maxViewers]);
   useEffect(() => setMemory(String(state.settings.memoryPerViewerMb)), [state.settings.memoryPerViewerMb]);
-  useEffect(() => setPool(String(state.settings.memoryMb ?? "")), [state.settings.memoryMb]);
-
-  // Who is watching changes by the minute: the page keeps itself current while open.
-  useEffect(() => {
-    const timer = window.setInterval(() => { reload().catch(() => undefined); }, 5000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
 
   // Check again: the engine tries the GPU afresh (and forgets its failures).
   const check = async () => {
@@ -553,7 +614,7 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
   };
 
   /** A number left blank or out of range goes back to what the engine has. */
-  const commit = (raw: string, current: number, min: number, max: number, key: "maxViewers" | "memoryPerViewerMb" | "memoryMb", reset: (value: string) => void) => {
+  const commit = (raw: string, current: number, min: number, max: number, key: "maxViewers" | "memoryPerViewerMb", reset: (value: string) => void) => {
     const value = Number(raw);
     if (raw.trim() === "" || !Number.isInteger(value) || value < min || value > max) { reset(String(current)); return; }
     if (value !== current) onSave({ [key]: value });
@@ -563,64 +624,9 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
   const memoryMb = Number(memory) || 0;
   // Engine 0.35+: one memory pool and a storage mode; older ones per viewer.
   const storage = state.settings.storage;
-  const disk = state.disk;
-  const inForce = state.storage ?? storage;
-  const storageWord: Record<ConversionStorage, string> = {
-    memory: t("controlAdmin:apps.conversion.storageMemory"),
-    "memory-disk": t("controlAdmin:apps.conversion.storageMemoryDisk"),
-    disk: t("controlAdmin:apps.conversion.storageDisk")
-  };
-  // Memory, the disk, or both: each place says whether it is in use and how full.
-  const memoryOn = inForce !== "disk";
-  const diskOn = Boolean(disk?.mapped) && inForce !== "memory";
-  const inUse = (on: boolean) => (on ? t("controlAdmin:apps.conversion.placeInUse") : t("controlAdmin:apps.conversion.placeNotUsed"));
-  const free = disk && disk.freeBytes !== null ? formatBytes(disk.freeBytes) : null;
-  const places: StatTile[] = !storage || !disk ? [] : [
-    {
-      icon: <MemoryStick size={19} />, iconTone: memoryOn ? "ok" : "blue",
-      label: t("controlAdmin:apps.conversion.placeMemory"),
-      value: inUse(memoryOn),
-      sub: memoryOn && state.settings.memoryMb
-        ? t("controlAdmin:apps.conversion.placeMemoryOf", { used: formatBytes(usage.memoryBytes), total: formatBytes(state.settings.memoryMb * 1024 * 1024) })
-        : undefined
-    },
-    disk.mapped
-      ? {
-        icon: <HardDrive size={19} />, iconTone: diskOn ? "ok" : "blue",
-        label: t("controlAdmin:apps.conversion.placeDisk"),
-        value: inUse(diskOn),
-        sub: diskOn
-          ? (free ? t("controlAdmin:apps.conversion.placeDiskUsedFree", { used: formatBytes(usage.diskBytes), free }) : t("controlAdmin:apps.conversion.placeDiskUsed", { used: formatBytes(usage.diskBytes) }))
-          : (free ? t("controlAdmin:apps.conversion.placeDiskFree", { free }) : undefined)
-      }
-      : {
-        icon: <HardDrive size={19} />, tone: "warn",
-        label: t("controlAdmin:apps.conversion.placeDisk"),
-        value: t("controlAdmin:apps.conversion.placeNotSetUp"),
-        sub: t("controlAdmin:apps.conversion.diskSetupLabel"),
-        href: DISK_SETUP_HREF
-      }
-  ];
 
-  return (
-    <div className="grouped-page">
-      {errors}
-      {!state.available && (
-        <MessageBox tone="warning" title={t("controlAdmin:apps.conversion.noFfmpegTitle")}>{t("controlAdmin:apps.conversion.noFfmpegBody")}</MessageBox>
-      )}
-
-      {state.hardware && (
-        <GroupedList note={storage ? t("controlAdmin:apps.conversion.introStorage") : t("controlAdmin:apps.conversion.intro")}>
-          <GpuRow hardware={state.hardware} />
-          <ActionRow
-            label={checking || state.hardware.checking ? t("controlAdmin:apps.conversion.checking") : t("controlAdmin:apps.conversion.checkAgain")}
-            disabled={checking || state.hardware.checking}
-            onClick={() => void check()}
-          />
-          {state.available && <NavRow icon={<Gauge size={17} />} label={t("controlAdmin:apps.hardwareTest.linkFromConversion")} href={queryPageHref("hardware")} />}
-        </GroupedList>
-      )}
-
+  if (part === "list") {
+    return (
       <GroupedList title={t("controlAdmin:apps.conversion.nowLabel")}>
         <InfoRow label={t("controlAdmin:apps.conversion.watching")} value={t("controlAdmin:apps.conversion.watchingValue", { now: usage.viewers.length, limit: state.settings.maxViewers })} />
         {usage.viewers.map((viewer, index) => (
@@ -646,11 +652,23 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
           <InfoRow label={t("controlAdmin:apps.conversion.keptLabel")} value={t("controlAdmin:apps.conversion.keptValue", { count: usage.kept.count, size: formatBytes(usage.kept.bytes) })} />
         )}
       </GroupedList>
+    );
+  }
 
-      {state.settings.hardware && (
-        <GroupedList note={t("controlAdmin:apps.conversion.hardwareHelp")}>
+  if (part === "hardware") {
+    const hardware = state.hardware;
+    // What the cards above cannot say in a word: what the GPU does in full, why
+    // it was set aside, or why none could be used. A plain "no GPU" needs no row.
+    const explain = hardware && hardware.mode !== "cpu" && (hardware.encode || hardware.checking || Boolean(hardware.error));
+    if (!hardware && !state.settings.hardware && !children) return null;
+    return (
+      <GroupedList title={t("controlAdmin:apps.videoSettings.groupHardware")}>
+        {hardware && explain && <GpuRow hardware={hardware} />}
+        {state.settings.hardware && (
           <PickerRow
+            icon={<Cpu size={17} />}
             label={t("controlAdmin:apps.conversion.hardwareLabel")}
+            sub={t("controlAdmin:apps.conversion.hardwareHelp")}
             value={state.settings.hardware}
             disabled={saving}
             options={[
@@ -660,97 +678,52 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
             ]}
             onChange={(value) => onSave({ hardware: value as HardwareMode })}
           />
-        </GroupedList>
-      )}
-
-      {/* The two places first, under the group's heading: at a glance, which are in use. */}
-      {places.length > 0 && (
-        <section className="diag-tiles is-pair" aria-labelledby="video-conversion-places-title">
-          <header className="diag-tiles-head">
-            <h3 id="video-conversion-places-title">{t("controlAdmin:apps.conversion.storageTitle")}</h3>
-          </header>
-          <StatTiles tiles={places} label={t("controlAdmin:apps.conversion.storageTitle")} />
-        </section>
-      )}
-
-      {storage && disk && (
-        <GroupedList id="video-conversion-storage" note={t("controlAdmin:apps.conversion.storageHelp")}>
-          {disk.mapped ? (
-            <InfoRow
-              icon={<HardDrive size={17} />}
-              iconTone="ok"
-              label={t("controlAdmin:apps.conversion.diskLabel")}
-              sub={<span className="storage-row-path">{disk.folder}</span>}
-              value={disk.freeBytes !== null
-                ? t("controlAdmin:apps.conversion.diskFree", { free: formatBytes(disk.freeBytes) })
-                : undefined}
-            />
-          ) : (
-            <InfoRow
-              icon={<HardDrive size={17} />}
-              iconTone="warn"
-              label={t("controlAdmin:apps.conversion.diskNoneTitle")}
-              sub={t("controlAdmin:apps.conversion.diskNoneBody")}
-            />
-          )}
-          {!disk.mapped && <DiskSetupRow />}
-          <PickerRow
-            label={t("controlAdmin:apps.conversion.storageLabel")}
-            value={inForce ?? storage}
-            disabled={saving || !disk.mapped}
-            options={STORAGES.map((value) => ({ value, label: storageWord[value], disabled: !disk.mapped && value !== "memory" }))}
-            onChange={(value) => onSave({ storage: value as ConversionStorage })}
+        )}
+        {hardware && (
+          <ActionRow
+            label={checking || hardware.checking ? t("controlAdmin:apps.conversion.checking") : t("controlAdmin:apps.conversion.checkAgain")}
+            disabled={checking || hardware.checking}
+            onClick={() => void check()}
           />
-          {inForce !== "disk" && (
-            <InputRow
-              label={t("controlAdmin:apps.conversion.memoryPoolLabel")}
-              sub={t("controlAdmin:apps.conversion.memoryPoolHelp")}
-              type="number"
-              min={64}
-              max={16384}
-              value={pool}
-              disabled={saving}
-              onChange={setPool}
-              onCommit={() => commit(pool, state.settings.memoryMb ?? 0, 64, 16384, "memoryMb", setPool)}
-            />
-          )}
-        </GroupedList>
-      )}
+        )}
+        {children}
+      </GroupedList>
+    );
+  }
 
-      {storage ? (
-        <GroupedList title={t("controlAdmin:apps.videoSettings.groupLimits")} note={t("controlAdmin:apps.conversion.viewersHelp")}>
-          <InputRow
-            label={t("controlAdmin:apps.conversion.viewersLabel")}
-            type="number"
-            min={1}
-            max={50}
-            value={viewers}
-            disabled={saving}
-            onChange={setViewers}
-            onCommit={() => commit(viewers, state.settings.maxViewers, 1, 50, "maxViewers", setViewers)}
-          />
-        </GroupedList>
-      ) : (
+  // Limits: how many convert at once, and the most a viewer away from home gets.
+  return (
+    <GroupedList
+      title={t("controlAdmin:apps.videoSettings.groupLimits")}
+      note={<>
+        {t("controlAdmin:apps.conversion.viewersHelp")}
+        {!storage && <>{" "}{memoryMb === 0
+          ? t("controlAdmin:apps.conversion.totalDiskOnly")
+          : t("controlAdmin:apps.conversion.total", { memory: formatBytes(memoryMb * (Number(viewers) || 0) * 1024 * 1024) })}</>}
+      </>}
+    >
+      <InputRow
+        icon={<Users size={17} />}
+        label={t("controlAdmin:apps.conversion.viewersLabel")}
+        // The hardware test's answer for this very setting, once one has run.
+        sub={suggestedViewers === null ? undefined
+          : suggestedViewers === state.settings.maxViewers ? t("controlAdmin:apps.videoSettings.testAgrees", { count: suggestedViewers })
+          : t("controlAdmin:apps.videoSettings.testSuggests", { count: suggestedViewers })}
+        type="number"
+        min={1}
+        max={50}
+        value={viewers}
+        disabled={saving}
+        onChange={setViewers}
+        onCommit={() => commit(viewers, state.settings.maxViewers, 1, 50, "maxViewers", setViewers)}
+        trailing={suggestedViewers !== null && suggestedViewers !== state.settings.maxViewers ? (
+          <Button variant="secondary" compact disabled={saving} onClick={() => onSave({ maxViewers: suggestedViewers })}>
+            {t("controlAdmin:apps.hardwareTest.useLimit", { count: suggestedViewers })}
+          </Button>
+        ) : undefined}
+      />
+      {!storage && (
         <>
-        <GroupedList
-          title={t("controlAdmin:apps.videoSettings.groupLimits")}
-          note={<>
-            {t("controlAdmin:apps.conversion.viewersHelp")}{" "}
-            {memoryMb === 0
-              ? t("controlAdmin:apps.conversion.totalDiskOnly")
-              : t("controlAdmin:apps.conversion.total", { memory: formatBytes(memoryMb * (Number(viewers) || 0) * 1024 * 1024) })}
-          </>}
-        >
-          <InputRow
-            label={t("controlAdmin:apps.conversion.viewersLabel")}
-            type="number"
-            min={1}
-            max={50}
-            value={viewers}
-            disabled={saving}
-            onChange={setViewers}
-            onCommit={() => commit(viewers, state.settings.maxViewers, 1, 50, "maxViewers", setViewers)}
-          />
           <InputRow
             label={t("controlAdmin:apps.conversion.memoryLabel")}
             sub={t("controlAdmin:apps.conversion.memoryHelp")}
@@ -773,21 +746,29 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
             ]}
             onChange={(value) => onSave({ whenFull: value as ConversionSettings["whenFull"] })}
           />
-        </GroupedList>
         </>
       )}
-    </div>
+      {children}
+    </GroupedList>
   );
 }
 
-// ── When downloads are prepared (C4) ─────────────────────────────────────────
+// ── Downloads and offline (C4) ───────────────────────────────────────────────
 
 // The queue the video app makes copies for download, kept-ready titles and
 // finished-off films on: when it works (right away, when the server is quiet, or
 // at night), how many at once, how many copies a member may have waiting, and how
-// fast a copy goes to someone away from home. Below, what runs and waits, with
-// the admin's hand on each.
-function JobsPage({ url, state, setState, reload }: { url: string; state: JobsState; setState: (state: JobsState) => void; reload: () => Promise<JobsState> }) {
+// fast a copy goes to someone away from home — the `settings` card on the page.
+// What runs and waits, with the admin's hand on each, is the `list`, a page of its own.
+function JobsCard({ part, url, state, setState, suggestedAtOnce = null, children }: {
+  part: "settings" | "list";
+  url: string;
+  state: JobsState;
+  setState: (state: JobsState) => void;
+  /** How many the last hardware test found convert together (four at most); null with no finished test. */
+  suggestedAtOnce?: number | null;
+  children?: ReactNode;
+}) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   const settings = state.settings;
   const [start, setStart] = useState(settings.nightStart);
@@ -804,12 +785,6 @@ function JobsPage({ url, state, setState, reload }: { url: string; state: JobsSt
     setPerPerson(String(settings.perPerson));
     setSpeed(String(settings.remoteMbps));
   }, [settings]);
-
-  // What runs moves along: the page keeps itself current while open.
-  useEffect(() => {
-    const timer = window.setInterval(() => { reload().catch(() => undefined); }, 5000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
 
   const run = async (work: () => Promise<JobsState>) => {
     setBusy(true);
@@ -836,35 +811,43 @@ function JobsPage({ url, state, setState, reload }: { url: string; state: JobsSt
   const act = (path: "top" | "run", id: string) => void run(() => api<JobsState>(`${url}/${path}`, { method: "POST", body: JSON.stringify({ id }) }));
   const cancel = (id: string) => void run(() => api<JobsState>(`${url}?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
 
+  if (part === "settings") {
+    return (
+      <>
+        {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
+        <GroupedList id="video-jobs" note={<>{t("controlAdmin:apps.jobs.intro")} {t("controlAdmin:apps.jobs.limitsNote")}</>}>
+          <PickerRow
+            icon={<Clock size={17} />}
+            label={t("controlAdmin:apps.jobs.whenLabel")}
+            value={settings.when}
+            disabled={busy}
+            options={(["now", "idle", "night"] as const).map((value) => ({ value, label: t(`controlAdmin:apps.jobs.whenOption.${value}`) }))}
+            onChange={(value) => save({ when: value as JobsState["settings"]["when"] })}
+          />
+          {settings.when === "night" && (
+            <>
+              <InputRow label={t("controlAdmin:apps.jobs.nightStart")} type="time" value={start} disabled={busy} onChange={setStart} onCommit={() => commitTime(start, settings.nightStart, "nightStart", setStart)} />
+              <InputRow label={t("controlAdmin:apps.jobs.nightEnd")} type="time" value={end} disabled={busy} onChange={setEnd} onCommit={() => commitTime(end, settings.nightEnd, "nightEnd", setEnd)} />
+            </>
+          )}
+          <InputRow icon={<Layers size={17} />} label={t("controlAdmin:apps.jobs.atOnce")} type="number" min={1} max={4} value={atOnce} disabled={busy} onChange={setAtOnce}
+            // What the hardware test found this server manages together, as a guide: 1 to 4.
+            sub={suggestedAtOnce === null ? undefined : t("controlAdmin:apps.jobs.atOnceTested", { count: suggestedAtOnce })}
+            onCommit={() => commitNumber(atOnce, settings.atOnce, 1, 4, "atOnce", setAtOnce)} />
+          <InputRow icon={<Users size={17} />} label={t("controlAdmin:apps.jobs.perPerson")} sub={t("controlAdmin:apps.jobs.perPersonNote")} type="number" min={1} max={1000} value={perPerson} disabled={busy} onChange={setPerPerson}
+            onCommit={() => commitNumber(perPerson, settings.perPerson, 1, 1000, "perPerson", setPerPerson)} />
+          <InputRow icon={<Gauge size={17} />} label={t("controlAdmin:apps.jobs.remoteMbps")} sub={t("controlAdmin:apps.jobs.remoteMbpsNote")} type="number" min={0} max={10000} value={speed} disabled={busy} onChange={setSpeed}
+            onCommit={() => commitNumber(speed, settings.remoteMbps, 0, 10000, "remoteMbps", setSpeed, false)} />
+          {children}
+        </GroupedList>
+      </>
+    );
+  }
+
   return (
-    <div className="grouped-page">
+    <>
       {error && <MessageBox tone="error" title={t("errors.unableToSave")}>{error}</MessageBox>}
-      <GroupedList id="video-jobs" note={t("controlAdmin:apps.jobs.intro")}>
-        <PickerRow
-          label={t("controlAdmin:apps.jobs.whenLabel")}
-          value={settings.when}
-          disabled={busy}
-          options={(["now", "idle", "night"] as const).map((value) => ({ value, label: t(`controlAdmin:apps.jobs.whenOption.${value}`) }))}
-          onChange={(value) => save({ when: value as JobsState["settings"]["when"] })}
-        />
-        {settings.when === "night" && (
-          <>
-            <InputRow label={t("controlAdmin:apps.jobs.nightStart")} type="time" value={start} disabled={busy} onChange={setStart} onCommit={() => commitTime(start, settings.nightStart, "nightStart", setStart)} />
-            <InputRow label={t("controlAdmin:apps.jobs.nightEnd")} type="time" value={end} disabled={busy} onChange={setEnd} onCommit={() => commitTime(end, settings.nightEnd, "nightEnd", setEnd)} />
-          </>
-        )}
-        {!state.gate.open && <InfoRow label={t(`controlAdmin:apps.jobs.gate.${state.gate.reason}`)} />}
-      </GroupedList>
-
-      <GroupedList title={t("controlAdmin:apps.videoSettings.groupLimits")} note={t("controlAdmin:apps.jobs.limitsNote")}>
-        <InputRow label={t("controlAdmin:apps.jobs.atOnce")} type="number" min={1} max={4} value={atOnce} disabled={busy} onChange={setAtOnce}
-          onCommit={() => commitNumber(atOnce, settings.atOnce, 1, 4, "atOnce", setAtOnce)} />
-        <InputRow label={t("controlAdmin:apps.jobs.perPerson")} sub={t("controlAdmin:apps.jobs.perPersonNote")} type="number" min={1} max={1000} value={perPerson} disabled={busy} onChange={setPerPerson}
-          onCommit={() => commitNumber(perPerson, settings.perPerson, 1, 1000, "perPerson", setPerPerson)} />
-        <InputRow label={t("controlAdmin:apps.jobs.remoteMbps")} sub={t("controlAdmin:apps.jobs.remoteMbpsNote")} type="number" min={0} max={10000} value={speed} disabled={busy} onChange={setSpeed}
-          onCommit={() => commitNumber(speed, settings.remoteMbps, 0, 10000, "remoteMbps", setSpeed, false)} />
-      </GroupedList>
-
+      {!state.gate.open && <MessageBox tone="info" title={t("controlAdmin:apps.jobs.whenLabel")}>{t(`controlAdmin:apps.jobs.gate.${state.gate.reason}`)}</MessageBox>}
       <GroupedList title={t("controlAdmin:apps.jobs.queueTitle")}>
         {state.jobs.length === 0 && <InfoRow label={t("controlAdmin:apps.jobs.queueEmpty")} />}
         {state.jobs.map((job) => (
@@ -893,7 +876,7 @@ function JobsPage({ url, state, setState, reload }: { url: string; state: JobsSt
           </div>
         ))}
       </GroupedList>
-    </div>
+    </>
   );
 }
 
@@ -973,8 +956,9 @@ function MetadataPage({ url, state, setState }: { url: string; state: MetadataSt
 // ── Copies for download ──────────────────────────────────────────────────────
 
 // A smaller MP4 of a film, prepared when someone asks to keep it on a phone or tablet,
-// and kept for whoever asks next: how much room they may take together, what they
-// take now, and Remove all.
+// and kept for whoever asks next: what they take now, the films kept after watching,
+// the titles kept ready, and Remove all. How much room they may take together is
+// set on the page itself, under Disk and memory (CopiesLimitRow).
 function CopiesPage({ url, state, setState }: { url: string; state: CopiesState; setState: (state: CopiesState) => void }) {
   const { t } = useTranslation(["common", "controlAdmin"]);
   // Engine 0.35+: the titles kept ready; an older engine answers 404 and the group stays away.
@@ -984,11 +968,9 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
     api<KeepReadyState>(KEEP_READY_URL).then((answer) => { if (live && Array.isArray(answer?.titles)) setKeepReady(answer); }, () => undefined);
     return () => { live = false; };
   }, []);
-  const [limit, setLimit] = useState(String(state.settings.limitGb));
   const [busy, setBusy] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [saveError, setSaveError] = useState("");
-  useEffect(() => setLimit(String(state.settings.limitGb)), [state.settings.limitGb]);
 
   const run = async (work: () => Promise<CopiesState>) => {
     setBusy(true);
@@ -1001,12 +983,6 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
       setBusy(false);
       setClearing(false);
     }
-  };
-
-  const commitLimit = () => {
-    const wanted = Number(limit);
-    if (!Number.isInteger(wanted) || wanted < 1 || wanted > 10_000) { setLimit(String(state.settings.limitGb)); return; }
-    if (wanted !== state.settings.limitGb) void run(() => api<CopiesState>(url, { method: "PUT", body: JSON.stringify({ limitGb: wanted }) }));
   };
 
   const ready = state.copies.filter((copy) => copy.state === "ready").length;
@@ -1065,18 +1041,7 @@ function CopiesPage({ url, state, setState }: { url: string; state: CopiesState;
           ))}
         </GroupedList>
       )}
-      <GroupedList note={t("controlAdmin:apps.copies.folder", { folder: state.folder })}>
-        <InputRow
-          label={state.kept ? t("controlAdmin:apps.copies.limitLabelShared") : t("controlAdmin:apps.copies.limitLabel")}
-          type="number"
-          min={1}
-          max={10000}
-          value={limit}
-          disabled={busy}
-          onChange={setLimit}
-          onCommit={commitLimit}
-        />
-      </GroupedList>
+      <p className="muted">{t("controlAdmin:apps.copies.folder", { folder: state.folder })}</p>
       {(state.copies.length > 0 || (state.kept?.length ?? 0) > 0) && (
         <GroupedList>
           <ActionRow tone="danger" label={state.kept ? t("controlAdmin:apps.copies.clearAll") : t("controlAdmin:apps.copies.clear")} disabled={busy} onClick={() => setClearing(true)} />

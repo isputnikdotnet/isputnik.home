@@ -13,7 +13,7 @@ export type ControlSection =
   | "applications"
   | "gallerySetup" | "videosSetup" | "ebooksSetup" | "audiobooksSetup" | "storiesSetup" | "familyTreeSetup" | "gamesSetup"
   | "phoneSync" | "duplicateCleanup" | "missingPhotos" | "mapSetup"
-  | "genres" | "videoSettings"
+  | "genres" | "videoSettings" | "videoDownloads"
   | "categories"
   | "storySettings"
   | "tags"
@@ -64,7 +64,10 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   videoStreaming: "/control/apps/gallery/video-streaming",
   mapSetup: "/control/apps/gallery/settings",
   genres: "/control/apps/videos/genres",
-  videoSettings: "/control/apps/videos/settings",
+  // Videos' two tabs beside its Overview (2026-11-22): Video Streaming keeps the
+  // section's first name (it was the one Settings tab), Video Downloads is new.
+  videoSettings: "/control/apps/videos/streaming",
+  videoDownloads: "/control/apps/videos/downloads",
   // One editor for both book applications: Audiobooks opens it with ?from=audiobooks.
   categories: "/control/apps/ebooks/categories",
   storySettings: "/control/apps/stories/settings",
@@ -195,6 +198,8 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/settings/stories": "storySettings",
   "/control/settings/apps": "appsSetup",
   "/control/settings/video": "videoSettings",
+  // Videos › Settings until it became Video Streaming and Video Downloads (4.92).
+  "/control/apps/videos/settings": "videoSettings",
   // A workspace's own address opens its first tab, Setup.
   "/control/apps/gallery": "gallerySetup",
   "/control/apps/videos": "videosSetup",

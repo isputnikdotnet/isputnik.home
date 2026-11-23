@@ -674,14 +674,19 @@ wait while App storage is off: their switches are disabled, with a link to Stora
 ### Videos
 
 **Video genres** — one list of your own that films and shows are filed under — opens
-from the Overview's **Organize**, beside **Live sessions**. **Settings** opens on cards
-of how each setting stands, then a short list per area, each row saying how it stands:
-**Converting video** (on the GPU or the CPU, and how many are watching), **Quality
-away from home**, chosen right there, **Posters and descriptions** (whether a TMDB key
-is set), **Intros, recaps and credits** with its switch on the row, **Copies for
-download** with the room they and the films kept after watching take, and **When
-downloads are prepared** with its rule and how many are in the queue. Each opens a page of its own with its explanation
-and settings, and everything saves as it changes. [Apps](apps.md) covers both.
+from the Overview's **Organize**, beside **Live sessions**. Videos has two tabs beside its Overview. **Video Streaming** opens on **How video plays** (as it is where the
+device supports the format, converted where it does not) and **Hardware &
+transcoding** (the GPU and whether it is in use, the CPU, the server's memory, what
+the disk holds for video, and the formats), then every setting changed where it is shown — **Disk & memory**
+(the folder, where converted video is kept, the memory for it and the room for kept
+video), with where to convert, how many at once and **Quality away from home** on the hardware card itself,
+and the catalogue (**Posters and descriptions**, **Intros, recaps and credits**).
+**Video Downloads** has the same shape: **How downloads work** (the original file,
+a copy already kept, or one prepared in the queue), **Queue and kept copies** (what
+is being prepared, what is ready, the next few jobs, with **Open queue** and **Kept
+copies** at the top), and **Download rules** (when copies are prepared and how many
+at once). On a tablet or a phone the two diagrams are left out. Only lists open a page of their own — who is watching,
+the queue, what is kept — and everything saves as it changes. [Apps](apps.md) covers both.
 
 ### Ebooks and Audiobooks
 

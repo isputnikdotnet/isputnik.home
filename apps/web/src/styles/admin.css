@@ -3474,3 +3474,178 @@ tr.control-anchor-flash > td {
 /* The pager under a card's table; empty (and so gone) while it all fits on one page. */
 .stats-card-foot:empty { display: none; }
 .stats-card-foot { padding: 10px 18px 12px; border-top: 1px solid var(--line); }
+
+/* Videos › Settings, the top of the page (VideoSettingsHero.tsx): how video plays as a
+   picture, then the hardware that converts it. Read here, set in the cards below. */
+.video-flow, .video-hw { margin-bottom: 14px; }
+.video-flow { display: grid; grid-template-columns: minmax(200px, 0.9fr) minmax(0, 3.4fr); align-items: center; gap: 18px 24px; }
+.video-flow-copy { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.video-flow-copy h3, .video-hw h3 { margin: 0 0 3px; font-size: 1.15rem; }
+.video-flow-copy p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.video-flow-more { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); font-size: 0.86rem; text-decoration: none; }
+.video-flow-more:hover { background: var(--hover); }
+/* The flow: every piece placed by percentages over one stretched drawing of the
+   lines (VideoSettingsHero.tsx gives both the same numbers). */
+.video-flow-chart { position: relative; height: 300px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.video-flow-chart > li { position: absolute; margin: 0; }
+.video-flow-lines { inset: 0; }
+.video-flow-lines svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.video-flow-lines path { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke: var(--gold); }
+.video-flow-lines .is-yes, .video-flow-lines .is-direct { stroke: var(--success); }
+.video-flow-lines .is-no { stroke: var(--amber); }
+.video-flow-lines .is-cache { stroke: var(--blue); }
+.video-flow-lines .is-convert { stroke: var(--rose); }
+.is-cache-off .video-flow-lines .is-cache { stroke: var(--line); stroke-dasharray: 4 4; }
+.video-flow-node { display: grid; place-content: center; justify-items: center; gap: 4px; top: 22%; height: 56%; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, var(--surface)); text-align: center; }
+.video-flow-node.is-source { left: 0; width: 12%; }
+.video-flow-node.is-device { left: 90%; width: 10%; }
+.video-flow-node strong { font-size: 0.9rem; font-weight: 650; line-height: 1.2; }
+.video-flow-node small { color: var(--muted); font-size: 0.74rem; line-height: 1.25; }
+/* A question: a square turned on its corner, its words upright inside it. */
+.video-flow-ask { display: grid; place-items: center; width: 98px; height: 98px; transform: translate(-50%, -50%); }
+.video-flow-ask::before { content: ""; position: absolute; inset: 0; border: 1.5px solid var(--gold); border-radius: 12px; background: color-mix(in srgb, var(--gold) 9%, var(--surface)); transform: rotate(45deg); }
+.video-flow-ask.is-first { left: 23%; top: 36%; }
+.video-flow-ask.is-second { left: 40%; top: 66%; }
+.video-flow-ask > span { position: relative; display: grid; justify-items: center; gap: 2px; width: 108px; text-align: center; }
+.video-flow-ask strong { font-size: 0.74rem; font-weight: 600; line-height: 1.2; }
+.video-flow-ask svg { display: block; color: var(--gold); }
+.video-flow-way { display: flex; align-items: center; gap: 12px; left: 56%; width: 29%; height: 25%; padding: 6px 12px; border: 1px solid var(--line); border-radius: 14px; }
+.video-flow-way.is-direct { top: 1.5%; }
+.video-flow-way.is-cache { top: 37.5%; }
+.video-flow-way.is-convert { top: 71.5%; }
+.video-flow-way > span { display: grid; flex: 1; align-content: center; min-width: 0; }
+.video-flow-way strong { font-size: 0.96rem; font-weight: 650; line-height: 1.2; }
+.video-flow-way small { color: var(--muted); font-size: 0.76rem; line-height: 1.2; }
+.video-flow-way > svg { flex: none; }
+.video-flow-way.is-direct { border-color: color-mix(in srgb, var(--success) 55%, var(--line)); background: color-mix(in srgb, var(--success) 13%, var(--surface)); }
+.video-flow-way.is-direct > .video-flow-way-icon { color: var(--success); }
+.video-flow-way.is-cache { border-color: color-mix(in srgb, var(--blue) 55%, var(--line)); background: color-mix(in srgb, var(--blue) 13%, var(--surface)); }
+.video-flow-way.is-cache > .video-flow-way-icon { color: var(--blue); }
+.video-flow-way.is-convert { border-color: color-mix(in srgb, var(--rose) 55%, var(--line)); background: color-mix(in srgb, var(--rose) 13%, var(--surface)); }
+.video-flow-way.is-convert > .video-flow-way-icon { color: var(--rose); }
+.video-flow-way.is-cache.is-off { border-style: dashed; border-color: var(--line); background: var(--surface); }
+.video-flow-way.is-cache.is-off > .video-flow-way-icon, .video-flow-way.is-cache.is-off strong { color: var(--muted); }
+/* Yes and No, on the line that leads to where they sit. */
+.video-flow-pill { position: absolute; z-index: 1; padding: 1px 9px; border: 1.5px solid; border-radius: 999px; background: var(--surface); font-size: 0.74rem; font-weight: 650; line-height: 1.5; transform: translate(-50%, -50%); }
+.video-flow-pill.is-yes { border-color: var(--success); color: var(--success); }
+.video-flow-pill.is-no { border-color: var(--amber); color: var(--amber); }
+.video-flow-way > .video-flow-pill { left: -24%; top: 50%; }
+.video-flow-way.is-direct > .video-flow-pill { left: -62%; }
+.video-flow-ask.is-second > .video-flow-pill { left: -38%; top: 46%; }
+@media (max-width: 1250px) { .video-flow { grid-template-columns: minmax(0, 1fr); } }
+/* Tablets and phones: no diagram. Two questions and three ways need the width to be
+   drawn as a flow; where they can't be, the card is left out and the page opens on
+   what the hardware is. */
+@media (max-width: 1100px) { .video-flow { display: none; } }
+/* Tablets and phones: the cards are narrow (the sidebar takes its share), so the
+   head's buttons take a line of their own, and a row's dropdown drops under its label. */
+@media (max-width: 1100px) {
+  .video-hw .grouped-row-input, .video-rules .grouped-row-input { flex-wrap: wrap; }
+  .video-hw > .settings-card-head { flex-wrap: wrap; min-width: 0; }
+  .video-hw .settings-card-head-actions { flex-basis: 100%; min-width: 0; margin-left: 0; }
+  .video-hw .settings-card-head-actions > button { flex: 1 1 0; min-width: 0; justify-content: center; white-space: nowrap; }
+  .video-hw .settings-card-head-actions .muted { display: none; }
+}
+.video-hw { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+/* Every conversion setting, as two short lists side by side under what the hardware is. */
+.video-hw-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); align-items: start; gap: 14px 24px; padding-top: 14px; border-top: 1px solid var(--line); }
+.video-hw-settings > .grouped-list { margin: 0; }
+.video-hw .settings-card-head-actions .muted { font-size: 0.8rem; font-weight: 400; }
+/* One row: the hardware in a box (GPU · CPU · memory · disk), and what the test advises beside it. */
+.video-hw-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 290px); align-items: stretch; gap: 14px; }
+.video-hw-box { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.video-hw-item { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 14px 16px; }
+/* Four of a kind (Video Downloads: queue · copies · kept ready · room), with no rule before the first. */
+.video-hw-box.is-even { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.video-hw-box > .video-hw-item:first-child { border-left: 0; }
+.video-rules { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+.video-rules h3 { margin: 0 0 3px; font-size: 1.15rem; }
+.video-rules > .grouped-list { margin: 0; }
+.video-flow-way > .video-flow-way-icon, .video-flow-way > .video-flow-mark { display: grid; flex: none; place-items: center; }
+/* A rule before memory and before the disk; none between the GPU and the CPU. */
+.video-hw-item.is-metric { border-left: 1px solid var(--line); }
+.video-hw-item.is-missing .video-hw-picture { filter: grayscale(1); opacity: 0.45; }
+.video-hw-picture { display: grid; flex: none; place-items: center; width: 60px; height: 60px; color: var(--gold); }
+.video-hw-picture img { width: 60px; height: 60px; object-fit: contain; }
+.video-hw-text { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.video-hw-text small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.8rem; }
+.video-hw-text strong { font-size: 0.98rem; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.video-hw-item.is-metric strong { font-size: 1.05rem; }
+.video-hw-text strong.is-warn { color: var(--warning); }
+.video-hw-state { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.82rem; }
+.video-hw-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.video-hw-state b { font-weight: 600; }
+.video-hw-state.is-inUse i { background: var(--success); }
+.video-hw-state.is-inUse b { color: var(--success); }
+.video-hw-state.is-setAside i { background: var(--warning); }
+.video-hw-state.is-setAside b { color: var(--warning); }
+/* What converts fast enough: one line under all four, the box's whole width. */
+.video-hw-box-formats { grid-column: 1 / -1; padding: 10px 16px; border-top: 1px solid var(--line); }
+.video-hw-formats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.video-hw-formats small { color: var(--muted); font-size: 0.84rem; }
+.video-hw-formats .diag-link { margin-left: auto; font-size: 0.8rem; }
+.video-hw-advice { display: grid; align-content: start; gap: 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; }
+.video-hw-advice h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.98rem; font-weight: 650; }
+.video-hw-advice h4 svg { color: var(--gold); }
+.video-hw-advice ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.video-hw-advice li { display: flex; align-items: flex-start; gap: 8px; font-size: 0.88rem; }
+.video-hw-advice li svg { flex: none; margin-top: 2px; }
+.video-hw-advice li.is-ok svg { color: var(--success); }
+.video-hw-advice li.is-todo svg { color: var(--warning); }
+.video-hw-advice li small { display: block; color: var(--muted); font-size: 0.78rem; }
+.video-hw-advice p { margin: 0; font-size: 0.86rem; }
+@media (max-width: 1250px) { .video-hw-top { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1000px) {
+  .video-hw-box, .video-hw-box.is-even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .video-hw-item:nth-child(3) { border-left: 0; }
+  .video-hw-item:nth-child(n + 3) { border-top: 1px solid var(--line); }
+}
+@media (max-width: 600px) {
+  .video-hw-box, .video-hw-box.is-even { grid-template-columns: minmax(0, 1fr); }
+  .video-hw-box > .video-hw-item:first-child { border-top: 0; }
+  .video-hw-item.is-metric { border-left: 0; }
+  .video-hw-item + .video-hw-item { border-top: 1px solid var(--line); }
+}
+.video-hw-meter { display: block; height: 6px; margin-top: 4px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.video-hw-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--gold); }
+
+/* Videos › Video Streaming › Disk & memory (VideoDiskMemoryCard.tsx): the cache on one
+   line, the two budgets as sliders, where video is kept and for how long, and what is kept. */
+.video-dm { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+.video-dm h3 { margin: 4px 0 0; font-size: 1.15rem; }
+.video-dm-cache { display: grid; grid-template-columns: auto minmax(0, 1.2fr) minmax(180px, 1fr) auto; align-items: center; gap: 12px 18px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.video-dm-cache.is-missing { grid-template-columns: auto minmax(0, 1fr) auto; }
+.video-dm-cache-icon { color: var(--gold); }
+.video-dm-cache.is-missing .video-dm-cache-icon { color: var(--warning); }
+.video-dm-cache-text, .video-dm-cache-use { display: grid; gap: 4px; min-width: 0; }
+.video-dm-cache-text strong { font-weight: 650; }
+.video-dm-cache-text small { color: var(--muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.video-dm-cache-use strong { font-weight: 600; font-variant-numeric: tabular-nums; }
+.video-dm-meter { display: block; height: 8px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.video-dm-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--success); }
+.video-dm-notice { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--warning) 10%, transparent); font-size: var(--text-sm); }
+.video-dm-notice svg { flex: none; margin-top: 2px; color: var(--warning); }
+.video-dm-budgets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 18px 36px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; }
+.video-dm-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px 24px; align-items: center; }
+.video-dm-option { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-width: 0; }
+.video-dm-option-icon { display: grid; flex: none; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold); }
+.video-dm-option-text { display: grid; flex: 1 1 160px; gap: 1px; min-width: 0; }
+.video-dm-option-text strong { font-weight: 600; }
+.video-dm-option-text small { color: var(--muted); font-size: var(--text-sm); }
+.video-dm-option.is-retention > .grouped-row { flex: 1; padding: 0; border: 0; }
+.video-dm-usage { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin: 0; padding: 10px 16px; border: 1px solid var(--line); border-radius: 14px; font-size: var(--text-sm); }
+.video-dm-usage > svg { color: var(--muted); }
+.video-dm-usage b { font-weight: 650; font-variant-numeric: tabular-nums; }
+.video-dm-usage i { display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 50%; }
+.video-dm-usage i.is-cached { background: var(--success); }
+.video-dm-usage i.is-downloads { background: var(--blue); }
+.video-dm-usage-left { margin-left: auto; }
+.video-dm-tip { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-sm); }
+.video-dm-tip svg { flex: none; color: var(--gold); }
+.video-dm-tip strong { color: var(--ink); }
+@media (max-width: 900px) {
+  .video-dm-cache, .video-dm-cache.is-missing { grid-template-columns: 28px minmax(0, 1fr); }
+  .video-dm-cache-use, .video-dm-cache > button, .video-dm-cache > a { grid-column: 1 / -1; justify-self: start; }
+  .video-dm-cache-use { justify-self: stretch; }
+  .video-dm-usage-left { margin-left: 0; }
+}

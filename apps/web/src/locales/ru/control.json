@@ -47,7 +47,9 @@
       "setup": "Обзор",
       "deviceSync": "Синхронизация устройств",
       "organize": "Упорядочивание",
-      "settings": "Настройки"
+      "settings": "Настройки",
+      "streaming": "Просмотр видео",
+      "downloads": "Загрузки видео"
     },
     "tabs": {
       "dashboard": "Панель",
@@ -84,7 +86,8 @@
       "appsAccess": "Доступ к приложениям",
       "services": "Службы",
       "appsSetup": "Связывание",
-      "videoSettings": "Настройки видео",
+      "videoSettings": "Просмотр видео",
+      "videoDownloads": "Загрузки видео",
       "email": "Почта",
       "notifications": "Уведомления",
       "about": "О программе",

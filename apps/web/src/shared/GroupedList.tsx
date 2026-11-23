@@ -192,6 +192,7 @@ export function CheckRow({ label, sub, checked, onSelect, disabled = false }: { 
  *  left, the value on the right (with its `unit` after it). `onCommit` runs when the
  *  field is left or Enter is pressed — pages that save as you go save there. */
 export function InputRow({
+  icon,
   label,
   sub,
   value,
@@ -207,6 +208,7 @@ export function InputRow({
   wide = false,
   trailing
 }: {
+  icon?: ReactNode;
   label: ReactNode;
   sub?: ReactNode;
   value: string;
@@ -230,6 +232,7 @@ export function InputRow({
   const isPassword = type === "password";
   return (
     <label className={`grouped-row grouped-row-input${wide ? " is-wide" : ""}${disabled ? " is-disabled" : ""}`}>
+      {icon && <span className="grouped-row-icon" aria-hidden="true">{icon}</span>}
       <span className="grouped-row-label">
         <strong id={labelId}>{label}</strong>
         {sub && <small>{sub}</small>}

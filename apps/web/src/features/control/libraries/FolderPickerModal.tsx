@@ -3,9 +3,27 @@ import { ChevronLeft, FolderOpen, HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
+import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { SelectField } from "../../../shared/SelectField";
-import type { StorageRoot, StorageBrowse } from "../types";
+import type { StorageBrowseEntry } from "../types";
+
+/** A place the picker opens on: a storage container of home's, or a location another
+ *  server offers (the video container's libraries and cache folders). */
+export interface FolderPickerRoot {
+  id: string;
+  name: string;
+}
+
+/** One folder of a location, as the picker shows it (home's StorageBrowse is one). */
+export interface FolderBrowse {
+  root: FolderPickerRoot;
+  currentPath: string;
+  /** The absolute path as the server that owns it sees it. */
+  selectedPath: string;
+  parentPath: string | null;
+  entries: StorageBrowseEntry[];
+}
 
 // Pick a folder by walking a storage container, rather than typing a server path.
 //
@@ -14,6 +32,10 @@ import type { StorageRoot, StorageBrowse } from "../types";
 // container path, not the host path the admin knows), and it has to already exist. Both
 // failures land as "that folder is missing or not accessible", which is true and no help
 // at all. Browsing can only ever offer paths the server can actually reach.
+//
+// It walks home's storage containers unless told how to walk something else
+// (`browseFolders`): the video container's folders are picked with it too
+// (VideoFolderModal), so choosing a folder looks the same wherever it is done.
 export function FolderPickerModal({
   title,
   intro,
@@ -22,11 +44,16 @@ export function FolderPickerModal({
   confirmLabel,
   onPick,
   onClose,
-  onError
+  onError,
+  browseFolders,
+  rootLabel,
+  error,
+  busy = false,
+  blocked
 }: {
   title: string;
   intro: string;
-  storageRoots: StorageRoot[];
+  storageRoots: FolderPickerRoot[];
   /** Which container to open on. Falls back to the first one. */
   initialRootId?: string;
   confirmLabel?: string;
@@ -35,10 +62,20 @@ export function FolderPickerModal({
   onPick: (picked: { absolutePath: string; rootId: string; relativePath: string }) => void | Promise<void>;
   onClose: () => void;
   onError: (message: string) => void;
+  /** Lists a folder of a location that is not one of home's storage containers. */
+  browseFolders?: (rootId: string, relativePath: string) => Promise<FolderBrowse>;
+  /** What the locations are called here ("Location"); home's are storage containers. */
+  rootLabel?: string;
+  /** Why the pick was refused, shown in the dialog. */
+  error?: string;
+  /** The pick is being saved: nothing can be pressed, and the dialog stays. */
+  busy?: boolean;
+  /** Why nothing can be picked in a location (it is read-only), or null. */
+  blocked?: (rootId: string) => { title: string; body: string } | null;
 }) {
   const { t } = useTranslation(["common", "control"]);
   const resolvedConfirmLabel = confirmLabel ?? t("control:libraries.useThisFolder");
-  const [browse, setBrowse] = useState<StorageBrowse | null>(null);
+  const [browse, setBrowse] = useState<FolderBrowse | null>(null);
   const [rootId, setRootId] = useState(initialRootId || storageRoots[0]?.id || "");
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +84,7 @@ export function FolderPickerModal({
     setLoading(true);
     try {
       const query = new URLSearchParams({ path: relativePath });
-      const payload = await api<StorageBrowse>(`/api/storage/roots/${id}/browse?${query}`);
+      const payload = browseFolders ? await browseFolders(id, relativePath) : await api<FolderBrowse>(`/api/storage/roots/${id}/browse?${query}`);
       setRootId(id);
       setBrowse(payload);
     } catch (err) {
@@ -64,11 +101,12 @@ export function FolderPickerModal({
   useEffect(() => { void load(rootId); }, []);
 
   return (
-    <Modal title={title} className="folder-picker-modal" onClose={onClose}>
+    <Modal title={title} className="folder-picker-modal" busy={busy} onClose={onClose}>
       <p>{intro}</p>
+      {error && <MessageBox tone="error" title={t("common:errors.unableToSave")}>{error}</MessageBox>}
 
       <SelectField
-        label={t("control:libraries.containerLabel")}
+        label={rootLabel ?? t("control:libraries.containerLabel")}
         icon={<HardDrive size={17} />}
         value={rootId}
         onChange={(value) => void load(value)}
@@ -121,11 +159,13 @@ export function FolderPickerModal({
         </section>
       )}
 
+      {blocked?.(rootId) && <MessageBox tone="warning" title={blocked(rootId)!.title}>{blocked(rootId)!.body}</MessageBox>}
+
       <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={loading}>{t("common.cancel")}</Button>
+        <Button variant="secondary" onClick={onClose} disabled={loading || busy}>{t("common.cancel")}</Button>
         <Button
           variant="primary"
-          disabled={!browse || loading}
+          disabled={!browse || loading || busy || Boolean(blocked?.(rootId))}
           onClick={() => {
             if (!browse) return;
             void onPick({

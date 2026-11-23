@@ -148,6 +148,7 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   Five is the budget. Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
   Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, with Shared tools below the directory. Each workspace has
   only the tabs it needs from Overview · Device Sync · Settings, opening on Overview
+  (Videos has Video Streaming and Video Downloads in place of one Settings: owner, 2026-11-22)
   (internal setup keys and /setup URLs stay stable). No Organize tab (owner, 2026-11-19):
   every Overview has one shape — cards across the top (`OverviewLayout`,
   `sections/AppOverviews.tsx`; Gallery's in `GalleryOverview.tsx`), Visibility & access,
