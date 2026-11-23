@@ -3,6 +3,10 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.90.1 — Security updates for bundled libraries
+
+- **Security updates for bundled libraries.** The part of the server that hands out the app's own files now uses patched versions of two file-matching libraries that had published denial-of-service advisories. Nothing here ever passed them input from outside the app, so no one was exposed, but the fixed versions are in. The tools that check the code before each build were updated for the same reason.
+
 ## 4.90.0 — A clearer control panel, Diagnostics for every part
 
 - **The control panel, redrawn as cards.** Each application's Overview opens on a status banner over cards for what it uses — its libraries, connection, access and storage — and its Settings and Organize tabs are cards too. Device Sync is one page with its statistics; Storage is grouped by what the files are to the family, with library locations by drive and personal libraries as rows; and one access window, with switches, now grants access everywhere. Pairing a container walks you through setup steps until it is paired, then shows a summary. Every page starts with the same back line — Back, then where the page sits — and buttons follow one standard.

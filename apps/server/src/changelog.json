@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.90.1",
+    "label": "Security updates for bundled libraries",
+    "changes": [
+      "**Security updates for bundled libraries.** The part of the server that hands out the app's own files now uses patched versions of two file-matching libraries that had published denial-of-service advisories. Nothing here ever passed them input from outside the app, so no one was exposed, but the fixed versions are in. The tools that check the code before each build were updated for the same reason."
+    ]
+  },
+  {
     "version": "4.90.0",
     "label": "A clearer control panel, Diagnostics for every part",
     "changes": [
