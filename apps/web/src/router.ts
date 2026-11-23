@@ -22,7 +22,7 @@ export type ControlSection =
   | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   | "appsAccess"
   // System Settings
-  | "appearance" | "email" | "notifications" | "storage" | "storageContents" | "backup" | "recycleBin" | "quotes" | "about";
+  | "appearance" | "email" | "notifications" | "storage" | "storageContents" | "maps" | "backup" | "recycleBin" | "quotes" | "about";
 
 // The canonical address of every control-panel destination. The nav, the tab
 // rows and the search palette all link through controlHref(), so this table is
@@ -89,6 +89,8 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   notifications: "/control/settings/notifications",
   storage: "/control/settings/storage",
   storageContents: "/control/settings/storage/contents",
+  // The one page the map features are set on; an application opens it with ?from=<app>.
+  maps: "/control/settings/maps",
   backup: "/control/settings/backups",
   recycleBin: "/control/settings/recycle-bin",
   quotes: "/control/settings/quotes",
@@ -190,7 +192,6 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/apps/gallery/organize/duplicate-cleanup": "duplicateCleanup",
   "/control/apps/gallery/organize/missing-photos": "missingPhotos",
   "/control/apps/gallery/organize/video-streaming": "videoStreaming",
-  "/control/settings/maps": "mapSetup",
   "/control/settings/stories": "storySettings",
   "/control/settings/apps": "appsSetup",
   "/control/settings/video": "videoSettings",
@@ -309,10 +310,12 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/utilities/duplicates": "duplicateCleanup",
 
   // Maps was a group of its own (4.4–4.14) with Data and Routing tabs before those
-  // became cards on its one page; it is a Settings tab again, as it began.
-  "/control/maps": "mapSetup",
-  "/control/maps/data": "mapSetup",
-  "/control/maps/routing": "mapSetup",
+  // became cards on its one page. The cards were then spread over Gallery › Settings,
+  // Stories › Settings and Security › Sign-in locations (4.91) and are one System
+  // Settings page again, at /control/settings/maps, as it began.
+  "/control/maps": "maps",
+  "/control/maps/data": "maps",
+  "/control/maps/routing": "maps",
 
   // The games' status, events and log were one Settings tab (4.33–4.37), then the
   // containers had a group of their own, Apps (4.38–4.44), until its pages went to

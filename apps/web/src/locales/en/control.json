@@ -78,7 +78,8 @@
       "missingPhotos": "Missing photos",
       "appearance": "Appearance",
       "quotes": "Quotes",
-      "mapSetup": "Maps",
+      "mapSetup": "Gallery settings",
+      "maps": "Maps",
       "storySettings": "Story settings",
       "appsAccess": "App access",
       "services": "Services",
@@ -1252,6 +1253,11 @@
     "note": "Media sizes come from library scans. App files are grouped by purpose; linked media stays with its library. Shared database, thumbnails, caches and backups are excluded.",
     "retry": "Retry app-file measurements"
   },
+  "mapsPage": {
+    "description": "What this server keeps and fetches for the maps in Gallery, Stories, Family Tree and Sign-in locations.",
+    "introTitle": "Maps work without any of this",
+    "intro": "Every map in the app is drawn from the same map service, with nothing to set up. The four features below each add something on top. Each card says what it adds, which pages use it, where its data comes from and how much room it takes. Turn on only what you want; switching one off says what it frees."
+  },
   "settingsPage": {
     "ofLimit": "{{used}} of {{limit}}",
     "built": "built {{when}}",
@@ -1262,7 +1268,7 @@
     "folder": "Folder",
     "change": "Change where it is kept",
     "mapsTitle": "Maps",
-    "mapsNote": "Offline maps and photo place names",
+    "mapsSharedNote": "Set once for every application, on System Settings → Maps.",
     "andVillages": "and {{villages}} villages",
     "ofLimitOnly": "of {{limit}}",
     "storiesWhere": "App storage",

@@ -700,7 +700,7 @@
     "backupSavedMore": "Change it any time in Control panel → System Settings → Backup, where you can also make one now or restore from one.",
     "backupSaveFailed": "Unable to save the backup schedule",
     "mapsHeading": "Maps",
-    "mapsNote": "Maps work without any of this. Each part can be turned on or off here or later under Control panel → Applications → Gallery → Settings.",
+    "mapsNote": "Maps work without any of this. Each part can be turned on or off here or later under Control panel → System Settings → Maps.",
     "alertsHeading": "Tell me about sign-ins",
     "alertsIntro": "The app can write to you when an account signs in from a network it has not seen before — the earliest sign that a password has been guessed, phished or reused.",
     "alertsToggle": "Email me about sign-ins from a new network",

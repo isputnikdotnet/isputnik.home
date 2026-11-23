@@ -6,7 +6,7 @@ import { GroupedList, NavRow, ToggleRow } from "../../../shared/GroupedList";
 import { MessageBox } from "../../../shared/MessageBox";
 import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { ControlSectionHead } from "../ControlSectionHead";
-import { MapFeatures } from "./maps/MapFeatures";
+import { MapStatusList } from "./maps/MapStatusList";
 import type { MapSettingsDto, RoutingDto } from "./maps/map-settings";
 import { storageHref } from "../links";
 
@@ -77,7 +77,7 @@ export function StorySettingsSection() {
     : null;
 
   // Gallery's Settings shape (owner, 2026-11-19): cards of what each list below is
-  // set to, then Narration, Recipes and Road routes as titled lists, and beside them
+  // set to, then Narration, Recipes and Maps as titled lists, and beside them
   // where recordings are kept.
   const dash = "—";
   const tiles: StatTile[] = [
@@ -142,9 +142,9 @@ export function StorySettingsSection() {
               </GroupedList>
             </>
           )}
-          {/* Road routes draw a story's route along real roads: Stories', moved here
-              from Gallery › Settings (2026-11-19). */}
-          <MapFeatures plain only={["routes"]} onLoaded={loaded} />
+          {/* What a story's map draws on: road routes and offline maps, both set on
+              System Settings › Maps (2026-11-22). */}
+          <MapStatusList show={["routes", "offline"]} from="stories" onLoaded={loaded} />
         </div>
         <aside className="diag-video-side">
           <GroupedList title={tc("control:settingsPage.whereTitle")} note={tc("control:settingsPage.storiesWhereNote")}>

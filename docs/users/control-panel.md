@@ -14,7 +14,7 @@ brings you back to. Under it are five groups:
 | **Libraries & Scanning** | Libraries — their folders, scanning rules and schedules — and Library statistics |
 | **Applications** | Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games and Shared tools, each with everything about it in one place |
 | **Security & Members** | Users, Groups, Invite links, Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs, App access |
-| **System Settings** | Appearance, Email, Notifications, Storage, Backup, Recycle Bin, Quotes, About |
+| **System Settings** | Appearance, Email, Notifications, Storage, Maps, Backup, Recycle Bin, Quotes, About |
 
 The group you are in opens in the nav and lists its pages underneath; under
 **Applications** it lists the applications. Every page has its own address, so any
@@ -598,12 +598,14 @@ entry, thumbnail and all — and **Purge eligible now** does it immediately.
 
 The maps across the app — the gallery map, a photo's location, a story's route,
 Security & Members → Sign-in locations — and what this server keeps for them. Four
-features, each on the page of what it feeds: **Offline maps** and **Photo place
-names** under **Maps** on Applications → Gallery → Settings, **Sign-in locations**
-under its map on Security & Members → Sign-in locations, and **Road routes** on
-Applications → Stories → Settings. Each is a group of rows: a switch with the feature's name, then where
-its data comes from, how that gets here and how much space it takes, and whatever
-else it needs; what it does is the line under the group. Turning one on says what
+features, all set on one page, **System Settings → Maps**: **Offline maps**, **Photo
+place names**, **Sign-in locations** and **Road routes**. Most of them serve several
+applications, so none belongs to one. Each is a card: a switch with the feature's
+name and what it does, then **Used by** (the pages that draw on it), where its data
+comes from, how that gets here and how much space it takes, and whatever else it
+needs. The pages that use a feature — Gallery → Settings, Stories → Settings, Family
+Tree's Overview and Security & Members → Sign-in locations — show under **Maps**
+whether it is on, and each row opens the Maps page at that card. Turning one on says what
 will be downloaded, how big it is and where it goes before it does anything; turning
 one off says what it frees. The ⓘ beside each name says more about the source, with a
 link to it. Maps work with every feature off.
@@ -637,8 +639,8 @@ link to it. Maps work with every feature off.
   family tree. Villages are only for that search: photos keep being named after
   towns. **Save and rebuild** builds the list again with them, downloading the
   usual GeoNames files plus one file per country.
-- **Sign-in locations** — where each sign-in came from, on Security →
-  Sign-in locations, under that map. It is used for nothing else. Two parts:
+- **Sign-in locations** — where each sign-in came from, on the map at Security →
+  Sign-in locations. It is used for nothing else. Two parts:
   - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when
     you turn the card on. **Update** fetches the latest; addresses move between
     networks, so every few months is worth it.
@@ -651,8 +653,7 @@ link to it. Maps work with every feature off.
 
   Turning it off deletes both. None of these databases are in backups: the
   country one can be fetched again, a towns one has to come from your own copy.
-- **Road routes** — on Applications → Stories → Settings: whether a route in a
-  [story](stories.md) follows real roads.
+- **Road routes** — whether a route in a [story](stories.md) follows real roads.
   Turn it on and paste a free **OpenRouteService** key (the ⓘ links to the sign-up;
   the service is run by a research institute at Heidelberg University, not the
   similarly named delivery-planning company a search may turn up), then **Save and
@@ -667,7 +668,7 @@ link to it. Maps work with every feature off.
   Turning it off removes the key; routes already saved keep their roads.
 
 Everything these keep is in the **Map data** part of App storage
-([Storage](#storage)), named beside the maps on Gallery → Settings. Offline maps and place names
+([Storage](#storage)), named under the cards on the Maps page and on Gallery → Settings. Offline maps and place names
 wait while App storage is off: their switches are disabled, with a link to Storage.
 
 ### Videos
@@ -693,7 +694,7 @@ follow where you came from. **Re-match all books**, in the categories editor, so
 
 - **Stories** — Overview: stories, drafts, recipes, collections and narrations, and
   which of its features are on. **Settings**: whether members may start a recipe from
-  a link, **Road routes**, and which library narration goes to (App files, shown here,
+  a link, whether **Road routes** are on (set on [Maps](#maps)), and which library narration goes to (App files, shown here,
   not chosen). Narration recorded
   before recordings lived in the gallery moves into App files by itself once App
   storage is on; the page says how many recordings are still waiting.
@@ -933,18 +934,18 @@ internet](exposing-to-the-internet.md).
 
   Countries are worked out on your server from a database file, so no address is
   ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
-  **Sign-in locations** under the map (see [Maps](#maps)) and it fetches DB-IP's Country
+  **Sign-in locations** on System Settings → Maps (see [Maps](#maps)) and it fetches DB-IP's Country
   Lite database (about 8 MB, free, no account) into your data folder. Until then
-  the map still draws, with a notice whose button scrolls down to it. That download is the
+  the map still draws, with a notice whose button opens it. That download is the
   only outbound call; lookups after it never leave the machine. Worth fetching
   again every few months, since addresses move between networks. The databases
-  themselves are on the **Sign-in locations** card under the map, which
-  **Location database** scrolls to.
+  themselves are on the **Sign-in locations** card on the Maps page, which
+  **Location database** opens.
 
   **Want town-level detail?** That database is yours to choose. Download any
   city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
   whichever licence suits you — and give it to the server from the **Towns** part of
-  the **Sign-in locations** card under the map: **Link** to paste its download
+  the **Sign-in locations** card on the Maps page: **Link** to paste its download
   link and let the server fetch it, or **Upload** to pick the file from your
   computer. Dropping the `.mmdb` straight into the `Locations` folder of Map data
   works too. A `.mmdb.gz` from the vendor

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, controlHrefFrom, diagnosticsPartHref } from "../../../router";
+import { MapStatusList, mapsHref } from "./maps/MapStatusList";
 import { GroupedList, NavRow } from "../../../shared/GroupedList";
 import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { formatNumber } from "../../../shared/dates";
@@ -320,7 +321,7 @@ export function StoriesOverviewBody({ data, state, visibility, side }: OverviewP
         <NavRow summary icon={<ChefHat size={17} />} label={t("control:appSetup.overview.recipeImport")} sub={t("control:appSetup.overview.recipeImportSub")}
           {...rowState(features.recipes)} href={controlHref("storySettings")} />
         <NavRow summary icon={<Route size={17} />} label={t("control:appSetup.overview.roadRoutes")} sub={t("control:appSetup.overview.roadRoutesSub")}
-          {...rowState(features.routes)} href={`${controlHref("storySettings")}#road-routes`} />
+          {...rowState(features.routes)} href={mapsHref("routes", "stories")} />
       </GroupedList>
       <GroupedList title={t("control:appSetup.overview.toolsTitle")}>
         <NavRow icon={<NotebookPen size={17} />} label={t("control:appSetup.storiesOpen")} sub={t("control:appSetup.storiesOpenSub")} href="/stories" />
@@ -345,6 +346,8 @@ export function FamilyTreeOverviewBody({ data, state, visibility, side }: Overvi
   ];
   return (
     <OverviewLayout tiles={tiles} visibility={visibility} side={side}>
+      {/* The tree's map and its place suggestions draw on these. */}
+      <MapStatusList show={["offline", "places"]} from="familyTree" />
       <GroupedList title={t("control:appSetup.overview.toolsTitle")}>
         <NavRow icon={<GitFork size={17} />} label={t("control:appSetup.familyOpen")} sub={t("control:appSetup.familyBody")} href="/family" />
       </GroupedList>

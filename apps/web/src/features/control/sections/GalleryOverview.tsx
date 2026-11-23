@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Activity, CheckCircle2, Copy, Database, Film, ImageOff, Images, Library, ListChecks, Map as MapIcon, Power, ScanFace, ScrollText, Smartphone, Stethoscope, Tags, Users } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, controlHrefFrom, diagnosticsPartHref } from "../../../router";
+import { mapsHref } from "./maps/MapStatusList";
 import { GroupedList, NavRow, ToggleRow } from "../../../shared/GroupedList";
 import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { formatNumber } from "../../../shared/dates";
@@ -155,7 +156,7 @@ export function GalleryOverviewBody({ data, state, visibility, side }: OverviewP
             {...rowState(faces ? faces.enabled && engineOn : null)} href={appPageHref("appsSetup", "faces")} />
           <NavRow summary icon={<MapIcon size={17} />} label={t("control:appSetup.overview.offlineMaps")}
             sub={maps ? t(maps.places ? "control:appSetup.overview.placesOn" : "control:appSetup.overview.placesOff") : t("control:appSetup.overview.offlineMapsSub")}
-            {...rowState(maps?.offline)} href={controlHref("mapSetup")} />
+            {...rowState(maps?.offline)} href={mapsHref("offline", "gallery")} />
         </GroupedList>
 
         {/* Organize's tools: Gallery has no Organize tab, these are pages under here. */}

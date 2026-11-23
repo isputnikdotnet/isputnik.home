@@ -148,6 +148,8 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "email" },
       { section: "notifications" },
       { section: "storage", pages: ["storageContents"] },
+      // Shared by every application that draws a map; each links here with ?from=.
+      { section: "maps" },
       { section: "backup" },
       { section: "recycleBin" },
       { section: "quotes" },
@@ -233,7 +235,8 @@ export const APPLICATIONS: ApplicationDef[] = [
 /** Shared pages, and the workspace tab each application opens them under. */
 const SHARED_PAGE_PARENTS: Partial<Record<ControlSection, Partial<Record<AppKey, ControlSection>>>> = {
   categories: { ebooks: "ebooksSetup", audiobooks: "audiobooksSetup" },
-  tags: { gallery: "gallerySetup", ebooks: "ebooksSetup", audiobooks: "audiobooksSetup" }
+  tags: { gallery: "gallerySetup", ebooks: "ebooksSetup", audiobooks: "audiobooksSetup" },
+  maps: { gallery: "mapSetup", stories: "storySettings", familyTree: "familyTreeSetup" }
 };
 
 /** Every destination there is: each tab, then the pages under it — what search

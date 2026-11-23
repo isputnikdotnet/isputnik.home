@@ -267,7 +267,7 @@ export function AppStoragePanel({ refreshKey = 0, layout, onChanged }: {
       return <Button variant="secondary" compact onClick={() => navigate(`${controlHref("mapSetup")}#photo-inbox`)}>{t("controlAdmin:storage.openSettings")}</Button>;
     }
     if (view.enabled && entry.part === "maps") {
-      return <Button variant="secondary" compact onClick={() => navigate(controlHref("mapSetup"))}>{t("controlAdmin:storage.openSettings")}</Button>;
+      return <Button variant="secondary" compact onClick={() => navigate(controlHref("maps"))}>{t("controlAdmin:storage.openSettings")}</Button>;
     }
     return undefined;
   };
@@ -514,7 +514,7 @@ export function AppStoragePanel({ refreshKey = 0, layout, onChanged }: {
               )}
               {/* What is kept is chosen with the maps themselves. */}
               {entry.part === "maps" && view.enabled && (
-                <NavRow label={t("controlAdmin:appStorage.mapsSettings")} sub={t("controlAdmin:appStorage.inGallerySettings")} href={controlHref("mapSetup")} />
+                <NavRow label={t("controlAdmin:appStorage.mapsSettings")} sub={t("controlAdmin:appStorage.inMapsSettings")} href={controlHref("maps")} />
               )}
             </div>
           );

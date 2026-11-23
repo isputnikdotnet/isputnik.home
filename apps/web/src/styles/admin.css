@@ -3002,6 +3002,8 @@ tr.control-anchor-flash > td {
 .diag-tiles .stat-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 /* An application's Overview: six cards, three across (owner, 2026-11-19). */
 .app-overview-v3 .diag-tiles .stat-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Converting video: memory and the disk, the two places, half the row each. */
+.diag-tiles.is-pair .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 740px) { .app-overview-v3 .diag-tiles .stat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Libraries (2026-11-19): a chip per type with its count, and the search beside them. */
 .library-overview-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }

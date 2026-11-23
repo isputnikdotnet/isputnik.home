@@ -4,7 +4,7 @@ import { Fingerprint, Globe2 } from "lucide-react";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { SignInsView } from "./dashboard/SignInsView";
 import { LocationsView } from "./dashboard/LocationsView";
-import { MapFeatures } from "./maps/MapFeatures";
+import { MapStatusList } from "./maps/MapStatusList";
 import type { MapSettingsDto } from "./maps/map-settings";
 
 // Security › Sign-ins and Security › Sign-in locations — were the Dashboard's
@@ -23,9 +23,9 @@ export function SignInsSection() {
   );
 }
 
-// The map, then the setting that places sign-ins on it — the location databases,
-// moved here from Gallery › Settings (2026-11-19). When they change, the map is
-// read again so it shows what the new database places.
+// The map, then how the map features it draws on stand — the location databases
+// that place sign-ins, offline maps and town names — each a link to System
+// Settings › Maps, where they are set (2026-11-22).
 export function SignInLocationsSection() {
   const { t } = useTranslation(["common", "controlDash"]);
   const [databases, setDatabases] = useState("");
@@ -40,7 +40,7 @@ export function SignInLocationsSection() {
         description={t("controlDash:dash.locationsDescription")}
       />
       <LocationsView key={databases} />
-      <MapFeatures only={["signIns"]} onLoaded={loaded} />
+      <MapStatusList show={["signIns", "offline", "places"]} onLoaded={loaded} />
     </>
   );
 }

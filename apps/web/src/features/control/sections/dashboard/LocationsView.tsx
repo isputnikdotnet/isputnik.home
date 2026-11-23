@@ -2,14 +2,12 @@ import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Database, Globe2, House, MapPin, ShieldQuestion } from "lucide-react";
 import { api } from "../../../../api";
-import { controlHref, navigate } from "../../../../router";
+import { navigate } from "../../../../router";
+import { mapsHref } from "../maps/MapStatusList";
 
-/** The location databases' setting, under the map on this page; from elsewhere,
- *  this page opened at it. */
+/** The location databases' setting: the Sign-in locations card on System Settings › Maps. */
 function openDatabaseSetting() {
-  const setting = document.getElementById("sign-in-locations");
-  if (setting) setting.scrollIntoView({ behavior: "smooth", block: "start" });
-  else navigate(`${controlHref("signInLocations")}#sign-in-locations`);
+  navigate(mapsHref("signIns"));
 }
 import { Button } from "../../../../shared/Button";
 import { signInsHref } from "./SignInsView";

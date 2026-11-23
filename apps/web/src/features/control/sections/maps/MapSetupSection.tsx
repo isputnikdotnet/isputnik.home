@@ -9,15 +9,14 @@ import { formatBytes } from "../../../../shared/utils";
 import { ControlSectionHead } from "../../ControlSectionHead";
 import { storageHref } from "../../links";
 import { PhotoInboxCard } from "../storage/PhotoInboxCard";
-import { MapFeatures } from "./MapFeatures";
+import { MapStatusList } from "./MapStatusList";
 import type { MapSettingsDto, RoutingDto } from "./map-settings";
 
 // Gallery's Settings tab, laid out as its Overview (owner, 2026-11-19): cards of
-// what is kept across the top, then the Photo Inbox and, under Maps, offline maps
-// and photo place names as titled lists, each with its switch as the first row —
-// and beside them where map data lives. Sign-in locations moved to Security ›
-// Sign-in locations and road routes to Stories › Settings, beside what they feed.
-// The setup guide's Maps step shows all four as cards (MapFeatures).
+// what is kept across the top, then the Photo Inbox and, under Maps, how offline
+// maps and photo place names stand — and beside them where map data lives. The
+// map features themselves are set on System Settings › Maps (2026-11-22): they
+// serve Stories, Family Tree and the sign-in map too, so the rows here link there.
 export function MapSetupSection() {
   const { t } = useTranslation(["common", "control", "controlAdmin"]);
   const [maps, setMaps] = useState<{ status: MapSettingsDto; routing: RoutingDto["routing"] } | null>(null);
@@ -73,15 +72,7 @@ export function MapSetupSection() {
             <StatTiles tiles={tiles} label={t("control:appSetup.overview.tilesTitle")} />
           </section>
           <PhotoInboxCard plain />
-          {/* The four map features as one group, under its own heading (owner,
-              2026-11-19): same page, one grouping. */}
-          <section className="diag-tiles app-settings-group" aria-labelledby="gallery-settings-maps-title">
-            <header className="diag-tiles-head">
-              <h3 id="gallery-settings-maps-title">{t("control:settingsPage.mapsTitle")}</h3>
-              <span className="muted">{t("control:settingsPage.mapsNote")}</span>
-            </header>
-            <MapFeatures plain only={["offline", "places"]} onLoaded={loaded} />
-          </section>
+          <MapStatusList show={["offline", "places"]} from="gallery" onLoaded={loaded} />
         </div>
         <aside className="diag-video-side">
           {/* Where all of it is kept: App storage's Map data, moved from Storage. */}

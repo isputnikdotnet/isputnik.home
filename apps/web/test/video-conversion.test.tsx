@@ -131,6 +131,39 @@ describe("where converted video is kept (engine 0.35+)", () => {
     expect(mode).toBeDisabled();
     expect(screen.getByRole("option", { name: "In memory, then on the disk" })).toBeDisabled();
   });
+
+  it("shows memory and the disk as two places, each in use or not", async () => {
+    mockApi.mockResolvedValue(newer(true) as never);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
+    expect(await screen.findAllByText("In use")).toHaveLength(2);
+    expect(screen.getByText(/ of 1\.00 GB$/)).toBeInTheDocument();
+    expect(screen.getByText(/ used · 400(\.0)? GB free$/)).toBeInTheDocument();
+    cleanup();
+
+    // The disk is there but set aside: memory only.
+    mockApi.mockResolvedValue({ ...newer(true, { storage: "memory" }), storage: "memory" } as never);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
+    expect(await screen.findByText("Not used")).toBeInTheDocument();
+    expect(screen.getAllByText("In use")).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: /Set up a disk for video/ })).toBeNull();
+  });
+
+  it("links to setting a disk up when none is mapped, on the page and on the overview", async () => {
+    mockApi.mockResolvedValue(newer(false) as never);
+    render(<VideoSettings prefix="/video" page="conversion" go={() => undefined} />);
+    expect(await screen.findByText("Not set up")).toBeInTheDocument();
+    const guide = screen.getByRole("link", { name: /How to map the video container's Transcode folder/ });
+    expect(guide.getAttribute("href")).toMatch(/^\/help\/.+#where-converted-video-is-kept$/);
+    cleanup();
+
+    const opened: (string | null)[] = [];
+    render(<VideoSettings prefix="/video" page={null} go={(page) => opened.push(page)} />);
+    expect(await screen.findByText("No disk set up, so memory only")).toBeInTheDocument();
+    expect(screen.getAllByText("Memory only").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /How to map the video container's Transcode folder/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Where converted video is kept/ }));
+    expect(opened).toEqual(["conversion"]);
+  });
 });
 
 describe("films kept after watching (engine 0.35+)", () => {

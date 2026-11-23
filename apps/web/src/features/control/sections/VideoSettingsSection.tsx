@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { BarChart3, Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, Info, KeyRound, ListChecks, Monitor, MonitorPlay, Play, ScrollText, SkipForward } from "lucide-react";
+import { BarChart3, BookOpen, Clapperboard, Clock, Cpu, Download, Gauge, HardDrive, Image as ImageIcon, Info, KeyRound, ListChecks, MemoryStick, Monitor, MonitorPlay, Play, ScrollText, SkipForward } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref } from "../../../router";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -11,6 +11,7 @@ import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { MessageBox } from "../../../shared/MessageBox";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { formatBytes } from "../../../shared/utils";
+import { guideHref } from "../../help/catalog";
 import { KEEP_READY_URL, type KeepReadyState } from "../../video/KeepReadyModal";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { activityHref, logsHref, tasksHref } from "../links";
@@ -284,6 +285,7 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   // ── The overview ───────────────────────────────────────────────────────────
   const conv = conversion.state;
   const quality = conv?.settings.remoteQuality;
+  const kept = conv ? storageShort(conv, t) : null;
   const det = detection.state;
   const cop = copies.state;
   const meta = metadata.state;
@@ -292,7 +294,7 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
   const dash = "—";
   const tiles: StatTile[] = [
     { icon: <MonitorPlay size={19} />, iconTone: "rose", label: tc("control:appSetup.overview.watching"), value: conv ? String(conv.usage.viewers.length) : dash },
-    { icon: <Cpu size={19} />, iconTone: conv?.available ? "ok" : "warn", label: tc("control:appSetup.overview.conversion"), value: conv ? converterWord(conv, t) : dash },
+    { icon: <Cpu size={19} />, iconTone: conv?.available ? "ok" : "warn", label: tc("control:appSetup.overview.conversion"), value: conv ? converterWord(conv, t) : dash, sub: (conv && storageShort(conv, t)) ?? undefined },
     {
       icon: <Monitor size={19} />, iconTone: "blue", label: tc("control:appSetup.overview.quality"),
       value: quality === undefined ? dash : quality === null ? t("controlAdmin:apps.conversion.qualityOriginal") : t("controlAdmin:apps.conversion.qualityUpTo", { height: quality })
@@ -338,6 +340,20 @@ export function VideoSettings({ prefix, page, go }: { prefix: string; page: Page
           value={conv ? t("controlAdmin:apps.videoSettings.watching", { now: conv.usage.viewers.length }) : undefined}
           onClick={() => go("conversion")}
         />
+        {conv && kept && conv.disk && (
+          <NavRow
+            icon={<HardDrive size={17} />}
+            iconTone={conv.disk.mapped ? "ok" : "warn"}
+            label={t("controlAdmin:apps.conversion.storageTitle")}
+            sub={conv.disk.mapped
+              ? <span className="storage-row-path">{conv.disk.folder}</span>
+              : t("controlAdmin:apps.videoSettings.storageNoDisk")}
+            value={kept}
+            valueTone={conv.disk.mapped ? undefined : "warn"}
+            onClick={() => go("conversion")}
+          />
+        )}
+        {conv?.disk && !conv.disk.mapped && <DiskSetupRow />}
         {conv?.available && <HardwareTestRow prefix={prefix} onOpen={() => go("hardware")} />}
         {conv && quality !== undefined && (
           <PickerRow
@@ -441,6 +457,23 @@ function converterWord(state: ConversionState, t: T): string {
     : t("controlAdmin:apps.videoSettings.conversionCpu");
 }
 
+/** Where converted video is kept, in a word or two; null from an engine before 0.35. */
+function storageShort(state: ConversionState, t: T): string | null {
+  const storage = state.storage ?? state.settings.storage;
+  if (!storage) return null;
+  if (storage === "memory") return t("controlAdmin:apps.videoSettings.storageShortMemory");
+  return storage === "disk" ? t("controlAdmin:apps.videoSettings.storageShortDisk") : t("controlAdmin:apps.videoSettings.storageShortMemoryDisk");
+}
+
+/** The guide's section on mapping the container's Transcode folder to a disk: the
+ *  one thing here that is set outside the app. */
+const DISK_SETUP_HREF = `${guideHref("apps")}#where-converted-video-is-kept`;
+
+function DiskSetupRow() {
+  const { t } = useTranslation(["controlAdmin"]);
+  return <NavRow icon={<BookOpen size={17} />} label={t("controlAdmin:apps.conversion.diskSetupLabel")} sub={t("controlAdmin:apps.conversion.diskSetupSub")} href={DISK_SETUP_HREF} />;
+}
+
 function detectionWord(state: DetectionState, t: T): string {
   if (!state.available) return t("controlAdmin:apps.detection.unavailableTitle");
   if (!state.enabled) return t("controlAdmin:apps.videoSettings.detectionOff");
@@ -537,6 +570,37 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
     "memory-disk": t("controlAdmin:apps.conversion.storageMemoryDisk"),
     disk: t("controlAdmin:apps.conversion.storageDisk")
   };
+  // Memory, the disk, or both: each place says whether it is in use and how full.
+  const memoryOn = inForce !== "disk";
+  const diskOn = Boolean(disk?.mapped) && inForce !== "memory";
+  const inUse = (on: boolean) => (on ? t("controlAdmin:apps.conversion.placeInUse") : t("controlAdmin:apps.conversion.placeNotUsed"));
+  const free = disk && disk.freeBytes !== null ? formatBytes(disk.freeBytes) : null;
+  const places: StatTile[] = !storage || !disk ? [] : [
+    {
+      icon: <MemoryStick size={19} />, iconTone: memoryOn ? "ok" : "blue",
+      label: t("controlAdmin:apps.conversion.placeMemory"),
+      value: inUse(memoryOn),
+      sub: memoryOn && state.settings.memoryMb
+        ? t("controlAdmin:apps.conversion.placeMemoryOf", { used: formatBytes(usage.memoryBytes), total: formatBytes(state.settings.memoryMb * 1024 * 1024) })
+        : undefined
+    },
+    disk.mapped
+      ? {
+        icon: <HardDrive size={19} />, iconTone: diskOn ? "ok" : "blue",
+        label: t("controlAdmin:apps.conversion.placeDisk"),
+        value: inUse(diskOn),
+        sub: diskOn
+          ? (free ? t("controlAdmin:apps.conversion.placeDiskUsedFree", { used: formatBytes(usage.diskBytes), free }) : t("controlAdmin:apps.conversion.placeDiskUsed", { used: formatBytes(usage.diskBytes) }))
+          : (free ? t("controlAdmin:apps.conversion.placeDiskFree", { free }) : undefined)
+      }
+      : {
+        icon: <HardDrive size={19} />, tone: "warn",
+        label: t("controlAdmin:apps.conversion.placeDisk"),
+        value: t("controlAdmin:apps.conversion.placeNotSetUp"),
+        sub: t("controlAdmin:apps.conversion.diskSetupLabel"),
+        href: DISK_SETUP_HREF
+      }
+  ];
 
   return (
     <div className="grouped-page">
@@ -599,8 +663,18 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
         </GroupedList>
       )}
 
+      {/* The two places first, under the group's heading: at a glance, which are in use. */}
+      {places.length > 0 && (
+        <section className="diag-tiles is-pair" aria-labelledby="video-conversion-places-title">
+          <header className="diag-tiles-head">
+            <h3 id="video-conversion-places-title">{t("controlAdmin:apps.conversion.storageTitle")}</h3>
+          </header>
+          <StatTiles tiles={places} label={t("controlAdmin:apps.conversion.storageTitle")} />
+        </section>
+      )}
+
       {storage && disk && (
-        <GroupedList id="video-conversion-storage" title={t("controlAdmin:apps.conversion.storageTitle")} note={t("controlAdmin:apps.conversion.storageHelp")}>
+        <GroupedList id="video-conversion-storage" note={t("controlAdmin:apps.conversion.storageHelp")}>
           {disk.mapped ? (
             <InfoRow
               icon={<HardDrive size={17} />}
@@ -614,11 +688,12 @@ function ConversionPage({ url, state, setState, reload, saving, errors, onSave }
           ) : (
             <InfoRow
               icon={<HardDrive size={17} />}
-              iconTone="muted"
+              iconTone="warn"
               label={t("controlAdmin:apps.conversion.diskNoneTitle")}
               sub={t("controlAdmin:apps.conversion.diskNoneBody")}
             />
           )}
+          {!disk.mapped && <DiskSetupRow />}
           <PickerRow
             label={t("controlAdmin:apps.conversion.storageLabel")}
             value={inForce ?? storage}

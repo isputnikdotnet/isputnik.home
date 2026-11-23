@@ -129,10 +129,10 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
     "почта сервер порт пароль отправитель тест письмо",
   notifications: "notify email alerts members shared with me sharing switch on off opt in " +
     "уведомления почта оповещения участники поделились со мной включить выключить",
-  mapSetup: "maps map caching offline privacy openfreemap tiles basemap set up turn on off limit named places geonames " +
-    "photo inbox villages " +
-    "входящие сёла " +
-    "карты кэширование карт офлайн конфиденциальность тайлы подложка мастер настроить включить выключить тёмная подписи язык",
+  mapSetup: "gallery settings photo inbox reviewers scanning maps " +
+    "настройки галереи входящие фото разбор сканирование карты",
+  maps: "maps map settings caching offline privacy openfreemap tiles basemap set up turn on off limit named places geonames villages sign-in locations geoip road routes openrouteservice " +
+    "карты настройки карт кэширование карт офлайн конфиденциальность тайлы подложка настроить включить выключить названия мест сёла расположение входов маршруты по дорогам",
   appsAccess: "apps containers access who may use members managers deny everyone groups network rules trusted home network anywhere outside internet lan restrict games " +
     "приложения контейнеры доступ кто может участники менеджеры запретить все группы сеть правила доверенные домашняя сеть откуда снаружи интернет ограничить игры",
   appsSetup: "apps containers setup pair pairing secret gateway secret generate rotate replace forget template unraid connect test connection games " +
@@ -236,27 +236,27 @@ const SETTING_ENTRIES: { titleKey: SettingKey; section: ControlSection; keywords
   },
   {
     titleKey: "mapRouting",
-    section: "storySettings",
+    section: "maps",
     anchor: "road-routes",
     keywords: "route roads driving walking cycling openrouteservice api key directions story map itinerary travel маршрут дороги машина пешком велосипед ключ прокладка карта путешествие"
   },
   {
     titleKey: "mapCaching",
-    section: "mapSetup",
+    section: "maps",
     anchor: "offline-maps",
     keywords: "offline maps keep maps on this server cache tiles limit size privacy provider sees where storage map data " +
       "хранить карты на сервере офлайн кэш тайлы конфиденциальность провайдер видит хранилище данные карт"
   },
   {
     titleKey: "namedPlaces",
-    section: "mapSetup",
+    section: "maps",
     anchor: "named-places",
     keywords: "named places place names reverse geocoding geonames town city where photo was taken places filter update rebuild " +
       "названия мест обратное геокодирование город где сделан снимок фильтр места обновить пересобрать"
   },
   {
     titleKey: "locationDatabase",
-    section: "signInLocations",
+    section: "maps",
     anchor: "sign-in-locations",
     keywords: "sign-in locations geoip database country city mmdb dbip geolite maxmind fetch upload remove " +
       "расположение входов геолокация база страна город скачать загрузить удалить"

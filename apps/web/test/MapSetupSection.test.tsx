@@ -6,7 +6,7 @@ vi.mock("../src/api", () => ({ api: vi.fn() }));
 
 const { api } = await import("../src/api");
 const { MapSetupSection } = await import("../src/features/control/sections/maps/MapSetupSection");
-const { MapFeatures } = await import("../src/features/control/sections/maps/MapFeatures");
+const { MapsSection } = await import("../src/features/control/sections/maps/MapsSection");
 const mockApi = vi.mocked(api);
 
 // The Maps page (docs/map-approach-proposal.md, "A simpler Maps › Setup"): four
@@ -64,7 +64,7 @@ function mount(
   initial: ReturnType<typeof status>,
   handlers: Record<string, (body: unknown) => unknown> = {},
   routing = { endpoint: "", hasApiKey: false },
-  page: "gallery" | "signIns" | "routes" = "gallery"
+  page: "gallery" | "maps" = "maps"
 ) {
   calls = [];
   let current = initial;
@@ -85,7 +85,7 @@ function mount(
     if (method === "GET" && path === "/api/config/routing") return { routing: routes, configured: routes.hasApiKey };
     throw new Error(`unexpected ${method} ${path}`);
   });
-  render(page === "gallery" ? <MapSetupSection /> : <MapFeatures only={[page]} />);
+  render(page === "gallery" ? <MapSetupSection /> : <MapsSection />);
 }
 
 const card = async (title: string) => (await screen.findByRole("heading", { name: new RegExp(`^${title}`) })).closest("section") as HTMLElement;
@@ -104,9 +104,25 @@ describe("the Maps page", () => {
     expect(within(placesCard).getByRole("switch")).toHaveAttribute("aria-checked", "true");
     expect(within(placesCard).getByText(/235.747 places · built/)).toBeInTheDocument();
 
-    // Sign-in locations is Security's, road routes Stories': not on Gallery's page.
-    expect(screen.queryByRole("heading", { name: /^Sign-in locations/ })).toBeNull();
-    expect(screen.queryByRole("heading", { name: /^Road routes/ })).toBeNull();
+    // All four are here, each saying which pages draw on it.
+    expect(within(offline).getByText("Gallery, Stories, Family Tree, Sign-in locations")).toBeInTheDocument();
+    expect(within(placesCard).getByText("Gallery, Family Tree, Sign-in locations")).toBeInTheDocument();
+    expect(within(await card("Sign-in locations")).getByText("Used by")).toBeInTheDocument();
+    expect(within(await card("Road routes")).getByText("Stories")).toBeInTheDocument();
+    // What maps need, and that they need none of it, said before the cards.
+    expect(screen.getByText("Maps work without any of this")).toBeInTheDocument();
+    expect(screen.getByText(/All map data is kept in/)).toBeInTheDocument();
+  });
+
+  it("shows on Gallery's page how its map features stand, as links to the Maps page", async () => {
+    mount(status({ cache: true, bytes: 48 * MB, places: "on" }), {}, undefined, "gallery");
+    const maps = await screen.findByRole("region", { name: "Maps" });
+    const offlineRow = await within(maps).findByRole("link", { name: /Offline maps.*On/ });
+    expect(offlineRow).toHaveAttribute("href", "/control/settings/maps?from=gallery#offline-maps");
+    expect(within(maps).getByRole("link", { name: /Photo place names.*On/ })).toHaveAttribute("href", "/control/settings/maps?from=gallery#named-places");
+    // No switch here: the features are set in one place.
+    expect(within(maps).queryByRole("switch")).toBeNull();
+    expect(within(maps).queryByRole("link", { name: /Road routes/ })).toBeNull();
     // Laid out as Gallery's Overview (2026-11-19): cards across the top, and where
     // the map data is kept beside the features rather than under them.
     const tiles = screen.getByRole("region", { name: "At a glance" });
@@ -114,7 +130,6 @@ describe("the Maps page", () => {
     expect(within(tiles).getByRole("link", { name: "Map data" })).toHaveAttribute("href", expect.stringContaining("storage"));
     const where = screen.getByRole("region", { name: "Where it is kept" });
     expect(within(where).getByText("D:\\Demo\\Map data")).toBeInTheDocument();
-    expect(screen.queryByText(/All map data is kept in/)).not.toBeInTheDocument();
   });
 
   it("asks before turning offline maps on, saying the limit and the folder, then turns them on", async () => {
@@ -176,7 +191,7 @@ describe("the Maps page", () => {
     mount(status({ country: true, city: true }), {
       "DELETE /api/dashboard/locations/database/owner-city.mmdb": () => ({ reply: { freedBytes: 120 * MB } }),
       "DELETE /api/dashboard/locations/database/dbip-country-lite.mmdb": () => ({ next: status(), reply: { freedBytes: 8 * MB } })
-    }, undefined, "signIns");
+    });
     await user.click(within(await card("Sign-in locations")).getByRole("switch"));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(/"owner-city.mmdb" came from you, so the app cannot fetch it again/)).toBeInTheDocument();
@@ -192,7 +207,7 @@ describe("the Maps page", () => {
     const user = userEvent.setup();
     mount(status({ country: true }), {
       "POST /api/dashboard/locations/database/url": () => ({ next: status({ country: true, city: true }), reply: { installed: { name: "owner-city.mmdb" } } })
-    }, undefined, "signIns");
+    });
     const signIns = await card("Sign-in locations");
     await user.click(within(signIns).getByRole("button", { name: "Where to get a towns database" }));
     expect(screen.getByRole("link", { name: /DB-IP City Lite/ })).toHaveAttribute("href", "https://db-ip.com/db/download/ip-to-city-lite");
@@ -212,7 +227,7 @@ describe("the Maps page", () => {
     mount(status(), {
       "PUT /api/config/routing": () => ({ routing: { endpoint: "", hasApiKey: true }, reply: { routing: { endpoint: "", hasApiKey: true }, configured: true } }),
       "POST /api/config/routing/test": () => ({ reply: { ok: true } })
-    }, undefined, "routes");
+    });
     const routes = await card("Road routes");
     await user.click(within(routes).getByRole("switch"));
     // Nothing is saved by the switch itself: there is no key yet.
@@ -228,7 +243,7 @@ describe("the Maps page", () => {
     const user = userEvent.setup();
     mount(status(), {
       "PUT /api/config/routing": () => ({ routing: { endpoint: "", hasApiKey: false }, reply: {} })
-    }, { endpoint: "", hasApiKey: true }, "routes");
+    }, { endpoint: "", hasApiKey: true });
     await user.click(within(await card("Road routes")).getByRole("switch"));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(/Routes already saved keep their roads/)).toBeInTheDocument();

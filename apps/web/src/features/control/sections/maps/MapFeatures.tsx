@@ -17,6 +17,8 @@ import { formatBytes, formatManagedDate } from "../../../../shared/utils";
 import { MapFeatureCard, MapFeatureMeter, MapFeaturePart } from "./MapFeatureCard";
 import { VillageCountries } from "./VillageCountries";
 import { storageHref } from "../../links";
+import { appLabel, tabLabel } from "../../nav";
+import type { MapFeatureKey } from "./MapStatusList";
 import {
   CACHE_LIMITS_MB,
   cityDatabase,
@@ -89,13 +91,13 @@ function SourceLink({ href, children }: { href: string; children: string }) {
   );
 }
 
-export type MapFeatureKey = "offline" | "places" | "signIns" | "routes";
+export type { MapFeatureKey };
 
 /** `plain`: each feature a titled list, one under another, and no folder line —
  *  Gallery › Settings says where map data lives beside them. `onLoaded` hands what
- *  was read to the page, for its cards across the top. `only`: the features this
- *  page shows (2026-11-19): Gallery's offline maps and place names, Security's
- *  sign-in locations, Stories' road routes; the setup guide shows all four. */
+ *  was read to the page, for its cards across the top. `only`: some of the four.
+ *  System Settings › Maps and the setup guide show all four; an application's
+ *  page shows how its features stand and links here (MapStatusList). */
 export function MapFeatures({ plain = false, onLoaded, only }: {
   plain?: boolean;
   onLoaded?: (status: MapSettingsDto, routing: RoutingDto["routing"]) => void;
@@ -310,6 +312,15 @@ export function MapFeatures({ plain = false, onLoaded, only }: {
   // Off, there is nowhere to keep maps or place names: switching them on waits, and
   // switching one off that is somehow still on stays possible.
   const needsAppStorage = status.appStorage?.enabled === false;
+  // Who draws on each feature: said on its card, since most serve several pages.
+  const usedByLabel = t("controlAdmin:mapFeatures.usedBy");
+  const signInsPage = tabLabel("signInLocations");
+  const usedBy: Record<MapFeatureKey, string> = {
+    offline: [appLabel("gallery"), appLabel("stories"), appLabel("familyTree"), signInsPage].join(", "),
+    places: [appLabel("gallery"), appLabel("familyTree"), signInsPage].join(", "),
+    signIns: signInsPage,
+    routes: appLabel("stories")
+  };
   const cachePercent = cache.limitBytes > 0 ? Math.min(100, Math.round((cache.bytes / cache.limitBytes) * 100)) : 0;
 
   return (
@@ -344,6 +355,7 @@ export function MapFeatures({ plain = false, onLoaded, only }: {
           disabled={busy !== null || (needsAppStorage && !settings.cache)}
           onToggle={(next) => { setActionError(""); setPending({ kind: next ? "offlineOn" : "offlineOff" }); }}
           facts={[
+            { label: usedByLabel, value: usedBy.offline },
             { label: t("controlAdmin:mapFeatures.source"), value: "OpenFreeMap" },
             { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.offlineArrives") },
             settings.cache
@@ -406,6 +418,7 @@ export function MapFeatures({ plain = false, onLoaded, only }: {
           disabled={busy !== null || places.build.running || (needsAppStorage && !places.present)}
           onToggle={(next) => { setActionError(""); setPending({ kind: next ? "placesOn" : "placesOff" }); }}
           facts={[
+            { label: usedByLabel, value: usedBy.places },
             { label: t("controlAdmin:mapFeatures.source"), value: "GeoNames" },
             { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.placesArrives") },
             places.present
@@ -461,6 +474,7 @@ export function MapFeatures({ plain = false, onLoaded, only }: {
           disabled={busy !== null}
           onToggle={(next) => { setActionError(""); setPending({ kind: next ? "signInsOn" : "signInsOff" }); }}
           facts={[
+            { label: usedByLabel, value: usedBy.signIns },
             { label: t("controlAdmin:mapFeatures.source"), value: city ? (country ? t("controlAdmin:mapFeatures.signInsSourceWithTowns") : t("controlAdmin:mapFeatures.signInsSourceTownsOnly")) : "DB-IP" },
             { label: t("controlAdmin:mapFeatures.arrives"), value: t("controlAdmin:mapFeatures.signInsArrives") },
             signInsOn
@@ -560,6 +574,7 @@ export function MapFeatures({ plain = false, onLoaded, only }: {
             else { setRoutesOpen(false); setApiKey(""); }
           }}
           facts={[
+            { label: usedByLabel, value: usedBy.routes },
             { label: t("controlAdmin:mapFeatures.source"), value: "OpenRouteService" },
             { label: t("controlAdmin:mapFeatures.needs"), value: t("controlAdmin:mapFeatures.routesNeeds") },
             { label: t("controlAdmin:mapFeatures.sent"), value: t("controlAdmin:mapFeatures.routesSent") }

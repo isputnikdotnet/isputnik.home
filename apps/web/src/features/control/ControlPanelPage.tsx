@@ -74,6 +74,7 @@ const StorySettingsSection = lazy(() => import("./sections/StorySettingsSection"
 const AppsAccessSection = lazy(() => import("./sections/AppsSection").then((m) => ({ default: m.AppsAccessSection })));
 const PairingSection = lazy(() => import("./sections/PairingSection").then((m) => ({ default: m.PairingSection })));
 const VideoSettingsSection = lazy(() => import("./sections/VideoSettingsSection").then((m) => ({ default: m.VideoSettingsSection })));
+const MapsSection = lazy(() => import("./sections/maps/MapsSection").then((m) => ({ default: m.MapsSection })));
 const MapSetupSection = lazy(() => import("./sections/maps/MapSetupSection").then((m) => ({ default: m.MapSetupSection })));
 const SecuritySection = lazy(() => import("./sections/SecuritySection").then((m) => ({ default: m.SecuritySection })));
 const PhoneSyncSection = lazy(() => import("./sections/PhoneSyncSection").then((m) => ({ default: m.PhoneSyncSection })));
@@ -288,6 +289,7 @@ function ControlSectionBody({
     case "appearance":      return <AppearanceSection />;
     case "quotes":          return <QuotesSection />;
     case "mapSetup":        return <MapSetupSection />;
+    case "maps":            return <MapsSection />;
     case "storySettings":   return <StorySettingsSection />;
     case "email":           return <MailSection />;
     case "notifications":   return <NotificationsSection />;
