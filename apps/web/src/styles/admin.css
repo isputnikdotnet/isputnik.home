@@ -3498,7 +3498,9 @@ tr.control-anchor-flash > td {
 .is-cache-off .video-flow-lines .is-cache { stroke: var(--line); stroke-dasharray: 4 4; }
 .video-flow-node { display: grid; place-content: center; justify-items: center; gap: 4px; top: 22%; height: 56%; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, var(--surface)); text-align: center; }
 .video-flow-node.is-source { left: 0; width: 12%; }
-.video-flow-node.is-device { left: 90%; width: 10%; }
+.video-flow-node.is-device { left: 89%; width: 11%; padding: 8px 3px; }
+/* The narrowest box: its name is one word a line, never broken inside one («Телефон»). */
+.video-flow-node.is-device strong { font-size: clamp(0.74rem, 0.98vw, 0.84rem); }
 .video-flow-node strong { font-size: 0.9rem; font-weight: 650; line-height: 1.2; }
 .video-flow-node small { color: var(--muted); font-size: 0.74rem; line-height: 1.25; }
 /* A question: a square turned on its corner, its words upright inside it. */
