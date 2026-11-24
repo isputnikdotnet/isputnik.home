@@ -99,7 +99,7 @@ Five sections, from the top, each leading to the page that acts on it:
 Two tabs beside the Dashboard's own, at the top of the page (they were under
 Security & Members until the Dashboard took them in).
 
-![Dashboard › Sign-ins: attempts, successes and failures for the chosen window, the devices still signed in, and the addresses they came from](images/130-sign-ins.png)
+![Dashboard › Sign-ins: attempts, successes and failures for the chosen window, and the devices still signed in, by person and kind](images/130-sign-ins.png)
 
 - **Sign-ins** — who got in, from where, and what is
   still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
