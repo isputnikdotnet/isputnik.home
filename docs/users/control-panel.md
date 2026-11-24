@@ -527,7 +527,13 @@ Everything about members backing up their phones, laid out like a phone's Settin
 one column of rows, each showing its value, and a tap opens it. Setting it up step by
 step has [its own guide](phone-sync-setup.md).
 
-- **At the top**, one line says whether phone backup is on — how many phones, and when
+- **How phone backup works** (on a computer's screen; tablets and phones leave it out) is
+  a picture of the path of one photo: from the phone, through four checks — *Allowed
+  network? Signed in? Room left? New photo?* — into the member's personal library. Under
+  each check is where a "No" leads. A check turns amber when it is stopping a phone now,
+  with how many, and its way out becomes a button to that phone or to adding a network.
+  It never counts what a phone sent.
+- **Under it**, one line says whether phone backup is on — how many phones, and when
   the last backup came in. While it is off, that line is the steps that turn it on: a
   network, the address phones use, then a phone.
 - **Phones** — every member's phones, whose they are, and one word for each: backed up

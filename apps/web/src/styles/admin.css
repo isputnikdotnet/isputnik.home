@@ -3649,3 +3649,40 @@ tr.control-anchor-flash > td {
   .video-dm-cache-use { justify-self: stretch; }
   .video-dm-usage-left { margin-left: 0; }
 }
+
+/* CheckChain: what sets out, the checks it passes in a row, and where it arrives; under
+   each check, where a No leads. Left out on tablets and phones, as the video flows are. */
+.check-chain { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+.check-chain h3 { margin: 0 0 3px; font-size: 1.15rem; }
+.check-chain-row { display: grid; grid-template-columns: minmax(110px, 1fr) repeat(var(--chain-checks, 4), minmax(0, 1.2fr)) minmax(110px, 1fr); align-items: start; gap: 0 26px; margin: 0; padding: 0; list-style: none; }
+.check-chain-row > li { position: relative; min-width: 0; }
+/* The way on: a short line from each piece to the next, at the height of the questions. */
+.check-chain-row > li + li::before { content: ""; position: absolute; top: 33px; left: -22px; width: 18px; border-top: 2px solid var(--success); }
+.check-chain-row > li + li::after { content: ""; position: absolute; top: 29px; left: -10px; width: 8px; height: 8px; border-top: 2px solid var(--success); border-right: 2px solid var(--success); transform: rotate(45deg); }
+.check-chain-end { display: grid; place-content: center; justify-items: center; gap: 3px; min-height: 68px; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, var(--surface)); text-align: center; }
+.check-chain-end > span { color: var(--gold); }
+.check-chain-end strong { font-size: 0.9rem; font-weight: 650; line-height: 1.2; }
+.check-chain-end small { color: var(--muted); font-size: 0.76rem; line-height: 1.25; }
+.check-chain-end.is-warn small { color: var(--warning); font-weight: 600; }
+.check-chain-step { display: grid; justify-items: stretch; gap: 0; }
+.check-chain-ask { display: grid; place-content: center; gap: 2px; min-height: 68px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 14px; text-align: center; }
+.check-chain-ask strong { font-size: 0.92rem; font-weight: 650; line-height: 1.2; }
+.check-chain-ask small { font-size: 0.76rem; line-height: 1.25; }
+.check-chain-step.is-ok .check-chain-ask { border-color: color-mix(in srgb, var(--success) 55%, var(--line)); background: color-mix(in srgb, var(--success) 12%, var(--surface)); }
+.check-chain-step.is-ok .check-chain-ask small { color: var(--success); }
+.check-chain-step.is-warn .check-chain-ask { border-color: color-mix(in srgb, var(--warning) 60%, var(--line)); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+.check-chain-step.is-warn .check-chain-ask small { color: var(--warning); font-weight: 600; }
+.check-chain-step.is-plain .check-chain-ask { background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
+.check-chain-step.is-plain .check-chain-ask small { color: var(--muted); }
+/* No, and down to where it leads. */
+.check-chain-no { justify-self: center; display: grid; justify-items: center; gap: 1px; padding: 5px 0 3px; color: var(--amber); font-size: 0.72rem; font-weight: 650; }
+.check-chain-no::after { content: ""; width: 0; height: 12px; border-left: 2px solid var(--amber); }
+.check-chain-exit { display: grid; gap: 1px; width: 100%; padding: 7px 8px; border: 1px dashed var(--line); border-radius: 12px; background: none; color: inherit; font: inherit; text-align: center; }
+.check-chain-exit strong { font-size: 0.84rem; font-weight: 600; }
+.check-chain-exit small { color: var(--muted); font-size: 0.76rem; line-height: 1.25; }
+.check-chain-step.is-warn .check-chain-exit { border-style: solid; border-color: color-mix(in srgb, var(--warning) 60%, var(--line)); }
+.check-chain-step.is-warn .check-chain-exit strong { color: var(--warning); }
+.check-chain-exit.is-fix { cursor: pointer; }
+.check-chain-exit.is-fix:hover { background: var(--hover); }
+.check-chain-exit.is-fix small { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 1100px) { .check-chain { display: none; } }

@@ -34,7 +34,10 @@ own phones, and you see how each phone is doing, never what it sent.
 
 ## Allowing personal libraries
 
-Device Sync is one page: a row of numbers on top (phones, personal libraries, last backup,
+Device Sync is one page. On a computer's screen it opens with **How phone backup works**:
+the four checks a photo passes on its way from a phone to a personal library (allowed
+network, signed in, room left, not already stored), each amber when it is stopping a phone
+now. Below that: a row of numbers (phones, personal libraries, last backup,
 allowed networks), the settings in the main column, and on the right links to **Statistics**,
 **Make a library personal**, the **Log** (Logs filtered to phone backup) and this guide.
 **Statistics** is a page of its own: phones and members backing up, refusals in the last 30 days,

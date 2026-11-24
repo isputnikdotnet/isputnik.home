@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { BarChart3, BookOpen, Link2, Plus, ScrollText, Smartphone, UserRoundCheck, Wifi } from "lucide-react";
+import { BarChart3, BookOpen, ImageUp, Link2, Plus, ScrollText, Smartphone, UserRoundCheck, Wifi } from "lucide-react";
 import { api } from "../../../api";
 import { libraryManageHref, memberHref } from "../../../router";
 import { Button } from "../../../shared/Button";
@@ -15,6 +15,7 @@ import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { queryPageHref, useQueryPage } from "../../../shared/useQueryPage";
 import { ControlBackBar } from "../ControlBackBar";
+import { CheckChain } from "../CheckChain";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { logsHref } from "../links";
 import { DeviceSyncStats } from "./DeviceSyncStats";
@@ -365,11 +366,71 @@ export function PhoneSyncSection() {
   const lastBackup = phones.map((phone) => phone.lastSeen).filter((value): value is string => Boolean(value)).sort().pop() ?? null;
   const warnCount = phones.filter((phone) => shortState(phone).warn).length;
   const personalBytes = (personal?.libraries ?? []).reduce((sum, library) => sum + library.sizeBytes, 0);
+
+  // How phone backup works, as the checks a photo passes — and which of them is
+  // stopping a phone now (the server's own reasons: sync/dav.ts, sync/put.ts). The
+  // last one wears no number: what a phone sent is never counted here.
+  const stoppedBy = (...codes: AdminProblem[]) => phones.filter((phone) => phone.problem?.current && codes.includes(phone.problem.code));
+  const offNetwork = stoppedBy("not_listed", "proxy");
+  const noRoom = phones.filter((phone) => phone.atLimit || (phone.problem?.current && ["quota", "disk_full", "library_unavailable"].includes(phone.problem.code)));
+  const backingUp = phones.filter((phone) => !phone.stale && !phone.problem?.current && !phone.atLimit).length;
+  // A phone that has stopped calling is refused by nothing: it shows at the start of the chain.
+  const quiet = phones.filter((phone) => phone.stale).length;
+  const noNetworks = networks.networks.length === 0;
+  const roomWhy = noRoom[0]?.problem?.current && noRoom[0].problem.code === "disk_full" ? "roomFixDisk"
+    : noRoom[0]?.problem?.current && noRoom[0].problem.code === "library_unavailable" ? "roomFixLibrary" : "roomFixQuota";
   return (
     <>
       {head}
       <div className="device-sync device-sync-overview">
         {errors}
+        <CheckChain
+          icon={<Smartphone size={22} />}
+          title={t("controlAdmin:deviceSync.flow.title")}
+          body={t("controlAdmin:deviceSync.flow.body")}
+          aria={t("controlAdmin:deviceSync.flow.aria")}
+          learnHref="/help/phone-sync-setup"
+          learnLabel={t("controlAdmin:apps.videoHero.learnMore")}
+          noLabel={t("controlAdmin:apps.videoHero.no")}
+          source={{ icon: <Smartphone size={24} />, title: t("controlAdmin:deviceSync.flow.phone"), sub: quiet > 0 ? t("controlAdmin:deviceSync.flow.quiet", { count: quiet }) : t("controlAdmin:deviceSync.flow.phonesSetUp", { count: phones.length }), warn: quiet > 0 }}
+          end={{ icon: <ImageUp size={24} />, title: t("controlAdmin:deviceSync.flow.library"), sub: t("controlAdmin:deviceSync.flow.backingUp", { count: backingUp }) }}
+          checks={[
+            {
+              question: t("controlAdmin:deviceSync.flow.network"),
+              tone: noNetworks || offNetwork.length > 0 ? "warn" : "ok",
+              status: noNetworks ? t("controlAdmin:deviceSync.flow.networkNone")
+                : offNetwork.length > 0 ? t("controlAdmin:deviceSync.flow.stopped", { count: offNetwork.length })
+                : t("controlAdmin:deviceSync.flow.networks", { count: networks.networks.length }),
+              exit: t("controlAdmin:deviceSync.flow.refused"),
+              exitNote: noNetworks ? t("controlAdmin:deviceSync.flow.networkAdd")
+                : offNetwork[0]?.problem?.code === "proxy" ? t("controlAdmin:deviceSync.flow.proxyFix") : t("controlAdmin:deviceSync.flow.networkFix"),
+              // To the phone it is stopping (its page offers the range to add), or to adding the first network.
+              onFix: noNetworks ? () => go({ page: "addNetwork" }) : offNetwork[0] ? () => go({ page: "phone", id: offNetwork[0].id }) : undefined
+            },
+            {
+              question: t("controlAdmin:deviceSync.flow.signedIn"),
+              tone: "plain",
+              status: t("controlAdmin:deviceSync.flow.signedInSub"),
+              exit: t("controlAdmin:deviceSync.flow.signedInExit"),
+              exitNote: t("controlAdmin:deviceSync.flow.signedInExitNote")
+            },
+            {
+              question: t("controlAdmin:deviceSync.flow.room"),
+              tone: noRoom.length > 0 ? "warn" : "ok",
+              status: noRoom.length > 0 ? t("controlAdmin:deviceSync.flow.stopped", { count: noRoom.length }) : t("controlAdmin:deviceSync.flow.roomOk"),
+              exit: t("controlAdmin:deviceSync.flow.refused"),
+              exitNote: t(`controlAdmin:deviceSync.flow.${roomWhy}`),
+              onFix: noRoom[0] ? () => go({ page: "phone", id: noRoom[0].id }) : undefined
+            },
+            {
+              question: t("controlAdmin:deviceSync.flow.fresh"),
+              tone: "plain",
+              status: t("controlAdmin:deviceSync.flow.freshSub"),
+              exit: t("controlAdmin:deviceSync.flow.freshExit"),
+              exitNote: t("controlAdmin:deviceSync.flow.freshExitNote")
+            }
+          ]}
+        />
         <StatTiles
           label={t("controlAdmin:deviceSync.statsLabel")}
           tiles={[
