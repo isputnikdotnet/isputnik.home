@@ -99,6 +99,8 @@ Five sections, from the top, each leading to the page that acts on it:
 Two tabs beside the Dashboard's own, at the top of the page (they were under
 Security & Members until the Dashboard took them in).
 
+![Dashboard › Sign-ins: attempts, successes and failures for the chosen window, the devices still signed in, and the addresses they came from](images/130-sign-ins.png)
+
 - **Sign-ins** — who got in, from where, and what is
   still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
   end) and everything below follows it: cards for attempts, successes (with the
@@ -161,6 +163,9 @@ Security & Members until the Dashboard took them in).
   an address already blocked); and the lockout and auto-block settings. Narrowed
   to one person, it offers **Everything they did, in Logs** — Logs filtered to
   that person's account, so two people with the same name stay apart.
+
+![Dashboard › Sign-in locations: countries, home and outside counts for the chosen window, and the map with the Home marker](images/131-sign-in-locations.png)
+
 - **Sign-in locations** — where sign-ins came from, over the window you pick: a world map
   shaded by how many connections each country sent, and a table of countries with
   connections, failures and how many distinct addresses were behind them. Sign-ins
@@ -843,6 +848,8 @@ App access — and **Security Policies** — Overview, Policies, Trusted network
 Blocked IPs. Each section has its own row of tabs, and the nav lists the two sections
 under the group. Who signed in, and from where, is on the Dashboard's **Sign-ins** and
 **Sign-in locations** tabs.
+
+![Security & Members: User Management with Users, Groups, Invite links and App access, and Security Policies with Overview, Policies, Trusted networks and Blocked IPs](images/129-security-members.png)
 
 ### Members, groups and invites
 

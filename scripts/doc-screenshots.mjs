@@ -740,6 +740,13 @@ const SHOTS = [
   },
   // Video Downloads from the top: how downloads work, the queue's state, the rules.
   { name: "127-video-downloads-prepared", url: "control/apps/videos/downloads", wait: 3500, height: 1500 },
+  // Security & Members' directory and the Dashboard's two sign-in tabs (docs/users/control-panel.md).
+  { name: "129-security-members", url: "control/security", wait: 2000 },
+  { name: "130-sign-ins", url: "control/sign-ins", wait: 3500, height: 1100, state: "some sign-ins on record" },
+  // The map centres on the server's Home marker, and a public guide must not show where a
+  // real home is: the demo site's Home is the middle of the United States (Lebanon, Kansas).
+  // Check that before taking this against any other install.
+  { name: "131-sign-in-locations", url: "control/sign-in-locations", wait: 7000, height: 1100, state: "Home set to a neutral place" },
   {
     // An admin's Keep ready dialog on a film's page (the first film in the library).
     name: "128-video-keep-ready",
