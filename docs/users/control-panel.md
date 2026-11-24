@@ -850,7 +850,7 @@ under the group. Who signed in, and from where, is on the Dashboard's **Sign-ins
 Three tabs: the people, the groups you gather them into, and the invite links
 that bring new ones in.
 
-![The Users tab, with the first administrator carrying its Protected badge](images/65-members.png)
+![User Management › Users, with the first administrator carrying its Protected badge](images/65-members.png)
 
 - **Users** — one row per person, with a search above the list: their initials,
   name, any marks (**Current**, **Protected**, **Locked**), address and role, and

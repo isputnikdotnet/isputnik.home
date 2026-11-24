@@ -80,7 +80,7 @@ protected, and the toggle switches the scoring between a home network and one
 reachable from the internet — the same settings are judged far more harshly on
 the second:
 
-![The Security overview, scoring each protection for a server reachable from the internet](images/64-security-overview.png)
+![Security Policies › Overview: how the server is protected, then the protection level for a server reachable from the internet](images/64-security-overview.png)
 
 - **Turn on two-factor authentication** for admin accounts, and encourage everyone
   to use it — see [Two-factor authentication](two-factor-authentication.md).

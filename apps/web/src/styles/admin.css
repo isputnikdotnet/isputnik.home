@@ -3572,8 +3572,12 @@ tr.control-anchor-flash > td {
 .video-hw-text strong { font-size: 0.98rem; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .video-hw-item.is-metric strong { font-size: 1.05rem; }
 .video-hw-text strong.is-warn { color: var(--warning); }
-.video-hw-state { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.82rem; }
-.video-hw-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.video-hw-state { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; color: var(--muted); font-size: 0.82rem; }
+.video-hw-state i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+/* The settings under the box sit two lists side by side, so a row's dropdown drops
+   under a long label at any width rather than squeezing it to a word a line. */
+.video-hw .grouped-row-input:has(select) { flex-wrap: wrap; }
+.video-hw .grouped-row-input:has(select) .grouped-row-label { min-width: min(220px, 100%); }
 .video-hw-state b { font-weight: 600; }
 .video-hw-state.is-inUse i { background: var(--success); }
 .video-hw-state.is-inUse b { color: var(--success); }

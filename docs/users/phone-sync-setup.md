@@ -103,7 +103,7 @@ phone opens its own page: its member, last contact, the address and network it l
 what is wrong now, the libraries it is linked to, **This phone's history** in the logs, and
 **Remove this phone**.
 
-![Applications › Gallery › Device Sync: the networks, the address phones use, and every member's phones with their last contact](images/122-phone-sync.png)
+![Applications › Gallery › Device Sync: how phone backup works, the numbers, personal libraries, the allowed networks and the address phones use](images/122-phone-sync.png)
 
 - **A member's page › Account** has a *Personal library and phones* card: the library's size
   (with a warning near the limit), each phone with when it was added and last made contact, and

@@ -274,7 +274,7 @@ kept video at once — less room than is in use, and a shorter retention — so 
 ask first and say what goes. **Current usage** under them says what the room holds:
 cached videos, downloads, and what is left.
 
-![Converting video: who is converting now, Where to convert, and Where converted video is kept with the fast disk, its free space, Keep converted video set to In memory, then on the disk, and the memory for conversion](images/125-video-storage.png)
+![Videos › Video Streaming: how video plays, then Hardware & transcoding with the GPU, CPU, memory and disk cache in one row, the hardware and limits settings, and Disk & memory](images/125-video-storage.png)
 
 ### Watched together, and kept after watching
 
@@ -655,7 +655,7 @@ with a bar under it for what that room holds — and **Kept films and copies**, 
   watching. Your video files and what people have already downloaded are not
   affected.
 
-![Copies for download: the copies kept, Kept after watching, Kept ready and Room for kept video, GB](images/126-video-kept.png)
+![Video Downloads › Copies for download: the copies kept, Kept after watching and Kept ready](images/126-video-kept.png)
 
 A copy whose picture is re-encoded is made the same way as watching it, a stretch
 at a time, into the same kept film, then put together into one file in seconds.
@@ -710,7 +710,7 @@ films finished off after watching — and its **Queue** row opens what runs and 
 - **Queue** — what runs and what waits. The **⋮** beside each has **Run now**
   (whatever the time or load), **Move to the top** and **Take off the queue**.
 
-![When downloads are prepared: Prepare set to Right away, the limits for jobs at once, downloads waiting per member and download speed away from home, and the queue](images/127-video-downloads-prepared.png)
+![Videos › Video Downloads: how downloads work, the queue and kept copies, and the download rules — when copies are prepared, jobs at once, downloads waiting per member and download speed away from home](images/127-video-downloads-prepared.png)
 
 ## Subtitles
 

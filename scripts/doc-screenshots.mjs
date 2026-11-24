@@ -270,7 +270,7 @@ const SHOTS = [
   // Taller than the default: each schedule row carries its retention under the
   // time now, and the count for database copies sits under both.
   { name: "63-backup", url: "control/settings/backups", height: 1260 },
-  { name: "64-security-overview", url: "control/security" },
+  { name: "64-security-overview", url: "control/security/overview", wait: 2500, height: 1100 },
   { name: "65-members", url: "control/members" },
   { name: "66-groups", url: "control/members/groups", state: "at least one group" },
   { name: "67-invites", url: "control/members/invites", state: "an unused invite" },
@@ -605,7 +605,7 @@ const SHOTS = [
     height: 1000
   },
   // Maps (docs/users/control-panel.md → Maps, library-gallery.md, first-run.md).
-  { name: "108-maps-setup", url: "control/apps/gallery/settings", wait: 3500, height: 1500 },
+  { name: "108-maps-setup", url: "control/settings/maps", wait: 3500, height: 1500 },
   { name: "111-gallery-places", url: "gallery/places", wait: 4000, state: "named places built, photos with GPS" },
   {
     // The viewer's Map tab: the pin, and the town the photo was taken in.
@@ -683,26 +683,24 @@ const SHOTS = [
   },
   { name: "121-phone-my-library", url: "profile/library", state: "personal libraries and phone sync set up" },
   {
-    // Below the networks and the address: every member's phones.
+    // Device Sync from the top: how phone backup works, the numbers, personal
+    // libraries, the networks, the address phones use, and every member's phones.
     name: "122-phone-sync",
     url: "control/apps/gallery/device-sync",
     state: "personal libraries and phone sync set up",
-    setup: `
-      const head = [...document.querySelectorAll("h2, h3")].find((h) => /phones/i.test(h.textContent) && !/networks/i.test(h.textContent));
-      if (!head) return "no phones heading";
-      head.scrollIntoView({ block: "start" }); window.scrollBy(0, -40); await sleep(500);
-      "phones in view";`
+    wait: 3000,
+    height: 1480
   },
   {
     name: "123-personal-libraries",
     url: "control/apps/gallery/device-sync",
     state: "personal libraries and phone sync set up",
     setup: `
-      const card = document.getElementById("personal-libraries")
-        ?? [...document.querySelectorAll("h2, h3")].find((h) => h.textContent.trim() === "Personal libraries");
-      if (!card) return "no Personal libraries card";
+      for (let i = 0; i < 40 && !document.querySelector(".device-sync"); i++) await sleep(250);
+      const card = [...document.querySelectorAll("h2, h3, .grouped-list-title")].find((h) => /^personal libraries$/i.test(h.textContent.trim()));
+      if (!card) return "no Personal libraries list";
       card.scrollIntoView({ block: "start" }); window.scrollBy(0, -90); await sleep(500);
-      "card in view";`
+      "list in view";`
   },
   {
     name: "124-library-phone-backups",
@@ -719,31 +717,29 @@ const SHOTS = [
       "phone backups tab";`
   },
 
-  // The video cache (docs/users/apps.md, engine 0.35). The demo engine has its
+  // Videos' two tabs (docs/users/apps.md, 2026-11-22). The demo engine has its
   // /transcode folder (site.mjs sets TRANSCODE_PATH), so the disk shows as mapped.
   {
-    // Converting video, scrolled to Where converted video is kept.
+    // Video Streaming from the top: how video plays, then the hardware.
     name: "125-video-storage",
-    url: "control/apps/videos/settings?show=conversion",
+    url: "control/apps/videos/streaming",
+    height: 1500,
     setup: `
-      for (let i = 0; i < 40 && !document.getElementById("video-conversion-storage"); i++) await sleep(250);
-      const group = document.getElementById("video-conversion-storage");
-      if (!group) return "no storage group";
-      group.scrollIntoView({ block: "start" }); window.scrollBy(0, -120); await sleep(500);
-      "storage in view";`
+      for (let i = 0; i < 40 && !document.querySelector(".video-hw"); i++) await sleep(250);
+      await sleep(1500);
+      document.querySelector(".video-hw") ? "streaming tab" : "no hardware card";`
   },
   {
-    // Copies for download: the copies, the films kept after watching, the titles kept ready, the room.
+    // Video Downloads › the copies kept: kept after watching, kept ready, the room.
     name: "126-video-kept",
-    url: "control/apps/videos/settings?show=copies",
+    url: "control/apps/videos/downloads?show=copies",
     setup: `
       for (let i = 0; i < 40 && !/Kept after watching/i.test(document.body.textContent); i++) await sleep(250);
-      const head = [...document.querySelectorAll("h2, h3, .grouped-list-title, header")].find((h) => /Kept after watching/i.test(h.textContent));
-      if (!head) return "no Kept after watching";
-      head.scrollIntoView({ block: "start" }); window.scrollBy(0, -260); await sleep(500);
-      "kept in view";`
+      await sleep(600);
+      /Kept after watching/i.test(document.body.textContent) ? "kept page" : "no Kept after watching";`
   },
-  { name: "127-video-downloads-prepared", url: "control/apps/videos/settings?show=jobs", wait: 2500 },
+  // Video Downloads from the top: how downloads work, the queue's state, the rules.
+  { name: "127-video-downloads-prepared", url: "control/apps/videos/downloads", wait: 3500, height: 1500 },
   {
     // An admin's Keep ready dialog on a film's page (the first film in the library).
     name: "128-video-keep-ready",
