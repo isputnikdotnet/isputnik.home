@@ -1,6 +1,9 @@
 import {
   BookOpen,
   Clapperboard,
+  Gauge,
+  LockKeyhole,
+  UsersRound,
   Gamepad2,
   Headphones,
   Network,
@@ -35,13 +38,17 @@ import i18n from "../../i18n";
 //     scanned.
 //   * Applications — a directory of the applications; choosing one opens its
 //     WORKSPACE, which holds everything about that application.
-//   * Security & Members — people, access, sign-ins.
+//   * Security & Members — a directory of two SECTIONS, each a workspace with its
+//     own short row: User Management and Security Policies (SECURITY_AREAS).
 //   * System Settings — storage, backups and recovery, email, appearance.
 //
 // v2 replaced the six groups of 4.15–4.86 (Overview, Library, Members, Security,
 // Maintenance, Settings), which sorted a feature's controls by KIND: Gallery's
 // duplicate cleanup was in Maintenance, its maps in Settings, its phone backup in
 // Library. To find everything about Gallery you had to know the taxonomy first.
+//
+// The Dashboard has a row too: Dashboard · Sign-ins · Sign-in locations
+// (DASHBOARD_AREA) — who got in, and from where, beside how the server is doing.
 //
 // A group's pages are listed under it in the sidebar, opened while you are in it
 // (ControlPanelNav) — the sidebar has the height a row of ten tabs across the page
@@ -88,6 +95,44 @@ export interface ApplicationDef {
   tabs: ControlTabDef[];
 }
 
+/** A set of pages with one short row across the page that is not an application:
+ *  the Dashboard's own, and Security & Members' two sections. */
+export type AreaKey = "dashboard" | "userManagement" | "securityPolicies";
+export interface AreaDef {
+  key: AreaKey;
+  icon: LucideIcon;
+  tabs: ControlTabDef[];
+}
+
+/** The Dashboard and its tabs. In no group: the panel's title opens it. */
+export const DASHBOARD_AREA: AreaDef = {
+  key: "dashboard",
+  icon: Gauge,
+  tabs: [{ section: "dashboard" }, { section: "signIns" }, { section: "signInLocations" }]
+};
+
+/** Security & Members' sections (owner, 2026-11-23): listed under the group in the
+ *  sidebar as the applications are under theirs, four tabs each. */
+export const SECURITY_AREAS: AreaDef[] = [
+  {
+    // Who the people are, and what each may open — the applications too.
+    key: "userManagement",
+    icon: UsersRound,
+    tabs: [{ section: "users" }, { section: "groups" }, { section: "invites" }, { section: "appsAccess" }]
+  },
+  {
+    // How the server is protected, and the rules that decide who gets in.
+    key: "securityPolicies",
+    icon: LockKeyhole,
+    tabs: [{ section: "security" }, { section: "securityPolicies" }, { section: "securityTrusted" }, { section: "securityBlocked" }]
+  }
+];
+
+/** The sections a group is divided into; none for most. */
+export function areasOf(group: GroupKey): AreaDef[] {
+  return group === "security" ? SECURITY_AREAS : [];
+}
+
 export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "infrastructure",
@@ -123,20 +168,8 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   {
     key: "security",
     icon: ShieldCheck,
-    // Who the people are, then who got in, from where, and the rules that decide
-    // who may — the applications' access too.
-    tabs: [
-      { section: "users" },
-      { section: "groups" },
-      { section: "invites" },
-      { section: "security" },
-      { section: "signIns" },
-      { section: "signInLocations" },
-      { section: "securityPolicies" },
-      { section: "securityTrusted" },
-      { section: "securityBlocked" },
-      { section: "appsAccess" }
-    ]
+    // The directory. The two sections are in SECURITY_AREAS above.
+    tabs: [{ section: "securityMembers" }]
   },
   {
     key: "settings",
@@ -245,19 +278,33 @@ const SHARED_PAGE_PARENTS: Partial<Record<ControlSection, Partial<Record<AppKey,
 /** Every destination there is: each tab, then the pages under it — what search
  *  indexes and what page titles come from. */
 export const ALL_TABS: ControlTabDef[] = [
-  ...CONTROL_GROUPS.flatMap((group) => group.tabs),
+  ...DASHBOARD_AREA.tabs.filter((tab) => tab.section !== "dashboard"),
+  ...CONTROL_GROUPS.flatMap((group) => [...group.tabs, ...areasOf(group.key).flatMap((area) => area.tabs)]),
   ...APPLICATIONS.flatMap((app) => app.tabs)
 ].flatMap((tab) => [tab, ...(tab.pages ?? []).map((section) => ({ section }))]);
 
 const GROUP_BY_SECTION = new Map<ControlSection, ControlGroupDef>();
 const APP_BY_SECTION = new Map<ControlSection, ApplicationDef>();
 const PARENT_TAB = new Map<ControlSection, ControlSection>();
+const AREA_BY_SECTION = new Map<ControlSection, AreaDef>();
 const APPLICATIONS_GROUP = CONTROL_GROUPS.find((group) => group.key === "applications")!;
 
 for (const group of CONTROL_GROUPS) {
   for (const tab of group.tabs) {
     for (const section of [tab.section, ...(tab.pages ?? [])]) GROUP_BY_SECTION.set(section, group);
     for (const page of tab.pages ?? []) PARENT_TAB.set(page, tab.section);
+  }
+}
+for (const tab of DASHBOARD_AREA.tabs) AREA_BY_SECTION.set(tab.section, DASHBOARD_AREA);
+for (const group of CONTROL_GROUPS) {
+  for (const area of areasOf(group.key)) {
+    for (const tab of area.tabs) {
+      for (const section of [tab.section, ...(tab.pages ?? [])]) {
+        GROUP_BY_SECTION.set(section, group);
+        AREA_BY_SECTION.set(section, area);
+      }
+      for (const page of tab.pages ?? []) PARENT_TAB.set(page, tab.section);
+    }
   }
 }
 for (const app of APPLICATIONS) {
@@ -280,6 +327,8 @@ export interface ControlPlace {
   group: ControlGroupDef | null;
   /** The workspace it is in, if any. */
   app: ApplicationDef | null;
+  /** The Dashboard's row or a Security & Members section, if it is in one. */
+  area: AreaDef | null;
   /** The tab to show selected: the section's own, or the one it is a page of. */
   selected: ControlSection;
   /** The tab it is a page of, or null for a tab itself. */
@@ -288,18 +337,19 @@ export interface ControlPlace {
 
 export function placeOf(section: ControlSection, from?: string | null): ControlPlace {
   if ((section === "categories" || section === "tags") && from === "shared") {
-    return { group: APPLICATIONS_GROUP, app: null, selected: "applications", parent: "applications" };
+    return { group: APPLICATIONS_GROUP, app: null, area: null, selected: "applications", parent: "applications" };
   }
   const shared = SHARED_PAGE_PARENTS[section];
   if (shared && isAppKey(from)) {
     const parent = shared[from];
     const app = APPLICATIONS.find((candidate) => candidate.key === from)!;
-    if (parent) return { group: APPLICATIONS_GROUP, app, selected: parent, parent };
+    if (parent) return { group: APPLICATIONS_GROUP, app, area: null, selected: parent, parent };
   }
   const parent = PARENT_TAB.get(section) ?? null;
   return {
     group: GROUP_BY_SECTION.get(section) ?? null,
     app: APP_BY_SECTION.get(section) ?? null,
+    area: AREA_BY_SECTION.get(section) ?? null,
     selected: parent ?? section,
     parent
   };
@@ -324,9 +374,9 @@ export function groupForSection(section: ControlSection): ControlGroupDef | null
   return GROUP_BY_SECTION.get(section) ?? null;
 }
 
-/** The workspace's tab row, or the group's: what ControlTabs draws. */
+/** The workspace's tab row, the section's, or the group's: what ControlTabs draws. */
 export function tabRowFor(place: ControlPlace): ControlTabDef[] {
-  return place.app?.tabs ?? place.group?.tabs ?? [];
+  return place.app?.tabs ?? place.area?.tabs ?? place.group?.tabs ?? [];
 }
 
 /** The displayed word for a nav group. Called at render/build time (never cached
@@ -338,6 +388,11 @@ export function groupLabel(key: GroupKey): string {
 /** An application's name. */
 export function appLabel(key: AppKey): string {
   return i18n.t(`control:nav.apps.${key}`);
+}
+
+/** A section's name: "User Management", "Security Policies", "Dashboard". */
+export function areaLabel(key: AreaKey): string {
+  return i18n.t(`control:nav.areas.${key}`);
 }
 
 /** One line on what an application is, for the directory. */
@@ -369,9 +424,11 @@ export function sectionTitle(section: ControlSection): string {
  *  Organize", or the panel's own name for the Dashboard. */
 export function sectionEyebrow(section: ControlSection, from?: string | null): string {
   const place = placeOf(section, from);
-  if (!place.group) return i18n.t("control:nav.aria");
+  // The Dashboard's own tabs sit under its name; the Dashboard under the panel's.
+  if (!place.group) return place.area && section !== "dashboard" ? areaLabel(place.area.key) : i18n.t("control:nav.aria");
   const parts = [groupLabel(place.group.key)];
   if (place.app) parts.push(appLabel(place.app.key));
+  if (place.area) parts.push(areaLabel(place.area.key));
   // A page under a tab names that tab, as its row reads ("… · Organize"); a tab
   // itself is selected in the row right above, so its eyebrow stops at the group
   // or the application.

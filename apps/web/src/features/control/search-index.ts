@@ -81,6 +81,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   genres: "video film movie show series genres genre keywords mapping merge hide unsorted tmdb nfo " +
     "видео фильм кино сериал жанры жанр ключевые слова сопоставление объединить скрыть неразобранные",
 
+  securityMembers: "security members user management security policies people access protection directory sections " +
+    "пользователи участники безопасность политики",
   users: "accounts people roles admin member password reset disable remove remote device link window allow outside away travel " +
     "аккаунты люди роли администратор участник пароль сброс отключить удалить удалённо привязка устройства окно разрешить снаружи вдали путешествие",
   groups: "shared access group membership permissions " +

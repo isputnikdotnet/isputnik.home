@@ -100,7 +100,8 @@
       "audiobooksSetup": "Overview",
       "storiesSetup": "Overview",
       "familyTreeSetup": "Overview",
-      "gamesSetup": "Overview"
+      "gamesSetup": "Overview",
+      "securityMembers": "Security & Members"
     },
     "exit": "Home",
     "aria": "Control panel",
@@ -109,7 +110,12 @@
     "menuOpen": "Control panel menu — on {{page}}",
     "menu": "Menu",
     "search": "Search",
-    "barAria": "Control panel shortcuts"
+    "barAria": "Control panel shortcuts",
+    "areas": {
+      "dashboard": "Dashboard",
+      "userManagement": "User Management",
+      "securityPolicies": "Security Policies"
+    }
   },
   "applications": {
     "description": "Manage your apps and the services they use.",
@@ -1276,5 +1282,18 @@
     "ofLimitOnly": "of {{limit}}",
     "storiesWhere": "App storage",
     "storiesWhereNote": "Narration is kept in the App files library, under Story recordings, chosen on Storage."
+  },
+  "securityMembers": {
+    "description": "The people who use this server, and the rules that protect it.",
+    "rows": {
+      "users": "Members, their roles and what each can open",
+      "groups": "Sets of members who share the same access",
+      "invites": "Links that let someone new join",
+      "appsAccess": "Who may use each application",
+      "security": "How the server is protected, at a glance",
+      "securityPolicies": "Lockouts, two-factor, alerts and passwords",
+      "securityTrusted": "Networks treated as home",
+      "securityBlocked": "Addresses that are refused"
+    }
   }
 }

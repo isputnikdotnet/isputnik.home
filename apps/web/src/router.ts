@@ -3,8 +3,9 @@ import { useState, useEffect, startTransition } from "react";
 // Every leaf destination in the control panel — one value per tab. The nav
 // groups they hang off are described in features/control/nav.ts.
 export type ControlSection =
-  // The panel's landing page, opened from its title — not in a group
-  | "dashboard"
+  // The panel's landing page, opened from its title — not in a group. Sign-ins and
+  // Sign-in locations are its tabs (nav.ts DASHBOARD_AREA).
+  | "dashboard" | "signIns" | "signInLocations"
   // Infrastructure. Services is the overview; appsSetup is a container's Pairing, a page under it
   | "services" | "appsSetup" | "videoStreaming" | "tasks" | "scheduledJobs" | "logs" | "diagnostics" | "activity"
   // Libraries & Scanning
@@ -17,10 +18,10 @@ export type ControlSection =
   | "categories"
   | "storySettings"
   | "tags"
-  // Security & Members
-  | "users" | "groups" | "invites"
-  | "security" | "signIns" | "signInLocations" | "securityPolicies" | "securityTrusted" | "securityBlocked"
-  | "appsAccess"
+  // Security & Members: the directory, then its two sections' tabs
+  | "securityMembers"
+  | "users" | "groups" | "invites" | "appsAccess"
+  | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // System Settings
   | "appearance" | "email" | "notifications" | "storage" | "storageContents" | "maps" | "backup" | "recycleBin" | "quotes" | "about";
 
@@ -31,6 +32,9 @@ export type ControlSection =
 // jump straight to a setting.
 export const CONTROL_PATHS: Record<ControlSection, string> = {
   dashboard: "/control",
+  // The Dashboard's tabs (2026-11-23; Security & Members' pages before that).
+  signIns: "/control/sign-ins",
+  signInLocations: "/control/sign-in-locations",
 
   // Infrastructure. Services: a card per service; each container's Pairing (Settings ›
   // Apps until v2) is a page under it, opened on one container with ?app=.
@@ -79,9 +83,9 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   groups: "/control/members/groups",
   invites: "/control/members/invites",
 
-  security: "/control/security",
-  signIns: "/control/security/sign-ins",
-  signInLocations: "/control/security/sign-in-locations",
+  // The group's directory took its root; the Overview moved one step down.
+  securityMembers: "/control/security",
+  security: "/control/security/overview",
   securityPolicies: "/control/security/policies",
   securityTrusted: "/control/security/trusted-networks",
   securityBlocked: "/control/security/blocked-ips",
@@ -234,6 +238,8 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   // Sign-ins: a Members tab (Sessions), an Overview tab, the Dashboard's opening
   // view, and now Security's — it answers "who got in, and from where".
   "/control/overview/sign-ins": "signIns",
+  "/control/security/sign-ins": "signIns",
+  "/control/security/sign-in-locations": "signInLocations",
   "/control/accounts/sessions": "signIns",
   "/control/sessions": "signIns",
   "/control/members/sessions": "signIns",

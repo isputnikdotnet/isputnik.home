@@ -148,7 +148,7 @@ off for everyone until it is paired again.
 
 ## 4. Choose who may use it, and from where
 
-**Control panel → Security & Members → App access**, for the chosen app:
+**Control panel → Security & Members → User Management → App access**, for the chosen app:
 
 - **Access.** Everyone signed in is a member until you change something. The
   **Access** row says who has it; **Change** opens the access window: everyone in
@@ -754,7 +754,7 @@ backup still finishes and its log line says which app was left out and why.
 [ ] Infrastructure → Services: address saved, and the Container line says it answers
 [ ] Infrastructure → Services: secret generated, pasted into the app's GATEWAY_SECRET, app restarted
 [ ] Infrastructure → Services: Test connection says Paired
-[ ] Security & Members → App access: who may use it, and from where
+[ ] Security & Members → User Management → App access: who may use it, and from where
 [ ] Video: media folder mounted read-only, libraries added on Libraries & Scanning → Libraries
 [ ] Video: /transcode mapped to a fast disk, and Videos → Video Streaming shows the Fast disk under Disk & memory
 ```

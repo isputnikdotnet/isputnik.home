@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { controlHref, followBack, followRoute, type ControlSection } from "../../router";
-import { appLabel, groupLabel, placeOf, rowLabel, tabLabel, tabRowFor } from "./nav";
+import { appLabel, areaLabel, groupLabel, placeOf, rowLabel, tabLabel, tabRowFor } from "./nav";
 
 // The line above every control-panel page's title (but the Dashboard's): the way
 // back, and where the page sits — "← Back │ Applications › Gallery › Overview".
@@ -35,6 +35,8 @@ function crumbsOf(section: ControlSection, from: string | null, includeSelf: boo
   const levels: { section: ControlSection; label: string }[] = [];
   if (place.group) levels.push({ section: place.group.tabs[0].section, label: groupLabel(place.group.key) });
   if (place.app) levels.push({ section: place.app.tabs[0].section, label: appLabel(place.app.key) });
+  // A section of Security & Members, or the Dashboard over its own tabs.
+  if (place.area) levels.push({ section: place.area.tabs[0].section, label: areaLabel(place.area.key) });
   if (place.parent && place.parent !== "applications") {
     const parentDef = tabRowFor(place).find((tab) => tab.section === place.parent);
     levels.push({ section: place.parent, label: parentDef ? rowLabel(parentDef) : tabLabel(place.parent) });

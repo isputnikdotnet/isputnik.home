@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONTROL_PATHS, type ControlSection } from "../src/router";
-import { ALL_TABS, APPLICATIONS, CONTROL_GROUPS, parentTab, placeOf, selectedTab } from "../src/features/control/nav";
+import { ALL_TABS, APPLICATIONS, CONTROL_GROUPS, DASHBOARD_AREA, SECURITY_AREAS, parentTab, placeOf, sectionEyebrow, selectedTab, tabRowFor } from "../src/features/control/nav";
 
 // nav.ts is the control panel's whole shape (docs/control-panel-v2-plan.md). A
 // section with an address but no tab is a page nothing links to; a section on two
@@ -18,6 +18,43 @@ describe("control panel nav", () => {
 
   it("keeps the Dashboard out of every group: the panel's title opens it", () => {
     expect(placeOf("dashboard").group).toBeNull();
+  });
+
+  // Who got in and from where sits beside how the server is doing (owner, 2026-11-23).
+  it("gives the Dashboard a row: Dashboard, Sign-ins, Sign-in locations", () => {
+    expect(DASHBOARD_AREA.tabs.map((tab) => tab.section)).toEqual(["dashboard", "signIns", "signInLocations"]);
+    for (const section of ["dashboard", "signIns", "signInLocations"] as const) {
+      const place = placeOf(section);
+      expect(place.group, section).toBeNull();
+      expect(place.area?.key, section).toBe("dashboard");
+      expect(tabRowFor(place).map((tab) => tab.section)).toEqual(["dashboard", "signIns", "signInLocations"]);
+    }
+    expect(CONTROL_PATHS.signIns).toBe("/control/sign-ins");
+    expect(CONTROL_PATHS.signInLocations).toBe("/control/sign-in-locations");
+    expect(sectionEyebrow("signIns")).toBe("Dashboard");
+  });
+
+  // Security & Members opens on a directory, as Applications does, and is divided
+  // into two sections that each draw one row of four.
+  it("divides Security & Members into User Management and Security Policies", () => {
+    const security = CONTROL_GROUPS.find((group) => group.key === "security");
+    expect(security?.tabs).toEqual([{ section: "securityMembers" }]);
+    expect(CONTROL_PATHS.securityMembers).toBe("/control/security");
+    expect(placeOf("securityMembers")).toMatchObject({ area: null, app: null, selected: "securityMembers" });
+    expect(SECURITY_AREAS.map((area) => [area.key, area.tabs.map((tab) => tab.section)])).toEqual([
+      ["userManagement", ["users", "groups", "invites", "appsAccess"]],
+      ["securityPolicies", ["security", "securityPolicies", "securityTrusted", "securityBlocked"]]
+    ]);
+    for (const area of SECURITY_AREAS) {
+      for (const tab of area.tabs) {
+        const place = placeOf(tab.section);
+        expect(place.group?.key, tab.section).toBe("security");
+        expect(place.area?.key, tab.section).toBe(area.key);
+        expect(tabRowFor(place)).toBe(area.tabs);
+      }
+    }
+    expect(sectionEyebrow("groups")).toBe("Security & Members · User Management");
+    expect(sectionEyebrow("securityBlocked")).toBe("Security & Members · Security Policies");
   });
 
   // Infrastructure opens on a card per service; a container's Pairing is a page

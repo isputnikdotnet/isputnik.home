@@ -8,7 +8,10 @@ import type { ControlSection, DiagnosticsPart, DiagnosticsTab, MemberPageTab } f
 import {
   APPLICATIONS,
   CONTROL_GROUPS,
+  DASHBOARD_AREA,
   appLabel,
+  areaLabel,
+  areasOf,
   currentFrom,
   groupLabel,
   kindLabel,
@@ -40,6 +43,7 @@ const InvitesSection = lazy(() => import("./sections/InvitesSection").then((m) =
 const AppSetupSection = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.AppSetupSection })));
 const WorkspaceStatusLine = lazy(() => import("./sections/AppSetupSection").then((m) => ({ default: m.WorkspaceStatusLine })));
 const ServicesSection = lazy(() => import("./sections/ServicesSection").then((m) => ({ default: m.ServicesSection })));
+const SecurityMembersSection = lazy(() => import("./sections/SecurityMembersSection").then((m) => ({ default: m.SecurityMembersSection })));
 const ApplicationsSection = lazy(() => import("./sections/ApplicationsSection").then((m) => ({ default: m.ApplicationsSection })));
 const GenresSection = lazy(() => import("./sections/GenresSection").then((m) => ({ default: m.GenresSection })));
 const LogsSection = lazy(() => import("./sections/LogsSection").then((m) => ({ default: m.LogsSection })));
@@ -163,7 +167,8 @@ export function ControlPanelPage({
   // Only a workspace draws a row across the page (Setup · Device Sync · Organize ·
   // Settings, never more than four); a group's pages are listed under it in the
   // sidebar instead.
-  const tabs = place.app ? tabRowFor(place) : [];
+  // The Dashboard and Security & Members' two sections draw one the same way.
+  const tabs = place.app || place.area ? tabRowFor(place) : [];
   // On a phone the menu lists every page, and its button names the one you are on,
   // so the tab row would be a third copy squeezed into 375px.
   const isMobile = useIsMobile();
@@ -192,9 +197,9 @@ export function ControlPanelPage({
           {!subPage && !isMobile && tabs.length > 1 && (
             <ControlTabs
               tabs={tabs}
-              replaceVisit={!!place.app && !place.parent}
+              replaceVisit={(!!place.app || !!place.area) && !place.parent}
               selected={place.selected}
-              label={t("control:nav.tabsAria", { group: place.app ? appLabel(place.app.key) : place.group ? groupLabel(place.group.key) : "" })}
+              label={t("control:nav.tabsAria", { group: place.app ? appLabel(place.app.key) : place.area ? areaLabel(place.area.key) : place.group ? groupLabel(place.group.key) : "" })}
             />
           )}
           {/* Inside the page, so the nav and tab row stay up while a section's
@@ -240,6 +245,7 @@ function ControlSectionBody({
 }) {
   switch (section) {
     case "dashboard":       return <DashboardSection />;
+    case "securityMembers": return <SecurityMembersSection />;
     case "activity":        return <ActivitySection />;
     case "libraryStats":    return <LibraryStatsSection />;
     case "logs":            return <LogsSection />;
@@ -302,7 +308,8 @@ function ControlSectionBody({
 function ControlPanelNav({ place, section, onSearch }: { place: ControlPlace; section: ControlSection; onSearch: () => void }) {
   const { t } = useTranslation(["common", "control"]);
   const dashboardHref = controlHref("dashboard");
-  const onDashboard = section === "dashboard";
+  // Lit on its tabs too (Sign-ins, Sign-in locations).
+  const onDashboard = place.area?.key === "dashboard";
 
   return (
     <nav className="home-control-nav" aria-label={t("control:nav.aria")}>
@@ -318,7 +325,7 @@ function ControlPanelNav({ place, section, onSearch }: { place: ControlPlace; se
         <a
           className={`home-nav-link control-nav-title${onDashboard ? " is-active" : ""}`}
           href={dashboardHref}
-          aria-current={onDashboard ? "page" : undefined}
+          aria-current={section === "dashboard" ? "page" : undefined}
           onClick={(event) => followRoute(event, dashboardHref)}
         >
           <Gauge size={21} aria-hidden="true" />
@@ -332,8 +339,12 @@ function ControlPanelNav({ place, section, onSearch }: { place: ControlPlace; se
           // The group you are in opens here and lists its pages — the sidebar has the
           // height a tab row across the page did not (Security & Members has ten).
           // Applications lists the applications; a workspace keeps its own short row.
+          const areas = areasOf(group.key);
           const pages = !active || (group.key === "applications" && !place.app)
             ? []
+            : areas.length > 0
+              // Security & Members lists its two sections; each draws its own row.
+              ? areas.map((area) => ({ key: area.key as string, label: areaLabel(area.key), section: area.tabs[0].section, current: place.area?.key === area.key }))
             : group.key === "applications"
               // Not Shared (Tags): the Applications directory lists it under Shared tools (owner, 2026-11-19).
               ? APPLICATIONS.filter((app) => app.key !== "shared").map((app) => ({ key: app.key, label: appLabel(app.key), section: app.tabs[0].section, current: place.app?.key === app.key }))
@@ -404,9 +415,11 @@ function ControlPanelPhoneStrip({
 }) {
   const { t } = useTranslation(["common", "control"]);
   const ActiveIcon = place.app?.icon ?? place.group?.icon ?? Gauge;
-  // Where you are: the application inside Applications, else the group, else the
-  // panel itself (the Dashboard).
-  const where = place.app ? appLabel(place.app.key) : place.group ? groupLabel(place.group.key) : t("control:nav.aria");
+  // Where you are: the application inside Applications, the section inside Security &
+  // Members, else the group, else the Dashboard (over its tabs) or the panel itself.
+  const where = place.app ? appLabel(place.app.key)
+    : place.area && (place.group || section !== "dashboard") ? areaLabel(place.area.key)
+    : place.group ? groupLabel(place.group.key) : t("control:nav.aria");
 
   return (
     <nav className="home-control-nav control-phone-nav" aria-label={t("control:nav.aria")}>
@@ -505,7 +518,7 @@ function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSe
               onClose();
               return;
             }
-            const sameWorkspace = place.app && !place.parent && place.app.tabs.some((tab) => tab.section === target);
+            const sameWorkspace = !place.parent && (place.app ?? place.area)?.tabs.some((tab) => tab.section === target);
             (sameWorkspace ? followReplace : followRoute)(event, href);
           }}
         >
@@ -519,7 +532,7 @@ function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSe
     <Modal variant="panel" className="control-phone-menu" title={t("control:nav.aria")} onClose={onClose}>
       <div className="control-phone-menu-groups">
         <section className="control-phone-menu-group" aria-label={t("control:nav.dashboard")}>
-          <ul>{entry("dashboard", t("control:nav.dashboard"), section === "dashboard")}</ul>
+          <ul>{DASHBOARD_AREA.tabs.map((tab) => entry(tab.section, tabLabel(tab.section), tab.section === place.selected))}</ul>
         </section>
         {CONTROL_GROUPS.map((group) => {
           const Icon = group.icon;
@@ -532,6 +545,8 @@ function ControlPanelPhoneMenu({ section, place, onClose }: { section: ControlSe
               </h2>
               <ul>
                 {group.tabs.map((tab) => entry(tab.section, tabLabel(tab.section), !place.app && tab.section === place.selected))}
+                {/* Security & Members lists the pages of both its sections. */}
+                {areasOf(group.key).flatMap((area) => area.tabs.map((tab) => entry(tab.section, tabLabel(tab.section), tab.section === place.selected)))}
                 {/* Applications lists each workspace tab: "Gallery · Organize", or
                     the application alone when it has one tab. */}
                 {group.key === "applications" && APPLICATIONS.filter((app) => app.key !== "shared").flatMap((app) => app.tabs.map((tab) => entry(

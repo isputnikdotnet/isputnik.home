@@ -145,7 +145,12 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   `features/control/nav.ts` — the Dashboard (its own nav entry, in no group) and FIVE
   groups: Infrastructure (Services, Tasks, Scheduled jobs, Logs,
   Diagnostics, Activity) · Libraries & Scanning · Applications · Security & Members · System Settings.
-  Five is the budget. Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
+  Five is the budget. The Dashboard draws a row of its own tabs — Dashboard · Sign-ins ·
+  Sign-in locations (`DASHBOARD_AREA`). Security & Members opens on a directory of two
+  SECTIONS (`SECURITY_AREAS`): User Management (Users, Groups, Invite links, App access)
+  and Security Policies (Overview, Policies, Trusted networks, Blocked IPs); the sidebar
+  lists the two sections and each draws one row of its four tabs, as a workspace does.
+  Applications is a directory of WORKSPACES (`APPLICATIONS`): Gallery,
   Videos, Ebooks, Audiobooks, Stories, Family Tree, Games, with Shared tools below the directory. Each workspace has
   only the tabs it needs from Overview · Device Sync · Settings, opening on Overview
   (Videos has Video Streaming and Video Downloads in place of one Settings: owner, 2026-11-22)

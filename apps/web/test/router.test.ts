@@ -99,6 +99,8 @@ describe("getRoute", () => {
     ["/control/maps", "maps"],
     ["/control/maps/routing", "maps"],
     ["/control/overview/sign-ins", "signIns"],
+    ["/control/security/sign-ins", "signIns"],
+    ["/control/security/sign-in-locations", "signInLocations"],
     ["/control/members/sessions", "signIns"],
     ["/control/overview/tasks", "tasks"],
     ["/control/maintenance", "tasks"],

@@ -6,18 +6,20 @@ see it. Inside the panel that link steps aside; **Home** at the top of the panel
 own nav is the way back out.
 
 It opens on the **Dashboard**, which **Dashboard** at the top of the nav always
-brings you back to. Under it are five groups:
+brings you back to; a row across its top also opens **Sign-ins** and **Sign-in
+locations**. Under it are five groups:
 
 | Group | What it holds |
 |---|---|
 | **Infrastructure** | Services (the containers beside this server), Video streaming, Tasks, Scheduled jobs, Logs, Diagnostics, Activity |
 | **Libraries & Scanning** | Libraries — their folders, scanning rules and schedules — and Library statistics |
 | **Applications** | Gallery, Videos, Ebooks, Audiobooks, Stories, Family Tree, Games and Shared tools, each with everything about it in one place |
-| **Security & Members** | Users, Groups, Invite links, Overview, Sign-ins, Sign-in locations, Policies, Trusted networks, Blocked IPs, App access |
+| **Security & Members** | Two sections: **User Management** (Users, Groups, Invite links, App access) and **Security Policies** (Overview, Policies, Trusted networks, Blocked IPs) |
 | **System Settings** | Appearance, Email, Notifications, Storage, Maps, Backup, Recycle Bin, Quotes, About |
 
 The group you are in opens in the nav and lists its pages underneath; under
-**Applications** it lists the applications. Every page has its own address, so any
+**Applications** it lists the applications, and under **Security & Members** its two
+sections, each with a short row of tabs across the page. Every page has its own address, so any
 page here can be bookmarked, linked to, or opened in a new tab.
 
 > **Rearranged.** The panel used to sort pages by kind, so Gallery's duplicate
@@ -91,6 +93,115 @@ Five sections, from the top, each leading to the page that acts on it:
    progress. **Progress and logs** opens them on Tasks; **Cancel** stops one.
 
 ---
+
+### Sign-ins and Sign-in locations
+
+Two tabs beside the Dashboard's own, at the top of the page (they were under
+Security & Members until the Dashboard took them in).
+
+- **Sign-ins** — who got in, from where, and what is
+  still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
+  end) and everything below follows it: cards for attempts, successes (with the
+  methods behind them) and failures (with any addresses blocked in that window),
+  and how many people signed in from how many addresses.
+
+  Under the cards, the two halves of "who is at the door" share one card, with a
+  count on each so you can see what is in the half you are not looking at:
+
+  **Devices still signed in** — every live session, a display, phone, tablet or
+  computer, who it belongs to, its address, when it was last seen and when it
+  expires, with a revoke button on every row but your own. That is where you go
+  when a laptop is lost, or when a sign-in alert names a device you don't
+  recognise. Above the table, a bar per person split by device kind — who is
+  holding the sessions, which fifty rows only answer by scrolling — and the
+  counter chips, which both count each kind and narrow the panel to it.
+
+  **Sign-ins in this range** — the chart of successful against failed sign-ins
+  over the window, and under it every attempt in it, 10, 20, 50 or 100 rows to a
+  page, and it remembers which you picked. A row shows the address with the
+  person under it (for a failed attempt, the account whose name was typed), the
+  device it came from, the method as an icon (hover for its name), the result
+  (**Locked out** when the lockout refused the attempt before checking anything),
+  and — with an AbuseIPDB key set under Security & Members → Policies — a
+  coloured reputation light: one shield whose colour is the signal: green for a
+  clean address, amber for one with some history, red for one the community calls
+  abusive, an outlined shield for an address nobody has checked, and a muted
+  house for your own network. Hover it for the score and where the address sits.
+  The arrow at the start of a row opens the full record underneath it: user,
+  address, device, method, result, time, the event name, the logged detail, and the
+  reputation in words with a **Check with AbuseIPDB** button when that address has
+  never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
+  addresses are never sent at all. Click IP address, User, Method or Time in the
+  heading to sort by it, and again to reverse it. Only the newest few hundred
+  attempts are kept in the panel; the count beside the tab is the true total for
+  the window, and Logs holds the rest.
+
+  Three tables follow the card. **Addresses** is one row per address with its
+  location, how many connections and failures came from it, whether it is
+  blocked, and any scanner traffic counted against it. **People** is the same by
+  person, with the methods they used. A failed attempt counts against the account
+  whose name was typed, so the person someone is guessing at shows up with their
+  failures beside them; a name that matches no account gathers under "Not signed
+  in" rather than being hidden. When the lockout has shut an account, its row says
+  **Locked out now** and offers an unlock button, the same rescue as Security & Members → Users.
+  **Names tried** appears when a stranger has been guessing: the sign-in names
+  they tried that belong to no account here.
+
+  **Narrowing it.** Everything above answers one scope at a time, shown as a chip
+  at the top: everything by default, or one country, town, address or person.
+  **Filter** sets it by hand, and the arrow at the end of any row on this page —
+  or on the Sign-in locations tables, the Logs page, or Security & Members → Blocked IPs — dives
+  into that address or person. The scope lives in the address bar, so a dive can
+  be sent to somebody, and Back walks up out of it. The ✕ on the chip returns to
+  everything.
+
+  Narrowed to one address, a line under the chip offers the usual next steps:
+  **Everything this address did, in Logs**; **Block this address**, which opens
+  Blocked IPs with the Block dialog filled in (not offered for your own network or
+  an address already blocked); and the lockout and auto-block settings. Narrowed
+  to one person, it offers **Everything they did, in Logs** — Logs filtered to
+  that person's account, so two people with the same name stay apart.
+- **Sign-in locations** — where sign-ins came from, over the window you pick: a world map
+  shaded by how many connections each country sent, and a table of countries with
+  connections, failures and how many distinct addresses were behind them. Sign-ins
+  from inside your own house are counted separately as "Home network" rather than
+  being dropped, so the numbers always add up to what Sign-ins shows — the
+  line under the map spells that out: how many sign-ins the range holds, how many
+  the map could place, how many came from your own network, and how many no
+  database could place.
+
+  Countries are worked out on your server from a database file, so no address is
+  ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
+  **Sign-in locations** on System Settings → Maps (see [Maps](#maps)) and it fetches DB-IP's Country
+  Lite database (about 8 MB, free, no account) into your data folder. Until then
+  the map still draws, with a notice whose button opens it. That download is the
+  only outbound call; lookups after it never leave the machine. Worth fetching
+  again every few months, since addresses move between networks. The databases
+  themselves are on the **Sign-in locations** card on the Maps page, which
+  **Location database** opens.
+
+  **Want town-level detail?** That database is yours to choose. Download any
+  city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
+  whichever licence suits you — and give it to the server from the **Towns** part of
+  the **Sign-in locations** card on the Maps page: **Link** to paste its download
+  link and let the server fetch it, or **Upload** to pick the file from your
+  computer. Dropping the `.mmdb` straight into the `Locations` folder of Map data
+  works too. A `.mmdb.gz` from the vendor
+  is fine either way — it is unpacked here — and a file that turns out not to be a
+  database is refused rather than kept. It is picked up on the next lookup with no
+  restart and nothing to configure, a city database always wins over the country
+  one, and
+  each town appears as a gold dot on the map (named in your own language, like
+  photos are, once **Photo place names** is on under [Maps](#maps)) — placed from its coordinates and
+  sized by how many connections came from it — with a **Towns and cities** table
+  under it. The app never fetches these
+  itself: they run from 70 MB to 400 MB and their terms are yours to accept.
+  **Where is home?** Your own network never leaves the house, so no database can
+  place it — but you can. Use **Set home location**, the second button under the
+  map, click the spot, and give it a name ("The house", "Nan's flat"). Your own
+  connections then get a ringed dot of their own, and the count card and table row
+  take that name. It is stored on your server for that one purpose, never sent
+  anywhere, and **Take it off the map** removes it again.
 
 ## Infrastructure
 
@@ -224,7 +335,7 @@ large enough to be worth it.
 **What the app records about visitors.** Most entries here carry the address the
 request came from, and that includes people without an account: a guest who opens
 or downloads from a share link, or sends photos through a drop link, is logged
-with their address like everyone else. Sign-in attempts (what Security & Members → Sign-ins
+with their address like everyone else. Sign-in attempts (what Dashboard → Sign-ins
 reads) and signed-in devices keep their addresses too. Two things to know if you
 share links outside the house:
 
@@ -394,7 +505,7 @@ that part.
 ### Activity
 
 What the household has been doing with the library, over the
-window you pick with the same date toolbar as Security & Members → Sign-ins: cards for uploads,
+window you pick with the same date toolbar as Dashboard → Sign-ins: cards for uploads,
 downloads and deletes (each compared with the stretch before) and storage used;
 two charts (uploads, downloads and deletes; and what was played, read or
 viewed); the content events themselves; and what's currently in progress for
@@ -645,7 +756,7 @@ link to it. Maps work with every feature off.
   family tree. Villages are only for that search: photos keep being named after
   towns. **Save and rebuild** builds the list again with them, downloading the
   usual GeoNames files plus one file per country.
-- **Sign-in locations** — where each sign-in came from, on the map at Security →
+- **Sign-in locations** — where each sign-in came from, on the map at Dashboard →
   Sign-in locations. It is used for nothing else. Two parts:
   - **Countries** — DB-IP's free Country Lite database, about 8 MB, downloaded when
     you turn the card on. **Update** fetches the latest; addresses move between
@@ -726,7 +837,12 @@ changes it everywhere it is used.
 
 ## Security & Members
 
-Who the people are, then who got in, from where, and the rules that decide who may.
+Who the people are, and the rules that decide who may get in. Choosing the group opens
+a page listing its two sections: **User Management** — Users, Groups, Invite links and
+App access — and **Security Policies** — Overview, Policies, Trusted networks and
+Blocked IPs. Each section has its own row of tabs, and the nav lists the two sections
+under the group. Who signed in, and from where, is on the Dashboard's **Sign-ins** and
+**Sign-in locations** tabs.
 
 ### Members, groups and invites
 
@@ -770,7 +886,7 @@ that bring new ones in.
 
 ![The Invite links tab: one active link, unused, with its expiry](images/67-invites.png)
 
-Signed-in devices are on Security & Members → Sign-ins, which lists every
+Signed-in devices are on Dashboard → Sign-ins, which lists every
 session with the ability to revoke any of them — where you go when a laptop is
 lost, or when a sign-in alert names a device you don't recognise.
 
@@ -880,109 +996,6 @@ internet](exposing-to-the-internet.md).
   (**Strong**, **Medium** or **Weak**) and an arrow to the policy that owns it. Proxy trust is the one to read first: if the
   server isn't reading visitor addresses correctly through your reverse proxy,
   every address looks the same and lockouts hit the wrong people.
-- **Sign-ins** — who got in, from where, and what is
-  still signed in. Pick a window (1h, 7h, 24h, 7d, 30d, or a custom start and
-  end) and everything below follows it: cards for attempts, successes (with the
-  methods behind them) and failures (with any addresses blocked in that window),
-  and how many people signed in from how many addresses.
-
-  Under the cards, the two halves of "who is at the door" share one card, with a
-  count on each so you can see what is in the half you are not looking at:
-
-  **Devices still signed in** — every live session, a display, phone, tablet or
-  computer, who it belongs to, its address, when it was last seen and when it
-  expires, with a revoke button on every row but your own. That is where you go
-  when a laptop is lost, or when a sign-in alert names a device you don't
-  recognise. Above the table, a bar per person split by device kind — who is
-  holding the sessions, which fifty rows only answer by scrolling — and the
-  counter chips, which both count each kind and narrow the panel to it.
-
-  **Sign-ins in this range** — the chart of successful against failed sign-ins
-  over the window, and under it every attempt in it, 10, 20, 50 or 100 rows to a
-  page, and it remembers which you picked. A row shows the address with the
-  person under it (for a failed attempt, the account whose name was typed), the
-  device it came from, the method as an icon (hover for its name), the result
-  (**Locked out** when the lockout refused the attempt before checking anything),
-  and — with an AbuseIPDB key set under Security & Members → Policies — a
-  coloured reputation light: one shield whose colour is the signal: green for a
-  clean address, amber for one with some history, red for one the community calls
-  abusive, an outlined shield for an address nobody has checked, and a muted
-  house for your own network. Hover it for the score and where the address sits.
-  The arrow at the start of a row opens the full record underneath it: user,
-  address, device, method, result, time, the event name, the logged detail, and the
-  reputation in words with a **Check with AbuseIPDB** button when that address has
-  never been looked up. Nothing is sent to AbuseIPDB until you press it, and local
-  addresses are never sent at all. Click IP address, User, Method or Time in the
-  heading to sort by it, and again to reverse it. Only the newest few hundred
-  attempts are kept in the panel; the count beside the tab is the true total for
-  the window, and Logs holds the rest.
-
-  Three tables follow the card. **Addresses** is one row per address with its
-  location, how many connections and failures came from it, whether it is
-  blocked, and any scanner traffic counted against it. **People** is the same by
-  person, with the methods they used. A failed attempt counts against the account
-  whose name was typed, so the person someone is guessing at shows up with their
-  failures beside them; a name that matches no account gathers under "Not signed
-  in" rather than being hidden. When the lockout has shut an account, its row says
-  **Locked out now** and offers an unlock button, the same rescue as Security & Members → Users.
-  **Names tried** appears when a stranger has been guessing: the sign-in names
-  they tried that belong to no account here.
-
-  **Narrowing it.** Everything above answers one scope at a time, shown as a chip
-  at the top: everything by default, or one country, town, address or person.
-  **Filter** sets it by hand, and the arrow at the end of any row on this page —
-  or on the Sign-in locations tables, the Logs page, or Security & Members → Blocked IPs — dives
-  into that address or person. The scope lives in the address bar, so a dive can
-  be sent to somebody, and Back walks up out of it. The ✕ on the chip returns to
-  everything.
-
-  Narrowed to one address, a line under the chip offers the usual next steps:
-  **Everything this address did, in Logs**; **Block this address**, which opens
-  Blocked IPs with the Block dialog filled in (not offered for your own network or
-  an address already blocked); and the lockout and auto-block settings. Narrowed
-  to one person, it offers **Everything they did, in Logs** — Logs filtered to
-  that person's account, so two people with the same name stay apart.
-- **Sign-in locations** — where sign-ins came from, over the window you pick: a world map
-  shaded by how many connections each country sent, and a table of countries with
-  connections, failures and how many distinct addresses were behind them. Sign-ins
-  from inside your own house are counted separately as "Home network" rather than
-  being dropped, so the numbers always add up to what Sign-ins shows — the
-  line under the map spells that out: how many sign-ins the range holds, how many
-  the map could place, how many came from your own network, and how many no
-  database could place.
-
-  Countries are worked out on your server from a database file, so no address is
-  ever sent anywhere to draw this. Nothing is fetched until you ask: turn on
-  **Sign-in locations** on System Settings → Maps (see [Maps](#maps)) and it fetches DB-IP's Country
-  Lite database (about 8 MB, free, no account) into your data folder. Until then
-  the map still draws, with a notice whose button opens it. That download is the
-  only outbound call; lookups after it never leave the machine. Worth fetching
-  again every few months, since addresses move between networks. The databases
-  themselves are on the **Sign-in locations** card on the Maps page, which
-  **Location database** opens.
-
-  **Want town-level detail?** That database is yours to choose. Download any
-  city-level database you like — DB-IP City Lite or MaxMind's GeoLite2-City,
-  whichever licence suits you — and give it to the server from the **Towns** part of
-  the **Sign-in locations** card on the Maps page: **Link** to paste its download
-  link and let the server fetch it, or **Upload** to pick the file from your
-  computer. Dropping the `.mmdb` straight into the `Locations` folder of Map data
-  works too. A `.mmdb.gz` from the vendor
-  is fine either way — it is unpacked here — and a file that turns out not to be a
-  database is refused rather than kept. It is picked up on the next lookup with no
-  restart and nothing to configure, a city database always wins over the country
-  one, and
-  each town appears as a gold dot on the map (named in your own language, like
-  photos are, once **Photo place names** is on under [Maps](#maps)) — placed from its coordinates and
-  sized by how many connections came from it — with a **Towns and cities** table
-  under it. The app never fetches these
-  itself: they run from 70 MB to 400 MB and their terms are yours to accept.
-  **Where is home?** Your own network never leaves the house, so no database can
-  place it — but you can. Use **Set home location**, the second button under the
-  map, click the spot, and give it a name ("The house", "Nan's flat"). Your own
-  connections then get a ringed dot of their own, and the count card and table row
-  take that name. It is stored on your server for that one purpose, never sent
-  anywhere, and **Take it off the map** removes it again.
 - **Policies** — the settings themselves, in order of how much they matter:
   lockout and auto-block thresholds, two-factor outside the house, sign-in
   alerts, deletion protection, device linking, the password policy, and the
