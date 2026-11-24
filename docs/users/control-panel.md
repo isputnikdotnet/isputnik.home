@@ -865,6 +865,14 @@ internet](exposing-to-the-internet.md).
   problem at all. If requests are arriving through a proxy while the card says
   home-only, it says so and asks you to check.
 
+  Above the card (on a computer's screen; tablets and phones leave it out), **How this
+  server is protected** draws the four layers that count most, from the internet in:
+  **Proxy**, **IP auto-block**, **Two-factor** and **Alerts**. Each shows what it is set
+  to and its grade, in the grade's colour, and under it what it stops: direct exposure,
+  password guessing, a stolen password, unnoticed sign-ins. On a home-only server the
+  layers it is not held to say *Not needed at home*. The line under a layer opens its
+  policy (the proxy's opens the guide).
+
   Under the card, the **Policies** table: one row per protection — including
   the password policy, which grades Strong only when passwords must be at least
   eight characters *and* mix three of lowercase, uppercase, numbers and symbols;

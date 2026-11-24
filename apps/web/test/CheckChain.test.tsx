@@ -14,7 +14,7 @@ const chain = (checks: ChainCheck[]) => render(
     aria="The whole chain, said in a sentence."
     learnHref="/help/phone-sync-setup"
     learnLabel="Learn more"
-    noLabel="No"
+    exitLabel="No"
     source={{ icon: null, title: "Phone", sub: "2 set up" }}
     end={{ icon: null, title: "Personal library", sub: "1 phone backing up" }}
     checks={checks}

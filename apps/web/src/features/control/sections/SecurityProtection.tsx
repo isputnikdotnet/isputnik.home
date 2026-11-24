@@ -215,7 +215,7 @@ export interface ProtectionScore {
 // (rather than building a "controlAdmin:protection.${x}" template) because a
 // template-literal key doesn't type-check against the closed key union t()
 // expects.
-function levelCopy(level: ProtectionLevel) {
+export function levelCopy(level: ProtectionLevel) {
   switch (level) {
     case "strong":
       return { word: i18n.t("controlAdmin:protection.strongWord"), line: i18n.t("controlAdmin:protection.strongLine"), detail: i18n.t("controlAdmin:protection.strongDetail") };

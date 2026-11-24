@@ -391,7 +391,7 @@ export function PhoneSyncSection() {
           aria={t("controlAdmin:deviceSync.flow.aria")}
           learnHref="/help/phone-sync-setup"
           learnLabel={t("controlAdmin:apps.videoHero.learnMore")}
-          noLabel={t("controlAdmin:apps.videoHero.no")}
+          exitLabel={t("controlAdmin:apps.videoHero.no")}
           source={{ icon: <Smartphone size={24} />, title: t("controlAdmin:deviceSync.flow.phone"), sub: quiet > 0 ? t("controlAdmin:deviceSync.flow.quiet", { count: quiet }) : t("controlAdmin:deviceSync.flow.phonesSetUp", { count: phones.length }), warn: quiet > 0 }}
           end={{ icon: <ImageUp size={24} />, title: t("controlAdmin:deviceSync.flow.library"), sub: t("controlAdmin:deviceSync.flow.backingUp", { count: backingUp }) }}
           checks={[

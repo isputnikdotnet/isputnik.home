@@ -18,6 +18,8 @@ export interface ChainCheck {
   question: string;
   /** How it stands here ("2 networks · 1 phone stopped"). */
   status: string;
+  /** A word beside the question — a grade ("Strong") — coloured by the tone. */
+  badge?: string;
   /** `warn` when it is stopping something now; `plain` for one that only explains. */
   tone: "ok" | "warn" | "plain";
   /** Where a No leads ("Refused"), and what that means or what to do. */
@@ -27,7 +29,7 @@ export interface ChainCheck {
   onFix?: () => void;
 }
 
-export function CheckChain({ icon, title, body, aria, learnHref, learnLabel, noLabel, source, end, checks }: {
+export function CheckChain({ icon, title, body, aria, learnHref, learnLabel, exitLabel, source, end, checks }: {
   icon: ReactNode;
   title: string;
   body: string;
@@ -35,8 +37,8 @@ export function CheckChain({ icon, title, body, aria, learnHref, learnLabel, noL
   aria: string;
   learnHref: string;
   learnLabel: string;
-  /** "No", over each way out. */
-  noLabel: string;
+  /** Over each way out: "No" for a chain of questions, "Stops" for a row of defences. */
+  exitLabel: string;
   /** `warn` colours the line under the name: nothing refuses it, yet it needs a look. */
   source: { icon: ReactNode; title: string; sub: string; warn?: boolean };
   end: { icon: ReactNode; title: string; sub: string; warn?: boolean };
@@ -68,8 +70,9 @@ export function CheckChain({ icon, title, body, aria, learnHref, learnLabel, noL
             <span className="check-chain-ask">
               <strong>{check.question}</strong>
               <small>{check.status}</small>
+              {check.badge && <em className="check-chain-badge">{check.badge}</em>}
             </span>
-            <span className="check-chain-no" aria-hidden="true">{noLabel}</span>
+            <span className="check-chain-no" aria-hidden="true">{exitLabel}</span>
             {check.onFix ? (
               <Button variant="bare" className="check-chain-exit is-fix" onClick={check.onFix}>
                 <strong>{check.exit}</strong>

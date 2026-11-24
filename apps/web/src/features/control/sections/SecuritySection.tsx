@@ -22,6 +22,7 @@ import { controlHref, followRoute, navigate, type ControlSection } from "../../.
 import { Pager } from "../../../shared/Pager";
 import { signInsHref } from "./dashboard/SignInsView";
 import { ProtectionCard, gradePolicies, type Exposure } from "./SecurityProtection";
+import { SecurityLayers } from "./SecurityLayers";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -515,6 +516,20 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               {/* Where every setting stands, each row a door to the policy that
                   owns it — coloured when something needs attention. */}
               <section className="security-overview-dashboard compact-tables" aria-label={t("controlAdmin:security.overviewAria")}>
+                {/* The four layers that count most, from the internet in: how each is set and what it stops. */}
+                <SecurityLayers
+                  grades={gradePolicies({
+                    policy: data.policy,
+                    proxy: data.proxy,
+                    passwordPolicy: data.passwordPolicy,
+                    mailConfigured: data.mailConfigured,
+                    trustedNetworkCount: data.trustedNetworks.length
+                  })}
+                  exposure={data.policy.exposure}
+                  policy={data.policy}
+                  posture={data.posture}
+                />
+
                 <ProtectionCard
                   grades={gradePolicies({
                     policy: data.policy,

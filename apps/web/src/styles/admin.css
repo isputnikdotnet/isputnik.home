@@ -3670,6 +3670,9 @@ tr.control-anchor-flash > td {
 .check-chain-ask small { font-size: 0.76rem; line-height: 1.25; }
 .check-chain-step.is-ok .check-chain-ask { border-color: color-mix(in srgb, var(--success) 55%, var(--line)); background: color-mix(in srgb, var(--success) 12%, var(--surface)); }
 .check-chain-step.is-ok .check-chain-ask small { color: var(--success); }
+.check-chain-badge { justify-self: center; margin-top: 3px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--muted); font-size: 0.7rem; font-style: normal; font-weight: 650; }
+.check-chain-step.is-ok .check-chain-badge { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+.check-chain-step.is-warn .check-chain-badge { background: color-mix(in srgb, var(--warning) 24%, transparent); color: var(--warning); }
 .check-chain-step.is-warn .check-chain-ask { border-color: color-mix(in srgb, var(--warning) 60%, var(--line)); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
 .check-chain-step.is-warn .check-chain-ask small { color: var(--warning); font-weight: 600; }
 .check-chain-step.is-plain .check-chain-ask { background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
