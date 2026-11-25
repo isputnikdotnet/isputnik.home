@@ -3,6 +3,11 @@
 Every release, newest first. Generated from `apps/server/src/changelog.json` (the same
 text the app shows on its About page) by `npm run changelog` — edit that file, not this one.
 
+## 4.92.1 — The setup guide's backup count, and page titles on one line
+
+- **The setup guide says how many backups it keeps.** Switching the nightly backup on in the guide's Backups step said "keeping the last [object Object]" and left **Keep the last** empty, because the guide still read one number where the server has kept a count for each kind of backup. It now shows and saves the count for the full backup, the one the guide switches on.
+- **A browse page's title stays on one line.** On windows between about 1500 and 1700 pixels wide, where the title, the search box and the tools share a line, a title such as **Authors** was squeezed until it broke across two lines. The title keeps its width and the search box gives way instead.
+
 ## 4.92.0 — Video settings on two pages, and pictures of how things work
 
 - **Videos has two tabs: Video Streaming and Video Downloads.** Everything about watching is on one page and everything about downloading on the other, in place of one Settings tab with pages behind it. Each opens with a small diagram of what the server does — play the film as it is, use a kept copy, or convert it — so the settings under it make sense. The diagrams are left out on tablets and phones.

@@ -25,9 +25,13 @@ Private self-hosted family media library, now in Beta (4.0.0 and later). Audiobo
 Beta means your data is looked after: the database migrates itself forward on every upgrade, a copy of it is saved before each new version starts, and backups can be scheduled from the Control panel. Features are still moving. On first run, open the web UI on your home network to create the administrator account.
   </Overview>
 
-  <Date>1795521600</Date>
+  <Date>1795608000</Date>
   <Changes>
-### 2026.11.24 — 4.92.0 Video settings on two pages, and pictures of how things work
+### 2026.11.25 — 4.92.1 The setup guide's backup count, and page titles on one line
+- **The setup guide says how many backups it keeps.** Switching the nightly backup on in the guide's Backups step said "keeping the last [object Object]" and left **Keep the last** empty, because the guide still read one number where the server has kept a count for each kind of backup. It now shows and saves the count for the full backup, the one the guide switches on.
+- **A browse page's title stays on one line.** On windows between about 1500 and 1700 pixels wide, where the title, the search box and the tools share a line, a title such as **Authors** was squeezed until it broke across two lines. The title keeps its width and the search box gives way instead.
+
+### 2026.11.23 — 4.92.0 Video settings on two pages, and pictures of how things work
 - **Videos has two tabs: Video Streaming and Video Downloads.** Everything about watching is on one page and everything about downloading on the other, in place of one Settings tab with pages behind it. Each opens with a small diagram of what the server does — play the film as it is, use a kept copy, or convert it — so the settings under it make sense. The diagrams are left out on tablets and phones.
 - **Hardware &amp; transcoding, led by the hardware test.** One row shows the GPU, the CPU, memory and the disk cache; under it, the kinds of film this server converts fast enough to watch, lit only once the test has run; and beside it the settings the test recommends. **Viewers at once** says what the test measured.
 - **Choose where video is kept, in the app.** Disk &amp; memory has a **Change** button that picks the folder for converted video and download copies — beside your libraries, on the cache disk or on another disk — with the same folder picker as Add library. It no longer has to be set on the container. Room for kept video and memory for converting are sliders with a number you can type, and unused video can be removed after 7, 30, 90 or 365 days. Needs the video add-on 0.42.
@@ -59,9 +63,6 @@ Beta means your data is looked after: the database migrates itself forward on ev
 - **A slideshow's movie plays only for someone who may see every photo in it.** The rendered movie has every photo in it and can't leave one out, but anyone who could see one of the slideshow's photos could play or download it. Now only its creator, an admin, or someone who may see all its photos gets the movie, as it already was on a TV; everyone else plays the slideshow live with the photos they may see.
 - **The app opens much lighter.** Its scripts and styles were sent uncompressed, and a browser asked for them again on every visit: a first visit downloaded about 1.9 MB. They are now sent compressed and kept by the browser until a release changes them, the control panel's text loads only when the control panel opens, and Home fetches the ebook reader and the photo viewer once it has appeared rather than before. A first visit is now about 300 KB, and later ones download almost nothing until the next release. Reading downloaded books offline works as before.
 - **Fixes.** Home asks once for what to continue, shows a poster per title, and says so when a row could not load. Dialogs no longer scroll the page sideways, values on a phone no longer break mid-word, arrow keys move through every row of tabs, and Security's policy names no longer break in a narrow table. No database changes need anything from you: one new table, for saved reports, is created on start.
-
-### 2026.11.13 — 4.89.1 A damaged ebook no longer stops the scan
-- **One damaged EPUB no longer stops the whole ebook library scan.** A book whose zip was broken ("Invalid CEN header") opened without complaint and failed only when the scanner read the first file inside it, where nothing caught the error: the scan stopped, every retry hit the same book, and the library ended on **scan error**. A book that can't be read is now added with its title taken from its file name and no cover, and any other error in a single book is logged and skipped, so one book can never stop the scan again. Thanks to Stefan Knol for tracking it down.
   </Changes>
 
   <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>

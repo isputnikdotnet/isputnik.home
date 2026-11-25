@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.92.1",
+    "label": "The setup guide's backup count, and page titles on one line",
+    "changes": [
+      "**The setup guide says how many backups it keeps.** Switching the nightly backup on in the guide's Backups step said \"keeping the last [object Object]\" and left **Keep the last** empty, because the guide still read one number where the server has kept a count for each kind of backup. It now shows and saves the count for the full backup, the one the guide switches on.",
+      "**A browse page's title stays on one line.** On windows between about 1500 and 1700 pixels wide, where the title, the search box and the tools share a line, a title such as **Authors** was squeezed until it broke across two lines. The title keeps its width and the search box gives way instead."
+    ]
+  },
+  {
     "version": "4.92.0",
     "label": "Video settings on two pages, and pictures of how things work",
     "changes": [
