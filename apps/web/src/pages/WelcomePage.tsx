@@ -71,10 +71,18 @@ interface BackupJobView {
 
 const BACKUP_JOB = "backup_full";
 
-function backupStep(jobs: BackupJobView[] | null, settings: { retention: number } | null): BackupSettings | null {
+/** What /api/backups holds: a keep-count for each kind of backup (since 4.3.0). The
+ *  guide's nightly backup is the full one, so that is the count it shows and sets. */
+interface BackupRetention {
+  full: number;
+  minimal: number;
+  database: number;
+}
+
+function backupStep(jobs: BackupJobView[] | null, settings: { retention: BackupRetention } | null): BackupSettings | null {
   const job = jobs?.find((entry) => entry.key === BACKUP_JOB);
   if (!job || !settings) return null;
-  return { enabled: job.enabled, time: job.time, dayOfWeek: job.dayOfWeek, dayOfMonth: job.dayOfMonth, retention: settings.retention };
+  return { enabled: job.enabled, time: job.time, dayOfWeek: job.dayOfWeek, dayOfMonth: job.dayOfMonth, retention: settings.retention.full };
 }
 
 type StepKey = "storage" | "bin" | "appStorage" | "backup" | "maps" | "email" | "alerts" | "theme";
@@ -176,7 +184,7 @@ export function WelcomePage({ user, onDone }: {
       api<{ config: { defaultTheme: Theme } }>("/api/config").catch(() => null),
       api<{ policy: SecurityPolicy }>("/api/security").catch(() => null),
       api<{ path: string | null; editable: boolean }>("/api/storage/trash-root").catch(() => null),
-      api<{ settings: { retention: number }; backupPath: string }>("/api/backups").catch(() => null),
+      api<{ settings: { retention: BackupRetention }; backupPath: string }>("/api/backups").catch(() => null),
       api<{ jobs: BackupJobView[] }>("/api/scheduled-jobs").catch(() => null)
     ]).then(([librarySettings, rootList, mailPayload, config, security, bin, backups, jobs]) => {
       if (librarySettings) setSettings(librarySettings.settings);
@@ -201,7 +209,7 @@ export function WelcomePage({ user, onDone }: {
     const [librarySettings, bin, backups] = await Promise.all([
       api<{ settings: LibrarySettings }>("/api/library/settings").catch(() => null),
       api<{ path: string | null; editable: boolean }>("/api/storage/trash-root").catch(() => null),
-      api<{ settings: { retention: number }; backupPath: string }>("/api/backups").catch(() => null)
+      api<{ settings: { retention: BackupRetention }; backupPath: string }>("/api/backups").catch(() => null)
     ]);
     if (librarySettings) setSettings(librarySettings.settings);
     if (bin) {
@@ -256,7 +264,7 @@ export function WelcomePage({ user, onDone }: {
       body: JSON.stringify({ enabled: next.enabled, frequency: "daily", time: next.time, dayOfWeek: next.dayOfWeek, dayOfMonth: next.dayOfMonth })
     });
     if (next.retention !== backup.retention) {
-      await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify({ retention: next.retention }) });
+      await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify({ retention: { full: next.retention } }) });
     }
     setBackup(next);
     setBackupSaved(next.enabled

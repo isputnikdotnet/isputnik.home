@@ -130,3 +130,29 @@ describe("the setup guide's Maps step", () => {
     expect(await switchOf("Road routes")).toHaveAttribute("aria-checked", "false");
   });
 });
+
+// The Backups step. /api/backups holds a keep-count per kind of backup; the guide's
+// nightly backup is the full one. Reading the whole object as a number once put
+// "keeping the last [object Object]" on the page and an empty Keep the last field.
+describe("the setup guide's Backups step", () => {
+  it("shows and saves the full backup's keep-count", async () => {
+    const actor = userEvent.setup();
+    mockApi.mockImplementation(async (path: string) => {
+      if (path === "/api/backups") return { settings: { retention: { full: 7, minimal: 3, database: 2 } }, backupPath: "/config/backups" };
+      if (path === "/api/scheduled-jobs") return { jobs: [{ key: "backup_full", enabled: false, time: "03:30", dayOfWeek: 0, dayOfMonth: 1 }] };
+      return null;
+    });
+    render(<WelcomePage user={user} onDone={() => {}} />);
+
+    await actor.click(screen.getByRole("button", { name: /^Backups/ }));
+    await actor.click(await screen.findByRole("switch", { name: /Back up automatically/ }));
+    expect(await screen.findByText(/Backing up daily at 03:30, keeping the last 7./)).toBeInTheDocument();
+
+    const keep = screen.getByRole("spinbutton");
+    expect(keep).toHaveValue(7);
+    await actor.clear(keep);
+    await actor.type(keep, "5");
+    await actor.tab();
+    await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/api/backups/settings", { method: "PATCH", body: JSON.stringify({ retention: { full: 5 } }) }));
+  });
+});
