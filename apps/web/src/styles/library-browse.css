@@ -99,8 +99,15 @@ input.library-filter {
     gap: 24px;
   }
 
+  /* The title never gives up part of its own word: on a page with many tools
+     (Authors, at 1500–1700px) it used to be squeezed to "Autho / rs". Its count
+     line may still wrap; the search field is what gives way. */
   .audiobook-page-header:has(+ .library-toolbar:not(.has-strip)) .audiobook-page-title {
-    min-width: 0;
+    min-width: min-content;
+  }
+
+  .audiobook-page-header:has(+ .library-toolbar:not(.has-strip)) .audiobook-page-title h1 {
+    white-space: nowrap;
   }
 
   .audiobook-page-header:has(+ .library-toolbar:not(.has-strip)) .audiobook-page-actions {
