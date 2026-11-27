@@ -201,3 +201,83 @@ it("pages a long list twenty at a time", async () => {
   await waitFor(() => expect(document.querySelectorAll(".library-table tbody tr")).toHaveLength(5));
   expect(screen.getByText("Album 01")).toBeInTheDocument();
 });
+
+// A type's chip is the household's libraries of that type. Members' personal
+// libraries are all galleries, so under Gallery they buried the shared ones; they
+// have their own chip, and All still lists everything.
+it("leaves personal libraries out of a type's chip and its count; All and Personal still list them", async () => {
+  const user = userEvent.setup();
+  const base = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async (path, options) => {
+    if (path.includes("gallery-libraries")) {
+      const one = (id: string, name: string, personal: unknown) => ({
+        id, name, type: "gallery", createdAt: "2026-01-01", scanStatus: "idle", lastScannedAt: null,
+        visibility: "public", ownerId: null, ownerType: null, canManageLibrary: true, fileCount: 1, totalSizeBytes: 1024, personal
+      });
+      return { libraries: [
+        one("fam", "Family photos", null),
+        one("mum", "Mum's library", { ownerId: "u1", ownerName: "Mum", orphaned: false, orphanedAt: null, adoptedAt: null }),
+        one("dad", "Dad's library", { ownerId: "u2", ownerName: "Dad", orphaned: false, orphanedAt: null, adoptedAt: null })
+      ] };
+    }
+    return base(path, options);
+  });
+  render(<LibrariesSection />);
+
+  // Opened on Gallery: the shared one only, and the chip counts one.
+  expect(await screen.findByText("Family photos")).toBeInTheDocument();
+  expect(screen.queryByText("Mum's library")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Gallery/ })).toHaveTextContent("1");
+
+  await user.click(screen.getByRole("button", { name: /^Personal/ }));
+  expect(await screen.findByText("Mum's library")).toBeInTheDocument();
+  expect(screen.getByText("Dad's library")).toBeInTheDocument();
+  expect(screen.queryByText("Family photos")).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /^All/ }));
+  expect(await screen.findByText("Family photos")).toBeInTheDocument();
+  expect(screen.getByText("Mum's library")).toBeInTheDocument();
+});
+
+// Face recognition on a library's page is that library's own: its switch, a
+// rescan, removing its face data. Everything shared is on Recognition, linked.
+it("opens face recognition for that one library from its page", async () => {
+  const user = userEvent.setup();
+  const calls: string[] = [];
+  let enabled = false;
+  const base = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async (path, options) => {
+    if (path === "/api/library/gallery/faces/engine") return { where: "container", version: "0.2.0", model: "m", gpu: false, reason: null };
+    if (path === "/api/library/gallery/faces/settings") {
+      if (options?.method === "PATCH") {
+        calls.push(`PATCH ${String(options.body)}`);
+        enabled = JSON.parse(String(options.body)).enabled;
+      }
+      return { threshold: 0.3, groupingStrength: 8, libraries: [
+        { id: "gallery", name: "gallery collection", enabled, photos: 120, scanned: enabled ? 30 : 0, unreadable: 0 },
+        { id: "other", name: "Another library", enabled: true, photos: 5, scanned: 5, unreadable: 0 }
+      ] };
+    }
+    return base(path, options);
+  });
+  window.history.replaceState({}, "", "/control/libraries/gallery");
+  render(<LibrariesSection libraryId="gallery" />);
+  await screen.findByRole("heading", { level: 1, name: "gallery collection" });
+  const row = (await screen.findAllByText("Face recognition")).find((el) => el.tagName === "STRONG")!.closest("li") as HTMLElement;
+  await user.click(within(row).getByRole("button", { name: "Edit" }));
+
+  const dialog = await screen.findByRole("dialog", { name: "Face recognition: gallery collection" });
+  // This library only: no other library's name, no grouping, no people check.
+  expect(within(dialog).queryByText("Another library")).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole("slider")).not.toBeInTheDocument();
+  expect(within(dialog).getByRole("link", { name: "Open Recognition" })).toHaveAttribute("href", "/control/apps/gallery/recognition#recognition-faces");
+  const toggle = await within(dialog).findByRole("switch", { name: /Find faces in this library/ });
+  expect(toggle).toHaveAttribute("aria-checked", "false");
+  expect(within(dialog).queryByRole("button", { name: "Scan every photo again" })).not.toBeInTheDocument();
+
+  await user.click(toggle);
+  await waitFor(() => expect(within(dialog).getByRole("switch")).toHaveAttribute("aria-checked", "true"));
+  expect(calls).toEqual([`PATCH {"libraryId":"gallery","enabled":true}`]);
+  expect(within(dialog).getByRole("button", { name: "Scan every photo again" })).toBeEnabled();
+  expect(within(dialog).getByRole("button", { name: /Remove/ })).toBeEnabled();
+});

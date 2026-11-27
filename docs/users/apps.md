@@ -107,8 +107,8 @@ backup. Give its container:
 | CPU threads | optional: all cores but one by default, so the box stays responsive during a scan |
 
 Without a paired Faces container there is no face recognition (since 4.65.1
-iSputnik's own image carries no face models): the Face recognition window says
-so, with a link here, and the switches stay off until one is paired. The people,
+iSputnik's own image carries no face models): the Recognition page (Applications →
+Gallery) says so, and the switches stay off until one is paired. The people,
 names and faces already found are kept and keep working — only finding new
 faces needs the container. Once it is paired, the next scan uses it, and nothing
 is scanned again.

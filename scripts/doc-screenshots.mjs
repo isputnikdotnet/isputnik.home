@@ -117,7 +117,7 @@ const SHOTS = [
       return document.querySelector(".gallery-scene") ? "searched" : "no Looks like section: is the feature on?";
     `
   },
-  { name: "133-scene-search-settings", url: "control/apps/gallery/scene-search", wait: 2500, state: "search by content on and the photos described" },
+  { name: "133-recognition", url: "control/apps/gallery/recognition", wait: 2500, state: "search by content on and the photos described" },
   { name: "34-gallery-map", url: "gallery/map", wait: 5000, state: "photos with GPS" },
   { name: "35-gallery-albums", url: "gallery/albums", state: "at least one album" },
   { name: "36-gallery-slideshows", url: "gallery/slideshows", state: "at least one slideshow" },

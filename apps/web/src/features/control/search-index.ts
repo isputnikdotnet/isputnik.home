@@ -118,8 +118,10 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   quotes: "quotes quote of the day import pack json wikiquote widget home card sayings " +
     "categories delete import undo bulk famous family",
   videoStreaming: "video streaming faststart moov slow to start buffering optimise videos for streaming mp4 index rewrite remux playback delay starts slowly phone mobile stream failed cannot be optimised camera track",
-  sceneSearch: "search by content what a photo shows scene recognition smart search find photos hockey objects things describe photos image search ai model siglip clip embeddings vectors isputnik.faces engine rescan delete search data " +
-    "поиск по содержимому что на фото распознавание сцен умный поиск найти фотографии по описанию хоккей предметы описание фото модель",
+  recognition: "recognition face recognition faces people grouping strength regroup merge people check health split same person face engine isputnik.faces " +
+    "search by content what a photo shows scene smart search find photos hockey objects describe photos image search ai model nightly schedule rescan delete search data " +
+    "распознавание лиц лица люди группировка сила объединить проверка людей модуль распознавания " +
+    "поиск по содержимому что на фото умный поиск найти фотографии по описанию описание фото расписание",
   missingPhotos: "gallery missing gone offline broken files photos videos " +
     "галерея пропавшие исчезли недоступно повреждённые файлы фото видео утерянные",
   // Short labels now that they are views of Duplicates, so the words someone would

@@ -179,7 +179,9 @@ describe("Application Overview and return navigation", () => {
     expect(within(features).getAllByRole("link")).toHaveLength(4);
     // Search by what a photo shows: its own page; no On/Off until its settings answer.
     const sceneRow = within(features).getByRole("link", { name: /^Search by content/ });
-    expect(sceneRow).toHaveAttribute("href", controlHref("sceneSearch"));
+    expect(sceneRow).toHaveAttribute("href", `${controlHref("recognition")}#recognition-search`);
+    // Face recognition opens the same page, at its own card: not the pairing page.
+    expect(within(features).getByRole("link", { name: /^Face recognition/ })).toHaveAttribute("href", `${controlHref("recognition")}#recognition-faces`);
     expect(sceneRow).toHaveTextContent("Find photos by what they show, with no tagging.");
     expect(within(features).getByRole("link", { name: /^Face recognition/ })).toHaveTextContent(/Not paired.*Off$/);
     expect(within(features).getByRole("link", { name: /^Offline maps/ })).toHaveTextContent("Place names installedOff");

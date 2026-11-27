@@ -22,8 +22,9 @@ import {
 /** Per library: how many photos there are, how many are described under the
  *  current model, and how many were given up on. */
 function sceneLibraryStatus() {
-  return db.prepare(`
+  return (db.prepare(`
     SELECT libraries.id AS id, libraries.name AS name,
+      (libraries.personal_user_id IS NOT NULL) AS personal,
       COUNT(library_items.id) AS photos,
       COUNT(CASE WHEN s.status = 'ok' THEN 1 END) AS described,
       COUNT(CASE WHEN s.status = 'failed' AND s.attempts >= ${MAX_SCENE_SCAN_ATTEMPTS} THEN 1 END) AS unreadable
@@ -35,7 +36,9 @@ function sceneLibraryStatus() {
     WHERE libraries.type = 'gallery' AND libraries.role IS NULL
     GROUP BY libraries.id
     ORDER BY libraries.name
-  `).all(SCENE_MODEL) as { id: string; name: string; photos: number; described: number; unreadable: number }[];
+  `).all(SCENE_MODEL) as { id: string; name: string; personal: number; photos: number; described: number; unreadable: number }[])
+    // A member's personal library: the Recognition page counts those together.
+    .map((row) => ({ ...row, personal: row.personal === 1 }));
 }
 
 async function settingsAnswer() {

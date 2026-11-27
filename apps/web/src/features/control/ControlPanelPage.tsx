@@ -69,7 +69,7 @@ const GroupsSection = lazy(() => import("./sections/GroupsSection").then((m) => 
 const ScheduledJobsSection = lazy(() => import("./sections/ScheduledJobsSection").then((m) => ({ default: m.ScheduledJobsSection })));
 const QuotesSection = lazy(() => import("./sections/QuotesSection").then((m) => ({ default: m.QuotesSection })));
 const MissingPhotosSection = lazy(() => import("./sections/MissingPhotosSection").then((m) => ({ default: m.MissingPhotosSection })));
-const SceneSearchSection = lazy(() => import("./sections/SceneSearchSection").then((m) => ({ default: m.SceneSearchSection })));
+const RecognitionSection = lazy(() => import("./sections/RecognitionSection").then((m) => ({ default: m.RecognitionSection })));
 const VideoStreamingSection = lazy(() => import("./sections/VideoStreamingSection").then((m) => ({ default: m.VideoStreamingSection })));
 const DuplicateCleanupSection = lazy(() => import("./sections/duplicates/DuplicateCleanupSection").then((m) => ({ default: m.DuplicateCleanupSection })));
 const AppearanceSection = lazy(() => import("./sections/AppearanceSection").then((m) => ({ default: m.AppearanceSection })));
@@ -288,7 +288,7 @@ function ControlSectionBody({
     case "duplicateCleanup": return <DuplicateCleanupSection currentUser={currentUser} />;
     case "missingPhotos":   return <MissingPhotosSection />;
     case "videoStreaming":  return <VideoStreamingSection />;
-    case "sceneSearch":     return <SceneSearchSection />;
+    case "recognition":     return <RecognitionSection />;
 
     case "appsAccess":      return <AppsAccessSection />;
     case "services":        return <ServicesSection />;

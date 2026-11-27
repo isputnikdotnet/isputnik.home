@@ -464,7 +464,7 @@ describe("the admin's switch", () => {
       enabled: false,
       model: SCENE_MODEL,
       engine: { available: true, version: "0.2.0", reason: null },
-      libraries: [{ id: "GAL", name: "GAL", photos: 2, described: 0, unreadable: 0 }],
+      libraries: [{ id: "GAL", name: "GAL", personal: false, photos: 2, described: 0, unreadable: 0 }],
       scan: null
     });
   });
@@ -488,7 +488,7 @@ describe("the admin's switch", () => {
     await settle();
 
     const after = (await admin.get(`${URL}/settings`)).json();
-    expect(after.libraries).toEqual([{ id: "GAL", name: "GAL", photos: 2, described: 2, unreadable: 0 }]);
+    expect(after.libraries).toEqual([{ id: "GAL", name: "GAL", personal: false, photos: 2, described: 2, unreadable: 0 }]);
     expect(after.scan).toBeNull();
     const events = db.prepare("SELECT event FROM activity_logs WHERE event LIKE 'library.gallery.scene.%'").all() as { event: string }[];
     expect(events.map((row) => row.event)).toEqual(["library.gallery.scene.settings"]);

@@ -314,10 +314,16 @@ usual. Links you have handed out are listed in the same dialog and under
 ## Face recognition
 
 **Off by default, and entirely local** — the models run on your server, nothing is
-sent anywhere. An admin turns it on per library in the library's settings. The
-work itself is done by the **isputnik.faces** container beside iSputnik
-([Adding the apps](apps.md#faces)); until one is paired the Face recognition
-window says so and the switches stay off.
+sent anywhere. An admin turns it on on **Control panel → Applications → Gallery →
+Recognition**: under Face recognition, **Libraries** lists every photo library
+with its own switch. Beside it are how strongly faces are grouped into people
+(**Grouping strength**) and the **People check**, which finds people who are
+probably one person in two groups. Scanning one
+library's faces again, or removing what was found in it, is on that library's own
+page under **Libraries & Scanning**. The work itself is done by the
+**isputnik.faces** container beside iSputnik ([Adding the apps](apps.md#faces));
+until one is paired the Recognition page says so and the switches stay off. The
+same page switches on [search by what a photo shows](photo-search.md).
 
 ![The People page: named groups first, then unnamed ones, with the single-photo groups collapsed](images/33-gallery-people.png)
 

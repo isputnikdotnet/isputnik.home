@@ -39,7 +39,7 @@ import { LibraryWizard } from "../libraries/LibraryWizard";
 import { VideoFolderPicker } from "../libraries/VideoFolderPicker";
 import { LibraryMembersDialog } from "./LibraryMembersEditor";
 import { LayoutPanel } from "../layout/LayoutPanel";
-import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
+import { LibraryFacesDialog } from "../recognition/LibraryFacesDialog";
 import { ControlSectionHead } from "../ControlSectionHead";
 import i18n from "../../../i18n";
 import {
@@ -106,7 +106,8 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
   const [rescanRunning, setRescanRunning] = useState(false);
   const [rescanningId, setRescanningId] = useState("");
   const [scanRulesLibrary, setScanRulesLibrary] = useState<ManagedLibrary | null>(null);
-  const [faceSettingsOpen, setFaceSettingsOpen] = useState(false);
+  // Face recognition for one library; the general settings are on Recognition.
+  const [facesLibrary, setFacesLibrary] = useState<{ id: string; name: string } | null>(null);
   const [takeOwnershipConfirmLibrary, setTakeOwnershipConfirmLibrary] = useState<ManagedLibrary | null>(null);
   const [takingOwnership, setTakingOwnership] = useState(false);
   const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<ManagedLibrary | null>(null);
@@ -388,7 +389,10 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
       // listed on the Storage page, whose Access link opens their editor here.
       const ordinary = libraries.filter((library) => !library.role);
       const typeFiltered = personalOnly ? ordinary.filter((library) => library.personal != null)
-        : typeFilter === "all" ? ordinary : ordinary.filter((library) => library.type === typeFilter);
+        // A type's chip lists the household's libraries of that type. Members'
+        // personal libraries have their own chip (and are all galleries, so they
+        // would otherwise bury the shared ones under Galleries).
+        : typeFilter === "all" ? ordinary : ordinary.filter((library) => library.type === typeFilter && library.personal == null);
       const query = searchQuery.trim().toLowerCase();
       if (!query) return typeFiltered;
       return typeFiltered.filter((library) => [
@@ -416,7 +420,7 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
     { key: "all", label: typeFilterLabel("all"), count: ordinaryLibraries.length, on: typeFilter === "all" && !personalOnly,
       select: () => { setPersonalOnly(false); changeTypeFilter("all"); } },
     ...(["gallery", "video", "ebook", "audiobook"] as ManagedLibraryType[])
-      .map((type) => ({ type, count: ordinaryLibraries.filter((library) => library.type === type).length }))
+      .map((type) => ({ type, count: ordinaryLibraries.filter((library) => library.type === type && library.personal == null).length }))
       .filter(({ count }) => count > 0)
       .map(({ type, count }) => ({ key: type, label: typeFilterLabel(type), count, on: typeFilter === type && !personalOnly,
         select: () => { setPersonalOnly(false); changeTypeFilter(type); } })),
@@ -471,7 +475,7 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
               onEdit={(tab) => openEdit(managed, tab)}
               onMembers={() => setMembersLibrary(managed)}
               onScanRules={() => setScanRulesLibrary(managed)}
-              onFaces={() => { setError(""); setFaceSettingsOpen(true); }}
+              onFaces={() => { setError(""); setFacesLibrary({ id: managed.id, name: managed.name }); }}
               onRescan={() => startRescan(managed)}
               onDelete={() => setDeleteConfirmLibrary(managed)}
             />
@@ -767,9 +771,11 @@ export function LibrariesSection({ libraryId }: { libraryId?: string } = {}) {
         />
       )}
 
-      {faceSettingsOpen && (
-        <GalleryFaceSettingsModal
-          onClose={() => setFaceSettingsOpen(false)}
+      {facesLibrary && (
+        <LibraryFacesDialog
+          libraryId={facesLibrary.id}
+          libraryName={facesLibrary.name}
+          onClose={() => setFacesLibrary(null)}
           onChanged={() => { loadLibraries().catch((err) => setError(err instanceof Error ? err.message : t("control:libraries.unableToLoad"))); }}
         />
       )}

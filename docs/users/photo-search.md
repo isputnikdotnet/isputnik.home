@@ -1,6 +1,6 @@
 # Finding photos by what they show
 
-**Gallery → search box** · switched on under **Control panel → Applications → Gallery → Search by content**
+**Gallery → search box** · switched on under **Control panel → Applications → Gallery → Recognition**
 
 Most photos carry no words at all. Nobody typed "hockey" on the pictures from
 the rink, or "birthday cake" on the ones from the party, so a search for those
@@ -52,15 +52,16 @@ container that finds faces also works out what a photo shows, from version 0.2.0
 ([Adding the games, video and faces apps](apps.md#faces)). You do not need face
 recognition itself switched on.
 
-Open **Control panel → Applications → Gallery → Search by content** and turn on
-**Describe photos for search**.
+Open **Control panel → Applications → Gallery → Recognition**. The page holds
+both things the app works out from photos, face recognition and this; under
+**Search by content**, turn on **Describe photos for search**.
 
-![Search by content in the control panel: the switch on, the recognition engine ready, and every library's photos described](images/133-scene-search-settings.png)
+![The Recognition page: at a glance, then Face recognition and Search by content, each a short list of rows that open their settings](images/133-recognition.png)
 
 That starts the first pass straight away. There is nothing to rescan: each photo
 is described from the thumbnail the Gallery already made, once, and the result
-is kept. The page shows how far each library has got, and search works on
-whatever is described so far.
+is kept. **Progress by library** shows how far each library has got, and search
+works on whatever is described so far.
 
 - **How long it takes.** A fraction of a second to a second per photo, depending
   on the server. A library of tens of thousands of photos takes hours; the first
@@ -79,10 +80,12 @@ whatever is described so far.
 - **Storage.** Under a kilobyte per photo, in the database: about 80 MB for
   100,000 photos.
 
-Two more actions on that page:
+Two more actions in that section:
 
-- **Describe every photo again** throws away nothing until each photo is done
-  again, so search keeps working meanwhile. You should not normally need it.
+- **Scan photos** opens a choice: **Only what is new** describes the photos not
+  done yet without waiting for the night, and **Everything again** describes
+  every photo afresh. Nothing is thrown away until each photo is done again, so
+  search keeps working meanwhile. You should not normally need either.
 - **Delete search data** appears once the switch is off. It removes what was
   worked out about the photos, and nothing else: photos, faces, people and tags
   are untouched. Switching back on describes the photos again.

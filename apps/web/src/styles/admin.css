@@ -3695,3 +3695,11 @@ tr.control-anchor-flash > td {
 .check-chain-exit.is-fix:hover { background: var(--hover); }
 .check-chain-exit.is-fix small { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 1100px) { .check-chain { display: none; } }
+
+/* Recognition's popups (libraries, the people check, search progress): a long
+   list scrolls inside the popup, under its title and over its Close button. */
+.recognition-popup-list {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  margin: 8px 0;
+}

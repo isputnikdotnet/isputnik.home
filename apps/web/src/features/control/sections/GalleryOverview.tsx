@@ -9,7 +9,7 @@ import { StatTiles, type StatTile } from "../../../shared/StatTiles";
 import { formatNumber } from "../../../shared/dates";
 import { relativeTime } from "../../../shared/relativeTime";
 import { formatBytes } from "../../../shared/utils";
-import { activityHref, appPageHref, librariesHref, logsHref, storageHref, tasksHref } from "../links";
+import { activityHref, librariesHref, logsHref, storageHref, tasksHref } from "../links";
 import { sectionTitle, type AppKey } from "../nav";
 import { APP_LOG_PREFIXES, APP_TASK_SCOPE, containerRunning } from "../applications";
 import type { OverviewProps } from "./AppOverviews";
@@ -159,11 +159,11 @@ export function GalleryOverviewBody({ data, state, visibility, side }: OverviewP
             {...rowState(phoneBackup?.on)} href={controlHref("phoneSync")} />
           <NavRow summary icon={<ScanFace size={17} />} label={t("control:appSetup.overview.faceRecognition")}
             sub={engineText ? t("control:appSetup.overview.faceEngine", { state: engineText }) : t("control:appSetup.connectionHint.faces")}
-            {...rowState(faces ? faces.enabled && engineOn : null)} href={appPageHref("appsSetup", "faces")} />
-          <NavRow summary icon={<ScanSearch size={17} />} label={sectionTitle("sceneSearch")}
+            {...rowState(faces ? faces.enabled && engineOn : null)} href={`${controlHref("recognition")}#recognition-faces`} />
+          <NavRow summary icon={<ScanSearch size={17} />} label={t("control:appSetup.overview.sceneSearchTitle")}
             sub={scene?.on ? t("control:appSetup.overview.sceneSearchOn", { described: formatNumber(scene.described), total: formatNumber(scene.photos) })
               : t("control:appSetup.overview.sceneSearchOff")}
-            {...rowState(scene?.on)} href={controlHref("sceneSearch")} />
+            {...rowState(scene?.on)} href={`${controlHref("recognition")}#recognition-search`} />
           <NavRow summary icon={<MapIcon size={17} />} label={t("control:appSetup.overview.offlineMaps")}
             sub={maps ? t(maps.places ? "control:appSetup.overview.placesOn" : "control:appSetup.overview.placesOff") : t("control:appSetup.overview.offlineMapsSub")}
             {...rowState(maps?.offline)} href={mapsHref("offline", "gallery")} />

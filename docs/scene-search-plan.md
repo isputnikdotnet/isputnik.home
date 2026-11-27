@@ -204,6 +204,28 @@ As built, where it differs from the list below or adds to it:
   "Scan again". Terms in `search-index.ts`; strings in `en/` and `ru/`.
 - Tasks page shows the job under `?application=gallery`.
 
+#### The Recognition page (2026-11-26, after S3)
+
+The page built in S2 as "Search by content" became **Applications › Gallery ›
+Recognition** (`/control/apps/gallery/recognition`), which also took over the
+face recognition dialog that used to open from Libraries & Scanning. It is laid
+out like Gallery's Settings page, and no list of libraries is on the page
+itself (a household can have many): each setting is a row that opens a popup.
+
+- At a glance: the engine, face recognition, search by content.
+- Face recognition: **Libraries** (every photo library with its own switch),
+  **Grouping strength** (the slider and Regroup people), **People check** (runs
+  when opened).
+- Search by content: its one switch, **Progress by library**, **Scan photos**
+  (only what is new, or everything again), and Delete search data once off.
+- Beside them: the engine and the two nightly jobs.
+
+Rescanning one library's faces or removing its face data stays on that
+library's page (`recognition/LibraryFacesDialog.tsx`). Personal libraries are one
+counted row in Progress, and the Libraries page's type chips no longer list them
+(they keep their Personal chip). The app's own two libraries are left off the
+faces list.
+
 ### S3. Home: search
 
 *Built 2026-11-26 on the same branch, not committed. Checks as for S2; tried in
