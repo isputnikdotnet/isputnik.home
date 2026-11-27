@@ -176,7 +176,11 @@ describe("Application Overview and return navigation", () => {
     // One row per page: Device Sync's says phone backup and personal libraries,
     // Maps' says offline maps and place names.
     await waitFor(() => expect(within(features).getByRole("link", { name: /^Phone backup/ })).toHaveTextContent("Personal libraries on, 2 so farOff"));
-    expect(within(features).getAllByRole("link")).toHaveLength(3);
+    expect(within(features).getAllByRole("link")).toHaveLength(4);
+    // Search by what a photo shows: its own page; no On/Off until its settings answer.
+    const sceneRow = within(features).getByRole("link", { name: /^Search by content/ });
+    expect(sceneRow).toHaveAttribute("href", controlHref("sceneSearch"));
+    expect(sceneRow).toHaveTextContent("Find photos by what they show, with no tagging.");
     expect(within(features).getByRole("link", { name: /^Face recognition/ })).toHaveTextContent(/Not paired.*Off$/);
     expect(within(features).getByRole("link", { name: /^Offline maps/ })).toHaveTextContent("Place names installedOff");
     const organize = screen.getByRole("region", { name: "Organize" });

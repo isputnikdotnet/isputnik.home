@@ -676,6 +676,13 @@ export interface GallerySavedPlaceRow {
   updated_at: string;
 }
 
+/** `gallery_scene_vectors` */
+export interface GallerySceneVectorRow {
+  item_id: string;
+  model: string;
+  vector: Buffer;
+}
+
 /** `gallery_share_exclusions` */
 export interface GalleryShareExclusionRow {
   item_id: string;
@@ -842,6 +849,16 @@ export interface ItemMetadataRow {
   cover_storage_key: string | null;
   rating: number | null;
   updated_at: string;
+}
+
+/** `item_model_scans` */
+export interface ItemModelScanRow {
+  item_id: string;
+  pass: string;
+  model: string;
+  status: "ok" | "failed";
+  attempts: number;
+  scanned_at: string;
 }
 
 /** `item_people` */
@@ -1692,6 +1709,7 @@ export interface TableRows {
   gallery_places: GalleryPlaceRow;
   gallery_recent_places: GalleryRecentPlaceRow;
   gallery_saved_places: GallerySavedPlaceRow;
+  gallery_scene_vectors: GallerySceneVectorRow;
   gallery_share_exclusions: GalleryShareExclusionRow;
   gallery_slideshow_items: GallerySlideshowItemRow;
   gallery_slideshows: GallerySlideshowRow;
@@ -1704,6 +1722,7 @@ export interface TableRows {
   ip_reputation: IpReputationRow;
   item_categories: ItemCategoryRow;
   item_metadata: ItemMetadataRow;
+  item_model_scans: ItemModelScanRow;
   item_people: ItemPersonRow;
   item_saves: ItemSaveRow;
   jobs: JobRow;

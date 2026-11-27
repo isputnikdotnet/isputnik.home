@@ -649,6 +649,10 @@
     "deselectDayTitle": "Deselect this day",
     "selectDayTitle": "Select this day",
     "emptyNoMatch": "No photos or videos match this search.",
+    "sceneTitle": "Looks like “{{query}}”",
+    "sceneShowAll": "Show all ({{count}})",
+    "sceneShowFewer": "Show fewer",
+    "byNameTitle": "Matched by name",
     "emptyNone": "No photos or videos to show."
   },
   "mapView": {

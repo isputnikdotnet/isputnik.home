@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Circle, Image as ImageIcon } from "lucide-react";
 import { AssetTile, type LightboxSource } from "../AssetTile";
@@ -8,10 +8,16 @@ import type { GalleryAsset, GalleryMemories } from "../types";
 import { dayLabel, getMemoriesTitles, yearsAgo, type TimelineSort } from "./gallery-page-model";
 import { Button } from "../../../shared/Button";
 
+/** How many of a search's "looks like" photos show before "Show all". */
+const SCENE_PREVIEW = 12;
+
 // The gallery's front page: the "On this day" strip, then every photo in scope —
-// in dated sections, or as one uninterrupted grid — with "Load more" below.
+// in dated sections, or as one uninterrupted grid — with "Load more" below. A
+// search adds a section above them: the photos that LOOK like what was typed
+// (search by what a photo shows), best first, before the ones matched by name.
 export function TimelineView({
   assets,
+  sceneAssets,
   total,
   loading,
   sort,
@@ -32,6 +38,8 @@ export function TimelineView({
   onLoadMore
 }: {
   assets: GalleryAsset[];
+  /** What the search found by what photos show; empty when it found nothing or is off. */
+  sceneAssets: GalleryAsset[];
   total: number;
   loading: boolean;
   sort: TimelineSort;
@@ -53,6 +61,10 @@ export function TimelineView({
 }) {
   const { t } = useTranslation(["common", "gallery"]);
   const MEMORIES_TITLES = getMemoriesTitles();
+  const [sceneExpanded, setSceneExpanded] = useState(false);
+  // A new search starts folded again.
+  useEffect(() => { setSceneExpanded(false); }, [query]);
+  const sceneShown = sceneExpanded ? sceneAssets : sceneAssets.slice(0, SCENE_PREVIEW);
 
   // Group timeline assets into calendar-day buckets for the date headers, keyed on
   // whichever date the timeline is sorted by so the buckets stay consecutive.
@@ -96,6 +108,36 @@ export function TimelineView({
               </Button>
             ))}
           </div>
+        </section>
+      )}
+      {query && sceneAssets.length > 0 && (
+        <section className="gallery-scene" aria-labelledby="gallery-scene-title">
+          <div className="gallery-scene-head">
+            <h2 id="gallery-scene-title" className="gallery-day-label">{t("gallery:timeline.sceneTitle", { query })}</h2>
+            {sceneAssets.length > SCENE_PREVIEW && (
+              <Button variant="text" onClick={() => setSceneExpanded((open) => !open)}>
+                {sceneExpanded ? t("gallery:timeline.sceneShowFewer") : t("gallery:timeline.sceneShowAll", { count: sceneAssets.length })}
+              </Button>
+            )}
+          </div>
+          <div className={gridClass}>
+            {sceneShown.map((asset, index) => (
+              <AssetTile
+                key={asset.id}
+                asset={asset}
+                onOpen={() => openLightbox("scene", index)}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(asset.id)}
+                onToggleSelect={() => toggleSelect(asset.id)}
+                onToggleLike={(next) => void toggleAssetLike(asset, next)}
+              />
+            ))}
+          </div>
+          {assets.length > 0 && (
+            <div className="gallery-scene-head">
+              <h2 className="gallery-day-label">{t("gallery:timeline.byNameTitle")}</h2>
+            </div>
+          )}
         </section>
       )}
       {grouping === "none" ? (
@@ -164,7 +206,7 @@ export function TimelineView({
           </div>
         );
       })}
-      {!loading && assets.length === 0 && (
+      {!loading && assets.length === 0 && !(query && sceneAssets.length > 0) && (
         <p className="management-empty">{query ? t("gallery:timeline.emptyNoMatch") : t("gallery:timeline.emptyNone")}</p>
       )}
       {assets.length < total && (

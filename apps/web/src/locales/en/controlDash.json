@@ -408,6 +408,7 @@
     "typeEbookScan": "Ebook scan",
     "typeGalleryScan": "Photo & video scan",
     "typeFaceScan": "Face scan",
+    "typeSceneScan": "Describing photos for search",
     "typeSlideshow": "Slideshow movie",
     "typeTranscode": "Video conversion",
     "typeDuplicateScan": "Duplicate photo scan",

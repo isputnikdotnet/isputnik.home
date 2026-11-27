@@ -74,6 +74,32 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
   return { assets: rows.map(mapAsset), total };
 }
 
+// Which of `itemIds` are in scope AND pass the timeline's kinds and filters: how
+// a ranked list from elsewhere (search by what a photo shows) is cut down to what
+// this person may see with the filters they have on. Order is the caller's.
+export function galleryAssetIdsPassing(
+  userId: string,
+  libIds: string[],
+  itemIds: string[],
+  opts: { kinds: string[]; filters?: GalleryTimelineFilters }
+): Set<string> {
+  if (scopeIsEmpty(libIds) || itemIds.length === 0) return new Set();
+  const scope = galleryScopeSql(libIds);
+  const where: string[] = [`${scope.sql}`, "library_items.deleted_at IS NULL", `library_items.id IN (${inClause(itemIds.length)})`];
+  const args: unknown[] = [...scope.params, ...itemIds];
+  if (opts.kinds.length > 0) { where.push(`gallery_details.kind IN (${inClause(opts.kinds.length)})`); args.push(...opts.kinds); }
+  const extra = galleryFilterClauses(opts.filters ?? EMPTY_GALLERY_FILTERS, userId);
+  where.push(...extra.clauses);
+  args.push(...extra.args);
+  const rows = db.prepare(`
+    SELECT library_items.id AS id FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE ${where.join(" AND ")}
+  `).all(...args) as { id: string }[];
+  return new Set(rows.map((row) => row.id));
+}
+
 // Folder view: the immediate subfolders of `parent` (with an asset count + a cover
 // from each subtree's most recent asset) plus the assets that live directly in
 // `parent`. `parent` is a normalised relative path ("" = library root).

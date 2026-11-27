@@ -42,6 +42,7 @@ describe("scheduled jobs registry", () => {
       "scan_ebook_libraries",
       "scan_gallery_libraries",
       "scan_new_faces",
+      "scan_new_scenes",
       "tidy_thumbnail_store"
     ]);
 
@@ -94,10 +95,11 @@ describe("scheduled jobs registry", () => {
   it("lists jobs grouped by category, then by name", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.category)).toEqual([
-      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system", "system", "system", "system", "system"
+      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "gallery", "system", "system", "system", "system", "system", "system"
     ]);
     expect(jobs.filter((j) => j.category === "gallery").map((j) => j.label)).toEqual([
       "Convert unplayable videos",
+      "Describe new photos for search",
       "Purge missing photos",
       "Scan new photos for faces",
       "Scan photo & video libraries"
@@ -119,6 +121,7 @@ describe("scheduled jobs registry", () => {
       scan_ebook_libraries: "ebooks",
       scan_gallery_libraries: "gallery",
       scan_new_faces: "gallery",
+      scan_new_scenes: "gallery",
       tidy_thumbnail_store: "system"
     });
   });
@@ -141,6 +144,7 @@ describe("scheduled jobs registry", () => {
       "scan_ebook_libraries",
       "scan_gallery_libraries",
       "scan_new_faces",
+      "scan_new_scenes",
       "tidy_thumbnail_store"
     ]);
     // Never-configured jobs seed enabled; the admin-disabled one is left off.

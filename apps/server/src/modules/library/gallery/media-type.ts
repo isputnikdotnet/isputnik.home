@@ -8,6 +8,8 @@ import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
 import { faceCropKeysForItem, removeFaceCropFiles } from "./faces/crop-files.js";
 import { enqueueFaceScanBatches } from "./faces/queue.js";
 import { enabledFaceLibraryIds } from "./faces/settings.js";
+import { enqueueSceneScans } from "./scene/queue.js";
+import { sceneSearchEnabled } from "./scene/settings.js";
 import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "./cleanup.js";
 import { enqueueTranscodeBatch, unplayableBacklogCount } from "./transcode.js";
 import { repointMovedFolder } from "./folder-move.js";
@@ -108,6 +110,25 @@ export function registerGalleryMediaType(): void {
           // keeps this file free of the ML/onnxruntime import chain.
           const batches = ids.reduce((sum, id) => sum + enqueueFaceScanBatches(id).length, 0);
           return `Queued ${batches} face-scan batch${batches === 1 ? "" : "es"} across ${ids.length} librar${ids.length === 1 ? "y" : "ies"} — new or stale-model photos process in the background.`;
+        }
+      },
+      {
+        key: "scan_new_scenes",
+        label: "Describe new photos for search",
+        description: "Work out what new photos show, so search can find them by it (\"hockey\", \"birthday cake\"), across every gallery library, when search by what a photo shows is switched on. Photos already described are skipped, and a run pauses after 3 hours — the rest continues the next night.",
+        category: "gallery",
+        defaultEnabled: true,
+        defaultFrequency: "daily",
+        // After the face scan (05:00). Unlike the scans before it, this one does not
+        // skip the night when another library job is running: its jobs wait their
+        // turn in the queue behind it, since the face scan is usually still going.
+        defaultTime: "05:30",
+        run: () => {
+          if (!sceneSearchEnabled()) return "Search by what a photo shows is switched off — nothing to do.";
+          const jobs = enqueueSceneScans().length;
+          return jobs === 0
+            ? "Every photo is already described — nothing to do."
+            : `Queued ${jobs} librar${jobs === 1 ? "y" : "ies"} with photos to describe — they process in the background, after any scan already running.`;
         }
       }
     ]

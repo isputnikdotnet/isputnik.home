@@ -14,8 +14,9 @@ const FACES = appDefinition("faces");
 const DETECT_TIMEOUT_MS = 90_000;
 const PROBE_TIMEOUT_MS = 5_000;
 
-/** The identity background calls go out with: an admin, by role. */
-const SYSTEM_ACTOR = {
+/** The identity background calls go out with: an admin, by role. Shared with the
+ *  engine's other callers (scene/engine-client.ts). */
+export const SYSTEM_ACTOR = {
   id: "system:home",
   display_name: "isputnik.home",
   role: "admin",

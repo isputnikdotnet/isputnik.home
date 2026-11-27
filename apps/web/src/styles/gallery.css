@@ -46,6 +46,22 @@
   position: static;
 }
 
+/* A search's "Looks like …" section, and the "Matched by name" title that then
+   introduces the dated photos under it. Not sticky like a day's head: it is a
+   section title, read once. */
+.gallery-scene {
+  margin-bottom: 6px;
+}
+
+.gallery-scene-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 8px;
+  min-height: 32px;
+}
+
 .gallery-day-label {
   margin: 0;
   font-size: 0.95rem;

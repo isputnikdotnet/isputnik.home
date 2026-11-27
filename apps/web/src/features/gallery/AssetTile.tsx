@@ -20,7 +20,9 @@ import { Button } from "../../shared/Button";
 
 /** Which list the lightbox should page through when a tile is opened. */
 export type LightboxSource =
-  | "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow";
+  | "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow"
+  /** What a search found by what the photos show (page/useSceneSearch.ts). */
+  | "scene";
 
 export function AssetTile({
   asset,

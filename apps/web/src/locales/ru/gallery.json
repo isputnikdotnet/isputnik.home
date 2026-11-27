@@ -695,6 +695,10 @@
     "deselectDayTitle": "Снять выбор с этого дня",
     "selectDayTitle": "Выбрать этот день",
     "emptyNoMatch": "Ничего не найдено по этому запросу.",
+    "sceneTitle": "Похоже на «{{query}}»",
+    "sceneShowAll": "Показать все ({{count}})",
+    "sceneShowFewer": "Показать меньше",
+    "byNameTitle": "Совпадения по названию",
     "emptyNone": "Нет фото или видео для показа."
   },
   "mapView": {

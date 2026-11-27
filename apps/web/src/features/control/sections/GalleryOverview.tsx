@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, CheckCircle2, Copy, Database, Film, ImageOff, Images, Library, ListChecks, Map as MapIcon, Power, ScanFace, ScrollText, Smartphone, Stethoscope, Tags, Users } from "lucide-react";
+import { Activity, CheckCircle2, Copy, Database, Film, ImageOff, Images, Library, ListChecks, Map as MapIcon, Power, ScanFace, ScanSearch, ScrollText, Smartphone, Stethoscope, Tags, Users } from "lucide-react";
 import { api } from "../../../api";
 import { controlHref, controlHrefFrom, diagnosticsPartHref } from "../../../router";
 import { mapsHref } from "./maps/MapStatusList";
@@ -30,11 +30,13 @@ interface Features {
   phoneBackup: { on: boolean } | null;
   personal: { on: boolean; count: number } | null;
   maps: { offline: boolean; places: boolean } | null;
+  /** Search by what a photo shows: on or off, and how far the photos are described. */
+  scene: { on: boolean; described: number; photos: number } | null;
 }
 
 /** Read beside the page, never needed for it: a failed part is just not shown. */
 function useFeatures(): Features {
-  const [features, setFeatures] = useState<Features>({ phones: null, phoneBackup: null, personal: null, maps: null });
+  const [features, setFeatures] = useState<Features>({ phones: null, phoneBackup: null, personal: null, maps: null, scene: null });
   useEffect(() => {
     let active = true;
     const soft = <T,>(promise: Promise<T>) => promise.catch(() => null);
@@ -43,14 +45,18 @@ function useFeatures(): Features {
       soft(api<{ phones?: Phone[] }>("/api/photo-sync/phones")),
       soft(api<{ networks?: unknown[]; address?: string | null }>("/api/photo-sync/networks")),
       soft(api<{ settings?: { enabled: boolean }; libraries?: unknown[] }>("/api/storage/personal-libraries")),
-      soft(api<{ settings?: { cache: boolean }; places?: { present: boolean } }>("/api/map/settings"))
-    ]).then(([phones, networks, personal, maps]) => {
+      soft(api<{ settings?: { cache: boolean }; places?: { present: boolean } }>("/api/map/settings")),
+      soft(api<{ enabled?: boolean; libraries?: { photos: number; described: number }[] }>("/api/library/gallery/scene/settings"))
+    ]).then(([phones, networks, personal, maps, scene]) => {
       if (!active) return;
       setFeatures({
         phones: phones?.phones ?? null,
         phoneBackup: networks?.networks ? { on: networks.networks.length > 0 && Boolean(networks.address) } : null,
         personal: personal?.settings ? { on: personal.settings.enabled, count: personal.libraries?.length ?? 0 } : null,
-        maps: maps?.settings ? { offline: maps.settings.cache, places: Boolean(maps.places?.present) } : null
+        maps: maps?.settings ? { offline: maps.settings.cache, places: Boolean(maps.places?.present) } : null,
+        scene: typeof scene?.enabled === "boolean" && Array.isArray(scene.libraries)
+          ? { on: scene.enabled, described: scene.libraries.reduce((sum, l) => sum + l.described, 0), photos: scene.libraries.reduce((sum, l) => sum + l.photos, 0) }
+          : null
       });
     });
     return () => { active = false; };
@@ -60,7 +66,7 @@ function useFeatures(): Features {
 
 export function GalleryOverviewBody({ data, state, visibility, side }: OverviewProps) {
   const { t } = useTranslation(["control"]);
-  const { phones, phoneBackup, personal, maps } = useFeatures();
+  const { phones, phoneBackup, personal, maps, scene } = useFeatures();
   const gallery = data.status?.galleryStats ?? null;
   const faces = data.status?.faceStats ?? null;
   const libraries = state.libraries ?? [];
@@ -154,6 +160,10 @@ export function GalleryOverviewBody({ data, state, visibility, side }: OverviewP
           <NavRow summary icon={<ScanFace size={17} />} label={t("control:appSetup.overview.faceRecognition")}
             sub={engineText ? t("control:appSetup.overview.faceEngine", { state: engineText }) : t("control:appSetup.connectionHint.faces")}
             {...rowState(faces ? faces.enabled && engineOn : null)} href={appPageHref("appsSetup", "faces")} />
+          <NavRow summary icon={<ScanSearch size={17} />} label={sectionTitle("sceneSearch")}
+            sub={scene?.on ? t("control:appSetup.overview.sceneSearchOn", { described: formatNumber(scene.described), total: formatNumber(scene.photos) })
+              : t("control:appSetup.overview.sceneSearchOff")}
+            {...rowState(scene?.on)} href={controlHref("sceneSearch")} />
           <NavRow summary icon={<MapIcon size={17} />} label={t("control:appSetup.overview.offlineMaps")}
             sub={maps ? t(maps.places ? "control:appSetup.overview.placesOn" : "control:appSetup.overview.placesOff") : t("control:appSetup.overview.offlineMapsSub")}
             {...rowState(maps?.offline)} href={mapsHref("offline", "gallery")} />

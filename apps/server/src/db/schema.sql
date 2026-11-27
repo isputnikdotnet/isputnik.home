@@ -2036,6 +2036,35 @@ CREATE TABLE IF NOT EXISTS gallery_face_scans (
   attempts   INTEGER NOT NULL DEFAULT 0       -- consecutive failures under `model`
 );
 
+-- "Model X has looked at item Y", for every recognition pass after faces: 'scene'
+-- (what a photo shows, docs/scene-search-plan.md) today, 'ocr' when the document
+-- library arrives. One row per item and pass. An item is due again when it has no
+-- row, when the row names another model (a model change re-reads everything on
+-- the next ordinary scan, no force needed), or when it failed with retry budget
+-- left; a file that keeps failing is skipped after a few tries instead of sitting
+-- in every backlog forever. The face scan keeps its own gallery_face_scans.
+CREATE TABLE IF NOT EXISTS item_model_scans (
+  item_id    TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  pass       TEXT NOT NULL,
+  model      TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok', 'failed')),
+  attempts   INTEGER NOT NULL DEFAULT 0,      -- consecutive failures under `model`
+  scanned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (item_id, pass)
+);
+CREATE INDEX IF NOT EXISTS idx_item_model_scans_pass ON item_model_scans (pass, model, status);
+
+-- What a photo shows, as the vector the scene model gave it (768 numbers for
+-- SigLIP base). Stored one signed byte per number, each vector scaled to its own
+-- largest value (scene/vectors.ts): a quarter of the size of 32-bit floats, and a
+-- search over it returns 98% of the same top 20. Search compares what a person
+-- typed against every row of the libraries they may see.
+CREATE TABLE IF NOT EXISTS gallery_scene_vectors (
+  item_id TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
+  model   TEXT NOT NULL,
+  vector  BLOB NOT NULL
+);
+
 -- User corrections: "this person is NOT in this photo". Recorded whenever a person is
 -- removed from a photo, and re-applied after every clustering pass — so a full rescan
 -- (which re-detects every face from scratch) can't silently put the photo back into

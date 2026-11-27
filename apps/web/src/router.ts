@@ -13,7 +13,7 @@ export type ControlSection =
   // Applications: the directory, then each application's workspace tabs and pages
   | "applications"
   | "gallerySetup" | "videosSetup" | "ebooksSetup" | "audiobooksSetup" | "storiesSetup" | "familyTreeSetup" | "gamesSetup"
-  | "phoneSync" | "duplicateCleanup" | "missingPhotos" | "mapSetup"
+  | "phoneSync" | "duplicateCleanup" | "missingPhotos" | "sceneSearch" | "mapSetup"
   | "genres" | "videoSettings" | "videoDownloads"
   | "categories"
   | "storySettings"
@@ -65,6 +65,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   phoneSync: "/control/apps/gallery/device-sync",
   duplicateCleanup: "/control/apps/gallery/duplicate-cleanup",
   missingPhotos: "/control/apps/gallery/missing-photos",
+  sceneSearch: "/control/apps/gallery/scene-search",
   videoStreaming: "/control/apps/gallery/video-streaming",
   mapSetup: "/control/apps/gallery/settings",
   genres: "/control/apps/videos/genres",

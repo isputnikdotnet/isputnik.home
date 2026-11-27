@@ -169,3 +169,70 @@ describe("GalleryPage views", () => {
     expect(screen.getByRole("button", { name: /Like/ })).toBeEnabled();
   });
 });
+
+// Search by what a photo shows (docs/scene-search-plan.md, S3): the Timeline's
+// search also asks which photos LOOK like the words, and shows them first.
+describe("GalleryPage: a search also finds photos by what they show", () => {
+  let sceneAnswer: { available: boolean; assets: ReturnType<typeof asset>[] };
+  let sceneBodies: { q: string }[];
+
+  beforeEach(() => {
+    sceneAnswer = { available: true, assets: [] };
+    sceneBodies = [];
+    const base = vi.mocked(api).getMockImplementation()!;
+    vi.mocked(api).mockImplementation(async (path: string, options?: RequestInit) => {
+      if (path === "/api/library/gallery/scene/search") {
+        sceneBodies.push(JSON.parse(String(options?.body)));
+        return sceneAnswer as never;
+      }
+      return base(path, options) as never;
+    });
+  });
+
+  async function search(words: string) {
+    const user = userEvent.setup();
+    renderSignedIn(<GalleryPage view="timeline" />);
+    await screen.findByRole("heading", { name: "July 4, 2019" });
+    await user.type(screen.getByRole("searchbox"), `${words}{Enter}`);
+    return user;
+  }
+  const tilesIn = (section: HTMLElement) => section.querySelector(".gallery-grid")!.children.length;
+
+  it("asks nothing until there is something typed", async () => {
+    renderSignedIn(<GalleryPage view="timeline" />);
+    await screen.findByRole("heading", { name: "July 4, 2019" });
+    expect(sceneBodies).toEqual([]);
+    expect(screen.queryByRole("region", { name: /Looks like/ })).toBeNull();
+  });
+
+  it("shows what looks like the words above what matched by name, and counts both", async () => {
+    sceneAnswer.assets = [asset("s1"), asset("s2"), asset("a1")];
+    await search("hockey");
+
+    const section = await screen.findByRole("region", { name: "Looks like “hockey”" });
+    expect(tilesIn(section)).toBe(3);
+    expect(sceneBodies.at(-1)).toMatchObject({ q: "hockey" });
+    expect(within(section).getByRole("heading", { name: "Matched by name" })).toBeInTheDocument();
+    // Two by name, three by content, one of them the same photo: four in all.
+    expect(screen.getByText("4 items")).toBeInTheDocument();
+  });
+
+  it("folds a long list to twelve, and unfolds it", async () => {
+    sceneAnswer.assets = Array.from({ length: 15 }, (_, i) => asset(`s${i}`));
+    const user = await search("snow");
+    const section = await screen.findByRole("region", { name: "Looks like “snow”" });
+    expect(tilesIn(section)).toBe(12);
+    await user.click(within(section).getByRole("button", { name: "Show all (15)" }));
+    expect(tilesIn(section)).toBe(15);
+    await user.click(within(section).getByRole("button", { name: "Show fewer" }));
+    expect(tilesIn(section)).toBe(12);
+  });
+
+  it("shows no such section when the feature is off or found nothing", async () => {
+    sceneAnswer = { available: false, assets: [] };
+    await search("hockey");
+    await waitFor(() => expect(sceneBodies.at(-1)).toMatchObject({ q: "hockey" }));
+    expect(screen.queryByRole("region", { name: /Looks like/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Matched by name" })).toBeNull();
+  });
+});

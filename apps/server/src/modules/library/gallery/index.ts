@@ -22,6 +22,8 @@ import { galleryBackSideRoutesPlugin } from "./back-routes.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
 import { facesGatewayPlugin } from "./faces/gateway-plugin.js";
+import { startSceneScanWorker } from "./scene/scanner.js";
+import { gallerySceneRoutesPlugin } from "./scene/routes.js";
 import { registerGalleryStats } from "./stats.js";
 import { galleryTvRoutesPlugin } from "./tv-picks.js";
 import { personalLibraryRoutesPlugin } from "./personal/routes.js";
@@ -37,6 +39,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryRoutesPlugin);
   await app.register(galleryPeopleRoutesPlugin);
   await app.register(facesGatewayPlugin);
+  await app.register(gallerySceneRoutesPlugin);
   await app.register(galleryAlbumRoutesPlugin);
   await app.register(gallerySlideshowRoutesPlugin);
   // Photos on the TV: the On TV list, and the fence that keeps a TV to it.
@@ -61,6 +64,7 @@ export async function galleryPlugin(app: FastifyInstance) {
 
   const stopWorker = startGalleryScanWorker();
   const stopFaceWorker = startFaceScanWorker();
+  const stopSceneWorker = startSceneScanWorker();
   const stopRenderWorker = startSlideshowRenderWorker();
   const stopTranscodeWorker = startTranscodeWorker();
   const stopFaststartWorker = startFaststartWorker();
@@ -90,6 +94,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   app.addHook("onClose", async () => {
     stopWorker();
     stopFaceWorker();
+    stopSceneWorker();
     stopRenderWorker();
     stopTranscodeWorker();
     stopFaststartWorker();

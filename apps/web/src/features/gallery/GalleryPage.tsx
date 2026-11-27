@@ -46,6 +46,7 @@ import { useFolderBrowse } from "./page/useFolderBrowse";
 import { useFolderAdmin } from "./page/useFolderAdmin";
 import { useMemories } from "./page/useMemories";
 import { TimelineView } from "./page/TimelineView";
+import { useSceneSearch } from "./page/useSceneSearch";
 import { MemoriesView } from "./page/MemoriesView";
 import { AlbumsView } from "./page/AlbumsView";
 import { SlideshowsView } from "./page/SlideshowsView";
@@ -149,6 +150,8 @@ export function GalleryPage({
 
   const { assets, setAssets, total, setTotal, loadTimeline, reloadTimeline } =
     useTimeline({ sort, query, filters, peopleMatchAll, setLoading, setError });
+  // The same search, by what the photos show: its own list, above the Timeline's.
+  const { sceneAssets, setSceneAssets, reloadScene } = useSceneSearch({ active: view === "timeline", query, filters, peopleMatchAll });
 
   const folderBrowse = useFolderBrowse({ view, folderQuery, scopeParams, initialFolder, setLoading, setError });
   const {
@@ -432,7 +435,8 @@ export function GalleryPage({
       : lightbox?.source === "person" ? personAssets
         : lightbox?.source === "memory" ? memoryItems
           : lightbox?.source === "album" ? albumAssets
-            : lightbox?.source === "slideshow" ? slideshowAssets : assets;
+            : lightbox?.source === "slideshow" ? slideshowAssets
+              : lightbox?.source === "scene" ? sceneAssets : assets;
 
   // The movie-target libraries are needed by the slideshow editor as well as the list,
   // and a deep link opens the editor without ever passing through the list — so load them
@@ -443,7 +447,7 @@ export function GalleryPage({
 
   // Reload whichever view is active plus the library list (counts / scan badges).
   const refreshView = useCallback(() => {
-    if (view === "timeline") void reloadTimeline(assets.length);
+    if (view === "timeline") { void reloadTimeline(assets.length); void reloadScene(); }
     else if (view === "folder") void loadFolder(parent, 0, folderAssets.length);
     else if (view === "people") { void loadPeople(); if (selectedPerson) void openPerson(selectedPerson); }
     else if (view === "albums") { if (selectedAlbum) void openAlbum(selectedAlbum.id); else void loadAlbums(); }
@@ -451,7 +455,7 @@ export function GalleryPage({
     else if (view === "memories") void loadMemories();
     else if (view === "map") void loadMap();
     void loadLibraries();
-  }, [view, parent, assets.length, folderAssets.length, selectedPerson, selectedAlbum, selectedSlideshow, reloadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, openSlideshow, loadSlideshows, loadMemories, loadMap, loadLibraries]);
+  }, [view, parent, assets.length, folderAssets.length, selectedPerson, selectedAlbum, selectedSlideshow, reloadTimeline, reloadScene, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, openSlideshow, loadSlideshows, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : view === "albums" ? albumAssets : folderAssets;
@@ -530,6 +534,7 @@ export function GalleryPage({
     const patch = (list: GalleryAsset[]) =>
       (list.some((a) => a.id === assetId) ? list.map((a) => (a.id === assetId ? { ...a, saved } : a)) : list);
     setAssets(patch);
+    setSceneAssets(patch);
     setFolderAssets(patch);
     setPersonAssets(patch);
     setAlbumAssets(patch);
@@ -553,6 +558,7 @@ export function GalleryPage({
     });
     setPersonAssets(drop);
     setAlbumAssets(drop);
+    setSceneAssets(drop);
     setMemories((current) => (current
       ? { ...current, groups: current.groups.map((g) => ({ ...g, items: drop(g.items) })) }
       : current));
@@ -718,7 +724,8 @@ export function GalleryPage({
             // page-level subtitle would just be saying it a second time.
             ? (selectedSlideshow ? undefined : t("gallery:common.counts.slideshow", { count: shownSlideshows.length }))
           : view === "timeline"
-            ? t("gallery:common.counts.item", { count: total })
+            // A search also counts what it found by what photos show, once each.
+            ? t("gallery:common.counts.item", { count: total + sceneAssets.filter((found) => !assets.some((asset) => asset.id === found.id)).length })
             : folderSubtitle;
 
   // Ordinary links to ordinary addresses. Memories and Map only appear when there
@@ -1119,6 +1126,7 @@ export function GalleryPage({
             ) : view === "timeline" ? (
               <TimelineView
                 assets={assets}
+                sceneAssets={sceneAssets}
                 total={total}
                 loading={loading}
                 sort={sort}

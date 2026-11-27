@@ -43,6 +43,16 @@ function summarizeTaskResult(type: string, result: Record<string, unknown> | nul
       ? `${base} · paused at the 3-hour limit, ${result.remaining} photos continue next run`
       : `${base} · ${result.remaining} more continue in the next batch`;
   }
+  if (type === "SCAN_GALLERY_SCENES") {
+    if (result.skipped) return typeof result.reason === "string" ? `Skipped — ${result.reason}` : "Skipped";
+    const base = `${result.described ?? 0} photo${result.described === 1 ? "" : "s"} described${result.failed ? ` · ${result.failed} failed` : ""}`;
+    if (!(num(result.remaining) > 0)) return base;
+    return result.timeLimited
+      ? `${base} · paused at the 3-hour limit, ${result.remaining} photos continue next run`
+      : result.switchedOff
+        ? `${base} · stopped when search was switched off, ${result.remaining} photos left`
+        : `${base} · the engine stopped answering, ${result.remaining} photos continue next run`;
+  }
   if (type === "gallery-slideshow-render") {
     if (result.bytes == null) return null;
     const mb = (num(result.bytes) / (1024 * 1024)).toFixed(1);
@@ -79,6 +89,7 @@ function summarizeTaskResult(type: string, result: Record<string, unknown> | nul
 // What a {processed, total} progress payload counts, per job type.
 const PROGRESS_UNIT: Record<string, string> = {
   SCAN_GALLERY_FACES: "photos",
+  SCAN_GALLERY_SCENES: "photos",
   SCAN_GALLERY_LIBRARY: "items",
   SCAN_EBOOK_LIBRARY: "books",
   "gallery-slideshow-render": "seconds",
@@ -145,6 +156,7 @@ const STALE_AFTER_SECONDS: Record<string, number> = {
   SCAN_EBOOK_LIBRARY: 15 * 60,
   SCAN_GALLERY_LIBRARY: 15 * 60,
   SCAN_GALLERY_FACES: 15 * 60,
+  SCAN_GALLERY_SCENES: 15 * 60,
   SCAN_GALLERY_DUPLICATES: 15 * 60,
   TRANSCODE_GALLERY_VIDEO: 60 * 60,
   FASTSTART_GALLERY_VIDEO: 60 * 60,

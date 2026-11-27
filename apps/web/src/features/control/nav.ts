@@ -202,7 +202,7 @@ export const APPLICATIONS: ApplicationDef[] = [
       // Its Overview lists the Organize tools too, so Gallery has no Organize tab
       // (owner, 2026-11-19): Duplicate cleanup, Missing photos and Video streaming
       // are pages under the Overview.
-      { section: "gallerySetup", kind: "setup", pages: ["duplicateCleanup", "missingPhotos", "videoStreaming"] },
+      { section: "gallerySetup", kind: "setup", pages: ["duplicateCleanup", "missingPhotos", "videoStreaming", "sceneSearch"] },
       // "Back up my phone photos" is a Gallery task; the libraries it feeds stay in
       // Libraries & Scanning.
       { section: "phoneSync", kind: "deviceSync" },

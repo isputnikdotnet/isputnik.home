@@ -237,7 +237,7 @@ export const APP_LOG_PREFIXES: Partial<Record<AppKey, string[]>> = {
  *  scanning runs in its engine, so only jobs on a video library land here. */
 export const APP_TASK_SCOPE: Partial<Record<AppKey, { types: string[]; libraryType: LibraryType }>> = {
   gallery: {
-    types: ["SCAN_GALLERY_LIBRARY", "SCAN_GALLERY_FACES", "SCAN_GALLERY_DUPLICATES", "TRANSCODE_GALLERY_VIDEO", "FASTSTART_GALLERY_VIDEO", "gallery-slideshow-render", "BUILD_PLACES"],
+    types: ["SCAN_GALLERY_LIBRARY", "SCAN_GALLERY_FACES", "SCAN_GALLERY_SCENES", "SCAN_GALLERY_DUPLICATES", "TRANSCODE_GALLERY_VIDEO", "FASTSTART_GALLERY_VIDEO", "gallery-slideshow-render", "BUILD_PLACES"],
     libraryType: "gallery"
   },
   videos: { types: [], libraryType: "video" },
