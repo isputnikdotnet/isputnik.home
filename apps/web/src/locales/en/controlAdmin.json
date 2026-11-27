@@ -56,7 +56,7 @@
     "progressCardTitle": "Photos described",
     "progressSummary": "Described so far: {{described}} of {{total}}.",
     "noLibraries": "There are no gallery libraries yet.",
-    "progressCardNote": "A photo is described from its thumbnail. The first scan of a large library takes hours and may run over several nights; search works on what is described so far.",
+    "progressCardNote": "A photo is described from its thumbnail. The first scan of a large library takes hours; search works on what is described so far.",
     "scanRunning": "Scan in progress",
     "scanWaiting": "Scan waiting for another task to finish",
     "scanProgress": "{{processed}} of {{total}}",

@@ -121,6 +121,9 @@ library.
 - [Linking a phone to a library](phone-backup-linking.md) — when a phone's photos
   already reach the server another way (Immich, say): linking it so nothing is
   stored twice, and what deleting does.
+- [Finding photos by what they show](photo-search.md) — typing "mountains" or
+  "a cat" into Gallery search and getting the photos that look like it, with
+  nobody having tagged them; and how an administrator switches that on.
 - [The Photo Inbox](photo-inbox.md) — re-scanning prints and taking photos from
   relatives: the holding library, the copy check, Keep and Replace, drop links,
   and asking someone what they remember.

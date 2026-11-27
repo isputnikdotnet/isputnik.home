@@ -1,6 +1,6 @@
 import {
   BookOpen, BookText, Boxes, FolderTree, HardDrive, Headphones, Images, Inbox, KeyRound, LibraryBig, Link2, Mail, MonitorSmartphone,
-  Quote, Rocket, Send, Settings, ShieldCheck, Smartphone, Trash2, Tv, UserRound, Wifi, type LucideIcon
+  Quote, Rocket, ScanSearch, Send, Settings, ShieldCheck, Smartphone, Trash2, Tv, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 
 // Every user guide the app can open, and how the Help pages arrange them.
@@ -98,6 +98,13 @@ export const GUIDES = {
     description: "Allowing personal libraries, the networks phones may back up from, the address phones use, VPNs, and what you see of each member's phones.",
     adminOnly: true,
     meta: ["Three settings", "Once per install"]
+  },
+  photoSearch: {
+    slug: guide("photo-search.md"),
+    icon: ScanSearch,
+    title: "Finding photos by what they show",
+    description: "Typing \"mountains\" or \"a cat\" into Gallery search and getting the photos that look like it, and how an administrator switches that on.",
+    meta: ["Needs the Faces app"]
   },
   duplicateCleanup: {
     slug: guide("duplicate-cleanup.md"),
@@ -214,7 +221,7 @@ export interface HelpShelf {
 // shelf (pinned by test/helpCatalog.test.ts), so /help/guides and the guide rail
 // list each once; a member's shelves leave out what they can't open.
 const SHELVES: HelpShelf[] = [
-  { id: "photos", icon: Images, title: "Photos", guides: ["gallery", "phoneBackup", "phoneBackupLinking", "photoInbox", "duplicateCleanup"] },
+  { id: "photos", icon: Images, title: "Photos", guides: ["gallery", "photoSearch", "phoneBackup", "phoneBackupLinking", "photoInbox", "duplicateCleanup"] },
   { id: "books", icon: BookOpen, title: "Books", guides: ["audiobooks", "ebooks", "quotes"] },
   { id: "family", icon: FolderTree, title: "Family", guides: ["familyTree", "stories", "familySharing"] },
   { id: "account", icon: KeyRound, title: "You & sign-in", guides: ["yourAccount", "passkeys", "twoFactor", "linkDevice"] },

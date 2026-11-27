@@ -246,6 +246,20 @@ As built, where it differs from the list below or adds to it:
 
 ### S4. Ship
 
+*Partly done 2026-11-26. Written: the guide `docs/users/photo-search.md` with its
+Help entry, screenshots 132 and 133 (taken from the demo site, which now has the
+feature switched on and its 196 photos described), the mention in the Faces
+section of `apps.md`. The engine's branch carries its 0.2.0 version and
+changelog entry, untagged.*
+
+*Still to do, all of it the owner's to start: push the engine and build its
+image; push this branch for a `:preview` image and try it on the Unraid server
+against a real library (speed, and the cutoff in `scene/search.ts`); then the
+releases, engine first. Home's version bump and changelog entry are written at
+release. The engine's public descriptions (GitHub, Docker Hub, the Unraid
+template) still say faces only. Note that in `isputnik.faces` any `v*` tag,
+`-rc` included, moves `latest`.*
+
 Guide in `docs/users/` and its Help entry, `docs:shots` with demo photos only,
 changelog, engine release, then home release. Descriptions updated on GitHub,
 ghcr, Docker Hub and the Unraid template.

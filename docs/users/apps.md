@@ -92,7 +92,10 @@ Lay the folders out the way Jellyfin and Kodi read them — `Show (Year)/Season
 ### Faces
 
 The face engine finds the faces in your photos so iSputnik can group them into
-people. It keeps nothing: iSputnik sends it a photo and stores every face,
+people. From version 0.2.0 it also works out what a photo shows, which is what
+lets Gallery search find photos by their content
+([Finding photos by what they show](photo-search.md)); the two are switched on
+separately. It keeps nothing: iSputnik sends it a photo and stores every face,
 name and person itself, so there is no folder to mount and nothing of it in a
 backup. Give its container:
 

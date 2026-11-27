@@ -100,6 +100,24 @@ const SHOTS = [
   // The gallery views that only mean anything once the library has been through
   // a face scan and has photos carrying GPS.
   { name: "33-gallery-people", url: "gallery/people", state: "faces scanned and named" },
+  // Search by what a photo shows (docs/users/photo-search.md). Both need the
+  // Faces engine paired and the photos described: start the demo site with
+  // FACES_URL and FACES_GATEWAY_SECRET set, switch the feature on, wait for the
+  // scan. "mountains" is searched because the demo library's matches for it are
+  // all landscapes; look at the picture afterwards all the same.
+  {
+    name: "132-gallery-photo-search",
+    url: "gallery",
+    state: "search by content on and the photos described",
+    wait: 2500,
+    setup: `
+      const box = document.querySelector('input[type="search"]');
+      if (!box) return "no search box on the Gallery page";
+      setInput(box, "mountains"); await sleep(3500);
+      return document.querySelector(".gallery-scene") ? "searched" : "no Looks like section: is the feature on?";
+    `
+  },
+  { name: "133-scene-search-settings", url: "control/apps/gallery/scene-search", wait: 2500, state: "search by content on and the photos described" },
   { name: "34-gallery-map", url: "gallery/map", wait: 5000, state: "photos with GPS" },
   { name: "35-gallery-albums", url: "gallery/albums", state: "at least one album" },
   { name: "36-gallery-slideshows", url: "gallery/slideshows", state: "at least one slideshow" },
